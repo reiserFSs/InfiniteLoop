@@ -98,6 +98,34 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class EquipFeedOperationInfo
+    {
+        public List<int>? UseEquipIdList;
+        public List<int>? UseItemIdList;
+        public int OperationType;
+        public List<int>? UseItemCountList;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipOneKeyFeedRequest
+    {
+        public int TargetBreakthrough;
+        public int EquipId;
+        public List<EquipFeedOperationInfo> OperationInfos = new();
+        public int TargetLevel;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipOneKeyFeedResponse
+    {
+        public int Code;
+        public int Breakthrough;
+        public int Level;
+        public int Exp;
+        public int SuccessTimes;
+    }
+
+    [MessagePackObject(true)]
     public class EquipDecomposeRequest
     {
         public List<int> EquipIds;
@@ -113,6 +141,9 @@ namespace AscNet.GameServer.Handlers
 
     internal class EquipModule
     {
+        private const int EquipFeedOperationTypeLevelUp = 1;
+        private const int EquipFeedOperationTypeBreakthrough = 2;
+
         [RequestPacketHandler("EquipLevelUpRequest")]
         public static void EquipLevelUpRequestHandler(Session session, Packet.Request packet)
         {
@@ -159,6 +190,255 @@ namespace AscNet.GameServer.Handlers
             }
 
             session.SendResponse(rsp, packet.Id);
+        }
+
+        [RequestPacketHandler("EquipOneKeyFeedRequest")]
+        public static void EquipOneKeyFeedRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipOneKeyFeedRequest request = packet.Deserialize<EquipOneKeyFeedRequest>();
+            EquipOneKeyFeedResponse response = new()
+            {
+                Code = 0,
+                SuccessTimes = request.OperationInfos?.Count ?? 0
+            };
+
+            EquipData? targetEquip = session.character.Equips.Find(x => x.Id == request.EquipId);
+            if (targetEquip is null)
+            {
+                // EquipManagerGetCharEquipBySiteNotFound
+                response.Code = 20021012;
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
+            List<ItemTable> itemTables = TableReaderV2.Parse<ItemTable>();
+            List<EquipBreakThroughTable> equipBreakThroughTables = TableReaderV2.Parse<EquipBreakThroughTable>();
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            EquipTable? targetEquipTable = equipTables.FirstOrDefault(x => x.Id == targetEquip.TemplateId);
+            if (targetEquipTable is null)
+            {
+                response.Code = 20021012;
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
+            Dictionary<int, int> itemDeltas = new();
+            NotifyEquipDataList notifyEquipDataList = new();
+
+            foreach (EquipFeedOperationInfo operationInfo in request.OperationInfos ?? [])
+            {
+                switch (operationInfo.OperationType)
+                {
+                    case EquipFeedOperationTypeLevelUp:
+                    {
+                        int targetLevel = GetOperationTargetLevel(targetEquip, request.TargetBreakthrough, request.TargetLevel, equipBreakThroughTables);
+                        if (ShouldUseCogOnlyEnhancement(targetEquipTable) && !HasFeedMaterials(operationInfo))
+                        {
+                            int requiredExp = session.character.GetEquipExpRequiredToReach(request.EquipId, targetLevel);
+                            int appliedExp = session.character.AddEquipExpUpTo(request.EquipId, requiredExp, targetLevel);
+                            AddItemDelta(itemDeltas, Inventory.Coin, appliedExp * -10);
+                            break;
+                        }
+
+                        ConsumeFeedItems(session, itemTables, request.EquipId, operationInfo, itemDeltas);
+                        ConsumeFeedEquips(session, targetEquip, targetEquipTable, equipTables, equipBreakThroughTables, operationInfo, itemDeltas, notifyEquipDataList);
+                        break;
+                    }
+                    case EquipFeedOperationTypeBreakthrough:
+                    {
+                        ApplyEquipBreakthrough(targetEquip, equipBreakThroughTables, itemDeltas);
+                        break;
+                    }
+                }
+            }
+
+            response.Breakthrough = targetEquip.Breakthrough;
+            response.Level = targetEquip.Level;
+            response.Exp = targetEquip.Exp;
+
+            NotifyArchiveEquip notifyArchiveEquip = new();
+            notifyArchiveEquip.Equips.Add(new NotifyArchiveEquip.NotifyArchiveEquipEquip()
+            {
+                Id = targetEquip.TemplateId,
+                Level = targetEquip.Level,
+                Breakthrough = targetEquip.Breakthrough,
+                ResonanceCount = targetEquip.ResonanceInfo?.Count ?? 0
+            });
+            session.SendPush(notifyArchiveEquip);
+
+            NotifyItemDataList notifyItemDataList = new();
+            ApplyItemDeltas(session, itemDeltas, notifyItemDataList);
+            if (notifyItemDataList.ItemDataList.Count > 0)
+                session.SendPush(notifyItemDataList);
+
+            if (notifyEquipDataList.DeletedEquipIdList.Count > 0 || notifyEquipDataList.EquipDataList.Count > 0)
+                session.SendPush(notifyEquipDataList);
+
+            session.character.Save();
+            session.inventory.Save();
+
+            session.SendResponse(response, packet.Id);
+        }
+
+        private static int ConsumeFeedItems(Session session, List<ItemTable> itemTables, int targetEquipId, EquipFeedOperationInfo operationInfo, Dictionary<int, int> itemDeltas)
+        {
+            if (operationInfo.UseItemIdList is null || operationInfo.UseItemCountList is null)
+                return 0;
+
+            int totalFeedExp = 0;
+            for (int i = 0; i < Math.Min(operationInfo.UseItemIdList.Count, operationInfo.UseItemCountList.Count); i++)
+            {
+                int itemId = operationInfo.UseItemIdList[i];
+                int requestedCount = operationInfo.UseItemCountList[i];
+                if (requestedCount <= 0)
+                    continue;
+
+                ItemTable? itemTable = itemTables.FirstOrDefault(x => x.Id == itemId);
+                if (itemTable is null)
+                    continue;
+
+                var perItemUpgradeInfo = itemTable.GetEquipUpgradeInfo();
+                if (perItemUpgradeInfo.Exp <= 0)
+                    continue;
+
+                var upgradeInfo = perItemUpgradeInfo * requestedCount;
+                session.character.AddEquipExp(targetEquipId, upgradeInfo.Exp);
+
+                totalFeedExp += upgradeInfo.Exp;
+                AddItemDelta(itemDeltas, itemId, requestedCount * -1);
+                AddItemDelta(itemDeltas, Inventory.Coin, upgradeInfo.Cost * -1);
+            }
+
+            return totalFeedExp;
+        }
+
+        private static int ConsumeFeedEquips(Session session, EquipData targetEquip, EquipTable? targetEquipTable, List<EquipTable> equipTables, List<EquipBreakThroughTable> equipBreakThroughTables, EquipFeedOperationInfo operationInfo, Dictionary<int, int> itemDeltas, NotifyEquipDataList notifyEquipDataList)
+        {
+            if (operationInfo.UseEquipIdList is null)
+                return 0;
+
+            int totalFeedExp = 0;
+            foreach (int equipId in operationInfo.UseEquipIdList)
+            {
+                if (equipId == targetEquip.Id || notifyEquipDataList.DeletedEquipIdList.Contains((uint)equipId))
+                    continue;
+
+                EquipData? feedEquip = session.character.Equips.Find(x => x.Id == equipId);
+                if (feedEquip is null || feedEquip.IsLock || feedEquip.CharacterId != 0)
+                    continue;
+
+                EquipTable? feedEquipTable = equipTables.FirstOrDefault(x => x.Id == feedEquip.TemplateId);
+                if (!CanFeedEquipIntoTarget(targetEquipTable, feedEquipTable))
+                    continue;
+
+                int feedExp = GetEquipFeedExp(feedEquip, equipBreakThroughTables);
+                if (feedExp <= 0)
+                    continue;
+
+                if (!session.character.Equips.Remove(feedEquip))
+                    continue;
+
+                session.character.AddEquipExp((int)targetEquip.Id, feedExp);
+                totalFeedExp += feedExp;
+                AddItemDelta(itemDeltas, Inventory.Coin, feedExp * -10);
+                notifyEquipDataList.DeletedEquipIdList.Add(feedEquip.Id);
+            }
+
+            return totalFeedExp;
+        }
+
+        private static int GetOperationTargetLevel(EquipData targetEquip, int requestedBreakthrough, int requestedLevel, List<EquipBreakThroughTable> equipBreakThroughTables)
+        {
+            if (targetEquip.Breakthrough == requestedBreakthrough)
+                return Math.Max(1, requestedLevel);
+
+            EquipBreakThroughTable? currentBreakThrough = equipBreakThroughTables.FirstOrDefault(x => x.EquipId == targetEquip.TemplateId && x.Times == targetEquip.Breakthrough);
+            return currentBreakThrough?.LevelLimit ?? targetEquip.Level;
+        }
+
+        private static bool ShouldUseCogOnlyEnhancement(EquipTable? targetEquipTable)
+        {
+            return targetEquipTable is not null
+                && targetEquipTable.Type == 1
+                && targetEquipTable.Quality <= 3;
+        }
+
+        private static bool HasFeedMaterials(EquipFeedOperationInfo operationInfo)
+        {
+            return operationInfo.UseEquipIdList?.Count > 0
+                || (operationInfo.UseItemIdList?.Count > 0 && operationInfo.UseItemCountList?.Any(count => count > 0) == true);
+        }
+
+        private static bool CanFeedEquipIntoTarget(EquipTable? targetEquipTable, EquipTable? feedEquipTable)
+        {
+            if (targetEquipTable is null || feedEquipTable is null)
+                return false;
+
+            if (feedEquipTable.Type == 99)
+                return feedEquipTable.Site == targetEquipTable.Site;
+
+            if (targetEquipTable.Site == 0)
+                return feedEquipTable.Site == 0 && feedEquipTable.Type != 99;
+
+            return targetEquipTable.Type == 0
+                && feedEquipTable.Type == 0
+                && feedEquipTable.Site == targetEquipTable.Site;
+        }
+
+        private static bool IsSameEquipSlot(EquipTable? equippedTable, EquipTable targetTable)
+        {
+            if (equippedTable is null)
+                return false;
+
+            if (targetTable.Type == 1)
+                return equippedTable.Type == 1;
+
+            return equippedTable.Type == targetTable.Type
+                && equippedTable.Site == targetTable.Site;
+        }
+
+        private static int GetEquipFeedExp(EquipData equip, List<EquipBreakThroughTable> equipBreakThroughTables)
+        {
+            EquipBreakThroughTable? feedEquipBreakThrough = equipBreakThroughTables.FirstOrDefault(x => x.EquipId == equip.TemplateId && x.Times == equip.Breakthrough);
+            return (feedEquipBreakThrough?.Exp ?? 0) + Math.Max(0, equip.Exp);
+        }
+
+        private static void ApplyEquipBreakthrough(EquipData equip, List<EquipBreakThroughTable> equipBreakThroughTables, Dictionary<int, int> itemDeltas)
+        {
+            EquipBreakThroughTable? equipBreakThrough = equipBreakThroughTables.FirstOrDefault(x => x.EquipId == equip.TemplateId && x.Times == equip.Breakthrough);
+            if (equipBreakThrough is null || !equipBreakThroughTables.Any(x => x.EquipId == equip.TemplateId && x.Times == equip.Breakthrough + 1))
+                return;
+
+            for (int i = 0; i < Math.Min(equipBreakThrough.ItemId.Count, equipBreakThrough.ItemCount.Count); i++)
+            {
+                AddItemDelta(itemDeltas, equipBreakThrough.ItemId[i], equipBreakThrough.ItemCount[i] * -1);
+            }
+
+            if (equipBreakThrough.UseItemId is not null && equipBreakThrough.UseMoney is not null && equipBreakThrough.UseMoney > 0)
+                AddItemDelta(itemDeltas, equipBreakThrough.UseItemId.Value, equipBreakThrough.UseMoney.Value * -1);
+
+            equip.Breakthrough++;
+            equip.Level = 1;
+            equip.Exp = 0;
+        }
+
+        private static void ApplyItemDeltas(Session session, Dictionary<int, int> itemDeltas, NotifyItemDataList notifyItemDataList)
+        {
+            foreach ((int itemId, int delta) in itemDeltas)
+            {
+                if (delta == 0)
+                    continue;
+
+                notifyItemDataList.ItemDataList.Add(session.inventory.Do(itemId, delta));
+            }
+        }
+
+        private static void AddItemDelta(Dictionary<int, int> itemDeltas, int itemId, int delta)
+        {
+            if (delta == 0)
+                return;
+
+            itemDeltas[itemId] = itemDeltas.GetValueOrDefault(itemId) + delta;
         }
 
         [RequestPacketHandler("EquipBreakthroughRequest")]
@@ -231,29 +511,45 @@ namespace AscNet.GameServer.Handlers
         {
             EquipPutOnRequest request = packet.Deserialize<EquipPutOnRequest>();
 
-            var prevEquip = session.character.Equips.Find(x => x.CharacterId == request.CharacterId && TableReaderV2.Parse<EquipTable>().Find(t => t.Id == x.TemplateId)?.Site == request.Site);
-            var toEquip = session.character.Equips.Find(x => x.Id == request.EquipId);
-
-            if (prevEquip is not null && toEquip is not null)
-            {
-                prevEquip.CharacterId = 0;
-            }
-            if (toEquip is not null)
-            {
-                toEquip.CharacterId = request.CharacterId;
-            }
-            else
+            EquipData? toEquip = session.character.Equips.Find(x => x.Id == request.EquipId);
+            if (toEquip is null)
             {
                 // EquipManagerGetCharEquipBySiteNotFound
                 session.SendResponse(new EquipPutOnResponse() { Code = 20021012 }, packet.Id);
                 return;
             }
 
-            NotifyEquipDataList notifyEquipData = new();
-            notifyEquipData.EquipDataList.Add(toEquip);
-            if (prevEquip is not null)
-                notifyEquipData.EquipDataList.Add(prevEquip);
-            session.SendPush(notifyEquipData);
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            EquipTable? toEquipTable = equipTables.FirstOrDefault(x => x.Id == toEquip.TemplateId);
+            if (toEquipTable is null)
+            {
+                // EquipBreakthroughTemplateNotFound
+                session.SendResponse(new EquipPutOnResponse() { Code = 20021002 }, packet.Id);
+                return;
+            }
+
+            List<EquipData> previousEquips = session.character.Equips
+                .Where(equip => equip.Id != toEquip.Id && equip.CharacterId == request.CharacterId)
+                .Where(equip =>
+                {
+                    EquipTable? equippedTable = equipTables.FirstOrDefault(table => table.Id == equip.TemplateId);
+                    return IsSameEquipSlot(equippedTable, toEquipTable);
+                })
+                .ToList();
+
+            foreach (EquipData previousEquip in previousEquips)
+            {
+                previousEquip.CharacterId = 0;
+            }
+
+            toEquip.CharacterId = request.CharacterId;
+
+            if (previousEquips.Count > 0)
+            {
+                NotifyEquipDataList notifyEquipData = new();
+                notifyEquipData.EquipDataList.AddRange(previousEquips);
+                session.SendPush(notifyEquipData);
+            }
 
             session.SendResponse(new EquipPutOnResponse(), packet.Id);
         }

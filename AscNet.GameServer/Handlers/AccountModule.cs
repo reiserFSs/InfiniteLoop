@@ -57,6 +57,66 @@ namespace AscNet.GameServer.Handlers
 
     internal class AccountModule
     {
+        private static readonly (long Id, long StartTime, long EndTime)[] CurrentDrawTimeLimitControls =
+        [
+            (36, 1780376400, 0),
+            (50, 1777532400, 1778741940),
+            (51, 1778742000, 1779951540),
+            (52, 1779951600, 1781161140),
+            (53, 1781161200, 1782370740),
+            (54, 1782370800, 1783580340),
+            (55, 1783580400, 1784789940),
+            (47001, 1780376400, 1784178000),
+            (47002, 1780376400, 1784178000),
+            (47101, 1780358400, 1784242800),
+            (47110, 1780376400, 1784178000),
+            (47121, 1780376400, 1784178000),
+            (47201, 1780358400, 1784242800),
+            (47205, 1780376400, 1784264400),
+            (47301, 1780376400, 1784242800),
+            (47351, 1780376400, 1784178000),
+            (47406, 1780358400, 1784242800),
+            (47407, 1780358400, 1784242800),
+            (47408, 1780376400, 1784242800),
+            (47409, 1780376400, 1784264400),
+            (47410, 1780376400, 1784264400),
+            (47601, 1780376400, 1784242740),
+            (47609, 1780376400, 1784264400),
+            (47701, 1780376400, 1784264400),
+            (47703, 1780358400, 1784242800),
+            (47704, 1780358400, 1784242800),
+            (47705, 1780376400, 1784264400),
+            (47706, 1780653600, 1784264400),
+            (47801, 1780376400, 1784264400),
+            (47911, 1780653600, 1784242800),
+            (47912, 1780358400, 1784242800),
+            (47913, 1780653600, 1784242800),
+            (47920, 1780358400, 1784242800),
+            (47921, 1780358400, 1784242800),
+            (47922, 1780358400, 1784242800),
+            (47923, 1780358400, 1784242800),
+            (47930, 1780358400, 1784242800),
+            (47931, 1780376400, 1784178000),
+            (47943, 1780376400, 1780653600),
+            (47944, 1780376400, 1783573200),
+            (47945, 1780376400, 1780740000),
+            (47947, 1780376400, 1781604000),
+            (2160712, 1780376400, 1784178000),
+            (2160713, 1780376400, 1784178000)
+        ];
+
+        private static List<TimeLimitCtrlConfigList> BuildCurrentDrawTimeLimitControls()
+        {
+            return CurrentDrawTimeLimitControls
+                .Select(timeLimit => new TimeLimitCtrlConfigList
+                {
+                    Id = timeLimit.Id,
+                    StartTime = timeLimit.StartTime,
+                    EndTime = timeLimit.EndTime
+                })
+                .ToList();
+        }
+
         [RequestPacketHandler("HandshakeRequest")]
         public static void HandshakeRequestHandler(Session session, Packet.Request packet)
         {
@@ -175,21 +235,17 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new UseCdKeyResponse() { Code = 20054001 }, packet.Id);
         }
         
-        // TODO: Move somewhere else, also split.
-        static void DoLogin(Session session)
+        internal static void SendLoginState(Session session)
         {
-            long currentTime = DateTimeOffset.Now.ToUnixTimeSeconds();
-            bool isNewDay = currentTime / 86_400 > session.player.PlayerData.LastLoginTime / 86_400;
-            if (isNewDay)
-            {
-                session.player.PlayerData.NewPlayerTaskActiveDay += 1;
-            }
+            session.SendPush(BuildNotifyLogin(session));
+        }
 
-            session.player.PlayerData.LastLoginTime = currentTime;
-            session.player.AddGatherReward(5);
+        private static NotifyLogin BuildNotifyLogin(Session session)
+        {
             NotifyLogin notifyLogin = new()
             {
                 PlayerData = session.player.PlayerData,
+                TimeLimitCtrlConfigList = BuildCurrentDrawTimeLimitControls(),
                 ItemList = session.inventory.Items,
                 CharacterList = session.character.Characters.Select(ToLoginCharacter).ToList(),
                 EquipList = session.character.Equips,
@@ -215,6 +271,23 @@ namespace AscNet.GameServer.Handlers
 #if DEBUG
             notifyLogin.PlayerData.GuideData = TableReaderV2.Parse<GuideGroupTable>().Select(x => (long)x.Id).ToList();
 #endif
+
+            return notifyLogin;
+        }
+
+        // TODO: Move somewhere else, also split.
+        static void DoLogin(Session session)
+        {
+            long currentTime = DateTimeOffset.Now.ToUnixTimeSeconds();
+            bool isNewDay = currentTime / 86_400 > session.player.PlayerData.LastLoginTime / 86_400;
+            if (isNewDay)
+            {
+                session.player.PlayerData.NewPlayerTaskActiveDay += 1;
+            }
+
+            session.player.PlayerData.LastLoginTime = currentTime;
+            session.player.AddGatherReward(5);
+            NotifyLogin notifyLogin = BuildNotifyLogin(session);
 
             NotifyStageData notifyStageData = new()
             {
@@ -245,9 +318,6 @@ namespace AscNet.GameServer.Handlers
             NotifyCharacterDataList notifyCharacterData = new();
             notifyCharacterData.CharacterDataList.AddRange(session.character.Characters);
             
-            NotifyEquipDataList notifyEquipData = new();
-            notifyEquipData.EquipDataList.AddRange(session.character.Equips);
-
             NotifyAssistData notifyAssistData = new()
             {
                 AssistData = new()
@@ -319,9 +389,20 @@ namespace AscNet.GameServer.Handlers
                 }
             };
             session.SendPush(notifyLogin);
+            session.SendPush(new NotifyEquipChipGroupList());
+            session.SendPush(new NotifyEquipChipAutoRecycleSite()
+            {
+                ChipRecycleSite = new()
+                {
+                    RecycleStar = [1, 2, 3, 4]
+                }
+            });
+            session.SendPush(new NotifyEquipGuideData()
+            {
+                EquipGuideData = new()
+            });
             session.SendPush(notifyStageData);
             session.SendPush(notifyCharacterData);
-            session.SendPush(notifyEquipData);
             session.SendPush(notifyAssistData);
             session.SendPush(notifyChatLoginData);
             session.SendPush(notifyItemDataList);
@@ -379,6 +460,7 @@ Sorry for the inconvenience.
             session.SendPush(new NotifyBfrtData() { BfrtData = new() });
             session.player.Save();
         }
+
 
         private static LoginCharacterList ToLoginCharacter(CharacterData character)
         {

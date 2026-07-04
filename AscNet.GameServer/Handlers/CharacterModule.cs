@@ -113,6 +113,24 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class CharacterSetCollectStateRequest
+    {
+        public int TemplateId;
+        public int CharacterId;
+        public int Id;
+        public bool CollectState;
+
+        [IgnoreMember]
+        public int TargetCharacterId => TemplateId != 0 ? TemplateId : CharacterId != 0 ? CharacterId : Id;
+    }
+
+    [MessagePackObject(true)]
+    public class CharacterSetCollectStateResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
     public class FashionSyncNotify
     {
         public List<FashionList> FashionList = new();
@@ -190,36 +208,83 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new CharacterLevelUpResponse(), packet.Id);
         }
 
+        [RequestPacketHandler("CharacterSetCollectStateRequest")]
+        public static void CharacterSetCollectStateRequestHandler(Session session, Packet.Request packet)
+        {
+            CharacterSetCollectStateRequest request = packet.Deserialize<CharacterSetCollectStateRequest>();
+            CharacterData? character = session.character.Characters.Find(c => c.Id == request.TargetCharacterId);
+            if (character is null)
+            {
+                // CharacterManagerGetCharacterByIdNotFound
+                session.SendResponse(new CharacterSetCollectStateResponse() { Code = 20009011 }, packet.Id);
+                return;
+            }
+
+            character.CollectState = request.CollectState;
+            session.SendPush(new NotifyCharacterDataList()
+            {
+                CharacterDataList = { character }
+            });
+
+            session.character.Save();
+
+            session.SendResponse(new CharacterSetCollectStateResponse(), packet.Id);
+        }
+
         [RequestPacketHandler("CharacterPromoteGradeRequest")]
         public static void CharacterPromoteGradeRequestHandler(Session session, Packet.Request packet)
         {
             CharacterPromoteGradeRequest req = packet.Deserialize<CharacterPromoteGradeRequest>();
-            var character = session.character.Characters.Find(c => c.Id == req.TemplateId);
-            var currentGrade = TableReaderV2.Parse<CharacterGradeTable>().Find(x => x.CharacterId == req.TemplateId && x.Grade == character?.Grade);
+            CharacterData? character = session.character.Characters.Find(c => c.Id == req.TemplateId);
 
-            if (character is not null && currentGrade is not null)
+            try
             {
-                var nextGrade = TableReaderV2.Parse<CharacterGradeTable>().Where(x => x.CharacterId == req.TemplateId && x.Grade > character.Grade).OrderBy(x => x.Grade).FirstOrDefault()?.Grade ?? character.Grade;
+                if (character is null)
+                {
+                    // CharacterManagerGetCharacterByIdNotFound
+                    throw new ServerCodeException("Character data not found!", 20009011);
+                }
+
+                List<CharacterGradeTable> gradeRows = TableReaderV2.Parse<CharacterGradeTable>()
+                    .Where(x => x.CharacterId == req.TemplateId)
+                    .ToList();
+                CharacterGradeTable? currentGrade = gradeRows.Find(x => x.Grade == character.Grade);
+                if (currentGrade is null)
+                {
+                    // CharacterManagerGetGradeTemplateNotFound
+                    throw new ServerCodeException("Character grade table data not found!", 20009003);
+                }
+
+                int nextGrade = gradeRows
+                    .Where(x => x.Grade > character.Grade)
+                    .OrderBy(x => x.Grade)
+                    .FirstOrDefault()
+                    ?.Grade ?? character.Grade;
                 if (character.Grade == nextGrade)
                 {
                     // CharacterManagerMaxGrade
-                    session.SendResponse(new CharacterPromoteGradeResponse() { Code = 20009019 }, packet.Id);
-                    return;
+                    throw new ServerCodeException("Character grade already maxed!", 20009019);
                 }
-                if (currentGrade.UseItemKey is not null)
+
+                NotifyItemDataList notifyItemData = new();
+                if (currentGrade.UseItemKey is not null && currentGrade.UseItemCount is not null && currentGrade.UseItemCount > 0)
                 {
-                    NotifyItemDataList notifyItemData = new();
-                    notifyItemData.ItemDataList.Add(session.inventory.Do(currentGrade.UseItemKey ?? 1, (currentGrade.UseItemCount ?? 0) * -1));
+                    notifyItemData.ItemDataList.Add(session.inventory.Do(currentGrade.UseItemKey.Value, currentGrade.UseItemCount.Value * -1));
                     session.SendPush(notifyItemData);
                 }
 
                 character.Grade = nextGrade;
-
-                session.SendPush(new NotifyCharacterDataList()
-                {
-                    CharacterDataList = { character }
-                });
             }
+            catch (ServerCodeException ex)
+            {
+                session.SendResponse(new CharacterPromoteGradeResponse() { Code = ex.Code }, packet.Id);
+                return;
+            }
+
+            session.SendPush(new NotifyCharacterDataList()
+            {
+                CharacterDataList = { character }
+            });
 
             SaveCharacterProgress(session);
 

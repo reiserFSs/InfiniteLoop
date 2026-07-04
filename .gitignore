@@ -367,3 +367,9 @@ generator_fails*
 
 # AscNet
 Scripts/table
+
+# Local runtime/test artifacts
+.runtime/
+
+# macOS metadata
+.DS_Store

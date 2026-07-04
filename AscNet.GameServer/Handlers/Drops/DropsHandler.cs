@@ -171,9 +171,13 @@ namespace AscNet.GameServer.Handlers.Drops
                     Type = RewardType.Equip
                 });
 
-                NotifyEquipDataList notifyEquipData = new();
-                notifyEquipData.EquipDataList.Add(session.character.AddEquip((uint)equip.Id));
-                session.SendPush(notifyEquipData);
+                EquipData? equipData = session.character.AddEquip((uint)equip.Id);
+                if (equipData is not null)
+                {
+                    NotifyEquipDataList notifyEquipData = new();
+                    notifyEquipData.EquipDataList.Add(equipData);
+                    session.SendPush(notifyEquipData);
+                }
             }
 
             return rets;

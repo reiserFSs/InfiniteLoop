@@ -99,7 +99,7 @@ namespace AscNet.Common.Database
                 item = new Item()
                 {
                     Id = itemId,
-                    Count = amount,
+                    Count = Math.Max(0, amount),
                     RefreshTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
                     CreateTime = DateTimeOffset.Now.ToUnixTimeSeconds()
                 };

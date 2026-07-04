@@ -1,5 +1,6 @@
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
+using AscNet.Common;
 using AscNet.GameServer;
 using AscNet.GameServer.Handlers;
 using AscNet.SDKServer.Models;
@@ -9,11 +10,20 @@ using AscNet.Table.V2.share.fuben.mainline;
 using AscNet.Table.V2.share.task;
 using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.character;
+using AscNet.Table.V2.share.character.grade;
+using AscNet.Table.V2.share.character.skill;
+using AscNet.Table.V2.share.character.quality;
+using AscNet.Table.V2.share.equip;
+using AscNet.Table.V2.share.item;
+using AscNet.Table.V2.share.fashion;
 using MessagePack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using MongoDB.Driver;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Buffers.Binary;
+using System.Net.Sockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -117,6 +127,24 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--inventory-equip-compat-only"))
+                {
+                    ValidateInventoryEquipCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--draw-compat-only"))
+                {
+                    ValidateDrawCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--command-compat-only"))
+                {
+                    ValidateCommandCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--current-client-notice-endpoints-only"))
                 {
                     ValidateCurrentClientNoticeEndpoints().GetAwaiter().GetResult();
@@ -139,6 +167,9 @@ namespace AscNet.Test
                 ValidateExpLevelCompatibility();
                 ValidateStoryCourseRewardCompatibility();
                 ValidatePr2QualityCompatibility();
+                ValidateInventoryEquipCompatibility();
+                ValidateDrawCompatibility();
+                ValidateCommandCompatibility();
                 ValidateCurrentClientNoticeFixtures();
                 ValidateCurrentClientNoticeEndpoints().GetAwaiter().GetResult();
                 ValidateSteamClientConfig();
@@ -153,6 +184,21 @@ namespace AscNet.Test
 
         private static void ValidateNotifyLoginCurrentClientCompatibilityShape()
         {
+            (long Id, long StartTime, long EndTime)[] expectedCurrentDrawTimeLimitControls =
+            [
+                (54, 1782370800, 1783580340),
+                (55, 1783580400, 1784789940),
+                (47101, 1780358400, 1784242800),
+                (47201, 1780358400, 1784242800),
+                (47703, 1780358400, 1784242800),
+                (47704, 1780358400, 1784242800),
+                (47911, 1780653600, 1784242800),
+                (47912, 1780358400, 1784242800),
+                (47913, 1780653600, 1784242800),
+                (47920, 1780358400, 1784242800),
+                (47921, 1780358400, 1784242800),
+                (47922, 1780358400, 1784242800)
+            ];
             NotifyLogin login = new()
             {
                 FubenMainLine2Data = new()
@@ -167,10 +213,45 @@ namespace AscNet.Test
                 FashionColorData = new()
                 {
                     FasionColors = []
-                }
+                },
+                TimeLimitCtrlConfigList = expectedCurrentDrawTimeLimitControls
+                    .Select(timeLimit => new TimeLimitCtrlConfigList
+                    {
+                        Id = timeLimit.Id,
+                        StartTime = timeLimit.StartTime,
+                        EndTime = timeLimit.EndTime
+                    })
+                    .ToList()
             };
 
             NotifyLogin roundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(MessagePackSerializer.Serialize(login));
+
+            AssertTimeLimitControlsEqual(
+                expectedCurrentDrawTimeLimitControls,
+                roundTrip.TimeLimitCtrlConfigList,
+                "NotifyLogin TimeLimitCtrlConfigList current draw/event MessagePack round-trip");
+
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                accountModule,
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin productionLogin;
+            const long notifyLoginPlayerId = 880007;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(notifyLoginPlayerId),
+                CreateDrawCompatibilityPlayer(notifyLoginPlayerId),
+                CreateDrawCompatibilityInventory(notifyLoginPlayerId, []),
+                "notify-login-time-limit-compat-test"))
+            {
+                productionLogin = buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
+                    ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil or a non-NotifyLogin payload.");
+            }
+            AssertTimeLimitControlIdsPresent(
+                expectedCurrentDrawTimeLimitControls.Select(timeLimit => timeLimit.Id).ToArray(),
+                productionLogin.TimeLimitCtrlConfigList,
+                "AccountModule.BuildNotifyLogin NotifyLogin.TimeLimitCtrlConfigList current draw/event controls");
 
             NotifyFashionColorData fashionColorData = roundTrip.FashionColorData
                 ?? throw new InvalidDataException("NotifyLogin FashionColorData serialized as nil.");
@@ -184,6 +265,1933 @@ namespace AscNet.Test
             AssertEmptyList(fubenMainLine2Data.AchievementData, "NotifyLogin FubenMainLine2Data.AchievementData");
             AssertEmptyList(fubenMainLine2Data.EggData, "NotifyLogin FubenMainLine2Data.EggData");
             AssertEmptyList(fubenMainLine2Data.PassStageIds, "NotifyLogin FubenMainLine2Data.PassStageIds");
+
+            static void AssertTimeLimitControlsEqual(
+                IReadOnlyList<(long Id, long StartTime, long EndTime)> expected,
+                IReadOnlyList<TimeLimitCtrlConfigList>? actual,
+                string name)
+            {
+                if (actual is null)
+                    throw new InvalidDataException($"{name}: expected a non-empty list, got nil.");
+                if (actual.Count == 0)
+                    throw new InvalidDataException($"{name}: expected current draw/event controls, got an empty list.");
+
+                AssertEqual(expected.Count, actual.Count, $"{name} count");
+                for (int index = 0; index < expected.Count; index++)
+                {
+                    AssertEqual(expected[index].Id, actual[index].Id, $"{name}[{index}].Id");
+                    AssertEqual(expected[index].StartTime, actual[index].StartTime, $"{name}[{index}].StartTime");
+                    AssertEqual(expected[index].EndTime, actual[index].EndTime, $"{name}[{index}].EndTime");
+                }
+            }
+
+            static void AssertTimeLimitControlIdsPresent(
+                IReadOnlyList<long> expectedIds,
+                IReadOnlyList<TimeLimitCtrlConfigList>? actual,
+                string name)
+            {
+                if (actual is null)
+                    throw new InvalidDataException($"{name}: expected a non-empty list, got nil.");
+                if (actual.Count == 0)
+                    throw new InvalidDataException($"{name}: expected current draw/event controls, got an empty list.");
+
+                HashSet<long> actualIds = actual.Select(timeLimit => timeLimit.Id).ToHashSet();
+                foreach (long expectedId in expectedIds)
+                {
+                    if (!actualIds.Contains(expectedId))
+                        throw new InvalidDataException($"{name}: missing control id {expectedId}.");
+                }
+            }
+        }
+
+        private static void ValidateDrawCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            const int memberTargetGroupId = 1;
+            const int weaponResearchGroupId = 2;
+            const int targetWeaponResearchGroupId = 4;
+            const int themedEventConstructGroupId = 11;
+            const int arrivalConstructGroupId = 12;
+            const int fateArrivalConstructGroupId = 13;
+            const int fateThemedConstructGroupId = 15;
+            const int targetUniframeGroupId = 16;
+            const int cubTargetGroupId = 22;
+            const long drawGroupPlayerId = 880001;
+            const long drawProgressPlayerId = 880002;
+            const long drawEventSelectionPlayerId = 880006;
+            const long drawPityPlayerId = 880007;
+            const long buyAssetPlayerId = 880003;
+            const int drawGroupPacketId = 8801;
+            const int drawInfoPacketId = 8802;
+            const int setUseDrawIdPacketId = 8803;
+            const int drawCardPacketId = 8804;
+            const int buyAssetPacketId = 8805;
+
+            DrawGetDrawGroupListResponse groupResponse;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(drawGroupPlayerId),
+                CreateDrawCompatibilityPlayer(drawGroupPlayerId),
+                CreateDrawCompatibilityInventory(drawGroupPlayerId, []),
+                "draw-group-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawGetDrawGroupListRequest", harness.Session, drawGroupPacketId, request: null);
+                groupResponse = ReadResponsePayload<DrawGetDrawGroupListResponse>(
+                    harness,
+                    drawGroupPacketId,
+                    nameof(DrawGetDrawGroupListResponse),
+                    "DrawGetDrawGroupListRequest response");
+            }
+
+            AssertEqual(0, groupResponse.Code, "DrawGetDrawGroupListResponse Code");
+            MemberInfo tenDrawOnSalesMember = RequiredDataMember(typeof(DrawGroupInfo), nameof(DrawGroupInfo.TenDrawOnSales));
+            AssertEqual(typeof(Dictionary<int, int>), MemberValueType(tenDrawOnSalesMember), "DrawGroupInfo TenDrawOnSales retail MessagePack map type");
+            foreach (DrawGroupInfo group in groupResponse.DrawGroupInfoList)
+            {
+                if (GetRequiredMemberValue(group, tenDrawOnSalesMember) is not Dictionary<int, int> tenDrawOnSales)
+                    throw new InvalidDataException($"DrawGetDrawGroupListResponse group {group.Id} TenDrawOnSales: expected a retail map payload.");
+                AssertEqual(0, tenDrawOnSales.Count, $"DrawGetDrawGroupListResponse group {group.Id} TenDrawOnSales retail empty map");
+            }
+
+            int[] expectedRetailGroupIds =
+            [
+                memberTargetGroupId,
+                weaponResearchGroupId,
+                targetWeaponResearchGroupId,
+                themedEventConstructGroupId,
+                arrivalConstructGroupId,
+                fateArrivalConstructGroupId,
+                fateThemedConstructGroupId,
+                targetUniframeGroupId,
+                cubTargetGroupId
+            ];
+            int[] groupIds = groupResponse.DrawGroupInfoList.Select(group => group.Id).ToArray();
+            AssertIntegerList(
+                expectedRetailGroupIds.Select(groupId => (long)groupId).ToArray(),
+                groupIds.Select(groupId => (long)groupId).ToArray(),
+                "DrawGetDrawGroupListResponse visible retail group ids in response order");
+
+            Dictionary<int, DrawGroupInfo> groupById = groupResponse.DrawGroupInfoList.ToDictionary(group => group.Id);
+            (int GroupId, long StartTime, long EndTime)[] expectedGroupTimeWindows =
+            [
+                (targetWeaponResearchGroupId, 0, 0),
+                (themedEventConstructGroupId, 1780358400, 1784242800),
+                (arrivalConstructGroupId, 1575540000, 1784789940),
+                (fateArrivalConstructGroupId, 1575540000, 1784789940),
+                (fateThemedConstructGroupId, 1780358400, 1784242800),
+                (targetUniframeGroupId, 0, 0),
+                (cubTargetGroupId, 0, 0)
+            ];
+            foreach ((int groupId, long startTime, long endTime) in expectedGroupTimeWindows)
+            {
+                DrawGroupInfo group = groupById[groupId];
+                AssertEqual(startTime, group.StartTime, $"DrawGetDrawGroupListResponse group {groupId} StartTime");
+                AssertEqual(endTime, group.EndTime, $"DrawGetDrawGroupListResponse group {groupId} EndTime");
+            }
+
+            DrawGroupInfo memberTargetGroup = groupById[memberTargetGroupId];
+            AssertIntegerList(
+                [101, 3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3010, 3012, 3014, 3016, 3018, 3020, 3022, 3024, 3026, 3028, 3030, 3032, 3034, 3036],
+                memberTargetGroup.OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(),
+                "DrawGetDrawGroupListResponse group 1 OptionalDrawIdList");
+            AssertIntegerDictionary(
+                new Dictionary<int, int> { [0] = 101 },
+                memberTargetGroup.UseDrawIdDict,
+                "DrawGetDrawGroupListResponse group 1 default UseDrawIdDict");
+            DrawGroupInfo targetWeaponGroup = groupById[targetWeaponResearchGroupId];
+            AssertIntegerList(
+                [301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 370, 371, 372, 374, 375, 376, 377, 378, 379],
+                targetWeaponGroup.OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(),
+                "DrawGetDrawGroupListResponse group 4 OptionalDrawIdList");
+            AssertIntegerDictionary(
+                new Dictionary<int, int> { [0] = 371, [3] = 378 },
+                targetWeaponGroup.UseDrawIdDict,
+                "DrawGetDrawGroupListResponse group 4 default UseDrawIdDict");
+            AssertIntegerList([1488, 1498], groupById[themedEventConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 11 OptionalDrawIdList");
+            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 0, [5] = 1488 }, groupById[themedEventConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 11 default UseDrawIdDict");
+            AssertIntegerList([1492, 1493, 1494], groupById[arrivalConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 12 OptionalDrawIdList");
+            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 1494 }, groupById[arrivalConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 12 default UseDrawIdDict");
+            AssertIntegerList([2486, 2487, 2488], groupById[fateArrivalConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 13 OptionalDrawIdList");
+            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 2487 }, groupById[fateArrivalConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 13 default UseDrawIdDict");
+            AssertIntegerList([2482, 2492], groupById[fateThemedConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 15 OptionalDrawIdList");
+            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 0 }, groupById[fateThemedConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 15 default UseDrawIdDict");
+            AssertIntegerList([4001, 4003, 4005, 4007, 4009, 4011, 4013], groupById[targetUniframeGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 16 OptionalDrawIdList");
+            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 4003 }, groupById[targetUniframeGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 16 default UseDrawIdDict");
+            AssertIntegerList(
+                [7002, 7004, 7006, 7008, 7010, 7012, 7014, 7016, 7018, 7020, 7022, 7024, 7026, 7028, 7030, 7032, 7034, 7036, 7038, 7040, 7042, 7044, 7046, 7048, 7052, 7054, 7057, 7059, 7061, 7063, 7064, 7065],
+                groupById[cubTargetGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(),
+                "DrawGetDrawGroupListResponse group 22 OptionalDrawIdList");
+            AssertIntegerDictionary(
+                new Dictionary<int, int> { [0] = 7059, [4] = 7065 },
+                groupById[cubTargetGroupId].UseDrawIdDict,
+                "DrawGetDrawGroupListResponse group 22 default UseDrawIdDict");
+
+            AssertEqual(1, groupResponse.DrawAdjustActivityInfoList.Count, "DrawGetDrawGroupListResponse DrawAdjustActivityInfoList count");
+            DrawAdjustActivityInfo adjustActivity = groupResponse.DrawAdjustActivityInfoList.Single();
+            AssertEqual(memberTargetGroupId, adjustActivity.DrawGroupId, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo DrawGroupId");
+            AssertEqual(1241003, adjustActivity.TargetId, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo TargetId");
+            AssertEqual(3, adjustActivity.ActivityId, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo ActivityId");
+            AssertEqual(1763006400L, adjustActivity.StartTime, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo StartTime");
+            AssertEqual(1, adjustActivity.AdjustTimes, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo AdjustTimes");
+            AssertIntegerList(
+                [1011003, 1031003, 1061003, 1071003, 1051003, 1021003, 1041003, 1021004, 1141003, 1171003, 1121003, 1131003, 1031004, 1531004, 1051004, 1071004, 1041004, 1011004, 1091003, 1021005, 1221003, 1261003, 1271003, 1081004, 1521004, 1171004, 1241003, 1211003, 1021006, 1051005, 1321003, 1331003, 1531005, 1131004, 1041005, 1381003, 1291003, 1141004, 1391003],
+                adjustActivity.EffectTargetTemplateIds.Select(templateId => (long)templateId).ToArray(),
+                "DrawGetDrawGroupListResponse DrawAdjustActivityInfo EffectTargetTemplateIds");
+
+            DrawGetDrawInfoListRequest infoRequest = new()
+            {
+                GroupId = targetWeaponResearchGroupId
+            };
+            DrawGetDrawInfoListRequest infoRequestRoundTrip = MessagePackSerializer.Deserialize<DrawGetDrawInfoListRequest>(
+                MessagePackSerializer.Serialize(infoRequest));
+            AssertEqual(targetWeaponResearchGroupId, infoRequestRoundTrip.GroupId, "DrawGetDrawInfoListRequest GroupId MessagePack round-trip");
+
+            DrawGetDrawInfoListResponse infoResponse;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(drawGroupPlayerId),
+                CreateDrawCompatibilityPlayer(drawGroupPlayerId),
+                CreateDrawCompatibilityInventory(drawGroupPlayerId, []),
+                "draw-info-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawGetDrawInfoListRequest", harness.Session, drawInfoPacketId, infoRequestRoundTrip);
+                infoResponse = ReadResponsePayload<DrawGetDrawInfoListResponse>(
+                    harness,
+                    drawInfoPacketId,
+                    nameof(DrawGetDrawInfoListResponse),
+                    "DrawGetDrawInfoListRequest response");
+            }
+
+            AssertEqual(0, infoResponse.Code, "DrawGetDrawInfoListResponse Code");
+            AssertEqual(75, infoResponse.DrawInfoList.Count, "DrawGetDrawInfoListResponse group 4 retail draw info count");
+            AssertCurrentWeaponBannerTargetEquipRows(
+                new Dictionary<int, int>
+                {
+                    [370] = 2576001,
+                    [371] = 2586001,
+                    [372] = 2596001,
+                    [374] = 2616001,
+                    [375] = 2626001,
+                    [376] = 2636001,
+                    [377] = 2646001,
+                    [378] = 2656001,
+                    [379] = 2606001
+                },
+                infoResponse.DrawInfoList);
+            const string targetWeaponPowerBanner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1WeaponPower.prefab";
+            AssertRetailDrawInfoArt(
+                infoResponse.DrawInfoList.Single(info => info.Id == 378),
+                378,
+                targetWeaponResearchGroupId,
+                targetWeaponPowerBanner,
+                new Dictionary<int, string>(),
+                new Dictionary<int, int> { [1] = 2656001 },
+                [5, 6],
+                3,
+                "DrawGetDrawInfoListResponse target weapon 378");
+            AssertRetailDrawInfoArt(
+                infoResponse.DrawInfoList.Single(info => info.Id == 379),
+                379,
+                targetWeaponResearchGroupId,
+                targetWeaponPowerBanner,
+                new Dictionary<int, string>(),
+                new Dictionary<int, int> { [1] = 2606001 },
+                [5, 6],
+                3,
+                "DrawGetDrawInfoListResponse target weapon 379");
+
+            DrawGetDrawInfoListResponse memberTargetInfoResponse = ReadDrawInfoListForGroup(memberTargetGroupId, drawInfoPacketId + 9, drawGroupPlayerId, "draw-member-target-info-compat-test");
+            AssertEqual(0, memberTargetInfoResponse.Code, "DrawGetDrawInfoListResponse group 1 Code");
+
+            DrawGetDrawInfoListResponse themedEventInfoResponse = ReadDrawInfoListForGroup(themedEventConstructGroupId, drawInfoPacketId + 10, drawGroupPlayerId, "draw-themed-event-info-compat-test");
+            AssertEqual(0, themedEventInfoResponse.Code, "DrawGetDrawInfoListResponse group 11 Code");
+            DrawInfo eventConstruct1488 = themedEventInfoResponse.DrawInfoList.Single(info => info.Id == 1488);
+            AssertRetailDrawInfoArt(
+                eventConstruct1488,
+                1488,
+                themedEventConstructGroupId,
+                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5Power02.prefab",
+                new Dictionary<int, string>(),
+                new Dictionary<int, int> { [1] = 1021007 },
+                [5, 6, 2],
+                5,
+                "DrawGetDrawInfoListResponse event construct 1488");
+            AssertDraw1488RetailRewardPool(eventConstruct1488, drawPityPlayerId + 1, weaponResearchGroupId, targetWeaponResearchGroupId, cubTargetGroupId);
+            AssertRetailDrawInfoArt(
+                themedEventInfoResponse.DrawInfoList.Single(info => info.Id == 1498),
+                1498,
+                themedEventConstructGroupId,
+                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5Power01.prefab",
+                new Dictionary<int, string>(),
+                new Dictionary<int, int> { [1] = 1031005 },
+                [5, 6, 2],
+                1,
+                "DrawGetDrawInfoListResponse event construct 1498");
+
+            DrawGetDrawInfoListResponse fateEventInfoResponse = ReadDrawInfoListForGroup(fateThemedConstructGroupId, drawInfoPacketId + 11, drawGroupPlayerId, "draw-fate-event-info-compat-test");
+            AssertEqual(0, fateEventInfoResponse.Code, "DrawGetDrawInfoListResponse group 15 Code");
+            AssertRetailDrawInfoArt(
+                fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2482),
+                2482,
+                fateThemedConstructGroupId,
+                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5Power02.prefab",
+                new Dictionary<int, string>(),
+                new Dictionary<int, int> { [1] = 1021007 },
+                [5, 6, 2],
+                6,
+                "DrawGetDrawInfoListResponse fate event 2482");
+            AssertRetailDrawInfoArt(
+                fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2492),
+                2492,
+                fateThemedConstructGroupId,
+                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5Power01.prefab",
+                new Dictionary<int, string>(),
+                new Dictionary<int, int> { [1] = 1031005 },
+                [5, 6, 2],
+                2,
+                "DrawGetDrawInfoListResponse fate event 2492");
+
+            DrawGetDrawInfoListResponse arrivalInfoResponse = ReadDrawInfoListForGroup(arrivalConstructGroupId, drawInfoPacketId + 13, drawGroupPlayerId, "draw-arrival-info-compat-test");
+            AssertEqual(0, arrivalInfoResponse.Code, "DrawGetDrawInfoListResponse group 12 Code");
+            DrawGetDrawInfoListResponse fateArrivalInfoResponse = ReadDrawInfoListForGroup(fateArrivalConstructGroupId, drawInfoPacketId + 14, drawGroupPlayerId, "draw-fate-arrival-info-compat-test");
+            AssertEqual(0, fateArrivalInfoResponse.Code, "DrawGetDrawInfoListResponse group 13 Code");
+            AssertCurrentVersionJumpDrawTargetRows(
+                [
+                    (3024, 1241002),
+                    (1488, 1021007),
+                    (1498, 1031005),
+                    (1492, 1291003),
+                    (1493, 1381003),
+                    (1494, 1171004),
+                    (2482, 1021007),
+                    (2492, 1031005),
+                    (2486, 1291003),
+                    (2487, 1381003),
+                    (2488, 1171004)
+                ],
+                [
+                    memberTargetInfoResponse.DrawInfoList.Single(info => info.Id == 3024),
+                    eventConstruct1488,
+                    themedEventInfoResponse.DrawInfoList.Single(info => info.Id == 1498),
+                    arrivalInfoResponse.DrawInfoList.Single(info => info.Id == 1492),
+                    arrivalInfoResponse.DrawInfoList.Single(info => info.Id == 1493),
+                    arrivalInfoResponse.DrawInfoList.Single(info => info.Id == 1494),
+                    fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2482),
+                    fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2492),
+                    fateArrivalInfoResponse.DrawInfoList.Single(info => info.Id == 2486),
+                    fateArrivalInfoResponse.DrawInfoList.Single(info => info.Id == 2487),
+                    fateArrivalInfoResponse.DrawInfoList.Single(info => info.Id == 2488)
+                ]);
+            AssertCurrentDrawTargetCharacterPersistenceRows(
+                [
+                    1221003,
+                    1261003,
+                    1271003,
+                    1081004,
+                    1521004,
+                    1171004,
+                    1241003,
+                    1211003,
+                    1021006,
+                    1051005,
+                    1321003,
+                    1331003,
+                    1531005,
+                    1131004,
+                    1041005,
+                    1141004,
+                    1391003,
+                    1341003,
+                    1061004
+                ]);
+            AssertCurrentCharacterGradeTablesAndPromotionBehavior();
+
+            DrawGetDrawInfoListResponse cubInfoResponse = ReadDrawInfoListForGroup(cubTargetGroupId, drawInfoPacketId + 12, drawGroupPlayerId, "draw-cub-info-compat-test");
+            AssertEqual(0, cubInfoResponse.Code, "DrawGetDrawInfoListResponse group 22 Code");
+            const string cubPowerBanner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1CubPower.prefab";
+            const string cubPowerResource = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationV1/UiDrawCollaborationV1CUB3.png";
+            AssertRetailDrawInfoArt(
+                cubInfoResponse.DrawInfoList.Single(info => info.Id == 7064),
+                7064,
+                cubTargetGroupId,
+                cubPowerBanner,
+                new Dictionary<int, string> { [4] = cubPowerResource },
+                new Dictionary<int, int> { [1] = 16390000 },
+                [5, 6],
+                4,
+                "DrawGetDrawInfoListResponse CUB 7064");
+            AssertRetailDrawInfoArt(
+                cubInfoResponse.DrawInfoList.Single(info => info.Id == 7065),
+                7065,
+                cubTargetGroupId,
+                cubPowerBanner,
+                new Dictionary<int, string> { [4] = cubPowerResource },
+                new Dictionary<int, int> { [1] = 16340000 },
+                [5, 6],
+                4,
+                "DrawGetDrawInfoListResponse CUB 7065");
+
+            const int selectedRetailDrawId = 379;
+            DrawSetUseDrawIdRequest setUseDrawIdRequest = new()
+            {
+                DrawId = selectedRetailDrawId
+            };
+            DrawSetUseDrawIdRequest setUseDrawIdRequestRoundTrip = MessagePackSerializer.Deserialize<DrawSetUseDrawIdRequest>(
+                MessagePackSerializer.Serialize(setUseDrawIdRequest));
+            AssertEqual(selectedRetailDrawId, setUseDrawIdRequestRoundTrip.DrawId, "DrawSetUseDrawIdRequest DrawId MessagePack round-trip");
+
+            DrawSetUseDrawIdResponse setUseDrawIdResponse;
+            DrawGetDrawGroupListResponse selectedGroupResponse;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(drawProgressPlayerId),
+                CreateDrawCompatibilityPlayer(drawProgressPlayerId),
+                CreateDrawCompatibilityInventory(drawProgressPlayerId, []),
+                "draw-selection-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawSetUseDrawIdRequest", harness.Session, setUseDrawIdPacketId, setUseDrawIdRequestRoundTrip);
+                setUseDrawIdResponse = ReadResponsePayload<DrawSetUseDrawIdResponse>(
+                    harness,
+                    setUseDrawIdPacketId,
+                    nameof(DrawSetUseDrawIdResponse),
+                    "DrawSetUseDrawIdRequest response");
+                InvokeRegisteredRequestHandler("DrawGetDrawGroupListRequest", harness.Session, drawGroupPacketId + 1, request: null);
+                selectedGroupResponse = ReadResponsePayload<DrawGetDrawGroupListResponse>(
+                    harness,
+                    drawGroupPacketId + 1,
+                    nameof(DrawGetDrawGroupListResponse),
+                    "DrawSetUseDrawIdRequest follow-up group response");
+            }
+
+            AssertEqual(0, setUseDrawIdResponse.Code, "DrawSetUseDrawIdResponse Code");
+            AssertEqual(1, setUseDrawIdResponse.SwitchDrawIdCount, "DrawSetUseDrawIdResponse SwitchDrawIdCount");
+            DrawGroupInfo selectedGroup = selectedGroupResponse.DrawGroupInfoList.Single(group => group.Id == targetWeaponResearchGroupId);
+            AssertEqual(1, selectedGroup.SwitchDrawIdCount, "DrawGetDrawGroupListResponse selected group SwitchDrawIdCount after selection");
+            AssertIntegerDictionary(
+                new Dictionary<int, int> { [0] = 371, [3] = selectedRetailDrawId },
+                selectedGroup.UseDrawIdDict,
+                "DrawGetDrawGroupListResponse selected group UseDrawIdDict after selecting 379");
+
+            const int selectedFateEventDrawId = 2482;
+            DrawSetUseDrawIdRequest setFateEventDrawIdRequest = new()
+            {
+                DrawId = selectedFateEventDrawId
+            };
+            DrawSetUseDrawIdRequest setFateEventDrawIdRequestRoundTrip = MessagePackSerializer.Deserialize<DrawSetUseDrawIdRequest>(
+                MessagePackSerializer.Serialize(setFateEventDrawIdRequest));
+            AssertEqual(selectedFateEventDrawId, setFateEventDrawIdRequestRoundTrip.DrawId, "DrawSetUseDrawIdRequest fate event DrawId MessagePack round-trip");
+
+            DrawSetUseDrawIdResponse setFateEventDrawIdResponse;
+            DrawGetDrawGroupListResponse selectedFateEventGroupResponse;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(drawEventSelectionPlayerId),
+                CreateDrawCompatibilityPlayer(drawEventSelectionPlayerId),
+                CreateDrawCompatibilityInventory(drawEventSelectionPlayerId, []),
+                "draw-event-selection-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawSetUseDrawIdRequest", harness.Session, setUseDrawIdPacketId + 1, setFateEventDrawIdRequestRoundTrip);
+                setFateEventDrawIdResponse = ReadResponsePayload<DrawSetUseDrawIdResponse>(
+                    harness,
+                    setUseDrawIdPacketId + 1,
+                    nameof(DrawSetUseDrawIdResponse),
+                    "DrawSetUseDrawIdRequest fate event response");
+                InvokeRegisteredRequestHandler("DrawGetDrawGroupListRequest", harness.Session, drawGroupPacketId + 2, request: null);
+                selectedFateEventGroupResponse = ReadResponsePayload<DrawGetDrawGroupListResponse>(
+                    harness,
+                    drawGroupPacketId + 2,
+                    nameof(DrawGetDrawGroupListResponse),
+                    "DrawSetUseDrawIdRequest fate event follow-up group response");
+            }
+
+            AssertEqual(0, setFateEventDrawIdResponse.Code, "DrawSetUseDrawIdResponse fate event Code");
+            AssertEqual(1, setFateEventDrawIdResponse.SwitchDrawIdCount, "DrawSetUseDrawIdResponse fate event SwitchDrawIdCount");
+            DrawGroupInfo selectedFateEventGroup = selectedFateEventGroupResponse.DrawGroupInfoList.Single(group => group.Id == fateThemedConstructGroupId);
+            AssertEqual(1, selectedFateEventGroup.SwitchDrawIdCount, "DrawGetDrawGroupListResponse fate event group SwitchDrawIdCount after selection");
+            AssertIntegerDictionary(
+                new Dictionary<int, int> { [0] = 0, [5] = selectedFateEventDrawId },
+                selectedFateEventGroup.UseDrawIdDict,
+                "DrawGetDrawGroupListResponse group 15 UseDrawIdDict after selecting 2482 into slot 5");
+
+            const int rewardBackedDrawId = 302;
+            DrawInfo drawInfoBeforeCard = infoResponse.DrawInfoList.First(info => info.Id == rewardBackedDrawId);
+            int initialDrawTicketCount = drawInfoBeforeCard.UseItemCount * 4;
+            DrawDrawCardRequest drawCardRequest = new()
+            {
+                DrawId = rewardBackedDrawId,
+                Count = 1,
+                UseDrawTicketId = 0
+            };
+            DrawDrawCardRequest drawCardRequestRoundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
+                MessagePackSerializer.Serialize(drawCardRequest));
+            AssertEqual(rewardBackedDrawId, drawCardRequestRoundTrip.DrawId, "DrawDrawCardRequest DrawId MessagePack round-trip");
+            AssertEqual(1, drawCardRequestRoundTrip.Count, "DrawDrawCardRequest Count MessagePack round-trip");
+            AssertEqual(0, drawCardRequestRoundTrip.UseDrawTicketId, "DrawDrawCardRequest UseDrawTicketId MessagePack round-trip");
+            AssertDrawDrawCardHandlerUsesPlayerScopedPullOffset();
+
+            DrawDrawCardResponse drawCardResponse = null!;
+            NotifyItemDataList drawItemPush = null!;
+            NotifyEquipDataList? drawEquipPush = null;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(drawProgressPlayerId),
+                CreateDrawCompatibilityPlayer(drawProgressPlayerId),
+                CreateDrawCompatibilityInventory(drawProgressPlayerId, [new Item { Id = drawInfoBeforeCard.UseItemId, Count = initialDrawTicketCount }]),
+                "draw-card-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawDrawCardRequest", harness.Session, drawCardPacketId, drawCardRequestRoundTrip);
+                Packet firstPacket = harness.ReadPacket("DrawDrawCardRequest first packet");
+                AssertEqual(Packet.ContentType.Push, firstPacket.Type, "DrawDrawCardRequest first packet type");
+                Packet.Push firstPush = MessagePackSerializer.Deserialize<Packet.Push>(firstPacket.Content);
+                AssertEqual(nameof(NotifyItemDataList), firstPush.Name, "DrawDrawCardRequest first push");
+                drawItemPush = MessagePackSerializer.Deserialize<NotifyItemDataList>(firstPush.Content);
+
+                for (int packetIndex = 0; packetIndex < 4; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"DrawDrawCardRequest packet {packetIndex + 2}");
+                    if (packet.Type == Packet.ContentType.Push)
+                    {
+                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                        if (push.Name == nameof(NotifyEquipDataList))
+                            drawEquipPush = MessagePackSerializer.Deserialize<NotifyEquipDataList>(push.Content);
+                        continue;
+                    }
+
+                    AssertEqual(Packet.ContentType.Response, packet.Type, "DrawDrawCardRequest response packet type");
+                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                    AssertEqual(drawCardPacketId, response.Id, "DrawDrawCardRequest response packet id");
+                    AssertEqual(nameof(DrawDrawCardResponse), response.Name, "DrawDrawCardRequest response packet name");
+                    drawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
+                    goto FoundDrawCardResponse;
+                }
+
+                throw new InvalidDataException("DrawDrawCardRequest: expected DrawDrawCardResponse after inventory pushes.");
+
+            FoundDrawCardResponse:
+                ;
+            }
+
+            Item costItem = drawItemPush.ItemDataList.Single(item => item.Id == drawInfoBeforeCard.UseItemId);
+            AssertEqual((long)(initialDrawTicketCount - drawInfoBeforeCard.UseItemCount), costItem.Count, "DrawDrawCardRequest NotifyItemDataList consumed draw ticket count");
+            AssertEqual(1, drawCardResponse.RewardGoodsList.Count, "DrawDrawCardResponse RewardGoodsList count for 1x draw");
+            RewardGoods reward = drawCardResponse.RewardGoodsList[0];
+            AssertDrawRewardPushMatchesRewardGoods(drawInfoBeforeCard, reward, drawItemPush, drawEquipPush, "DrawDrawCardRequest reward notification");
+            AssertRequiredMemberNull(drawCardResponse, nameof(DrawDrawCardResponse.ExtraRewardList), "DrawDrawCardResponse ExtraRewardList nullable protocol field");
+            AssertRequiredMemberNull(drawCardResponse, nameof(DrawDrawCardResponse.DrawAdjustData), "DrawDrawCardResponse DrawAdjustData nullable protocol field");
+            DrawInfo clientDrawInfo = drawCardResponse.ClientDrawInfo
+                ?? throw new InvalidDataException("DrawDrawCardResponse ClientDrawInfo: expected draw progress payload.");
+            AssertEqual(rewardBackedDrawId, clientDrawInfo.Id, "DrawDrawCardResponse ClientDrawInfo Id");
+            AssertEqual(drawInfoBeforeCard.TotalCount + 1, clientDrawInfo.TotalCount, "DrawDrawCardResponse ClientDrawInfo TotalCount after 1x draw");
+            AssertEqual(drawInfoBeforeCard.TodayCount + 1, clientDrawInfo.TodayCount, "DrawDrawCardResponse ClientDrawInfo TodayCount after 1x draw");
+            AssertEqual(drawInfoBeforeCard.BottomTimes - 1, clientDrawInfo.BottomTimes, "DrawDrawCardResponse ClientDrawInfo BottomTimes after 1x draw");
+            AssertTargetWeaponPityDraw(drawPityPlayerId, drawInfoBeforeCard);
+
+            const int consumeItemId = AscNet.Common.Database.Inventory.FreeGem;
+            const int targetDrawTicketItemId = 50005;
+            const int initialConsumeCount = 30;
+            const int initialTargetTicketCount = 7;
+            const int buyTimes = 3;
+            ItemBuyAssetRequest buyAssetRequest = new()
+            {
+                Times = buyTimes,
+                ItemId = targetDrawTicketItemId,
+                ConsumeId = consumeItemId
+            };
+            ItemBuyAssetRequest buyAssetRequestRoundTrip = MessagePackSerializer.Deserialize<ItemBuyAssetRequest>(
+                MessagePackSerializer.Serialize(buyAssetRequest));
+            AssertEqual(buyTimes, buyAssetRequestRoundTrip.Times, "ItemBuyAssetRequest Times MessagePack round-trip");
+            AssertEqual(targetDrawTicketItemId, buyAssetRequestRoundTrip.ItemId, "ItemBuyAssetRequest ItemId MessagePack round-trip");
+            AssertEqual(consumeItemId, buyAssetRequestRoundTrip.ConsumeId, "ItemBuyAssetRequest ConsumeId MessagePack round-trip");
+
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(buyAssetPlayerId),
+                CreateDrawCompatibilityPlayer(buyAssetPlayerId),
+                CreateDrawCompatibilityInventory(
+                    buyAssetPlayerId,
+                    [
+                        new Item { Id = consumeItemId, Count = initialConsumeCount },
+                        new Item { Id = targetDrawTicketItemId, Count = initialTargetTicketCount }
+                    ]),
+                "item-buy-asset-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("ItemBuyAssetRequest", harness.Session, buyAssetPacketId, buyAssetRequestRoundTrip);
+                Packet pushPacket = harness.ReadPacket("ItemBuyAssetRequest NotifyItemDataList push");
+                AssertEqual(Packet.ContentType.Push, pushPacket.Type, "ItemBuyAssetRequest first packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(pushPacket.Content);
+                AssertEqual(nameof(NotifyItemDataList), push.Name, "ItemBuyAssetRequest first push");
+                NotifyItemDataList notifyItemDataList = MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
+                Item consumedItem = notifyItemDataList.ItemDataList.Single(item => item.Id == consumeItemId);
+                Item boughtItem = notifyItemDataList.ItemDataList.Single(item => item.Id == targetDrawTicketItemId);
+                AssertEqual((long)(initialConsumeCount - buyTimes), consumedItem.Count, "ItemBuyAssetRequest NotifyItemDataList consumed item count");
+                AssertEqual((long)(initialTargetTicketCount + buyTimes), boughtItem.Count, "ItemBuyAssetRequest NotifyItemDataList target draw ticket count");
+
+                ItemBuyAssetResponse buyAssetResponse = ReadResponsePayload<ItemBuyAssetResponse>(
+                    harness,
+                    buyAssetPacketId,
+                    nameof(ItemBuyAssetResponse),
+                    "ItemBuyAssetRequest response");
+                AssertEqual(buyTimes, buyAssetResponse.Count, "ItemBuyAssetResponse Count");
+            }
+        }
+
+        private static void AssertDrawDrawCardHandlerUsesPlayerScopedPullOffset()
+        {
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            MethodInfo drawDraw = RequiredMethod(
+                drawManagerType,
+                "DrawDraw",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(long), typeof(int), typeof(int)]);
+            MethodInfo handler = GetRegisteredRequestHandlerMethod("DrawDrawCardRequest");
+            List<IlInstruction> instructions = ReadIlInstructions(handler).ToList();
+            int drawDrawIndex = FindCallIndex(instructions, drawDraw, startIndex: 0);
+            if (drawDrawIndex < 0)
+                throw new InvalidDataException("DrawDrawCardRequestHandler draw call: expected handler to call DrawManager.DrawDraw(long playerId, int drawId, int pullOffset).");
+
+            FieldInfo sessionPlayer = typeof(Session).GetField(nameof(Session.player), BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingFieldException(typeof(Session).FullName, nameof(Session.player));
+            MethodInfo playerDataGetter = RequiredMethod(
+                typeof(AscNet.Common.Database.Player),
+                $"get_{nameof(AscNet.Common.Database.Player.PlayerData)}",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo playerDataIdGetter = RequiredMethod(
+                typeof(PlayerData),
+                $"get_{nameof(PlayerData.Id)}",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo drawIdGetter = RequiredMethod(
+                typeof(DrawDrawCardRequest),
+                $"get_{nameof(DrawDrawCardRequest.DrawId)}",
+                BindingFlags.Instance | BindingFlags.Public);
+
+            int windowStart = Math.Max(0, drawDrawIndex - 16);
+            if (!instructions.Skip(windowStart).Take(drawDrawIndex - windowStart).Any(instruction =>
+                    instruction.OpCode == OpCodes.Ldfld
+                    && instruction.Operand is FieldInfo loadedField
+                    && FieldsMatch(loadedField, sessionPlayer)))
+                throw new InvalidDataException("DrawDrawCardRequestHandler draw call: expected player id argument to start from Session.player.");
+            if (!instructions.Skip(windowStart).Take(drawDrawIndex - windowStart).Any(instruction =>
+                    instruction.Operand is MethodBase calledMethod
+                    && MethodsMatch(calledMethod, playerDataGetter)))
+                throw new InvalidDataException("DrawDrawCardRequestHandler draw call: expected player id argument to load Player.PlayerData.");
+            if (!instructions.Skip(windowStart).Take(drawDrawIndex - windowStart).Any(instruction =>
+                    instruction.Operand is MethodBase calledMethod
+                    && MethodsMatch(calledMethod, playerDataIdGetter)))
+                throw new InvalidDataException("DrawDrawCardRequestHandler draw call: expected player id argument to load PlayerData.Id.");
+            if (!instructions.Skip(windowStart).Take(drawDrawIndex - windowStart).Any(instruction =>
+                    instruction.Operand is MethodBase calledMethod
+                    && MethodsMatch(calledMethod, drawIdGetter)))
+                throw new InvalidDataException("DrawDrawCardRequestHandler draw call: expected draw id argument to load DrawDrawCardRequest.DrawId.");
+            if (!instructions.Skip(windowStart).Take(drawDrawIndex - windowStart).Any(instruction =>
+                    instruction.OpCode == OpCodes.Ldloc || instruction.OpCode == OpCodes.Ldloc_S || instruction.OpCode == OpCodes.Ldloc_0 || instruction.OpCode == OpCodes.Ldloc_1 || instruction.OpCode == OpCodes.Ldloc_2 || instruction.OpCode == OpCodes.Ldloc_3))
+                throw new InvalidDataException("DrawDrawCardRequestHandler draw call: expected pull offset argument to load the draw loop index.");
+        }
+
+        private static void AssertDraw1488RetailRewardPool(DrawInfo eventConstruct1488, long drawPityPlayerId, int weaponResearchGroupId, int targetWeaponResearchGroupId, int cubTargetGroupId)
+        {
+            AssertEqual(false, eventConstruct1488.GroupId == weaponResearchGroupId || eventConstruct1488.GroupId == targetWeaponResearchGroupId || eventConstruct1488.GroupId == cubTargetGroupId, "Draw 1488 retail-like reward routing uses construct reward pool");
+            AssertTargetCharacterPityDraw(drawPityPlayerId, eventConstruct1488, expectedTargetCharacterId: 1021007, targetName: "Lucia: Inverse Crown");
+
+            List<CharacterTable> characterRows = TableReaderV2.Parse<CharacterTable>();
+            List<ItemTable> itemRows = TableReaderV2.Parse<ItemTable>();
+            int targetCharacterId = eventConstruct1488.ResourceIds.TryGetValue(1, out int resourceId)
+                ? resourceId
+                : throw new InvalidDataException("Draw 1488 ResourceIds: expected target character id in slot 1.");
+            CharacterTable? targetCharacter = characterRows.SingleOrDefault(character => character.Id == targetCharacterId);
+            int[] capturedShardItemIds = [561, 533, 528, 502];
+            int[] localShardItemIds = targetCharacter?.ItemId > 0 ? capturedShardItemIds.Append(targetCharacter.ItemId).Distinct().ToArray() : capturedShardItemIds;
+            foreach (int shardItemId in localShardItemIds)
+            {
+                ItemTable shardItem = itemRows.SingleOrDefault(item => item.Id == shardItemId)
+                    ?? throw new InvalidDataException($"Draw 1488 shard pool: expected local Inver-Shard item {shardItemId}.");
+                if (!shardItem.Name.StartsWith("Inver-Shard", StringComparison.Ordinal))
+                    throw new InvalidDataException($"Draw 1488 shard pool item {shardItem.Id}: expected Inver-Shard item name, got '{shardItem.Name}'.");
+            }
+
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            Type drawInfoTemplateType = drawManagerType.GetNestedType("DrawInfoTemplate", BindingFlags.NonPublic)
+                ?? throw new MissingMemberException(drawManagerType.FullName, "DrawInfoTemplate");
+            MethodInfo drawCharacterReward = RequiredMethod(
+                drawManagerType,
+                "DrawCharacterReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawCharacterShardReward = RequiredMethod(
+                drawManagerType,
+                "DrawCharacterShardReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType]);
+            MethodInfo drawMemoryReward = RequiredMethod(
+                drawManagerType,
+                "DrawMemoryReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo tryCreateTargetCharacterReward = RequiredMethod(
+                drawManagerType,
+                "TryCreateTargetCharacterReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(RewardGoods).MakeByRefType()]);
+            MethodInfo drawRandomCharacterReward = RequiredMethod(
+                drawManagerType,
+                "DrawRandomCharacterReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(int)]);
+            MethodInfo drawOverclockMaterialReward = RequiredMethod(
+                drawManagerType,
+                "DrawOverclockMaterialReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo drawExpMaterialReward = RequiredMethod(
+                drawManagerType,
+                "DrawExpMaterialReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo drawCogBoxReward = RequiredMethod(
+                drawManagerType,
+                "DrawCogBoxReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo drawRandomWeaponReward = RequiredMethod(
+                drawManagerType,
+                "DrawRandomWeaponReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(int), typeof(int)]);
+
+            List<IlInstruction> drawCharacterRewardInstructions = ReadIlInstructions(drawCharacterReward).ToList();
+            (MethodInfo Method, string Category)[] expectedConstructRewardBranches =
+            [
+                (tryCreateTargetCharacterReward, "target character"),
+                (drawRandomCharacterReward, "low-rarity character"),
+                (drawCharacterShardReward, "target shard"),
+                (drawMemoryReward, "4-star memory"),
+                (drawOverclockMaterialReward, "overclock material"),
+                (drawExpMaterialReward, "exp material"),
+                (drawCogBoxReward, "Cog Pack")
+            ];
+            foreach ((MethodInfo method, string category) in expectedConstructRewardBranches)
+            {
+                if (FindCallIndex(drawCharacterRewardInstructions, method, startIndex: 0) < 0)
+                    throw new InvalidDataException($"Draw 1488 retail-like reward routing: expected construct reward pool to reach {category} branch.");
+            }
+            if (FindCallIndex(drawCharacterRewardInstructions, drawRandomWeaponReward, startIndex: 0) >= 0)
+                throw new InvalidDataException("Draw 1488 retail-like reward routing: expected construct reward pool not to reach off-rate weapon branch.");
+            AssertMethodContainsIntConstants(drawCharacterReward, drawCharacterRewardInstructions, [190, 1585, 3796, 6689, 7831, 8312, 9247], "Draw 1488 retail-like construct reward thresholds");
+            List<IlInstruction> shardInstructions = ReadIlInstructions(drawCharacterShardReward).ToList();
+            AssertMethodContainsIntConstants(drawCharacterShardReward, shardInstructions, [2, 6, 18], "Draw 1488 Inver-Shard reward counts");
+
+            int[] capturedMemoryEquipIds = [3054001, 3064001, 3054002, 3024001, 3064004, 3024003];
+            Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>().ToDictionary(equip => equip.Id);
+            foreach (int capturedMemoryEquipId in capturedMemoryEquipIds)
+            {
+                if (!equipRowsById.TryGetValue(capturedMemoryEquipId, out EquipTable? capturedMemory))
+                    throw new InvalidDataException($"Draw 1488 retail-like memory pool: expected local equip row {capturedMemoryEquipId} from retail capture.");
+                AssertEqual(0, capturedMemory.Type, $"Draw 1488 retail-like memory pool {capturedMemoryEquipId} Type");
+                AssertEqual(4, capturedMemory.Quality, $"Draw 1488 retail-like memory pool {capturedMemoryEquipId} Quality");
+                AssertEqual(true, AscNet.Common.Database.Character.IsOwnableEquipTemplate(capturedMemory), $"Draw 1488 retail-like memory pool {capturedMemoryEquipId} ownable equip template");
+            }
+        }
+
+        private static void AssertCurrentWeaponBannerTargetEquipRows(IReadOnlyDictionary<int, int> expectedTargetEquipIds, IReadOnlyList<DrawInfo> drawInfos)
+        {
+            Dictionary<int, DrawInfo> drawInfoById = drawInfos.ToDictionary(info => info.Id);
+            Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>().ToDictionary(equip => equip.Id);
+
+            foreach (KeyValuePair<int, int> expectedTarget in expectedTargetEquipIds)
+            {
+                int drawId = expectedTarget.Key;
+                int expectedTargetEquipId = expectedTarget.Value;
+                if (!drawInfoById.TryGetValue(drawId, out DrawInfo? drawInfo))
+                    throw new InvalidDataException($"Current weapon-banner draw {drawId}: expected DrawInfo row.");
+                if (!drawInfo.ResourceIds.TryGetValue(1, out int actualTargetEquipId))
+                    throw new InvalidDataException($"Current weapon-banner draw {drawId}: expected ResourceIds[1] target equip id.");
+
+                AssertEqual(expectedTargetEquipId, actualTargetEquipId, $"Current weapon-banner draw {drawId} ResourceIds[1]");
+                if (!equipRowsById.TryGetValue(actualTargetEquipId, out EquipTable? targetEquip))
+                    throw new InvalidDataException($"Current weapon-banner draw {drawId}: expected EquipTable row {actualTargetEquipId}.");
+                if (targetEquip.Type <= 0)
+                    throw new InvalidDataException($"Current weapon-banner draw {drawId}: expected EquipTable row {actualTargetEquipId} to be a weapon row, got Type {targetEquip.Type}.");
+                AssertEqual(0, targetEquip.Site, $"Current weapon-banner draw {drawId} target equip Site");
+                AssertEqual(true, AscNet.Common.Database.Character.IsOwnableEquipTemplate(targetEquip), $"Current weapon-banner draw {drawId} target equip ownable template");
+            }
+        }
+
+        private static void AssertCurrentVersionJumpDrawTargetRows(IReadOnlyList<(int DrawId, int CharacterId)> expectedTargets, IReadOnlyList<DrawInfo> drawInfos)
+        {
+            Dictionary<int, DrawInfo> drawInfoById = drawInfos.ToDictionary(info => info.Id);
+            AssertEqual(expectedTargets.Count, drawInfoById.Count, "Current version-jump draw target row draw count");
+
+            foreach ((int drawId, int expectedCharacterId) in expectedTargets)
+            {
+                if (!drawInfoById.TryGetValue(drawId, out DrawInfo? drawInfo))
+                    throw new InvalidDataException($"Current version-jump draw target {drawId}: expected DrawInfo row.");
+                if (!drawInfo.ResourceIds.TryGetValue(1, out int actualCharacterId))
+                    throw new InvalidDataException($"Current version-jump draw target {drawId}: expected ResourceIds[1] target character id.");
+
+                AssertEqual(expectedCharacterId, actualCharacterId, $"Current version-jump draw target {drawId} ResourceIds[1]");
+            }
+
+            int[] expectedCharacterIds = expectedTargets
+                .Select(target => target.CharacterId)
+                .Distinct()
+                .OrderBy(characterId => characterId)
+                .ToArray();
+            int[] actualCharacterIds = drawInfos
+                .Select(drawInfo => drawInfo.ResourceIds[1])
+                .Distinct()
+                .OrderBy(characterId => characterId)
+                .ToArray();
+            AssertIntegerList(
+                expectedCharacterIds.Select(characterId => (long)characterId).ToArray(),
+                actualCharacterIds.Select(characterId => (long)characterId).ToArray(),
+                "Current version-jump distinct target character ids");
+            AssertCurrentDrawTargetCharacterPersistenceRows(expectedCharacterIds);
+        }
+
+        private static void AssertCurrentCharacterGradeTablesAndPromotionBehavior()
+        {
+            List<CharacterTable> characterRows = TableReaderV2.Parse<CharacterTable>();
+            List<CharacterGradeTable> gradeRows = TableReaderV2.Parse<CharacterGradeTable>();
+            Dictionary<int, List<CharacterGradeTable>> gradeRowsByCharacterId = gradeRows
+                .GroupBy(grade => grade.CharacterId)
+                .ToDictionary(group => group.Key, group => group.OrderBy(grade => grade.Grade).ToList());
+
+            foreach (CharacterTable characterRow in characterRows)
+            {
+                if (!gradeRowsByCharacterId.TryGetValue(characterRow.Id, out List<CharacterGradeTable>? characterGradeRows))
+                    throw new InvalidDataException($"CharacterGradeTable: missing grade rows for CharacterTable row {characterRow.Id}.");
+
+                AssertEqual(14, characterGradeRows.Count, $"CharacterGradeTable character {characterRow.Id} complete grade row count");
+                AssertIntegerList(
+                    Enumerable.Range(1, 14).Select(grade => (long)grade).ToArray(),
+                    characterGradeRows.Select(grade => (long)grade.Grade).ToArray(),
+                    $"CharacterGradeTable character {characterRow.Id} sequential grades");
+            }
+
+            const int lunaOblivionId = 1171004;
+            if (!gradeRowsByCharacterId.TryGetValue(lunaOblivionId, out List<CharacterGradeTable>? lunaGradeRows))
+                throw new InvalidDataException("Luna Oblivion CharacterGradeTable: expected grade rows.");
+
+            CharacterGradeTable lunaGradeOne = lunaGradeRows.Single(grade => grade.Grade == 1);
+            AssertEqual(AscNet.Common.Database.Inventory.Coin, lunaGradeOne.UseItemKey ?? -1, "Luna Oblivion CharacterGradeTable grade 1 cog cost item");
+            AssertEqual(5000, lunaGradeOne.UseItemCount ?? -1, "Luna Oblivion CharacterGradeTable grade 1 cog cost count");
+            foreach (CharacterGradeTable gradeRow in lunaGradeRows)
+            {
+                if (gradeRow.AttrId <= 0)
+                    throw new InvalidDataException($"Luna Oblivion CharacterGradeTable grade {gradeRow.Grade}: expected nonzero AttrId, got {gradeRow.AttrId}.");
+            }
+
+            AssertLunaOblivionGradePromotionHandlerBehavior();
+            AssertCharacterSetCollectStateHandlerBehavior();
+        }
+
+        private static void AssertLunaOblivionGradePromotionHandlerBehavior()
+        {
+            const int lunaOblivionId = 1171004;
+            const long playerId = 880008;
+            const int promoteGradePacketId = 8806;
+            const int initialCogCount = 7000;
+            const int expectedCogCount = initialCogCount - 5000;
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            AscNet.Common.Database.AddCharacterRet addedCharacter = character.AddCharacter(lunaOblivionId);
+            AssertEqual(1, addedCharacter.Character.Grade, "CharacterPromoteGradeRequestHandler Luna Oblivion initial AddCharacter grade");
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = initialCogCount }]);
+
+            CharacterPromoteGradeRequest request = new()
+            {
+                TemplateId = lunaOblivionId
+            };
+            CharacterPromoteGradeRequest requestRoundTrip = MessagePackSerializer.Deserialize<CharacterPromoteGradeRequest>(
+                MessagePackSerializer.Serialize(request));
+            AssertEqual(lunaOblivionId, requestRoundTrip.TemplateId, "CharacterPromoteGradeRequest Luna Oblivion TemplateId MessagePack round-trip");
+
+            using (LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                inventory,
+                "luna-grade-promotion-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("CharacterPromoteGradeRequest", harness.Session, promoteGradePacketId, requestRoundTrip);
+
+                Packet itemPushPacket = harness.ReadPacket("CharacterPromoteGradeRequestHandler NotifyItemDataList push");
+                AssertEqual(Packet.ContentType.Push, itemPushPacket.Type, "CharacterPromoteGradeRequestHandler first packet type");
+                Packet.Push itemPush = MessagePackSerializer.Deserialize<Packet.Push>(itemPushPacket.Content);
+                AssertEqual(nameof(NotifyItemDataList), itemPush.Name, "CharacterPromoteGradeRequestHandler first push");
+                NotifyItemDataList notifyItemDataList = MessagePackSerializer.Deserialize<NotifyItemDataList>(itemPush.Content);
+                AssertEqual(1, notifyItemDataList.ItemDataList.Count, "CharacterPromoteGradeRequestHandler notified item count");
+                Item notifiedCogs = notifyItemDataList.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+                AssertEqual((long)expectedCogCount, notifiedCogs.Count, "CharacterPromoteGradeRequestHandler NotifyItemDataList cog count after promotion");
+
+                Packet characterPushPacket = harness.ReadPacket("CharacterPromoteGradeRequestHandler NotifyCharacterDataList push");
+                AssertEqual(Packet.ContentType.Push, characterPushPacket.Type, "CharacterPromoteGradeRequestHandler second packet type");
+                Packet.Push characterPush = MessagePackSerializer.Deserialize<Packet.Push>(characterPushPacket.Content);
+                AssertEqual(nameof(NotifyCharacterDataList), characterPush.Name, "CharacterPromoteGradeRequestHandler second push");
+                NotifyCharacterDataList notifyCharacterDataList = MessagePackSerializer.Deserialize<NotifyCharacterDataList>(characterPush.Content);
+                AssertEqual(1, notifyCharacterDataList.CharacterDataList.Count, "CharacterPromoteGradeRequestHandler notified character count");
+                CharacterData notifiedLuna = notifyCharacterDataList.CharacterDataList.Single(characterData => characterData.Id == lunaOblivionId);
+                AssertEqual(2, notifiedLuna.Grade, "CharacterPromoteGradeRequestHandler NotifyCharacterDataList Luna Oblivion grade after promotion");
+
+                CharacterPromoteGradeResponse response = ReadResponsePayload<CharacterPromoteGradeResponse>(
+                    harness,
+                    promoteGradePacketId,
+                    nameof(CharacterPromoteGradeResponse),
+                    "CharacterPromoteGradeRequestHandler response");
+                AssertEqual(0, response.Code, "CharacterPromoteGradeResponse Code");
+            }
+
+            AssertEqual(2, addedCharacter.Character.Grade, "CharacterPromoteGradeRequestHandler Luna Oblivion session grade after promotion");
+            Item sessionCogs = inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+            AssertEqual((long)expectedCogCount, sessionCogs.Count, "CharacterPromoteGradeRequestHandler session inventory cog count after promotion");
+        }
+
+        private static void AssertCharacterSetCollectStateHandlerBehavior()
+        {
+            const int characterId = 1171004;
+            const int missingCharacterId = 1021001;
+            const long playerId = 880009;
+            const int templateIdCollectStatePacketId = 8807;
+            const int characterIdCollectStatePacketId = 8808;
+            const int idCollectStatePacketId = 8809;
+            const int missingCollectStatePacketId = 8810;
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            AscNet.Common.Database.AddCharacterRet addedCharacter = character.AddCharacter(characterId);
+            addedCharacter.Character.CollectState = false;
+
+            CharacterSetCollectStateRequest RoundTripCollectStateRequest(
+                CharacterSetCollectStateRequest source,
+                string explicitIdFieldName,
+                int expectedTargetCharacterId,
+                bool expectedCollectState,
+                string name)
+            {
+                byte[] serialized = MessagePackSerializer.Serialize(source);
+                AssertCharacterSetCollectStateRequestSkipsTargetCharacterId(serialized, name);
+                CharacterSetCollectStateRequest roundTrip = MessagePackSerializer.Deserialize<CharacterSetCollectStateRequest>(serialized);
+
+                if (explicitIdFieldName == nameof(CharacterSetCollectStateRequest.TemplateId))
+                    AssertEqual(expectedTargetCharacterId, roundTrip.TemplateId, $"{name} TemplateId MessagePack round-trip");
+                else if (explicitIdFieldName == nameof(CharacterSetCollectStateRequest.CharacterId))
+                    AssertEqual(expectedTargetCharacterId, roundTrip.CharacterId, $"{name} CharacterId MessagePack round-trip");
+                else if (explicitIdFieldName == nameof(CharacterSetCollectStateRequest.Id))
+                    AssertEqual(expectedTargetCharacterId, roundTrip.Id, $"{name} Id MessagePack round-trip");
+                else
+                    throw new InvalidDataException($"{name}: unknown explicit id field '{explicitIdFieldName}'.");
+
+                AssertEqual(expectedCollectState, roundTrip.CollectState, $"{name} CollectState MessagePack round-trip");
+                AssertEqual(expectedTargetCharacterId, roundTrip.TargetCharacterId, $"{name} resolved TargetCharacterId after MessagePack round-trip");
+                return roundTrip;
+            }
+
+            static void AssertCharacterSetCollectStateRequestSkipsTargetCharacterId(byte[] serialized, string name)
+            {
+                System.Buffers.ReadOnlySequence<byte> sequence = new(serialized);
+                MessagePackReader reader = new(sequence);
+                int fieldCount = reader.ReadMapHeader();
+                bool sawTargetCharacterId = false;
+
+                for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+                {
+                    string fieldName = reader.ReadString()
+                        ?? throw new InvalidDataException($"{name}: MessagePack field name serialized as nil.");
+                    if (fieldName == nameof(CharacterSetCollectStateRequest.TargetCharacterId))
+                        sawTargetCharacterId = true;
+                    reader.Skip();
+                }
+
+                AssertEqual(false, sawTargetCharacterId, $"{name} TargetCharacterId omitted from MessagePack payload");
+            }
+
+            void AssertOwnedCollectStateRequest(
+                CharacterSetCollectStateRequest request,
+                string explicitIdFieldName,
+                int packetId,
+                bool expectedCollectState,
+                string aliasName,
+                string harnessName)
+            {
+                CharacterSetCollectStateRequest requestRoundTrip = RoundTripCollectStateRequest(
+                    request,
+                    explicitIdFieldName,
+                    characterId,
+                    expectedCollectState,
+                    $"CharacterSetCollectStateRequest {aliasName}");
+
+                using (LoopbackSessionHarness harness = new(
+                    character,
+                    CreateDrawCompatibilityPlayer(playerId),
+                    CreateDrawCompatibilityInventory(playerId, []),
+                    harnessName))
+                {
+                    InvokeRegisteredRequestHandler("CharacterSetCollectStateRequest", harness.Session, packetId, requestRoundTrip);
+
+                    Packet characterPushPacket = harness.ReadPacket($"CharacterSetCollectStateRequestHandler {aliasName} NotifyCharacterDataList push");
+                    AssertEqual(Packet.ContentType.Push, characterPushPacket.Type, $"CharacterSetCollectStateRequestHandler {aliasName} first packet type");
+                    Packet.Push characterPush = MessagePackSerializer.Deserialize<Packet.Push>(characterPushPacket.Content);
+                    AssertEqual(nameof(NotifyCharacterDataList), characterPush.Name, $"CharacterSetCollectStateRequestHandler {aliasName} first push");
+                    NotifyCharacterDataList notifyCharacterDataList = MessagePackSerializer.Deserialize<NotifyCharacterDataList>(characterPush.Content);
+                    AssertEqual(1, notifyCharacterDataList.CharacterDataList.Count, $"CharacterSetCollectStateRequestHandler {aliasName} notified character count");
+                    CharacterData notifiedCharacter = notifyCharacterDataList.CharacterDataList.Single(characterData => characterData.Id == characterId);
+                    AssertEqual(expectedCollectState, notifiedCharacter.CollectState, $"CharacterSetCollectStateRequestHandler {aliasName} NotifyCharacterDataList CollectState after toggle");
+
+                    CharacterSetCollectStateResponse response = ReadResponsePayload<CharacterSetCollectStateResponse>(
+                        harness,
+                        packetId,
+                        nameof(CharacterSetCollectStateResponse),
+                        $"CharacterSetCollectStateRequestHandler {aliasName} response");
+                    AssertEqual(0, response.Code, $"CharacterSetCollectStateResponse {aliasName} Code");
+                }
+
+                AssertEqual(expectedCollectState, addedCharacter.Character.CollectState, $"CharacterSetCollectStateRequestHandler session CollectState after {aliasName} toggle");
+            }
+
+            AssertOwnedCollectStateRequest(
+                new CharacterSetCollectStateRequest
+                {
+                    TemplateId = characterId,
+                    CollectState = true
+                },
+                nameof(CharacterSetCollectStateRequest.TemplateId),
+                templateIdCollectStatePacketId,
+                expectedCollectState: true,
+                "TemplateId alias",
+                "character-collect-state-template-id-compat-test");
+
+            AssertOwnedCollectStateRequest(
+                new CharacterSetCollectStateRequest
+                {
+                    CharacterId = characterId,
+                    CollectState = false
+                },
+                nameof(CharacterSetCollectStateRequest.CharacterId),
+                characterIdCollectStatePacketId,
+                expectedCollectState: false,
+                "CharacterId alias",
+                "character-collect-state-character-id-compat-test");
+
+            AssertOwnedCollectStateRequest(
+                new CharacterSetCollectStateRequest
+                {
+                    Id = characterId,
+                    CollectState = true
+                },
+                nameof(CharacterSetCollectStateRequest.Id),
+                idCollectStatePacketId,
+                expectedCollectState: true,
+                "Id alias",
+                "character-collect-state-id-compat-test");
+
+            CharacterSetCollectStateRequest missingRequest = new()
+            {
+                TemplateId = missingCharacterId,
+                CollectState = false
+            };
+            CharacterSetCollectStateRequest missingRequestRoundTrip = RoundTripCollectStateRequest(
+                missingRequest,
+                nameof(CharacterSetCollectStateRequest.TemplateId),
+                missingCharacterId,
+                expectedCollectState: false,
+                "CharacterSetCollectStateRequest missing TemplateId");
+
+            using (LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "character-collect-state-missing-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("CharacterSetCollectStateRequest", harness.Session, missingCollectStatePacketId, missingRequestRoundTrip);
+
+                CharacterSetCollectStateResponse response = ReadResponsePayload<CharacterSetCollectStateResponse>(
+                    harness,
+                    missingCollectStatePacketId,
+                    nameof(CharacterSetCollectStateResponse),
+                    "CharacterSetCollectStateRequestHandler missing character response without NotifyCharacterDataList");
+                AssertEqual(20009011, response.Code, "CharacterSetCollectStateResponse missing character Code");
+            }
+
+            AssertEqual(true, addedCharacter.Character.CollectState, "CharacterSetCollectStateRequestHandler missing character leaves owned CollectState unchanged");
+            AssertEqual(1, character.Characters.Count, "CharacterSetCollectStateRequestHandler missing character does not add character data");
+        }
+
+        private static void AssertCurrentDrawTargetCharacterPersistenceRows(IReadOnlyList<int> characterIds)
+        {
+            Dictionary<int, CharacterTable> characterRowsById = TableReaderV2.Parse<CharacterTable>().ToDictionary(character => character.Id);
+            Dictionary<int, FashionTable> fashionRowsById = TableReaderV2.Parse<FashionTable>().ToDictionary(fashion => fashion.Id);
+            Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>().ToDictionary(equip => equip.Id);
+            Dictionary<int, CharacterSkillTable> skillRowsByCharacterId = TableReaderV2.Parse<CharacterSkillTable>().ToDictionary(skill => skill.CharacterId);
+            ILookup<int, CharacterQualityTable> qualityRowsByCharacterId = TableReaderV2.Parse<CharacterQualityTable>().ToLookup(quality => quality.CharacterId);
+            bool sawTargetWithMoreThanEightInitialSkills = false;
+            bool sawTargetWithOwnableDefaultEquipRepair = false;
+            bool sawLunaOblivionChakramDefault = false;
+
+            foreach (int characterId in characterIds.Distinct())
+            {
+                if (!characterRowsById.TryGetValue(characterId, out CharacterTable? characterRow))
+                    throw new InvalidDataException($"Current draw target character {characterId}: expected CharacterTable row.");
+
+                if (characterId == 1171004)
+                {
+                    sawLunaOblivionChakramDefault = true;
+                    AssertEqual(43, characterRow.EquipType, "Luna Oblivion CharacterTable EquipType uses Chakram");
+                    AssertEqual(2434001, characterRow.EquipId, "Luna Oblivion CharacterTable EquipId uses 4-star Chakram Reappearance");
+                    if (!equipRowsById.TryGetValue(characterRow.EquipId, out EquipTable? lunaDefaultEquipRow))
+                        throw new InvalidDataException("Luna Oblivion: expected local EquipTable row 2434001 for Chakram Reappearance.");
+                    AssertEqual(43, lunaDefaultEquipRow.Type, "Luna Oblivion default equip Type");
+                    AssertEqual("Reappearance", lunaDefaultEquipRow.Name, "Luna Oblivion default equip Name");
+                }
+
+                int defaultFashionId = characterRow.DefaultNpcFashtionId;
+                if (defaultFashionId != 0)
+                {
+                    if (!fashionRowsById.TryGetValue(defaultFashionId, out FashionTable? defaultFashionRow))
+                        throw new InvalidDataException($"Current draw target character {characterId}: expected FashionTable row {defaultFashionId} for CharacterTable DefaultNpcFashtionId.");
+                    AssertEqual(characterId, defaultFashionRow.CharacterId, $"Current draw target character {characterId} default fashion CharacterId");
+                }
+
+                if (!skillRowsByCharacterId.TryGetValue(characterId, out CharacterSkillTable? skillRow))
+                    throw new InvalidDataException($"Current draw target character {characterId}: expected CharacterSkillTable row.");
+
+                CharacterQualityTable firstQualityRow = qualityRowsByCharacterId[characterId]
+                    .OrderBy(quality => quality.Quality)
+                    .FirstOrDefault()
+                    ?? throw new InvalidDataException($"Current draw target character {characterId}: expected CharacterQualityTable row.");
+                if (firstQualityRow.Quality <= 0)
+                    throw new InvalidDataException($"Current draw target character {characterId}: expected nonzero first quality, got {firstQualityRow.Quality}.");
+
+                uint[] expectedSkillIds = skillRow.SkillGroupId
+                    .Where(skillGroupId => skillGroupId > 0)
+                    .Select(skillGroupId => AddCharacterSkillIdFromGroup(characterId, skillGroupId))
+                    .Distinct()
+                    .ToArray();
+                if (expectedSkillIds.Length > 8)
+                    sawTargetWithMoreThanEightInitialSkills = true;
+
+                AscNet.Common.Database.Character roster = CreateDrawCompatibilityCharacter(characterId);
+                AscNet.Common.Database.AddCharacterRet addedCharacter = roster.AddCharacter((uint)characterId);
+                AssertEqual((uint)characterId, addedCharacter.Character.Id, $"Current draw target character {characterId} AddCharacter persisted id");
+                AssertEqual(firstQualityRow.Quality, addedCharacter.Character.Quality, $"Current draw target character {characterId} AddCharacter first quality");
+                AssertEqual(firstQualityRow.Quality, addedCharacter.Character.InitQuality, $"Current draw target character {characterId} AddCharacter init quality");
+                AssertIntegerList(
+                    expectedSkillIds.Select(skillId => (long)skillId).ToArray(),
+                    addedCharacter.Character.SkillList.Select(skill => (long)skill.Id).ToArray(),
+                    $"Current draw target character {characterId} AddCharacter all positive skill ids");
+
+                AscNet.Common.Database.Character persistedCharacter = new()
+                {
+                    Uid = characterId,
+                    Characters =
+                    [
+                        new CharacterData
+                        {
+                            Id = (uint)characterId,
+                            SkillList = null!,
+                            EnhanceSkillList = null!,
+                            FashionId = 0,
+                            CharacterHeadInfo = null!
+                        }
+                    ],
+                    Equips = [],
+                    Fashions = []
+                };
+
+                if (characterId == 1171004)
+                {
+                    persistedCharacter.Equips.Add(new EquipData
+                    {
+                        Id = 990001,
+                        TemplateId = 2484001,
+                        CharacterId = characterId,
+                        Level = 1,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = [],
+                        WeaponOverrunData = new()
+                    });
+                }
+
+                AssertEqual(true, persistedCharacter.NormalizeCharactersForCurrentTables(), $"Current draw target character {characterId} persisted document repair reports mutation");
+                CharacterData repairedCharacter = persistedCharacter.Characters.Single(character => character.Id == characterId);
+                AssertEqual(1, repairedCharacter.Level, $"Current draw target character {characterId} repaired Level");
+                AssertEqual(firstQualityRow.Quality, repairedCharacter.Quality, $"Current draw target character {characterId} repaired Quality");
+                AssertEqual(firstQualityRow.Quality, repairedCharacter.InitQuality, $"Current draw target character {characterId} repaired InitQuality");
+                AssertEqual(1, repairedCharacter.Grade, $"Current draw target character {characterId} repaired Grade");
+                AssertEqual(1, repairedCharacter.TrustLv, $"Current draw target character {characterId} repaired TrustLv");
+                AssertEqual(1, repairedCharacter.LiberateLv, $"Current draw target character {characterId} repaired LiberateLv");
+                if (repairedCharacter.CreateTime <= 0)
+                    throw new InvalidDataException($"Current draw target character {characterId}: expected repaired CreateTime to be nonzero.");
+                if (repairedCharacter.EnhanceSkillList is null)
+                    throw new InvalidDataException($"Current draw target character {characterId}: expected repaired EnhanceSkillList.");
+                AssertIntegerList(
+                    expectedSkillIds.Order().Select(skillId => (long)skillId).ToArray(),
+                    repairedCharacter.SkillList.Select(skill => (long)skill.Id).ToArray(),
+                    $"Current draw target character {characterId} repaired all positive skill ids");
+
+                if (defaultFashionId > 0)
+                {
+                    AssertEqual((uint)defaultFashionId, repairedCharacter.FashionId, $"Current draw target character {characterId} repaired FashionId");
+                    if (repairedCharacter.CharacterHeadInfo is null)
+                        throw new InvalidDataException($"Current draw target character {characterId}: expected repaired CharacterHeadInfo.");
+                    AssertEqual((uint)defaultFashionId, repairedCharacter.CharacterHeadInfo.HeadFashionId, $"Current draw target character {characterId} repaired HeadFashionId");
+                    FashionList repairedFashion = persistedCharacter.Fashions.Single(fashion => fashion.Id == defaultFashionId);
+                    AssertEqual(false, repairedFashion.IsLock, $"Current draw target character {characterId} repaired default fashion unlocked");
+                }
+
+                if (characterRow.EquipId > 0
+                    && equipRowsById.TryGetValue(characterRow.EquipId, out EquipTable? defaultEquipRow)
+                    && AscNet.Common.Database.Character.IsOwnableEquipTemplate(defaultEquipRow))
+                {
+                    sawTargetWithOwnableDefaultEquipRepair = true;
+                    EquipData repairedDefaultEquip = persistedCharacter.Equips.Single(equip => equip.TemplateId == (uint)characterRow.EquipId);
+                    AssertEqual(characterId, repairedDefaultEquip.CharacterId, $"Current draw target character {characterId} repaired default equip CharacterId");
+                    AssertEqual(1, repairedDefaultEquip.Level, $"Current draw target character {characterId} repaired default equip Level");
+                    if (characterId == 1171004)
+                    {
+                        EquipData previousWrongDefaultEquip = persistedCharacter.Equips.Single(equip => equip.TemplateId == 2484001);
+                        AssertEqual(0, previousWrongDefaultEquip.CharacterId, "Luna Oblivion previous Rasetsu default is unassigned during repair");
+                    }
+                }
+            }
+
+            if (!sawTargetWithMoreThanEightInitialSkills)
+                throw new InvalidDataException("Current draw target characters: expected at least one row with more than eight positive CharacterSkill.SkillGroupId-derived initial skills.");
+            if (!sawTargetWithOwnableDefaultEquipRepair)
+                throw new InvalidDataException("Current draw target characters: expected at least one row with an ownable CharacterTable EquipId for default equip repair.");
+            if (!sawLunaOblivionChakramDefault)
+                throw new InvalidDataException("Current draw target characters: expected Luna Oblivion to be covered by default Chakram Reappearance assertions.");
+        }
+
+        private static uint AddCharacterSkillIdFromGroup(int characterId, int skillGroupId)
+        {
+            if (skillGroupId <= 0)
+                throw new InvalidDataException($"Current draw target character {characterId}: expected positive AddCharacter skill group id, got {skillGroupId}.");
+
+            string skillGroupIdText = skillGroupId.ToString();
+            uint skillId = uint.Parse(skillGroupIdText[..Math.Min(6, skillGroupIdText.Length)]);
+            if (skillId == 0)
+                throw new InvalidDataException($"Current draw target character {characterId}: expected nonzero AddCharacter active skill id from group {skillGroupId}.");
+            return skillId;
+        }
+
+        private static void AssertTargetCharacterPityDraw(long playerId, DrawInfo drawInfo, int? expectedTargetCharacterId = null, string? targetName = null)
+        {
+            string name = targetName is null
+                ? $"Draw {drawInfo.Id} target character pity"
+                : $"Draw {drawInfo.Id} {targetName} target character pity";
+            if (!drawInfo.ResourceIds.TryGetValue(1, out int targetCharacterId))
+                throw new InvalidDataException($"{name}: expected ResourceIds[1] target character id.");
+            if (expectedTargetCharacterId.HasValue)
+                AssertEqual(expectedTargetCharacterId.Value, targetCharacterId, $"{name} configured target character id");
+
+            int pityPullOffset = drawInfo.MaxBottomTimes - (drawInfo.TotalCount % drawInfo.MaxBottomTimes) - 1;
+            if (pityPullOffset < 0)
+                pityPullOffset += drawInfo.MaxBottomTimes;
+
+            List<RewardGoods> rewards = InvokeDrawDraw(playerId, drawInfo.Id, pityPullOffset, name);
+            AssertEqual(1, rewards.Count, $"{name} reward count");
+            RewardGoods reward = rewards[0];
+            AssertEqual((int)RewardType.Character, reward.RewardType, $"{name} reward type");
+            AssertEqual(targetCharacterId, reward.TemplateId, $"{name} target character id");
+            if (expectedTargetCharacterId.HasValue)
+                AssertEqual(expectedTargetCharacterId.Value, reward.TemplateId, $"{name} expected target character reward id");
+            AssertEqual(1, reward.Count, $"{name} reward count value");
+            AssertEqual(1, reward.Level, $"{name} reward level");
+        }
+
+        private static void AssertMethodContainsIntConstants(MethodInfo method, IReadOnlyList<IlInstruction> instructions, IReadOnlyList<int> expectedConstants, string name)
+        {
+            foreach (int expectedConstant in expectedConstants)
+            {
+                if (!instructions.Any(instruction => LdcI4Value(instruction) == expectedConstant))
+                    throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} IL to contain constant {expectedConstant}.");
+            }
+        }
+
+        private static void AssertTargetWeaponPityDraw(long playerId, DrawInfo drawInfo)
+        {
+            if (!drawInfo.ResourceIds.TryGetValue(1, out int targetEquipId))
+                throw new InvalidDataException($"Draw {drawInfo.Id} target weapon pity: expected ResourceIds[1] target equip id.");
+            int pityPullOffset = drawInfo.MaxBottomTimes - (drawInfo.TotalCount % drawInfo.MaxBottomTimes) - 1;
+            if (pityPullOffset < 0)
+                pityPullOffset += drawInfo.MaxBottomTimes;
+
+            List<RewardGoods> rewards = InvokeDrawDraw(playerId, drawInfo.Id, pityPullOffset, $"Draw {drawInfo.Id} target weapon pity");
+            AssertEqual(1, rewards.Count, $"Draw {drawInfo.Id} target weapon pity reward count");
+            RewardGoods reward = rewards[0];
+            AssertEqual((int)RewardType.Equip, reward.RewardType, $"Draw {drawInfo.Id} target weapon pity reward type");
+            AssertEqual(targetEquipId, reward.TemplateId, $"Draw {drawInfo.Id} target weapon pity target equip id");
+            AssertEqual(1, reward.Count, $"Draw {drawInfo.Id} target weapon pity reward count value");
+            AssertEqual(1, reward.Level, $"Draw {drawInfo.Id} target weapon pity reward level");
+        }
+
+        private static List<RewardGoods> InvokeDrawDraw(long playerId, int drawId, int pullOffset, string name)
+        {
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            MethodInfo drawDraw = RequiredMethod(
+                drawManagerType,
+                "DrawDraw",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(long), typeof(int), typeof(int)]);
+            return drawDraw.Invoke(null, [playerId, drawId, pullOffset]) as List<RewardGoods>
+                ?? throw new InvalidDataException($"{name}: DrawManager.DrawDraw returned nil or an unexpected payload.");
+        }
+
+        private static void AssertDrawRewardPushMatchesRewardGoods(DrawInfo drawInfo, RewardGoods reward, NotifyItemDataList drawItemPush, NotifyEquipDataList? drawEquipPush, string name)
+        {
+            if (reward.Count <= 0)
+                throw new InvalidDataException($"{name}: expected positive reward count for template {reward.TemplateId}, got {reward.Count}.");
+
+            switch ((RewardType)reward.RewardType)
+            {
+                case RewardType.Item:
+                    long initialCount = reward.TemplateId == drawInfo.UseItemId ? drawInfo.UseItemCount * 4L : 0;
+                    long spentCount = reward.TemplateId == drawInfo.UseItemId ? drawInfo.UseItemCount : 0;
+                    Item itemReward = drawItemPush.ItemDataList.Single(item => item.Id == reward.TemplateId);
+                    AssertEqual(initialCount - spentCount + reward.Count, itemReward.Count, $"{name} item reward count");
+                    break;
+                case RewardType.Equip:
+                    if (drawEquipPush is null)
+                        throw new InvalidDataException($"{name}: expected NotifyEquipDataList for equip reward {reward.TemplateId}.");
+                    EquipData equipReward = drawEquipPush.EquipDataList.Single(equip => equip.TemplateId == (uint)reward.TemplateId);
+                    AssertEqual(1, drawEquipPush.EquipDataList.Count, $"{name} equip reward push count");
+                    AssertEqual((uint)reward.TemplateId, equipReward.TemplateId, $"{name} equip reward template");
+                    break;
+                default:
+                    throw new InvalidDataException($"{name}: unexpected reward type {(RewardType)reward.RewardType} for draw {drawInfo.Id}.");
+            }
+        }
+
+        private static void ValidateCommandCompatibility()
+        {
+            AscNet.GameServer.Commands.CommandFactory.commands.Clear();
+            AscNet.GameServer.Commands.CommandFactory.LoadCommands();
+
+            Type blackCardCommandType = AscNet.GameServer.Commands.CommandFactory.commands.GetValueOrDefault("bc")
+                ?? throw new InvalidDataException("CommandFactory.LoadCommands: expected command 'bc' to be discoverable.");
+            AssertEqual("AscNet.GameServer.Commands.BlackCardCommand", blackCardCommandType.FullName, "CommandFactory.LoadCommands command 'bc' type");
+
+            AssertBlackCardCommandAccepts(blackCardCommandType, [], "BlackCardCommand metadata no-arg grant");
+            AssertBlackCardCommandAccepts(blackCardCommandType, ["45000"], "BlackCardCommand metadata numeric grant");
+            AssertBlackCardCommandAccepts(blackCardCommandType, ["max"], "BlackCardCommand metadata max grant");
+            AssertBlackCardCommandRejects(["0"], "BlackCardCommand metadata rejects zero grant");
+            AssertBlackCardCommandRejects(["abc"], "BlackCardCommand metadata rejects non-numeric grant");
+
+            AssertBlackCardCommandPersistenceContract(blackCardCommandType);
+
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            ExecuteBlackCardCommandAndAssertGrant([], initialBlackCards: 0, expectedBlackCards: 30_000, playerId: 90_001, "BlackCardCommand default grant behavior");
+            ExecuteBlackCardCommandAndAssertGrant(["875"], initialBlackCards: 125, expectedBlackCards: 1_000, playerId: 90_002, "BlackCardCommand explicit grant behavior");
+        }
+
+        private static void AssertBlackCardCommandAccepts(Type expectedType, string[] args, string name)
+        {
+            AscNet.GameServer.Commands.Command command;
+            try
+            {
+                command = AscNet.GameServer.Commands.CommandFactory.CreateCommand("bc", null!, args)
+                    ?? throw new InvalidDataException($"{name}: expected CommandFactory.CreateCommand to create command 'bc'.");
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is ArgumentException)
+            {
+                throw new InvalidDataException($"{name}: expected args [{string.Join(", ", args)}] to pass command validation.", exception.InnerException);
+            }
+
+            AssertEqual(expectedType, command.GetType(), $"{name} resolved command type");
+        }
+
+        private static void AssertBlackCardCommandRejects(string[] args, string name)
+        {
+            try
+            {
+                _ = AscNet.GameServer.Commands.CommandFactory.CreateCommand("bc", null!, args);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is ArgumentException)
+            {
+                return;
+            }
+            catch (ArgumentException)
+            {
+                return;
+            }
+
+            throw new InvalidDataException($"{name}: expected args [{string.Join(", ", args)}] to fail command validation.");
+        }
+
+        private static void AssertBlackCardCommandPersistenceContract(Type blackCardCommandType)
+        {
+            MethodInfo execute = RequiredMethod(
+                blackCardCommandType,
+                "Execute",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo inventoryDo = RequiredMethod(
+                typeof(AscNet.Common.Database.Inventory),
+                nameof(AscNet.Common.Database.Inventory.Do),
+                BindingFlags.Instance | BindingFlags.Public,
+                [typeof(int), typeof(int)]);
+            MethodInfo inventorySave = RequiredMethod(
+                typeof(AscNet.Common.Database.Inventory),
+                nameof(AscNet.Common.Database.Inventory.Save),
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo sendPush = RequiredGenericMethodDefinition(
+                typeof(Session),
+                nameof(Session.SendPush),
+                BindingFlags.Instance | BindingFlags.Public,
+                parameterCount: 1);
+
+            AssertMethodTransitivelyCalls(execute, inventorySave, "BlackCardCommand.Execute persistence");
+            AssertMethodTransitivelyCallsGenericMethod(execute, sendPush, typeof(NotifyItemDataList), "BlackCardCommand.Execute item notification");
+
+            List<IlInstruction> instructions = ReadIlInstructions(execute).ToList();
+            int grantIndex = FindMethodCallWithRecentConstants(instructions, inventoryDo, AscNet.Common.Database.Inventory.FreeGem);
+            if (grantIndex < 0)
+                throw new InvalidDataException("BlackCardCommand.Execute persistence: expected Inventory.Do(Inventory.FreeGem, amount) to grant Black Cards.");
+
+            int saveIndex = FindCallIndex(instructions, inventorySave, grantIndex + 1);
+            if (saveIndex < 0)
+                throw new InvalidDataException("BlackCardCommand.Execute persistence: expected Inventory.Save after granting Black Cards.");
+
+            int notifyIndex = FindGenericCallIndex(instructions, sendPush, typeof(NotifyItemDataList), grantIndex + 1);
+            if (notifyIndex < 0)
+                throw new InvalidDataException("BlackCardCommand.Execute item notification: expected Session.SendPush<NotifyItemDataList> after granting Black Cards.");
+        }
+
+        private static void ExecuteBlackCardCommandAndAssertGrant(string[] args, long initialBlackCards, long expectedBlackCards, long playerId, string name)
+        {
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [
+                    new Item { Id = AscNet.Common.Database.Inventory.FreeGem, Count = initialBlackCards }
+                ]);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                inventory,
+                $"{name.Replace(' ', '-').ToLowerInvariant()}-test");
+
+            AscNet.GameServer.Commands.Command command = AscNet.GameServer.Commands.CommandFactory.CreateCommand("bc", harness.Session, args)
+                ?? throw new InvalidDataException($"{name}: expected CommandFactory.CreateCommand to create command 'bc'.");
+            command.Execute();
+
+            Item inventoryBlackCards = inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.FreeGem);
+            AssertEqual(expectedBlackCards, inventoryBlackCards.Count, $"{name} inventory Black Card count");
+
+            Packet pushPacket = harness.ReadPacket($"{name} NotifyItemDataList push");
+            AssertEqual(Packet.ContentType.Push, pushPacket.Type, $"{name} packet type");
+            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(pushPacket.Content);
+            AssertEqual(nameof(NotifyItemDataList), push.Name, $"{name} push name");
+            NotifyItemDataList notifyItemDataList = MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
+            AssertEqual(1, notifyItemDataList.ItemDataList.Count, $"{name} notified item count");
+            Item notifiedBlackCards = notifyItemDataList.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.FreeGem);
+            AssertEqual(expectedBlackCards, notifiedBlackCards.Count, $"{name} notified Black Card count");
+        }
+
+        private static AscNet.Common.Database.Character CreateDrawCompatibilityCharacter(long uid)
+        {
+            return new AscNet.Common.Database.Character
+            {
+                Uid = uid,
+                Characters = [],
+                Equips = [],
+                Fashions = []
+            };
+        }
+
+        private static AscNet.Common.Database.Player CreateDrawCompatibilityPlayer(long playerId)
+        {
+            return new AscNet.Common.Database.Player
+            {
+                Token = $"draw-compat-{playerId}",
+                PlayerData = new PlayerData
+                {
+                    Id = playerId,
+                    Name = $"DrawCompat{playerId}",
+                    Level = 80,
+                    ServerId = "test"
+                },
+                HeadPortraits = [],
+                TeamGroups = []
+            };
+        }
+
+        private static AscNet.Common.Database.Inventory CreateDrawCompatibilityInventory(long uid, IEnumerable<Item> items)
+        {
+            return new AscNet.Common.Database.Inventory
+            {
+                Uid = uid,
+                Items = items.ToList()
+            };
+        }
+
+        private sealed class MongoCollectionOverride : IDisposable
+        {
+            private readonly (FieldInfo Field, object? Value)[] originalValues;
+
+            private MongoCollectionOverride((FieldInfo Field, object? Replacement)[] replacements)
+            {
+                originalValues = replacements
+                    .Select(replacement => (replacement.Field, replacement.Field.GetValue(null)))
+                    .ToArray();
+
+                foreach ((FieldInfo field, object? replacement) in replacements)
+                    SetStaticReadonlyField(field, replacement);
+            }
+
+            public static MongoCollectionOverride InstallForDrawCompatibility()
+            {
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>())
+                ]);
+            }
+
+            public void Dispose()
+            {
+                foreach ((FieldInfo field, object? value) in originalValues)
+                    SetStaticReadonlyField(field, value);
+            }
+
+            private static FieldInfo RequiredCollectionField(Type databaseType)
+            {
+                return databaseType.GetField("collection", BindingFlags.Static | BindingFlags.Public)
+                    ?? throw new MissingFieldException(databaseType.FullName, "collection");
+            }
+
+            private static IMongoCollection<TDocument> CreateNoOpMongoCollection<TDocument>()
+            {
+                return DispatchProxy.Create<IMongoCollection<TDocument>, NoOpMongoCollectionProxy<TDocument>>();
+            }
+
+            private static void SetStaticReadonlyField(FieldInfo field, object? value)
+            {
+                DynamicMethod setter = new(
+                    $"Set_{field.DeclaringType?.Name}_{field.Name}",
+                    typeof(void),
+                    [typeof(object)],
+                    typeof(Program),
+                    skipVisibility: true);
+                ILGenerator il = setter.GetILGenerator();
+                il.Emit(OpCodes.Ldarg_0);
+                if (field.FieldType.IsValueType)
+                    il.Emit(OpCodes.Unbox_Any, field.FieldType);
+                else
+                    il.Emit(OpCodes.Castclass, field.FieldType);
+                il.Emit(OpCodes.Stsfld, field);
+                il.Emit(OpCodes.Ret);
+
+                ((Action<object?>)setter.CreateDelegate(typeof(Action<object?>))).Invoke(value);
+            }
+        }
+
+        private class NoOpMongoCollectionProxy<TDocument> : DispatchProxy
+        {
+            protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+            {
+                Type returnType = targetMethod?.ReturnType ?? typeof(void);
+                if (returnType == typeof(void))
+                    return null;
+                if (returnType == typeof(Task))
+                    return Task.CompletedTask;
+                if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>))
+                {
+                    Type resultType = returnType.GetGenericArguments()[0];
+                    object? result = resultType.IsValueType ? Activator.CreateInstance(resultType) : null;
+                    return typeof(Task)
+                        .GetMethod(nameof(Task.FromResult), BindingFlags.Public | BindingFlags.Static)!
+                        .MakeGenericMethod(resultType)
+                        .Invoke(null, [result]);
+                }
+
+                return returnType.IsValueType ? Activator.CreateInstance(returnType) : null;
+            }
+        }
+
+        private static void ValidateInventoryEquipCompatibility()
+        {
+            List<EquipTable> currentEquipRows = TableReaderV2.Parse<EquipTable>();
+            EquipTable validEquipRow = currentEquipRows.FirstOrDefault(equip => equip.Id > 0 && AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip))
+                ?? throw new InvalidDataException("EquipTable: expected at least one current-client ownable equip row.");
+            EquipTable type99EquipRow = currentEquipRows.FirstOrDefault(equip => equip.Type == 99 && equip.Priority != 100)
+                ?? throw new InvalidDataException("EquipTable: expected at least one current-client type 99 enhancer equip row.");
+            EquipTable displayOnlyEquipRow = currentEquipRows.FirstOrDefault(equip => equip.Priority == 100)
+                ?? throw new InvalidDataException("EquipTable: expected at least one priority-100 display-only equip row.");
+            uint validTemplateId = (uint)validEquipRow.Id;
+            uint type99TemplateId = (uint)type99EquipRow.Id;
+            HashSet<uint> validTemplateIds = currentEquipRows.Select(equip => (uint)equip.Id).ToHashSet();
+            uint invalidTemplateId = validTemplateIds.Contains(uint.MaxValue) ? uint.MaxValue - 1 : uint.MaxValue;
+            if (invalidTemplateId == 0 || validTemplateIds.Contains(invalidTemplateId))
+                throw new InvalidDataException("EquipTable: failed to choose a template id outside the current-client equip table.");
+
+            AssertEqual(true, AscNet.Common.Database.Character.IsOwnableEquipTemplate(type99EquipRow), "Type 99 enhancer equip rows remain retail-owned equip data");
+            AssertEqual(false, AscNet.Common.Database.Character.IsOwnableEquipTemplate(displayOnlyEquipRow), "Display-only equip rows are not owned equip data");
+            ValidateEquipPutOnSlotSwapBehavior(currentEquipRows);
+
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 99,
+                Characters = [],
+                Equips =
+                [
+                    new EquipData
+                    {
+                        Id = 10,
+                        TemplateId = invalidTemplateId,
+                        CharacterId = 201,
+                        Level = 1,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = []
+                    },
+                    new EquipData
+                    {
+                        Id = 11,
+                        TemplateId = validTemplateId,
+                        CharacterId = 202,
+                        Level = 1,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = [],
+                        IsRecycle = true
+                    },
+                    new EquipData
+                    {
+                        Id = 12,
+                        TemplateId = 0,
+                        CharacterId = 203,
+                        Level = 1,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = []
+                    },
+                    new EquipData
+                    {
+                        Id = 13,
+                        TemplateId = type99TemplateId,
+                        CharacterId = 204,
+                        Level = 1,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = []
+                    },
+                    new EquipData
+                    {
+                        Id = 14,
+                        TemplateId = (uint)displayOnlyEquipRow.Id,
+                        CharacterId = 205,
+                        Level = 1,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = []
+                    },
+                    new EquipData
+                    {
+                        Id = 7,
+                        TemplateId = validTemplateId,
+                        CharacterId = 101,
+                        Level = 0,
+                        ResonanceInfo = null!,
+                        UnconfirmedResonanceInfo = null!,
+                        AwakeSlotList = null!
+                    },
+                    new EquipData
+                    {
+                        Id = 7,
+                        TemplateId = validTemplateId,
+                        CharacterId = 102,
+                        Level = 2,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = []
+                    },
+                    new EquipData
+                    {
+                        Id = 0,
+                        TemplateId = validTemplateId,
+                        CharacterId = 103,
+                        Level = 3,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = []
+                    }
+                ],
+                Fashions = []
+            };
+
+            AssertEqual(true, character.NormalizeEquipsForCurrentTables(), "Character equip normalization reports mutation");
+            AssertEqual(4, character.Equips.Count, "Character equip normalization retained current-client rows");
+            if (character.Equips.Any(equip => !AscNet.Common.Database.Character.IsOwnableEquipTemplate(currentEquipRows.Single(row => row.Id == equip.TemplateId))))
+                throw new InvalidDataException("Character equip normalization retained a display-only equip row.");
+            if (character.Equips.Any(equip => equip.TemplateId == invalidTemplateId || equip.TemplateId == 0))
+                throw new InvalidDataException("Character equip normalization retained an invalid template id.");
+            if (character.Equips.Any(equip => equip.IsRecycle))
+                throw new InvalidDataException("Character equip normalization retained a recycled equip.");
+
+            int[] retainedCharacterIds = character.Equips.Select(equip => equip.CharacterId).Order().ToArray();
+            int[] expectedCharacterIds = [101, 102, 103, 204];
+
+            if (character.Equips.Any(equip => equip.Id == 0))
+                throw new InvalidDataException("Character equip normalization left a zero equip instance id.");
+            int uniqueInstanceIdCount = character.Equips.Select(equip => equip.Id).Distinct().Count();
+            AssertEqual(character.Equips.Count, uniqueInstanceIdCount, "Character equip normalization unique instance ids");
+
+            EquipData clampedEquip = character.Equips.Single(equip => equip.CharacterId == 101);
+            AssertEqual(1, clampedEquip.Level, "Character equip normalization level clamp");
+            foreach (EquipData equip in character.Equips)
+            {
+                if (equip.ResonanceInfo is null)
+                    throw new InvalidDataException($"Character equip normalization left ResonanceInfo nil for instance {equip.Id}.");
+                if (equip.UnconfirmedResonanceInfo is null)
+                    throw new InvalidDataException($"Character equip normalization left UnconfirmedResonanceInfo nil for instance {equip.Id}.");
+                if (equip.AwakeSlotList is null)
+                    throw new InvalidDataException($"Character equip normalization left AwakeSlotList nil for instance {equip.Id}.");
+                if (equip.WeaponOverrunData is null)
+                    throw new InvalidDataException($"Character equip normalization left WeaponOverrunData nil for instance {equip.Id}.");
+            }
+
+            AssertEqual(false, character.NormalizeEquipsForCurrentTables(), "Character equip normalization idempotent second pass");
+
+            AscNet.Common.Database.Character nullEquipListCharacter = new()
+            {
+                Uid = 100,
+                Characters = [],
+                Equips = null!,
+                Fashions = []
+            };
+            AssertEqual(true, nullEquipListCharacter.NormalizeEquipsForCurrentTables(), "Character null equip list normalization reports mutation");
+            AssertEmptyList(nullEquipListCharacter.Equips, "Character null equip list normalization result");
+            AssertEqual(false, nullEquipListCharacter.NormalizeEquipsForCurrentTables(), "Character null equip list normalization idempotent second pass");
+
+            NotifyEquipDataList notifyEquipDataList = new()
+            {
+                EquipDataList =
+                [
+                    new EquipData
+                    {
+                        Id = 2,
+                        TemplateId = validTemplateId,
+                        CharacterId = 301,
+                        Level = 1,
+                        Exp = 20,
+                        Breakthrough = 1,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = [],
+                        IsLock = true,
+                        CreateTime = 1234
+                    },
+                    new EquipData
+                    {
+                        Id = 5,
+                        TemplateId = validTemplateId,
+                        CharacterId = 302,
+                        Level = 3,
+                        Exp = 40,
+                        Breakthrough = 2,
+                        ResonanceInfo = [],
+                        UnconfirmedResonanceInfo = [],
+                        AwakeSlotList = [],
+                        CreateTime = 5678
+                    }
+                ]
+            };
+            NotifyEquipDataList roundTripEquipDataList = MessagePackSerializer.Deserialize<NotifyEquipDataList>(
+                MessagePackSerializer.Serialize(notifyEquipDataList));
+            AssertEqual(2, roundTripEquipDataList.EquipDataList.Count, "NotifyEquipDataList.EquipDataList MessagePack round-trip actual equip count");
+            AssertEquipDataPayloadEquals(notifyEquipDataList.EquipDataList[0], roundTripEquipDataList.EquipDataList[0], "NotifyEquipDataList first actual equip round-trip");
+            AssertEquipDataPayloadEquals(notifyEquipDataList.EquipDataList[1], roundTripEquipDataList.EquipDataList[1], "NotifyEquipDataList second actual equip round-trip");
+            AssertIntegerList([], GetRequiredIntegerList(roundTripEquipDataList, "DeletedEquipIdList"), "NotifyEquipDataList.DeletedEquipIdList MessagePack default empty deletion list");
+            SetRequiredIntegerList(notifyEquipDataList, "DeletedEquipIdList", [2, 5]);
+            NotifyEquipDataList roundTripDeletedEquipDataList = MessagePackSerializer.Deserialize<NotifyEquipDataList>(
+                MessagePackSerializer.Serialize(notifyEquipDataList));
+            AssertIntegerList([2, 5], GetRequiredIntegerList(roundTripDeletedEquipDataList, "DeletedEquipIdList"), "NotifyEquipDataList.DeletedEquipIdList MessagePack explicit consumed equip ids");
+            AssertNotifyEquipDataListHasNoPhantomCleanupPayload("NotifyEquipDataList phantom cleanup protocol");
+
+            NotifyEquipChipAutoRecycleSite notifyEquipChipAutoRecycleSite = new()
+            {
+                ChipRecycleSite = new()
+                {
+                    RecycleStar = [1, 2, 3, 4],
+                    Days = 7,
+                    SetRecycleTime = 123456
+                }
+            };
+            NotifyEquipChipAutoRecycleSite roundTripEquipChipAutoRecycleSite = MessagePackSerializer.Deserialize<NotifyEquipChipAutoRecycleSite>(
+                MessagePackSerializer.Serialize(notifyEquipChipAutoRecycleSite));
+            ChipRecycleSite roundTripChipRecycleSite = roundTripEquipChipAutoRecycleSite.ChipRecycleSite
+                ?? throw new InvalidDataException("NotifyEquipChipAutoRecycleSite ChipRecycleSite MessagePack round-trip serialized as nil.");
+            AssertEqual(4, roundTripChipRecycleSite.RecycleStar.Count, "NotifyEquipChipAutoRecycleSite ChipRecycleSite.RecycleStar MessagePack round-trip count");
+            AssertEqual(1, roundTripChipRecycleSite.RecycleStar[0], "NotifyEquipChipAutoRecycleSite ChipRecycleSite.RecycleStar first star");
+            AssertEqual(2, roundTripChipRecycleSite.RecycleStar[1], "NotifyEquipChipAutoRecycleSite ChipRecycleSite.RecycleStar second star");
+            AssertEqual(3, roundTripChipRecycleSite.RecycleStar[2], "NotifyEquipChipAutoRecycleSite ChipRecycleSite.RecycleStar third star");
+            AssertEqual(4, roundTripChipRecycleSite.RecycleStar[3], "NotifyEquipChipAutoRecycleSite ChipRecycleSite.RecycleStar fourth star");
+            AssertEqual(7, roundTripChipRecycleSite.Days, "NotifyEquipChipAutoRecycleSite ChipRecycleSite.Days MessagePack round-trip");
+            AssertEqual(123456, roundTripChipRecycleSite.SetRecycleTime, "NotifyEquipChipAutoRecycleSite ChipRecycleSite.SetRecycleTime MessagePack round-trip");
+
+            NotifyEquipGuideData notifyEquipGuideData = new()
+            {
+                EquipGuideData = new()
+                {
+                    TargetId = 1001,
+                    CharacterId = 1021001,
+                    PutOnPosList = [1, 3, 5],
+                    FinishedTargets = []
+                }
+            };
+            NotifyEquipGuideData roundTripEquipGuideData = MessagePackSerializer.Deserialize<NotifyEquipGuideData>(
+                MessagePackSerializer.Serialize(notifyEquipGuideData));
+            NotifyEquipGuideData.NotifyEquipGuideDataEquipGuideData roundTripGuideData = roundTripEquipGuideData.EquipGuideData
+                ?? throw new InvalidDataException("NotifyEquipGuideData EquipGuideData MessagePack round-trip serialized as nil.");
+            AssertEqual(1001, roundTripGuideData.TargetId, "NotifyEquipGuideData EquipGuideData.TargetId MessagePack round-trip");
+            AssertEqual(1021001, roundTripGuideData.CharacterId, "NotifyEquipGuideData EquipGuideData.CharacterId MessagePack round-trip");
+            AssertEqual(3, roundTripGuideData.PutOnPosList.Count, "NotifyEquipGuideData EquipGuideData.PutOnPosList MessagePack round-trip count");
+            AssertEqual(1, roundTripGuideData.PutOnPosList[0], "NotifyEquipGuideData EquipGuideData.PutOnPosList first position");
+            AssertEqual(3, roundTripGuideData.PutOnPosList[1], "NotifyEquipGuideData EquipGuideData.PutOnPosList second position");
+            AssertEqual(5, roundTripGuideData.PutOnPosList[2], "NotifyEquipGuideData EquipGuideData.PutOnPosList third position");
+            AssertEmptyList(roundTripGuideData.FinishedTargets, "NotifyEquipGuideData EquipGuideData.FinishedTargets MessagePack round-trip");
+
+            NotifyEquipChipGroupList notifyEquipChipGroupList = new()
+            {
+                ChipGroupDataList = []
+            };
+            NotifyEquipChipGroupList roundTripEquipChipGroupList = MessagePackSerializer.Deserialize<NotifyEquipChipGroupList>(
+                MessagePackSerializer.Serialize(notifyEquipChipGroupList));
+            AssertEmptyList(roundTripEquipChipGroupList.ChipGroupDataList, "NotifyEquipChipGroupList ChipGroupDataList MessagePack round-trip");
+
+            Type equipOneKeyFeedRequestType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.EquipOneKeyFeedRequest");
+            Type equipOneKeyFeedResponseType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.EquipOneKeyFeedResponse");
+            object equipOneKeyFeedRequest = Activator.CreateInstance(equipOneKeyFeedRequestType)
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequest: expected a public parameterless constructor for MessagePack.");
+            SetRequiredIntegerMember(equipOneKeyFeedRequest, "TargetBreakthrough", 2);
+            SetRequiredIntegerMember(equipOneKeyFeedRequest, "EquipId", 7001);
+            SetRequiredIntegerMember(equipOneKeyFeedRequest, "TargetLevel", 45);
+            SetRequiredMemberValue(equipOneKeyFeedRequest, "OperationInfos", CreateEquipOneKeyFeedOperationInfos(equipOneKeyFeedRequestType));
+
+            object roundTripEquipOneKeyFeedRequest = MessagePackRoundTrip(equipOneKeyFeedRequestType, equipOneKeyFeedRequest);
+            AssertEqual(2, GetRequiredIntegerMember(roundTripEquipOneKeyFeedRequest, "TargetBreakthrough"), "EquipOneKeyFeedRequest TargetBreakthrough MessagePack round-trip");
+            AssertEqual(7001, GetRequiredIntegerMember(roundTripEquipOneKeyFeedRequest, "EquipId"), "EquipOneKeyFeedRequest EquipId MessagePack round-trip");
+            AssertEqual(45, GetRequiredIntegerMember(roundTripEquipOneKeyFeedRequest, "TargetLevel"), "EquipOneKeyFeedRequest TargetLevel MessagePack round-trip");
+            AssertEquipOneKeyFeedOperationInfos(roundTripEquipOneKeyFeedRequest);
+
+            object equipOneKeyFeedResponse = Activator.CreateInstance(equipOneKeyFeedResponseType)
+                ?? throw new InvalidDataException("EquipOneKeyFeedResponse: expected a public parameterless constructor for MessagePack.");
+            SetRequiredIntegerMember(equipOneKeyFeedResponse, "Code", 0);
+            SetRequiredIntegerMember(equipOneKeyFeedResponse, "Breakthrough", 2);
+            SetRequiredIntegerMember(equipOneKeyFeedResponse, "Level", 45);
+            SetRequiredIntegerMember(equipOneKeyFeedResponse, "Exp", 320);
+            SetRequiredIntegerMember(equipOneKeyFeedResponse, "SuccessTimes", 3);
+
+            object roundTripEquipOneKeyFeedResponse = MessagePackRoundTrip(equipOneKeyFeedResponseType, equipOneKeyFeedResponse);
+            AssertEqual(0, GetRequiredIntegerMember(roundTripEquipOneKeyFeedResponse, "Code"), "EquipOneKeyFeedResponse Code MessagePack round-trip");
+            AssertEqual(2, GetRequiredIntegerMember(roundTripEquipOneKeyFeedResponse, "Breakthrough"), "EquipOneKeyFeedResponse Breakthrough MessagePack round-trip");
+            AssertEqual(45, GetRequiredIntegerMember(roundTripEquipOneKeyFeedResponse, "Level"), "EquipOneKeyFeedResponse Level MessagePack round-trip");
+            AssertEqual(320, GetRequiredIntegerMember(roundTripEquipOneKeyFeedResponse, "Exp"), "EquipOneKeyFeedResponse Exp MessagePack round-trip");
+            AssertEqual(3, GetRequiredIntegerMember(roundTripEquipOneKeyFeedResponse, "SuccessTimes"), "EquipOneKeyFeedResponse SuccessTimes MessagePack round-trip");
+            ValidateEquipOneKeyFeedBehavior(equipOneKeyFeedRequestType, equipOneKeyFeedResponseType);
+
+            MethodInfo characterFromUid = RequiredMethod(
+                typeof(AscNet.Common.Database.Character),
+                nameof(AscNet.Common.Database.Character.FromUid),
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(long)]);
+            MethodInfo normalizeEquips = RequiredMethod(
+                typeof(AscNet.Common.Database.Character),
+                nameof(AscNet.Common.Database.Character.NormalizeEquipsForCurrentTables),
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo characterSave = RequiredMethod(
+                typeof(AscNet.Common.Database.Character),
+                nameof(AscNet.Common.Database.Character.Save),
+                BindingFlags.Instance | BindingFlags.Public);
+            AssertCallResultFeedsConditionalBranch(characterFromUid, normalizeEquips, "Character.FromUid equip normalization mutation guard");
+            AssertCallPrecedes(characterFromUid, normalizeEquips, characterSave, "Character.FromUid equip normalization before persistence");
+            AssertCallIsConditionallyGuarded(characterFromUid, characterSave, "Character.FromUid saves only changed normalized equips");
+
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo doLogin = RequiredMethod(
+                accountModule,
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                accountModule,
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            MethodInfo sendLoginState = RequiredMethod(
+                accountModule,
+                "SendLoginState",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            Type commandType = RequiredAscNetGameServerType("AscNet.GameServer.Commands.Command");
+            Type equipCommandType = RequiredAscNetGameServerType("AscNet.GameServer.Commands.EquipCommand");
+            MethodInfo equipCommandExecute = RequiredMethod(
+                equipCommandType,
+                "Execute",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo equipSyncHelper = RequiredMethod(
+                equipCommandType,
+                "SyncEquipsFromDatabase",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo loginHandler = GetRegisteredRequestHandlerMethod("LoginRequest");
+            AssertCallPrecedes(loginHandler, characterFromUid, doLogin, "LoginRequestHandler normalized character load before login pushes");
+
+            MethodInfo tableParse = RequiredMethod(
+                typeof(TableReaderV2),
+                nameof(TableReaderV2.Parse),
+                BindingFlags.Static | BindingFlags.Public);
+            MethodInfo sendPush = RequiredGenericMethodDefinition(
+                typeof(Session),
+                nameof(Session.SendPush),
+                BindingFlags.Instance | BindingFlags.Public,
+                parameterCount: 1);
+            MethodInfo sendResponse = RequiredGenericMethodDefinition(
+                typeof(Session),
+                nameof(Session.SendResponse),
+                BindingFlags.Instance | BindingFlags.Public,
+                parameterCount: 2);
+            MethodInfo equipOneKeyFeedHandler = GetRegisteredRequestHandlerMethod("EquipOneKeyFeedRequest");
+            AssertMethodDoesNotTransitivelyCallGenericMethod(doLogin, tableParse, typeof(EquipTable), "AccountModule.DoLogin table-wide equip fabrication");
+            AssertMethodDoesNotTransitivelyCallGenericMethod(doLogin, sendPush, typeof(NotifyEquipDataList), "AccountModule.DoLogin incremental equip push");
+            AssertMethodDoesNotTransitivelyCallGenericMethod(equipSyncHelper, tableParse, typeof(EquipTable), "EquipCommand sync table-wide phantom cleanup");
+            AssertMethodTransitivelyCallsGenericMethod(doLogin, sendPush, typeof(NotifyEquipChipGroupList), "AccountModule.DoLogin equip chip group startup push");
+            AssertMethodTransitivelyCallsGenericMethod(doLogin, sendPush, typeof(NotifyEquipChipAutoRecycleSite), "AccountModule.DoLogin equip chip auto-recycle startup push");
+            AssertMethodTransitivelyCallsGenericMethod(doLogin, sendPush, typeof(NotifyEquipGuideData), "AccountModule.DoLogin equip guide startup push");
+            AssertMethodTransitivelyCallsGenericMethod(equipOneKeyFeedHandler, sendPush, typeof(NotifyArchiveEquip), "EquipOneKeyFeedRequestHandler archive equip push");
+            AssertMethodTransitivelyCallsGenericMethod(equipOneKeyFeedHandler, sendPush, typeof(NotifyItemDataList), "EquipOneKeyFeedRequestHandler consumed item push");
+            AssertMethodTransitivelyCallsGenericMethod(equipOneKeyFeedHandler, sendPush, typeof(NotifyEquipDataList), "EquipOneKeyFeedRequestHandler updated and deleted equip push");
+            AssertMethodTransitivelyCallsGenericMethod(equipOneKeyFeedHandler, sendResponse, equipOneKeyFeedResponseType, "EquipOneKeyFeedRequestHandler final enhancement response");
+
+            FieldInfo commandSession = commandType.GetField("session", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new MissingFieldException(commandType.FullName, "session");
+            FieldInfo sessionPlayer = typeof(Session).GetField(nameof(Session.player), BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingFieldException(typeof(Session).FullName, nameof(Session.player));
+            FieldInfo sessionCharacter = typeof(Session).GetField(nameof(Session.character), BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingFieldException(typeof(Session).FullName, nameof(Session.character));
+            MethodInfo characterEquipsGetter = RequiredMethod(
+                typeof(AscNet.Common.Database.Character),
+                $"get_{nameof(AscNet.Common.Database.Character.Equips)}",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo playerDataGetter = RequiredMethod(
+                typeof(AscNet.Common.Database.Player),
+                $"get_{nameof(AscNet.Common.Database.Player.PlayerData)}",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo playerDataIdGetter = RequiredMethod(
+                typeof(PlayerData),
+                $"get_{nameof(PlayerData.Id)}",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo notifyLoginEquipListSetter = RequiredMethod(
+                typeof(NotifyLogin),
+                $"set_{nameof(NotifyLogin.EquipList)}",
+                BindingFlags.Instance | BindingFlags.Public,
+                [typeof(List<EquipData>)]);
+            AssertSessionCharacterEquipsFeedsCall(
+                buildNotifyLogin,
+                notifyLoginEquipListSetter,
+                sessionCharacter,
+                characterEquipsGetter,
+                "AccountModule.BuildNotifyLogin NotifyLogin.EquipList source");
+            AssertEquipCommandSyncContract(
+                equipCommandType,
+                equipCommandExecute,
+                equipSyncHelper,
+                sendLoginState,
+                commandSession,
+                sessionPlayer,
+                sessionCharacter,
+                playerDataGetter,
+                playerDataIdGetter,
+                characterFromUid,
+                "EquipCommand sync");
         }
 
         private static void ValidateStageBookmarkCompatibilityShape()
@@ -1074,6 +3082,56 @@ namespace AscNet.Test
             }
         }
 
+        private static RequestPacketHandlerDelegate GetRegisteredRequestHandler(string requestName)
+        {
+            Dictionary<string, RequestPacketHandlerDelegate> handlersSnapshot = new(PacketFactory.ReqHandlers);
+
+            try
+            {
+                PacketFactory.ReqHandlers.Remove(requestName);
+                PacketFactory.LoadPacketHandlers();
+
+                return PacketFactory.GetRequestPacketHandler(requestName)
+                    ?? throw new InvalidDataException($"PacketFactory did not register {requestName}.");
+            }
+            finally
+            {
+                PacketFactory.ReqHandlers.Clear();
+                foreach (KeyValuePair<string, RequestPacketHandlerDelegate> handler in handlersSnapshot)
+                    PacketFactory.ReqHandlers.Add(handler.Key, handler.Value);
+            }
+        }
+
+        private static void InvokeRegisteredRequestHandler(string requestName, Session session, int packetId, object? request)
+        {
+            RequestPacketHandlerDelegate handler = GetRegisteredRequestHandler(requestName);
+            Packet.Request packet = new()
+            {
+                Id = packetId,
+                Name = requestName,
+                Content = request is null ? [] : MessagePackSerialize(request.GetType(), request)
+            };
+
+            try
+            {
+                handler.Invoke(session, packet);
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidDataException($"{requestName}: registered handler invocation failed.", exception);
+            }
+        }
+
+        private static TResponse ReadResponsePayload<TResponse>(LoopbackSessionHarness harness, int expectedPacketId, string expectedResponseName, string name)
+        {
+            Packet packet = harness.ReadPacket(name);
+            AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} packet type");
+            Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+            AssertEqual(expectedPacketId, response.Id, $"{name} packet id");
+            AssertEqual(expectedResponseName, response.Name, $"{name} packet name");
+            return MessagePackSerializer.Deserialize<TResponse>(response.Content);
+        }
+
         private static MethodInfo RequiredMethod(Type declaringType, string name, BindingFlags bindingFlags)
         {
             return RequiredMethod(declaringType, name, bindingFlags, Type.EmptyTypes);
@@ -1220,6 +3278,1194 @@ namespace AscNet.Test
             }
 
             throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to call {target.DeclaringType?.FullName}.{target.Name}.");
+        }
+
+        private static void AssertCallPrecedes(MethodInfo method, MethodInfo firstTarget, MethodInfo secondTarget, string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
+            int firstIndex = FindCallIndex(instructions, firstTarget, startIndex: 0);
+            if (firstIndex < 0)
+                throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to call {firstTarget.DeclaringType?.FullName}.{firstTarget.Name}.");
+
+            int secondIndex = FindCallIndex(instructions, secondTarget, startIndex: firstIndex + 1);
+            if (secondIndex < 0)
+                throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to call {secondTarget.DeclaringType?.FullName}.{secondTarget.Name} after {firstTarget.DeclaringType?.FullName}.{firstTarget.Name}.");
+
+            int firstReturnIndex = instructions.FindIndex(instruction => instruction.OpCode.FlowControl == FlowControl.Return);
+            if (firstReturnIndex >= 0 && firstReturnIndex < firstIndex)
+                throw new InvalidDataException($"{name}: expected {firstTarget.DeclaringType?.FullName}.{firstTarget.Name} before the first return.");
+        }
+
+        private static void AssertCallIsConditionallyGuarded(MethodInfo method, MethodInfo target, string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
+            int callIndex = FindCallIndex(instructions, target, startIndex: 0);
+            if (callIndex < 0)
+                throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to call {target.DeclaringType?.FullName}.{target.Name}.");
+            if (!HasConditionalBranchGuard(instructions, callIndex, callIndex))
+                throw new InvalidDataException($"{name}: expected {target.DeclaringType?.FullName}.{target.Name} to be reached through a conditional branch.");
+        }
+
+        private static void AssertSessionCharacterEquipsFeedsCall(MethodInfo method, MethodInfo consumer, FieldInfo sessionCharacter, MethodInfo characterEquipsGetter, string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
+            int consumerIndex = FindCallIndex(instructions, consumer, startIndex: 0);
+            if (consumerIndex < 0)
+                throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to call {consumer.DeclaringType?.FullName}.{consumer.Name}.");
+
+            AssertRecentSessionCharacterEquipsSource(instructions, consumerIndex, sessionCharacter, characterEquipsGetter, name);
+        }
+
+
+        private static void AssertEquipDataPayloadEquals(EquipData expected, EquipData actual, string name)
+        {
+            AssertEqual(expected.Id, actual.Id, $"{name} instance id");
+            AssertEqual(expected.TemplateId, actual.TemplateId, $"{name} template id");
+            AssertEqual(expected.CharacterId, actual.CharacterId, $"{name} character id");
+            AssertEqual(expected.Level, actual.Level, $"{name} level");
+            AssertEqual(expected.Exp, actual.Exp, $"{name} exp");
+            AssertEqual(expected.Breakthrough, actual.Breakthrough, $"{name} breakthrough");
+            AssertEqual(expected.IsLock, actual.IsLock, $"{name} lock state");
+            AssertEqual(expected.CreateTime, actual.CreateTime, $"{name} create time");
+            AssertEqual(expected.IsRecycle, actual.IsRecycle, $"{name} recycle state");
+            if (actual.ResonanceInfo is null)
+                throw new InvalidDataException($"{name}: expected ResonanceInfo to round-trip as a list.");
+            if (actual.UnconfirmedResonanceInfo is null)
+                throw new InvalidDataException($"{name}: expected UnconfirmedResonanceInfo to round-trip as a list.");
+            if (actual.AwakeSlotList is null)
+                throw new InvalidDataException($"{name}: expected AwakeSlotList to round-trip as a list.");
+            if (actual.WeaponOverrunData is null)
+                throw new InvalidDataException($"{name}: expected WeaponOverrunData to round-trip as an object.");
+            AssertEqual(expected.ResonanceInfo.Count, actual.ResonanceInfo.Count, $"{name} resonance count");
+            AssertEqual(expected.UnconfirmedResonanceInfo.Count, actual.UnconfirmedResonanceInfo.Count, $"{name} unconfirmed resonance count");
+            AssertEqual(expected.AwakeSlotList.Count, actual.AwakeSlotList.Count, $"{name} awake slot count");
+            AssertEqual(expected.WeaponOverrunData.Level, actual.WeaponOverrunData.Level, $"{name} weapon overrun level");
+            AssertEqual(expected.WeaponOverrunData.ChoseSuit, actual.WeaponOverrunData.ChoseSuit, $"{name} weapon overrun chose suit");
+            AssertEqual(expected.WeaponOverrunData.ActiveSuits.Count, actual.WeaponOverrunData.ActiveSuits.Count, $"{name} weapon overrun active suit count");
+        }
+
+        private static object CreateEquipOneKeyFeedOperationInfos(Type requestType)
+        {
+            MemberInfo operationInfosMember = RequiredDataMember(requestType, "OperationInfos");
+            Type operationInfosType = MemberValueType(operationInfosMember);
+            System.Collections.IList operationInfos = CreateListInstance(operationInfosType, "EquipOneKeyFeedRequest.OperationInfos");
+            Type operationInfoType = RequiredListElementType(operationInfosType, "EquipOneKeyFeedRequest.OperationInfos");
+
+            object itemOperation = Activator.CreateInstance(operationInfoType)
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequest.OperationInfos item: expected a public parameterless constructor for MessagePack.");
+            SetRequiredMemberValue(itemOperation, "UseEquipIdList", null);
+            SetRequiredIntegerList(itemOperation, "UseItemIdList", [3001, 3002]);
+            SetRequiredIntegerMember(itemOperation, "OperationType", 1);
+            SetRequiredIntegerList(itemOperation, "UseItemCountList", [2, 3]);
+            operationInfos.Add(itemOperation);
+
+            object equipOperation = Activator.CreateInstance(operationInfoType)
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequest.OperationInfos item: expected a public parameterless constructor for MessagePack.");
+            SetRequiredIntegerList(equipOperation, "UseEquipIdList", [9101, 9102]);
+            SetRequiredMemberValue(equipOperation, "UseItemIdList", null);
+            SetRequiredIntegerMember(equipOperation, "OperationType", 2);
+            SetRequiredMemberValue(equipOperation, "UseItemCountList", null);
+            operationInfos.Add(equipOperation);
+
+            return operationInfos;
+        }
+
+        private static void AssertEquipOneKeyFeedOperationInfos(object request)
+        {
+            object? operationInfosValue = GetRequiredMemberValue(request, "OperationInfos");
+            if (operationInfosValue is not System.Collections.IList operationInfos)
+                throw new InvalidDataException("EquipOneKeyFeedRequest.OperationInfos MessagePack round-trip: expected a list.");
+            AssertEqual(2, operationInfos.Count, "EquipOneKeyFeedRequest.OperationInfos MessagePack round-trip count");
+
+            object itemOperation = operationInfos[0]
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequest.OperationInfos[0] MessagePack round-trip: expected operation data.");
+            AssertRequiredMemberNull(itemOperation, "UseEquipIdList", "EquipOneKeyFeedRequest.OperationInfos[0].UseEquipIdList nullable MessagePack round-trip");
+            AssertIntegerList([3001, 3002], GetRequiredIntegerList(itemOperation, "UseItemIdList"), "EquipOneKeyFeedRequest.OperationInfos[0].UseItemIdList MessagePack round-trip");
+            AssertEqual(1, GetRequiredIntegerMember(itemOperation, "OperationType"), "EquipOneKeyFeedRequest.OperationInfos[0].OperationType MessagePack round-trip");
+            AssertIntegerList([2, 3], GetRequiredIntegerList(itemOperation, "UseItemCountList"), "EquipOneKeyFeedRequest.OperationInfos[0].UseItemCountList MessagePack round-trip");
+
+            object equipOperation = operationInfos[1]
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequest.OperationInfos[1] MessagePack round-trip: expected operation data.");
+            AssertIntegerList([9101, 9102], GetRequiredIntegerList(equipOperation, "UseEquipIdList"), "EquipOneKeyFeedRequest.OperationInfos[1].UseEquipIdList MessagePack round-trip");
+            AssertRequiredMemberNull(equipOperation, "UseItemIdList", "EquipOneKeyFeedRequest.OperationInfos[1].UseItemIdList nullable MessagePack round-trip");
+            AssertEqual(2, GetRequiredIntegerMember(equipOperation, "OperationType"), "EquipOneKeyFeedRequest.OperationInfos[1].OperationType MessagePack round-trip");
+            AssertRequiredMemberNull(equipOperation, "UseItemCountList", "EquipOneKeyFeedRequest.OperationInfos[1].UseItemCountList nullable MessagePack round-trip");
+        }
+
+        private static void ValidateEquipPutOnSlotSwapBehavior(IReadOnlyList<EquipTable> currentEquipRows)
+        {
+            Type equipModuleType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.EquipModule");
+            MethodInfo isSameEquipSlot = RequiredMethod(
+                equipModuleType,
+                "IsSameEquipSlot",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(EquipTable), typeof(EquipTable)]);
+            MethodInfo equipPutOnHandler = GetRegisteredRequestHandlerMethod("EquipPutOnRequest");
+            MethodInfo sendPush = RequiredGenericMethodDefinition(
+                typeof(Session),
+                nameof(Session.SendPush),
+                BindingFlags.Instance | BindingFlags.Public,
+                parameterCount: 1);
+            MethodInfo equipDataListAddRange = RequiredMethod(
+                typeof(List<EquipData>),
+                nameof(List<EquipData>.AddRange),
+                BindingFlags.Instance | BindingFlags.Public,
+                [typeof(IEnumerable<EquipData>)]);
+
+            AssertMethodTransitivelyCalls(equipPutOnHandler, isSameEquipSlot, "EquipPutOnRequestHandler target-table slot comparison helper");
+            AssertMethodTransitivelyCallsGenericMethod(equipPutOnHandler, sendPush, typeof(NotifyEquipDataList), "EquipPutOnRequestHandler equip swap notification push");
+            AssertMethodTransitivelyCalls(equipPutOnHandler, equipDataListAddRange, "EquipPutOnRequestHandler notifies all previous equips unequipped from the occupied slot");
+
+            EquipTable[] weaponSlotRows = currentEquipRows
+                .Where(equip => AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip) && equip.Type == 1)
+                .Take(2)
+                .ToArray();
+            if (weaponSlotRows.Length < 2)
+                throw new InvalidDataException("EquipPutOnRequestHandler slot swap behavior: expected at least two current-client Type 1 weapon rows.");
+
+            AssertEqual(
+                true,
+                InvokeIsSameEquipSlot(isSameEquipSlot, weaponSlotRows[0], weaponSlotRows[1], "EquipPutOnRequestHandler Type 1 weapon slot helper"),
+                "EquipPutOnRequestHandler Type 1 weapons share a slot");
+
+            (EquipTable memoryTarget, EquipTable memorySameSite, EquipTable memoryDifferentSite) = SelectMemorySlotRows(currentEquipRows);
+            AssertEqual(
+                true,
+                InvokeIsSameEquipSlot(isSameEquipSlot, memorySameSite, memoryTarget, "EquipPutOnRequestHandler memory same-site slot helper"),
+                "EquipPutOnRequestHandler memory rows with same Type and Site share a slot");
+            AssertEqual(
+                false,
+                InvokeIsSameEquipSlot(isSameEquipSlot, memoryDifferentSite, memoryTarget, "EquipPutOnRequestHandler memory different-site slot helper"),
+                "EquipPutOnRequestHandler memory rows with same Type and different Site do not share a slot");
+
+            AssertEquipPutOnUnequipsEveryExistingWeaponAndNotifies(equipPutOnHandler, currentEquipRows);
+        }
+
+        private static (EquipTable Target, EquipTable SameSite, EquipTable DifferentSite) SelectMemorySlotRows(IReadOnlyList<EquipTable> currentEquipRows)
+        {
+            foreach (IGrouping<int, EquipTable> typeGroup in currentEquipRows
+                .Where(equip => AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip) && equip.Type is not 1 and not 99)
+                .GroupBy(equip => equip.Type))
+            {
+                IGrouping<int, EquipTable>? sameSiteGroup = typeGroup
+                    .GroupBy(equip => equip.Site)
+                    .FirstOrDefault(siteGroup => siteGroup.Count() >= 2);
+                if (sameSiteGroup is null)
+                    continue;
+
+                EquipTable? differentSite = typeGroup.FirstOrDefault(equip => equip.Site != sameSiteGroup.Key);
+                if (differentSite is null)
+                    continue;
+
+                EquipTable[] sameSiteRows = sameSiteGroup.Take(2).ToArray();
+                return (sameSiteRows[0], sameSiteRows[1], differentSite);
+            }
+
+            throw new InvalidDataException("EquipPutOnRequestHandler slot swap behavior: expected current-client memory equip rows with a same Type/Site pair and a same-Type different-Site row.");
+        }
+
+        private static bool InvokeIsSameEquipSlot(MethodInfo isSameEquipSlot, EquipTable? equippedTable, EquipTable targetTable, string name)
+        {
+            return (bool)(isSameEquipSlot.Invoke(null, [equippedTable, targetTable])
+                ?? throw new InvalidDataException($"{name}: IsSameEquipSlot returned nil."));
+        }
+
+        private static void AssertEquipPutOnUnequipsEveryExistingWeaponAndNotifies(MethodInfo equipPutOnHandler, IReadOnlyList<EquipTable> currentEquipRows)
+        {
+            List<EquipTable> weaponRows = currentEquipRows
+                .Where(equip => AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip) && equip.Type == 1)
+                .ToList();
+            if (weaponRows.Count < 3)
+                throw new InvalidDataException("EquipPutOnRequestHandler behavior: expected at least three current-client Type 1 weapon rows.");
+            EquipTable targetWeapon = weaponRows[0];
+            EquipTable firstPreviousWeapon = weaponRows.First(weapon => weapon.Id != targetWeapon.Id);
+            EquipTable secondPreviousWeapon = weaponRows.First(weapon => weapon.Id != targetWeapon.Id && weapon.Id != firstPreviousWeapon.Id);
+            int? mismatchedRequestSite = currentEquipRows
+                .Select(equip => (int?)equip.Site)
+                .FirstOrDefault(site => site != targetWeapon.Site);
+            int requestSite = mismatchedRequestSite
+                ?? (targetWeapon.Site == int.MaxValue ? int.MinValue : targetWeapon.Site + 1);
+
+            const int characterId = 1021001;
+            EquipData firstPreviousEquip = CreateEquipPutOnTestEquip(92001, firstPreviousWeapon, characterId);
+            EquipData secondPreviousEquip = CreateEquipPutOnTestEquip(92002, secondPreviousWeapon, characterId);
+            EquipData targetEquip = CreateEquipPutOnTestEquip(92003, targetWeapon, characterId: 0);
+            EquipData otherCharacterWeapon = CreateEquipPutOnTestEquip(92004, secondPreviousWeapon, characterId + 1);
+
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 92000,
+                Characters = [],
+                Equips = [firstPreviousEquip, secondPreviousEquip, targetEquip, otherCharacterWeapon],
+                Fashions = []
+            };
+
+            using LoopbackSessionHarness harness = new(character);
+            EquipPutOnRequest request = new()
+            {
+                CharacterId = characterId,
+                EquipId = (int)targetEquip.Id,
+                Site = requestSite
+            };
+            Packet.Request packet = new()
+            {
+                Id = 920,
+                Name = nameof(EquipPutOnRequest),
+                Content = MessagePackSerializer.Serialize(request)
+            };
+
+            try
+            {
+                equipPutOnHandler.Invoke(null, [harness.Session, packet]);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                throw new InvalidDataException("EquipPutOnRequestHandler behavior: handler invocation failed.", exception.InnerException);
+            }
+
+            AssertEqual(characterId, targetEquip.CharacterId, "EquipPutOnRequestHandler behavior equipped requested Type 1 weapon");
+            AssertEqual(0, firstPreviousEquip.CharacterId, "EquipPutOnRequestHandler behavior unequipped first previous Type 1 weapon despite mismatched request Site");
+            AssertEqual(0, secondPreviousEquip.CharacterId, "EquipPutOnRequestHandler behavior unequipped second previous Type 1 weapon despite mismatched request Site");
+            AssertEqual(characterId + 1, otherCharacterWeapon.CharacterId, "EquipPutOnRequestHandler behavior does not unequip another character's Type 1 weapon");
+
+            Dictionary<uint, EquipTable> tableById = currentEquipRows.ToDictionary(equip => (uint)equip.Id);
+            int remainingWeaponCount = character.Equips.Count(equip =>
+                equip.CharacterId == characterId
+                && tableById.TryGetValue(equip.TemplateId, out EquipTable? equipTable)
+                && equipTable.Type == 1);
+            AssertEqual(1, remainingWeaponCount, "EquipPutOnRequestHandler behavior character retains exactly one Type 1 weapon");
+
+            Packet pushPacket = harness.ReadPacket("EquipPutOnRequestHandler NotifyEquipDataList push");
+            AssertEqual(Packet.ContentType.Push, pushPacket.Type, "EquipPutOnRequestHandler first packet type");
+            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(pushPacket.Content);
+            AssertEqual(nameof(NotifyEquipDataList), push.Name, "EquipPutOnRequestHandler pushed equip data list");
+            NotifyEquipDataList notifyEquipDataList = MessagePackSerializer.Deserialize<NotifyEquipDataList>(push.Content);
+            AssertIntegerList(
+                [firstPreviousEquip.Id, secondPreviousEquip.Id],
+                notifyEquipDataList.EquipDataList.Select(equip => (long)equip.Id).ToArray(),
+                "EquipPutOnRequestHandler NotifyEquipDataList contains only unequipped previous weapons");
+            AssertIntegerList(
+                [0, 0],
+                notifyEquipDataList.EquipDataList.Select(equip => (long)equip.CharacterId).ToArray(),
+                "EquipPutOnRequestHandler NotifyEquipDataList clears previous weapon character ids");
+
+            Packet responsePacket = harness.ReadPacket("EquipPutOnRequestHandler response");
+            AssertEqual(Packet.ContentType.Response, responsePacket.Type, "EquipPutOnRequestHandler second packet type");
+            Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(responsePacket.Content);
+            AssertEqual(nameof(EquipPutOnResponse), response.Name, "EquipPutOnRequestHandler response packet name");
+            EquipPutOnResponse equipPutOnResponse = MessagePackSerializer.Deserialize<EquipPutOnResponse>(response.Content);
+            AssertEqual(0, equipPutOnResponse.Code, "EquipPutOnRequestHandler successful weapon swap response");
+        }
+
+        private static EquipData CreateEquipPutOnTestEquip(uint id, EquipTable table, int characterId)
+        {
+            return new EquipData
+            {
+                Id = id,
+                TemplateId = (uint)table.Id,
+                CharacterId = characterId,
+                Level = 1,
+                Exp = 0,
+                Breakthrough = 0,
+                ResonanceInfo = [],
+                UnconfirmedResonanceInfo = [],
+                AwakeSlotList = [],
+                IsLock = false,
+                IsRecycle = false
+            };
+        }
+
+        private sealed class LoopbackSessionHarness : IDisposable
+        {
+            private static readonly MessagePackSerializerOptions PacketSerializerOptions = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block);
+
+            private readonly TcpListener listener;
+            private readonly TcpClient clientSide;
+            private readonly TcpClient sessionSide;
+
+            public Session Session { get; }
+
+            public LoopbackSessionHarness(
+                AscNet.Common.Database.Character character,
+                AscNet.Common.Database.Player? player = null,
+                AscNet.Common.Database.Inventory? inventory = null,
+                string sessionId = "equip-put-on-test")
+            {
+                listener = new TcpListener(IPAddress.Loopback, port: 0);
+                listener.Start();
+
+                clientSide = new TcpClient(AddressFamily.InterNetwork)
+                {
+                    NoDelay = true,
+                    ReceiveTimeout = 5000
+                };
+                clientSide.Connect((IPEndPoint)listener.LocalEndpoint);
+
+                sessionSide = listener.AcceptTcpClient();
+                sessionSide.NoDelay = true;
+                Session = new Session(sessionId, sessionSide)
+                {
+                    character = character,
+                    player = player ?? CreateDrawCompatibilityPlayer(character.Uid),
+                    inventory = inventory ?? CreateDrawCompatibilityInventory(character.Uid, [])
+                };
+            }
+
+            public Packet ReadPacket(string name)
+            {
+                NetworkStream stream = clientSide.GetStream();
+                byte[] lengthBytes = ReadExact(stream, sizeof(int), $"{name} length");
+                int packetLength = BinaryPrimitives.ReadInt32LittleEndian(lengthBytes);
+                if (packetLength <= 0 || packetLength > 1 << 20)
+                    throw new InvalidDataException($"{name}: invalid packet length {packetLength}.");
+
+                byte[] packetBytes = ReadExact(stream, packetLength, name);
+                Crypto.HaruCrypt.Decrypt(packetBytes);
+                return MessagePackSerializer.Deserialize<Packet>(packetBytes, PacketSerializerOptions);
+            }
+
+            public void Dispose()
+            {
+                clientSide.Close();
+                sessionSide.Close();
+                listener.Stop();
+            }
+
+            private static byte[] ReadExact(NetworkStream stream, int length, string name)
+            {
+                byte[] buffer = GC.AllocateUninitializedArray<byte>(length);
+                int offset = 0;
+                while (offset < length)
+                {
+                    int read;
+                    try
+                    {
+                        read = stream.Read(buffer, offset, length - offset);
+                    }
+                    catch (IOException exception)
+                    {
+                        throw new InvalidDataException($"{name}: timed out waiting for session packet bytes.", exception);
+                    }
+
+                    if (read == 0)
+                        throw new InvalidDataException($"{name}: session socket closed before {length} bytes were read.");
+
+                    offset += read;
+                }
+
+                return buffer;
+            }
+        }
+
+        private static void ValidateEquipOneKeyFeedBehavior(Type requestType, Type responseType)
+        {
+            Type equipModuleType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.EquipModule");
+            Type operationInfoType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.EquipFeedOperationInfo");
+            MethodInfo consumeFeedItems = RequiredMethod(
+                equipModuleType,
+                "ConsumeFeedItems",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session), typeof(List<ItemTable>), typeof(int), operationInfoType, typeof(Dictionary<int, int>)]);
+            MethodInfo consumeFeedEquips = RequiredMethod(
+                equipModuleType,
+                "ConsumeFeedEquips",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session), typeof(EquipData), typeof(EquipTable), typeof(List<EquipTable>), typeof(List<EquipBreakThroughTable>), operationInfoType, typeof(Dictionary<int, int>), typeof(NotifyEquipDataList)]);
+            MethodInfo shouldUseCogOnlyEnhancement = RequiredMethod(
+                equipModuleType,
+                "ShouldUseCogOnlyEnhancement",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(EquipTable)]);
+            MethodInfo hasFeedMaterials = RequiredMethod(
+                equipModuleType,
+                "HasFeedMaterials",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [operationInfoType]);
+            MethodInfo addItemDelta = RequiredMethod(
+                equipModuleType,
+                "AddItemDelta",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Dictionary<int, int>), typeof(int), typeof(int)]);
+            MethodInfo applyItemDeltas = RequiredMethod(
+                equipModuleType,
+                "ApplyItemDeltas",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session), typeof(Dictionary<int, int>), typeof(NotifyItemDataList)]);
+
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            List<EquipBreakThroughTable> equipBreakThroughTables = TableReaderV2.Parse<EquipBreakThroughTable>();
+            List<ItemTable> itemTables = TableReaderV2.Parse<ItemTable>();
+            ItemTable equipExpItem = itemTables
+                .Where(item =>
+                {
+                    var upgradeInfo = item.GetEquipUpgradeInfo();
+                    return upgradeInfo.Exp > 0
+                        && upgradeInfo.Cost > 0
+                        && item.SubTypeParams.Count > 0
+                        && item.SubTypeParams[0] == 1;
+                })
+                .OrderBy(item => item.GetEquipUpgradeInfo().Exp)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: expected a current-client weapon equip exp item with an item and coin cost.");
+            var equipExpItemUpgradeInfo = equipExpItem.GetEquipUpgradeInfo();
+
+            const int targetLevel = 2;
+            var lowRarityExplicitFeedCase = FindLowRarityWeaponExplicitFeedCase();
+            EquipTable lowRarityTargetEquipTable = lowRarityExplicitFeedCase.Target;
+            EquipTable lowRarityFeedEquipTable = lowRarityExplicitFeedCase.Feed;
+            AssertEqual(true, (bool)(shouldUseCogOnlyEnhancement.Invoke(null, [lowRarityTargetEquipTable])
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: ShouldUseCogOnlyEnhancement returned nil for a low-rarity target.")), "EquipOneKeyFeedRequestHandler behavior low-rarity weapon is cog-only only when no feed materials are supplied");
+
+            const int lowRarityTargetEquipId = 7001;
+            const int lowRarityFeedEquipId = 7002;
+            EquipData lowRarityTargetEquip = NewEquip(lowRarityTargetEquipId, lowRarityTargetEquipTable);
+            EquipData lowRarityFeedEquip = NewEquip(lowRarityFeedEquipId, lowRarityFeedEquipTable);
+            AscNet.Common.Database.Character lowRarityCharacter = NewCharacter(9001, lowRarityTargetEquip, lowRarityFeedEquip);
+            Session lowRaritySession = NewSession(lowRarityCharacter, NewInventory(lowRarityCharacter.Uid));
+            object lowRarityOperationInfo = NewOperationInfo([lowRarityFeedEquipId], null, null);
+            AssertEqual(true, (bool)(hasFeedMaterials.Invoke(null, [lowRarityOperationInfo])
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: HasFeedMaterials returned nil for an explicit low-rarity feed list.")), "EquipOneKeyFeedRequestHandler behavior explicit equip list bypasses low-rarity cog-only fallback");
+            Dictionary<int, int> lowRarityItemDeltas = new();
+            NotifyEquipDataList lowRarityNotifyEquipDataList = new();
+
+            int lowRarityFeedExp = (int)(consumeFeedEquips.Invoke(null, [lowRaritySession, lowRarityTargetEquip, lowRarityTargetEquipTable, equipTables, equipBreakThroughTables, lowRarityOperationInfo, lowRarityItemDeltas, lowRarityNotifyEquipDataList])
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: ConsumeFeedEquips returned nil for low-rarity explicit feed."));
+            AssertEqual(lowRarityExplicitFeedCase.FeedExp, lowRarityFeedExp, "EquipOneKeyFeedRequestHandler behavior low-rarity explicit feed applies full equip exp");
+            AssertEqual(false, lowRarityCharacter.Equips.Any(equip => equip.Id == lowRarityFeedEquipId), "EquipOneKeyFeedRequestHandler behavior low-rarity explicit feed consumes listed equip");
+            AssertIntegerList([lowRarityFeedEquipId], lowRarityNotifyEquipDataList.DeletedEquipIdList.Select(equipId => (long)equipId).ToArray(), "EquipOneKeyFeedRequestHandler behavior low-rarity explicit feed deleted equip ids");
+            AssertEqual(lowRarityFeedExp * -10, lowRarityItemDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeedRequestHandler behavior low-rarity explicit feed coin cost is based on full feed exp");
+            AssertEqual(true, lowRarityTargetEquip.Level > targetLevel, "EquipOneKeyFeedRequestHandler behavior low-rarity explicit feed can finish above requested TargetLevel");
+            AssertEqual(true, lowRarityTargetEquip.Exp > 0, "EquipOneKeyFeedRequestHandler behavior low-rarity explicit feed carries surplus exp above requested TargetLevel");
+
+            var highRarityFeedCase = FindHighRarityWeaponFeedCase();
+            EquipTable highRarityTargetEquipTable = highRarityFeedCase.Target;
+            EquipTable normalWeaponFodderEquipTable = highRarityFeedCase.NormalWeaponFeed;
+            EquipTable enhancementFodderEquipTable = highRarityFeedCase.EnhancementFeed;
+            AssertEqual(false, (bool)(shouldUseCogOnlyEnhancement.Invoke(null, [highRarityTargetEquipTable])
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: ShouldUseCogOnlyEnhancement returned nil for a high-rarity target.")), "EquipOneKeyFeedRequestHandler behavior high-rarity weapon uses feed materials");
+
+            const int highRarityTargetEquipId = 7101;
+            const int normalWeaponFodderEquipId = 7102;
+            const int enhancementFodderEquipId = 7103;
+            const int missingFodderEquipId = 7199;
+            EquipData highRarityTargetEquip = NewEquip(highRarityTargetEquipId, highRarityTargetEquipTable);
+            EquipData normalWeaponFodderEquip = NewEquip(normalWeaponFodderEquipId, normalWeaponFodderEquipTable);
+            EquipData enhancementFodderEquip = NewEquip(enhancementFodderEquipId, enhancementFodderEquipTable);
+            AscNet.Common.Database.Character highRarityCharacter = NewCharacter(9002, highRarityTargetEquip, normalWeaponFodderEquip, enhancementFodderEquip);
+            Session highRaritySession = NewSession(highRarityCharacter, NewInventory(highRarityCharacter.Uid));
+            object highRarityOperationInfo = NewOperationInfo([highRarityTargetEquipId, normalWeaponFodderEquipId, enhancementFodderEquipId, normalWeaponFodderEquipId, missingFodderEquipId], null, null);
+            Dictionary<int, int> highRarityItemDeltas = new();
+            NotifyEquipDataList highRarityNotifyEquipDataList = new();
+
+            int highRarityFeedExp = (int)(consumeFeedEquips.Invoke(null, [highRaritySession, highRarityTargetEquip, highRarityTargetEquipTable, equipTables, equipBreakThroughTables, highRarityOperationInfo, highRarityItemDeltas, highRarityNotifyEquipDataList])
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: ConsumeFeedEquips returned nil for high-rarity explicit feed."));
+            int expectedHighRarityFeedExp = highRarityFeedCase.NormalWeaponFeedExp + highRarityFeedCase.EnhancementFeedExp;
+            AssertEqual(expectedHighRarityFeedExp, highRarityFeedExp, "EquipOneKeyFeedRequestHandler behavior high-rarity weapon consumes normal weapon and Type 99 feed exp");
+            AssertEqual(false, highRarityCharacter.Equips.Any(equip => equip.Id == normalWeaponFodderEquipId), "EquipOneKeyFeedRequestHandler behavior high-rarity weapon consumes normal weapon fodder");
+            AssertEqual(false, highRarityCharacter.Equips.Any(equip => equip.Id == enhancementFodderEquipId), "EquipOneKeyFeedRequestHandler behavior high-rarity weapon consumes Type 99 enhancement fodder");
+            AssertIntegerList([normalWeaponFodderEquipId, enhancementFodderEquipId], highRarityNotifyEquipDataList.DeletedEquipIdList.Select(equipId => (long)equipId).ToArray(), "EquipOneKeyFeedRequestHandler behavior high-rarity exact deleted equip ids");
+            AssertEqual(highRarityFeedExp * -10, highRarityItemDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeedRequestHandler behavior high-rarity coin cost is based on full feed exp");
+
+            int itemTargetRequiredExp = FreshRequiredExpToTargetLevel(highRarityTargetEquipTable);
+            int itemUseCount = itemTargetRequiredExp / equipExpItemUpgradeInfo.Exp + 1;
+            int expectedItemExp = equipExpItemUpgradeInfo.Exp * itemUseCount;
+            if (expectedItemExp <= itemTargetRequiredExp)
+                throw new InvalidDataException($"EquipOneKeyFeedRequestHandler behavior: expected item exp {expectedItemExp} to exceed target-level gap {itemTargetRequiredExp}.");
+            const int itemTargetEquipId = 7201;
+            int initialItemCount = itemUseCount + 2;
+            int initialCoinCount = equipExpItemUpgradeInfo.Cost * itemUseCount + 5000;
+            EquipData itemTargetEquip = NewEquip(itemTargetEquipId, highRarityTargetEquipTable);
+            AscNet.Common.Database.Character itemCharacter = NewCharacter(9003, itemTargetEquip);
+            AscNet.Common.Database.Inventory itemInventory = NewInventory(
+                itemCharacter.Uid,
+                new Item { Id = equipExpItem.Id, Count = initialItemCount },
+                new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = initialCoinCount });
+            Session itemSession = NewSession(itemCharacter, itemInventory);
+            object itemOperationInfo = NewOperationInfo(null, [equipExpItem.Id], [itemUseCount]);
+            Dictionary<int, int> itemDeltas = new();
+
+            int itemExp = (int)(consumeFeedItems.Invoke(null, [itemSession, itemTables, itemTargetEquipId, itemOperationInfo, itemDeltas])
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: ConsumeFeedItems returned nil."));
+            AssertEqual(expectedItemExp, itemExp, "EquipOneKeyFeedRequestHandler behavior item feed applies full requested exp instead of capping at TargetLevel");
+            AssertEqual(itemUseCount * -1, itemDeltas[equipExpItem.Id], "EquipOneKeyFeedRequestHandler behavior item feed consumes requested material count");
+            AssertEqual(equipExpItemUpgradeInfo.Cost * itemUseCount * -1, itemDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeedRequestHandler behavior item feed charges full requested cost");
+            AssertEqual(true, itemTargetEquip.Level > targetLevel || itemTargetEquip.Exp > 0, "EquipOneKeyFeedRequestHandler behavior item feed preserves surplus exp beyond requested TargetLevel gap");
+            NotifyItemDataList notifyItemDataList = new();
+            applyItemDeltas.Invoke(null, [itemSession, itemDeltas, notifyItemDataList]);
+            Item notifiedExpItem = notifyItemDataList.ItemDataList.Single(item => item.Id == equipExpItem.Id);
+            Item notifiedCoin = notifyItemDataList.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+            AssertEqual(initialItemCount - itemUseCount, notifiedExpItem.Count, "EquipOneKeyFeedRequestHandler behavior NotifyItemDataList consumed requested material count");
+            AssertEqual(initialCoinCount - equipExpItemUpgradeInfo.Cost * itemUseCount, notifiedCoin.Count, "EquipOneKeyFeedRequestHandler behavior NotifyItemDataList consumed requested coin cost");
+
+            object response = Activator.CreateInstance(responseType)
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: expected response to have a public parameterless constructor.");
+            SetRequiredIntegerMember(response, "Code", 0);
+            SetRequiredIntegerMember(response, "Breakthrough", highRarityTargetEquip.Breakthrough);
+            SetRequiredIntegerMember(response, "Level", highRarityTargetEquip.Level);
+            SetRequiredIntegerMember(response, "Exp", (int)highRarityTargetEquip.Exp);
+            System.Collections.IList operationInfos = CreateListInstance(MemberValueType(RequiredDataMember(requestType, "OperationInfos")), "EquipOneKeyFeedRequestHandler behavior OperationInfos");
+            operationInfos.Add(highRarityOperationInfo);
+            SetRequiredIntegerMember(response, "SuccessTimes", operationInfos.Count);
+            object roundTripResponse = MessagePackRoundTrip(responseType, response);
+            AssertEqual(0, GetRequiredIntegerMember(roundTripResponse, "Code"), "EquipOneKeyFeedRequestHandler behavior response Code");
+            AssertEqual(highRarityTargetEquip.Breakthrough, GetRequiredIntegerMember(roundTripResponse, "Breakthrough"), "EquipOneKeyFeedRequestHandler behavior response final Breakthrough");
+            AssertEqual(highRarityTargetEquip.Level, GetRequiredIntegerMember(roundTripResponse, "Level"), "EquipOneKeyFeedRequestHandler behavior response final Level");
+            AssertEqual((int)highRarityTargetEquip.Exp, GetRequiredIntegerMember(roundTripResponse, "Exp"), "EquipOneKeyFeedRequestHandler behavior response final Exp");
+            AssertEqual(operationInfos.Count, GetRequiredIntegerMember(roundTripResponse, "SuccessTimes"), "EquipOneKeyFeedRequestHandler behavior response SuccessTimes");
+
+            object noMaterialOperationInfo = NewOperationInfo(null, null, null);
+            AssertEqual(false, (bool)(hasFeedMaterials.Invoke(null, [noMaterialOperationInfo])
+                ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: HasFeedMaterials returned nil for a no-material operation.")), "EquipOneKeyFeedRequestHandler behavior no-material operation selects low-rarity cog-only fallback");
+            const int cogOnlyTargetEquipId = 7301;
+            EquipData cogOnlyTargetEquip = NewEquip(cogOnlyTargetEquipId, lowRarityTargetEquipTable);
+            AscNet.Common.Database.Character cogOnlyCharacter = NewCharacter(9004, cogOnlyTargetEquip);
+            Dictionary<int, int> cogOnlyItemDeltas = new();
+            NotifyEquipDataList cogOnlyNotifyEquipDataList = new();
+            int cogOnlyRequiredExp = cogOnlyCharacter.GetEquipExpRequiredToReach(cogOnlyTargetEquipId, targetLevel);
+            int cogOnlyAppliedExp = cogOnlyCharacter.AddEquipExpUpTo(cogOnlyTargetEquipId, cogOnlyRequiredExp, targetLevel);
+            addItemDelta.Invoke(null, [cogOnlyItemDeltas, AscNet.Common.Database.Inventory.Coin, cogOnlyAppliedExp * -10]);
+
+            AssertEqual(cogOnlyRequiredExp, cogOnlyAppliedExp, "EquipOneKeyFeedRequestHandler behavior cog-only applies only exp required for requested TargetLevel");
+            AssertEqual(targetLevel, cogOnlyTargetEquip.Level, "EquipOneKeyFeedRequestHandler behavior no-material cog-only target stops at requested TargetLevel");
+            AssertEqual(0, cogOnlyTargetEquip.Exp, "EquipOneKeyFeedRequestHandler behavior no-material cog-only target exp stops exactly at requested TargetLevel");
+            AssertEqual(cogOnlyAppliedExp * -10, cogOnlyItemDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeedRequestHandler behavior no-material cog-only coin cost based on capped exp");
+            AssertEqual(false, cogOnlyItemDeltas.ContainsKey(equipExpItem.Id), "EquipOneKeyFeedRequestHandler behavior no-material cog-only consumes no material item");
+            AssertIntegerList([], cogOnlyNotifyEquipDataList.DeletedEquipIdList.Select(equipId => (long)equipId).ToArray(), "EquipOneKeyFeedRequestHandler behavior no-material cog-only deletes no equip feed material");
+
+            (EquipTable Target, EquipTable Feed, int FeedExp) FindLowRarityWeaponExplicitFeedCase()
+            {
+                foreach (EquipTable target in equipTables
+                    .Where(equip => AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip)
+                        && equip.Type == 1
+                        && equip.Quality <= 3
+                        && equip.Site == 0)
+                    .OrderBy(equip => equip.Id))
+                {
+                    int requiredExp = FreshRequiredExpToTargetLevel(target);
+                    if (requiredExp <= 0)
+                        continue;
+
+                    foreach (EquipTable feed in equipTables
+                        .Where(equip => AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip)
+                            && equip.Id != target.Id
+                            && equip.Site == 0
+                            && equip.Type != 99)
+                        .OrderBy(equip => equip.Id))
+                    {
+                        int feedExp = BaseFeedExp(feed);
+                        var finalState = SimulateFinalState(target, feedExp);
+                        if (feedExp > requiredExp && finalState.Level > targetLevel && finalState.Exp > 0)
+                            return (target, feed, feedExp);
+                    }
+                }
+
+                throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: expected a low-rarity weapon and explicit equip feed that carries surplus exp beyond TargetLevel.");
+            }
+
+            (EquipTable Target, EquipTable NormalWeaponFeed, EquipTable EnhancementFeed, int NormalWeaponFeedExp, int EnhancementFeedExp) FindHighRarityWeaponFeedCase()
+            {
+                foreach (EquipTable target in equipTables
+                    .Where(equip => AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip)
+                        && equip.Type == 1
+                        && equip.Quality > 3
+                        && equip.Site == 0)
+                    .OrderBy(equip => equip.Id))
+                {
+                    int requiredExp = FreshRequiredExpToTargetLevel(target);
+                    if (requiredExp <= 0)
+                        continue;
+                    EquipTable? normalWeaponFeed = equipTables
+                        .Where(equip => AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip)
+                            && equip.Type == 1
+                            && equip.Site == 0
+                            && BaseFeedExp(equip) > 0)
+                        .OrderBy(equip => equip.Id)
+                        .FirstOrDefault();
+                    EquipTable? enhancementFeed = equipTables
+                        .Where(equip => equip.Type == 99
+                            && equip.Site == target.Site
+                            && BaseFeedExp(equip) > 0)
+                        .OrderBy(equip => equip.Id)
+                        .FirstOrDefault();
+                    if (normalWeaponFeed is not null && enhancementFeed is not null)
+                        return (target, normalWeaponFeed, enhancementFeed, BaseFeedExp(normalWeaponFeed), BaseFeedExp(enhancementFeed));
+                }
+
+                throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: expected a high-rarity weapon with normal weapon and Type 99 feed materials.");
+            }
+
+            int FreshRequiredExpToTargetLevel(EquipTable target)
+            {
+                const int probeEquipId = 1;
+                EquipData probeEquip = NewEquip(probeEquipId, target);
+                AscNet.Common.Database.Character probeCharacter = NewCharacter(9999, probeEquip);
+                return probeCharacter.GetEquipExpRequiredToReach(probeEquipId, targetLevel);
+            }
+
+            (int Level, int Exp) SimulateFinalState(EquipTable target, int feedExp)
+            {
+                const int probeEquipId = 2;
+                EquipData probeEquip = NewEquip(probeEquipId, target);
+                AscNet.Common.Database.Character probeCharacter = NewCharacter(9998, probeEquip);
+                probeCharacter.AddEquipExp(probeEquipId, feedExp);
+                return (probeEquip.Level, probeEquip.Exp);
+            }
+
+            int BaseFeedExp(EquipTable equip)
+            {
+                return equipBreakThroughTables.FirstOrDefault(breakThrough => breakThrough.EquipId == equip.Id && breakThrough.Times == 0)?.Exp ?? 0;
+            }
+
+            EquipData NewEquip(int id, EquipTable table)
+            {
+                return new EquipData
+                {
+                    Id = (uint)id,
+                    TemplateId = (uint)table.Id,
+                    CharacterId = 0,
+                    Level = 1,
+                    Exp = 0,
+                    Breakthrough = 0,
+                    ResonanceInfo = [],
+                    UnconfirmedResonanceInfo = [],
+                    AwakeSlotList = [],
+                    IsLock = false,
+                    IsRecycle = false
+                };
+            }
+
+            AscNet.Common.Database.Character NewCharacter(long uid, params EquipData[] equips)
+            {
+                return new AscNet.Common.Database.Character
+                {
+                    Uid = uid,
+                    Characters = [],
+                    Equips = equips.ToList(),
+                    Fashions = []
+                };
+            }
+
+            AscNet.Common.Database.Inventory NewInventory(long uid, params Item[] items)
+            {
+                return new AscNet.Common.Database.Inventory
+                {
+                    Uid = uid,
+                    Items = items.ToList()
+                };
+            }
+
+            Session NewSession(AscNet.Common.Database.Character character, AscNet.Common.Database.Inventory inventory)
+            {
+                Session session = (Session)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Session));
+                session.character = character;
+                session.inventory = inventory;
+                return session;
+            }
+
+            object NewOperationInfo(IReadOnlyList<int>? equipIds, IReadOnlyList<int>? itemIds, IReadOnlyList<int>? itemCounts)
+            {
+                object operationInfo = Activator.CreateInstance(operationInfoType)
+                    ?? throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior: expected operation info to have a public parameterless constructor.");
+                if (equipIds is null)
+                    SetRequiredMemberValue(operationInfo, "UseEquipIdList", null);
+                else
+                    SetRequiredIntegerList(operationInfo, "UseEquipIdList", equipIds);
+                if (itemIds is null)
+                    SetRequiredMemberValue(operationInfo, "UseItemIdList", null);
+                else
+                    SetRequiredIntegerList(operationInfo, "UseItemIdList", itemIds);
+                SetRequiredIntegerMember(operationInfo, "OperationType", 1);
+                if (itemCounts is null)
+                    SetRequiredMemberValue(operationInfo, "UseItemCountList", null);
+                else
+                    SetRequiredIntegerList(operationInfo, "UseItemCountList", itemCounts);
+                return operationInfo;
+            }
+        }
+
+        private static object MessagePackRoundTrip(Type type, object value)
+        {
+            byte[] serialized = MessagePackSerialize(type, value);
+            return MessagePackDeserialize(type, serialized)
+                ?? throw new InvalidDataException($"{type.FullName} MessagePack round-trip deserialized as nil.");
+        }
+
+        private static byte[] MessagePackSerialize(Type type, object value)
+        {
+            MethodInfo serialize = RequiredMessagePackMethod(
+                nameof(MessagePackSerializer.Serialize),
+                method => method.ReturnType == typeof(byte[])
+                    && method.GetParameters() is { Length: > 0 } parameters
+                    && parameters[0].ParameterType.IsGenericParameter);
+            object? serialized = InvokeMessagePackGenericMethod(serialize, type, value);
+            return serialized as byte[]
+                ?? throw new InvalidDataException($"{type.FullName} MessagePack serialize did not return bytes.");
+        }
+
+        private static object? MessagePackDeserialize(Type type, byte[] bytes)
+        {
+            MethodInfo deserialize = RequiredMessagePackMethod(
+                nameof(MessagePackSerializer.Deserialize),
+                method => method.ReturnType.IsGenericParameter
+                    && method.GetParameters() is { Length: > 0 } parameters
+                    && (parameters[0].ParameterType == typeof(byte[])
+                        || parameters[0].ParameterType == typeof(ReadOnlyMemory<byte>)));
+            ParameterInfo firstParameter = deserialize.GetParameters()[0];
+            object firstArgument = firstParameter.ParameterType == typeof(ReadOnlyMemory<byte>)
+                ? new ReadOnlyMemory<byte>(bytes)
+                : bytes;
+            return InvokeMessagePackGenericMethod(deserialize, type, firstArgument);
+        }
+
+        private static MethodInfo RequiredMessagePackMethod(string name, Func<MethodInfo, bool> predicate)
+        {
+            MethodInfo[] matches = typeof(MessagePackSerializer)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.Name == name
+                    && method.IsGenericMethodDefinition
+                    && method.GetGenericArguments().Length == 1
+                    && predicate(method))
+                .ToArray();
+
+            if (matches.Length == 0)
+                throw new MissingMethodException(typeof(MessagePackSerializer).FullName, name);
+
+            return matches
+                .OrderBy(method => method.GetParameters().Length)
+                .ThenBy(method => method.GetParameters()[0].ParameterType == typeof(byte[]) ? 0 : 1)
+                .First();
+        }
+
+        private static object? InvokeMessagePackGenericMethod(MethodInfo genericMethodDefinition, Type genericArgument, object firstArgument)
+        {
+            MethodInfo closedMethod = genericMethodDefinition.MakeGenericMethod(genericArgument);
+            ParameterInfo[] parameters = closedMethod.GetParameters();
+            object?[] arguments = new object?[parameters.Length];
+            arguments[0] = firstArgument;
+            for (int index = 1; index < parameters.Length; index++)
+                arguments[index] = OptionalParameterValue(parameters[index]);
+
+            return closedMethod.Invoke(null, arguments);
+        }
+
+        private static object? OptionalParameterValue(ParameterInfo parameter)
+        {
+            if (parameter.HasDefaultValue && parameter.DefaultValue is not DBNull)
+                return parameter.DefaultValue;
+            if (parameter.ParameterType == typeof(System.Threading.CancellationToken))
+                return default(System.Threading.CancellationToken);
+            return parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null;
+        }
+
+        private static void SetRequiredIntegerMember(object target, string memberName, int value)
+        {
+            MemberInfo member = RequiredDataMember(target.GetType(), memberName);
+            SetRequiredMemberValue(target, member, ConvertIntegerForType(MemberValueType(member), value));
+        }
+
+        private static int GetRequiredIntegerMember(object target, string memberName)
+        {
+            object? value = GetRequiredMemberValue(target, memberName);
+            if (value is null)
+                throw new InvalidDataException($"{target.GetType().FullName}.{memberName}: expected an integer, got nil.");
+            return Convert.ToInt32(value);
+        }
+
+        private static void SetRequiredIntegerList(object target, string memberName, IReadOnlyList<int> values)
+        {
+            MemberInfo member = RequiredDataMember(target.GetType(), memberName);
+            object list = CreateIntegerList(MemberValueType(member), values, $"{target.GetType().FullName}.{memberName}");
+            SetRequiredMemberValue(target, member, list);
+        }
+
+        private static IReadOnlyList<long> GetRequiredIntegerList(object target, string memberName)
+        {
+            object? value = GetRequiredMemberValue(target, memberName);
+            if (value is null)
+                throw new InvalidDataException($"{target.GetType().FullName}.{memberName}: expected a list, got nil.");
+            return ReadIntegerList(value, $"{target.GetType().FullName}.{memberName}");
+        }
+
+        private static void AssertIntegerList(IReadOnlyList<long> expected, IReadOnlyList<long> actual, string name)
+        {
+            AssertEqual(expected.Count, actual.Count, $"{name} count");
+            for (int index = 0; index < expected.Count; index++)
+                AssertEqual(expected[index], actual[index], $"{name}[{index}]");
+        }
+
+        private static void AssertIntegerDictionary(IReadOnlyDictionary<int, int> expected, IReadOnlyDictionary<int, int> actual, string name)
+        {
+            AssertEqual(expected.Count, actual.Count, $"{name} count");
+            foreach (KeyValuePair<int, int> entry in expected.OrderBy(entry => entry.Key))
+            {
+                if (!actual.TryGetValue(entry.Key, out int actualValue))
+                    throw new InvalidDataException($"{name}: missing key {entry.Key}.");
+                AssertEqual(entry.Value, actualValue, $"{name}[{entry.Key}]");
+            }
+        }
+
+        private static void AssertStringDictionary(IReadOnlyDictionary<int, string> expected, IReadOnlyDictionary<int, string> actual, string name)
+        {
+            AssertEqual(expected.Count, actual.Count, $"{name} count");
+            foreach (KeyValuePair<int, string> entry in expected.OrderBy(entry => entry.Key))
+            {
+                if (!actual.TryGetValue(entry.Key, out string? actualValue))
+                    throw new InvalidDataException($"{name}: missing key {entry.Key}.");
+                AssertEqual(entry.Value, actualValue, $"{name}[{entry.Key}]");
+            }
+        }
+
+        private static void AssertRetailDrawInfoArt(
+            DrawInfo drawInfo,
+            int expectedId,
+            int expectedGroupId,
+            string expectedBanner,
+            IReadOnlyDictionary<int, string> expectedResources,
+            IReadOnlyDictionary<int, int> expectedResourceIds,
+            IReadOnlyList<long> expectedPurchaseUiType,
+            int expectedGroupSubType,
+            string name)
+        {
+            AssertEqual(expectedId, drawInfo.Id, $"{name} Id");
+            AssertEqual(expectedGroupId, drawInfo.GroupId, $"{name} GroupId");
+            AssertEqual(expectedBanner, drawInfo.Banner, $"{name} Banner");
+            AssertStringDictionary(expectedResources, drawInfo.Resources, $"{name} Resources");
+            AssertIntegerDictionary(expectedResourceIds, drawInfo.ResourceIds, $"{name} ResourceIds");
+            AssertIntegerList([1, 10], drawInfo.BtnDrawCount.Select(count => (long)count).ToArray(), $"{name} BtnDrawCount");
+            AssertIntegerList(expectedPurchaseUiType, drawInfo.PurchaseUiType.Select(uiType => (long)uiType).ToArray(), $"{name} PurchaseUiType");
+            AssertEqual(0, drawInfo.UpGoodsId, $"{name} UpGoodsId");
+            AssertEqual(expectedGroupSubType, drawInfo.GroupSubType, $"{name} GroupSubType");
+        }
+
+        private static DrawGetDrawInfoListResponse ReadDrawInfoListForGroup(int groupId, int packetId, long playerId, string harnessName)
+        {
+            DrawGetDrawInfoListRequest request = new()
+            {
+                GroupId = groupId
+            };
+
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                harnessName);
+            InvokeRegisteredRequestHandler("DrawGetDrawInfoListRequest", harness.Session, packetId, request);
+            return ReadResponsePayload<DrawGetDrawInfoListResponse>(
+                harness,
+                packetId,
+                nameof(DrawGetDrawInfoListResponse),
+                $"{harnessName} response");
+        }
+
+        private static void AssertRequiredMemberNull(object target, string memberName, string name)
+        {
+            if (GetRequiredMemberValue(target, memberName) is not null)
+                throw new InvalidDataException($"{name}: expected nil.");
+        }
+
+        private static object CreateIntegerList(Type listType, IReadOnlyList<int> values, string name)
+        {
+            Type elementType = RequiredIntegerListElementType(listType, name);
+            System.Collections.IList list = CreateListInstance(listType, name);
+            foreach (int value in values)
+                list.Add(ConvertIntegerForType(elementType, value));
+            return list;
+        }
+
+        private static IReadOnlyList<long> ReadIntegerList(object value, string name)
+        {
+            if (value is not System.Collections.IEnumerable values || value is string)
+                throw new InvalidDataException($"{name}: expected a list.");
+
+            List<long> result = new();
+            foreach (object? item in values)
+            {
+                if (item is null)
+                    throw new InvalidDataException($"{name}: expected integer entries, got nil.");
+                result.Add(Convert.ToInt64(item));
+            }
+
+            return result;
+        }
+
+        private static System.Collections.IList CreateListInstance(Type listType, string name)
+        {
+            Type elementType = RequiredListElementType(listType, name);
+            Type concreteListType = typeof(List<>).MakeGenericType(elementType);
+            if (!listType.IsAssignableFrom(concreteListType))
+                throw new InvalidDataException($"{name}: expected a list type assignable from {concreteListType.FullName}, got {listType.FullName}.");
+
+            return (System.Collections.IList)(Activator.CreateInstance(concreteListType)
+                ?? throw new InvalidDataException($"{name}: expected to construct {concreteListType.FullName}."));
+        }
+
+        private static Type RequiredIntegerListElementType(Type listType, string name)
+        {
+            Type elementType = RequiredListElementType(listType, name);
+            if (elementType != typeof(int)
+                && elementType != typeof(uint)
+                && elementType != typeof(long)
+                && elementType != typeof(ulong))
+                throw new InvalidDataException($"{name}: expected an integer list, got {listType.FullName}.");
+            return elementType;
+        }
+
+        private static Type RequiredListElementType(Type listType, string name)
+        {
+            if (listType.IsGenericType && listType.GetGenericArguments().Length == 1)
+                return listType.GetGenericArguments()[0];
+
+            Type? enumerableInterface = listType.GetInterfaces()
+                .FirstOrDefault(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+            if (enumerableInterface is not null)
+                return enumerableInterface.GetGenericArguments()[0];
+
+            throw new InvalidDataException($"{name}: expected a generic list type, got {listType.FullName}.");
+        }
+
+        private static object ConvertIntegerForType(Type targetType, int value)
+        {
+            if (targetType == typeof(int))
+                return value;
+            if (targetType == typeof(uint))
+                return (uint)value;
+            if (targetType == typeof(long))
+                return (long)value;
+            if (targetType == typeof(ulong))
+                return (ulong)value;
+
+            throw new InvalidDataException($"Expected integer field or list element type, got {targetType.FullName}.");
+        }
+
+        private static MemberInfo RequiredDataMember(Type type, string memberName)
+        {
+            MemberInfo[] members = type.GetMember(memberName, BindingFlags.Instance | BindingFlags.Public)
+                .Where(member => member is FieldInfo || member is PropertyInfo { GetMethod: not null })
+                .ToArray();
+
+            return members.Length switch
+            {
+                1 => members[0],
+                0 => throw new MissingMemberException(type.FullName, memberName),
+                _ => throw new AmbiguousMatchException($"{type.FullName}.{memberName} matched {members.Length} members.")
+            };
+        }
+
+        private static Type MemberValueType(MemberInfo member)
+        {
+            return member switch
+            {
+                FieldInfo field => field.FieldType,
+                PropertyInfo property => property.PropertyType,
+                _ => throw new InvalidDataException($"{member.DeclaringType?.FullName}.{member.Name}: expected a field or property.")
+            };
+        }
+
+        private static object? GetRequiredMemberValue(object target, string memberName)
+        {
+            return GetRequiredMemberValue(target, RequiredDataMember(target.GetType(), memberName));
+        }
+
+        private static object? GetRequiredMemberValue(object target, MemberInfo member)
+        {
+            return member switch
+            {
+                FieldInfo field => field.GetValue(target),
+                PropertyInfo property => property.GetValue(target),
+                _ => throw new InvalidDataException($"{member.DeclaringType?.FullName}.{member.Name}: expected a field or property.")
+            };
+        }
+
+        private static void SetRequiredMemberValue(object target, string memberName, object? value)
+        {
+            SetRequiredMemberValue(target, RequiredDataMember(target.GetType(), memberName), value);
+        }
+
+        private static void SetRequiredMemberValue(object target, MemberInfo member, object? value)
+        {
+            switch (member)
+            {
+                case FieldInfo field:
+                    field.SetValue(target, value);
+                    break;
+                case PropertyInfo { SetMethod: not null } property:
+                    property.SetValue(target, value);
+                    break;
+                case PropertyInfo property:
+                    throw new MissingMethodException(property.DeclaringType?.FullName, $"set_{property.Name}");
+                default:
+                    throw new InvalidDataException($"{member.DeclaringType?.FullName}.{member.Name}: expected a field or property.");
+            }
+        }
+
+
+        private static void AssertNotifyEquipDataListHasNoPhantomCleanupPayload(string name)
+        {
+            _ = RequiredIntegerListElementType(MemberValueType(RequiredDataMember(typeof(NotifyEquipDataList), "DeletedEquipIdList")), $"{name} DeletedEquipIdList");
+
+            Type? autoRecycleNotify = typeof(NotifyEquipDataList).Assembly.GetType("AscNet.Common.MsgPack.NotifyEquipAutoRecycleChipList", throwOnError: false);
+            if (autoRecycleNotify is not null)
+                throw new InvalidDataException($"{name}: expected NotifyEquipAutoRecycleChipList to be absent; equip sync must not depend on an auto-recycle phantom cleanup push.");
+        }
+
+
+        private static void AssertEquipCommandSyncContract(
+            Type equipCommandType,
+            MethodInfo execute,
+            MethodInfo syncHelper,
+            MethodInfo sendLoginState,
+            FieldInfo commandSession,
+            FieldInfo sessionPlayer,
+            FieldInfo sessionCharacter,
+            MethodInfo playerDataGetter,
+            MethodInfo playerDataIdGetter,
+            MethodInfo characterFromUid,
+            string name)
+        {
+            AssertEquipCommandAcceptsSyncWithoutTarget(equipCommandType, $"{name} metadata");
+            AssertEquipCommandExecuteSyncCallsHelper(execute, syncHelper, $"{name} Execute");
+            AssertEquipSyncReloadsCharacterAndResendsLoginState(
+                syncHelper,
+                sendLoginState,
+                commandSession,
+                sessionPlayer,
+                sessionCharacter,
+                playerDataGetter,
+                playerDataIdGetter,
+                characterFromUid,
+                $"{name} reload");
+        }
+
+        private static void AssertEquipCommandAcceptsSyncWithoutTarget(Type equipCommandType, string name)
+        {
+            object? command;
+            try
+            {
+                command = Activator.CreateInstance(
+                    equipCommandType,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null,
+                    args: [null, new[] { "sync" }, true],
+                    culture: null);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is ArgumentException)
+            {
+                throw new InvalidDataException($"{name}: expected 'equip sync' with no target argument to pass command validation.", exception.InnerException);
+            }
+
+            if (command is null)
+                throw new InvalidDataException($"{name}: expected to construct EquipCommand for 'equip sync'.");
+        }
+
+        private static void AssertEquipCommandExecuteSyncCallsHelper(MethodInfo execute, MethodInfo syncHelper, string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(execute).ToList();
+            int syncHelperIndex = FindCallIndex(instructions, syncHelper, startIndex: 0);
+            if (syncHelperIndex < 0)
+                throw new InvalidDataException($"{name}: expected Execute to call SyncEquipsFromDatabase for the sync operation.");
+
+            if (!HasConditionalBranchGuard(instructions, syncHelperIndex, syncHelperIndex))
+                throw new InvalidDataException($"{name}: expected sync reload to be guarded by the sync operation branch.");
+
+            int returnIndex = instructions.FindIndex(syncHelperIndex + 1, instruction => instruction.OpCode.FlowControl == FlowControl.Return);
+            if (returnIndex < 0)
+                throw new InvalidDataException($"{name}: expected sync path to return immediately after reload.");
+        }
+
+        private static void AssertEquipSyncReloadsCharacterAndResendsLoginState(
+            MethodInfo method,
+            MethodInfo sendLoginState,
+            FieldInfo commandSession,
+            FieldInfo sessionPlayer,
+            FieldInfo sessionCharacter,
+            MethodInfo playerDataGetter,
+            MethodInfo playerDataIdGetter,
+            MethodInfo characterFromUid,
+            string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
+            int characterFromUidIndex = FindCallIndex(instructions, characterFromUid, startIndex: 0);
+            if (characterFromUidIndex < 0)
+                throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to reload Character.FromUid.");
+            AssertCharacterFromUidUsesSessionPlayerUid(instructions, characterFromUidIndex, commandSession, sessionPlayer, playerDataGetter, playerDataIdGetter, name);
+
+            int sessionCharacterAssignmentIndex = FindFieldAssignmentIndex(instructions, sessionCharacter, characterFromUidIndex + 1, instructions.Count - 1);
+            if (sessionCharacterAssignmentIndex < 0)
+                throw new InvalidDataException($"{name}: expected session.character to be replaced with the reloaded character before login-state resend.");
+
+            int sendLoginStateIndex = FindCallIndex(instructions, sendLoginState, startIndex: sessionCharacterAssignmentIndex + 1);
+            if (sendLoginStateIndex < 0)
+                throw new InvalidDataException($"{name}: expected sync to resend NotifyLogin state so stock client code reinitializes equipment.");
+
+            MethodInfo sendPush = RequiredGenericMethodDefinition(
+                typeof(Session),
+                nameof(Session.SendPush),
+                BindingFlags.Instance | BindingFlags.Public,
+                parameterCount: 1);
+            int directPushIndex = FindGenericCallIndex(instructions, sendPush, startIndex: 0);
+            if (directPushIndex >= 0)
+                throw new InvalidDataException($"{name}: expected sync to refresh only through AccountModule.SendLoginState and not call Session.SendPush directly.");
+        }
+
+        private static void AssertCharacterFromUidUsesSessionPlayerUid(
+            List<IlInstruction> instructions,
+            int characterFromUidIndex,
+            FieldInfo commandSession,
+            FieldInfo sessionPlayer,
+            MethodInfo playerDataGetter,
+            MethodInfo playerDataIdGetter,
+            string name)
+        {
+            bool loadedCommandSession = false;
+            bool loadedSessionPlayer = false;
+            bool loadedPlayerData = false;
+            bool loadedPlayerDataId = false;
+            int firstCandidate = Math.Max(0, characterFromUidIndex - 12);
+            for (int index = firstCandidate; index < characterFromUidIndex; index++)
+            {
+                if (instructions[index].Operand is FieldInfo loadedField)
+                {
+                    loadedCommandSession |= FieldsMatch(loadedField, commandSession);
+                    loadedSessionPlayer |= FieldsMatch(loadedField, sessionPlayer);
+                    continue;
+                }
+
+                if (instructions[index].Operand is MethodBase calledMethod)
+                {
+                    loadedPlayerData |= MethodsMatch(calledMethod, playerDataGetter);
+                    loadedPlayerDataId |= MethodsMatch(calledMethod, playerDataIdGetter);
+                }
+            }
+
+            if (!loadedCommandSession || !loadedSessionPlayer || !loadedPlayerData || !loadedPlayerDataId)
+                throw new InvalidDataException($"{name}: expected Character.FromUid to be called with session.player.PlayerData.Id.");
+        }
+
+
+        private static void AssertRecentSessionCharacterEquipsSource(List<IlInstruction> instructions, int consumerIndex, FieldInfo sessionCharacter, MethodInfo characterEquipsGetter, string name)
+        {
+            int equipsGetterIndex = -1;
+            int firstGetterCandidate = Math.Max(0, consumerIndex - 24);
+            for (int index = consumerIndex - 1; index >= firstGetterCandidate; index--)
+            {
+                if (instructions[index].Operand is MethodBase calledMethod && MethodsMatch(calledMethod, characterEquipsGetter))
+                {
+                    equipsGetterIndex = index;
+                    break;
+                }
+            }
+
+            if (equipsGetterIndex < 0)
+                throw new InvalidDataException($"{name}: expected the consumed equip list to come from Character.Equips.");
+
+            int firstCharacterCandidate = Math.Max(0, equipsGetterIndex - 8);
+            for (int index = equipsGetterIndex - 1; index >= firstCharacterCandidate; index--)
+            {
+                if (instructions[index].Operand is FieldInfo loadedField && FieldsMatch(loadedField, sessionCharacter))
+                    return;
+            }
+
+            throw new InvalidDataException($"{name}: expected Character.Equips to be loaded from Session.character.");
         }
 
         private static void AssertLevelUpMaxCapResponsePrecedesInventoryMutation(MethodInfo method, MethodInfo inventoryDo, MethodInfo inventorySave, string name)
@@ -1873,6 +5119,42 @@ namespace AscNet.Test
             for (int index = startIndex; index < instructions.Count; index++)
             {
                 if (instructions[index].Operand is MethodBase calledMethod && GenericMethodsMatch(calledMethod, genericMethodDefinition, genericArgument))
+                    return index;
+            }
+
+            return -1;
+        }
+
+        private static int FindGenericCallIndex(List<IlInstruction> instructions, MethodInfo genericMethodDefinition, int startIndex)
+        {
+            for (int index = startIndex; index < instructions.Count; index++)
+            {
+                if (instructions[index].Operand is not MethodInfo calledMethod || !calledMethod.IsGenericMethod)
+                    continue;
+
+                MethodInfo calledDefinition = calledMethod.IsGenericMethodDefinition
+                    ? calledMethod
+                    : calledMethod.GetGenericMethodDefinition();
+                if (MethodsMatch(calledDefinition, genericMethodDefinition))
+                    return index;
+            }
+
+            return -1;
+        }
+
+        private static int FindGenericMethodCallByNameIndex(List<IlInstruction> instructions, Type declaringType, string methodName, Type genericArgument, int startIndex)
+        {
+            for (int index = startIndex; index < instructions.Count; index++)
+            {
+                if (instructions[index].Operand is not MethodInfo calledMethod || !calledMethod.IsGenericMethod || calledMethod.Name != methodName)
+                    continue;
+
+                Type? candidateDeclaringType = calledMethod.DeclaringType;
+                if (candidateDeclaringType is null || candidateDeclaringType != declaringType)
+                    continue;
+
+                Type[] genericArguments = calledMethod.GetGenericArguments();
+                if (genericArguments.Length == 1 && genericArguments[0] == genericArgument)
                     return index;
             }
 

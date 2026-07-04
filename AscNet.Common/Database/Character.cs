@@ -8,6 +8,7 @@ using AscNet.Common.Util;
 using Newtonsoft.Json;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.character.quality;
+using AscNet.Table.V2.share.fashion;
 
 namespace AscNet.Common.Database
 {
@@ -34,7 +35,319 @@ namespace AscNet.Common.Database
 
         public static Character FromUid(long uid)
         {
-            return collection.AsQueryable().FirstOrDefault(x => x.Uid == uid) ?? Create(uid);
+            Character character = collection.AsQueryable().FirstOrDefault(x => x.Uid == uid) ?? Create(uid);
+            bool changed = character.NormalizeEquipsForCurrentTables();
+            changed |= character.NormalizeCharactersForCurrentTables();
+            if (changed)
+                character.Save();
+
+            return character;
+        }
+
+
+        public static bool IsOwnableEquipTemplate(EquipTable equip)
+        {
+            return equip.Priority != 100;
+        }
+
+        public bool NormalizeEquipsForCurrentTables()
+        {
+            if (Equips is null)
+            {
+                Equips = new();
+                return true;
+            }
+
+            Dictionary<uint, EquipTable> ownableEquipTemplates = TableReaderV2.Parse<EquipTable>()
+                .Where(IsOwnableEquipTemplate)
+                .ToDictionary(equip => (uint)equip.Id);
+            List<EquipData> normalizedEquips = new();
+            HashSet<uint> usedIds = new();
+            uint nextId = 1;
+            bool changed = false;
+
+            foreach (EquipData equip in Equips)
+            {
+                if (equip.TemplateId == 0 || equip.IsRecycle || !ownableEquipTemplates.ContainsKey(equip.TemplateId))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (equip.Id == 0 || !usedIds.Add(equip.Id))
+                {
+                    while (usedIds.Contains(nextId))
+                        nextId++;
+
+                    equip.Id = nextId;
+                    usedIds.Add(equip.Id);
+                    changed = true;
+                }
+
+                nextId = Math.Max(nextId, equip.Id + 1);
+
+                if (equip.Level <= 0)
+                {
+                    equip.Level = 1;
+                    changed = true;
+                }
+
+                if (equip.ResonanceInfo is null)
+                {
+                    equip.ResonanceInfo = new();
+                    changed = true;
+                }
+
+                if (equip.UnconfirmedResonanceInfo is null)
+                {
+                    equip.UnconfirmedResonanceInfo = new();
+                    changed = true;
+                }
+
+                if (equip.AwakeSlotList is null)
+                {
+                    equip.AwakeSlotList = new();
+                    changed = true;
+                }
+
+                if (equip.WeaponOverrunData is null)
+                {
+                    equip.WeaponOverrunData = new();
+                    changed = true;
+                }
+
+                normalizedEquips.Add(equip);
+            }
+
+            if (normalizedEquips.Count != Equips.Count)
+                changed = true;
+
+            Equips = normalizedEquips;
+            return changed;
+        }
+
+        public bool NormalizeCharactersForCurrentTables()
+        {
+            bool changed = false;
+            if (Characters is null)
+            {
+                Characters = new();
+                changed = true;
+            }
+
+            if (Equips is null)
+            {
+                Equips = new();
+                changed = true;
+            }
+
+            if (Fashions is null)
+            {
+                Fashions = new();
+                changed = true;
+            }
+
+            Dictionary<int, CharacterTable> characterRowsById = TableReaderV2.Parse<CharacterTable>()
+                .ToDictionary(character => character.Id);
+            Dictionary<int, CharacterSkillTable> skillRowsByCharacterId = TableReaderV2.Parse<CharacterSkillTable>()
+                .ToDictionary(skill => skill.CharacterId);
+            ILookup<int, CharacterQualityTable> qualityRowsByCharacterId = TableReaderV2.Parse<CharacterQualityTable>()
+                .ToLookup(quality => quality.CharacterId);
+            Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>()
+                .ToDictionary(equip => equip.Id);
+            HashSet<int> fashionRowsById = TableReaderV2.Parse<FashionTable>()
+                .Select(fashion => fashion.Id)
+                .ToHashSet();
+
+            HashSet<int> seenFashionIds = new();
+            List<FashionList> normalizedFashions = new();
+            foreach (FashionList fashion in Fashions)
+            {
+                if (fashion.Id <= 0 || !fashionRowsById.Contains((int)fashion.Id) || !seenFashionIds.Add((int)fashion.Id))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                normalizedFashions.Add(fashion);
+            }
+            Fashions = normalizedFashions;
+
+            foreach (CharacterData character in Characters)
+            {
+                if (!characterRowsById.TryGetValue((int)character.Id, out CharacterTable? characterRow))
+                    continue;
+
+                CharacterQualityTable? firstQualityRow = qualityRowsByCharacterId[(int)character.Id]
+                    .OrderBy(quality => quality.Quality)
+                    .FirstOrDefault();
+                if (firstQualityRow is not null)
+                {
+                    if (character.InitQuality <= 0)
+                    {
+                        character.InitQuality = firstQualityRow.Quality;
+                        changed = true;
+                    }
+
+                    if (character.Quality <= 0)
+                    {
+                        character.Quality = firstQualityRow.Quality;
+                        changed = true;
+                    }
+                }
+
+                if (character.Level <= 0)
+                {
+                    character.Level = 1;
+                    changed = true;
+                }
+
+                if (character.Grade <= 0)
+                {
+                    character.Grade = 1;
+                    changed = true;
+                }
+
+                if (character.TrustLv <= 0)
+                {
+                    character.TrustLv = 1;
+                    changed = true;
+                }
+
+                if (character.LiberateLv <= 0)
+                {
+                    character.LiberateLv = 1;
+                    changed = true;
+                }
+
+                if (character.CreateTime <= 0)
+                {
+                    character.CreateTime = DateTimeOffset.Now.ToUnixTimeSeconds();
+                    changed = true;
+                }
+
+                if (character.EnhanceSkillList is null)
+                {
+                    character.EnhanceSkillList = new();
+                    changed = true;
+                }
+
+                if (skillRowsByCharacterId.TryGetValue((int)character.Id, out CharacterSkillTable? skillRow))
+                {
+                    Dictionary<uint, CharacterSkill> skillsById = character.SkillList?
+                        .Where(skill => skill.Id > 0)
+                        .GroupBy(skill => skill.Id)
+                        .ToDictionary(group => group.Key, group => group.First()) ?? new();
+
+                    foreach (CharacterSkill expectedSkill in BuildInitialCharacterSkills(skillRow))
+                    {
+                        if (skillsById.ContainsKey(expectedSkill.Id))
+                            continue;
+
+                        skillsById.Add(expectedSkill.Id, expectedSkill);
+                        changed = true;
+                    }
+
+                    CharacterSkill[] normalizedSkills = skillsById.Values
+                        .OrderBy(skill => skill.Id)
+                        .ToArray();
+                    if (character.SkillList is null || character.SkillList.Count != normalizedSkills.Length || !character.SkillList.Select(skill => skill.Id).OrderBy(id => id).SequenceEqual(normalizedSkills.Select(skill => skill.Id)))
+                    {
+                        character.SkillList = normalizedSkills.ToList();
+                        changed = true;
+                    }
+                }
+
+                if (characterRow.DefaultNpcFashtionId > 0 && fashionRowsById.Contains(characterRow.DefaultNpcFashtionId))
+                {
+                    if (character.FashionId == 0)
+                    {
+                        character.FashionId = (uint)characterRow.DefaultNpcFashtionId;
+                        changed = true;
+                    }
+
+                    if (character.CharacterHeadInfo is null)
+                    {
+                        character.CharacterHeadInfo = new CharacterData.CharacterHead();
+                        changed = true;
+                    }
+
+                    if (character.CharacterHeadInfo.HeadFashionId == 0)
+                    {
+                        character.CharacterHeadInfo.HeadFashionId = (uint)characterRow.DefaultNpcFashtionId;
+                        changed = true;
+                    }
+
+                    if (Fashions.All(fashion => fashion.Id != characterRow.DefaultNpcFashtionId))
+                    {
+                        Fashions.Add(new FashionList
+                        {
+                            Id = characterRow.DefaultNpcFashtionId,
+                            IsLock = false
+                        });
+                        changed = true;
+                    }
+                }
+
+                if (characterRow.EquipId > 0
+                    && equipRowsById.TryGetValue(characterRow.EquipId, out EquipTable? defaultEquipRow)
+                    && IsOwnableEquipTemplate(defaultEquipRow))
+                {
+                    List<EquipData> assignedEquips = Equips
+                        .Where(equip => equip.CharacterId == characterRow.Id)
+                        .ToList();
+                    bool hasCompatibleAssignedEquip = assignedEquips.Any(equip =>
+                        equipRowsById.TryGetValue((int)equip.TemplateId, out EquipTable? assignedEquipRow)
+                        && assignedEquipRow.Type == characterRow.EquipType);
+
+                    if (!hasCompatibleAssignedEquip)
+                    {
+                        foreach (EquipData assignedEquip in assignedEquips)
+                        {
+                            if (!equipRowsById.TryGetValue((int)assignedEquip.TemplateId, out EquipTable? assignedEquipRow)
+                                || assignedEquipRow.Type != characterRow.EquipType)
+                            {
+                                assignedEquip.CharacterId = 0;
+                                changed = true;
+                            }
+                        }
+
+                        EquipData? existingDefaultEquip = Equips.FirstOrDefault(equip => equip.TemplateId == (uint)characterRow.EquipId && equip.CharacterId == 0);
+                        if (existingDefaultEquip is not null)
+                        {
+                            existingDefaultEquip.CharacterId = characterRow.Id;
+                            changed = true;
+                        }
+                        else
+                        {
+                            EquipData? equip = AddEquip((uint)characterRow.EquipId, characterRow.Id);
+                            changed |= equip is not null;
+                        }
+                    }
+                }
+            }
+
+            return changed;
+        }
+
+        private static List<CharacterSkill> BuildInitialCharacterSkills(CharacterSkillTable characterSkill)
+        {
+            return characterSkill.SkillGroupId
+                .Where(skillGroupId => skillGroupId > 0)
+                .Select(CharacterSkillIdFromGroupId)
+                .Distinct()
+                .Select(skillId => new CharacterSkill
+                {
+                    Id = skillId,
+                    Level = 1
+                })
+                .ToList();
+        }
+
+        private static uint CharacterSkillIdFromGroupId(int skillGroupId)
+        {
+            string skillGroupIdText = skillGroupId.ToString();
+            return uint.Parse(skillGroupIdText[..Math.Min(6, skillGroupIdText.Length)]);
         }
 
         private static Character Create(long uid)
@@ -111,20 +424,18 @@ namespace AscNet.Common.Database
                 }
             };
 
-            // TODO: Don't do the ToString, query skill properly pls.
-            characterData.SkillList.AddRange(characterSkill.SkillGroupId.Take(8).Select(x => new CharacterSkill()
-            {
-                Id = uint.Parse(x.ToString().Take(6).ToArray()),
-                Level = 1
-            }));
+            characterData.SkillList.AddRange(BuildInitialCharacterSkills(characterSkill));
 
-            FashionList fashion = new()
+            if (character.DefaultNpcFashtionId > 0)
             {
-                Id = character.DefaultNpcFashtionId,
-                IsLock = false
-            };
-            Fashions.Add(fashion);
-            ret.Fashion = fashion;
+                FashionList fashion = new()
+                {
+                    Id = character.DefaultNpcFashtionId,
+                    IsLock = false
+                };
+                Fashions.Add(fashion);
+                ret.Fashion = fashion;
+            }
             if (character.EquipId > 0)
                 ret.Equip = AddEquip((uint)character.EquipId, character.Id);
 
@@ -214,8 +525,12 @@ namespace AscNet.Common.Database
             };
         }
 
-        public EquipData AddEquip(uint equipId, int characterId = 0, int level = 1)
+        public EquipData? AddEquip(uint equipId, int characterId = 0, int level = 1)
         {
+            EquipTable? equip = TableReaderV2.Parse<EquipTable>().Find(x => x.Id == equipId && IsOwnableEquipTemplate(x));
+            if (equip is null)
+                return null;
+
             EquipData equipData = new()
             {
                 Id = NextEquipId,
@@ -267,6 +582,48 @@ namespace AscNet.Common.Database
             }
 
             return equip;
+        }
+
+        public int GetEquipExpRequiredToReach(int equipId, int targetLevel, int targetExp = 0)
+        {
+            var equip = Equips.FirstOrDefault(x => x.Id == equipId);
+            EquipBreakThroughTable? equipBreakThroughTable = TableReaderV2.Parse<EquipBreakThroughTable>().FirstOrDefault(x => x.EquipId == equip?.TemplateId && x.Times == equip?.Breakthrough);
+            if (equip is null || equipBreakThroughTable is null)
+                return 0;
+
+            int clampedTargetLevel = Math.Clamp(targetLevel, equip.Level, equipBreakThroughTable.LevelLimit);
+            int currentExp = Math.Max(0, equip.Exp);
+            int requiredExp = 0;
+
+            for (int level = equip.Level; level < clampedTargetLevel; level++)
+            {
+                EquipLevelUpTemplate? levelUpTemplate = equipLevelUpTemplates.FirstOrDefault(x => x.TemplateId == equipBreakThroughTable.LevelUpTemplateId && x.Level == level);
+                if (levelUpTemplate is null)
+                    return requiredExp;
+
+                requiredExp += Math.Max(0, levelUpTemplate.Exp - (level == equip.Level ? currentExp : 0));
+            }
+
+            if (clampedTargetLevel == equip.Level)
+            {
+                requiredExp += Math.Max(0, targetExp - currentExp);
+            }
+            else if (targetExp > 0)
+            {
+                EquipLevelUpTemplate? targetLevelTemplate = equipLevelUpTemplates.FirstOrDefault(x => x.TemplateId == equipBreakThroughTable.LevelUpTemplateId && x.Level == clampedTargetLevel);
+                requiredExp += Math.Min(targetExp, targetLevelTemplate?.Exp ?? targetExp);
+            }
+
+            return Math.Max(0, requiredExp);
+        }
+
+        public int AddEquipExpUpTo(int equipId, int exp, int targetLevel, int targetExp = 0)
+        {
+            int appliedExp = Math.Min(Math.Max(0, exp), GetEquipExpRequiredToReach(equipId, targetLevel, targetExp));
+            if (appliedExp > 0)
+                AddEquipExp(equipId, appliedExp);
+
+            return appliedExp;
         }
 
         public void Save()
@@ -334,7 +691,7 @@ namespace AscNet.Common.Database
     public struct AddCharacterRet
     {
         public CharacterData Character { get; set; }
-        public EquipData Equip { get; set; }
+        public EquipData? Equip { get; set; }
         public FashionList Fashion { get; set; }
     }
 }

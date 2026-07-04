@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Reflection.Emit;
 using AscNet.Common;
+using AscNet.Common.MsgPack;
 using AscNet.Common.Database;
 using AscNet.Common.Util;
 using AscNet.GameServer.Game;
@@ -178,6 +179,7 @@ namespace AscNet.GameServer
                 Name = typeof(T).Name,
                 Content = MessagePackSerializer.Serialize(push)
             };
+            ProbeEquipmentPush(packet.Name, push);
             Send(new Packet()
             {
                 No = ++packetNo,
@@ -194,6 +196,7 @@ namespace AscNet.GameServer
                 Name = name,
                 Content = push
             };
+            ProbeEquipmentPush(name, push);
             Send(new Packet()
             {
                 No = ++packetNo,
@@ -201,6 +204,58 @@ namespace AscNet.GameServer
                 Content = MessagePackSerializer.Serialize(packet)
             });
             log.Info($"{name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(push)) : "")}");
+        }
+
+        private static readonly object EquipmentPushProbeLock = new();
+        private static readonly string EquipmentPushProbePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".runtime", "equip-push-live.log"));
+
+        private void ProbeEquipmentPush<T>(string name, T push)
+        {
+            string? summary = name switch
+            {
+                nameof(NotifyLogin) when push is NotifyLogin notifyLogin => DescribeEquipList(notifyLogin.EquipList),
+                nameof(NotifyEquipDataList) when push is NotifyEquipDataList notifyEquipDataList => DescribeEquipList(notifyEquipDataList.EquipDataList),
+                _ when name.StartsWith("NotifyEquip", StringComparison.Ordinal) => push is byte[] bytes ? $"rawBytes={bytes.Length}" : $"payloadType={typeof(T).FullName}",
+                _ => null
+            };
+
+            if (summary is null)
+                return;
+
+            try
+            {
+                string? directory = Path.GetDirectoryName(EquipmentPushProbePath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                string line = $"{DateTimeOffset.Now:O} session={id} packetNo={packetNo + 1} push={name} {summary}{Environment.NewLine}";
+                lock (EquipmentPushProbeLock)
+                {
+                    File.AppendAllText(EquipmentPushProbePath, line);
+                }
+            }
+            catch
+            {
+                // Probe logging must never affect gameplay packet delivery.
+            }
+        }
+
+        private static string DescribeEquipList(IReadOnlyCollection<EquipData>? equips)
+        {
+            if (equips is null)
+                return "equipCount=null";
+
+            if (equips.Count == 0)
+                return "equipCount=0";
+
+            uint minId = equips.Min(equip => equip.Id);
+            uint maxId = equips.Max(equip => equip.Id);
+            int recycledCount = equips.Count(equip => equip.IsRecycle);
+            string templates = string.Join(",", equips.Take(24).Select(equip => equip.TemplateId));
+            if (equips.Count > 24)
+                templates += ",...";
+
+            return $"equipCount={equips.Count} minId={minId} maxId={maxId} recycled={recycledCount} templates={templates}";
         }
 
         public void SendResponse<T>(T response, int clientSeq = 0) where T : new()

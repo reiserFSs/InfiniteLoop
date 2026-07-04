@@ -6,6 +6,7 @@ using AscNet.GameServer.Handlers.Drops;
 using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.reward;
+using AscNet.Table.V2.share.equip;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -189,11 +190,14 @@ namespace AscNet.GameServer.Handlers
                     var characterRet = session.character.AddCharacter((uint)reward.Id, level: reward.Level);
                     characterDataList.Add(characterRet.Character);
                     fashionList.Add(characterRet.Fashion);
-                    equipDataList.Add(characterRet.Equip);
+                    if (characterRet.Equip is not null)
+                        equipDataList.Add(characterRet.Equip);
 
                     break;
                 case RewardType.Equip:
-                    equipDataList.Add(session.character.AddEquip((uint)reward.Id, level: reward.Level));
+                    EquipData? equip = session.character.AddEquip((uint)reward.Id, level: reward.Level);
+                    if (equip is not null)
+                        equipDataList.Add(equip);
                     break;
                 case RewardType.Fashion:
                     break;

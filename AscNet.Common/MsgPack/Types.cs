@@ -374,8 +374,9 @@ namespace AscNet.Common.MsgPack
     [global::MessagePack.MessagePackObject(true)]
     public class NotifyEquipChipAutoRecycleSite
     {
-        public ChipRecycleSite ChipRecycleSite { get; set; }
+        public ChipRecycleSite ChipRecycleSite { get; set; } = new();
     }
+
 
     [global::MessagePack.MessagePackObject(true)]
     public class ChipRecycleSite
@@ -393,11 +394,11 @@ namespace AscNet.Common.MsgPack
         public class NotifyEquipGuideDataEquipGuideData
         {
             public Int32 TargetId { get; set; }
+            public Int32 CharacterId { get; set; }
             public List<Int32> PutOnPosList { get; set; } = new();
             public List<dynamic> FinishedTargets { get; set; } = new();
         }
-
-        public NotifyEquipGuideDataEquipGuideData EquipGuideData { get; set; }
+        public NotifyEquipGuideDataEquipGuideData EquipGuideData { get; set; } = new();
     }
 
 
@@ -2566,6 +2567,7 @@ namespace AscNet.Common.MsgPack
         public Int32 Grade { get; set; }
         public List<CharacterSkill> SkillList { get; set; } = new();
         public List<CharacterSkill> EnhanceSkillList { get; set; } = new();
+        public List<CharacterSkill> MagicList { get; set; } = new();
         public UInt32 FashionId { get; set; }
         public Int64 CreateTime { get; set; }
         public Int32 TrustLv { get; set; }
@@ -2580,6 +2582,12 @@ namespace AscNet.Common.MsgPack
             public Int32 HeadFashionType { get; set; }
         }
         public CharacterHead CharacterHeadInfo { get; set; }
+        public Int32 LiberateAureoleId { get; set; }
+        public Int32 NewFlag { get; set; }
+        public Boolean RandomFashion { get; set; }
+        public Boolean CollectState { get; set; }
+        public Boolean IsEnhanceSkillNotice { get; set; }
+        public Int32 CharacterType { get; set; }
     }
 
     [global::MessagePack.MessagePackObject(true)]
@@ -2624,6 +2632,8 @@ namespace AscNet.Common.MsgPack
         public Int32 Breakthrough { get; set; }
         public Int32 ConvertFrom { get; set; }
         public Int32 Id { get; set; }
+        public Boolean IsGift { get; set; }
+        public Int32 RewardMulti { get; set; }
     }
 
     [global::MessagePack.MessagePackObject(true)]
@@ -2672,6 +2682,15 @@ namespace AscNet.Common.MsgPack
     }
 
     [global::MessagePack.MessagePackObject(true)]
+    public class WeaponOverrunData
+    {
+        public Int32 Level { get; set; }
+        public List<Int32> ActiveSuits { get; set; } = new();
+        public Int32 ChoseSuit { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
     public class EquipData
     {
         public UInt32 Id { get; set; }
@@ -2685,6 +2704,7 @@ namespace AscNet.Common.MsgPack
         public List<dynamic> AwakeSlotList { get; set; } = new();
         public Boolean IsLock { get; set; }
         public UInt32 CreateTime { get; set; }
+        public WeaponOverrunData WeaponOverrunData { get; set; } = new();
         public Boolean IsRecycle { get; set; }
     }
 
@@ -2692,6 +2712,7 @@ namespace AscNet.Common.MsgPack
     public class NotifyEquipDataList
     {
         public List<EquipData> EquipDataList { get; set; } = new();
+        public List<UInt32> DeletedEquipIdList { get; set; } = new();
     }
 
 

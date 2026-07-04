@@ -1,4 +1,5 @@
-﻿using MessagePack;
+﻿using AscNet.Common.MsgPack;
+using MessagePack;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -24,6 +25,21 @@ namespace AscNet.GameServer.Handlers
     {
         public int Code;
     }
+    [MessagePackObject(true)]
+    public class ItemBuyAssetRequest
+    {
+        public int Times { get; set; }
+        public int ItemId { get; set; }
+        public int ConsumeId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class ItemBuyAssetResponse
+    {
+        public int Code { get; set; }
+        public int Count { get; set; }
+        public bool IsCrit { get; set; }
+    }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
@@ -45,6 +61,27 @@ namespace AscNet.GameServer.Handlers
         public static void ItemUseRequestHandler(Session session, Packet.Request packet)
         {
             session.SendResponse(new ItemUseResponse() { Code = 1 }, packet.Id);
+        }
+
+        [RequestPacketHandler("ItemBuyAssetRequest")]
+        public static void ItemBuyAssetRequestHandler(Session session, Packet.Request packet)
+        {
+            ItemBuyAssetRequest request = packet.Deserialize<ItemBuyAssetRequest>();
+            int count = Math.Max(0, request.Times);
+
+            Item consumedItem = session.inventory.Do(request.ConsumeId, -count);
+            Item boughtItem = session.inventory.Do(request.ItemId, count);
+
+            session.SendPush(new NotifyItemDataList
+            {
+                ItemDataList = { consumedItem, boughtItem }
+            });
+            session.inventory.Save();
+            session.SendResponse(new ItemBuyAssetResponse
+            {
+                Count = count,
+                IsCrit = false
+            }, packet.Id);
         }
      }
 }
