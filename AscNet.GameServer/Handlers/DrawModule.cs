@@ -460,6 +460,7 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
+
         private static int GetDrawRewardQuality(Reward reward, int convertFrom)
         {
             if (convertFrom > 0)

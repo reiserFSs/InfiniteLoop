@@ -168,6 +168,10 @@ namespace AscNet.Common.Database
         [BsonElement("life_tree_data")]
         public NotifyLifeTreeData LifeTreeData { get; set; } = new();
 
+        [BsonElement("purchase_buy_times")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<uint, int> PurchaseBuyTimes { get; set; } = new();
+
         [BsonElement("team_groups")]
         [BsonRequired]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]

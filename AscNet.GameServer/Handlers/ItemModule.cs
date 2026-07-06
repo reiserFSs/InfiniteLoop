@@ -1,6 +1,7 @@
 ﻿using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.item;
+using AscNet.Table.V2.share.reward;
 using MessagePack;
 
 namespace AscNet.GameServer.Handlers
@@ -81,42 +82,12 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            int rewardId = ResolveFixedGiftRewardId(itemTable);
-            if (rewardId <= 0)
+            List<Reward> rewards = [];
+            ItemUseResponse response = new() { Code = 0 };
+            if (!TryBuildItemUseRewards(itemTable, count, response.RewardGoodsList, rewards))
             {
                 session.SendResponse(new ItemUseResponse() { Code = 1 }, packet.Id);
                 return;
-            }
-
-            List<Reward> rewards = [];
-            ItemUseResponse response = new() { Code = 0 };
-            foreach (var rewardGoods in RewardHandler.GetRewardGoods(rewardId))
-            {
-                RewardType? rewardType = RewardHandler.GetRewardType(rewardGoods);
-                if (rewardType is null)
-                    continue;
-
-                long rewardCountLong = (long)rewardGoods.Count * count;
-                if (rewardCountLong > int.MaxValue)
-                {
-                    session.SendResponse(new ItemUseResponse() { Code = 1 }, packet.Id);
-                    return;
-                }
-
-                int rewardCount = (int)rewardCountLong;
-                response.RewardGoodsList.Add(new RewardGoods
-                {
-                    Id = rewardGoods.Id,
-                    TemplateId = rewardGoods.TemplateId,
-                    Count = rewardCount,
-                    RewardType = (int)rewardType.Value
-                });
-                rewards.Add(new Reward
-                {
-                    Id = rewardGoods.TemplateId,
-                    Count = rewardCount,
-                    Type = rewardType.Value
-                });
             }
 
             if (rewards.Count == 0)
@@ -143,6 +114,83 @@ namespace AscNet.GameServer.Handlers
             return itemTable.SubTypeParams.Count >= 2 && itemTable.SubTypeParams[0] == 1
                 ? itemTable.SubTypeParams[1]
                 : 0;
+        }
+
+        private static bool TryBuildItemUseRewards(ItemTable itemTable, int count, List<RewardGoods> rewardGoodsList, List<Reward> rewards)
+        {
+            if (TryBuildRandomGiftRewards(itemTable, count, rewardGoodsList, rewards))
+                return true;
+
+            int fixedRewardId = ResolveFixedGiftRewardId(itemTable);
+            if (fixedRewardId > 0)
+                return TryAddRewardGoods(RewardHandler.GetRewardGoods(fixedRewardId), count, rewardGoodsList, rewards);
+
+            return false;
+        }
+
+        private static bool TryBuildRandomGiftRewards(ItemTable itemTable, int count, List<RewardGoods> rewardGoodsList, List<Reward> rewards)
+        {
+            if (itemTable.ItemType != (int)AscNet.Common.ItemType.Gift
+                || itemTable.SubTypeParams.Count < 2
+                || itemTable.SubTypeParams[0] != 2)
+            {
+                return false;
+            }
+
+            List<RewardGoodsTable> configuredRewards = RewardHandler.GetRewardGoods(itemTable.SubTypeParams[1])
+                .Where(rewardGoods => RewardHandler.GetRewardType(rewardGoods) is not null)
+                .ToList();
+            if (configuredRewards.Count == 0)
+                return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                RewardGoodsTable selectedReward = configuredRewards[Random.Shared.Next(configuredRewards.Count)];
+                if (!TryAddSingleRewardGoods(selectedReward, 1, rewardGoodsList, rewards))
+                    return false;
+            }
+
+            return true;
+        }
+
+
+        private static bool TryAddRewardGoods(IEnumerable<RewardGoodsTable> configuredRewards, int count, List<RewardGoods> rewardGoodsList, List<Reward> rewards)
+        {
+            foreach (var rewardGoods in configuredRewards)
+            {
+                if (!TryAddSingleRewardGoods(rewardGoods, count, rewardGoodsList, rewards))
+                    return false;
+            }
+
+            return rewards.Count > 0;
+        }
+
+        private static bool TryAddSingleRewardGoods(RewardGoodsTable rewardGoods, int count, List<RewardGoods> rewardGoodsList, List<Reward> rewards)
+        {
+            RewardType? rewardType = RewardHandler.GetRewardType(rewardGoods);
+            if (rewardType is null)
+                return true;
+
+            long rewardCountLong = (long)rewardGoods.Count * count;
+            if (rewardCountLong > int.MaxValue)
+                return false;
+
+            int rewardCount = (int)rewardCountLong;
+            rewardGoodsList.Add(new RewardGoods
+            {
+                Id = rewardGoods.Id,
+                TemplateId = rewardGoods.TemplateId,
+                Count = rewardCount,
+                RewardType = (int)rewardType.Value
+            });
+            rewards.Add(new Reward
+            {
+                Id = rewardGoods.TemplateId,
+                Count = rewardCount,
+                Type = rewardType.Value
+            });
+
+            return true;
         }
 
         [RequestPacketHandler("ItemBuyAssetRequest")]

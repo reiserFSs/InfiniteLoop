@@ -163,6 +163,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--overclock-material-box-compat-only"))
+                {
+                    ValidateOverclockMaterialBoxCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--chat-compat-only"))
                 {
                     ValidateChatCompatibility();
@@ -178,6 +184,12 @@ namespace AscNet.Test
                 if (args.Contains("--shop-compat-only"))
                 {
                     ValidateShopCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--purchase-request-compat-only"))
+                {
+                    ValidatePurchaseRequestCompatibility();
                     return;
                 }
 
@@ -236,6 +248,7 @@ namespace AscNet.Test
                 ValidateCommandCompatibility();
                 ValidateMissingFeatureCompatibility();
                 ValidateShopCompatibility();
+                ValidatePurchaseRequestCompatibility();
                 ValidateCurrentClientNoticeFixtures();
                 ValidateCurrentClientNoticeEndpoints().GetAwaiter().GetResult();
                 ValidateLifeTreeFinishProcessRequestCompatibility();
@@ -1704,6 +1717,99 @@ namespace AscNet.Test
             if (mailDeleteResponse.DelIdList is null)
                 throw new InvalidDataException("MailDeleteResponse DelIdList: expected initialized list.");
         }
+
+        private static void ValidatePurchaseRequestCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const string requestName = nameof(PurchaseRequest);
+            const string responseName = nameof(PurchaseResponse);
+            const uint purchaseId = 90_943;
+            const int purchaseCount = 1;
+            int[] capturedUiTypes = [5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16];
+
+            MethodInfo handlerMethod = GetRegisteredRequestHandlerMethod(requestName);
+            AssertEqual("PurchaseRequestHandler", handlerMethod.Name, $"{requestName} registered handler method");
+
+            PurchaseRequest request = new()
+            {
+                Count = purchaseCount,
+                Param = null,
+                Id = purchaseId,
+                DiscountId = 0,
+                UiTypeList = capturedUiTypes.ToList()
+            };
+            PurchaseRequest requestRoundTrip = MessagePackSerializer.Deserialize<PurchaseRequest>(
+                MessagePackSerializer.Serialize(request));
+            AssertEqual(purchaseCount, requestRoundTrip.Count, $"{requestName} Count MessagePack round-trip");
+            if (requestRoundTrip.Param is not null)
+                throw new InvalidDataException($"{requestName} Param MessagePack round-trip: expected captured nil Param.");
+            AssertEqual(purchaseId, requestRoundTrip.Id, $"{requestName} Id MessagePack round-trip");
+            AssertEqual(0, requestRoundTrip.DiscountId, $"{requestName} DiscountId MessagePack round-trip");
+            AssertIntegerList(
+                capturedUiTypes.Select(uiType => (long)uiType).ToArray(),
+                requestRoundTrip.UiTypeList.Select(uiType => (long)uiType).ToArray(),
+                $"{requestName} UiTypeList MessagePack round-trip");
+
+            const long playerId = 88_009;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.PurchaseBuyTimes.Remove(purchaseId);
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                inventory,
+                "purchase-request-compat-test");
+
+            const int packetId = 13_013;
+            InvokeRegisteredRequestHandler(requestName, harness.Session, packetId, requestRoundTrip);
+
+            NotifyItemDataList rewardPush = ReadPushPayload<NotifyItemDataList>(
+                harness,
+                nameof(NotifyItemDataList),
+                $"{requestName} reward inventory push");
+            Item pushedReward = rewardPush.ItemDataList.Single(item => item.Id == 90_031);
+            AssertEqual(1L, pushedReward.Count, $"{requestName} NotifyItemDataList reward item count");
+
+            PurchaseResponse response = ReadResponsePayload<PurchaseResponse>(
+                harness,
+                packetId,
+                responseName,
+                $"{requestName} response");
+            AssertEqual(0, response.Code, $"{responseName} Code");
+            AssertEqual(1, response.RewardList.Count, $"{responseName} RewardList count");
+            RewardGoods reward = response.RewardList[0];
+            AssertEqual(90_031, reward.TemplateId, $"{responseName} RewardList[0].TemplateId");
+            AssertEqual(1, reward.Count, $"{responseName} RewardList[0].Count");
+
+            System.Collections.IDictionary purchaseInfo = RequiredDynamicMap(
+                response.PurchaseInfo,
+                $"{responseName} PurchaseInfo");
+            AssertEqual((int)purchaseId, RequiredDynamicInteger(purchaseInfo, "Id", $"{responseName} PurchaseInfo"), $"{responseName} PurchaseInfo.Id");
+            AssertEqual(1, RequiredDynamicInteger(purchaseInfo, "BuyTimes", $"{responseName} PurchaseInfo"), $"{responseName} PurchaseInfo.BuyTimes");
+
+            System.Collections.IDictionary newPurchaseInfo = RequiredPurchaseInfoById(
+                response.NewPurchaseInfoList,
+                purchaseId,
+                $"{responseName} NewPurchaseInfoList");
+            AssertEqual(1, RequiredDynamicInteger(newPurchaseInfo, "BuyTimes", $"{responseName} NewPurchaseInfoList[{purchaseId}]"), $"{responseName} NewPurchaseInfoList[{purchaseId}].BuyTimes");
+
+            if (!harness.Session.player.PurchaseBuyTimes.TryGetValue(purchaseId, out int persistedBuyTimes))
+                throw new InvalidDataException($"{requestName}: expected Player.PurchaseBuyTimes to contain purchase id {purchaseId}.");
+            AssertEqual(1, persistedBuyTimes, $"{requestName} persisted Player.PurchaseBuyTimes[{purchaseId}]");
+
+            static System.Collections.IDictionary RequiredPurchaseInfoById(IEnumerable<object?> purchaseInfoList, uint requiredPurchaseId, string name)
+            {
+                foreach (object? purchaseInfo in purchaseInfoList)
+                {
+                    System.Collections.IDictionary purchaseInfoMap = RequiredDynamicMap(purchaseInfo, $"{name} item");
+                    if (RequiredDynamicInteger(purchaseInfoMap, "Id", $"{name} item") == (int)requiredPurchaseId)
+                        return purchaseInfoMap;
+                }
+
+                throw new InvalidDataException($"{name}: missing purchase id {requiredPurchaseId}.");
+            }
+        }
+
 
 
         private static CharacterData CreateLoginAccountCompatibilityCharacter(uint id, uint fashionId)
@@ -4076,10 +4182,10 @@ namespace AscNet.Test
                 ?? throw new InvalidDataException($"{name}: expected DrawPreview.tsv row 1488.");
             AssertEqual(true, draw1488Preview.GoodsId.Contains(lowRankDuplicateCharacterId), $"{name} low-rank duplicate fixture is in draw 1488 preview GoodsId");
 
-            RewardGoods normalItemSource = InvokeRewardGoodsFactory(drawOverclockMaterialReward, $"{name} normal item source");
-            RewardGoods normalItemReward = InvokeToDrawRewardGoods(toDrawRewardGoods, normalItemSource, $"{name} normal item");
-            AssertEqual((int)RewardType.Item, normalItemReward.RewardType, $"{name} normal item RewardType");
-            AssertRewardGoodsDrawShowQuality(normalItemReward, $"{name} normal item", requirePositive: true);
+            AssertDrawOverclockMaterialRewardUsesHighGradeMaterialPool(
+                drawOverclockMaterialReward,
+                toDrawRewardGoods,
+                $"{name} DrawManager.DrawOverclockMaterialReward");
 
             RewardGoods normalEquipSource = InvokeRewardGoodsFactory(drawMemoryReward, $"{name} normal equip source");
             RewardGoods normalEquipReward = InvokeToDrawRewardGoods(toDrawRewardGoods, normalEquipSource, $"{name} normal equip");
@@ -4223,6 +4329,144 @@ namespace AscNet.Test
             int showQuality = AssertRewardGoodsDrawShowQuality(clientReward, $"{name} client RewardGoods", requirePositive: true);
             AssertEqual(item.Quality, showQuality, $"{name} client RewardGoods ShowQuality matches Item.tsv Quality");
         }
+
+        private static void AssertDrawOverclockMaterialRewardUsesHighGradeMaterialPool(
+            MethodInfo factory,
+            MethodInfo toDrawRewardGoods,
+            string name)
+        {
+            int[] highGradeMaterialItemIds = [40_110, 40_111, 40_112, 40_113, 40_114];
+            int[] unopenedBoxItemIds = [60_001, 60_002];
+            int[] lowGradeMaterialItemIds = [40_100, 40_101, 40_102, 40_103, 40_104];
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+
+            RewardGoods sourceReward = InvokeRewardGoodsFactory(factory, $"{name} factory RewardGoods");
+            AssertEqual((int)RewardType.Item, sourceReward.RewardType, $"{name} factory RewardGoods reward type");
+            AssertEqual(true, highGradeMaterialItemIds.Contains(sourceReward.TemplateId), $"{name} factory RewardGoods TemplateId is a high-grade Overclock Material");
+            AssertEqual(false, unopenedBoxItemIds.Contains(sourceReward.TemplateId), $"{name} factory RewardGoods TemplateId is not an unopened Overclock Material box");
+            AssertEqual(1, sourceReward.Count, $"{name} factory RewardGoods Count");
+            AssertEqual(false, sourceReward.IsGift, $"{name} factory RewardGoods IsGift");
+
+            ItemTable materialItem = itemRowsById.TryGetValue(sourceReward.TemplateId, out ItemTable? itemRow)
+                ? itemRow
+                : throw new InvalidDataException($"{name}: expected Item.tsv row {sourceReward.TemplateId}.");
+            AssertDrawFillerItemQualitySupportedClientRing(materialItem, $"{name} Item.tsv row {materialItem.Id} {materialItem.Name}");
+
+            RewardGoods clientReward = InvokeToDrawRewardGoods(toDrawRewardGoods, sourceReward, $"{name} client RewardGoods");
+            AssertEqual(sourceReward.RewardType, clientReward.RewardType, $"{name} client RewardGoods preserves RewardType");
+            AssertEqual(sourceReward.TemplateId, clientReward.TemplateId, $"{name} client RewardGoods preserves material TemplateId");
+            AssertEqual(true, highGradeMaterialItemIds.Contains(clientReward.TemplateId), $"{name} client RewardGoods TemplateId is a high-grade Overclock Material");
+            AssertEqual(false, unopenedBoxItemIds.Contains(clientReward.TemplateId), $"{name} client RewardGoods TemplateId is not an unopened Overclock Material box");
+            AssertEqual(false, clientReward.IsGift, $"{name} client RewardGoods IsGift remains false for direct Overclock Material");
+            AssertEqual(1, clientReward.Count, $"{name} client RewardGoods Count");
+            AssertEqual(sourceReward.Count, clientReward.Count, $"{name} client RewardGoods preserves Count");
+            int showQuality = AssertRewardGoodsDrawShowQuality(clientReward, $"{name} client RewardGoods", requirePositive: true);
+            AssertEqual(materialItem.Quality, showQuality, $"{name} client RewardGoods ShowQuality matches material Item.tsv Quality");
+
+            AssertDrawOverclockMaterialRewardAcceptsSingleMaterialRows(
+                factory,
+                toDrawRewardGoods,
+                highGradeMaterialItemIds,
+                itemRowsById,
+                $"{name} high-grade material pool");
+            AssertDrawOverclockMaterialRewardRejectsItemRows(
+                factory,
+                unopenedBoxItemIds,
+                itemRowsById,
+                $"{name} unopened box exclusion");
+            AssertDrawOverclockMaterialRewardRejectsItemRows(
+                factory,
+                lowGradeMaterialItemIds,
+                itemRowsById,
+                $"{name} low-grade material exclusion");
+        }
+
+        private static void AssertDrawOverclockMaterialRewardAcceptsSingleMaterialRows(
+            MethodInfo factory,
+            MethodInfo toDrawRewardGoods,
+            int[] materialItemIds,
+            IReadOnlyDictionary<int, ItemTable> itemRowsById,
+            string name)
+        {
+            Type drawManagerType = factory.DeclaringType
+                ?? throw new InvalidDataException($"{name}: expected {factory.Name} to have a declaring type.");
+            FieldInfo itemTablesField = drawManagerType.GetField("itemTables", BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "itemTables");
+            List<ItemTable> itemTables = itemTablesField.GetValue(null) as List<ItemTable>
+                ?? throw new InvalidDataException($"{name}: expected DrawManager.itemTables to be an initialized List<ItemTable>.");
+
+            ItemTable[] originalItemTables = itemTables.ToArray();
+            try
+            {
+                foreach (int materialItemId in materialItemIds)
+                {
+                    ItemTable materialItem = itemRowsById.TryGetValue(materialItemId, out ItemTable? itemRow)
+                        ? itemRow
+                        : throw new InvalidDataException($"{name}: expected Item.tsv row {materialItemId}.");
+                    AssertDrawFillerItemQualitySupportedClientRing(materialItem, $"{name} Item.tsv row {materialItem.Id} {materialItem.Name}");
+
+                    itemTables.Clear();
+                    itemTables.Add(materialItem);
+
+                    RewardGoods materialReward = InvokeRewardGoodsFactory(factory, $"{name} single-row material {materialItem.Id} {materialItem.Name}");
+                    AssertEqual((int)RewardType.Item, materialReward.RewardType, $"{name} single-row material {materialItem.Id} RewardType");
+                    AssertEqual(materialItem.Id, materialReward.TemplateId, $"{name} single-row material {materialItem.Id} TemplateId");
+                    AssertEqual(1, materialReward.Count, $"{name} single-row material {materialItem.Id} Count");
+                    AssertEqual(false, materialReward.IsGift, $"{name} single-row material {materialItem.Id} IsGift");
+
+                    RewardGoods clientReward = InvokeToDrawRewardGoods(toDrawRewardGoods, materialReward, $"{name} single-row material {materialItem.Id} client RewardGoods");
+                    AssertEqual((int)RewardType.Item, clientReward.RewardType, $"{name} single-row material {materialItem.Id} client RewardType");
+                    AssertEqual(materialItem.Id, clientReward.TemplateId, $"{name} single-row material {materialItem.Id} client TemplateId");
+                    AssertEqual(1, clientReward.Count, $"{name} single-row material {materialItem.Id} client Count");
+                    AssertEqual(false, clientReward.IsGift, $"{name} single-row material {materialItem.Id} client IsGift");
+                    int showQuality = AssertRewardGoodsDrawShowQuality(clientReward, $"{name} single-row material {materialItem.Id} client RewardGoods", requirePositive: true);
+                    AssertEqual(materialItem.Quality, showQuality, $"{name} single-row material {materialItem.Id} client ShowQuality matches Item.tsv Quality");
+                }
+            }
+            finally
+            {
+                itemTables.Clear();
+                itemTables.AddRange(originalItemTables);
+            }
+        }
+
+        private static void AssertDrawOverclockMaterialRewardRejectsItemRows(
+            MethodInfo factory,
+            int[] rejectedItemIds,
+            IReadOnlyDictionary<int, ItemTable> itemRowsById,
+            string name)
+        {
+            Type drawManagerType = factory.DeclaringType
+                ?? throw new InvalidDataException($"{name}: expected {factory.Name} to have a declaring type.");
+            FieldInfo itemTablesField = drawManagerType.GetField("itemTables", BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "itemTables");
+            List<ItemTable> itemTables = itemTablesField.GetValue(null) as List<ItemTable>
+                ?? throw new InvalidDataException($"{name}: expected DrawManager.itemTables to be an initialized List<ItemTable>.");
+
+            ItemTable[] originalItemTables = itemTables.ToArray();
+            try
+            {
+                foreach (int rejectedItemId in rejectedItemIds)
+                {
+                    ItemTable rejectedItem = itemRowsById.TryGetValue(rejectedItemId, out ItemTable? itemRow)
+                        ? itemRow
+                        : throw new InvalidDataException($"{name}: expected Item.tsv row {rejectedItemId}.");
+
+                    itemTables.Clear();
+                    itemTables.Add(rejectedItem);
+
+                    RewardGoods? rejectedReward = factory.Invoke(null, null) as RewardGoods;
+                    if (rejectedReward is not null)
+                        throw new InvalidDataException($"{name} {rejectedItem.Id} {rejectedItem.Name}: expected DrawOverclockMaterialReward to ignore this row and return no reward, got TemplateId {rejectedReward.TemplateId}, Count {rejectedReward.Count}, RewardType {rejectedReward.RewardType}.");
+                }
+            }
+            finally
+            {
+                itemTables.Clear();
+                itemTables.AddRange(originalItemTables);
+            }
+        }
+
 
         private static void AssertDrawFillerItemQualitySupportedClientRing(ItemTable item, string name)
         {
@@ -5805,6 +6049,96 @@ namespace AscNet.Test
             AssertEqual(1, rewardGoods.RewardType, "ItemUseResponse RewardGoodsList[0] RewardType");
             AssertEqual(AscNet.Common.Database.Inventory.Coin, rewardGoods.TemplateId, "ItemUseResponse RewardGoodsList[0] TemplateId");
             AssertEqual(20_000, rewardGoods.Count, "ItemUseResponse RewardGoodsList[0] Count");
+        }
+
+        private static void ValidateOverclockMaterialBoxCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            AssertOverclockMaterialBoxUse(
+                itemId: 60_001,
+                expectedRewardPool: [40_100, 40_101, 40_102, 40_103, 40_104],
+                packetId: 14_101,
+                playerId: 99_301,
+                name: "ItemUseRequest low-grade Overclock Material box");
+            AssertOverclockMaterialBoxUse(
+                itemId: 60_002,
+                expectedRewardPool: [40_110, 40_111, 40_112, 40_113, 40_114],
+                packetId: 14_102,
+                playerId: 99_302,
+                name: "ItemUseRequest high-grade Overclock Material box");
+
+            AssertOverclockMaterialBoxUse(
+                itemId: 90_101,
+                expectedRewardPool: [40_100, 40_101, 40_102, 40_103, 40_104],
+                packetId: 14_103,
+                playerId: 99_303,
+                name: "ItemUseRequest activity low-grade Overclock Material box");
+
+            AssertOverclockMaterialBoxUse(
+                itemId: 90_110,
+                expectedRewardPool: [40_110, 40_111, 40_112, 40_113, 40_114],
+                packetId: 14_104,
+                playerId: 99_304,
+                name: "ItemUseRequest activity high-grade Overclock Material box");
+
+        }
+
+        private static void AssertOverclockMaterialBoxUse(int itemId, int[] expectedRewardPool, int packetId, long playerId, string name)
+        {
+            const int useCount = 1;
+            int[] unopenedBoxItemIds = [60_001, 60_002, 90_101, 90_110];
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            ItemTable boxItem = itemRowsById.TryGetValue(itemId, out ItemTable? itemRow)
+                ? itemRow
+                : throw new InvalidDataException($"{name}: expected Item.tsv row {itemId}.");
+            if (boxItem.SubTypeParams.Count == 0)
+                throw new InvalidDataException($"{name} Item.tsv row {boxItem.Id} {boxItem.Name}: expected SubTypeParams[0] to mark random gift box behavior.");
+            AssertEqual(2, boxItem.SubTypeParams[0], $"{name} Item.tsv row {boxItem.Id} {boxItem.Name} SubTypeParams[0] random gift box behavior");
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [new Item { Id = itemId, Count = 1 }]);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                inventory,
+                $"{name}-compat-test");
+
+            AscNet.GameServer.Handlers.ItemUseRequest request = new()
+            {
+                Id = itemId,
+                Count = useCount
+            };
+            InvokeRegisteredRequestHandler(nameof(AscNet.GameServer.Handlers.ItemUseRequest), harness.Session, packetId, request);
+
+            NotifyItemDataList consumePush = ReadPushPayload<NotifyItemDataList>(
+                harness,
+                nameof(NotifyItemDataList),
+                $"{name} consumed box push");
+            Item consumedBox = consumePush.ItemDataList.Single(item => item.Id == itemId);
+            AssertEqual(0L, consumedBox.Count, $"{name} consumed box count");
+
+            NotifyItemDataList rewardPush = ReadPushPayload<NotifyItemDataList>(
+                harness,
+                nameof(NotifyItemDataList),
+                $"{name} reward push");
+            AssertEqual(1, rewardPush.ItemDataList.Count(item => expectedRewardPool.Contains(item.Id)), $"{name} reward push contains exactly one expected-pool material");
+            AssertEqual(false, rewardPush.ItemDataList.Any(item => unopenedBoxItemIds.Contains(item.Id)), $"{name} reward push does not award unopened Overclock Material box ids");
+            Item awardedMaterial = rewardPush.ItemDataList.Single(item => expectedRewardPool.Contains(item.Id));
+            AssertEqual(1L, awardedMaterial.Count, $"{name} NotifyItemDataList awarded material count");
+
+            AscNet.GameServer.Handlers.ItemUseResponse response = ReadResponsePayload<AscNet.GameServer.Handlers.ItemUseResponse>(
+                harness,
+                packetId,
+                nameof(AscNet.GameServer.Handlers.ItemUseResponse),
+                $"{name} response");
+            AssertEqual(0, response.Code, $"{name} ItemUseResponse Code");
+            RewardGoods rewardGoods = response.RewardGoodsList.Single();
+            AssertEqual((int)RewardType.Item, rewardGoods.RewardType, $"{name} RewardGoodsList[0] RewardType");
+            AssertEqual(true, expectedRewardPool.Contains(rewardGoods.TemplateId), $"{name} RewardGoodsList[0] TemplateId expected pool membership");
+            AssertEqual(false, unopenedBoxItemIds.Contains(rewardGoods.TemplateId), $"{name} RewardGoodsList[0] TemplateId is not an unopened Overclock Material box");
+            AssertEqual(1, rewardGoods.Count, $"{name} RewardGoodsList[0] Count");
+            AssertEqual(awardedMaterial.Id, rewardGoods.TemplateId, $"{name} response/push awarded material TemplateId match");
+            AssertEqual((int)awardedMaterial.Count, rewardGoods.Count, $"{name} response/push awarded material Count match");
         }
 
         private static void ValidateChatCompatibility()

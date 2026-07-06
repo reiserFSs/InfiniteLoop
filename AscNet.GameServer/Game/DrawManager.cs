@@ -793,9 +793,11 @@ namespace AscNet.GameServer.Game
         }
 
 
+        // Retail draw 1488 grants the overclock materials directly (captured 40110/40113, Count=1);
+        // the unopened 60001/60002 boxes never appear in retail DrawDrawCardResponse payloads.
         private static RewardGoods? DrawOverclockMaterialReward()
         {
-            return DrawItemRewardByIds([40110, 40111, 40112, 40113, 40114, 60001, 60002], fallbackCount: 1);
+            return DrawItemRewardByIds([40110, 40111, 40112, 40113, 40114], fallbackCount: 1);
         }
 
         private static RewardGoods? DrawExpMaterialReward()
@@ -831,7 +833,6 @@ namespace AscNet.GameServer.Game
             int count = item.Id switch
             {
                 90014 or 90015 => 1,
-                40110 or 40111 or 40112 or 40113 or 40114 or 60001 or 60002 => 1,
                 _ => fallbackCount
             };
             return CreateRewardGoods(RewardType.Item, item.Id, count);
