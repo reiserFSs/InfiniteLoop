@@ -250,6 +250,10 @@ namespace AscNet.GameServer.Handlers
         {
             CharacterPromoteGradeRequest req = packet.Deserialize<CharacterPromoteGradeRequest>();
             CharacterData? character = session.character.Characters.Find(c => c.Id == req.TemplateId);
+            bool passedStoryOneFour = session.stage?.Stages.TryGetValue(10010104, out StageDatum? storyOneFour) == true && storyOneFour.Passed;
+            bool passedStoryOneEight = session.stage?.Stages.TryGetValue(10010204, out StageDatum? storyOneEight) == true && storyOneEight.Passed;
+            session.log.Info($"[AWAKEN-PROBE] CharacterPromoteGradeRequest templateId={req.TemplateId} owned={character is not null} currentGrade={character?.Grade.ToString() ?? "<missing>"} stage10010104Passed={passedStoryOneFour} stage10010204Passed={passedStoryOneEight}");
+
 
             try
             {
@@ -263,6 +267,7 @@ namespace AscNet.GameServer.Handlers
                     .Where(x => x.CharacterId == req.TemplateId)
                     .ToList();
                 CharacterGradeTable? currentGrade = gradeRows.Find(x => x.Grade == character.Grade);
+                session.log.Info($"[AWAKEN-PROBE] CharacterPromoteGradeTable templateId={req.TemplateId} gradeRows={gradeRows.Count} currentGrade={character.Grade} conditionIds=[{string.Join(",", currentGrade?.ConditionId ?? new List<int>())}] useItemKey={currentGrade?.UseItemKey?.ToString() ?? "<null>"} useItemCount={currentGrade?.UseItemCount?.ToString() ?? "<null>"}");
                 if (currentGrade is null)
                 {
                     // CharacterManagerGetGradeTemplateNotFound
@@ -288,9 +293,11 @@ namespace AscNet.GameServer.Handlers
                 }
 
                 character.Grade = nextGrade;
+                session.log.Info($"[AWAKEN-PROBE] CharacterPromoteGradeSuccess templateId={req.TemplateId} nextGrade={nextGrade}");
             }
             catch (ServerCodeException ex)
             {
+                session.log.Warn($"[AWAKEN-PROBE] CharacterPromoteGradeFailed templateId={req.TemplateId} code={ex.Code} message={ex.Message}");
                 session.SendResponse(new CharacterPromoteGradeResponse() { Code = ex.Code }, packet.Id);
                 return;
             }
@@ -429,17 +436,24 @@ namespace AscNet.GameServer.Handlers
             CharacterUnlockSkillGroupRequest request = packet.Deserialize<CharacterUnlockSkillGroupRequest>();
 
             NotifyCharacterDataList notifyCharacterData = new();
-            var affectedChars = TableReaderV2.Parse<CharacterSkillTable>().Where(x => x.SkillGroupId.Contains(request.SkillGroupId)).Select(x => x.CharacterId);
-            foreach (var character in session.character.Characters.Where(x => affectedChars.Any(y => y == x.Id)))
+            uint[] skillIds = Character.ResolveCharacterSkillIdsForGroupId(request.SkillGroupId).ToArray();
+            HashSet<int> affectedChars = TableReaderV2.Parse<CharacterSkillTable>()
+                .Where(skill => skill.SkillGroupId.Contains(request.SkillGroupId))
+                .Select(skill => skill.CharacterId)
+                .ToHashSet();
+            foreach (CharacterData character in session.character.Characters.Where(character => affectedChars.Contains((int)character.Id)))
             {
-                character.SkillList.AddRange(TableReaderV2.Parse<CharacterSkillGroupTable>().Where(x => x.Id == request.SkillGroupId).SelectMany(x => x.SkillId).Select(x => new CharacterSkill() { Id = (uint)x, Level = 1 }));
+                foreach (uint skillId in skillIds.Where(skillId => character.SkillList.All(skill => skill.Id != skillId)))
+                {
+                    character.SkillList.Add(new CharacterSkill() { Id = skillId, Level = 1 });
+                }
                 notifyCharacterData.CharacterDataList.Add(character);
             }
             session.SendPush(notifyCharacterData);
 
             SaveCharacterProgress(session);
 
-            session.SendResponse(new CharacterUpgradeSkillGroupResponse(), packet.Id);
+            session.SendResponse(new CharacterUnlockSkillGroupResponse(), packet.Id);
         }
 
         [RequestPacketHandler("CharacterUpgradeSkillGroupRequest")]
@@ -463,7 +477,7 @@ namespace AscNet.GameServer.Handlers
 
             SaveCharacterProgress(session);
 
-            session.SendResponse(new CharacterUpgradeSkillGroupResponse(), packet.Id);
+            session.SendResponse(new CharacterUpgradeSkillGroupResponse() { Level = upgradeResult.Level }, packet.Id);
         }
 
         [RequestPacketHandler("CharacterUnlockEnhanceSkillRequest")]
@@ -477,6 +491,11 @@ namespace AscNet.GameServer.Handlers
             NotifyCharacterDataList notifyCharacterData = new();
             foreach (var enhanceSkillId in enhanceSkillIds)
             {
+                EnhanceSkillUpgradeTable? upgradeTable = TableReaderV2.Parse<EnhanceSkillUpgradeTable>().Find(x => x.SkillId == enhanceSkillId && x.Level == 0);
+                if (upgradeTable is null)
+                    continue;
+
+                bool unlockedAnyCharacter = false;
                 var affectedChars = TableReaderV2.Parse<EnhanceSkillTable>().Where(x => x.SkillGroupId.Contains(request.SkillGroupId)).Select(x => x.CharacterId).ToList();
                 foreach (var character in session.character.Characters.Where(x => affectedChars.Contains((int)x.Id)))
                 {
@@ -492,10 +511,10 @@ namespace AscNet.GameServer.Handlers
                         Level = 1
                     });
                     notifyCharacterData.CharacterDataList.Add(character);
+                    unlockedAnyCharacter = true;
                 }
 
-                EnhanceSkillUpgradeTable? upgradeTable = TableReaderV2.Parse<EnhanceSkillUpgradeTable>().Find(x => x.SkillId == enhanceSkillId && x.Level == 0);
-                if (upgradeTable is null)
+                if (!unlockedAnyCharacter)
                     continue;
 
                 for (int i = 0; i < Math.Min(upgradeTable.CostItem.Count, upgradeTable.CostItemCount.Count); i++)
@@ -530,9 +549,10 @@ namespace AscNet.GameServer.Handlers
                         if (skill is not null)
                         {
                             EnhanceSkillUpgradeTable? upgradeTable = TableReaderV2.Parse<EnhanceSkillUpgradeTable>().Find(x => x.SkillId == enhanceSkillId && x.Level == skill.Level);
-                            skill.Level++;
                             if (upgradeTable is null)
                                 continue;
+
+                            skill.Level++;
 
                             for (int i = 0; i < Math.Min(upgradeTable.CostItem.Count, upgradeTable.CostItemCount.Count); i++)
                             {

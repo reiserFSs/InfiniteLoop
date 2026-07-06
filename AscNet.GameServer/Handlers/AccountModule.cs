@@ -1,8 +1,10 @@
+using AscNet.Common;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.chat;
 using AscNet.Table.V2.share.guide;
+using AscNet.Table.V2.share.exhibition;
 using MessagePack;
 using System.Diagnostics;
 
@@ -147,6 +149,17 @@ namespace AscNet.GameServer.Handlers
         ];
 
         private const long HomeChatUnlockStageId = 10030201;
+        private static readonly long[] DefaultPassedMainStoryStageIds =
+        [
+            10010101,
+            10010102,
+            10010103,
+            10010104,
+            10010201,
+            10010202,
+            10010203,
+            10010204
+        ];
         private const long DefaultChatBoardId = 25000001;
 
         private static readonly long[] DefaultChatBoardIds =
@@ -464,11 +477,31 @@ namespace AscNet.GameServer.Handlers
             Dictionary<long, StageDatum> stageData = session.stage?.Stages is null
                 ? new Dictionary<long, StageDatum>()
                 : new Dictionary<long, StageDatum>(session.stage.Stages);
+            bool changed = false;
 
-            if (!stageData.ContainsKey(HomeChatUnlockStageId))
-                stageData[HomeChatUnlockStageId] = BuildPassedStage(HomeChatUnlockStageId);
+            EnsureLoginPassedStage(session, stageData, HomeChatUnlockStageId, ref changed);
+            foreach (long stageId in DefaultPassedMainStoryStageIds)
+                EnsureLoginPassedStage(session, stageData, stageId, ref changed);
+
+            string defaultMainStorySummary = string.Join(",", DefaultPassedMainStoryStageIds.Select(stageId =>
+                stageData.TryGetValue(stageId, out StageDatum? stage) && stage.Passed ? $"{stageId}:passed" : $"{stageId}:missing"));
+            session.log.Info($"[AWAKEN-PROBE] BuildLoginStageData uid={session.player?.PlayerData.Id.ToString() ?? "<null>"} changed={changed} homeChatPresent={stageData.ContainsKey(HomeChatUnlockStageId)} defaultMainStory={defaultMainStorySummary}");
+
+            if (changed)
+                session.stage?.Save();
 
             return stageData;
+        }
+
+        private static void EnsureLoginPassedStage(Session session, Dictionary<long, StageDatum> stageData, long stageId, ref bool changed)
+        {
+            if (stageData.ContainsKey(stageId))
+                return;
+
+            StageDatum passedStage = BuildPassedStage(stageId);
+            stageData[stageId] = passedStage;
+            session.stage?.AddStage(passedStage);
+            changed = true;
         }
 
         private static StageDatum BuildPassedStage(long stageId)
@@ -909,6 +942,8 @@ Sorry for the inconvenience.
                 session.player.PlayerData.LastLoginTime = currentTime;
                 session.player.AddGatherReward(5);
             }
+            RepairClaimedGatherFashionRewards(session);
+
             NotifyLogin notifyLogin = BuildNotifyLogin(session);
 
             NotifyAssistData notifyAssistData = new()
@@ -1103,6 +1138,31 @@ Sorry for the inconvenience.
 
             ChatModule.FlushPendingLoginChat(session);
             session.player.Save();
+        }
+
+        private static void RepairClaimedGatherFashionRewards(Session session)
+        {
+            if (session.player.GatherRewards.Count == 0)
+                return;
+
+            HashSet<int> claimedGatherRewardIds = session.player.GatherRewards.ToHashSet();
+            bool changed = false;
+            foreach (ExhibitionRewardTable exhibitionReward in TableReaderV2.Parse<ExhibitionRewardTable>().Where(reward =>
+                claimedGatherRewardIds.Contains(reward.Id)
+                && reward.RewardId is > 0))
+            {
+                foreach (var rewardGoods in RewardHandler.GetRewardGoods(exhibitionReward.RewardId!.Value))
+                {
+                    if (RewardHandler.GetRewardType(rewardGoods) == RewardType.Fashion)
+                        changed |= RewardHandler.UnlockFashionReward(rewardGoods.TemplateId, session);
+                }
+            }
+
+            if (!changed)
+                return;
+
+            session.character.Save();
+            session.log.Info($"[AWAKEN-PROBE] RepairClaimedGatherFashionRewards uid={session.player.PlayerData.Id} repaired=True claimedGatherRewards={session.player.GatherRewards.Count}");
         }
 
 

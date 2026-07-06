@@ -8,11 +8,13 @@ using AscNet.Table.V2.share.guide;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.share.fuben.mainline;
 using AscNet.Table.V2.share.task;
+using AscNet.Table.V2.share.exhibition;
 using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.character.grade;
 using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.character.quality;
+using AscNet.Table.V2.share.character.enhanceskill;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.fashion;
@@ -79,6 +81,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--gather-awaken-reward-compat-only"))
+                {
+                    ValidateGatherAwakenRewardCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--boss-single-login-compat-only"))
                 {
                     ValidateBossSingleLoginCompatibilityShape();
@@ -120,6 +128,18 @@ namespace AscNet.Test
                     ValidateCharacterProgressionPersistenceCompatibility();
                     return;
                 }
+
+                if (args.Contains("--character-skill-group-compat-only"))
+                {
+                    ValidateCharacterSkillGroupTableBackedCompatibility();
+                    return;
+                }
+                if (args.Contains("--character-enhance-skill-compat-only"))
+                {
+                    ValidateCharacterEnhanceSkillTableBackedCompatibility();
+                    return;
+                }
+
 
                 if (args.Contains("--exp-level-compat-only"))
                 {
@@ -231,6 +251,7 @@ namespace AscNet.Test
                 ValidateStageBookmarkCompatibilityShape();
                 ValidateMainLine2UpdateExhibitionChapterCompatibility();
                 ValidateMainLineTreasureRewardCompatibility();
+                ValidateGatherAwakenRewardCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
                 ValidateCurrentClientGuideTableCompatibility();
                 ValidatePlayerCostTimeUploadCompatibility();
@@ -238,6 +259,8 @@ namespace AscNet.Test
                 ValidateBoardMutualClientPushCompatibility();
                 ValidatePlayerGenderCompatibility();
                 ValidateCharacterProgressionPersistenceCompatibility();
+                ValidateCharacterSkillGroupTableBackedCompatibility();
+                ValidateCharacterEnhanceSkillTableBackedCompatibility();
                 ValidateExpLevelCompatibility();
                 ValidateStoryCourseRewardCompatibility();
                 ValidatePr2QualityCompatibility();
@@ -493,6 +516,17 @@ namespace AscNet.Test
             const long playerId = 88_001;
             const long existingAccountStageId = 10010801;
             const long homeChatUnlockStageId = 10030201;
+            long[] defaultPassedMainStoryStageIds =
+            [
+                10010101,
+                10010102,
+                10010103,
+                10010104,
+                10010201,
+                10010202,
+                10010203,
+                10010204
+            ];
             const long passedStarsMark = 7;
             AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
             player.UseBackgroundId = 14_099_999;
@@ -533,6 +567,8 @@ namespace AscNet.Test
             });
             if (stage.Stages.ContainsKey(homeChatUnlockStageId))
                 throw new InvalidDataException("Login account compatibility test setup error: input session stage unexpectedly already contains the home chat unlock stage.");
+            int defaultMainStoryStagesBeforeLogin = defaultPassedMainStoryStageIds.Count(stage.Stages.ContainsKey);
+            AssertEqual(0, defaultMainStoryStagesBeforeLogin, "Login account compatibility test setup default main-story awaken gate stages before login");
 
             NotifyLogin productionLogin;
             using (LoopbackSessionHarness harness = new(
@@ -588,6 +624,11 @@ namespace AscNet.Test
                 throw new InvalidDataException("NotifyLogin FubenData.StageData MessagePack round-trip: expected synthetic completed home chat unlock stage 10030201 when the input session stage does not contain it.");
             AssertEqual(true, homeChatUnlockStage.Passed, "NotifyLogin FubenData.StageData home chat unlock stage Passed");
             AssertEqual(passedStarsMark, homeChatUnlockStage.StarsMark, "NotifyLogin FubenData.StageData home chat unlock stage StarsMark");
+            AssertDefaultPassedStageData(
+                defaultPassedMainStoryStageIds,
+                loginStageData,
+                stage.Stages,
+                "NotifyLogin FubenData.StageData default main-story awaken gate chain");
             AssertEqual(player.PlayerData.Level, roundTrip.PlayerData.Level, "NotifyLogin PlayerData.Level MessagePack round-trip");
             AssertEqual(true, roundTrip.IsSetFightCgEnable, "NotifyLogin IsSetFightCgEnable MessagePack round-trip");
             AssertCommunicationIdSet(
@@ -602,6 +643,33 @@ namespace AscNet.Test
                 throw new InvalidDataException("NotifyLogin FashionSuitList MessagePack round-trip: expected initialized list.");
             if (roundTrip.FashionColors is null)
                 throw new InvalidDataException("NotifyLogin FashionColors MessagePack round-trip: expected initialized list.");
+
+            static void AssertDefaultPassedStageData(
+                IReadOnlyList<long> expectedStageIds,
+                IReadOnlyDictionary<long, StageDatum> loginStageData,
+                IReadOnlyDictionary<long, StageDatum> persistedStageData,
+                string name)
+            {
+                int loginPassedStageCount = 0;
+                int persistedPassedStageCount = 0;
+                foreach (long expectedStageId in expectedStageIds)
+                {
+                    if (!loginStageData.TryGetValue(expectedStageId, out StageDatum? loginStage))
+                        throw new InvalidDataException($"{name}: login payload missing default passed stage {expectedStageId}.");
+                    AssertEqual(true, loginStage.Passed, $"{name} stage {expectedStageId} login payload Passed");
+                    AssertEqual(7, loginStage.StarsMark, $"{name} stage {expectedStageId} login payload StarsMark");
+                    loginPassedStageCount++;
+
+                    if (!persistedStageData.TryGetValue(expectedStageId, out StageDatum? persistedStage))
+                        throw new InvalidDataException($"{name}: persisted account stage document missing default passed stage {expectedStageId}.");
+                    AssertEqual(true, persistedStage.Passed, $"{name} stage {expectedStageId} persisted Passed");
+                    AssertEqual(7, persistedStage.StarsMark, $"{name} stage {expectedStageId} persisted StarsMark");
+                    persistedPassedStageCount++;
+                }
+
+                AssertEqual(expectedStageIds.Count, loginPassedStageCount, $"{name} login payload migrated stage count");
+                AssertEqual(expectedStageIds.Count, persistedPassedStageCount, $"{name} persisted migrated stage count");
+            }
 
             static void AssertCommunicationIdSet(IReadOnlyList<long> expectedIds, IReadOnlyList<long> actualIds, string name)
             {
@@ -7161,6 +7229,232 @@ namespace AscNet.Test
             AssertMethodTransitivelyCalls(treasureRewardHandler, characterSave, "ReceiveTreasureRewardRequestHandler character persistence");
         }
 
+        private static void ValidateGatherAwakenRewardCompatibility()
+        {
+            const int luciaInverseCrownCharacterId = 1021007;
+            const int level2ExhibitionRewardId = 402;
+            const int level3ExhibitionRewardId = 403;
+            const int level4ExhibitionRewardId = 404;
+            const int level2RewardId = 10210070;
+            const int level3RewardId = 10210071;
+            const int level4RewardId = 10210072;
+            const int level4SkillGroupId = 1027270;
+            const int level2RewardGoodsId = 102100700;
+            const int level3RewardGoodsId = 102100710;
+            const int level4CoreRewardGoodsId = 102100720;
+            const int level4ShardRewardGoodsId = 102100721;
+            const int level2FashionId = 6006102;
+            const int level3FashionId = 6006103;
+            const string name = "Lucia: Inverse Crown awaken GatherReward compatibility";
+
+            Dictionary<int, ExhibitionRewardTable> exhibitionRewardRowsById = TableReaderV2.Parse<ExhibitionRewardTable>()
+                .Where(reward => reward.CharacterId == luciaInverseCrownCharacterId)
+                .ToDictionary(reward => reward.Id);
+
+            AssertIntegerList(
+                [401, 402, 403, 404, 405],
+                exhibitionRewardRowsById.Keys.Order().Select(id => (long)id).ToArray(),
+                $"{name} ExhibitionReward row ids");
+
+            for (int level = 1; level <= 5; level++)
+            {
+                int exhibitionRewardId = 400 + level;
+                ExhibitionRewardTable exhibitionReward = exhibitionRewardRowsById.TryGetValue(exhibitionRewardId, out ExhibitionRewardTable? row)
+                    ? row
+                    : throw new InvalidDataException($"{name}: missing ExhibitionReward row {exhibitionRewardId}.");
+                AssertEqual(luciaInverseCrownCharacterId, exhibitionReward.CharacterId, $"{name} ExhibitionReward {exhibitionRewardId} CharacterId");
+                AssertEqual(level, exhibitionReward.LevelId, $"{name} ExhibitionReward {exhibitionRewardId} LevelId");
+            }
+
+            ExhibitionRewardTable level2Reward = exhibitionRewardRowsById[level2ExhibitionRewardId];
+            ExhibitionRewardTable level3Reward = exhibitionRewardRowsById[level3ExhibitionRewardId];
+            ExhibitionRewardTable level4Reward = exhibitionRewardRowsById[level4ExhibitionRewardId];
+            AssertEqual(level2RewardId, level2Reward.RewardId, $"{name} level 2 RewardId");
+            AssertEqual(level3RewardId, level3Reward.RewardId, $"{name} level 3 RewardId");
+            AssertEqual(level4RewardId, level4Reward.RewardId, $"{name} level 4 RewardId");
+            AssertEqual(level4SkillGroupId, level4Reward.SkillGroupId, $"{name} level 4 SkillGroupId");
+
+            List<RewardGoodsTable> rewardGoodsRows = TableReaderV2.Parse<RewardGoodsTable>();
+            List<RewardGoodsTable> level2RewardGoods = ResolveRewardGoods(level2RewardId, rewardGoodsRows, $"{name} level 2 RewardId");
+            List<RewardGoodsTable> level3RewardGoods = ResolveRewardGoods(level3RewardId, rewardGoodsRows, $"{name} level 3 RewardId");
+            List<RewardGoodsTable> level4RewardGoods = ResolveRewardGoods(level4RewardId, rewardGoodsRows, $"{name} level 4 RewardId");
+
+            AssertIntegerList(
+                [level2RewardGoodsId],
+                level2RewardGoods.Select(goods => (long)goods.Id).ToArray(),
+                $"{name} level 2 RewardGoods ids");
+            AssertIntegerList(
+                [level3RewardGoodsId],
+                level3RewardGoods.Select(goods => (long)goods.Id).ToArray(),
+                $"{name} level 3 RewardGoods ids");
+            AssertIntegerList(
+                [level4CoreRewardGoodsId, level4ShardRewardGoodsId],
+                level4RewardGoods.Select(goods => (long)goods.Id).ToArray(),
+                $"{name} level 4 RewardGoods ids");
+
+            AssertAwakenFashionRewardGoods(level2RewardGoods.Single(), level2FashionId, $"{name} level 2 fashion grant");
+            AssertAwakenFashionRewardGoods(level3RewardGoods.Single(), level3FashionId, $"{name} level 3 fashion grant");
+            AssertGatherAwakenFashionRewardGrant(
+                level2ExhibitionRewardId,
+                level2RewardGoodsId,
+                level2FashionId,
+                initialFashionIsLocked: false,
+                $"{name} level 2 missing fashion grant");
+            AssertGatherAwakenFashionRewardGrant(
+                level2ExhibitionRewardId,
+                level2RewardGoodsId,
+                level2FashionId,
+                initialFashionIsLocked: true,
+                $"{name} level 2 locked fashion unlock");
+            AssertClaimedGatherAwakenFashionRewardLoginRepair(
+                luciaInverseCrownCharacterId,
+                level2ExhibitionRewardId,
+                level2FashionId,
+                initialFashionIsLocked: false,
+                $"{name} claimed level 2 missing fashion login repair");
+            AssertClaimedGatherAwakenFashionRewardLoginRepair(
+                luciaInverseCrownCharacterId,
+                level2ExhibitionRewardId,
+                level2FashionId,
+                initialFashionIsLocked: true,
+                $"{name} claimed level 2 locked fashion login repair");
+        }
+
+        private static void AssertAwakenFashionRewardGoods(RewardGoodsTable rewardGoods, int expectedFashionId, string name)
+        {
+            AssertEqual(expectedFashionId, rewardGoods.TemplateId, $"{name} TemplateId");
+            AssertEqual(1, rewardGoods.Count, $"{name} Count");
+        }
+
+        private static void AssertGatherAwakenFashionRewardGrant(
+            int exhibitionRewardId,
+            int expectedRewardGoodsId,
+            int expectedFashionId,
+            bool initialFashionIsLocked,
+            string name)
+        {
+            const long playerId = 102_100_702;
+            const int packetId = 102_100_702;
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            if (initialFashionIsLocked)
+            {
+                character.Fashions.Add(new FashionList
+                {
+                    Id = expectedFashionId,
+                    IsLock = true
+                });
+                AssertEqual(true, character.Fashions.Single(fashion => fashion.Id == expectedFashionId).IsLock, $"{name} precondition locked fashion");
+            }
+            else if (character.Fashions.Any(fashion => fashion.Id == expectedFashionId))
+            {
+                throw new InvalidDataException($"{name}: expected fashion {expectedFashionId} to be absent before reward.");
+            }
+
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                $"{name.Replace(' ', '-').ToLowerInvariant()}-test");
+
+            InvokeRegisteredRequestHandler(
+                nameof(GatherRewardRequest),
+                harness.Session,
+                packetId,
+                new GatherRewardRequest { Id = exhibitionRewardId });
+
+            FashionList persistedFashion = character.Fashions.Single(fashion => fashion.Id == expectedFashionId);
+            AssertEqual(false, persistedFashion.IsLock, $"{name} persisted fashion unlocked");
+
+            FashionSyncNotify fashionSync = ReadPushPayload<FashionSyncNotify>(
+                harness,
+                nameof(FashionSyncNotify),
+                $"{name} FashionSyncNotify");
+            FashionList notifiedFashion = fashionSync.FashionList.Single(fashion => fashion.Id == expectedFashionId);
+            AssertEqual(false, notifiedFashion.IsLock, $"{name} notified fashion unlocked");
+
+            NotifyGatherReward gatherRewardPush = ReadPushPayload<NotifyGatherReward>(
+                harness,
+                nameof(NotifyGatherReward),
+                $"{name} NotifyGatherReward");
+            AssertEqual(exhibitionRewardId, gatherRewardPush.Id, $"{name} claimed gather reward id");
+
+            GatherRewardResponse response = ReadResponsePayload<GatherRewardResponse>(
+                harness,
+                packetId,
+                nameof(GatherRewardResponse),
+                $"{name} GatherRewardResponse");
+            AssertEqual(0, response.Code, $"{name} response code");
+            RewardGoods rewardGoods = response.RewardGoods.Single(goods => goods.Id == expectedRewardGoodsId);
+            AssertEqual(expectedFashionId, rewardGoods.TemplateId, $"{name} response RewardGoods TemplateId");
+            AssertEqual(1, rewardGoods.Count, $"{name} response RewardGoods Count");
+            AssertEqual((int)RewardType.Fashion, rewardGoods.RewardType, $"{name} response RewardGoods type");
+        }
+
+        private static void AssertClaimedGatherAwakenFashionRewardLoginRepair(
+            int characterId,
+            int exhibitionRewardId,
+            int expectedFashionId,
+            bool initialFashionIsLocked,
+            string name)
+        {
+            long playerId = initialFashionIsLocked ? 102_100_704 : 102_100_703;
+            const int defaultFashionId = 6006101;
+
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo doLogin = RequiredMethod(
+                accountModule,
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.GatherRewards = [exhibitionRewardId];
+            player.PlayerData.LastLoginTime = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters.Add(CreateLoginAccountCompatibilityCharacter((uint)characterId, defaultFashionId));
+            character.Fashions.Add(new FashionList
+            {
+                Id = defaultFashionId,
+                IsLock = false
+            });
+            if (initialFashionIsLocked)
+            {
+                character.Fashions.Add(new FashionList
+                {
+                    Id = expectedFashionId,
+                    IsLock = true
+                });
+                AssertEqual(true, character.Fashions.Single(fashion => fashion.Id == expectedFashionId).IsLock, $"{name} precondition locked fashion");
+            }
+            else if (character.Fashions.Any(fashion => fashion.Id == expectedFashionId))
+            {
+                throw new InvalidDataException($"{name}: expected fashion {expectedFashionId} to be absent before login repair.");
+            }
+
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                $"{name.Replace(' ', '-').ToLowerInvariant()}-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+
+            doLogin.Invoke(null, [harness.Session]);
+
+            FashionList persistedFashion = character.Fashions.Single(fashion => fashion.Id == expectedFashionId);
+            AssertEqual(false, persistedFashion.IsLock, $"{name} persisted fashion unlocked");
+
+            NotifyLogin startupLogin = ReadPushPayload<NotifyLogin>(
+                harness,
+                nameof(NotifyLogin),
+                $"{name} AccountModule.DoLogin NotifyLogin startup payload");
+            FashionList loginFashion = startupLogin.FashionList.Single(fashion => fashion.Id == expectedFashionId);
+            AssertEqual(false, loginFashion.IsLock, $"{name} NotifyLogin FashionList unlocked fashion");
+        }
+
         private static void ValidatePlayerCostTimeUploadCompatibility()
         {
             PlayerCostTimeUploadRequest request = new()
@@ -7433,6 +7727,444 @@ namespace AscNet.Test
             MethodInfo fightSettleHandler = GetRegisteredRequestHandlerMethod("FightSettleRequest");
             AssertEqual("FightSettleRequestHandler", fightSettleHandler.Name, "FightSettleRequest registered handler method");
             AssertMethodTransitivelyCalls(fightSettleHandler, characterSave, "FightSettleRequestHandler character card-exp persistence");
+        }
+
+        private static void ValidateCharacterSkillGroupTableBackedCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+
+            const int veronicaAegisCharacterId = 1381003;
+            const int skillGroupId = 1383010;
+            const uint skillId = 138301;
+            const int unlockPacketId = 16_001;
+            const int upgradePacketId = 16_002;
+            const long unlockPlayerId = 88_009;
+            const long upgradePlayerId = 88_010;
+            const int initialSkillLevel = 1;
+            const int upgradeCount = 2;
+            const long initialCoinCount = 999_999;
+            const long initialSkillPointCount = 999;
+
+            (int expectedCoinCost, int expectedSkillPointCost) = AssertTableBackedSkillGroupCompatibilityFixture(
+                veronicaAegisCharacterId,
+                skillGroupId,
+                skillId,
+                initialSkillLevel,
+                upgradeCount,
+                "Veronica: Aegis table-backed CharacterSkillGroup compatibility fixture");
+
+            AscNet.Common.Database.Character unlockRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            unlockRoster.Uid = unlockPlayerId;
+            CharacterData unlockCharacter = RequiredCharacterData(unlockRoster, veronicaAegisCharacterId);
+            int removedSkills = unlockCharacter.SkillList.RemoveAll(skill => skill.Id == skillId);
+            AssertEqual(1, removedSkills, "Character.AddCharacter initial table-backed skill fixture");
+
+            using (LoopbackSessionHarness harness = new(
+                unlockRoster,
+                CreateDrawCompatibilityPlayer(unlockPlayerId),
+                CreateDrawCompatibilityInventory(unlockPlayerId, []),
+                "character-skill-group-unlock-table-backed-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(
+                    "CharacterUnlockSkillGroupRequest",
+                    harness.Session,
+                    unlockPacketId,
+                    new AscNet.GameServer.Handlers.CharacterUnlockSkillGroupRequest
+                    {
+                        SkillGroupId = skillGroupId
+                    });
+
+                NotifyCharacterDataList unlockNotify = ReadPushPayload<NotifyCharacterDataList>(
+                    harness,
+                    nameof(NotifyCharacterDataList),
+                    "CharacterUnlockSkillGroupRequest table-backed NotifyCharacterDataList");
+                CharacterData pushedUnlockCharacter = RequiredNotifyCharacterData(
+                    unlockNotify,
+                    veronicaAegisCharacterId,
+                    "CharacterUnlockSkillGroupRequest table-backed notify");
+                CharacterSkill unlockedSkill = RequiredCharacterSkill(
+                    pushedUnlockCharacter,
+                    skillId,
+                    "CharacterUnlockSkillGroupRequest table-backed skill");
+                AssertEqual(initialSkillLevel, unlockedSkill.Level, "CharacterUnlockSkillGroupRequest table-backed skill initial level");
+            }
+
+            AscNet.Common.Database.Character upgradeRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            upgradeRoster.Uid = upgradePlayerId;
+            CharacterSkill upgradeSkill = RequiredCharacterSkill(
+                RequiredCharacterData(upgradeRoster, veronicaAegisCharacterId),
+                skillId,
+                "CharacterUpgradeSkillGroupRequest table-backed setup skill");
+            upgradeSkill.Level = initialSkillLevel;
+
+            using (LoopbackSessionHarness harness = new(
+                upgradeRoster,
+                CreateDrawCompatibilityPlayer(upgradePlayerId),
+                CreateDrawCompatibilityInventory(
+                    upgradePlayerId,
+                    [
+                        new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = initialCoinCount },
+                        new Item { Id = AscNet.Common.Database.Inventory.SkillPoint, Count = initialSkillPointCount }
+                    ]),
+                "character-skill-group-upgrade-table-backed-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(
+                    "CharacterUpgradeSkillGroupRequest",
+                    harness.Session,
+                    upgradePacketId,
+                    new CharacterUpgradeSkillGroupRequest
+                    {
+                        SkillGroupId = skillGroupId,
+                        Count = upgradeCount
+                    });
+
+                NotifyCharacterDataList upgradeNotify = ReadPushPayload<NotifyCharacterDataList>(
+                    harness,
+                    nameof(NotifyCharacterDataList),
+                    "CharacterUpgradeSkillGroupRequest table-backed NotifyCharacterDataList");
+                CharacterData pushedUpgradeCharacter = RequiredNotifyCharacterData(
+                    upgradeNotify,
+                    veronicaAegisCharacterId,
+                    "CharacterUpgradeSkillGroupRequest table-backed notify");
+                CharacterSkill upgradedSkill = RequiredCharacterSkill(
+                    pushedUpgradeCharacter,
+                    skillId,
+                    "CharacterUpgradeSkillGroupRequest table-backed skill");
+                int expectedSkillLevel = initialSkillLevel + upgradeCount;
+                AssertEqual(expectedSkillLevel, upgradedSkill.Level, "CharacterUpgradeSkillGroupRequest table-backed pushed skill level");
+
+                NotifyItemDataList upgradeItemNotify = ReadPushPayload<NotifyItemDataList>(
+                    harness,
+                    nameof(NotifyItemDataList),
+                    "CharacterUpgradeSkillGroupRequest table-backed NotifyItemDataList");
+                AssertEqual(2, upgradeItemNotify.ItemDataList.Count, "CharacterUpgradeSkillGroupRequest table-backed notified item count");
+                Item pushedCoin = upgradeItemNotify.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+                Item pushedSkillPoint = upgradeItemNotify.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.SkillPoint);
+                long expectedCoinCount = initialCoinCount - expectedCoinCost;
+                long expectedSkillPointCount = initialSkillPointCount - expectedSkillPointCost;
+                AssertEqual(expectedCoinCount, pushedCoin.Count, "CharacterUpgradeSkillGroupRequest table-backed NotifyItemDataList coin count");
+                AssertEqual(expectedSkillPointCount, pushedSkillPoint.Count, "CharacterUpgradeSkillGroupRequest table-backed NotifyItemDataList skill point count");
+
+                CharacterUpgradeSkillGroupResponse upgradeResponse = (CharacterUpgradeSkillGroupResponse)ReadResponsePayload(
+                    harness,
+                    upgradePacketId,
+                    nameof(CharacterUpgradeSkillGroupResponse),
+                    "CharacterUpgradeSkillGroupRequest table-backed response",
+                    typeof(CharacterUpgradeSkillGroupResponse),
+                    maxPacketsToRead: 1);
+                AssertEqual(upgradedSkill.Level, upgradeResponse.Level, "CharacterUpgradeSkillGroupResponse table-backed Level matches pushed skill level");
+
+                Item sessionCoin = harness.Session.inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+                Item sessionSkillPoint = harness.Session.inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.SkillPoint);
+                AssertEqual(expectedCoinCount, sessionCoin.Count, "CharacterUpgradeSkillGroupRequest table-backed session inventory coin count");
+                AssertEqual(expectedSkillPointCount, sessionSkillPoint.Count, "CharacterUpgradeSkillGroupRequest table-backed session inventory skill point count");
+            }
+
+            static (int CoinCost, int SkillPointCost) AssertTableBackedSkillGroupCompatibilityFixture(
+                int characterId,
+                int skillGroupId,
+                uint expectedSkillId,
+                int startLevel,
+                int upgradeCount,
+                string name)
+            {
+                CharacterSkillTable characterSkill = TableReaderV2.Parse<CharacterSkillTable>()
+                    .SingleOrDefault(skill => skill.CharacterId == characterId)
+                    ?? throw new InvalidDataException($"{name}: CharacterSkill.tsv is missing character {characterId}.");
+                if (!characterSkill.SkillGroupId.Contains(skillGroupId))
+                    throw new InvalidDataException($"{name}: CharacterSkill.tsv character {characterId} does not reference SkillGroupId {skillGroupId}.");
+
+                List<CharacterSkillGroupTable> skillGroupRows = TableReaderV2.Parse<CharacterSkillGroupTable>()
+                    .Where(skillGroup => skillGroup.Id == skillGroupId)
+                    .ToList();
+                AssertEqual(1, skillGroupRows.Count, $"{name} CharacterSkillGroup.tsv row count");
+                CharacterSkillGroupTable skillGroup = skillGroupRows[0];
+                if (!skillGroup.SkillId.Contains((int)expectedSkillId))
+                    throw new InvalidDataException($"{name}: CharacterSkillGroup.tsv SkillGroupId {skillGroupId} does not map to SkillId {expectedSkillId}.");
+
+                CharacterSkillUpgradeTable[] upgradeRows = Enumerable.Range(startLevel, upgradeCount)
+                    .Select(level => TableReaderV2.Parse<CharacterSkillUpgradeTable>()
+                        .SingleOrDefault(upgrade => upgrade.SkillId == expectedSkillId && upgrade.Level == level)
+                        ?? throw new InvalidDataException($"{name}: CharacterSkillUpgrade.tsv is missing SkillId {expectedSkillId} Level {level}."))
+                    .ToArray();
+                int coinCost = upgradeRows.Sum(upgrade => upgrade.UseCoin ?? 0);
+                int skillPointCost = upgradeRows.Sum(upgrade => upgrade.UseSkillPoint ?? 0);
+                if (coinCost <= 0)
+                    throw new InvalidDataException($"{name}: CharacterSkillUpgrade.tsv SkillId {expectedSkillId} levels {startLevel}..{startLevel + upgradeCount - 1} must consume cogs.");
+                if (skillPointCost <= 0)
+                    throw new InvalidDataException($"{name}: CharacterSkillUpgrade.tsv SkillId {expectedSkillId} levels {startLevel}..{startLevel + upgradeCount - 1} must consume skill points.");
+                return (coinCost, skillPointCost);
+            }
+
+            static CharacterData RequiredNotifyCharacterData(NotifyCharacterDataList notify, int characterId, string name)
+            {
+                List<CharacterData> matches = notify.CharacterDataList
+                    .Where(character => character.Id == characterId)
+                    .ToList();
+                AssertEqual(1, matches.Count, $"{name} affected character count");
+                return matches[0];
+            }
+
+            static CharacterSkill RequiredCharacterSkill(CharacterData character, uint skillId, string name)
+            {
+                List<CharacterSkill> matches = character.SkillList
+                    .Where(skill => skill.Id == skillId)
+                    .ToList();
+                AssertEqual(1, matches.Count, $"{name} skill count");
+                return matches[0];
+            }
+        }
+
+        private static void ValidateCharacterEnhanceSkillTableBackedCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+
+            const int veronicaAegisCharacterId = 1381003;
+            const int targetSkillGroupId = 1383280;
+            const uint targetSkillId = 138328;
+            const int unlockPacketId = 16_011;
+            const int upgradePacketId = 16_012;
+            const long unlockPlayerId = 88_011;
+            const long upgradePlayerId = 88_012;
+            const long costSurplus = 10;
+
+            (Dictionary<int, int> unlockCosts, Dictionary<int, int> upgradeCosts) = AssertTableBackedEnhanceSkillCompatibilityFixture(
+                veronicaAegisCharacterId,
+                [1383280, 1383290, 1383300],
+                targetSkillGroupId,
+                targetSkillId,
+                "Veronica: Aegis table-backed CharacterEnhanceSkill compatibility fixture");
+
+            AscNet.Common.Database.Character unlockRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            unlockRoster.Uid = unlockPlayerId;
+            CharacterData unlockCharacter = RequiredCharacterData(unlockRoster, veronicaAegisCharacterId);
+            unlockCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
+
+            Dictionary<int, long> unlockInitialCounts = InitialCountsForCosts(unlockCosts, costSurplus);
+            AscNet.Common.Database.Inventory unlockInventory = CreateInventoryWithCosts(unlockPlayerId, unlockInitialCounts);
+            using (LoopbackSessionHarness harness = new(
+                unlockRoster,
+                CreateDrawCompatibilityPlayer(unlockPlayerId),
+                unlockInventory,
+                "character-enhance-skill-unlock-table-backed-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(
+                    "CharacterUnlockEnhanceSkillRequest",
+                    harness.Session,
+                    unlockPacketId,
+                    new CharacterUnlockEnhanceSkillRequest
+                    {
+                        SkillGroupId = targetSkillGroupId
+                    });
+
+                NotifyItemDataList unlockItemNotify = ReadPushPayload<NotifyItemDataList>(
+                    harness,
+                    nameof(NotifyItemDataList),
+                    "CharacterUnlockEnhanceSkillRequest table-backed NotifyItemDataList");
+                AssertCostConsumption(
+                    unlockItemNotify,
+                    harness.Session.inventory,
+                    unlockInitialCounts,
+                    unlockCosts,
+                    "CharacterUnlockEnhanceSkillRequest table-backed level 0 unlock costs");
+
+                NotifyCharacterDataList unlockCharacterNotify = ReadPushPayload<NotifyCharacterDataList>(
+                    harness,
+                    nameof(NotifyCharacterDataList),
+                    "CharacterUnlockEnhanceSkillRequest table-backed NotifyCharacterDataList");
+                CharacterData pushedUnlockCharacter = RequiredNotifyCharacterData(
+                    unlockCharacterNotify,
+                    veronicaAegisCharacterId,
+                    "CharacterUnlockEnhanceSkillRequest table-backed notify");
+                CharacterSkill unlockedSkill = RequiredEnhanceSkill(
+                    pushedUnlockCharacter,
+                    targetSkillId,
+                    "CharacterUnlockEnhanceSkillRequest table-backed skill");
+                AssertEqual(1, unlockedSkill.Level, "CharacterUnlockEnhanceSkillRequest table-backed pushed skill level");
+
+                CharacterUnlockEnhanceSkillResponse unlockResponse = ReadResponsePayload<CharacterUnlockEnhanceSkillResponse>(
+                    harness,
+                    unlockPacketId,
+                    nameof(CharacterUnlockEnhanceSkillResponse),
+                    "CharacterUnlockEnhanceSkillRequest table-backed response");
+                AssertEqual(0, unlockResponse.Code, "CharacterUnlockEnhanceSkillResponse table-backed Code");
+            }
+
+            AscNet.Common.Database.Character upgradeRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            upgradeRoster.Uid = upgradePlayerId;
+            CharacterData upgradeCharacter = RequiredCharacterData(upgradeRoster, veronicaAegisCharacterId);
+            upgradeCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
+            upgradeCharacter.EnhanceSkillList.Add(new CharacterSkill
+            {
+                Id = targetSkillId,
+                Level = 1
+            });
+
+            Dictionary<int, long> upgradeInitialCounts = InitialCountsForCosts(upgradeCosts, costSurplus);
+            AscNet.Common.Database.Inventory upgradeInventory = CreateInventoryWithCosts(upgradePlayerId, upgradeInitialCounts);
+            using (LoopbackSessionHarness harness = new(
+                upgradeRoster,
+                CreateDrawCompatibilityPlayer(upgradePlayerId),
+                upgradeInventory,
+                "character-enhance-skill-upgrade-table-backed-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(
+                    "CharacterUpgradeEnhanceSkillRequest",
+                    harness.Session,
+                    upgradePacketId,
+                    new CharacterUpgradeEnhanceSkillRequest
+                    {
+                        SkillGroupId = targetSkillGroupId,
+                        Count = 1
+                    });
+
+                NotifyItemDataList upgradeItemNotify = ReadPushPayload<NotifyItemDataList>(
+                    harness,
+                    nameof(NotifyItemDataList),
+                    "CharacterUpgradeEnhanceSkillRequest table-backed NotifyItemDataList");
+                AssertCostConsumption(
+                    upgradeItemNotify,
+                    harness.Session.inventory,
+                    upgradeInitialCounts,
+                    upgradeCosts,
+                    "CharacterUpgradeEnhanceSkillRequest table-backed level 1 upgrade costs");
+
+                NotifyCharacterDataList upgradeCharacterNotify = ReadPushPayload<NotifyCharacterDataList>(
+                    harness,
+                    nameof(NotifyCharacterDataList),
+                    "CharacterUpgradeEnhanceSkillRequest table-backed NotifyCharacterDataList");
+                CharacterData pushedUpgradeCharacter = RequiredNotifyCharacterData(
+                    upgradeCharacterNotify,
+                    veronicaAegisCharacterId,
+                    "CharacterUpgradeEnhanceSkillRequest table-backed notify");
+                CharacterSkill upgradedSkill = RequiredEnhanceSkill(
+                    pushedUpgradeCharacter,
+                    targetSkillId,
+                    "CharacterUpgradeEnhanceSkillRequest table-backed skill");
+                AssertEqual(2, upgradedSkill.Level, "CharacterUpgradeEnhanceSkillRequest table-backed pushed skill level");
+
+                CharacterUpgradeEnhanceSkillResponse upgradeResponse = ReadResponsePayload<CharacterUpgradeEnhanceSkillResponse>(
+                    harness,
+                    upgradePacketId,
+                    nameof(CharacterUpgradeEnhanceSkillResponse),
+                    "CharacterUpgradeEnhanceSkillRequest table-backed response");
+                AssertEqual(0, upgradeResponse.Code, "CharacterUpgradeEnhanceSkillResponse table-backed Code");
+            }
+
+            static (Dictionary<int, int> UnlockCosts, Dictionary<int, int> UpgradeCosts) AssertTableBackedEnhanceSkillCompatibilityFixture(
+                int characterId,
+                int[] expectedSkillGroupIds,
+                int targetSkillGroupId,
+                uint targetSkillId,
+                string name)
+            {
+                EnhanceSkillTable enhanceSkill = TableReaderV2.Parse<EnhanceSkillTable>()
+                    .SingleOrDefault(skill => skill.CharacterId == characterId)
+                    ?? throw new InvalidDataException($"{name}: EnhanceSkill.tsv is missing character {characterId}.");
+                AssertIntegerList(
+                    expectedSkillGroupIds.Select(skillGroupId => (long)skillGroupId).ToArray(),
+                    enhanceSkill.SkillGroupId.Where(skillGroupId => skillGroupId > 0).Select(skillGroupId => (long)skillGroupId).ToArray(),
+                    $"{name} EnhanceSkill.tsv SkillGroupId");
+
+                EnhanceSkillGroupTable enhanceSkillGroup = TableReaderV2.Parse<EnhanceSkillGroupTable>()
+                    .SingleOrDefault(skillGroup => skillGroup.Id == targetSkillGroupId)
+                    ?? throw new InvalidDataException($"{name}: EnhanceSkillGroup.tsv is missing SkillGroupId {targetSkillGroupId}.");
+                AssertIntegerList(
+                    [(long)targetSkillId],
+                    enhanceSkillGroup.SkillId.Where(skillId => skillId > 0).Select(skillId => (long)skillId).ToArray(),
+                    $"{name} EnhanceSkillGroup.tsv SkillId");
+
+                return (
+                    RequiredEnhanceSkillCosts(targetSkillId, level: 0, $"{name} EnhanceSkillUpgrade.tsv level 0 unlock"),
+                    RequiredEnhanceSkillCosts(targetSkillId, level: 1, $"{name} EnhanceSkillUpgrade.tsv level 1 upgrade"));
+            }
+
+            static Dictionary<int, int> RequiredEnhanceSkillCosts(uint skillId, int level, string name)
+            {
+                EnhanceSkillUpgradeTable upgrade = TableReaderV2.Parse<EnhanceSkillUpgradeTable>()
+                    .SingleOrDefault(upgrade => upgrade.SkillId == skillId && upgrade.Level == level)
+                    ?? throw new InvalidDataException($"{name}: missing SkillId {skillId} Level {level}.");
+                Dictionary<int, int> costs = AggregateCosts(upgrade.CostItem, upgrade.CostItemCount, name);
+                if (costs.Values.Sum() <= 0)
+                    throw new InvalidDataException($"{name}: expected positive item costs.");
+                return costs;
+            }
+
+            static Dictionary<int, int> AggregateCosts(IReadOnlyList<int> itemIds, IReadOnlyList<int> itemCounts, string name)
+            {
+                Dictionary<int, int> costs = [];
+                int pairCount = Math.Min(itemIds.Count, itemCounts.Count);
+                for (int index = 0; index < pairCount; index++)
+                {
+                    int itemId = itemIds[index];
+                    int itemCount = itemCounts[index];
+                    if (itemId <= 0 && itemCount <= 0)
+                        continue;
+                    if (itemId <= 0)
+                        throw new InvalidDataException($"{name}: cost entry {index + 1} has non-positive item id {itemId}.");
+                    if (itemCount <= 0)
+                        throw new InvalidDataException($"{name}: cost entry {index + 1} for item {itemId} has non-positive count {itemCount}.");
+
+                    costs[itemId] = costs.TryGetValue(itemId, out int existingCount)
+                        ? existingCount + itemCount
+                        : itemCount;
+                }
+
+                if (costs.Count == 0)
+                    throw new InvalidDataException($"{name}: expected at least one cost item.");
+                return costs;
+            }
+
+            static Dictionary<int, long> InitialCountsForCosts(IReadOnlyDictionary<int, int> costs, long surplus)
+            {
+                return costs.ToDictionary(cost => cost.Key, cost => (long)cost.Value + surplus);
+            }
+
+            static AscNet.Common.Database.Inventory CreateInventoryWithCosts(long playerId, IReadOnlyDictionary<int, long> initialCounts)
+            {
+                return CreateDrawCompatibilityInventory(
+                    playerId,
+                    initialCounts
+                        .OrderBy(count => count.Key)
+                        .Select(count => new Item { Id = count.Key, Count = count.Value }));
+            }
+
+            static void AssertCostConsumption(
+                NotifyItemDataList notify,
+                AscNet.Common.Database.Inventory inventory,
+                IReadOnlyDictionary<int, long> initialCounts,
+                IReadOnlyDictionary<int, int> costs,
+                string name)
+            {
+                AssertEqual(costs.Count, notify.ItemDataList.Count, $"{name} NotifyItemDataList cost item count");
+                foreach (KeyValuePair<int, int> cost in costs.OrderBy(cost => cost.Key))
+                {
+                    long expectedCount = initialCounts[cost.Key] - cost.Value;
+                    Item pushedItem = notify.ItemDataList.Single(item => item.Id == cost.Key);
+                    AssertEqual(expectedCount, pushedItem.Count, $"{name} NotifyItemDataList item {cost.Key} count");
+
+                    Item sessionItem = inventory.Items.Single(item => item.Id == cost.Key);
+                    AssertEqual(expectedCount, sessionItem.Count, $"{name} session inventory item {cost.Key} count");
+                }
+            }
+
+            static CharacterData RequiredNotifyCharacterData(NotifyCharacterDataList notify, int characterId, string name)
+            {
+                List<CharacterData> matches = notify.CharacterDataList
+                    .Where(character => character.Id == characterId)
+                    .ToList();
+                AssertEqual(1, matches.Count, $"{name} affected character count");
+                return matches[0];
+            }
+
+            static CharacterSkill RequiredEnhanceSkill(CharacterData character, uint skillId, string name)
+            {
+                List<CharacterSkill> matches = character.EnhanceSkillList
+                    .Where(skill => skill.Id == skillId)
+                    .ToList();
+                AssertEqual(1, matches.Count, $"{name} enhance skill count");
+                return matches[0];
+            }
         }
 
         private static void ValidateExpLevelCompatibility()

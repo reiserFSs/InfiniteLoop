@@ -144,6 +144,7 @@ namespace AscNet.GameServer
                                         debugContent = request.Content;
 
                                         RequestPacketHandlerDelegate? requestPacketHandler = PacketFactory.GetRequestPacketHandler(request.Name);
+                                        ProbeAwakenRequest(request, requestPacketHandler is not null);
                                         if (requestPacketHandler is not null)
                                         {
                                             // TODO: with new logger this will be unnecessary
@@ -315,6 +316,7 @@ namespace AscNet.GameServer
                 Content = MessagePackSerializer.Serialize(packet)
             });
             log.Info($"{packet.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + JsonConvert.SerializeObject(response)) : "")}");
+            ProbeAwakenResponse(packet.Name, clientSeq, response);
         }
 
         private void Send(Packet packet)
@@ -328,6 +330,57 @@ namespace AscNet.GameServer
             Array.Copy(serializedPacket, 0, sendBytes, 4, serializedPacket.Length);
 
             client.GetStream().Write(sendBytes);
+        }
+
+        private static readonly object AwakenProbeLock = new();
+        private static readonly string AwakenProbePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".runtime", "awaken-probe-live.log"));
+
+        private void ProbeAwakenRequest(Packet.Request request, bool handled)
+        {
+            if (!IsAwakenProbePacketName(request.Name))
+                return;
+
+            WriteAwakenProbe($"request id={request.Id} name={request.Name} handled={handled} content={FormatMessagePackContent(request.Content)}");
+        }
+
+        private void ProbeAwakenResponse<T>(string name, int clientSeq, T response)
+        {
+            if (!IsAwakenProbePacketName(name))
+                return;
+
+            WriteAwakenProbe($"response id={clientSeq} name={name} content={JsonConvert.SerializeObject(response)}");
+        }
+
+        private void WriteAwakenProbe(string message)
+        {
+            try
+            {
+                string? directory = Path.GetDirectoryName(AwakenProbePath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                string line = $"{DateTimeOffset.Now:O} session={id} packetNo={packetNo} {message}{Environment.NewLine}";
+                lock (AwakenProbeLock)
+                {
+                    File.AppendAllText(AwakenProbePath, line);
+                }
+            }
+            catch
+            {
+                // Probe logging must never affect gameplay packet delivery.
+            }
+        }
+
+        private static bool IsAwakenProbePacketName(string name)
+        {
+            return name.Contains("Character", StringComparison.Ordinal)
+                || name.Contains("Fashion", StringComparison.Ordinal)
+                || name.Contains("Stage", StringComparison.Ordinal)
+                || name.Contains("Fuben", StringComparison.Ordinal)
+                || name.Contains("Guide", StringComparison.Ordinal)
+                || name.Contains("Liberat", StringComparison.Ordinal)
+                || name.Contains("Gather", StringComparison.Ordinal)
+                || name.Contains("Awaken", StringComparison.Ordinal);
         }
 
         private static string FormatMessagePackContent(byte[] content)

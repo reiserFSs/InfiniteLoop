@@ -358,6 +358,20 @@ namespace AscNet.Common.Database
             return uint.Parse(skillGroupIdText[..Math.Min(6, skillGroupIdText.Length)]);
         }
 
+        public static IReadOnlyList<uint> ResolveCharacterSkillIdsForGroupId(int skillGroupId)
+        {
+            if (skillGroupId <= 0)
+                return Array.Empty<uint>();
+
+            return TableReaderV2.Parse<CharacterSkillGroupTable>()
+                .Where(skillGroup => skillGroup.Id == skillGroupId)
+                .SelectMany(skillGroup => skillGroup.SkillId)
+                .Where(skillId => skillId > 0)
+                .Distinct()
+                .Select(skillId => (uint)skillId)
+                .ToArray();
+        }
+
         private static Character Create(long uid)
         {
             Character character = new()
@@ -500,16 +514,17 @@ namespace AscNet.Common.Database
 
         public UpgradeCharacterSkillResult UpgradeCharacterSkillGroup(int skillGroupId, int count)
         {
-            List<uint> affectedCharacters = new();
+            HashSet<uint> affectedCharacters = new();
             int totalCoinCost = 0;
             int totalSkillPointCost = 0;
-            IEnumerable<int> affectedSkills = TableReaderV2.Parse<CharacterSkillGroupTable>().Where(x => x.Id == skillGroupId).SelectMany(x => x.SkillId);
+            int finalLevel = 0;
+            IReadOnlyList<uint> affectedSkills = ResolveCharacterSkillIdsForGroupId(skillGroupId);
 
-            foreach (var skillId in affectedSkills)
+            foreach (uint skillId in affectedSkills)
             {
-                foreach (var character in Characters.Where(x => x.SkillList.Any(x => x.Id == skillId)))
+                foreach (CharacterData character in Characters.Where(character => character.SkillList.Any(skill => skill.Id == skillId)))
                 {
-                    var characterSkill = character.SkillList.First(x => x.Id == skillId);
+                    CharacterSkill characterSkill = character.SkillList.First(skill => skill.Id == skillId);
                     int targetLevel = characterSkill.Level + count;
 
                     while (characterSkill.Level < targetLevel)
@@ -520,16 +535,19 @@ namespace AscNet.Common.Database
                         totalSkillPointCost += skillUpgrade?.UseSkillPoint ?? 0;
 
                         characterSkill.Level++;
+                        finalLevel = characterSkill.Level;
                     }
+                    finalLevel = Math.Max(finalLevel, characterSkill.Level);
                     affectedCharacters.Add(character.Id);
                 }
             }
 
             return new UpgradeCharacterSkillResult()
             {
-                AffectedCharacters = affectedCharacters,
+                AffectedCharacters = affectedCharacters.ToList(),
                 CoinCost = totalCoinCost,
-                SkillPointCost = totalSkillPointCost
+                SkillPointCost = totalSkillPointCost,
+                Level = finalLevel
             };
         }
 
@@ -663,6 +681,7 @@ namespace AscNet.Common.Database
     {
         public int CoinCost { get; init; }
         public int SkillPointCost { get; init; }
+        public int Level { get; init; }
         public List<uint> AffectedCharacters { get; init; }
     }
 

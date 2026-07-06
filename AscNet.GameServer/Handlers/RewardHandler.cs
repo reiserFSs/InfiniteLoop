@@ -8,6 +8,7 @@ using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.equip;
+using AscNet.Table.V2.share.fashion;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -192,6 +193,33 @@ namespace AscNet.GameServer.Handlers
             return [reward];
         }
 
+        public static bool UnlockFashionReward(int fashionId, Session session, List<FashionList>? fashionList = null)
+        {
+            FashionTable? fashion = TableReaderV2.Parse<FashionTable>().Find(x => x.Id == fashionId);
+            if (fashion is null)
+                return false;
+
+            FashionList? existingFashion = session.character.Fashions.Find(x => x.Id == fashionId);
+            if (existingFashion is null)
+            {
+                existingFashion = new FashionList
+                {
+                    Id = fashionId,
+                    IsLock = false
+                };
+                session.character.Fashions.Add(existingFashion);
+                fashionList?.Add(existingFashion);
+                return true;
+            }
+
+            if (!existingFashion.IsLock)
+                return false;
+
+            existingFashion.IsLock = false;
+            fashionList?.Add(existingFashion);
+            return true;
+        }
+
 
         private static void HandleReward(
             Reward reward,
@@ -224,6 +252,7 @@ namespace AscNet.GameServer.Handlers
                     }
                     break;
                 case RewardType.Fashion:
+                    UnlockFashionReward(reward.Id, session, fashionList);
                     break;
                 case RewardType.BaseEquip:
                     break;
