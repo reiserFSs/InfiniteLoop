@@ -265,7 +265,7 @@ def payload_summary(value: Any) -> Any:
     return value
 
 
-def parse_pcap(path: Path) -> Iterable[tuple[float, bytes]]:
+def parse_pcap(path: Path) -> Iterable[tuple[float, bytes, int]]:
     raw = path.read_bytes()
     if len(raw) < 24:
         raise ValueError("pcap too short")
@@ -280,6 +280,8 @@ def parse_pcap(path: Path) -> Iterable[tuple[float, bytes]]:
     else:
         raise ValueError("unsupported capture format: expected classic pcap, not pcapng")
 
+    link_type = struct.unpack(endian + "I", raw[20:24])[0]
+
     offset = 24
     while offset + 16 <= len(raw):
         ts_sec, ts_frac, incl_len, _orig_len = struct.unpack(endian + "IIII", raw[offset : offset + 16])
@@ -287,7 +289,7 @@ def parse_pcap(path: Path) -> Iterable[tuple[float, bytes]]:
         frame = raw[offset : offset + incl_len]
         offset += incl_len
         divisor = 1_000_000_000 if nano else 1_000_000
-        yield ts_sec + ts_frac / divisor, frame
+        yield ts_sec + ts_frac / divisor, frame, link_type
 
 
 def ipv4_to_string(data: bytes) -> str:
@@ -297,14 +299,22 @@ def ipv4_to_string(data: bytes) -> str:
 def collect_tcp_segments(path: Path) -> dict[tuple[str, int, str, int], list[tuple[float, int, bytes]]]:
     segments: dict[tuple[str, int, str, int], list[tuple[float, int, bytes]]] = defaultdict(list)
 
-    for timestamp, frame in parse_pcap(path):
-        if len(frame) < 14:
+    for timestamp, frame, link_type in parse_pcap(path):
+        if link_type == 1:  # Ethernet
+            if len(frame) < 14:
+                continue
+            eth_type = struct.unpack("!H", frame[12:14])[0]
+            if eth_type != 0x0800:
+                continue
+            ip = frame[14:]
+        elif link_type == 0:  # BSD loopback/null: 4-byte address-family header, then IP
+            if len(frame) < 4:
+                continue
+            ip = frame[4:]
+        elif link_type in (101, 228):  # Raw IPv4 / DLT_IPV4
+            ip = frame
+        else:
             continue
-        eth_type = struct.unpack("!H", frame[12:14])[0]
-        if eth_type != 0x0800:
-            continue
-
-        ip = frame[14:]
         if len(ip) < 20:
             continue
         version = ip[0] >> 4

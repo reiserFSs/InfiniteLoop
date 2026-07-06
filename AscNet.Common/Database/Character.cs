@@ -36,8 +36,11 @@ namespace AscNet.Common.Database
         public static Character FromUid(long uid)
         {
             Character character = collection.AsQueryable().FirstOrDefault(x => x.Uid == uid) ?? Create(uid);
-            bool changed = character.NormalizeEquipsForCurrentTables();
-            changed |= character.NormalizeCharactersForCurrentTables();
+            bool changed = false;
+            if (character.NormalizeEquipsForCurrentTables())
+                changed = true;
+            if (character.NormalizeCharactersForCurrentTables())
+                changed = true;
             if (changed)
                 character.Save();
 
@@ -155,15 +158,14 @@ namespace AscNet.Common.Database
                 .ToLookup(quality => quality.CharacterId);
             Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>()
                 .ToDictionary(equip => equip.Id);
-            HashSet<int> fashionRowsById = TableReaderV2.Parse<FashionTable>()
-                .Select(fashion => fashion.Id)
-                .ToHashSet();
+            Dictionary<int, FashionTable> fashionRowsById = TableReaderV2.Parse<FashionTable>()
+                .ToDictionary(fashion => fashion.Id);
 
             HashSet<int> seenFashionIds = new();
             List<FashionList> normalizedFashions = new();
             foreach (FashionList fashion in Fashions)
             {
-                if (fashion.Id <= 0 || !fashionRowsById.Contains((int)fashion.Id) || !seenFashionIds.Add((int)fashion.Id))
+                if (fashion.Id <= 0 || !fashionRowsById.ContainsKey((int)fashion.Id) || !seenFashionIds.Add((int)fashion.Id))
                 {
                     changed = true;
                     continue;
@@ -258,9 +260,12 @@ namespace AscNet.Common.Database
                     }
                 }
 
-                if (characterRow.DefaultNpcFashtionId > 0 && fashionRowsById.Contains(characterRow.DefaultNpcFashtionId))
+                if (characterRow.DefaultNpcFashtionId > 0 && fashionRowsById.ContainsKey(characterRow.DefaultNpcFashtionId))
                 {
-                    if (character.FashionId == 0)
+                    bool hasCompatibleFashion = character.FashionId > 0
+                        && fashionRowsById.TryGetValue((int)character.FashionId, out FashionTable? currentFashion)
+                        && currentFashion.CharacterId == characterRow.Id;
+                    if (!hasCompatibleFashion)
                     {
                         character.FashionId = (uint)characterRow.DefaultNpcFashtionId;
                         changed = true;
@@ -272,7 +277,10 @@ namespace AscNet.Common.Database
                         changed = true;
                     }
 
-                    if (character.CharacterHeadInfo.HeadFashionId == 0)
+                    bool hasCompatibleHeadFashion = character.CharacterHeadInfo.HeadFashionId > 0
+                        && fashionRowsById.TryGetValue((int)character.CharacterHeadInfo.HeadFashionId, out FashionTable? currentHeadFashion)
+                        && currentHeadFashion.CharacterId == characterRow.Id;
+                    if (!hasCompatibleHeadFashion)
                     {
                         character.CharacterHeadInfo.HeadFashionId = (uint)characterRow.DefaultNpcFashtionId;
                         changed = true;

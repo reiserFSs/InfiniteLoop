@@ -1,7 +1,14 @@
 ﻿using AscNet.Common.MsgPack;
+using MessagePack;
+
 
 namespace AscNet.GameServer.Handlers
 {
+    [MessagePackObject(true)]
+    public class HeartbeatRequest
+    {
+    }
+
     internal class HeartbeatModule
     {
         [RequestPacketHandler("HeartbeatRequest")]

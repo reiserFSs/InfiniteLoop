@@ -249,6 +249,7 @@ namespace AscNet.Common.MsgPack
         public long CurrHeadPortraitId { get; set; }
         public long CurrHeadFrameId { get; set; }
         public long CurrMedalId { get; set; }
+        public long CurrentChatBoardId { get; set; }
         public long AppearanceShowType { get; set; }
         public long DailyReceiveGiftCount { get; set; }
         public long DailyActivenessRewardStatus { get; set; }
@@ -323,6 +324,105 @@ namespace AscNet.Common.MsgPack
         public long EndTime { get; set; }
     }
 
+    [global::MessagePack.MessagePackObject(true)]
+    public class FubenEventData
+    {
+        public List<dynamic> FubenEventInfos { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class FubenMainLineLuosaitaData
+    {
+        public Int32 IncId { get; set; }
+        public List<dynamic> SectionInfos { get; set; } = new();
+        public List<dynamic> KillEnemySet { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class RandomBackgroundLoginData
+    {
+        public Boolean IsRandomBackground { get; set; }
+        public Boolean IsBackgroundRandomFashion { get; set; }
+        public List<Int32> RandomBackgroundPool { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class FunctionOpenTimeConfig
+    {
+        public Int32 FunctionId { get; set; }
+        public Int32 TimeId { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class DlcPlayerData
+    {
+        public Int32 ActivityId { get; set; }
+        public Int32 Level { get; set; }
+        public List<Int32> PassWorldId { get; set; } = new();
+        public Int32 GainAssistPoint { get; set; }
+        public Int32 GainSocialAssistPoint { get; set; }
+        public Boolean HasReceiveAssistPoint { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class DlcCharacter
+    {
+        public UInt32 Id { get; set; }
+        public UInt32 FashionId { get; set; }
+        public UInt32 FashionColorId { get; set; }
+        public Int32 ChipFormId { get; set; }
+        public Int64 CreateTime { get; set; }
+        public Int32 StyleType { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class RedPointRecords
+    {
+        public List<RedPointGameNoticeInfo> GameNoticeInfos { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class RedPointGameNoticeInfo
+    {
+        public String NoticeId { get; set; }
+        public Int64 ModifyTime { get; set; }
+        public Int64 EndTime { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class LifeTreeUnlockCharacterData
+    {
+        public Int32 Id { get; set; }
+        public Int32 UnlockStatus { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyLifeTreeData
+    {
+        public Boolean IsFinishGuide { get; set; }
+        public Boolean IsFinishLifeTreePv { get; set; }
+        public List<Int32> FinishedChapters { get; set; } = new();
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<Int32, LifeTreeUnlockCharacterData> UnlockCharacterData { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyFunctionalEntranceData
+    {
+        public Dictionary<Int32, Int32> RedPointDatas { get; set; } = new();
+    }
+
+
     [MessagePackObject(true)]
     public partial class NotifyLogin
     {
@@ -334,11 +434,16 @@ namespace AscNet.Common.MsgPack
         public List<LoginCharacterList> CharacterList { get; set; } = new();
         public List<EquipData> EquipList { get; set; } = new();
         public List<FashionList> FashionList { get; set; } = new();
+        public List<dynamic> FashionSuitList { get; set; } = new();
+        public List<dynamic> FashionColors { get; set; } = new();
         public List<HeadPortraitList> HeadPortraitList { get; set; } = new();
         public BaseEquipLoginData BaseEquipLoginData { get; set; }
         public FubenData FubenData { get; set; }
+        public Boolean IsSetFightCgEnable { get; set; }
         public FubenMainLineData FubenMainLineData { get; set; }
+        public FubenEventData FubenEventData { get; set; } = new();
         public FubenMainLine2Data FubenMainLine2Data { get; set; }
+        public FubenMainLineLuosaitaData FubenMainLineLuosaitaData { get; set; } = new();
         public NotifyFashionColorData FashionColorData { get; set; }
         public FubenLoginData FubenChapterExtraLoginData { get; set; }
         public FubenUrgentEventData FubenUrgentEventData { get; set; }
@@ -352,7 +457,17 @@ namespace AscNet.Common.MsgPack
         public List<dynamic> ShieldedProtocolList { get; set; } = new();
         public object LimitedLoginData { get; set; }
         public long UseBackgroundId { get; set; }
+        public List<Int32> HaveBackgroundIds { get; set; } = new();
         public FubenLoginData FubenShortStoryLoginData { get; set; }
+        public RandomBackgroundLoginData RandomBackgroundLoginData { get; set; } = new();
+        public List<dynamic> PurchaseClientInfoLoginData { get; set; } = new();
+        public List<FunctionOpenTimeConfig> FunctionOpenTimeConfigList { get; set; } = new();
+        public DlcPlayerData DlcPlayerData { get; set; } = new();
+        public List<DlcCharacter> DlcCharacterList { get; set; } = new();
+        public List<dynamic> DlcChipList { get; set; } = new();
+        public dynamic? WorldInfo { get; set; }
+        public dynamic? KeyPadSetting { get; set; }
+        public RedPointRecords RedPointRecords { get; set; } = new();
     }
 
 
@@ -360,7 +475,7 @@ namespace AscNet.Common.MsgPack
     public class NotifyPayInfo
     {
         public Single TotalPayMoney { get; set; }
-        public Boolean IsGetFirstPayReward { get; set; }
+        public List<Int32> FirstRewardReceivedList { get; set; } = new();
     }
 
 
@@ -947,21 +1062,7 @@ namespace AscNet.Common.MsgPack
     public class SignInResponse
     {
         public int Code { get; set; }
-        [MessagePack.MessagePackObject(true)]
-        public class SignInResponseRewardGoodsList
-        {
-            public int RewardType { get; set; }
-            public uint TemplateId { get; set; }
-            public int Count { get; set; }
-            public int Level { get; set; }
-            public int Quality { get; set; }
-            public int Grade { get; set; }
-            public int Breakthrough { get; set; }
-            public int ConvertFrom { get; set; }
-            public uint Id { get; set; }
-        }
-
-        public List<SignInResponseRewardGoodsList> RewardGoodsList { get; set; } = new();
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
     }
 
     [MessagePack.MessagePackObject(true)]
@@ -989,9 +1090,11 @@ namespace AscNet.Common.MsgPack
         {
             public uint Id { get; set; }
             public string Name { get; set; }
+            public int UiType { get; set; }
         }
 
         public List<PurchaseDailyNotifyFreeRewardInfoList> FreeRewardInfoList { get; set; } = new();
+        public List<dynamic> PurchaseSignInInfoList { get; set; } = new();
     }
 
 
@@ -1002,11 +1105,11 @@ namespace AscNet.Common.MsgPack
         [global::MessagePack.MessagePackObject(true)]
         public class NotifyPurchaseRecommendConfigData
         {
-            public Dictionary<dynamic, dynamic> AddOrModifyConfigs { get; set; }
-            public dynamic? RemoveIds { get; set; }
+            public Dictionary<dynamic, dynamic> AddOrModifyConfigs { get; set; } = new();
+            public List<dynamic> RemoveIds { get; set; } = new();
         }
 
-        public NotifyPurchaseRecommendConfigData Data { get; set; }
+        public NotifyPurchaseRecommendConfigData Data { get; set; } = new();
     }
 
 
@@ -1288,9 +1391,11 @@ namespace AscNet.Common.MsgPack
             public Int32 ChallengeDeleteRecordTime { get; set; }
             public Int32 CurTotalScore { get; set; }
             public Boolean IsResetOpen { get; set; }
+            public List<dynamic> NormalStageTeamInfos { get; set; } = new();
         }
 
         public NotifyFubenBossSingleDataFubenBossSingleData FubenBossSingleData { get; set; }
+        public Dictionary<Int32, List<Int32>> BossListDict { get; set; } = new();
     }
 
 
@@ -2035,7 +2140,7 @@ namespace AscNet.Common.MsgPack
     public class NotifyItemDataList
     {
         public List<Item> ItemDataList { get; set; } = new();
-        public dynamic? ItemRecycleDict { get; set; }
+        public dynamic? ItemRecycleDict { get; set; } = new Dictionary<int, object>();
     }
 
 
@@ -2146,7 +2251,8 @@ namespace AscNet.Common.MsgPack
             public dynamic? FashionLabel { get; set; }
         }
 
-        public List<GetPurchaseListResponsePurchaseInfo> PurchaseInfoList { get; set; } = new();
+        public List<dynamic> PurchaseInfoList { get; set; } = new();
+        public List<dynamic> PurchaseComboInfoList { get; set; } = new();
     }
 
 
@@ -2174,6 +2280,8 @@ namespace AscNet.Common.MsgPack
             public UInt32 LastLoginTime { get; set; }
             public Boolean IsOnline { get; set; }
             public Int32 CurrMedalId { get; set; }
+            public Boolean IsCancel { get; set; }
+            public Int32 DlcMultiplayerTitle { get; set; }
         }
 
         public List<GetPlayerInfoListResponsePlayerInfo> PlayerInfoList { get; set; } = new();
@@ -2184,6 +2292,24 @@ namespace AscNet.Common.MsgPack
     public class GuildListDetailRequest
     {
         public Int32 GuildId { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class GuildListChatRequest
+    {
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class GuildMemberDetailRequest
+    {
+        public Int32 GuildId { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class GuildWarOpenSupportPanelRequest
+    {
     }
 
 
@@ -2631,6 +2757,7 @@ namespace AscNet.Common.MsgPack
         public Int32 Grade { get; set; }
         public Int32 Breakthrough { get; set; }
         public Int32 ConvertFrom { get; set; }
+        public Int32 ShowQuality { get; set; }
         public Int32 Id { get; set; }
         public Boolean IsGift { get; set; }
         public Int32 RewardMulti { get; set; }
@@ -2717,6 +2844,25 @@ namespace AscNet.Common.MsgPack
 
 
     [global::MessagePack.MessagePackObject(true)]
+    public class GetVoteGroupListRequest
+    {
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class GetFixedShopListRequest
+    {
+        public List<UInt32> IdList { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class LottoInfoRequest
+    {
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
     public class GetVoteGroupListResponse
     {
         [global::MessagePack.MessagePackObject(true)]
@@ -2765,6 +2911,8 @@ namespace AscNet.Common.MsgPack
                     public Int32 Grade { get; set; }
                     public Int32 Breakthrough { get; set; }
                     public Int32 ConvertFrom { get; set; }
+                    public Boolean IsGift { get; set; }
+                    public Int32 RewardMulti { get; set; }
                     public Int32 Id { get; set; }
                 }
 
@@ -2788,6 +2936,9 @@ namespace AscNet.Common.MsgPack
                 public List<dynamic> ConditionIds { get; set; } = new();
                 public Int32 GiftRewardId { get; set; }
                 public Int32 AutoResetClockId { get; set; }
+                public Int32 BuyPriority { get; set; }
+                public Int32 ActivityConsumeCount { get; set; }
+                public Int32 ActivityDiscount { get; set; }
             }
 
             public List<GetShopInfoResponseClientShopGoods> GoodsList { get; set; } = new();
@@ -2797,6 +2948,39 @@ namespace AscNet.Common.MsgPack
         }
 
         public GetShopInfoResponseClientShop ClientShop { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class GetFixedShopListResponse
+    {
+        public Int32 Code { get; set; }
+        public List<GetShopInfoResponse.GetShopInfoResponseClientShop> ClientShopList { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class LottoInfoResponse
+    {
+        public Int32 Code { get; set; }
+
+        [global::MessagePack.MessagePackObject(true)]
+        public class LottoInfo
+        {
+            public Int32 Id { get; set; }
+            public Int32 LottoPrimaryId { get; set; }
+            public Int32 ExtraRewardState { get; set; }
+            public List<Int32> LottoRewards { get; set; } = new();
+            public List<LottoRecord> LottoRecords { get; set; } = new();
+        }
+
+        [global::MessagePack.MessagePackObject(true)]
+        public class LottoRecord
+        {
+            public RewardGoods RewardGoods { get; set; }
+            public Int32 LottoTime { get; set; }
+        }
+
+        public List<dynamic> LottoInfos { get; set; } = new();
     }
 
 

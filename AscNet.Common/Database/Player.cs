@@ -1,6 +1,7 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using AscNet.Logging;
 using AscNet.Common.MsgPack;
 using MongoDB.Bson.Serialization.Options;
 
@@ -10,10 +11,24 @@ namespace AscNet.Common.Database
     public class Player
     {
         public static readonly IMongoCollection<Player> collection = Common.db.GetCollection<Player>("players");
+        private static readonly Logger log = new(typeof(Player), LogLevel.WARN, LogLevel.WARN);
 
         public static Player FromPlayerId(long id)
         {
             return collection.AsQueryable().FirstOrDefault(x => x.PlayerData.Id == id) ?? Create(id);
+        }
+
+        public static Player? TryFromPlayerId(long id)
+        {
+            try
+            {
+                return collection.AsQueryable().FirstOrDefault(x => x.PlayerData.Id == id);
+            }
+            catch (Exception ex)
+            {
+                log.Warn($"Player lookup failed for id {id}; falling back to minimal player info.", ex);
+                return null;
+            }
         }
 
         public static Player? FromToken(string token)
@@ -40,6 +55,9 @@ namespace AscNet.Common.Database
                     ServerId = "1",
                     CurrTeamId = 1,
                     CurrHeadPortraitId = 9000003,
+                    CurrHeadFrameId = 0,
+                    CurrMedalId = 0,
+                    CurrentChatBoardId = 25000001,
                     AppearanceSettingInfo = new()
                     {
                         TitleType = 1,
@@ -140,6 +158,15 @@ namespace AscNet.Common.Database
 
         [BsonElement("use_background_id")]
         public int UseBackgroundId { get; set; } = 14000001;
+
+        [BsonElement("last_sign_in_time")]
+        public long LastSignInTime { get; set; }
+
+        [BsonElement("red_point_records")]
+        public RedPointRecords RedPointRecords { get; set; } = new();
+
+        [BsonElement("life_tree_data")]
+        public NotifyLifeTreeData LifeTreeData { get; set; } = new();
 
         [BsonElement("team_groups")]
         [BsonRequired]

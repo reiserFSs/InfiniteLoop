@@ -2,6 +2,7 @@ using AscNet.Common.Util;
 using AscNet.SDKServer.Models;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace AscNet.SDKServer.Controllers
 {
@@ -43,6 +44,8 @@ namespace AscNet.SDKServer.Controllers
             app.MapGet("/prod/client/notice/config/{cdnKey}/{package}/{version}/PopUpPicNotice.json", HandlePopUpPicNoticeRequest);
             app.MapGet("/prod/client/notice/{package}/{version}/standalone/PopUpPicNotice.json", HandlePopUpPicNoticeRequest);
             app.MapGet("/prod/client/notice/{cdnKey}/{package}/{version}/standalone/PopUpPicNotice.json", HandlePopUpPicNoticeRequest);
+            app.MapGet("/prod/client/notice/pic/{fileName}", HandleNoticePicRequest);
+            app.MapGet("/prod/client/notice/html/{fileName}", HandleNoticeHtmlRequest);
 
 
             app.MapPost("/feedback", (HttpContext ctx) =>
@@ -182,6 +185,130 @@ namespace AscNet.SDKServer.Controllers
             });
         }
 
+        private static IResult HandleNoticePicRequest(HttpContext ctx)
+        {
+            string fileName = Path.GetFileName(GetRouteValue(ctx, "fileName"));
+
+            foreach (string versionDirectory in NoticeVersionDirectories())
+            {
+                string path = Path.Combine(versionDirectory, "client", "notice", "pic", fileName);
+                if (File.Exists(path))
+                    return Results.File(File.ReadAllBytes(path), "image/png");
+            }
+
+            return Results.NotFound();
+        }
+
+        private static IResult HandleNoticeHtmlRequest(HttpContext ctx)
+        {
+            string fileName = Path.GetFileName(GetRouteValue(ctx, "fileName"));
+            if (!fileName.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                return Results.NotFound();
+
+            foreach (string versionDirectory in NoticeVersionDirectories())
+            {
+                string path = Path.Combine(versionDirectory, "client", "notice", "html", fileName);
+                if (File.Exists(path))
+                    return Results.File(File.ReadAllBytes(path), "text/html; charset=utf-8");
+            }
+
+            if (TryBuildNoticeHtml(fileName, out string html))
+                return Results.Text(html, "text/html; charset=utf-8");
+
+            return Results.NotFound();
+        }
+
+        private static IEnumerable<string> NoticeVersionDirectories()
+        {
+            string noticesRoot = Path.Combine("Configs", "Notices");
+            if (!Directory.Exists(noticesRoot))
+                return Array.Empty<string>();
+
+            return Directory.GetDirectories(noticesRoot).OrderByDescending(Path.GetFileName);
+        }
+
+        private static bool TryBuildNoticeHtml(string fileName, out string html)
+        {
+            foreach (string versionDirectory in NoticeVersionDirectories())
+            {
+                if (TryFindLoginNoticeTitle(versionDirectory, fileName, out string title)
+                    || TryFindGameNoticeTitle(versionDirectory, fileName, out title))
+                {
+                    html = BuildNoticeHtml(title);
+                    return true;
+                }
+            }
+
+            html = string.Empty;
+            return false;
+        }
+
+        private static bool TryFindLoginNoticeTitle(string versionDirectory, string fileName, out string title)
+        {
+            string path = Path.Combine(versionDirectory, "LoginNotice.json");
+            if (File.Exists(path))
+            {
+                JObject notice = JObject.Parse(File.ReadAllText(path));
+                if (string.Equals(Path.GetFileName(notice.Value<string>("HtmlUrl") ?? string.Empty), fileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    title = notice.Value<string>("Title") ?? "Notice";
+                    return true;
+                }
+            }
+
+            title = string.Empty;
+            return false;
+        }
+
+        private static bool TryFindGameNoticeTitle(string versionDirectory, string fileName, out string title)
+        {
+            string path = Path.Combine(versionDirectory, "GameNotice.json");
+            if (File.Exists(path))
+            {
+                foreach (JObject notice in JArray.Parse(File.ReadAllText(path)).OfType<JObject>())
+                {
+                    foreach (JObject content in (notice.Value<JArray>("Content") ?? new JArray()).OfType<JObject>())
+                    {
+                        if (string.Equals(Path.GetFileName(content.Value<string>("Url") ?? string.Empty), fileName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            title = content.Value<string>("Title") ?? notice.Value<string>("Title") ?? "Notice";
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            title = string.Empty;
+            return false;
+        }
+
+        private static string BuildNoticeHtml(string title)
+        {
+            string encodedTitle = System.Net.WebUtility.HtmlEncode(title);
+            return $$"""
+                <!doctype html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <title>{{encodedTitle}}</title>
+                    <style>
+                        body { margin: 0; padding: 24px; background: #10131a; color: #eef3ff; font-family: sans-serif; }
+                        main { max-width: 720px; margin: 0 auto; }
+                        h1 { font-size: 24px; line-height: 1.25; margin: 0 0 16px; }
+                        p { color: #b9c2d5; font-size: 16px; line-height: 1.5; }
+                    </style>
+                </head>
+                <body>
+                    <main>
+                        <h1>{{encodedTitle}}</h1>
+                        <p>Please refer to the in-game notice list for event details.</p>
+                    </main>
+                </body>
+                </html>
+                """;
+        }
+
         private static void AddLegacyClientConfig(List<RemoteConfig> remoteConfigs, string package, string version, ServerVersionConfig versionConfig, string publicHttpOrigin)
         {
             (string primaryCdns, string secondaryCdns, int channel) = GetPackageConfig(package, currentClient: false);
@@ -212,6 +339,8 @@ namespace AscNet.SDKServer.Controllers
             remoteConfigs.AddConfig("PcPayCallbackList", $"{publicHttpOrigin}/api/XPay/KuroPayResult");
             remoteConfigs.AddConfig("WatermarkType", 2);
             remoteConfigs.AddConfig("ChannelServerListStr", $"1#{Common.Common.config.GameServer.RegionName}#{publicHttpOrigin}/api/Login/Login");
+            remoteConfigs.AddConfig("IsHideFunc", false);
+            remoteConfigs.AddConfig("IsHideFuncAndroid", false);
         }
 
         private static void AddCurrentClientConfig(List<RemoteConfig> remoteConfigs, string package, string version, ServerVersionConfig versionConfig, string publicHttpOrigin)
@@ -256,6 +385,8 @@ namespace AscNet.SDKServer.Controllers
             remoteConfigs.AddConfig("IsPCPayEnable", true);
             remoteConfigs.AddConfig("ChannelServerListStr", CurrentChannelServerListStr(publicHttpOrigin));
             remoteConfigs.AddConfig("IsHeXie", false);
+            remoteConfigs.AddConfig("IsHideFunc", false);
+            remoteConfigs.AddConfig("IsHideFuncAndroid", false);
             remoteConfigs.AddConfig("UsingXTableBehaviorNodeOptimize", true);
             remoteConfigs.AddConfig("IsUsingCDNAuth", false);
             remoteConfigs.AddConfig("AuthSignName", "sign");

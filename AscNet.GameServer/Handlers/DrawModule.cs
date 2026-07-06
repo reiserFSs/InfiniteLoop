@@ -1,6 +1,12 @@
 using AscNet.Common.MsgPack;
+using AscNet.Common.Database;
+using AscNet.Common.Util;
 using AscNet.GameServer.Game;
+using AscNet.Table.V2.share.character.quality;
+using AscNet.Table.V2.share.equip;
+using AscNet.Table.V2.share.item;
 using MessagePack;
+using Newtonsoft.Json.Linq;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -45,11 +51,58 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class DrawGetDrawGroupListRequest
+    {
+    }
+
+    [MessagePackObject(true)]
     public class DrawGetDrawGroupListResponse
     {
         public int Code { get; set; }
         public List<DrawGroupInfo> DrawGroupInfoList { get; set; } = new();
         public List<DrawAdjustActivityInfo> DrawAdjustActivityInfoList { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
+    public class DrawGetHistoryGroupListRequest
+    {
+    }
+
+    [MessagePackObject(true)]
+    public class DrawGetHistoryGroupListResponse
+    {
+        public int Code { get; set; }
+        public List<DrawHistoryGroup> HistoryGroups { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
+    public class DrawHistoryGroup
+    {
+        public int DrawGroupId { get; set; }
+        public int Priority { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class DrawGroupGetHistoryRequest
+    {
+        public int GroupId { get; set; }
+        public int GroupSubType { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class DrawGroupGetHistoryResponse
+    {
+        public int Code { get; set; }
+        public List<DrawHistoryReward> HistoryRewardList { get; set; } = new();
+        public int BottomTimes { get; set; }
+        public int MaxBottomTimes { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class DrawHistoryReward
+    {
+        public RewardGoods RewardGoods { get; set; } = new();
+        public long DrawTime { get; set; }
     }
 
     [MessagePackObject(true)]
@@ -126,6 +179,39 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class GetGachaInfoRequest
+    {
+        public int Id { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class GetGachaInfoResponse
+    {
+        public int Code { get; set; }
+        public List<dynamic>? GridInfoList { get; set; }
+        public List<dynamic>? GachaRecordList { get; set; }
+        public int CurExchangeItemCount { get; set; }
+        public List<dynamic>? GetRewardList { get; set; }
+        public int TotalTimes { get; set; }
+        public int MissTimes { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class GachaItemExchangeRequest
+    {
+        public int Id { get; set; }
+        public int ItemId { get; set; }
+        public int Count { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class GachaItemExchangeResponse
+    {
+        public int Code { get; set; }
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
     public class DrawAdjustActivityInfo
     {
         public int TargetTimes { get; set; }
@@ -145,6 +231,17 @@ namespace AscNet.GameServer.Handlers
 
     internal class DrawModule
     {
+        private const string LottoSnapshotPath = "Configs/lotto_infos.json";
+        private static readonly Lazy<LottoInfoResponse> RetailLottoInfo = new(LoadLottoInfoResponse);
+        private static readonly Lazy<Dictionary<int, int>> CharacterMinQualityById = new(() => TableReaderV2.Parse<CharacterQualityTable>()
+            .GroupBy(x => x.CharacterId)
+            .ToDictionary(group => group.Key, group => group.Min(x => x.Quality)));
+        private static readonly Lazy<Dictionary<int, int>> EquipQualityById = new(() => TableReaderV2.Parse<EquipTable>()
+            .ToDictionary(x => x.Id, x => x.Quality));
+        private static readonly Lazy<Dictionary<int, int>> ItemQualityById = new(() => TableReaderV2.Parse<ItemTable>()
+            .ToDictionary(x => x.Id, x => x.Quality));
+
+
         [RequestPacketHandler("DrawGetDrawGroupListRequest")]
         public static void DrawGetDrawGroupListRequestHandler(Session session, Packet.Request packet)
         {
@@ -155,6 +252,47 @@ namespace AscNet.GameServer.Handlers
             };
 
             session.SendResponse(rsp, packet.Id);
+        }
+
+        [RequestPacketHandler("DrawGetHistoryGroupListRequest")]
+        public static void DrawGetHistoryGroupListRequestHandler(Session session, Packet.Request packet)
+        {
+            DrawGetHistoryGroupListResponse rsp = new()
+            {
+                HistoryGroups = DrawManager.GetDrawHistoryGroups()
+                    .Select(group => new DrawHistoryGroup
+                    {
+                        DrawGroupId = group.DrawGroupId,
+                        Priority = group.Priority
+                    })
+                    .ToList()
+            };
+
+            session.SendResponse(rsp, packet.Id);
+        }
+
+        [RequestPacketHandler("DrawGroupGetHistoryRequest")]
+        public static void DrawGroupGetHistoryRequestHandler(Session session, Packet.Request packet)
+        {
+            DrawGroupGetHistoryRequest request = packet.Deserialize<DrawGroupGetHistoryRequest>();
+            (int bottomTimes, int maxBottomTimes) = DrawManager.GetDrawHistoryStatus(
+                session.player.PlayerData.Id,
+                request.GroupId,
+                request.GroupSubType
+            );
+
+            session.SendResponse(new DrawGroupGetHistoryResponse
+            {
+                HistoryRewardList = DrawManager.GetDrawHistory(session.player.PlayerData.Id, request.GroupId, request.GroupSubType)
+                    .Select(entry => new DrawHistoryReward
+                    {
+                        RewardGoods = entry.RewardGoods,
+                        DrawTime = entry.DrawTime
+                    })
+                    .ToList(),
+                BottomTimes = bottomTimes,
+                MaxBottomTimes = maxBottomTimes
+            }, packet.Id);
         }
 
         [RequestPacketHandler("DrawGetDrawInfoListRequest")]
@@ -183,39 +321,186 @@ namespace AscNet.GameServer.Handlers
         public static void DrawDrawCardRequestHandler(Session session, Packet.Request packet)
         {
             DrawDrawCardRequest request = packet.Deserialize<DrawDrawCardRequest>();
+            long playerId = session.player.PlayerData.Id;
             int drawCount = request.Count <= 0 ? 1 : Math.Min(request.Count, 10);
+            DrawInfo? initialDrawInfo = DrawManager.GetDrawInfoById(request.DrawId, playerId);
+            if (initialDrawInfo is null)
+            {
+                session.SendResponse(new DrawDrawCardResponse { Code = 1 }, packet.Id);
+                return;
+            }
 
-            DrawDrawCardResponse rsp = new();
+            int costItemId = request.UseDrawTicketId > 0 ? request.UseDrawTicketId : initialDrawInfo.UseItemId;
+            long requiredCost = (long)initialDrawInfo.UseItemCount * drawCount;
+            long availableCost = requiredCost > 0
+                ? (session.inventory.Items.FirstOrDefault(item => item.Id == costItemId)?.Count ?? 0)
+                : 0;
+            if (requiredCost < 0
+                || requiredCost > int.MaxValue
+                || (requiredCost > 0 && (!Inventory.IsValidClientItemId(costItemId) || availableCost < requiredCost)))
+            {
+                session.SendResponse(new DrawDrawCardResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            DrawDrawCardResponse rsp = new() { Code = 0 };
             for (int i = 0; i < drawCount; i++)
             {
                 rsp.RewardGoodsList.AddRange(DrawManager.DrawDraw(session.player.PlayerData.Id, request.DrawId, i));
             }
+            if (rsp.RewardGoodsList.Count < drawCount)
+            {
+                session.SendResponse(new DrawDrawCardResponse { Code = 1 }, packet.Id);
+                return;
+            }
 
-            List<Reward> rewards = rsp.RewardGoodsList.Select(x => new Reward
+            List<Reward> drawRewards = rsp.RewardGoodsList.Select(x => new Reward
             {
                 Id = x.TemplateId,
                 Count = x.Count,
                 Level = Math.Max(1, x.Level),
                 Type = (RewardType)x.RewardType,
+                IsRecycle = (RewardType)x.RewardType == RewardType.Equip,
+                ConvertFrom = x.ConvertFrom,
             }).ToList();
+            List<Reward> rewards = RewardHandler.ResolveRewards(drawRewards, session);
+            rsp.RewardGoodsList = rewards.Select(ToDrawRewardGoods).ToList();
 
-            DrawInfo? drawInfo = DrawManager.ApplyDrawProgress(session.player.PlayerData.Id, request.DrawId, drawCount);
+            DrawInfo? drawInfo = DrawManager.ApplyDrawProgress(playerId, request.DrawId, drawCount);
             if (drawInfo is not null)
             {
                 rsp.ClientDrawInfo = drawInfo;
-                int costItemId = request.UseDrawTicketId > 0 ? request.UseDrawTicketId : drawInfo.UseItemId;
-                rewards.Add(new Reward
+                if (requiredCost > 0)
                 {
-                    Id = costItemId,
-                    Count = drawInfo.UseItemCount * drawCount * -1,
-                    Type = RewardType.Item,
-                });
+                    rewards.Add(new Reward
+                    {
+                        Id = costItemId,
+                        Count = -(int)requiredCost,
+                        Type = RewardType.Item,
+                    });
+                }
             }
+
+            for (int rewardIndex = 0; rewardIndex < rsp.RewardGoodsList.Count; rewardIndex++)
+            {
+                RewardGoods reward = rsp.RewardGoodsList[rewardIndex];
+                int primaryDisplayId = reward.Id > 0 ? reward.Id : reward.TemplateId;
+                int convertedDisplayId = reward.ConvertFrom > 0 ? reward.ConvertFrom : 0;
+
+                session.log.Info(
+                    $"DrawRewardFinal uid={session.player.PlayerData.Id} " +
+                    $"drawId={request.DrawId} " +
+                    $"groupId={drawInfo?.GroupId.ToString() ?? "null"} " +
+                    $"groupSubType={drawInfo?.GroupSubType.ToString() ?? "null"} " +
+                    $"drawCount={drawCount} " +
+                    $"index={rewardIndex} " +
+                    $"rewardType={reward.RewardType} " +
+                    $"templateId={reward.TemplateId} " +
+                    $"id={reward.Id} " +
+                    $"primaryDisplayId={primaryDisplayId} " +
+                    $"convertFrom={reward.ConvertFrom} " +
+                    $"convertedDisplayId={convertedDisplayId} " +
+                    $"count={reward.Count} " +
+                    $"level={reward.Level} " +
+                    $"quality={reward.Quality} " +
+                    $"showQuality={reward.ShowQuality} " +
+                    $"grade={reward.Grade} " +
+                    $"breakthrough={reward.Breakthrough}");
+            }
+
+            DrawManager.RecordDrawHistory(session.player.PlayerData.Id, request.DrawId, rsp.RewardGoodsList);
 
             RewardHandler.GiveRewards(rewards, session);
             session.inventory.Save();
             session.character.Save();
             session.SendResponse(rsp, packet.Id);
         }
+
+        [RequestPacketHandler("LottoInfoRequest")]
+        public static void LottoInfoRequestHandler(Session session, Packet.Request packet)
+        {
+            session.SendResponse(RetailLottoInfo.Value, packet.Id);
+        }
+
+        [RequestPacketHandler("GetGachaInfoRequest")]
+        public static void GetGachaInfoRequestHandler(Session session, Packet.Request packet)
+        {
+            packet.Deserialize<GetGachaInfoRequest>();
+            session.SendResponse(new GetGachaInfoResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("GachaItemExchangeRequest")]
+        public static void GachaItemExchangeRequestHandler(Session session, Packet.Request packet)
+        {
+            packet.Deserialize<GachaItemExchangeRequest>();
+            session.SendResponse(new GachaItemExchangeResponse(), packet.Id);
+        }
+
+        private static RewardGoods ToDrawRewardGoods(Reward reward)
+        {
+            int level = Math.Max(1, reward.Level);
+            int convertFrom = GetDrawConvertFrom(reward);
+            int quality = GetDrawRewardQuality(reward, convertFrom);
+            int showQuality = GetDrawShowQuality(reward, quality, convertFrom);
+            int grade = reward.Type == RewardType.Character && quality > 0 ? 1 : 0;
+
+            return new RewardGoods
+            {
+                Id = 0,
+                TemplateId = reward.Id,
+                Count = reward.Count,
+                Level = level,
+                Quality = quality,
+                Grade = grade,
+                RewardType = (int)reward.Type,
+                ConvertFrom = convertFrom,
+                ShowQuality = showQuality,
+                IsGift = false,
+                RewardMulti = 0
+            };
+        }
+
+        private static int GetDrawRewardQuality(Reward reward, int convertFrom)
+        {
+            if (convertFrom > 0)
+                return 0;
+
+            return reward.Type switch
+            {
+                RewardType.Character => CharacterMinQualityById.Value.GetValueOrDefault(reward.Id),
+                RewardType.Equip or RewardType.BaseEquip => EquipQualityById.Value.GetValueOrDefault(reward.Id),
+                RewardType.Item or RewardType.DrawTicket => ItemQualityById.Value.GetValueOrDefault(reward.Id),
+                _ => 0
+            };
+        }
+
+        private static int GetDrawShowQuality(Reward reward, int quality, int convertFrom)
+        {
+            return convertFrom > 0 || reward.Type == RewardType.Character ? 0 : quality;
+        }
+
+        private static int GetDrawConvertFrom(Reward reward)
+        {
+            if (reward.ConvertFrom <= 0)
+                return 0;
+
+            return IsSupportedDrawCharacterDisplay(reward.ConvertFrom) ? reward.ConvertFrom : 0;
+        }
+
+        private static bool IsSupportedDrawCharacterDisplay(int characterId)
+        {
+            return CharacterMinQualityById.Value.ContainsKey(characterId);
+        }
+
+        private static LottoInfoResponse LoadLottoInfoResponse()
+        {
+            JObject snapshot = JsonSnapshot.LoadObject(LottoSnapshotPath);
+            return new LottoInfoResponse
+            {
+                Code = JsonSnapshot.ReadInt(snapshot, "Code"),
+                LottoInfos = JsonSnapshot.ReadDynamicList(snapshot["LottoInfos"])
+            };
+        }
+
     }
 }

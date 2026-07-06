@@ -1,5 +1,7 @@
 ﻿using AscNet.Common.MsgPack;
+using AscNet.Common.Util;
 using MessagePack;
+using Newtonsoft.Json.Linq;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -22,10 +24,50 @@ namespace AscNet.GameServer.Handlers
 
     internal class PayModule
     {
+        private const string PurchaseSnapshotPath = "Configs/client_purchases.json";
+        private static readonly Lazy<JObject> RetailPurchaseSnapshot = new(() => JsonSnapshot.LoadObject(PurchaseSnapshotPath));
+
         [RequestPacketHandler("GetPurchaseListRequest")]
         public static void GetPurchaseListRequestHandler(Session session, Packet.Request packet)
         {
-            session.SendResponse(new GetPurchaseListResponse(), packet.Id);
+            GetPurchaseListRequest request = MessagePackSerializer.Deserialize<GetPurchaseListRequest>(packet.Content);
+            session.SendResponse(BuildPurchaseListResponse(request.UiTypeList), packet.Id);
+        }
+
+        private static GetPurchaseListResponse BuildPurchaseListResponse(IEnumerable<int>? uiTypes)
+        {
+            JObject root = RetailPurchaseSnapshot.Value;
+            JObject? responses = root["Responses"] as JObject;
+            string key = BuildPurchaseSnapshotKey(uiTypes);
+            JObject? data = responses?[key] as JObject;
+
+            if (data is null)
+            {
+                string? defaultKey = root.Value<string>("DefaultKey");
+                data = defaultKey is null ? null : responses?[defaultKey] as JObject;
+            }
+
+            return ReadPurchaseResponse(data);
+        }
+
+        private static string BuildPurchaseSnapshotKey(IEnumerable<int>? uiTypes)
+        {
+            return uiTypes is null
+                ? string.Empty
+                : string.Join(",", uiTypes.OrderBy(static uiType => uiType));
+        }
+
+        private static GetPurchaseListResponse ReadPurchaseResponse(JObject? data)
+        {
+            if (data is null)
+                return new GetPurchaseListResponse { Code = 0 };
+
+            return new GetPurchaseListResponse
+            {
+                Code = JsonSnapshot.ReadInt(data, "Code"),
+                PurchaseInfoList = JsonSnapshot.ReadDynamicList(data["PurchaseInfoList"]),
+                PurchaseComboInfoList = JsonSnapshot.ReadDynamicList(data["PurchaseComboInfoList"])
+            };
         }
 
         [RequestPacketHandler("PayInitiatedRequest")]

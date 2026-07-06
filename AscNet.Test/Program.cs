@@ -16,6 +16,7 @@ using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.fashion;
+using AscNet.Table.V2.client.draw;
 using MessagePack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -46,6 +47,17 @@ namespace AscNet.Test
                 if (args.Contains("--notify-login-compat-only"))
                 {
                     ValidateNotifyLoginCurrentClientCompatibilityShape();
+                    return;
+                }
+
+                if (args.Contains("--login-account-compat-only"))
+                {
+                    ValidateLoginAccountCompatibility();
+                    return;
+                }
+                if (args.Contains("--session-framing-compat-only"))
+                {
+                    ValidateSessionClientLoopFramingCompatibility();
                     return;
                 }
 
@@ -133,9 +145,27 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--jetavie-compat-only"))
+                {
+                    ValidateJetavieDaybreakTableCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--draw-compat-only"))
                 {
                     ValidateDrawCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--item-use-compat-only"))
+                {
+                    ValidateItemUseCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--chat-compat-only"))
+                {
+                    ValidateChatCompatibility();
                     return;
                 }
 
@@ -145,15 +175,47 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--shop-compat-only"))
+                {
+                    ValidateShopCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--missing-feature-compat-only"))
+                {
+                    ValidateMissingFeatureCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--current-client-notice-endpoints-only"))
                 {
                     ValidateCurrentClientNoticeEndpoints().GetAwaiter().GetResult();
                     return;
                 }
 
+                if (args.Contains("--sync-read-game-notice-compat-only"))
+                {
+                    ValidateSyncReadGameNoticeRequestCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--lifetree-finish-process-compat-only"))
+                {
+                    ValidateLifeTreeFinishProcessRequestCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--steam-client-config-only"))
+                {
+                    ValidateSteamClientConfig();
+                    return;
+                }
+
                 _ = JsonConvert.DeserializeObject<NotifyLogin>(File.ReadAllText(ResourcePath("Data", "NotifyLogin.json")))!;
                 _ = JsonConvert.DeserializeObject<NotifyTaskData>(File.ReadAllText(ResourcePath("Data", "NotifyTaskData.json")))!;
                 ValidateNotifyLoginCurrentClientCompatibilityShape();
+                ValidateLoginAccountCompatibility();
+                ValidateSessionClientLoopFramingCompatibility();
                 ValidateStageBookmarkCompatibilityShape();
                 ValidateMainLine2UpdateExhibitionChapterCompatibility();
                 ValidateMainLineTreasureRewardCompatibility();
@@ -169,9 +231,14 @@ namespace AscNet.Test
                 ValidatePr2QualityCompatibility();
                 ValidateInventoryEquipCompatibility();
                 ValidateDrawCompatibility();
+                ValidateItemUseCompatibility();
+                ValidateChatCompatibility();
                 ValidateCommandCompatibility();
+                ValidateMissingFeatureCompatibility();
+                ValidateShopCompatibility();
                 ValidateCurrentClientNoticeFixtures();
                 ValidateCurrentClientNoticeEndpoints().GetAwaiter().GetResult();
+                ValidateLifeTreeFinishProcessRequestCompatibility();
                 ValidateSteamClientConfig();
                 ValidateKuroSdkCompatibilityEndpoints().GetAwaiter().GetResult();
             }
@@ -304,9 +371,1376 @@ namespace AscNet.Test
             }
         }
 
+        private static void ValidateSessionClientLoopFramingCompatibility()
+        {
+            Dictionary<string, RequestPacketHandlerDelegate> handlersSnapshot = new(PacketFactory.ReqHandlers);
+
+            try
+            {
+                PacketFactory.LoadPacketHandlers();
+                AssertSplitClientFrameTailPreservesSecondRequest();
+                AssertExactReceiveBufferFillDoesNotDropFollowingRequest();
+            }
+            finally
+            {
+                PacketFactory.ReqHandlers.Clear();
+                foreach (KeyValuePair<string, RequestPacketHandlerDelegate> handler in handlersSnapshot)
+                    PacketFactory.ReqHandlers.Add(handler.Key, handler.Value);
+            }
+        }
+
+        private static void AssertSplitClientFrameTailPreservesSecondRequest()
+        {
+            const long playerId = 88_007;
+            const int firstPacketId = 91_001;
+            const int secondPacketId = 91_002;
+
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "session-framing-split-tail-compat-test");
+
+            byte[] firstFrame = LoopbackSessionHarness.SerializeClientRequestFrame(nameof(HeartbeatRequest), firstPacketId, new HeartbeatRequest());
+            byte[] secondFrame = LoopbackSessionHarness.SerializeClientRequestFrame(nameof(HeartbeatRequest), secondPacketId, new HeartbeatRequest());
+            int secondFramePrefixLength = sizeof(int) + 1;
+            if (secondFrame.Length <= secondFramePrefixLength)
+                throw new InvalidDataException("Session.ClientLoop split-frame test setup error: HeartbeatRequest frame is too small to split after the payload begins.");
+
+            byte[] firstWrite = GC.AllocateUninitializedArray<byte>(firstFrame.Length + secondFramePrefixLength);
+            firstFrame.AsSpan().CopyTo(firstWrite);
+            secondFrame.AsSpan(0, secondFramePrefixLength).CopyTo(firstWrite.AsSpan(firstFrame.Length));
+
+            harness.WriteClientBytes(firstWrite);
+            AssertHeartbeatResponse(harness, firstPacketId, "Session.ClientLoop split tail first HeartbeatRequest response before second tail");
+
+            harness.WriteClientBytes(secondFrame.AsSpan(secondFramePrefixLength));
+            AssertHeartbeatResponse(harness, secondPacketId, "Session.ClientLoop split tail second HeartbeatRequest response after tail");
+        }
+
+        private static void AssertExactReceiveBufferFillDoesNotDropFollowingRequest()
+        {
+            const long playerId = 88_008;
+            const int receiveBufferLength = 1 << 16;
+            const int fillingPacketId = 91_011;
+            const int followingPacketId = 91_012;
+
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "session-framing-exact-buffer-compat-test");
+
+            byte[] fillingFrame = LoopbackSessionHarness.SerializeClientRequestFrameWithTotalLength(
+                nameof(HeartbeatRequest),
+                fillingPacketId,
+                receiveBufferLength);
+            byte[] followingFrame = LoopbackSessionHarness.SerializeClientRequestFrame(nameof(HeartbeatRequest), followingPacketId, new HeartbeatRequest());
+            byte[] combinedWrite = GC.AllocateUninitializedArray<byte>(fillingFrame.Length + followingFrame.Length);
+            fillingFrame.AsSpan().CopyTo(combinedWrite);
+            followingFrame.AsSpan().CopyTo(combinedWrite.AsSpan(fillingFrame.Length));
+
+            harness.WriteClientBytes(combinedWrite);
+            AssertHeartbeatResponse(harness, fillingPacketId, "Session.ClientLoop exact receive-buffer fill HeartbeatRequest response");
+            AssertHeartbeatResponse(harness, followingPacketId, "Session.ClientLoop request following exact receive-buffer fill response");
+        }
+
+        private static void AssertHeartbeatResponse(LoopbackSessionHarness harness, int expectedPacketId, string name)
+        {
+            HeartbeatResponse response = ReadResponsePayload<HeartbeatResponse>(
+                harness,
+                expectedPacketId,
+                nameof(HeartbeatResponse),
+                name);
+            if (response.UtcServerTime <= 0)
+                throw new InvalidDataException($"{name}: expected a positive server UTC timestamp.");
+        }
+
+        private static void ValidateLoginAccountCompatibility()
+        {
+            ValidateLoginAccountNotifyLoginShape();
+            ValidateSignInDailyRewardCompatibility();
+            ValidateLoginStartupPushOrder();
+            ValidateReconnectAckClientPushNoReplayStabilityCompatibility();
+            ValidateClientVersionRequestCompatibility();
+            ValidateLoginAccountNoticeFixtures();
+            ValidateSyncReadGameNoticeRequestCompatibility();
+            ValidateLoginHomeStateResponseCompatibility();
+        }
+
+        private static void ValidateLoginAccountNotifyLoginShape()
+        {
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                accountModule,
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+
+            const long playerId = 88_001;
+            const long existingAccountStageId = 10010801;
+            const long homeChatUnlockStageId = 10030201;
+            const long passedStarsMark = 7;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.UseBackgroundId = 14_099_999;
+            player.LastSignInTime = 0;
+            player.PlayerData.Level = 7;
+            long[] partialExistingCommunicationIds = [100, 102, 103, 104, 3, 2, 26];
+            long[] expectedRetailCommunicationIds =
+            [
+                101, 102, 103, 104, 1, 105, 2, 3, 111, 106, 4, 5, 107, 108, 6, 7, 8, 9, 109,
+                10, 11, 112, 12, 110, 14, 19, 25, 18, 20, 22, 24, 555, 21, 23, 599, 600,
+                3108, 4108, 557, 558, 601, 602, 603, 604, 605, 556, 606, 607, 608, 609
+            ];
+            player.PlayerData.Communications = partialExistingCommunicationIds.ToList();
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            CharacterData[] ownedCharacters =
+            [
+                CreateLoginAccountCompatibilityCharacter(1021001, fashionId: 3021001),
+                CreateLoginAccountCompatibilityCharacter(1031001, fashionId: 3031001)
+            ];
+            character.Characters.AddRange(ownedCharacters);
+            AscNet.Common.Database.Stage stage = CreateLoginAccountCompatibilityStage(playerId);
+            stage.AddStage(new StageDatum
+            {
+                StageId = existingAccountStageId,
+                StarsMark = passedStarsMark,
+                Passed = true,
+                PassTimesToday = 0,
+                PassTimesTotal = 1,
+                BuyCount = 0,
+                Score = 0,
+                LastPassTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                RefreshTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                CreateTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                BestRecordTime = 0,
+                LastRecordTime = 0,
+                BestCardIds = [1021001],
+                LastCardIds = [1021001]
+            });
+            if (stage.Stages.ContainsKey(homeChatUnlockStageId))
+                throw new InvalidDataException("Login account compatibility test setup error: input session stage unexpectedly already contains the home chat unlock stage.");
+
+            NotifyLogin productionLogin;
+            using (LoopbackSessionHarness harness = new(
+                character,
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "login-account-notify-login-compat-test"))
+            {
+                harness.Session.stage = stage;
+                productionLogin = buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
+                    ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil or a non-NotifyLogin payload.");
+            }
+
+            NotifyLogin roundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
+                MessagePackSerializer.Serialize(productionLogin));
+
+            if (roundTrip.SignInfos is null || roundTrip.SignInfos.Count == 0)
+                throw new InvalidDataException("NotifyLogin SignInfos MessagePack round-trip: expected current sign-in schedule entries.");
+            List<SignInfo> currentSignInfos = roundTrip.SignInfos.Where(signInfo => signInfo.Id == 1).ToList();
+            AssertEqual(1, currentSignInfos.Count, "NotifyLogin SignInfos unsigned current daily reward entry count");
+            AssertEqual(false, currentSignInfos[0].Got, "NotifyLogin SignInfos unsigned current daily reward Got");
+
+            if (roundTrip.HaveBackgroundIds is null || roundTrip.HaveBackgroundIds.Count == 0)
+                throw new InvalidDataException("NotifyLogin HaveBackgroundIds MessagePack round-trip: expected initialized owned background ids.");
+            if (!roundTrip.HaveBackgroundIds.Contains(player.UseBackgroundId))
+                throw new InvalidDataException($"NotifyLogin HaveBackgroundIds MessagePack round-trip: missing selected background id {player.UseBackgroundId}.");
+
+            FunctionOpenTimeConfig? functionOpenTime = roundTrip.FunctionOpenTimeConfigList?
+                .SingleOrDefault(config => config.FunctionId == 20000 && config.TimeId == 100);
+            if (functionOpenTime is null)
+                throw new InvalidDataException("NotifyLogin FunctionOpenTimeConfigList MessagePack round-trip: missing FunctionId 20000 / TimeId 100.");
+
+            if (roundTrip.DlcPlayerData is null)
+                throw new InvalidDataException("NotifyLogin DlcPlayerData MessagePack round-trip: expected initialized DLC player data.");
+            if (roundTrip.DlcCharacterList is null)
+                throw new InvalidDataException("NotifyLogin DlcCharacterList MessagePack round-trip: expected initialized DLC character list.");
+            HashSet<uint> dlcCharacterIds = roundTrip.DlcCharacterList.Select(dlcCharacter => dlcCharacter.Id).ToHashSet();
+            foreach (CharacterData ownedCharacter in ownedCharacters)
+            {
+                if (!dlcCharacterIds.Contains(ownedCharacter.Id))
+                    throw new InvalidDataException($"NotifyLogin DlcCharacterList MessagePack round-trip: missing owned character {ownedCharacter.Id}.");
+            }
+
+            if (roundTrip.RedPointRecords is null)
+                throw new InvalidDataException("NotifyLogin RedPointRecords MessagePack round-trip: expected initialized red-point records.");
+            if (roundTrip.PlayerData.GuideData is null || roundTrip.PlayerData.GuideData.Count == 0)
+                throw new InvalidDataException("NotifyLogin PlayerData.GuideData MessagePack round-trip: expected completed guide ids for unlocked home features.");
+            if (roundTrip.FubenData?.StageData is not { } loginStageData)
+                throw new InvalidDataException("NotifyLogin FubenData.StageData MessagePack round-trip: expected initialized account stages.");
+            if (!loginStageData.TryGetValue(existingAccountStageId, out StageDatum? loginStage) || !loginStage.Passed)
+                throw new InvalidDataException("NotifyLogin FubenData.StageData MessagePack round-trip: expected completed account stages for unlocked home features.");
+            if (!loginStageData.TryGetValue(homeChatUnlockStageId, out StageDatum? homeChatUnlockStage))
+                throw new InvalidDataException("NotifyLogin FubenData.StageData MessagePack round-trip: expected synthetic completed home chat unlock stage 10030201 when the input session stage does not contain it.");
+            AssertEqual(true, homeChatUnlockStage.Passed, "NotifyLogin FubenData.StageData home chat unlock stage Passed");
+            AssertEqual(passedStarsMark, homeChatUnlockStage.StarsMark, "NotifyLogin FubenData.StageData home chat unlock stage StarsMark");
+            AssertEqual(player.PlayerData.Level, roundTrip.PlayerData.Level, "NotifyLogin PlayerData.Level MessagePack round-trip");
+            AssertEqual(true, roundTrip.IsSetFightCgEnable, "NotifyLogin IsSetFightCgEnable MessagePack round-trip");
+            AssertCommunicationIdSet(
+                expectedRetailCommunicationIds.Concat([100L, 26L]).ToArray(),
+                roundTrip.PlayerData.Communications,
+                "NotifyLogin PlayerData.Communications MessagePack round-trip partial existing profile retail defaults plus extras");
+            AssertIntegerSetContainsAll(
+                [801, 802, 803, 20000],
+                roundTrip.PlayerData.Marks,
+                "NotifyLogin PlayerData.Marks functional entrance gate defaults");
+            if (roundTrip.FashionSuitList is null)
+                throw new InvalidDataException("NotifyLogin FashionSuitList MessagePack round-trip: expected initialized list.");
+            if (roundTrip.FashionColors is null)
+                throw new InvalidDataException("NotifyLogin FashionColors MessagePack round-trip: expected initialized list.");
+
+            static void AssertCommunicationIdSet(IReadOnlyList<long> expectedIds, IReadOnlyList<long> actualIds, string name)
+            {
+                HashSet<long> expectedDistinctIds = expectedIds.ToHashSet();
+                HashSet<long> actualDistinctIds = actualIds.ToHashSet();
+
+                AssertEqual(expectedDistinctIds.Count, actualDistinctIds.Count, $"{name} distinct count");
+                AssertEqual(actualIds.Count, actualDistinctIds.Count, $"{name} duplicate count");
+                foreach (long expectedId in expectedDistinctIds.Order())
+                {
+                    if (!actualDistinctIds.Contains(expectedId))
+                        throw new InvalidDataException($"{name}: missing communication id {expectedId}.");
+                }
+
+                foreach (long actualId in actualDistinctIds.Order())
+                {
+                    if (!expectedDistinctIds.Contains(actualId))
+                        throw new InvalidDataException($"{name}: unexpected communication id {actualId}.");
+                }
+            }
+        }
+
+        private static void ValidateSignInDailyRewardCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const long playerId = 88_002;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.LastSignInTime = 0;
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                inventory,
+                "login-account-sign-in-compat-test");
+
+            const int firstPacketId = 13_001;
+            InvokeRegisteredRequestHandler(
+                nameof(SignInRequest),
+                harness.Session,
+                firstPacketId,
+                new SignInRequest { Id = 1 });
+            SignInResponse firstResponse = (SignInResponse)ReadResponsePayload(
+                harness,
+                firstPacketId,
+                nameof(SignInResponse),
+                "SignInRequest first daily reward response",
+                typeof(SignInResponse),
+                maxPacketsToRead: 2);
+
+            AssertEqual(0, firstResponse.Code, "SignInResponse first daily reward Code");
+            AssertEqual(1, firstResponse.RewardGoodsList.Count, "SignInResponse first daily reward count");
+            RewardGoods firstReward = firstResponse.RewardGoodsList[0];
+            AssertEqual((int)RewardType.Item, firstReward.RewardType, "SignInResponse first daily reward RewardType");
+            AssertEqual(AscNet.Common.Database.Inventory.Coin, firstReward.TemplateId, "SignInResponse first daily reward TemplateId");
+            AssertEqual(10_000, firstReward.Count, "SignInResponse first daily reward Count");
+            AssertEqual(50210, firstReward.Id, "SignInResponse first daily reward Id");
+            AssertEqual(false, firstReward.IsGift, "SignInResponse first daily reward IsGift");
+            AssertEqual(0, firstReward.RewardMulti, "SignInResponse first daily reward RewardMulti");
+            if (player.LastSignInTime <= 0)
+                throw new InvalidDataException("SignInRequest first daily reward: expected Player.LastSignInTime to be recorded.");
+
+            Item coinAfterFirstSignIn = inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+            AssertEqual(10_000L, coinAfterFirstSignIn.Count, "SignInRequest first daily reward inventory coin count");
+
+            const int secondPacketId = 13_002;
+            InvokeRegisteredRequestHandler(
+                nameof(SignInRequest),
+                harness.Session,
+                secondPacketId,
+                new SignInRequest { Id = 1 });
+            SignInResponse secondResponse = (SignInResponse)ReadResponsePayload(
+                harness,
+                secondPacketId,
+                nameof(SignInResponse),
+                "SignInRequest duplicate same-day response",
+                typeof(SignInResponse),
+                maxPacketsToRead: 1);
+
+            AssertEqual(0, secondResponse.Code, "SignInResponse duplicate same-day Code");
+            AssertEmptyList(secondResponse.RewardGoodsList, "SignInResponse duplicate same-day RewardGoodsList");
+            Item coinAfterSecondSignIn = inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+            AssertEqual(10_000L, coinAfterSecondSignIn.Count, "SignInRequest duplicate same-day inventory coin count");
+        }
+
+        private static void ValidateLoginStartupPushOrder()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo doLogin = RequiredMethod(
+                accountModule,
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+
+            const long playerId = 88_003;
+            const long defaultChatBoardId = 25_000_001;
+            const long existingCurrentChatBoardId = 25_000_007;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.PlayerData.LastLoginTime = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters.Add(CreateLoginAccountCompatibilityCharacter(1021001, fashionId: 3021001));
+
+            const int validStartupItemId = AscNet.Common.Database.Inventory.Coin;
+            const int invalidStartupItemId = 0;
+            const long validStartupItemCount = 12_345;
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [
+                    new Item { Id = validStartupItemId, Count = validStartupItemCount },
+                    new Item { Id = invalidStartupItemId, Count = 9_999 }
+                ]);
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                inventory,
+                "login-account-push-order-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+
+            doLogin.Invoke(null, [harness.Session]);
+
+            string[] retailCriticalStartupOrderThroughPassport =
+            [
+                nameof(NotifyLogin),
+                nameof(NotifyPayInfo),
+                nameof(NotifyMails),
+                nameof(NotifyEquipChipGroupList),
+                nameof(NotifyEquipChipAutoRecycleSite),
+                nameof(NotifyEquipGuideData),
+                nameof(NotifyArchiveLoginData),
+                "NotifyLoginAwarenessInfo",
+                nameof(NotifyChatLoginData),
+                nameof(NotifySocialData),
+                nameof(NotifyTaskData),
+                nameof(NotifyActivenessStatus),
+                nameof(NotifyNewPlayerTaskStatus),
+                nameof(PurchaseDailyNotify),
+                nameof(NotifyPurchaseRecommendConfig),
+                "NotifyReviewConfig",
+                "NotifyPassportData",
+                "NotifyMentorData",
+                "NotifyMentorChat",
+                "NotifyGuildData",
+                nameof(NotifyMails),
+                "NotifyWheelchairManualActivityUpdate"
+            ];
+            string[] purchaseRelatedPushes =
+            [
+                nameof(PurchaseDailyNotify),
+                nameof(NotifyPurchaseRecommendConfig)
+            ];
+
+            List<string> startupPushes = [];
+            Dictionary<string, Packet.Push> startupPushesByName = new(StringComparer.Ordinal);
+            const int maxStartupPushesUntilRetailTail = 192;
+            for (int packetIndex = 0;
+                packetIndex < maxStartupPushesUntilRetailTail && !startupPushes.Contains("NotifyWheelchairManualActivityUpdate");
+                packetIndex++)
+            {
+                Packet.Push startupPush = ReadStartupPush(harness, $"AccountModule.DoLogin startup push {packetIndex + 1}");
+                startupPushes.Add(startupPush.Name);
+                startupPushesByName.TryAdd(startupPush.Name, startupPush);
+            }
+
+            if (!startupPushes.Contains("NotifyWheelchairManualActivityUpdate"))
+                throw new InvalidDataException($"AccountModule.DoLogin startup pushes: expected retail startup tail NotifyWheelchairManualActivityUpdate; observed {DescribePushes(startupPushes)}.");
+
+            AssertPushSubsequence(
+                startupPushes,
+                retailCriticalStartupOrderThroughPassport,
+                "AccountModule.DoLogin retail-critical startup order");
+            int guildDormPlayerDataIndex = RequiredPushIndex(
+                startupPushes,
+                "NotifyGuildDormPlayerData",
+                0,
+                "AccountModule.DoLogin chat-board predecessor");
+            int chatBoardLoginDataIndex = RequiredPushIndex(
+                startupPushes,
+                nameof(NotifyChatBoardLoginData),
+                0,
+                "AccountModule.DoLogin NotifyChatBoardLoginData startup push");
+            if (chatBoardLoginDataIndex <= guildDormPlayerDataIndex)
+                throw new InvalidDataException($"AccountModule.DoLogin startup pushes: expected {nameof(NotifyChatBoardLoginData)} after NotifyGuildDormPlayerData; observed {DescribePushes(startupPushes)}.");
+
+            NotifyLogin startupLogin = DeserializeStartupPush<NotifyLogin>(
+                startupPushesByName,
+                nameof(NotifyLogin),
+                "AccountModule.DoLogin NotifyLogin startup payload");
+            AssertClientItemList(
+                startupLogin.ItemList,
+                validStartupItemId,
+                validStartupItemCount,
+                invalidStartupItemId,
+                "AccountModule.DoLogin NotifyLogin.ItemList");
+            AssertIntegerList(
+                [101, 102, 103, 104, 1, 105, 2, 3, 111, 106, 4, 5, 107, 108, 6, 7, 8, 9, 109,
+                    10, 11, 112, 12, 110, 14, 19, 25, 18, 20, 22, 24, 555, 21, 23, 599, 600,
+                    3108, 4108, 557, 558, 601, 602, 603, 604, 605, 556, 606, 607, 608, 609],
+                startupLogin.PlayerData.Communications,
+                "AccountModule.DoLogin NotifyLogin.PlayerData.Communications retail defaults");
+            AssertIntegerSetContainsAll(
+                [801, 802, 803, 20000],
+                startupLogin.PlayerData.Marks,
+                "AccountModule.DoLogin NotifyLogin.PlayerData.Marks functional entrance gate defaults");
+            AssertIntegerList(
+                [8001],
+                startupLogin.PlayerData.ShieldFuncList.Cast<object>().Select(value => Convert.ToInt64(value)).ToArray(),
+                "AccountModule.DoLogin NotifyLogin.PlayerData.ShieldFuncList retail defaults");
+
+            FunctionOpenTimeConfig? startupFunctionOpenTime = startupLogin.FunctionOpenTimeConfigList?
+                .SingleOrDefault(config => config.FunctionId == 20000 && config.TimeId == 100);
+            if (startupFunctionOpenTime is null)
+                throw new InvalidDataException("AccountModule.DoLogin NotifyLogin.FunctionOpenTimeConfigList: missing FunctionId 20000 / TimeId 100.");
+
+            NotifyFunctionalEntranceData startupFunctionalEntranceData = DeserializeStartupPush<NotifyFunctionalEntranceData>(
+                startupPushesByName,
+                nameof(NotifyFunctionalEntranceData),
+                "AccountModule.DoLogin NotifyFunctionalEntranceData startup payload");
+            AssertIntegerDictionary(
+                new Dictionary<int, int> { [20000] = 45 },
+                startupFunctionalEntranceData.RedPointDatas,
+                "AccountModule.DoLogin NotifyFunctionalEntranceData.RedPointDatas functional entrance redpoint");
+
+            AscNet.GameServer.Handlers.NotifyWorldChat startupWorldChat = DeserializeStartupPush<AscNet.GameServer.Handlers.NotifyWorldChat>(
+                startupPushesByName,
+                nameof(AscNet.GameServer.Handlers.NotifyWorldChat),
+                "AccountModule.DoLogin NotifyWorldChat startup payload");
+            AssertWorldChatSeed(startupWorldChat, "AccountModule.DoLogin NotifyWorldChat startup seed");
+            AssertStartupPayloadMapContainsKeys(
+                startupPushesByName,
+                nameof(NotifyChatBoardLoginData),
+                "AccountModule.DoLogin NotifyChatBoardLoginData startup payload",
+                nameof(NotifyChatBoardLoginData.CurrentChatBoardId),
+                nameof(NotifyChatBoardLoginData.ChatBoards));
+            NotifyChatBoardLoginData startupChatBoardLoginData = DeserializeStartupPush<NotifyChatBoardLoginData>(
+                startupPushesByName,
+                nameof(NotifyChatBoardLoginData),
+                "AccountModule.DoLogin NotifyChatBoardLoginData startup payload");
+            AssertChatBoardLoginData(
+                startupChatBoardLoginData,
+                defaultChatBoardId,
+                defaultChatBoardId,
+                "AccountModule.DoLogin sparse-player NotifyChatBoardLoginData startup payload");
+            AssertEqual(defaultChatBoardId, player.PlayerData.CurrentChatBoardId, "AccountModule.DoLogin sparse-player CurrentChatBoardId default persistence");
+
+            AssertStartupPayloadMapContainsKeys(
+                startupPushesByName,
+                "NotifyLoginAwarenessInfo",
+                "AccountModule.DoLogin NotifyLoginAwarenessInfo startup payload",
+                "AwarenessInfo");
+            AssertStartupPayloadMapContainsKeys(
+                startupPushesByName,
+                "NotifyExperimentData",
+                "AccountModule.DoLogin NotifyExperimentData startup payload",
+                "FinishIds",
+                "ExperimentInfos");
+            AssertStartupPayloadMapContainsKeys(
+                startupPushesByName,
+                nameof(NotifyFubenBossSingleData),
+                "AccountModule.DoLogin NotifyFubenBossSingleData startup payload",
+                "FubenBossSingleData",
+                "BossListDict");
+            AssertStartupPayloadMapContainsKeys(
+                startupPushesByName,
+                "NotifyPassportData",
+                "AccountModule.DoLogin NotifyPassportData startup payload",
+                "ActivityId",
+                "Level",
+                "BaseInfo",
+                "PassportInfos",
+                "LastTimeBaseInfo",
+                "IsGetSupplyReward",
+                "IsActivateRegressionTask",
+                "IsActivateNewbieTask");
+
+            AssertForbiddenStartupPushesAbsent(
+                startupPushes,
+                [nameof(NotifyItemDataList), nameof(NotifyStageData), nameof(NotifyCharacterDataList), "NotifyPassportBaseInfo", "NotifyPassportAutoGetTaskReward", "NotifyGuildWarActivityData", "NotifyClientShieldFunction", "NotifyClientFunctionOpenConfig"],
+                "AccountModule.DoLogin retail startup pushes");
+
+            int purchasePredecessorIndex = RequiredPushIndex(startupPushes, nameof(NotifyNewPlayerTaskStatus), 0, "AccountModule.DoLogin purchase predecessor");
+            foreach (string purchaseRelatedPush in purchaseRelatedPushes)
+            {
+                int purchaseRelatedPushIndex = RequiredPushIndex(startupPushes, purchaseRelatedPush, 0, "AccountModule.DoLogin purchase-related push");
+                if (purchaseRelatedPushIndex <= purchasePredecessorIndex)
+                    throw new InvalidDataException($"AccountModule.DoLogin startup pushes: expected {purchaseRelatedPush} only after {nameof(NotifyNewPlayerTaskStatus)}; observed {DescribePushes(startupPushes)}.");
+            }
+
+            List<string> remainingSynchronousPushes = DrainAvailablePushNames(
+                harness,
+                "AccountModule.DoLogin remaining synchronous startup packet");
+            if (remainingSynchronousPushes.Count > 0)
+                throw new InvalidDataException($"AccountModule.DoLogin startup pushes: expected no synchronous post-startup packets after NotifyWheelchairManualActivityUpdate; observed {DescribePushes(remainingSynchronousPushes)}.");
+
+            Thread.Sleep(1_000);
+            List<string> latePushes = DrainAvailablePushNames(
+                harness,
+                "AccountModule.DoLogin delayed post-startup packet");
+            if (latePushes.Count > 0)
+                throw new InvalidDataException($"AccountModule.DoLogin startup pushes: expected no delayed post-login replay after synchronous startup completed; observed {DescribePushes(latePushes)}.");
+
+            AscNet.Common.Database.Player existingChatBoardPlayer = CreateDrawCompatibilityPlayer(playerId + 1);
+            existingChatBoardPlayer.PlayerData.CurrentChatBoardId = existingCurrentChatBoardId;
+            existingChatBoardPlayer.PlayerData.LastLoginTime = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
+            AscNet.Common.Database.Character existingChatBoardCharacter = CreateDrawCompatibilityCharacter(playerId + 1);
+            existingChatBoardCharacter.Characters.Add(CreateLoginAccountCompatibilityCharacter(1021001, fashionId: 3021001));
+            using LoopbackSessionHarness existingChatBoardHarness = new(
+                existingChatBoardCharacter,
+                existingChatBoardPlayer,
+                CreateDrawCompatibilityInventory(playerId + 1, []),
+                "login-account-existing-chat-board-compat-test");
+            existingChatBoardHarness.Session.stage = CreateLoginAccountCompatibilityStage(playerId + 1);
+
+            doLogin.Invoke(null, [existingChatBoardHarness.Session]);
+            Dictionary<string, Packet.Push> existingChatBoardStartupPushesByName = ReadStartupPushesByNameUntil(
+                existingChatBoardHarness,
+                nameof(NotifyChatBoardLoginData),
+                maxStartupPushesUntilRetailTail,
+                "AccountModule.DoLogin existing-chat-board startup pushes");
+            NotifyChatBoardLoginData existingChatBoardLoginData = DeserializeStartupPush<NotifyChatBoardLoginData>(
+                existingChatBoardStartupPushesByName,
+                nameof(NotifyChatBoardLoginData),
+                "AccountModule.DoLogin existing-chat-board NotifyChatBoardLoginData startup payload");
+            AssertChatBoardLoginData(
+                existingChatBoardLoginData,
+                existingCurrentChatBoardId,
+                defaultChatBoardId,
+                "AccountModule.DoLogin existing CurrentChatBoardId NotifyChatBoardLoginData startup payload");
+            AssertEqual(existingCurrentChatBoardId, existingChatBoardPlayer.PlayerData.CurrentChatBoardId, "AccountModule.DoLogin existing CurrentChatBoardId preservation");
+
+            static List<string> DrainAvailablePushNames(LoopbackSessionHarness harness, string name)
+            {
+                List<string> pushNames = [];
+                int packetIndex = 0;
+                while (harness.TryReadAvailablePacket($"{name} {packetIndex + 1}", out Packet packet))
+                {
+                    AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} {packetIndex + 1} packet type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    pushNames.Add(push.Name);
+                    packetIndex++;
+                }
+
+                return pushNames;
+            }
+
+            static void AssertPushSubsequence(IReadOnlyList<string> pushNames, IReadOnlyList<string> expectedOrder, string name)
+            {
+                int searchStart = 0;
+                foreach (string expectedPushName in expectedOrder)
+                {
+                    int actualIndex = RequiredPushIndex(pushNames, expectedPushName, searchStart, name);
+                    searchStart = actualIndex + 1;
+                }
+            }
+
+            static int RequiredPushIndex(IReadOnlyList<string> pushNames, string expectedPushName, int searchStart, string name)
+            {
+                int index = FindPushIndex(pushNames, expectedPushName, searchStart);
+                if (index < 0)
+                    throw new InvalidDataException($"{name}: expected {expectedPushName} at or after startup push {searchStart + 1}; observed {DescribePushes(pushNames)}.");
+
+                return index;
+            }
+
+            static int FindPushIndex(IReadOnlyList<string> pushNames, string expectedPushName, int searchStart)
+            {
+                for (int index = Math.Max(0, searchStart); index < pushNames.Count; index++)
+                {
+                    if (pushNames[index] == expectedPushName)
+                        return index;
+                }
+
+                return -1;
+            }
+
+            static Dictionary<string, Packet.Push> ReadStartupPushesByNameUntil(
+                LoopbackSessionHarness harness,
+                string requiredPushName,
+                int maxStartupPushes,
+                string name)
+            {
+                List<string> pushNames = [];
+                Dictionary<string, Packet.Push> pushesByName = new(StringComparer.Ordinal);
+                for (int packetIndex = 0;
+                    packetIndex < maxStartupPushes && !pushNames.Contains(requiredPushName);
+                    packetIndex++)
+                {
+                    Packet.Push startupPush = ReadStartupPush(harness, $"{name} {packetIndex + 1}");
+                    pushNames.Add(startupPush.Name);
+                    pushesByName.TryAdd(startupPush.Name, startupPush);
+                }
+
+                if (!pushNames.Contains(requiredPushName))
+                    throw new InvalidDataException($"{name}: expected {requiredPushName}; observed {DescribePushes(pushNames)}.");
+
+                return pushesByName;
+            }
+
+            static Packet.Push ReadStartupPush(LoopbackSessionHarness harness, string name)
+            {
+                Packet packet = harness.ReadPacket(name);
+                AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+                return MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+            }
+
+            static TPayload DeserializeStartupPush<TPayload>(
+                IReadOnlyDictionary<string, Packet.Push> startupPushesByName,
+                string pushName,
+                string name)
+            {
+                if (!startupPushesByName.TryGetValue(pushName, out Packet.Push? push))
+                    throw new InvalidDataException($"{name}: expected {pushName} during login startup.");
+
+                return MessagePackSerializer.Deserialize<TPayload>(push.Content);
+            }
+
+            static void AssertClientItemList(
+                IReadOnlyList<Item>? items,
+                int validItemId,
+                long validItemCount,
+                int invalidItemId,
+                string name)
+            {
+                if (items is null)
+                    throw new InvalidDataException($"{name}: expected initialized item list.");
+                if (items.Any(item => item.Id == invalidItemId))
+                    throw new InvalidDataException($"{name}: expected invalid item id {invalidItemId} to be filtered from the startup payload.");
+
+                List<Item> validItems = items.Where(item => item.Id == validItemId).ToList();
+                AssertEqual(1, validItems.Count, $"{name} valid item {validItemId} count");
+                AssertEqual(validItemCount, validItems[0].Count, $"{name} valid item {validItemId} quantity");
+            }
+
+            static void AssertStartupPayloadMapContainsKeys(
+                IReadOnlyDictionary<string, Packet.Push> startupPushesByName,
+                string pushName,
+                string name,
+                params string[] requiredKeys)
+            {
+                if (!startupPushesByName.TryGetValue(pushName, out Packet.Push? push))
+                    throw new InvalidDataException($"{name}: expected {pushName} during login startup.");
+
+                HashSet<string> actualKeys = new(StringComparer.Ordinal);
+                try
+                {
+                    MessagePackReader reader = new(new System.Buffers.ReadOnlySequence<byte>(push.Content));
+                    int fieldCount = reader.ReadMapHeader();
+                    for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+                    {
+                        string key = reader.ReadString()
+                            ?? throw new InvalidDataException($"{name}: expected non-nil string map key at field {fieldIndex}.");
+                        actualKeys.Add(key);
+                        reader.Skip();
+                    }
+                }
+                catch (Exception ex) when (ex is not InvalidDataException)
+                {
+                    throw new InvalidDataException($"{name}: expected a typed MessagePack map payload.", ex);
+                }
+
+                if (actualKeys.Count == 0)
+                    throw new InvalidDataException($"{name}: expected a non-empty MessagePack map payload.");
+
+                foreach (string requiredKey in requiredKeys)
+                {
+                    if (!actualKeys.Contains(requiredKey))
+                        throw new InvalidDataException($"{name}: expected top-level key {requiredKey}; observed {DescribePushes(actualKeys.Order().ToArray())}.");
+                }
+            }
+
+            static void AssertChatBoardLoginData(
+                NotifyChatBoardLoginData payload,
+                long expectedCurrentChatBoardId,
+                long requiredBoardId,
+                string name)
+            {
+                AssertEqual(expectedCurrentChatBoardId, payload.CurrentChatBoardId, $"{name} CurrentChatBoardId");
+                if (payload.CurrentChatBoardId <= 0)
+                    throw new InvalidDataException($"{name}: expected non-zero CurrentChatBoardId.");
+                if (payload.ChatBoards.Count == 0)
+                    throw new InvalidDataException($"{name}: expected non-empty ChatBoards.");
+                if (!payload.ChatBoards.Any(chatBoard => chatBoard.Id == payload.CurrentChatBoardId))
+                    throw new InvalidDataException($"{name}: expected ChatBoards to contain current board {payload.CurrentChatBoardId}; observed {DescribePushes(payload.ChatBoards.Select(chatBoard => chatBoard.Id.ToString()).ToArray())}.");
+                if (!payload.ChatBoards.Any(chatBoard => chatBoard.Id == requiredBoardId))
+                    throw new InvalidDataException($"{name}: expected ChatBoards to contain board {requiredBoardId}; observed {DescribePushes(payload.ChatBoards.Select(chatBoard => chatBoard.Id.ToString()).ToArray())}.");
+
+                for (int chatBoardIndex = 0; chatBoardIndex < payload.ChatBoards.Count; chatBoardIndex++)
+                {
+                    NotifyChatBoardLoginData.NotifyChatBoardLoginDataChatBoard chatBoard = payload.ChatBoards[chatBoardIndex];
+                    if (chatBoard.GetTime == 0)
+                        throw new InvalidDataException($"{name}: expected ChatBoards[{chatBoardIndex}] Id {chatBoard.Id} to have non-zero GetTime.");
+                    if (chatBoard.EndTime < 0)
+                        throw new InvalidDataException($"{name}: expected ChatBoards[{chatBoardIndex}] Id {chatBoard.Id} EndTime to be >= 0.");
+                }
+            }
+
+            static void AssertForbiddenStartupPushesAbsent(
+                IReadOnlyList<string> pushNames,
+                IReadOnlyList<string> forbiddenPushNames,
+                string name)
+            {
+                foreach (string forbiddenPushName in forbiddenPushNames)
+                {
+                    if (pushNames.Contains(forbiddenPushName))
+                        throw new InvalidDataException($"{name}: expected unsupported startup push {forbiddenPushName} not to be emitted; observed {DescribePushes(pushNames)}.");
+                }
+            }
+
+            static string DescribePushes(IReadOnlyList<string> pushNames)
+            {
+                return pushNames.Count == 0
+                    ? "<none>"
+                    : string.Join(" -> ", pushNames);
+            }
+        }
+
+        private static void ValidateReconnectAckClientPushNoReplayStabilityCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+
+            const long playerId = 88_005;
+            const string reconnectToken = "login-account-reconnect-token";
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.Token = reconnectToken;
+            player.PlayerData.LastLoginTime = DateTimeOffset.UtcNow.AddDays(-2).ToUnixTimeSeconds();
+            player.PlayerData.NewPlayerTaskActiveDay = 9;
+            player.GatherRewards = [5, 6];
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters.Add(CreateLoginAccountCompatibilityCharacter(1021001, fashionId: 3021001));
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = 12_345 }]);
+
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                inventory,
+                "login-account-reconnect-ack-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+
+            long lastLoginTimeBeforeReconnectAck = player.PlayerData.LastLoginTime;
+            int newPlayerTaskActiveDayBeforeReconnectAck = player.PlayerData.NewPlayerTaskActiveDay;
+            int[] gatherRewardsBeforeReconnectAck = player.GatherRewards.ToArray();
+
+            const int reconnectLastMsgSeqNo = 123;
+            const int reconnectPacketId = 13_008;
+            InvokeRegisteredRequestHandler(
+                nameof(ReconnectRequest),
+                harness.Session,
+                reconnectPacketId,
+                new ReconnectRequest
+                {
+                    Token = reconnectToken,
+                    PlayerId = (uint)playerId,
+                    LastMsgSeqNo = reconnectLastMsgSeqNo
+                });
+            ReconnectResponse reconnectResponse = ReadResponsePayload<ReconnectResponse>(
+                harness,
+                reconnectPacketId,
+                nameof(ReconnectResponse),
+                "ReconnectRequest valid token response");
+            AssertEqual(0, reconnectResponse.Code, "ReconnectResponse valid token Code");
+            AssertEqual(reconnectToken, reconnectResponse.ReconnectToken, "ReconnectResponse valid token ReconnectToken");
+            AssertEqual(reconnectLastMsgSeqNo, reconnectResponse.RequestNo, "ReconnectResponse valid token RequestNo");
+
+            harness.SendClientPush("ReconnectAck", []);
+
+            if (harness.TryReadAvailablePacket("ReconnectAck client push follow-up packet", out Packet followUpPacket)
+                && followUpPacket.Type == Packet.ContentType.Push)
+            {
+                Packet.Push followUpPush = MessagePackSerializer.Deserialize<Packet.Push>(followUpPacket.Content);
+                string[] forbiddenStartupReplayPushes =
+                [
+                    nameof(NotifyLogin),
+                    nameof(NotifyPayInfo),
+                    "NotifyPassportBaseInfo",
+                    nameof(NotifyItemDataList),
+                    nameof(NotifyStageData),
+                    nameof(NotifyCharacterDataList)
+                ];
+
+                if (forbiddenStartupReplayPushes.Contains(followUpPush.Name))
+                    throw new InvalidDataException($"ReconnectAck client push follow-up packet: expected no startup replay push, observed {followUpPush.Name}.");
+            }
+
+            AssertEqual(lastLoginTimeBeforeReconnectAck, player.PlayerData.LastLoginTime, "ReconnectAck client push PlayerData.LastLoginTime stability");
+            AssertEqual(newPlayerTaskActiveDayBeforeReconnectAck, player.PlayerData.NewPlayerTaskActiveDay, "ReconnectAck client push PlayerData.NewPlayerTaskActiveDay stability");
+            AssertIntegerList(
+                gatherRewardsBeforeReconnectAck.Select(rewardId => (long)rewardId).ToArray(),
+                player.GatherRewards.Select(rewardId => (long)rewardId).ToArray(),
+                "ReconnectAck client push gather rewards stability");
+        }
+
+        private static void ValidateClientVersionRequestCompatibility()
+        {
+            const long playerId = 88_006;
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "login-account-client-version-compat-test");
+
+            const int clientVersionPacketId = 13_009;
+            InvokeRegisteredRequestHandler(
+                nameof(ClientVersionRequest),
+                harness.Session,
+                clientVersionPacketId,
+                new ClientVersionRequest { Version = "4.5.0" });
+            ClientVersionResponse response = ReadResponsePayload<ClientVersionResponse>(
+                harness,
+                clientVersionPacketId,
+                nameof(ClientVersionResponse),
+                "ClientVersionRequest response");
+
+            AssertEqual(0, response.Code, "ClientVersionResponse Code");
+            if (string.IsNullOrWhiteSpace(response.Version))
+                throw new InvalidDataException("ClientVersionResponse Version: expected a non-empty version string.");
+            AssertEqual(false, response.KickOut, "ClientVersionResponse KickOut");
+        }
+
+        private static void ValidateLoginAccountNoticeFixtures()
+        {
+            AssertNoticeFixtureHasNonEmptyContent("SecondMenuNotice.json", "SecondMenuNotice");
+            AssertNoticeFixtureHasEmptyContent("PopUpPicNotice.json", "PopUpPicNotice");
+
+            static void AssertNoticeFixtureHasNonEmptyContent(string fileName, string name)
+            {
+                JArray content = RequiredNoticeContent(fileName, name);
+                if (content.Count == 0)
+                    throw new InvalidDataException($"{name} Content: expected at least one notice entry.");
+            }
+
+            static void AssertNoticeFixtureHasEmptyContent(string fileName, string name)
+            {
+                JArray content = RequiredNoticeContent(fileName, name);
+                if (content.Count != 0)
+                    throw new InvalidDataException($"{name} Content: expected an initialized empty array, got {content.Count} notice entries.");
+            }
+
+            static JArray RequiredNoticeContent(string fileName, string name)
+            {
+                string path = ResourcePath("Configs", "Notices", "4.5.0", fileName);
+                JObject notice = JObject.Parse(File.ReadAllText(path));
+                return notice.Value<JArray>("Content")
+                    ?? throw new InvalidDataException($"{name} Content: expected a JSON array.");
+            }
+        }
+
+        private static void ValidateSyncReadGameNoticeRequestCompatibility()
+        {
+            const string requestName = "SyncReadGameNoticeRequest";
+            const string responseName = "SyncReadGameNoticeResponse";
+
+            MethodInfo handlerMethod = GetRegisteredRequestHandlerMethod(requestName);
+            AssertEqual("SyncReadGameNoticeRequestHandler", handlerMethod.Name, $"{requestName} registered handler method");
+
+            RequestPacketHandlerDelegate handler = GetRegisteredRequestHandler(requestName);
+            const long playerId = 88_007;
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "login-account-sync-read-game-notice-compat-test");
+
+            const string noticeId = "6a1e0fd0f1b4a13fd8bf4900";
+            const long modifyTime = 1_780_355_024;
+            const long endTime = 1_783_580_100;
+            SyncReadGameNoticeRequest request = new()
+            {
+                GameNoticeInfos =
+                [
+                    new RedPointGameNoticeInfo
+                    {
+                        NoticeId = noticeId,
+                        ModifyTime = modifyTime,
+                        EndTime = endTime
+                    }
+                ]
+            };
+            SyncReadGameNoticeRequest requestRoundTrip = MessagePackSerializer.Deserialize<SyncReadGameNoticeRequest>(
+                MessagePackSerializer.Serialize(request));
+            AssertEqual(1, requestRoundTrip.GameNoticeInfos.Count, $"{requestName} GameNoticeInfos MessagePack round-trip count");
+            RedPointGameNoticeInfo noticeInfoRoundTrip = requestRoundTrip.GameNoticeInfos[0];
+            AssertEqual(noticeId, noticeInfoRoundTrip.NoticeId, $"{requestName} GameNoticeInfos[0].NoticeId MessagePack round-trip");
+            AssertEqual(modifyTime, noticeInfoRoundTrip.ModifyTime, $"{requestName} GameNoticeInfos[0].ModifyTime MessagePack round-trip");
+            AssertEqual(endTime, noticeInfoRoundTrip.EndTime, $"{requestName} GameNoticeInfos[0].EndTime MessagePack round-trip");
+
+            const int packetId = 13_010;
+            Packet.Request packet = new()
+            {
+                Id = packetId,
+                Name = requestName,
+                Content = MessagePackSerializer.Serialize(requestRoundTrip)
+            };
+
+            try
+            {
+                handler.Invoke(harness.Session, packet);
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidDataException($"{requestName}: registered handler invocation failed for verified live MessagePack payload shape.", exception);
+            }
+
+            Type responseType = RequiredAscNetGameServerType($"AscNet.GameServer.Handlers.{responseName}");
+            object response = ReadResponsePayload(
+                harness,
+                packetId,
+                responseName,
+                $"{requestName} response",
+                responseType);
+            AssertEqual(0, GetRequiredIntegerMember(response, "Code"), $"{responseName} Code");
+
+            AssertSingleGameNoticeInfo(
+                harness.Session.player.RedPointRecords?.GameNoticeInfos,
+                noticeId,
+                modifyTime,
+                endTime,
+                $"{requestName} persisted Player.RedPointRecords.GameNoticeInfos");
+
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                accountModule,
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin notifyLogin = buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
+                ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil or a non-NotifyLogin payload.");
+            NotifyLogin notifyLoginRoundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
+                MessagePackSerializer.Serialize(notifyLogin));
+            AssertSingleGameNoticeInfo(
+                notifyLoginRoundTrip.RedPointRecords?.GameNoticeInfos,
+                noticeId,
+                modifyTime,
+                endTime,
+                $"{requestName} NotifyLogin RedPointRecords.GameNoticeInfos MessagePack round-trip");
+
+            static void AssertSingleGameNoticeInfo(
+                IReadOnlyList<RedPointGameNoticeInfo>? actual,
+                string expectedNoticeId,
+                long expectedModifyTime,
+                long expectedEndTime,
+                string name)
+            {
+                if (actual is null)
+                    throw new InvalidDataException($"{name}: expected persisted live notice info, got nil.");
+                AssertEqual(1, actual.Count, $"{name} count");
+                RedPointGameNoticeInfo actualNoticeInfo = actual[0];
+                AssertEqual(expectedNoticeId, actualNoticeInfo.NoticeId, $"{name}[0].NoticeId");
+                AssertEqual(expectedModifyTime, actualNoticeInfo.ModifyTime, $"{name}[0].ModifyTime");
+                AssertEqual(expectedEndTime, actualNoticeInfo.EndTime, $"{name}[0].EndTime");
+            }
+        }
+
+        private static void ValidateLifeTreeFinishProcessRequestCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const string requestName = nameof(LifeTreeFinishProcessRequest);
+            const string responseName = nameof(LifeTreeFinishProcessResponse);
+
+            MethodInfo handlerMethod = GetRegisteredRequestHandlerMethod(requestName);
+            AssertEqual("LifeTreeFinishProcessRequestHandler", handlerMethod.Name, $"{requestName} registered handler method");
+
+            RequestPacketHandlerDelegate handler = GetRegisteredRequestHandler(requestName);
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo doLogin = RequiredMethod(
+                accountModule,
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+
+            const long playerId = 88_008;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.PlayerData.LastLoginTime = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters.Add(CreateLoginAccountCompatibilityCharacter(1021001, fashionId: 3021001));
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "lifetree-finish-process-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+
+            LifeTreeFinishProcessRequest processOneRequest = new()
+            {
+                Process = 1
+            };
+            byte[] processOneRequestPayload = MessagePackSerializer.Serialize(processOneRequest);
+            AssertEqual("81A750726F6365737301", Convert.ToHexString(processOneRequestPayload), $"{requestName} Process=1 verified live MessagePack payload");
+            LifeTreeFinishProcessRequest processOneRequestRoundTrip = MessagePackSerializer.Deserialize<LifeTreeFinishProcessRequest>(processOneRequestPayload);
+            AssertEqual(1, processOneRequestRoundTrip.Process, $"{requestName} Process=1 MessagePack round-trip");
+
+            const int processOnePacketId = 13_011;
+            Packet.Request processOnePacket = new()
+            {
+                Id = processOnePacketId,
+                Name = requestName,
+                Content = processOneRequestPayload
+            };
+
+            try
+            {
+                handler.Invoke(harness.Session, processOnePacket);
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidDataException($"{requestName}: registered handler invocation failed for verified Process=1 MessagePack payload.", exception);
+            }
+
+            AssertCompletedLifeTreeData(player.LifeTreeData, $"{requestName} Process=1 persisted Player.LifeTreeData");
+
+            NotifyLifeTreeData finishPush = ReadPushPayload<NotifyLifeTreeData>(
+                harness,
+                nameof(NotifyLifeTreeData),
+                $"{requestName} Process=1 NotifyLifeTreeData push");
+            AssertCompletedLifeTreeData(finishPush, $"{requestName} Process=1 NotifyLifeTreeData push");
+
+            LifeTreeFinishProcessResponse processOneResponse = ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                harness,
+                processOnePacketId,
+                responseName,
+                $"{requestName} Process=1 response");
+            AssertEqual(0, processOneResponse.Code, $"{responseName} Process=1 Code");
+
+            MethodInfo processTwoHandlerMethod = GetRegisteredRequestHandlerMethod(requestName);
+            AssertEqual("LifeTreeFinishProcessRequestHandler", processTwoHandlerMethod.Name, $"{requestName} handler remains registered after Process=1");
+
+            LifeTreeFinishProcessRequest processTwoRequest = new()
+            {
+                Process = 2
+            };
+            byte[] processTwoRequestPayload = MessagePackSerializer.Serialize(processTwoRequest);
+            AssertEqual("81A750726F6365737302", Convert.ToHexString(processTwoRequestPayload), $"{requestName} Process=2 verified live MessagePack payload");
+            LifeTreeFinishProcessRequest processTwoRequestRoundTrip = MessagePackSerializer.Deserialize<LifeTreeFinishProcessRequest>(processTwoRequestPayload);
+            AssertEqual(2, processTwoRequestRoundTrip.Process, $"{requestName} Process=2 MessagePack round-trip");
+            string completedLifeTreeDataSnapshot = Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData));
+
+            const int processTwoPacketId = 13_012;
+            Packet.Request processTwoPacket = new()
+            {
+                Id = processTwoPacketId,
+                Name = requestName,
+                Content = processTwoRequestPayload
+            };
+
+            try
+            {
+                handler.Invoke(harness.Session, processTwoPacket);
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidDataException($"{requestName}: registered handler invocation failed for verified Process=2 MessagePack payload.", exception);
+            }
+
+            AssertEqual(completedLifeTreeDataSnapshot, Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData)), $"{requestName} Process=2 persisted Player.LifeTreeData unchanged");
+            AssertCompletedLifeTreeData(player.LifeTreeData, $"{requestName} Process=2 persisted Player.LifeTreeData");
+
+            NotifyLifeTreeData processTwoPush = ReadPushPayload<NotifyLifeTreeData>(
+                harness,
+                nameof(NotifyLifeTreeData),
+                $"{requestName} Process=2 NotifyLifeTreeData push");
+            AssertCompletedLifeTreeData(processTwoPush, $"{requestName} Process=2 NotifyLifeTreeData push");
+
+            LifeTreeFinishProcessResponse processTwoResponse = ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                harness,
+                processTwoPacketId,
+                responseName,
+                $"{requestName} Process=2 response");
+            AssertEqual(0, processTwoResponse.Code, $"{responseName} Process=2 Code");
+            doLogin.Invoke(null, [harness.Session]);
+            NotifyLifeTreeData startupLifeTreeData = ReadStartupLifeTreePush(
+                harness,
+                maxStartupPushes: 192,
+                "AccountModule.DoLogin LifeTree startup pushes");
+            AssertCompletedLifeTreeData(startupLifeTreeData, "AccountModule.DoLogin NotifyLifeTreeData persisted startup payload");
+
+            static NotifyLifeTreeData ReadStartupLifeTreePush(
+                LoopbackSessionHarness harness,
+                int maxStartupPushes,
+                string name)
+            {
+                List<string> pushNames = [];
+                for (int packetIndex = 0; packetIndex < maxStartupPushes; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{name} {packetIndex + 1}");
+                    AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} {packetIndex + 1} packet type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    pushNames.Add(push.Name);
+                    if (push.Name == nameof(NotifyLifeTreeData))
+                        return MessagePackSerializer.Deserialize<NotifyLifeTreeData>(push.Content);
+                }
+
+                string observedPushes = pushNames.Count == 0 ? "<none>" : string.Join(", ", pushNames);
+                throw new InvalidDataException($"{name}: expected {nameof(NotifyLifeTreeData)} within {maxStartupPushes} startup pushes; observed {observedPushes}.");
+            }
+
+            static void AssertCompletedLifeTreeData(NotifyLifeTreeData? data, string name)
+            {
+                if (data is null)
+                    throw new InvalidDataException($"{name}: expected completed LifeTree data, got nil.");
+
+                AssertEqual(true, data.IsFinishGuide, $"{name}.IsFinishGuide");
+                AssertEqual(true, data.IsFinishLifeTreePv, $"{name}.IsFinishLifeTreePv");
+                AssertIntegerSetContainsAll(
+                    [61, 58, 57],
+                    data.FinishedChapters.Select(chapterId => (long)chapterId).ToArray(),
+                    $"{name}.FinishedChapters");
+                AssertUnlockedCharacter(1031005, data.UnlockCharacterData, name);
+                AssertUnlockedCharacter(1021007, data.UnlockCharacterData, name);
+            }
+
+            static void AssertUnlockedCharacter(
+                int characterId,
+                IReadOnlyDictionary<int, LifeTreeUnlockCharacterData>? unlockCharacterData,
+                string name)
+            {
+                if (unlockCharacterData is null)
+                    throw new InvalidDataException($"{name}.UnlockCharacterData: expected completed unlock character map, got nil.");
+                if (!unlockCharacterData.TryGetValue(characterId, out LifeTreeUnlockCharacterData? characterData))
+                    throw new InvalidDataException($"{name}.UnlockCharacterData: missing character {characterId}.");
+
+                AssertEqual(characterId, characterData.Id, $"{name}.UnlockCharacterData[{characterId}].Id");
+                AssertEqual(1, characterData.UnlockStatus, $"{name}.UnlockCharacterData[{characterId}].UnlockStatus");
+            }
+        }
+
+        private static void ValidateLoginHomeStateResponseCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const long playerId = 88_004;
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "login-account-home-state-compat-test");
+
+            const int purchasePacketId = 13_003;
+            GetPurchaseListRequest purchaseRequest = new()
+            {
+                UiTypeList = [11]
+            };
+            GetPurchaseListRequest purchaseRequestRoundTrip = MessagePackSerializer.Deserialize<GetPurchaseListRequest>(
+                MessagePackSerializer.Serialize(purchaseRequest));
+            AssertIntegerList([11], purchaseRequestRoundTrip.UiTypeList.Select(uiType => (long)uiType).ToArray(), "GetPurchaseListRequest UiTypeList MessagePack round-trip");
+            InvokeRegisteredRequestHandler(nameof(GetPurchaseListRequest), harness.Session, purchasePacketId, purchaseRequestRoundTrip);
+            GetPurchaseListResponse purchaseResponse = ReadResponsePayload<GetPurchaseListResponse>(
+                harness,
+                purchasePacketId,
+                nameof(GetPurchaseListResponse),
+                "GetPurchaseListRequest UiType 11 response");
+            AssertEqual(0, purchaseResponse.Code, "GetPurchaseListResponse UiType 11 Code");
+            AssertEqual(true, purchaseResponse.PurchaseInfoList.Count > 0, "GetPurchaseListResponse UiType 11 PurchaseInfoList non-empty");
+            if (purchaseResponse.PurchaseComboInfoList is null)
+                throw new InvalidDataException("GetPurchaseListResponse UiType 11 PurchaseComboInfoList: expected initialized list.");
+
+            GetPurchaseListResponse purchaseRoundTrip = MessagePackSerializer.Deserialize<GetPurchaseListResponse>(
+                MessagePackSerializer.Serialize(purchaseResponse));
+            System.Collections.IDictionary firstPurchase = RequiredDynamicMap(
+                purchaseRoundTrip.PurchaseInfoList.FirstOrDefault(),
+                "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] MessagePack round-trip");
+            AssertEqual(11, RequiredDynamicInteger(firstPurchase, "UiType", "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] MessagePack round-trip"), "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] UiType");
+            List<object> rewardGoodsList = RequiredDynamicObjectList(firstPurchase, "RewardGoodsList", "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] RewardGoodsList MessagePack round-trip");
+            AssertEqual(true, rewardGoodsList.Count > 0, "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] RewardGoodsList non-empty");
+            System.Collections.IDictionary firstRewardGoods = RequiredDynamicMap(
+                rewardGoodsList[0],
+                "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] RewardGoodsList[0] MessagePack round-trip");
+            AssertEqual(false, RequiredDynamicBoolean(firstRewardGoods, "IsGift", "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] RewardGoodsList[0] MessagePack round-trip"), "GetPurchaseListResponse UiType 11 RewardGoods IsGift retail field");
+            AssertEqual(0, RequiredDynamicInteger(firstRewardGoods, "RewardMulti", "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] RewardGoodsList[0] MessagePack round-trip"), "GetPurchaseListResponse UiType 11 RewardGoods RewardMulti retail field");
+            AssertEqual(50024560, RequiredDynamicInteger(firstRewardGoods, "Id", "GetPurchaseListResponse UiType 11 PurchaseInfoList[0] RewardGoodsList[0] MessagePack round-trip"), "GetPurchaseListResponse UiType 11 RewardGoods Id retail field");
+
+            AssertPurchaseListForUiTypes(
+                harness,
+                13_103,
+                [5, 6, 2],
+                [2, 5, 6],
+                [2],
+                [7, 8, 11, 15],
+                "5/6/2");
+            AssertPurchaseListForUiTypes(
+                harness,
+                13_104,
+                [5, 6],
+                [5, 6],
+                [],
+                [2, 7, 8, 11, 15],
+                "5/6");
+            AssertPurchaseListForUiTypes(
+                harness,
+                13_105,
+                [5, 2],
+                [2, 5],
+                [2],
+                [6, 7, 8, 11, 15],
+                "5/2");
+
+            static void AssertPurchaseListForUiTypes(
+                LoopbackSessionHarness harness,
+                int packetId,
+                int[] requestedUiTypes,
+                int[] allowedUiTypes,
+                int[] requiredUiTypes,
+                int[] excludedUiTypes,
+                string uiTypeName)
+            {
+                GetPurchaseListRequest request = new()
+                {
+                    UiTypeList = requestedUiTypes.ToList()
+                };
+                GetPurchaseListRequest requestRoundTrip = MessagePackSerializer.Deserialize<GetPurchaseListRequest>(
+                    MessagePackSerializer.Serialize(request));
+                AssertIntegerList(
+                    requestedUiTypes.Select(uiType => (long)uiType).ToArray(),
+                    requestRoundTrip.UiTypeList.Select(uiType => (long)uiType).ToArray(),
+                    $"GetPurchaseListRequest UiTypeList {uiTypeName} MessagePack round-trip");
+                InvokeRegisteredRequestHandler(nameof(GetPurchaseListRequest), harness.Session, packetId, requestRoundTrip);
+                GetPurchaseListResponse response = ReadResponsePayload<GetPurchaseListResponse>(
+                    harness,
+                    packetId,
+                    nameof(GetPurchaseListResponse),
+                    $"GetPurchaseListRequest UiTypes {uiTypeName} response");
+                AssertEqual(0, response.Code, $"GetPurchaseListResponse UiTypes {uiTypeName} Code");
+                AssertEqual(true, response.PurchaseInfoList.Count > 0, $"GetPurchaseListResponse UiTypes {uiTypeName} PurchaseInfoList non-empty");
+
+                GetPurchaseListResponse roundTrip = MessagePackSerializer.Deserialize<GetPurchaseListResponse>(
+                    MessagePackSerializer.Serialize(response));
+                HashSet<int> allowedPurchaseUiTypes = allowedUiTypes.ToHashSet();
+                HashSet<int> actualPurchaseUiTypes = [];
+                for (int purchaseIndex = 0; purchaseIndex < roundTrip.PurchaseInfoList.Count; purchaseIndex++)
+                {
+                    System.Collections.IDictionary purchaseInfo = RequiredDynamicMap(
+                        (object?)roundTrip.PurchaseInfoList[purchaseIndex],
+                        $"GetPurchaseListResponse UiTypes {uiTypeName} PurchaseInfoList[{purchaseIndex}] MessagePack round-trip");
+                    int uiType = RequiredDynamicInteger(purchaseInfo, "UiType", $"GetPurchaseListResponse UiTypes {uiTypeName} PurchaseInfoList[{purchaseIndex}] MessagePack round-trip");
+                    actualPurchaseUiTypes.Add(uiType);
+                    AssertEqual(true, allowedPurchaseUiTypes.Contains(uiType), $"GetPurchaseListResponse UiTypes {uiTypeName} PurchaseInfoList[{purchaseIndex}] requested UiType");
+                }
+
+                foreach (int requiredUiType in requiredUiTypes)
+                    AssertEqual(true, actualPurchaseUiTypes.Contains(requiredUiType), $"GetPurchaseListResponse UiTypes {uiTypeName} includes UiType {requiredUiType}");
+                foreach (int excludedUiType in excludedUiTypes)
+                    AssertEqual(false, actualPurchaseUiTypes.Contains(excludedUiType), $"GetPurchaseListResponse UiTypes {uiTypeName} excludes UiType {excludedUiType}");
+            }
+
+            const int shopBaseInfoPacketId = 13_004;
+            InvokeRegisteredRequestHandler(nameof(GetShopBaseInfoRequest), harness.Session, shopBaseInfoPacketId, new GetShopBaseInfoRequest());
+            GetShopBaseInfoResponse shopBaseInfoResponse = ReadResponsePayload<GetShopBaseInfoResponse>(
+                harness,
+                shopBaseInfoPacketId,
+                nameof(GetShopBaseInfoResponse),
+                "GetShopBaseInfoRequest response");
+            AssertEqual(true, shopBaseInfoResponse.ShopBaseInfoList.Count > 0, "GetShopBaseInfoResponse ShopBaseInfoList non-empty");
+
+            const int lottoInfoPacketId = 13_005;
+            InvokeRegisteredRequestHandler(nameof(LottoInfoRequest), harness.Session, lottoInfoPacketId, new LottoInfoRequest());
+            LottoInfoResponse lottoInfoResponse = ReadResponsePayload<LottoInfoResponse>(
+                harness,
+                lottoInfoPacketId,
+                nameof(LottoInfoResponse),
+                "LottoInfoRequest response");
+            AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse Code");
+            AssertEqual(true, lottoInfoResponse.LottoInfos.Count > 0, "LottoInfoResponse LottoInfos non-empty");
+
+            const int gachaInfoPacketId = 13_006;
+            InvokeRegisteredRequestHandler(nameof(GetGachaInfoRequest), harness.Session, gachaInfoPacketId, new GetGachaInfoRequest { Id = 49 });
+            GetGachaInfoResponse gachaInfoResponse = ReadResponsePayload<GetGachaInfoResponse>(
+                harness,
+                gachaInfoPacketId,
+                nameof(GetGachaInfoResponse),
+                "GetGachaInfoRequest Id 49 response");
+            AssertEqual(0, gachaInfoResponse.Code, "GetGachaInfoResponse Code");
+            AssertRequiredMemberNull(gachaInfoResponse, nameof(GetGachaInfoResponse.GridInfoList), "GetGachaInfoResponse GridInfoList retail empty payload");
+            AssertRequiredMemberNull(gachaInfoResponse, nameof(GetGachaInfoResponse.GachaRecordList), "GetGachaInfoResponse GachaRecordList retail empty payload");
+            AssertEqual(0, gachaInfoResponse.CurExchangeItemCount, "GetGachaInfoResponse CurExchangeItemCount");
+            AssertRequiredMemberNull(gachaInfoResponse, nameof(GetGachaInfoResponse.GetRewardList), "GetGachaInfoResponse GetRewardList retail empty payload");
+            AssertEqual(0, gachaInfoResponse.TotalTimes, "GetGachaInfoResponse TotalTimes");
+            AssertEqual(0, gachaInfoResponse.MissTimes, "GetGachaInfoResponse MissTimes");
+
+            const int gachaItemExchangePacketId = 13_007;
+            InvokeRegisteredRequestHandler(
+                nameof(GachaItemExchangeRequest),
+                harness.Session,
+                gachaItemExchangePacketId,
+                new GachaItemExchangeRequest { Id = 49, ItemId = 96001, Count = 2 });
+            GachaItemExchangeResponse gachaItemExchangeResponse = ReadResponsePayload<GachaItemExchangeResponse>(
+                harness,
+                gachaItemExchangePacketId,
+                nameof(GachaItemExchangeResponse),
+                "GachaItemExchangeRequest non-zero exchange response");
+            AssertEqual(0, gachaItemExchangeResponse.Code, "GachaItemExchangeResponse Code");
+            AssertEmptyList(gachaItemExchangeResponse.RewardGoodsList, "GachaItemExchangeResponse RewardGoodsList");
+
+            ValidateRequestHandlerRegistration(nameof(PassportRecvAllRewardRequest));
+            const int passportRewardPacketId = 13_008;
+            InvokeRegisteredRequestHandler(nameof(PassportRecvAllRewardRequest), harness.Session, passportRewardPacketId, new PassportRecvAllRewardRequest());
+            PassportRecvAllRewardResponse passportRewardResponse = ReadResponsePayload<PassportRecvAllRewardResponse>(
+                harness,
+                passportRewardPacketId,
+                nameof(PassportRecvAllRewardResponse),
+                "PassportRecvAllRewardRequest response");
+            AssertEqual(0, passportRewardResponse.Code, "PassportRecvAllRewardResponse Code");
+            if (passportRewardResponse.RewardList is null)
+                throw new InvalidDataException("PassportRecvAllRewardResponse RewardList: expected initialized list.");
+            if (passportRewardResponse.PassportInfos is null)
+                throw new InvalidDataException("PassportRecvAllRewardResponse PassportInfos: expected initialized list.");
+
+            const int mailDeletePacketId = 13_009;
+            InvokeRegisteredRequestHandler(nameof(MailDeleteRequest), harness.Session, mailDeletePacketId, new MailDeleteRequest());
+            MailDeleteResponse mailDeleteResponse = ReadResponsePayload<MailDeleteResponse>(
+                harness,
+                mailDeletePacketId,
+                nameof(MailDeleteResponse),
+                "MailDeleteRequest response");
+            if (mailDeleteResponse.DelIdList is null)
+                throw new InvalidDataException("MailDeleteResponse DelIdList: expected initialized list.");
+        }
+
+
+        private static CharacterData CreateLoginAccountCompatibilityCharacter(uint id, uint fashionId)
+        {
+            return new()
+            {
+                Id = id,
+                Level = 80,
+                Quality = 5,
+                InitQuality = 5,
+                Star = 5,
+                Grade = 1,
+                FashionId = fashionId,
+                CreateTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                CharacterHeadInfo = new()
+                {
+                    HeadFashionId = fashionId,
+                    HeadFashionType = 1
+                }
+            };
+        }
+
+        private static AscNet.Common.Database.Stage CreateLoginAccountCompatibilityStage(long uid)
+        {
+            return new()
+            {
+                Uid = uid,
+                Stages = new(),
+                Course = new(),
+                FinishedTasks = new()
+            };
+        }
+
         private static void ValidateDrawCompatibility()
         {
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            AssertConstructShardTableCompatibility();
             const int memberTargetGroupId = 1;
             const int weaponResearchGroupId = 2;
             const int targetWeaponResearchGroupId = 4;
@@ -326,6 +1760,59 @@ namespace AscNet.Test
             const int setUseDrawIdPacketId = 8803;
             const int drawCardPacketId = 8804;
             const int buyAssetPacketId = 8805;
+            const long drawHistoryPlayerId = 880008;
+            const int drawHistoryPacketId = 8806;
+            const long drawGroupHistoryPlayerId = 880009;
+            const int drawGroupHistoryPacketId = 8807;
+
+            DrawGetHistoryGroupListRequest historyRequest = new();
+            DrawGetHistoryGroupListRequest historyRequestRoundTrip = MessagePackSerializer.Deserialize<DrawGetHistoryGroupListRequest>(
+                MessagePackSerializer.Serialize(historyRequest));
+
+            DrawGetHistoryGroupListResponse historyResponse;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(drawHistoryPlayerId),
+                CreateDrawCompatibilityPlayer(drawHistoryPlayerId),
+                CreateDrawCompatibilityInventory(drawHistoryPlayerId, []),
+                "draw-history-group-list-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawGetHistoryGroupListRequest", harness.Session, drawHistoryPacketId, historyRequestRoundTrip);
+                historyResponse = ReadResponsePayload<DrawGetHistoryGroupListResponse>(
+                    harness,
+                    drawHistoryPacketId,
+                    nameof(DrawGetHistoryGroupListResponse),
+                    "DrawGetHistoryGroupListRequest response");
+            }
+
+            AssertEqual(0, historyResponse.Code, "DrawGetHistoryGroupListResponse Code");
+            if (historyResponse.HistoryGroups is null)
+                throw new InvalidDataException("DrawGetHistoryGroupListResponse HistoryGroups: expected a live-schema list, got nil.");
+            Dictionary<int, int> expectedHistoryGroupPriorities = new()
+            {
+                [memberTargetGroupId] = 9000,
+                [weaponResearchGroupId] = 1000,
+                [targetWeaponResearchGroupId] = 500,
+                [themedEventConstructGroupId] = 21000,
+                [arrivalConstructGroupId] = 14000,
+                [fateArrivalConstructGroupId] = 13000,
+                [fateThemedConstructGroupId] = 20000,
+                [targetUniframeGroupId] = 100,
+                [cubTargetGroupId] = 8000
+            };
+            Dictionary<int, int> actualHistoryGroupPriorities = new();
+            foreach (DrawHistoryGroup historyGroup in historyResponse.HistoryGroups)
+            {
+                if (actualHistoryGroupPriorities.ContainsKey(historyGroup.DrawGroupId))
+                    throw new InvalidDataException($"DrawGetHistoryGroupListResponse HistoryGroups: duplicate DrawGroupId {historyGroup.DrawGroupId}.");
+                actualHistoryGroupPriorities.Add(historyGroup.DrawGroupId, historyGroup.Priority);
+            }
+            foreach (KeyValuePair<int, int> expectedHistoryGroup in expectedHistoryGroupPriorities.OrderBy(group => group.Key))
+            {
+                if (!actualHistoryGroupPriorities.TryGetValue(expectedHistoryGroup.Key, out int actualPriority))
+                    throw new InvalidDataException($"DrawGetHistoryGroupListResponse HistoryGroups: missing DrawGroupId {expectedHistoryGroup.Key}.");
+                AssertEqual(expectedHistoryGroup.Value, actualPriority, $"DrawGetHistoryGroupListResponse HistoryGroups[{expectedHistoryGroup.Key}] Priority");
+            }
+
 
             DrawGetDrawGroupListResponse groupResponse;
             using (LoopbackSessionHarness harness = new(
@@ -437,6 +1924,9 @@ namespace AscNet.Test
                 adjustActivity.EffectTargetTemplateIds.Select(templateId => (long)templateId).ToArray(),
                 "DrawGetDrawGroupListResponse DrawAdjustActivityInfo EffectTargetTemplateIds");
 
+            DrawGetDrawInfoListResponse weaponResearchInfoResponse = ReadDrawInfoListForGroup(weaponResearchGroupId, drawInfoPacketId + 8, drawGroupPlayerId, "draw-weapon-research-info-compat-test");
+            AssertWeaponResearchDraw201Info(weaponResearchInfoResponse, weaponResearchGroupId);
+
             DrawGetDrawInfoListRequest infoRequest = new()
             {
                 GroupId = targetWeaponResearchGroupId
@@ -476,6 +1966,54 @@ namespace AscNet.Test
                     [379] = 2606001
                 },
                 infoResponse.DrawInfoList);
+            AssertCurrentWeaponBannerShopFlags(
+                new Dictionary<int, bool>
+                {
+                    [370] = false,
+                    [371] = false,
+                    [372] = false,
+                    [374] = true,
+                    [375] = false,
+                    [376] = true,
+                    [377] = false,
+                    [378] = false,
+                    [379] = false
+                },
+                infoResponse.DrawInfoList);
+            AssertCurrentWeaponBannerDrawPreviewRows(
+                [
+                    348,
+                    349,
+                    350,
+                    351,
+                    353,
+                    354,
+                    355,
+                    356,
+                    357,
+                    358,
+                    359,
+                    360,
+                    361,
+                    362,
+                    363,
+                    364,
+                    365,
+                    366,
+                    367,
+                    370,
+                    371,
+                    372,
+                    374,
+                    375,
+                    376,
+                    377,
+                    378,
+                    379
+                ],
+                infoResponse.DrawInfoList);
+            AssertCurrentOwnableWeaponBreakthroughCoverage();
+            AssertCurrentWeaponRewardRoutingAndRates(weaponResearchGroupId, targetWeaponResearchGroupId);
             const string targetWeaponPowerBanner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1WeaponPower.prefab";
             AssertRetailDrawInfoArt(
                 infoResponse.DrawInfoList.Single(info => info.Id == 378),
@@ -515,6 +2053,120 @@ namespace AscNet.Test
                 5,
                 "DrawGetDrawInfoListResponse event construct 1488");
             AssertDraw1488RetailRewardPool(eventConstruct1488, drawPityPlayerId + 1, weaponResearchGroupId, targetWeaponResearchGroupId, cubTargetGroupId);
+            AssertCurrentCharacterBannerDrawPreviewRows();
+            AssertDraw1488RepresentativeRewardGoodsShowQualityHydrated();
+            AssertDraw1488TargetCharacterRewardGoodsHydrated(eventConstruct1488);
+            AssertDrawDrawCardHandlerRejectsInvalidOrUnaffordableRequests(eventConstruct1488);
+
+            const int drawGroupHistorySubType = 5;
+            DrawInfo preloadedHistoryDrawInfo = PreloadDrawProgressToBottomTimes(
+                drawGroupHistoryPlayerId,
+                eventConstruct1488,
+                eventConstruct1488.MaxBottomTimes / 4,
+                "DrawGroupGetHistoryRequest group 11 subtype 5");
+            DrawGroupGetHistoryRequest groupHistoryRequest = new()
+            {
+                GroupId = themedEventConstructGroupId,
+                GroupSubType = drawGroupHistorySubType
+            };
+            DrawGroupGetHistoryRequest groupHistoryRequestRoundTrip = MessagePackSerializer.Deserialize<DrawGroupGetHistoryRequest>(
+                MessagePackSerializer.Serialize(groupHistoryRequest));
+            AssertEqual(themedEventConstructGroupId, groupHistoryRequestRoundTrip.GroupId, "DrawGroupGetHistoryRequest GroupId MessagePack round-trip");
+            AssertEqual(drawGroupHistorySubType, groupHistoryRequestRoundTrip.GroupSubType, "DrawGroupGetHistoryRequest GroupSubType MessagePack round-trip");
+
+            DrawGroupGetHistoryResponse preDrawGroupHistoryResponse;
+            DrawDrawCardRequest drawGroupHistoryDrawCardRequest = new()
+            {
+                DrawId = eventConstruct1488.Id,
+                Count = 1,
+                UseDrawTicketId = 0
+            };
+            DrawDrawCardRequest drawGroupHistoryDrawCardRequestRoundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
+                MessagePackSerializer.Serialize(drawGroupHistoryDrawCardRequest));
+            AssertEqual(eventConstruct1488.Id, drawGroupHistoryDrawCardRequestRoundTrip.DrawId, "DrawGroupGetHistoryRequest draw 1488 DrawDrawCardRequest DrawId MessagePack round-trip");
+            AssertEqual(1, drawGroupHistoryDrawCardRequestRoundTrip.Count, "DrawGroupGetHistoryRequest draw 1488 DrawDrawCardRequest Count MessagePack round-trip");
+            AssertEqual(0, drawGroupHistoryDrawCardRequestRoundTrip.UseDrawTicketId, "DrawGroupGetHistoryRequest draw 1488 DrawDrawCardRequest UseDrawTicketId MessagePack round-trip");
+
+            DrawDrawCardResponse drawGroupHistoryDrawCardResponse = null!;
+            DrawGroupGetHistoryResponse postDrawGroupHistoryResponse;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(drawGroupHistoryPlayerId),
+                CreateDrawCompatibilityPlayer(drawGroupHistoryPlayerId),
+                CreateDrawCompatibilityInventory(drawGroupHistoryPlayerId, [new Item { Id = eventConstruct1488.UseItemId, Count = eventConstruct1488.UseItemCount }]),
+                "draw-group-history-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(nameof(DrawGroupGetHistoryRequest), harness.Session, drawGroupHistoryPacketId, groupHistoryRequestRoundTrip);
+                preDrawGroupHistoryResponse = ReadResponsePayload<DrawGroupGetHistoryResponse>(
+                    harness,
+                    drawGroupHistoryPacketId,
+                    nameof(DrawGroupGetHistoryResponse),
+                    "DrawGroupGetHistoryRequest pre-draw response");
+
+                InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, drawGroupHistoryPacketId + 1, drawGroupHistoryDrawCardRequestRoundTrip);
+                for (int packetIndex = 0; packetIndex < 6; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"DrawGroupGetHistoryRequest draw 1488 packet {packetIndex + 1}");
+                    if (packet.Type == Packet.ContentType.Push)
+                        continue;
+
+                    AssertEqual(Packet.ContentType.Response, packet.Type, "DrawGroupGetHistoryRequest draw 1488 response packet type");
+                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                    AssertEqual(drawGroupHistoryPacketId + 1, response.Id, "DrawGroupGetHistoryRequest draw 1488 response packet id");
+                    AssertEqual(nameof(DrawDrawCardResponse), response.Name, "DrawGroupGetHistoryRequest draw 1488 response packet name");
+                    drawGroupHistoryDrawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
+                    goto FoundDrawGroupHistoryDrawCardResponse;
+                }
+
+                throw new InvalidDataException("DrawGroupGetHistoryRequest draw 1488: expected DrawDrawCardResponse after inventory pushes.");
+
+            FoundDrawGroupHistoryDrawCardResponse:
+                InvokeRegisteredRequestHandler(nameof(DrawGroupGetHistoryRequest), harness.Session, drawGroupHistoryPacketId + 2, groupHistoryRequestRoundTrip);
+                postDrawGroupHistoryResponse = ReadResponsePayload<DrawGroupGetHistoryResponse>(
+                    harness,
+                    drawGroupHistoryPacketId + 2,
+                    nameof(DrawGroupGetHistoryResponse),
+                    "DrawGroupGetHistoryRequest post-draw response");
+            }
+
+            AssertEqual(0, preDrawGroupHistoryResponse.Code, "DrawGroupGetHistoryResponse pre-draw Code");
+            AssertEmptyList(preDrawGroupHistoryResponse.HistoryRewardList, "DrawGroupGetHistoryResponse pre-draw HistoryRewardList");
+            AssertEqual(preloadedHistoryDrawInfo.BottomTimes, preDrawGroupHistoryResponse.BottomTimes, "DrawGroupGetHistoryResponse pre-draw BottomTimes for draw 1488 progress");
+            AssertEqual(60, preDrawGroupHistoryResponse.MaxBottomTimes, "DrawGroupGetHistoryResponse pre-draw MaxBottomTimes for draw 1488");
+
+            AssertEqual(1, drawGroupHistoryDrawCardResponse.RewardGoodsList.Count, "DrawGroupGetHistoryRequest draw 1488 RewardGoodsList count for history");
+            DrawInfo drawGroupHistoryClientDrawInfo = drawGroupHistoryDrawCardResponse.ClientDrawInfo
+                ?? throw new InvalidDataException("DrawGroupGetHistoryRequest draw 1488: expected ClientDrawInfo after draw.");
+            AssertEqual(eventConstruct1488.Id, drawGroupHistoryClientDrawInfo.Id, "DrawGroupGetHistoryRequest draw 1488 ClientDrawInfo Id");
+            AssertEqual(preloadedHistoryDrawInfo.BottomTimes - 1, drawGroupHistoryClientDrawInfo.BottomTimes, "DrawGroupGetHistoryRequest draw 1488 ClientDrawInfo BottomTimes after 1x draw");
+
+            AssertEqual(0, postDrawGroupHistoryResponse.Code, "DrawGroupGetHistoryResponse post-draw Code");
+            if (postDrawGroupHistoryResponse.HistoryRewardList is null)
+                throw new InvalidDataException("DrawGroupGetHistoryResponse post-draw HistoryRewardList: expected recorded draw history, got nil.");
+            if (postDrawGroupHistoryResponse.HistoryRewardList.Count == 0)
+                throw new InvalidDataException("DrawGroupGetHistoryResponse post-draw HistoryRewardList: expected recorded draw history for draw 1488, got an empty list.");
+            AssertEqual(drawGroupHistoryDrawCardResponse.RewardGoodsList.Count, postDrawGroupHistoryResponse.HistoryRewardList.Count, "DrawGroupGetHistoryResponse post-draw HistoryRewardList count matches draw rewards");
+            for (int historyIndex = 0; historyIndex < drawGroupHistoryDrawCardResponse.RewardGoodsList.Count; historyIndex++)
+            {
+                RewardGoods drawnReward = drawGroupHistoryDrawCardResponse.RewardGoodsList[historyIndex];
+                DrawHistoryReward historyReward = postDrawGroupHistoryResponse.HistoryRewardList[historyIndex];
+                RewardGoods recordedReward = historyReward.RewardGoods
+                    ?? throw new InvalidDataException($"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods: expected recorded reward goods, got nil.");
+                if (historyReward.DrawTime <= 0)
+                    throw new InvalidDataException($"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].DrawTime: expected positive draw time, got {historyReward.DrawTime}.");
+
+                AssertEqual(drawnReward.TemplateId, recordedReward.TemplateId, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.TemplateId");
+                AssertEqual(drawnReward.RewardType, recordedReward.RewardType, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.RewardType");
+                AssertEqual(drawnReward.Count, recordedReward.Count, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Count");
+                AssertEqual(drawnReward.Level, recordedReward.Level, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Level");
+                AssertEqual(drawnReward.Quality, recordedReward.Quality, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Quality");
+                AssertEqual(drawnReward.Grade, recordedReward.Grade, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Grade");
+                AssertEqual(drawnReward.Breakthrough, recordedReward.Breakthrough, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Breakthrough");
+                AssertEqual(drawnReward.ConvertFrom, recordedReward.ConvertFrom, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.ConvertFrom");
+                AssertEqual(drawnReward.ShowQuality, recordedReward.ShowQuality, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.ShowQuality");
+            }
+            AssertEqual(drawGroupHistoryClientDrawInfo.BottomTimes, postDrawGroupHistoryResponse.BottomTimes, "DrawGroupGetHistoryResponse post-draw BottomTimes tracks draw 1488 progress");
+            AssertEqual(60, postDrawGroupHistoryResponse.MaxBottomTimes, "DrawGroupGetHistoryResponse post-draw MaxBottomTimes for draw 1488");
+            AssertDraw1488DuplicatePityTenDraw(eventConstruct1488);
             AssertRetailDrawInfoArt(
                 themedEventInfoResponse.DrawInfoList.Single(info => info.Id == 1498),
                 1498,
@@ -553,6 +2205,33 @@ namespace AscNet.Test
             AssertEqual(0, arrivalInfoResponse.Code, "DrawGetDrawInfoListResponse group 12 Code");
             DrawGetDrawInfoListResponse fateArrivalInfoResponse = ReadDrawInfoListForGroup(fateArrivalConstructGroupId, drawInfoPacketId + 14, drawGroupPlayerId, "draw-fate-arrival-info-compat-test");
             AssertEqual(0, fateArrivalInfoResponse.Code, "DrawGetDrawInfoListResponse group 13 Code");
+            AssertCurrentArrivalDrawInfoContents(
+                arrivalInfoResponse.DrawInfoList,
+                arrivalConstructGroupId,
+                new Dictionary<int, int>
+                {
+                    [1492] = 1291003,
+                    [1493] = 1381003,
+                    [1494] = 1171004
+                },
+                expectedBanner: "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
+                expectedMaxBottomTimes: 60,
+                expectedBottomTimes: 47,
+                "DrawGetDrawInfoListResponse group 12 Arrival Construct");
+            AssertCurrentArrivalDrawInfoContents(
+                fateArrivalInfoResponse.DrawInfoList,
+                fateArrivalConstructGroupId,
+                new Dictionary<int, int>
+                {
+                    [2486] = 1291003,
+                    [2487] = 1381003,
+                    [2488] = 1171004
+                },
+                expectedBanner: "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
+                expectedMaxBottomTimes: 100,
+                expectedBottomTimes: 100,
+                "DrawGetDrawInfoListResponse group 13 Fate Arrival Construct");
+            AssertCurrentArrivalConstructRewardRouting();
             AssertCurrentVersionJumpDrawTargetRows(
                 [
                     (3024, 1241002),
@@ -599,8 +2278,16 @@ namespace AscNet.Test
                     1041005,
                     1141004,
                     1391003,
-                    1341003,
-                    1061004
+                    1061004,
+                    1251002,
+                    1281002,
+                    1291002,
+                    1301002,
+                    1311002,
+                    1341002,
+                    1351003,
+                    1361003,
+                    1371002
                 ]);
             AssertCurrentCharacterGradeTablesAndPromotionBehavior();
 
@@ -768,6 +2455,7 @@ namespace AscNet.Test
 
             Item costItem = drawItemPush.ItemDataList.Single(item => item.Id == drawInfoBeforeCard.UseItemId);
             AssertEqual((long)(initialDrawTicketCount - drawInfoBeforeCard.UseItemCount), costItem.Count, "DrawDrawCardRequest NotifyItemDataList consumed draw ticket count");
+            AssertEqual(0, drawCardResponse.Code, "DrawDrawCardResponse Code");
             AssertEqual(1, drawCardResponse.RewardGoodsList.Count, "DrawDrawCardResponse RewardGoodsList count for 1x draw");
             RewardGoods reward = drawCardResponse.RewardGoodsList[0];
             AssertDrawRewardPushMatchesRewardGoods(drawInfoBeforeCard, reward, drawItemPush, drawEquipPush, "DrawDrawCardRequest reward notification");
@@ -780,6 +2468,7 @@ namespace AscNet.Test
             AssertEqual(drawInfoBeforeCard.TodayCount + 1, clientDrawInfo.TodayCount, "DrawDrawCardResponse ClientDrawInfo TodayCount after 1x draw");
             AssertEqual(drawInfoBeforeCard.BottomTimes - 1, clientDrawInfo.BottomTimes, "DrawDrawCardResponse ClientDrawInfo BottomTimes after 1x draw");
             AssertTargetWeaponPityDraw(drawPityPlayerId, drawInfoBeforeCard);
+            AssertDrawEquipRewardPushesRecycleFlag(drawInfoBeforeCard);
 
             const int consumeItemId = AscNet.Common.Database.Inventory.FreeGem;
             const int targetDrawTicketItemId = 50005;
@@ -826,6 +2515,366 @@ namespace AscNet.Test
                     nameof(ItemBuyAssetResponse),
                     "ItemBuyAssetRequest response");
                 AssertEqual(buyTimes, buyAssetResponse.Count, "ItemBuyAssetResponse Count");
+            }
+        }
+
+        private static void ValidateJetavieDaybreakTableCompatibility()
+        {
+            Dictionary<int, CharacterTable> characterRowsById = TableReaderV2.Parse<CharacterTable>().ToDictionary(character => character.Id);
+            ILookup<int, CharacterSkillTable> skillRowsByCharacterId = TableReaderV2.Parse<CharacterSkillTable>().ToLookup(skill => skill.CharacterId);
+            Dictionary<int, CharacterSkillGroupTable> skillGroupRowsById = TableReaderV2.Parse<CharacterSkillGroupTable>().ToDictionary(skillGroup => skillGroup.Id);
+            ILookup<int, CharacterSkillLevelEffectTable> skillLevelEffectRowsBySkillId = TableReaderV2.Parse<CharacterSkillLevelEffectTable>()
+                .ToLookup(skillLevelEffect => skillLevelEffect.SkillId);
+
+            CharacterTable jetavieDaybreak = characterRowsById.TryGetValue(1341002, out CharacterTable? jetavieDaybreakRow)
+                ? jetavieDaybreakRow
+                : throw new InvalidDataException("Jetavie: Daybreak Character.tsv row 1341002: expected local row.");
+
+            CharacterSkillTable[] jetavieDaybreakSkillRows = skillRowsByCharacterId[1341002].ToArray();
+            AssertEqual(1, jetavieDaybreakSkillRows.Length, "Jetavie: Daybreak CharacterSkill.tsv row 1341002 row count");
+            AssertJetavieDaybreakSkillMetadata(
+                jetavieDaybreak,
+                jetavieDaybreakSkillRows[0],
+                skillGroupRowsById,
+                skillLevelEffectRowsBySkillId,
+                "Jetavie: Daybreak table compatibility");
+        }
+
+
+        private static void AssertConstructShardTableCompatibility()
+        {
+            List<CharacterTable> characterRows = TableReaderV2.Parse<CharacterTable>();
+            Dictionary<int, CharacterTable> characterRowsById = characterRows.ToDictionary(character => character.Id);
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>().ToDictionary(equip => equip.Id);
+            Dictionary<int, FashionTable> fashionRowsById = TableReaderV2.Parse<FashionTable>().ToDictionary(fashion => fashion.Id);
+            ILookup<int, CharacterSkillTable> skillRowsByCharacterId = TableReaderV2.Parse<CharacterSkillTable>().ToLookup(skill => skill.CharacterId);
+            Dictionary<int, CharacterSkillGroupTable> skillGroupRowsById = TableReaderV2.Parse<CharacterSkillGroupTable>().ToDictionary(skillGroup => skillGroup.Id);
+            ILookup<int, CharacterSkillLevelEffectTable> skillLevelEffectRowsBySkillId = TableReaderV2.Parse<CharacterSkillLevelEffectTable>()
+                .ToLookup(skillLevelEffect => skillLevelEffect.SkillId);
+            ILookup<int, EquipBreakThroughTable> breakthroughRowsByEquipId = TableReaderV2.Parse<EquipBreakThroughTable>()
+                .ToLookup(breakthrough => breakthrough.EquipId);
+            ILookup<int, CharacterQualityTable> qualityRowsByCharacterId = TableReaderV2.Parse<CharacterQualityTable>().ToLookup(quality => quality.CharacterId);
+            Dictionary<int, List<CharacterGradeTable>> gradeRowsByCharacterId = TableReaderV2.Parse<CharacterGradeTable>()
+                .GroupBy(grade => grade.CharacterId)
+                .ToDictionary(group => group.Key, group => group.OrderBy(grade => grade.Grade).ToList());
+            Dictionary<int, string> expectedCurrentClientShardNames = new()
+            {
+                [562] = "Inver-Shard - Feral Scent",
+                [563] = "Inver-Shard - Indomitus",
+                [564] = "Inver-Shard - Echo",
+                [565] = "Inver-Shard - Lost Lullaby",
+                [566] = "Inver-Shard - BLACK★ROCK SHOOTER",
+                [567] = "Inver-Shard - Epitaph",
+                [568] = "Inver-Shard - Shukra",
+                [569] = "Inver-Shard - Decryptor",
+                [570] = "Inver-Shard - Oblivion",
+                [571] = "Inver-Shard - Ardeo",
+                [572] = "Inver-Shard - Solacetune",
+                [573] = "Inver-Shard - Lucid Dreamer",
+                [574] = "Inver-Shard - Pyroath",
+                [575] = "Inver-Shard - Fulgor",
+                [576] = "Inver-Shard - Startrail",
+                [577] = "Inver-Shard - Parhelion",
+                [578] = "Inver-Shard - Daemonissa",
+                [579] = "Inver-Shard - Pianissimo",
+                [580] = "Inver-Shard - Daybreak",
+                [581] = "Inver-Shard - Geiravor",
+                [582] = "Inver-Shard - Vergil",
+                [583] = "Inver-Shard - Dante",
+                [584] = "Inver-Shard - Crepuscule",
+                [585] = "Inver-Shard - Secator",
+                [586] = "Inver-Shard - Aegis",
+                [587] = "Inver-Shard - Limpidity",
+                [588] = "Inver-Shard - Spectre",
+                [589] = "Inver-Shard - Rête",
+                [590] = "Inver-Shard - Dirge",
+                [591] = "Inver-Shard - Aeternion",
+                [592] = "Inver-Shard - Inverse Crown"
+            };
+
+            int[] expectedCurrentClientPlayableCharacterIds =
+            [
+                1251002,
+                1281002,
+                1291002,
+                1301002,
+                1311002,
+                1341002,
+                1351003,
+                1361003,
+                1371002,
+                1291003,
+                1321003,
+                1381003
+            ];
+            Dictionary<int, (string LogName, int ItemId)> expectedCurrentClientCharacterIdentities = new()
+            {
+                [1291003] = ("Teddy: Spectre", 588),
+                [1311002] = ("Yata: Fulgor", 575),
+                [1321003] = ("Ishmael: Parhelion", 577),
+                [1341002] = ("Jetavie: Daybreak", 580),
+                [1381003] = ("Veronica: Aegis", 586)
+            };
+            Dictionary<int, (string Name, string TradeName, string LogName, int ItemId, int EquipType, int EquipId, int DefaultFashionId, int CaptainSkillId, string Code)> expectedCurrentClientCharacterIdentityRows = new()
+            {
+                [1131004] = ("Vera", "Geiravor", "Vera: Geiravor", 581, 54, 2544001, 6005001, 113422, "BPN-13"),
+                [1301002] = ("Bridget", "Ardeo", "Bridget: Ardeo", 571, 44, 2444001, 6004001, 130222, "BPO-42"),
+                [1341002] = ("Jetavie", "Daybreak", "Jetavie: Daybreak", 580, 53, 2534001, 6004901, 132222, "MAV-01")
+            };
+
+            (int Id, string Label)[] expectedCompatibilityCharacterDependencyRows =
+            [
+                (1531004, "Selena: Capriccio compatibility character"),
+                (1231002, "Bambinata: Vitrum compatibility character"),
+                (1241002, "Hanying: Zitherwoe compatibility character"),
+                (1221003, "No. 21: Feral compatibility character"),
+                (1251002, "Noctis: Indomitus compatibility character"),
+                (1261003, "Alisa: Echo compatibility character"),
+                (1271003, "Lamia: Lost Lullaby compatibility character"),
+                (1081004, "Watanabe: Epitaph compatibility character"),
+                (1281002, "BLACK★ROCK SHOOTER compatibility character"),
+                (1521004, "Qu: Shukra compatibility character"),
+                (1211003, "Wanshi: Lucid Dreamer compatibility character"),
+                (1291002, "Teddy: Decryptor compatibility character"),
+                (1171004, "Luna: Oblivion compatibility character"),
+                (1021006, "Lucia: Pyroath compatibility character"),
+                (1051005, "Nanami: Startrail compatibility character"),
+                (1241003, "Hanying: Solacetune compatibility character"),
+                (1311002, "Yata: Fulgor compatibility character"),
+                (1321003, "Ishmael: Parhelion compatibility character"),
+                (1331003, "Lilith: Daemonissa compatibility character"),
+                (1041005, "Bianca: Crepuscule compatibility character"),
+                (1531005, "Selena: Pianissimo compatibility character"),
+                (1141004, "Rosetta: Arete compatibility character"),
+                (1351003, "Vergil compatibility character"),
+                (1061004, "Kamui: Aeternion compatibility character"),
+                (1361003, "Dante compatibility character"),
+                (1371002, "Discord: Secator compatibility character"),
+                (1381003, "Veronica: Aegis compatibility character"),
+                (1031005, "Liv: Limpidity compatibility character"),
+                (1291003, "Teddy: Spectre compatibility character"),
+                (1391003, "Nirvatia: Dirge compatibility character"),
+                (1021007, "Lucia: Inverse Crown compatibility character")
+            ];
+            AssertCompatibilityCharacterDependencyRows(
+                expectedCompatibilityCharacterDependencyRows,
+                characterRowsById,
+                itemRowsById,
+                equipRowsById,
+                fashionRowsById,
+                skillRowsByCharacterId,
+                breakthroughRowsByEquipId);
+
+            for (int shardItemId = 562; shardItemId <= 592; shardItemId++)
+            {
+                if (!expectedCurrentClientShardNames.TryGetValue(shardItemId, out string? expectedName))
+                    throw new InvalidDataException($"Current client construct shard Item.tsv ids: expected assertion coverage for shard item {shardItemId}.");
+                ItemTable shardItem = itemRowsById.TryGetValue(shardItemId, out ItemTable? shardItemRow)
+                    ? shardItemRow
+                    : throw new InvalidDataException($"Current client construct shard Item.tsv ids 562..592: missing item row {shardItemId}.");
+                AssertConstructShardItem(shardItem, $"Current client construct shard Item.tsv row {shardItemId}");
+                AssertEqual(expectedName, shardItem.Name, $"Current client construct shard Item.tsv row {shardItemId} Name");
+            }
+
+            foreach (int characterId in expectedCurrentClientPlayableCharacterIds)
+            {
+                CharacterTable character = characterRowsById.TryGetValue(characterId, out CharacterTable? characterRow)
+                    ? characterRow
+                    : throw new InvalidDataException($"Current client playable Character.tsv row {characterId}: expected local row.");
+                AssertEqual(1, character.Type, $"Current client playable Character.tsv row {characterId} Type");
+            }
+
+            if (characterRowsById.ContainsKey(1341003))
+                throw new InvalidDataException("Current client playable Character.tsv rows: stale synthetic row 1341003 must not be present.");
+
+            foreach ((int characterId, (string expectedLogName, int expectedItemId)) in expectedCurrentClientCharacterIdentities)
+            {
+                CharacterTable character = characterRowsById.TryGetValue(characterId, out CharacterTable? characterRow)
+                    ? characterRow
+                    : throw new InvalidDataException($"Current client Character.tsv identity row {characterId}: expected local row.");
+                AssertEqual(expectedLogName, character.LogName, $"Current client Character.tsv row {characterId} LogName");
+                AssertEqual(expectedItemId, character.ItemId, $"Current client Character.tsv row {characterId} ItemId");
+            }
+
+            foreach ((int characterId, (string expectedName, string expectedTradeName, string expectedLogName, int expectedItemId, int expectedEquipType, int expectedEquipId, int expectedDefaultFashionId, int expectedCaptainSkillId, string expectedCode)) in expectedCurrentClientCharacterIdentityRows)
+            {
+                CharacterTable character = characterRowsById.TryGetValue(characterId, out CharacterTable? characterRow)
+                    ? characterRow
+                    : throw new InvalidDataException($"Current client Character.tsv identity row {characterId}: expected local row.");
+                AssertEqual(expectedName, character.Name, $"Current client Character.tsv row {characterId} Name");
+                AssertEqual(expectedTradeName, character.TradeName, $"Current client Character.tsv row {characterId} TradeName");
+                AssertEqual(expectedLogName, character.LogName, $"Current client Character.tsv row {characterId} LogName");
+                AssertEqual(expectedItemId, character.ItemId, $"Current client Character.tsv row {characterId} ItemId");
+                AssertEqual(expectedEquipType, character.EquipType, $"Current client Character.tsv row {characterId} EquipType");
+                AssertEqual(expectedEquipId, character.EquipId, $"Current client Character.tsv row {characterId} EquipId");
+                AssertEqual(expectedDefaultFashionId, character.DefaultNpcFashtionId, $"Current client Character.tsv row {characterId} DefaultNpcFashtionId");
+                AssertEqual(expectedCaptainSkillId, character.CaptainSkillId, $"Current client Character.tsv row {characterId} CaptainSkillId");
+                AssertEqual(expectedCode, character.Code, $"Current client Character.tsv row {characterId} Code");
+
+                EquipTable defaultEquip = equipRowsById.TryGetValue(expectedEquipId, out EquipTable? equipRow)
+                    ? equipRow
+                    : throw new InvalidDataException($"Current client Character.tsv row {characterId}: expected Equip.tsv row {expectedEquipId} for Character.tsv EquipId.");
+                AssertEqual(expectedEquipType, defaultEquip.Type, $"Current client Character.tsv row {characterId} default Equip.tsv Type");
+
+                FashionTable defaultFashion = fashionRowsById.TryGetValue(expectedDefaultFashionId, out FashionTable? fashionRow)
+                    ? fashionRow
+                    : throw new InvalidDataException($"Current client Character.tsv row {characterId}: expected Fashion.tsv row {expectedDefaultFashionId} for Character.tsv DefaultNpcFashtionId.");
+                AssertEqual(characterId, defaultFashion.CharacterId, $"Current client Character.tsv row {characterId} default Fashion.tsv CharacterId");
+            }
+
+            CharacterTable jetavieDaybreak = characterRowsById.TryGetValue(1341002, out CharacterTable? jetavieDaybreakRow)
+                ? jetavieDaybreakRow
+                : throw new InvalidDataException("Jetavie: Daybreak Character.tsv row 1341002: expected local row.");
+            CharacterSkillTable jetavieDaybreakSkill = skillRowsByCharacterId[1341002].SingleOrDefault()
+                ?? throw new InvalidDataException("Jetavie: Daybreak CharacterSkill.tsv row 1341002: expected local row.");
+            AssertJetavieDaybreakSkillMetadata(
+                jetavieDaybreak,
+                jetavieDaybreakSkill,
+                skillGroupRowsById,
+                skillLevelEffectRowsBySkillId,
+                "Jetavie: Daybreak current table metadata");
+
+            foreach (CharacterTable character in characterRows.Where(character => character.Type == 1))
+            {
+                if (character.ItemId <= 0)
+                    throw new InvalidDataException($"Construct Character.tsv row {character.Id} {character.Name}: expected positive ItemId, got {character.ItemId}.");
+                ItemTable shardItem = itemRowsById.TryGetValue(character.ItemId, out ItemTable? shardItemRow)
+                    ? shardItemRow
+                    : throw new InvalidDataException($"Construct Character.tsv row {character.Id} {character.Name}: expected Item.tsv row {character.ItemId}.");
+                AssertConstructShardItem(shardItem, $"Construct Character.tsv row {character.Id} {character.Name} ItemId {character.ItemId}");
+
+                if (!skillRowsByCharacterId[character.Id].Any())
+                    throw new InvalidDataException($"Playable Character.tsv row {character.Id} {character.Name}: expected at least one CharacterSkillTable row.");
+                if (!qualityRowsByCharacterId[character.Id].Any())
+                    throw new InvalidDataException($"Playable Character.tsv row {character.Id} {character.Name}: expected at least one CharacterQualityTable row.");
+                List<CharacterGradeTable> characterGradeRows = gradeRowsByCharacterId.TryGetValue(character.Id, out List<CharacterGradeTable>? gradeRows)
+                    ? gradeRows
+                    : throw new InvalidDataException($"Playable Character.tsv row {character.Id} {character.Name}: expected CharacterGradeTable rows.");
+                AssertEqual(14, characterGradeRows.Count, $"Playable Character.tsv row {character.Id} {character.Name} CharacterGradeTable row count");
+                AssertIntegerList(
+                    Enumerable.Range(1, 14).Select(grade => (long)grade).ToArray(),
+                    characterGradeRows.Select(grade => (long)grade.Grade).ToArray(),
+                    $"Playable Character.tsv row {character.Id} {character.Name} CharacterGradeTable sequential grades");
+            }
+        }
+
+        private static void AssertCompatibilityCharacterDependencyRows(
+            IReadOnlyList<(int Id, string Label)> expectedCharacterRows,
+            IReadOnlyDictionary<int, CharacterTable> characterRowsById,
+            IReadOnlyDictionary<int, ItemTable> itemRowsById,
+            IReadOnlyDictionary<int, EquipTable> equipRowsById,
+            IReadOnlyDictionary<int, FashionTable> fashionRowsById,
+            ILookup<int, CharacterSkillTable> skillRowsByCharacterId,
+            ILookup<int, EquipBreakThroughTable> breakthroughRowsByEquipId)
+        {
+            foreach ((int characterId, string label) in expectedCharacterRows)
+            {
+                CharacterTable character = characterRowsById.TryGetValue(characterId, out CharacterTable? characterRow)
+                    ? characterRow
+                    : throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected compatibility row.");
+
+                if (character.ItemId <= 0)
+                    throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected positive ItemId, got {character.ItemId}.");
+                if (!itemRowsById.ContainsKey(character.ItemId))
+                    throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected Item.tsv row {character.ItemId} for Character.tsv ItemId.");
+
+                if (character.EquipId <= 0)
+                    throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected positive EquipId, got {character.EquipId}.");
+                EquipTable defaultEquip = equipRowsById.TryGetValue(character.EquipId, out EquipTable? equipRow)
+                    ? equipRow
+                    : throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected Equip.tsv row {character.EquipId} for Character.tsv EquipId.");
+                AssertEqual(character.EquipType, defaultEquip.Type, $"{label} default Equip.tsv Type matches Character.tsv EquipType");
+
+                if (character.DefaultNpcFashtionId <= 0)
+                    throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected nonzero DefaultNpcFashtionId.");
+                FashionTable defaultFashion = fashionRowsById.TryGetValue(character.DefaultNpcFashtionId, out FashionTable? fashionRow)
+                    ? fashionRow
+                    : throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected Fashion.tsv row {character.DefaultNpcFashtionId} for Character.tsv DefaultNpcFashtionId.");
+                AssertEqual(characterId, defaultFashion.CharacterId, $"{label} default Fashion.tsv CharacterId");
+                AssertCompatibilityDefaultFashionVisuals(defaultFashion, $"{label} default Fashion.tsv row {defaultFashion.Id}");
+
+                if (!skillRowsByCharacterId[characterId].Any())
+                    throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected CharacterSkill.tsv row.");
+                if (!breakthroughRowsByEquipId[character.EquipId].Any())
+                    throw new InvalidDataException($"{label} Character.tsv row {characterId}: expected EquipBreakThrough.tsv rows for default EquipId {character.EquipId}.");
+            }
+        }
+
+        private static void AssertCompatibilityDefaultFashionVisuals(FashionTable fashion, string name)
+        {
+            AssertNonEmptyFashionAsset(fashion.Icon, $"{name} Icon");
+            AssertNonEmptyFashionAsset(fashion.BigIcon, $"{name} BigIcon");
+            AssertNonEmptyFashionAsset(fashion.SmallHeadIcon, $"{name} SmallHeadIcon");
+            AssertNonEmptyFashionAsset(fashion.SmallHeadIconFashion, $"{name} SmallHeadIconFashion");
+            AssertNonEmptyFashionAsset(fashion.BigHeadIcon, $"{name} BigHeadIcon");
+            AssertNonEmptyFashionAsset(fashion.BigHeadIconFashion, $"{name} BigHeadIconFashion");
+            AssertNonEmptyFashionAsset(fashion.RoundnessNotItemHeadIcon, $"{name} RoundnessNotItemHeadIcon");
+            AssertNonEmptyFashionAsset(fashion.RoundnessHeadIcon, $"{name} RoundnessHeadIcon");
+            AssertNonEmptyFashionAsset(fashion.BigRoundnessHeadIcon, $"{name} BigRoundnessHeadIcon");
+            AssertNonEmptyFashionAsset(fashion.HalfBodyImage, $"{name} HalfBodyImage");
+            AssertNonEmptyFashionAsset(fashion.RoleCharacterBigImage, $"{name} RoleCharacterBigImage");
+            AssertNonEmptyFashionAsset(fashion.CharacterIcon, $"{name} CharacterIcon");
+        }
+
+        private static void AssertNonEmptyFashionAsset(string? value, string name)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new InvalidDataException($"{name}: expected a non-empty visual/icon asset path.");
+        }
+
+        private static void AssertConstructShardItem(ItemTable shardItem, string name)
+        {
+            if (!shardItem.Name.StartsWith("Inver-Shard -", StringComparison.Ordinal))
+                throw new InvalidDataException($"{name}: expected Inver-Shard item name, got '{shardItem.Name}'.");
+            AssertEqual(8, shardItem.ItemType, $"{name} ItemType");
+            AssertEqual(4, shardItem.Quality, $"{name} Quality");
+            AssertEqual(999, shardItem.MaxCount, $"{name} MaxCount");
+            AssertEqual(999, shardItem.GridCount, $"{name} GridCount");
+        }
+
+        private static void AssertJetavieDaybreakSkillMetadata(
+            CharacterTable characterRow,
+            CharacterSkillTable skillRow,
+            IReadOnlyDictionary<int, CharacterSkillGroupTable> skillGroupRowsById,
+            ILookup<int, CharacterSkillLevelEffectTable> skillLevelEffectRowsBySkillId,
+            string name)
+        {
+            const int jetavieDaybreakCharacterId = 1341002;
+            (int SkillGroupId, int SkillId)[] expectedSkillRows =
+            [
+                (1322010, 132201),
+                (1322060, 132206),
+                (1322110, 132211),
+                (1322160, 132216),
+                (1322210, 132221),
+                (1322170, 132217),
+                (1322180, 132218),
+                (1322220, 132222),
+                (1322230, 132223),
+                (1322240, 132224),
+                (1322250, 132225),
+                (1322260, 132226),
+                (1322270, 132227)
+            ];
+
+            AssertEqual(jetavieDaybreakCharacterId, characterRow.Id, $"{name} Character.tsv Id");
+            AssertEqual(132222, characterRow.CaptainSkillId, $"{name} Character.tsv CaptainSkillId");
+            AssertEqual(jetavieDaybreakCharacterId, skillRow.CharacterId, $"{name} CharacterSkill.tsv CharacterId");
+            AssertIntegerList(
+                expectedSkillRows.Select(skill => (long)skill.SkillGroupId).ToArray(),
+                skillRow.SkillGroupId.Where(skillGroupId => skillGroupId > 0).Select(skillGroupId => (long)skillGroupId).ToArray(),
+                $"{name} CharacterSkill.tsv SkillGroupId");
+
+            foreach ((int expectedSkillGroupId, int expectedSkillId) in expectedSkillRows)
+            {
+                CharacterSkillGroupTable skillGroup = skillGroupRowsById.TryGetValue(expectedSkillGroupId, out CharacterSkillGroupTable? skillGroupRow)
+                    ? skillGroupRow
+                    : throw new InvalidDataException($"{name} CharacterSkillGroup.tsv row {expectedSkillGroupId}: expected local row.");
+                if (!skillGroup.SkillId.Contains(expectedSkillId))
+                    throw new InvalidDataException($"{name} CharacterSkillGroup.tsv row {expectedSkillGroupId}: expected SkillId {expectedSkillId}.");
+                if (!skillLevelEffectRowsBySkillId[expectedSkillId].Any(skillLevelEffect => skillLevelEffect.Level == 1))
+                    throw new InvalidDataException($"{name} CharacterSkillLevelEffect.tsv SkillId {expectedSkillId}: expected at least one level 1 row.");
             }
         }
 
@@ -881,25 +2930,618 @@ namespace AscNet.Test
                 throw new InvalidDataException("DrawDrawCardRequestHandler draw call: expected pull offset argument to load the draw loop index.");
         }
 
+        private static void AssertWeaponResearchDraw201Info(DrawGetDrawInfoListResponse response, int expectedGroupId)
+        {
+            const string name = "DrawGetDrawInfoListResponse group 2 weapon research draw 201";
+            AssertEqual(0, response.Code, "DrawGetDrawInfoListResponse group 2 Code");
+            AssertEqual(1, response.DrawInfoList.Count, "DrawGetDrawInfoListResponse group 2 retail draw info count");
+            DrawInfo drawInfo = response.DrawInfoList.Single();
+            AssertEqual(1, drawInfo.DrawType, $"{name} DrawType");
+            AssertEqual(50001, drawInfo.UseItemId, $"{name} UseItemId");
+            AssertEqual(250, drawInfo.UseItemCount, $"{name} UseItemCount");
+            AssertEqual(17, drawInfo.BottomTimes, $"{name} BottomTimes");
+            AssertEqual(30, drawInfo.MaxBottomTimes, $"{name} MaxBottomTimes");
+            AssertRetailDrawInfoArt(
+                drawInfo,
+                201,
+                expectedGroupId,
+                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaboration07.prefab",
+                new Dictionary<int, string>(),
+                new Dictionary<int, int>(),
+                [],
+                0,
+                name);
+            AssertIntegerList([], drawInfo.PurchaseId.Select(purchaseId => (long)purchaseId).ToArray(), $"{name} PurchaseId");
+            AssertEqual(0, drawInfo.CapacityCheckType, $"{name} CapacityCheckType");
+            AssertEqual(false, drawInfo.IsShowShop, $"{name} IsShowShop");
+        }
+
+        private static void AssertCurrentArrivalDrawInfoContents(
+            IReadOnlyList<DrawInfo> drawInfos,
+            int expectedGroupId,
+            IReadOnlyDictionary<int, int> expectedTargetIdsByDrawId,
+            string expectedBanner,
+            int expectedMaxBottomTimes,
+            int expectedBottomTimes,
+            string name)
+        {
+            AssertEqual(expectedTargetIdsByDrawId.Count, drawInfos.Count, $"{name} retail draw info count");
+            long[] expectedPurchaseIds = [1969, 2063, 2064, 2059, 2060, 2061, 2062, 2065, 2066, 2067, 2068, 2069, 2070, 2072];
+            foreach ((int drawId, int expectedTargetId) in expectedTargetIdsByDrawId.OrderBy(entry => entry.Key))
+            {
+                DrawInfo drawInfo = drawInfos.Single(info => info.Id == drawId);
+                string drawName = $"{name} draw {drawId}";
+                AssertEqual(3, drawInfo.DrawType, $"{drawName} DrawType");
+                AssertEqual(50005, drawInfo.UseItemId, $"{drawName} UseItemId");
+                AssertEqual(250, drawInfo.UseItemCount, $"{drawName} UseItemCount");
+                AssertEqual(expectedMaxBottomTimes, drawInfo.MaxBottomTimes, $"{drawName} MaxBottomTimes");
+                AssertEqual(expectedBottomTimes, drawInfo.BottomTimes, $"{drawName} BottomTimes");
+                AssertEqual(1782370800L, drawInfo.StartTime, $"{drawName} StartTime");
+                AssertEqual(1783580340L, drawInfo.EndTime, $"{drawName} EndTime");
+                AssertRetailDrawInfoArt(
+                    drawInfo,
+                    drawId,
+                    expectedGroupId,
+                    expectedBanner,
+                    new Dictionary<int, string>(),
+                    new Dictionary<int, int> { [1] = expectedTargetId },
+                    [5, 6, 2],
+                    0,
+                    drawName);
+                AssertIntegerList(expectedPurchaseIds, drawInfo.PurchaseId.Select(purchaseId => (long)purchaseId).ToArray(), $"{drawName} PurchaseId");
+            }
+        }
+
+        private static void AssertCurrentArrivalConstructRewardRouting()
+        {
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            Type drawInfoTemplateType = drawManagerType.GetNestedType("DrawInfoTemplate", BindingFlags.NonPublic)
+                ?? throw new MissingMemberException(drawManagerType.FullName, "DrawInfoTemplate");
+            MethodInfo drawRetailReward = RequiredMethod(
+                drawManagerType,
+                "DrawRetailReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawCharacterReward = RequiredMethod(
+                drawManagerType,
+                "DrawCharacterReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawLegacyCharacterReward = RequiredMethod(
+                drawManagerType,
+                "DrawLegacyCharacterReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawEquipReward = RequiredMethod(
+                drawManagerType,
+                "DrawEquipReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawFallbackItemReward = RequiredMethod(
+                drawManagerType,
+                "DrawFallbackItemReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            List<IlInstruction> drawRetailRewardInstructions = ReadIlInstructions(drawRetailReward).ToList();
+            MethodInfo[] routedRewardMethods = [drawCharacterReward, drawLegacyCharacterReward, drawEquipReward, drawFallbackItemReward];
+            AssertDrawRetailRewardRoutesGroup(
+                drawRetailRewardInstructions,
+                routedRewardMethods,
+                groupId: 12,
+                expectedMethod: drawCharacterReward,
+                "Draw group 12 normal Arrival Construct reward routing");
+            AssertDrawRetailRewardRoutesGroup(
+                drawRetailRewardInstructions,
+                routedRewardMethods,
+                groupId: 13,
+                expectedMethod: drawLegacyCharacterReward,
+                "Draw group 13 Fate Arrival Construct reward routing");
+            AssertNormalCharacterRewardRetailRates(drawCharacterReward, "Draw group 12 normal Arrival Construct reward rates");
+            AssertLegacyCharacterRewardRetailRates(drawLegacyCharacterReward, "Draw group 13 Fate Arrival Construct reward rates");
+        }
+
+        private static void AssertCurrentWeaponRewardRoutingAndRates(int weaponResearchGroupId, int targetWeaponResearchGroupId)
+        {
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            Type drawInfoTemplateType = drawManagerType.GetNestedType("DrawInfoTemplate", BindingFlags.NonPublic)
+                ?? throw new MissingMemberException(drawManagerType.FullName, "DrawInfoTemplate");
+            MethodInfo drawRetailReward = RequiredMethod(
+                drawManagerType,
+                "DrawRetailReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawCharacterReward = RequiredMethod(
+                drawManagerType,
+                "DrawCharacterReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawLegacyCharacterReward = RequiredMethod(
+                drawManagerType,
+                "DrawLegacyCharacterReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawEquipReward = RequiredMethod(
+                drawManagerType,
+                "DrawEquipReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType, typeof(bool)]);
+            MethodInfo drawPreviewEquipReward = RequiredMethod(
+                drawManagerType,
+                "DrawPreviewEquipReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType]);
+            MethodInfo drawRandomWeaponReward = RequiredMethod(
+                drawManagerType,
+                "DrawRandomWeaponReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(int), typeof(int)]);
+            MethodInfo drawFallbackItemReward = RequiredMethod(
+                drawManagerType,
+                "DrawFallbackItemReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            List<IlInstruction> drawRetailRewardInstructions = ReadIlInstructions(drawRetailReward).ToList();
+            MethodInfo[] routedRewardMethods = [drawCharacterReward, drawLegacyCharacterReward, drawEquipReward, drawFallbackItemReward];
+            AssertDrawRetailRewardRoutesGroup(
+                drawRetailRewardInstructions,
+                routedRewardMethods,
+                weaponResearchGroupId,
+                drawEquipReward,
+                "Draw group 2 Weapon Research reward routing");
+            AssertDrawRetailRewardRoutesGroup(
+                drawRetailRewardInstructions,
+                routedRewardMethods,
+                targetWeaponResearchGroupId,
+                drawEquipReward,
+                "Draw group 4 Target Weapon Research reward routing");
+            AssertEquipRewardRetailRates(
+                drawEquipReward,
+                drawPreviewEquipReward,
+                drawRandomWeaponReward,
+                "Draw group 2/4 weapon reward rates");
+        }
+
+
+        private enum IlVirtualValue
+        {
+            TemplateArgument,
+            ForceRareArgument,
+            Unknown
+        }
+
+        private static void AssertDrawRetailRewardRoutesGroup(
+            IReadOnlyList<IlInstruction> instructions,
+            IReadOnlyList<MethodInfo> routedRewardMethods,
+            int groupId,
+            MethodInfo expectedMethod,
+            string name)
+        {
+            MethodInfo groupIdGetter = routedRewardMethods[0].GetParameters()[0].ParameterType
+                .GetProperty("GroupId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetMethod
+                ?? throw new MissingMemberException(routedRewardMethods[0].GetParameters()[0].ParameterType.FullName, "GroupId");
+            MethodInfo routedMethod = ResolveFirstCalledCandidateForGroup(instructions, groupIdGetter, groupId, routedRewardMethods, name)
+                ?? throw new InvalidDataException($"{name}: expected group {groupId} route to call a retail reward branch.");
+            if (!MethodsMatch(routedMethod, expectedMethod))
+                throw new InvalidDataException($"{name}: expected group {groupId} to route to {expectedMethod.Name}, got {routedMethod.Name}.");
+        }
+
+        private static MethodInfo? ResolveFirstCalledCandidateForGroup(
+            IReadOnlyList<IlInstruction> instructions,
+            MethodInfo groupIdGetter,
+            int groupId,
+            IReadOnlyList<MethodInfo> candidates,
+            string name)
+        {
+            Stack<object?> stack = new();
+            Dictionary<int, object?> locals = new();
+            int index = 0;
+            for (int inspected = 0; inspected < 256; inspected++)
+            {
+                if (index < 0 || index >= instructions.Count)
+                    return null;
+
+                IlInstruction instruction = instructions[index];
+                if (LdcI4Value(instruction) is int intValue)
+                {
+                    stack.Push(intValue);
+                    index++;
+                    continue;
+                }
+                if (IsLoadArgument(instruction, 0))
+                {
+                    stack.Push(IlVirtualValue.TemplateArgument);
+                    index++;
+                    continue;
+                }
+                if (IsLoadArgument(instruction, 1))
+                {
+                    stack.Push(IlVirtualValue.ForceRareArgument);
+                    index++;
+                    continue;
+                }
+                if (LoadLocalIndex(instruction) is int loadLocalIndex)
+                {
+                    stack.Push(locals.GetValueOrDefault(loadLocalIndex, IlVirtualValue.Unknown));
+                    index++;
+                    continue;
+                }
+                if (StoreLocalIndex(instruction) is int storeLocalIndex)
+                {
+                    locals[storeLocalIndex] = PopIlValue(stack, name);
+                    index++;
+                    continue;
+                }
+                if (instruction.OpCode == OpCodes.Sub)
+                {
+                    int right = PopIlInt(stack, name);
+                    int left = PopIlInt(stack, name);
+                    stack.Push(left - right);
+                    index++;
+                    continue;
+                }
+                if (instruction.OpCode == OpCodes.Ceq)
+                {
+                    object? right = PopIlValue(stack, name);
+                    object? left = PopIlValue(stack, name);
+                    stack.Push(Equals(left, right) ? 1 : 0);
+                    index++;
+                    continue;
+                }
+                if (instruction.OpCode == OpCodes.Cgt || instruction.OpCode == OpCodes.Cgt_Un)
+                {
+                    int right = PopIlInt(stack, name);
+                    int left = PopIlInt(stack, name);
+                    stack.Push(left > right ? 1 : 0);
+                    index++;
+                    continue;
+                }
+                if (instruction.OpCode == OpCodes.Clt || instruction.OpCode == OpCodes.Clt_Un)
+                {
+                    int right = PopIlInt(stack, name);
+                    int left = PopIlInt(stack, name);
+                    stack.Push(left < right ? 1 : 0);
+                    index++;
+                    continue;
+                }
+                if (instruction.OpCode == OpCodes.Switch && instruction.Operand is int[] switchTargets)
+                {
+                    int switchValue = PopIlInt(stack, name);
+                    int targetOffset = switchValue >= 0 && switchValue < switchTargets.Length
+                        ? switchTargets[switchValue]
+                        : instructions[index + 1].Offset;
+                    index = FindIlInstructionIndexByOffset(instructions, targetOffset, name);
+                    continue;
+                }
+                if (instruction.OpCode.FlowControl == FlowControl.Cond_Branch && instruction.Operand is int conditionalTargetOffset)
+                {
+                    bool branchTaken = EvaluateConditionalBranch(instruction.OpCode, stack, name);
+                    index = branchTaken
+                        ? FindIlInstructionIndexByOffset(instructions, conditionalTargetOffset, name)
+                        : index + 1;
+                    continue;
+                }
+                if (instruction.OpCode.FlowControl == FlowControl.Branch && instruction.Operand is int branchTargetOffset)
+                {
+                    index = FindIlInstructionIndexByOffset(instructions, branchTargetOffset, name);
+                    continue;
+                }
+                if (instruction.Operand is MethodBase calledMethod)
+                {
+                    MethodInfo? candidate = candidates.FirstOrDefault(candidate => MethodsMatch(calledMethod, candidate));
+                    if (candidate is not null)
+                        return candidate;
+                    if (MethodsMatch(calledMethod, groupIdGetter))
+                    {
+                        _ = PopIlValue(stack, name);
+                        stack.Push(groupId);
+                        index++;
+                        continue;
+                    }
+
+                    stack.Clear();
+                    stack.Push(IlVirtualValue.Unknown);
+                    index++;
+                    continue;
+                }
+                if (instruction.OpCode.FlowControl == FlowControl.Return || instruction.OpCode == OpCodes.Throw)
+                    return null;
+
+                index++;
+            }
+
+            throw new InvalidDataException($"{name}: expected reward routing branch to resolve within 256 IL instructions.");
+        }
+
+        private static bool EvaluateConditionalBranch(OpCode opCode, Stack<object?> stack, string name)
+        {
+            if (opCode == OpCodes.Brtrue || opCode == OpCodes.Brtrue_S)
+                return PopIlInt(stack, name) != 0;
+            if (opCode == OpCodes.Brfalse || opCode == OpCodes.Brfalse_S)
+                return PopIlInt(stack, name) == 0;
+
+            int right = PopIlInt(stack, name);
+            int left = PopIlInt(stack, name);
+            if (opCode == OpCodes.Beq || opCode == OpCodes.Beq_S)
+                return left == right;
+            if (opCode == OpCodes.Bne_Un || opCode == OpCodes.Bne_Un_S)
+                return left != right;
+            if (opCode == OpCodes.Blt || opCode == OpCodes.Blt_S || opCode == OpCodes.Blt_Un || opCode == OpCodes.Blt_Un_S)
+                return left < right;
+            if (opCode == OpCodes.Ble || opCode == OpCodes.Ble_S || opCode == OpCodes.Ble_Un || opCode == OpCodes.Ble_Un_S)
+                return left <= right;
+            if (opCode == OpCodes.Bgt || opCode == OpCodes.Bgt_S || opCode == OpCodes.Bgt_Un || opCode == OpCodes.Bgt_Un_S)
+                return left > right;
+            if (opCode == OpCodes.Bge || opCode == OpCodes.Bge_S || opCode == OpCodes.Bge_Un || opCode == OpCodes.Bge_Un_S)
+                return left >= right;
+
+            throw new InvalidDataException($"{name}: unsupported conditional branch opcode {opCode}.");
+        }
+
+        private static object? PopIlValue(Stack<object?> stack, string name)
+        {
+            if (stack.Count == 0)
+                throw new InvalidDataException($"{name}: expected value on IL evaluation stack.");
+
+            return stack.Pop();
+        }
+
+        private static int PopIlInt(Stack<object?> stack, string name)
+        {
+            object? value = PopIlValue(stack, name);
+            if (value is int intValue)
+                return intValue;
+
+            throw new InvalidDataException($"{name}: expected integer on IL evaluation stack, got {value ?? "nil"}.");
+        }
+
+        private static bool IsLoadArgument(IlInstruction instruction, int argumentIndex)
+        {
+            if (argumentIndex == 0 && instruction.OpCode == OpCodes.Ldarg_0)
+                return true;
+            if (argumentIndex == 1 && instruction.OpCode == OpCodes.Ldarg_1)
+                return true;
+            if (argumentIndex == 2 && instruction.OpCode == OpCodes.Ldarg_2)
+                return true;
+            if (argumentIndex == 3 && instruction.OpCode == OpCodes.Ldarg_3)
+                return true;
+
+            return (instruction.OpCode == OpCodes.Ldarg || instruction.OpCode == OpCodes.Ldarg_S)
+                && instruction.Operand is int operandArgumentIndex
+                && operandArgumentIndex == argumentIndex;
+        }
+
+        private static int? LoadLocalIndex(IlInstruction instruction)
+        {
+            if (instruction.OpCode == OpCodes.Ldloc_0)
+                return 0;
+            if (instruction.OpCode == OpCodes.Ldloc_1)
+                return 1;
+            if (instruction.OpCode == OpCodes.Ldloc_2)
+                return 2;
+            if (instruction.OpCode == OpCodes.Ldloc_3)
+                return 3;
+            if ((instruction.OpCode == OpCodes.Ldloc || instruction.OpCode == OpCodes.Ldloc_S) && instruction.Operand is int localIndex)
+                return localIndex;
+
+            return null;
+        }
+
+        private static int? StoreLocalIndex(IlInstruction instruction)
+        {
+            if (instruction.OpCode == OpCodes.Stloc_0)
+                return 0;
+            if (instruction.OpCode == OpCodes.Stloc_1)
+                return 1;
+            if (instruction.OpCode == OpCodes.Stloc_2)
+                return 2;
+            if (instruction.OpCode == OpCodes.Stloc_3)
+                return 3;
+            if ((instruction.OpCode == OpCodes.Stloc || instruction.OpCode == OpCodes.Stloc_S) && instruction.Operand is int localIndex)
+                return localIndex;
+
+            return null;
+        }
+
+        private static int FindIlInstructionIndexByOffset(IReadOnlyList<IlInstruction> instructions, int offset, string name)
+        {
+            for (int index = 0; index < instructions.Count; index++)
+            {
+                if (instructions[index].Offset == offset)
+                    return index;
+            }
+
+            throw new InvalidDataException($"{name}: expected IL target offset {offset} to resolve to an instruction.");
+        }
+
+        private static void AssertNormalCharacterRewardRetailRates(MethodInfo drawCharacterReward, string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(drawCharacterReward).ToList();
+            const int rollUpperBound = 9860;
+            int[] cumulativeThresholds = [50, 1445, 3656, 6495, 7937, 8418];
+            MethodInfo randomNextInt = RequiredMethod(
+                typeof(Random),
+                nameof(Random.Next),
+                BindingFlags.Instance | BindingFlags.Public,
+                [typeof(int)]);
+            bool usesRetailRollRange = instructions
+                .Select((instruction, index) => (instruction, index))
+                .Any(candidate => LdcI4Value(candidate.instruction) == rollUpperBound
+                    && instructions
+                        .Skip(candidate.index + 1)
+                        .Take(8)
+                        .Any(instruction => instruction.Operand is MethodBase calledMethod
+                            && MethodsMatch(calledMethod, randomNextInt)));
+            if (!usesRetailRollRange)
+                throw new InvalidDataException($"{name}: expected DrawCharacterReward to roll Random.Shared.Next(9860).");
+            AssertMethodContainsOrderedIntConstants(drawCharacterReward, instructions, cumulativeThresholds, name);
+
+            List<long> branchWeights = [];
+            int previousThreshold = 0;
+            foreach (int threshold in cumulativeThresholds.Append(rollUpperBound))
+            {
+                branchWeights.Add(threshold - previousThreshold);
+                previousThreshold = threshold;
+            }
+            AssertIntegerList([50, 1395, 2211, 2839, 1442, 481, 1442], branchWeights, $"{name} branch weights");
+        }
+
+        private static void AssertLegacyCharacterRewardRetailRates(MethodInfo drawLegacyCharacterReward, string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(drawLegacyCharacterReward).ToList();
+            MethodInfo randomNextDouble = RequiredMethod(
+                typeof(Random),
+                nameof(Random.NextDouble),
+                BindingFlags.Instance | BindingFlags.Public,
+                Type.EmptyTypes);
+            if (FindCallIndex(instructions, randomNextDouble, startIndex: 0) < 0)
+                throw new InvalidDataException($"{name}: expected DrawLegacyCharacterReward to roll Random.Shared.NextDouble().");
+            AssertMethodContainsOrderedDoubleConstants(drawLegacyCharacterReward, instructions, [0.015, 0.25, 0.58], name);
+        }
+
+        private static void AssertEquipRewardRetailRates(MethodInfo drawEquipReward, MethodInfo drawPreviewEquipReward, MethodInfo drawRandomWeaponReward, string name)
+        {
+            List<IlInstruction> instructions = ReadIlInstructions(drawEquipReward).ToList();
+            const int rollUpperBound = 10000;
+            int[] cumulativeThresholds = [400, 450, 600, 750, 4090, 6880, 7815, 8750];
+            MethodInfo randomNextInt = RequiredMethod(
+                typeof(Random),
+                nameof(Random.Next),
+                BindingFlags.Instance | BindingFlags.Public,
+                [typeof(int)]);
+            MethodInfo randomSharedGetter = typeof(Random).GetProperty(nameof(Random.Shared), BindingFlags.Static | BindingFlags.Public)?.GetMethod
+                ?? throw new MissingMemberException(typeof(Random).FullName, nameof(Random.Shared));
+            bool usesRetailRollRange = instructions
+                .Select((instruction, index) => (instruction, index))
+                .Any(candidate =>
+                {
+                    if (candidate.instruction.Operand is not MethodBase calledMethod || !MethodsMatch(calledMethod, randomNextInt))
+                        return false;
+
+                    int windowStart = Math.Max(0, candidate.index - 8);
+                    return InstructionWindowHasConstant(instructions, rollUpperBound, candidate.index, maxInstructionsBack: 8)
+                        && instructions
+                            .Skip(windowStart)
+                            .Take(candidate.index - windowStart)
+                            .Any(instruction => instruction.Operand is MethodBase sharedMethod && MethodsMatch(sharedMethod, randomSharedGetter));
+                });
+            if (!usesRetailRollRange)
+                throw new InvalidDataException($"{name}: expected DrawEquipReward to roll Random.Shared.Next(10000).");
+            AssertMethodContainsOrderedIntConstants(drawEquipReward, instructions, cumulativeThresholds, name);
+
+            List<long> branchWeights = [];
+            int previousThreshold = 0;
+            foreach (int threshold in cumulativeThresholds.Append(rollUpperBound))
+            {
+                branchWeights.Add(threshold - previousThreshold);
+                previousThreshold = threshold;
+            }
+            AssertIntegerList([400, 50, 150, 150, 3340, 2790, 935, 935, 1250], branchWeights.ToArray(), $"{name} branch weights");
+
+            int previewEquipRewardIndex = FindCallIndex(instructions, drawPreviewEquipReward, startIndex: 0);
+            if (previewEquipRewardIndex < 0)
+                throw new InvalidDataException($"{name}: expected DrawEquipReward low five-star branch to call DrawPreviewEquipReward.");
+            int previewFallbackIndex = FindCallIndex(instructions, drawRandomWeaponReward, previewEquipRewardIndex + 1);
+            if (previewFallbackIndex < 0 || !InstructionWindowHasConstant(instructions, 5, previewFallbackIndex, maxInstructionsBack: 10))
+                throw new InvalidDataException($"{name}: expected DrawPreviewEquipReward nil safety fallback to DrawRandomWeaponReward(quality: 5).");
+        }
+
+
+        private static void AssertMethodContainsOrderedIntConstants(MethodInfo method, IReadOnlyList<IlInstruction> instructions, IReadOnlyList<int> expectedConstants, string name)
+        {
+            int lastConstantIndex = -1;
+            foreach (int expectedConstant in expectedConstants)
+            {
+                int constantIndex = instructions.ToList().FindIndex(lastConstantIndex + 1, instruction => LdcI4Value(instruction) == expectedConstant);
+                if (constantIndex < 0)
+                    throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} IL to contain ordered constant {expectedConstant}.");
+                lastConstantIndex = constantIndex;
+            }
+        }
+
+        private static void AssertMethodContainsOrderedDoubleConstants(MethodInfo method, IReadOnlyList<IlInstruction> instructions, IReadOnlyList<double> expectedConstants, string name)
+        {
+            int lastConstantIndex = -1;
+            foreach (double expectedConstant in expectedConstants)
+            {
+                int constantIndex = instructions.ToList().FindIndex(lastConstantIndex + 1, instruction =>
+                    LdcR8Value(instruction) is double value && Math.Abs(value - expectedConstant) < 0.0000000001);
+                if (constantIndex < 0)
+                    throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} IL to contain ordered constant {expectedConstant}.");
+                lastConstantIndex = constantIndex;
+            }
+        }
+
         private static void AssertDraw1488RetailRewardPool(DrawInfo eventConstruct1488, long drawPityPlayerId, int weaponResearchGroupId, int targetWeaponResearchGroupId, int cubTargetGroupId)
         {
             AssertEqual(false, eventConstruct1488.GroupId == weaponResearchGroupId || eventConstruct1488.GroupId == targetWeaponResearchGroupId || eventConstruct1488.GroupId == cubTargetGroupId, "Draw 1488 retail-like reward routing uses construct reward pool");
             AssertTargetCharacterPityDraw(drawPityPlayerId, eventConstruct1488, expectedTargetCharacterId: 1021007, targetName: "Lucia: Inverse Crown");
 
+            const int targetCharacterId = 1021007;
+            const int excludedVeraGeiravorCharacterId = 1131004;
+            const int targetShardItemId = 592;
+            const string targetShardItemName = "Inver-Shard - Inverse Crown";
+            const int excludedVeraGeiravorShardItemId = 581;
+            const string excludedVeraGeiravorShardItemName = "Inver-Shard - Geiravor";
             List<CharacterTable> characterRows = TableReaderV2.Parse<CharacterTable>();
-            List<ItemTable> itemRows = TableReaderV2.Parse<ItemTable>();
-            int targetCharacterId = eventConstruct1488.ResourceIds.TryGetValue(1, out int resourceId)
+            Dictionary<int, CharacterTable> characterRowsById = characterRows.ToDictionary(character => character.Id);
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            CharacterTable targetCharacter = characterRowsById.TryGetValue(targetCharacterId, out CharacterTable? targetCharacterRow)
+                ? targetCharacterRow
+                : throw new InvalidDataException("Draw 1488 Lucia: Inverse Crown Character.tsv: expected character row 1021007.");
+            AssertEqual(targetShardItemId, targetCharacter.ItemId, "Draw 1488 Lucia: Inverse Crown Character.tsv ItemId");
+            ItemTable targetShardItem = itemRowsById.TryGetValue(targetShardItemId, out ItemTable? targetShardItemRow)
+                ? targetShardItemRow
+                : throw new InvalidDataException("Draw 1488 Lucia: Inverse Crown shard Item.tsv: expected item row 592.");
+            AssertEqual(targetShardItemName, targetShardItem.Name, "Draw 1488 Lucia: Inverse Crown Item.tsv shard name");
+            CharacterTable excludedVeraGeiravorCharacter = characterRowsById.TryGetValue(excludedVeraGeiravorCharacterId, out CharacterTable? excludedVeraGeiravorCharacterRow)
+                ? excludedVeraGeiravorCharacterRow
+                : throw new InvalidDataException("Draw 1488 Vera: Geiravor Character.tsv: expected character row 1131004.");
+            AssertEqual(excludedVeraGeiravorShardItemId, excludedVeraGeiravorCharacter.ItemId, "Draw 1488 Vera: Geiravor Character.tsv ItemId");
+            ItemTable excludedVeraGeiravorShardItem = itemRowsById.TryGetValue(excludedVeraGeiravorShardItemId, out ItemTable? excludedVeraGeiravorShardItemRow)
+                ? excludedVeraGeiravorShardItemRow
+                : throw new InvalidDataException("Draw 1488 Vera: Geiravor shard Item.tsv: expected item row 581.");
+            AssertEqual(excludedVeraGeiravorShardItemName, excludedVeraGeiravorShardItem.Name, "Draw 1488 Vera: Geiravor Item.tsv shard name");
+            int configuredTargetCharacterId = eventConstruct1488.ResourceIds.TryGetValue(1, out int resourceId)
                 ? resourceId
                 : throw new InvalidDataException("Draw 1488 ResourceIds: expected target character id in slot 1.");
-            CharacterTable? targetCharacter = characterRows.SingleOrDefault(character => character.Id == targetCharacterId);
-            int[] capturedShardItemIds = [561, 533, 528, 502];
-            int[] localShardItemIds = targetCharacter?.ItemId > 0 ? capturedShardItemIds.Append(targetCharacter.ItemId).Distinct().ToArray() : capturedShardItemIds;
-            foreach (int shardItemId in localShardItemIds)
+            AssertEqual(targetCharacterId, configuredTargetCharacterId, "Draw 1488 configured target character id");
+
+            DrawPreviewTable preview = TableReaderV2.Parse<DrawPreviewTable>().SingleOrDefault(preview => preview.Id == eventConstruct1488.Id)
+                ?? throw new InvalidDataException("Draw 1488 preview shard pool: expected DrawPreview row 1488.");
+            int[] previewCharacterIds = preview.UpGoodsId
+                .Concat(preview.GoodsId)
+                .Where(characterRowsById.ContainsKey)
+                .Distinct()
+                .ToArray();
+            AssertEqual(true, previewCharacterIds.Contains(targetCharacterId), "Draw 1488 preview/config includes Lucia: Inverse Crown character 1021007");
+            AssertEqual(false, previewCharacterIds.Contains(excludedVeraGeiravorCharacterId), "Draw 1488 preview/config excludes Vera: Geiravor character 1131004");
+
+            int[] previewShardCharacterIds = preview.GoodsId
+                .Where(characterId => characterRowsById.TryGetValue(characterId, out CharacterTable? character)
+                    && AscNet.Common.Database.Inventory.IsValidClientItemId(character.ItemId))
+                .Distinct()
+                .ToArray();
+            int[] previewShardItemIds = previewShardCharacterIds
+                .Select(characterId => characterRowsById[characterId].ItemId)
+                .Distinct()
+                .ToArray();
+            if (previewShardItemIds.Length == 0)
+                throw new InvalidDataException("Draw 1488 preview-derived shard pool: expected at least one valid DrawPreview.GoodsId character shard ItemId.");
+            int[] offBannerShardItemIds = previewShardCharacterIds
+                .Where(characterId => characterId != targetCharacterId)
+                .Select(characterId => characterRowsById[characterId].ItemId)
+                .Distinct()
+                .ToArray();
+            if (offBannerShardItemIds.Length == 0)
+                throw new InvalidDataException("Draw 1488 preview-derived shard pool: expected at least one valid off-banner DrawPreview.GoodsId shard ItemId.");
+            AssertEqual(false, previewShardCharacterIds.Contains(excludedVeraGeiravorCharacterId), "Draw 1488 preview-derived shard pool excludes Vera: Geiravor character 1131004");
+            AssertEqual(false, previewShardItemIds.Contains(excludedVeraGeiravorShardItemId), "Draw 1488 preview-derived shard pool excludes Vera: Geiravor shard item 581");
+            foreach (int shardItemId in previewShardItemIds)
             {
-                ItemTable shardItem = itemRows.SingleOrDefault(item => item.Id == shardItemId)
-                    ?? throw new InvalidDataException($"Draw 1488 shard pool: expected local Inver-Shard item {shardItemId}.");
+                if (!itemRowsById.TryGetValue(shardItemId, out ItemTable? shardItem))
+                    throw new InvalidDataException($"Draw 1488 preview-derived shard pool: expected local Inver-Shard item {shardItemId}.");
                 if (!shardItem.Name.StartsWith("Inver-Shard", StringComparison.Ordinal))
-                    throw new InvalidDataException($"Draw 1488 shard pool item {shardItem.Id}: expected Inver-Shard item name, got '{shardItem.Name}'.");
+                    throw new InvalidDataException($"Draw 1488 preview-derived shard pool item {shardItem.Id}: expected Inver-Shard item name, got '{shardItem.Name}'.");
             }
 
             Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
@@ -924,11 +3566,6 @@ namespace AscNet.Test
                 "TryCreateTargetCharacterReward",
                 BindingFlags.Static | BindingFlags.NonPublic,
                 [drawInfoTemplateType, typeof(RewardGoods).MakeByRefType()]);
-            MethodInfo drawRandomCharacterReward = RequiredMethod(
-                drawManagerType,
-                "DrawRandomCharacterReward",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(int)]);
             MethodInfo drawOverclockMaterialReward = RequiredMethod(
                 drawManagerType,
                 "DrawOverclockMaterialReward",
@@ -951,8 +3588,7 @@ namespace AscNet.Test
             (MethodInfo Method, string Category)[] expectedConstructRewardBranches =
             [
                 (tryCreateTargetCharacterReward, "target character"),
-                (drawRandomCharacterReward, "low-rarity character"),
-                (drawCharacterShardReward, "target shard"),
+                (drawCharacterShardReward, "character shard item"),
                 (drawMemoryReward, "4-star memory"),
                 (drawOverclockMaterialReward, "overclock material"),
                 (drawExpMaterialReward, "exp material"),
@@ -963,22 +3599,1089 @@ namespace AscNet.Test
                 if (FindCallIndex(drawCharacterRewardInstructions, method, startIndex: 0) < 0)
                     throw new InvalidDataException($"Draw 1488 retail-like reward routing: expected construct reward pool to reach {category} branch.");
             }
+            int firstShardRewardIndex = FindCallIndex(drawCharacterRewardInstructions, drawCharacterShardReward, startIndex: 0);
+            if (!InstructionWindowHasConstant(drawCharacterRewardInstructions, 1445, firstShardRewardIndex, maxInstructionsBack: 8))
+                throw new InvalidDataException("Draw 1488 retail-like reward routing: expected low-tier roll branch to return DrawCharacterShardReward.");
+            int secondShardRewardIndex = FindCallIndex(drawCharacterRewardInstructions, drawCharacterShardReward, firstShardRewardIndex + 1);
+            if (secondShardRewardIndex < 0 || !InstructionWindowHasConstant(drawCharacterRewardInstructions, 3656, secondShardRewardIndex, maxInstructionsBack: 8))
+                throw new InvalidDataException("Draw 1488 retail-like reward routing: expected shard roll branch to return DrawCharacterShardReward after the low-tier shard branch.");
             if (FindCallIndex(drawCharacterRewardInstructions, drawRandomWeaponReward, startIndex: 0) >= 0)
                 throw new InvalidDataException("Draw 1488 retail-like reward routing: expected construct reward pool not to reach off-rate weapon branch.");
-            AssertMethodContainsIntConstants(drawCharacterReward, drawCharacterRewardInstructions, [190, 1585, 3796, 6689, 7831, 8312, 9247], "Draw 1488 retail-like construct reward thresholds");
-            List<IlInstruction> shardInstructions = ReadIlInstructions(drawCharacterShardReward).ToList();
-            AssertMethodContainsIntConstants(drawCharacterShardReward, shardInstructions, [2, 6, 18], "Draw 1488 Inver-Shard reward counts");
-
-            int[] capturedMemoryEquipIds = [3054001, 3064001, 3054002, 3024001, 3064004, 3024003];
-            Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>().ToDictionary(equip => equip.Id);
-            foreach (int capturedMemoryEquipId in capturedMemoryEquipIds)
+            const int draw1488RollUpperBound = 9860;
+            int[] draw1488CumulativeThresholds = [50, 1445, 3656, 6495, 7937, 8418];
+            MethodInfo randomNextInt = RequiredMethod(
+                typeof(Random),
+                nameof(Random.Next),
+                BindingFlags.Instance | BindingFlags.Public,
+                [typeof(int)]);
+            bool usesScreenshotRollRange = drawCharacterRewardInstructions
+                .Select((instruction, index) => (instruction, index))
+                .Any(candidate => LdcI4Value(candidate.instruction) == draw1488RollUpperBound
+                    && drawCharacterRewardInstructions
+                        .Skip(candidate.index + 1)
+                        .Take(8)
+                        .Any(instruction => instruction.Operand is MethodBase calledMethod
+                            && MethodsMatch(calledMethod, randomNextInt)));
+            if (!usesScreenshotRollRange)
+                throw new InvalidDataException("Draw 1488 retail-like construct reward thresholds: expected DrawCharacterReward to roll Random.Shared.Next(9860).");
+            AssertMethodContainsIntConstants(
+                drawCharacterReward,
+                drawCharacterRewardInstructions,
+                draw1488CumulativeThresholds,
+                "Draw 1488 retail-like construct reward cumulative thresholds");
+            int lastThresholdInstructionIndex = -1;
+            foreach (int threshold in draw1488CumulativeThresholds)
             {
-                if (!equipRowsById.TryGetValue(capturedMemoryEquipId, out EquipTable? capturedMemory))
-                    throw new InvalidDataException($"Draw 1488 retail-like memory pool: expected local equip row {capturedMemoryEquipId} from retail capture.");
-                AssertEqual(0, capturedMemory.Type, $"Draw 1488 retail-like memory pool {capturedMemoryEquipId} Type");
-                AssertEqual(4, capturedMemory.Quality, $"Draw 1488 retail-like memory pool {capturedMemoryEquipId} Quality");
-                AssertEqual(true, AscNet.Common.Database.Character.IsOwnableEquipTemplate(capturedMemory), $"Draw 1488 retail-like memory pool {capturedMemoryEquipId} ownable equip template");
+                int thresholdInstructionIndex = drawCharacterRewardInstructions.FindIndex(lastThresholdInstructionIndex + 1, instruction => LdcI4Value(instruction) == threshold);
+                if (thresholdInstructionIndex < 0)
+                    throw new InvalidDataException($"Draw 1488 retail-like construct reward thresholds: expected cumulative threshold {threshold} after the previous branch threshold.");
+                lastThresholdInstructionIndex = thresholdInstructionIndex;
             }
+            List<long> draw1488BranchWeights = [];
+            int previousThreshold = 0;
+            foreach (int threshold in draw1488CumulativeThresholds.Append(draw1488RollUpperBound))
+            {
+                draw1488BranchWeights.Add(threshold - previousThreshold);
+                previousThreshold = threshold;
+            }
+            AssertIntegerList(
+                [50, 1395, 2211, 2839, 1442, 481, 1442],
+                draw1488BranchWeights.ToArray(),
+                "Draw 1488 retail-like construct reward branch weights");
+            List<IlInstruction> shardInstructions = ReadIlInstructions(drawCharacterShardReward).ToList();
+            List<IlInstruction> memoryInstructions = ReadIlInstructions(drawMemoryReward).ToList();
+            FieldInfo drawPreviewTablesField = drawManagerType.GetField("drawPreviewTables", BindingFlags.Static | BindingFlags.Public)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "drawPreviewTables");
+            FieldInfo equipTablesField = drawManagerType.GetField("equipTables", BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "equipTables");
+            Type drawWaferShowTableType = typeof(DrawPreviewTable).Assembly.GetType("AscNet.Table.V2.client.draw.DrawWaferShowTable", throwOnError: true)
+                ?? throw new TypeLoadException("AscNet.Table.V2.client.draw.DrawWaferShowTable");
+            FieldInfo drawWaferShowIdsField = drawManagerType.GetField("drawWaferShowIds", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "drawWaferShowIds");
+            if (drawWaferShowIdsField.FieldType != typeof(HashSet<int>))
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory ids: expected DrawManager.drawWaferShowIds to be a static HashSet<int>.");
+            if (drawManagerType.GetField("retailFourStarMemoryIds", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public) is not null)
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawManager not to define a hardcoded retailFourStarMemoryIds allowlist.");
+            if (drawManagerType.GetField("drawSceneModelIds", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public) is not null)
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawMemoryReward to use DrawWaferShow rows, not DrawScene.ModelId rows.");
+            MethodInfo drawPreviewGoodsIdGetter = typeof(DrawPreviewTable).GetProperty(nameof(DrawPreviewTable.GoodsId), BindingFlags.Instance | BindingFlags.Public)?.GetMethod
+                ?? throw new MissingMemberException(typeof(DrawPreviewTable).FullName, nameof(DrawPreviewTable.GoodsId));
+            if (!shardInstructions.Any(instruction =>
+                    instruction.Operand is FieldInfo loadedField
+                    && FieldsMatch(loadedField, drawPreviewTablesField)))
+                throw new InvalidDataException("Draw 1488 preview-derived shard pool: expected DrawCharacterShardReward to load DrawManager.drawPreviewTables.");
+            if (FindCallIndex(shardInstructions, drawPreviewGoodsIdGetter, startIndex: 0) < 0)
+                throw new InvalidDataException("Draw 1488 preview-derived shard pool: expected DrawCharacterShardReward to read DrawPreview.GoodsId before falling back to the target shard.");
+            AssertMethodContainsIntConstants(drawCharacterShardReward, shardInstructions, [2, 6, 18], "Draw 1488 Inver-Shard reward counts");
+            MethodInfo[] drawMemoryRewardHelpers = drawManagerType.GetNestedTypes(BindingFlags.NonPublic)
+                .SelectMany(type => type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public))
+                .Where(method => method.Name.Contains("DrawMemoryReward", StringComparison.Ordinal))
+                .ToArray();
+            List<List<IlInstruction>> memoryInstructionScopes = [memoryInstructions];
+            memoryInstructionScopes.AddRange(drawMemoryRewardHelpers.Select(method => ReadIlInstructions(method).ToList()));
+            PropertyInfo? equipTypeProperty = typeof(EquipTable).GetProperty(nameof(EquipTable.Type), BindingFlags.Instance | BindingFlags.Public);
+            FieldInfo? equipTypeField = typeof(EquipTable).GetField(nameof(EquipTable.Type), BindingFlags.Instance | BindingFlags.Public);
+            PropertyInfo? equipQualityProperty = typeof(EquipTable).GetProperty(nameof(EquipTable.Quality), BindingFlags.Instance | BindingFlags.Public);
+            FieldInfo? equipQualityField = typeof(EquipTable).GetField(nameof(EquipTable.Quality), BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo? equipTypeGetter = equipTypeProperty?.GetMethod;
+            MethodInfo? equipQualityGetter = equipQualityProperty?.GetMethod;
+            MethodInfo isOwnableEquipTemplate = RequiredMethod(
+                typeof(AscNet.Common.Database.Character),
+                nameof(AscNet.Common.Database.Character.IsOwnableEquipTemplate),
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(EquipTable)]);
+            if (equipTypeGetter is null && equipTypeField is null)
+                throw new MissingMemberException(typeof(EquipTable).FullName, nameof(EquipTable.Type));
+            if (equipQualityGetter is null && equipQualityField is null)
+                throw new MissingMemberException(typeof(EquipTable).FullName, nameof(EquipTable.Quality));
+            bool ReadsEquipMember(List<IlInstruction> scope, MethodInfo? getter, FieldInfo? field)
+            {
+                return scope.Any(instruction =>
+                    (getter is not null && instruction.Operand is MethodBase calledGetter && MethodsMatch(calledGetter, getter))
+                    || (field is not null && instruction.Operand is FieldInfo loadedField && FieldsMatch(loadedField, field)));
+            }
+            bool IsIntContainsAllowlistCall(MethodBase calledMethod)
+            {
+                if (!string.Equals(calledMethod.Name, nameof(HashSet<int>.Contains), StringComparison.Ordinal))
+                    return false;
+                if (calledMethod is MethodInfo { IsGenericMethod: true } genericMethod
+                    && genericMethod.GetGenericArguments().Any(argument => argument == typeof(int)))
+                    return true;
+                return calledMethod.GetParameters().Any(parameter => parameter.ParameterType == typeof(int));
+            }
+            if (!memoryInstructions.Any(instruction =>
+                    instruction.Operand is FieldInfo loadedField
+                    && FieldsMatch(loadedField, equipTablesField)))
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawMemoryReward to load DrawManager.equipTables.");
+            if (!memoryInstructionScopes.Any(scope => ReadsEquipMember(scope, equipTypeGetter, equipTypeField) && scope.Any(instruction => LdcI4Value(instruction) == 0)))
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawMemoryReward to filter EquipTable.Type == 0.");
+            if (!memoryInstructionScopes.Any(scope => ReadsEquipMember(scope, equipQualityGetter, equipQualityField) && scope.Any(instruction => LdcI4Value(instruction) == 4)))
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawMemoryReward to filter EquipTable.Quality == 4.");
+            if (!memoryInstructionScopes.Any(scope => FindCallIndex(scope, isOwnableEquipTemplate, startIndex: 0) >= 0))
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawMemoryReward to filter through Character.IsOwnableEquipTemplate.");
+            if (!memoryInstructionScopes.Any(scope =>
+                    scope.Any(instruction => instruction.Operand is FieldInfo loadedField && FieldsMatch(loadedField, drawWaferShowIdsField))
+                    && scope.Any(instruction => instruction.Operand is MethodBase calledMethod && IsIntContainsAllowlistCall(calledMethod))))
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawMemoryReward to filter ownable Type=0 Quality=4 memories through DrawManager.drawWaferShowIds.");
+            FieldInfo[] unexpectedDrawManagerStaticFields = memoryInstructionScopes
+                .SelectMany(scope => scope)
+                .Select(instruction => instruction.Operand as FieldInfo)
+                .Where(field => field is not null
+                    && field.DeclaringType == drawManagerType
+                    && field.IsStatic
+                    && !FieldsMatch(field, equipTablesField)
+                    && !FieldsMatch(field, drawWaferShowIdsField))
+                .Cast<FieldInfo>()
+                .GroupBy(field => (field.Module, field.MetadataToken))
+                .Select(group => group.First())
+                .ToArray();
+            if (unexpectedDrawManagerStaticFields.Length > 0)
+                throw new InvalidDataException($"Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawMemoryReward to load only equipTables plus the drawWaferShowIds renderability filter; loaded {string.Join(", ", unexpectedDrawManagerStaticFields.Select(field => field.Name))}.");
+
+            if (RequiredGenericMethodDefinition(typeof(TableReaderV2), nameof(TableReaderV2.Parse), BindingFlags.Public | BindingFlags.Static, parameterCount: 0)
+                    .MakeGenericMethod(drawWaferShowTableType)
+                    .Invoke(null, null) is not System.Collections.IEnumerable drawWaferShowRows)
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory ids: expected DrawWaferShow.tsv to parse as an enumerable table pool.");
+            HashSet<int> drawWaferShowIds = drawWaferShowIdsField.GetValue(null) as HashSet<int>
+                ?? throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory ids: expected DrawManager.drawWaferShowIds to be an initialized HashSet<int>.");
+            int[] drawWaferShowTableIds = drawWaferShowRows
+                .Cast<object>()
+                .Select(row => RequiredIntegerRowMember(row, "Id", "Draw 1488 client-renderable DrawWaferShow memory ids DrawWaferShow.tsv Id"))
+                .Where(id => id > 0)
+                .Distinct()
+                .Order()
+                .ToArray();
+            AssertIntegerList(
+                drawWaferShowTableIds.Select(memoryId => (long)memoryId).ToArray(),
+                drawWaferShowIds.Order().Select(memoryId => (long)memoryId).ToArray(),
+                "Draw 1488 client-renderable DrawWaferShow memory ids configured from DrawWaferShow.tsv");
+
+            List<EquipTable> equipRows = TableReaderV2.Parse<EquipTable>();
+            int[] expectedDynamicMemoryEquipIds = equipRows
+                .Where(equip => equip.Type == 0
+                    && equip.Quality == 4
+                    && AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip))
+                .Select(equip => equip.Id)
+                .Order()
+                .ToArray();
+            if (expectedDynamicMemoryEquipIds.Length == 0)
+                throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected current Equip.tsv to contain ownable Type=0 Quality=4 memory rows.");
+            int[] expectedRenderableMemoryEquipIds = expectedDynamicMemoryEquipIds
+                .Where(drawWaferShowIds.Contains)
+                .Order()
+                .ToArray();
+            IEnumerable<EquipTable> drawManagerEquipRows = equipTablesField.GetValue(null) as IEnumerable<EquipTable>
+                ?? throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory pool: expected DrawManager.equipTables to be an enumerable EquipTable pool.");
+            int[] configuredRenderableMemoryEquipIds = drawManagerEquipRows
+                .Where(equip => equip.Type == 0
+                    && equip.Quality == 4
+                    && AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip)
+                    && drawWaferShowIds.Contains(equip.Id))
+                .Select(equip => equip.Id)
+                .Order()
+                .ToArray();
+            AssertIntegerList(
+                expectedRenderableMemoryEquipIds.Select(memoryId => (long)memoryId).ToArray(),
+                configuredRenderableMemoryEquipIds.Select(memoryId => (long)memoryId).ToArray(),
+                "Draw 1488 client-renderable DrawWaferShow memory ids equal Equip.tsv Type=0 Quality=4 ownable intersection");
+
+            int[] originalDrawWaferShowIds = drawWaferShowIds.ToArray();
+            try
+            {
+                drawWaferShowIds.Clear();
+                RewardGoods fallbackReward = drawMemoryReward.Invoke(null, null) as RewardGoods
+                    ?? throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory ids empty-pool fallback item behavior: expected DrawMemoryReward to return a fallback reward, got nil.");
+                AssertEqual((int)RewardType.Item, fallbackReward.RewardType, "Draw 1488 client-renderable DrawWaferShow memory ids empty-pool fallback item behavior reward type");
+                if (fallbackReward.TemplateId <= 0)
+                    throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory ids empty-pool fallback item behavior: expected fallback item TemplateId to be positive.");
+                if (fallbackReward.Count <= 0)
+                    throw new InvalidDataException("Draw 1488 client-renderable DrawWaferShow memory ids empty-pool fallback item behavior: expected fallback item Count to be positive.");
+            }
+            finally
+            {
+                drawWaferShowIds.Clear();
+                foreach (int memoryId in originalDrawWaferShowIds)
+                    drawWaferShowIds.Add(memoryId);
+            }
+
+            static int RequiredIntegerRowMember(object row, string memberName, string name)
+            {
+                Type rowType = row.GetType();
+                object? value = rowType.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public)?.GetValue(row)
+                    ?? rowType.GetField(memberName, BindingFlags.Instance | BindingFlags.Public)?.GetValue(row);
+                if (value is null)
+                    throw new InvalidDataException($"{name}: expected {rowType.FullName}.{memberName}.");
+                return Convert.ToInt32(value);
+            }
+        }
+
+        private static void AssertCurrentCharacterBannerDrawPreviewRows()
+        {
+            List<DrawPreviewTable> previewRows = TableReaderV2.Parse<DrawPreviewTable>();
+            DrawPreviewTable baselinePreview = previewRows.SingleOrDefault(preview => preview.Id == 1488)
+                ?? throw new InvalidDataException("Current character banner DrawPreview rows: expected baseline DrawPreview row 1488.");
+            Dictionary<int, CharacterTable> characterRowsById = TableReaderV2.Parse<CharacterTable>().ToDictionary(character => character.Id);
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            long[] baselineGoodsIds = baselinePreview.GoodsId.Select(goodsId => (long)goodsId).ToArray();
+            long[] keyRetailOffBannerCharacterIds = [1301002, 1241002, 1081003, 1131002, 1021001, 1031001, 1051001];
+            (int DrawId, int TargetCharacterId)[] expectedPreviewTargets =
+            [
+                (1492, 1291003),
+                (1493, 1381003),
+                (1494, 1171004),
+                (1498, 1031005),
+                (2482, 1021007),
+                (2486, 1291003),
+                (2487, 1381003),
+                (2488, 1171004),
+                (2492, 1031005)
+            ];
+
+            foreach ((int drawId, int expectedTargetCharacterId) in expectedPreviewTargets)
+            {
+                DrawPreviewTable preview = previewRows.SingleOrDefault(preview => preview.Id == drawId)
+                    ?? throw new InvalidDataException($"Current character banner DrawPreview row {drawId}: expected DrawPreview.tsv row.");
+
+                AssertEqual(true, preview.UpGoodsId.Contains(expectedTargetCharacterId), $"Current character banner DrawPreview row {drawId} UpGoodsId contains target character {expectedTargetCharacterId}");
+                AssertIntegerList(
+                    baselineGoodsIds,
+                    preview.GoodsId.Select(goodsId => (long)goodsId).ToArray(),
+                    $"Current character banner DrawPreview row {drawId} GoodsId matches row 1488 shard pool order");
+                AssertIntegerSetContainsAll(
+                    keyRetailOffBannerCharacterIds,
+                    preview.GoodsId.Select(goodsId => (long)goodsId).ToArray(),
+                    $"Current character banner DrawPreview row {drawId} GoodsId key retail off-banner character pool");
+
+                int[] validOffBannerShardItemIds = preview.GoodsId
+                    .Where(characterId => characterId != expectedTargetCharacterId)
+                    .Select(characterId => characterRowsById.TryGetValue(characterId, out CharacterTable? character) ? character.ItemId : 0)
+                    .Where(AscNet.Common.Database.Inventory.IsValidClientItemId)
+                    .Where(itemId => itemRowsById.TryGetValue(itemId, out ItemTable? item)
+                        && item.Name.StartsWith("Inver-Shard", StringComparison.Ordinal))
+                    .Distinct()
+                    .ToArray();
+                if (validOffBannerShardItemIds.Length == 0)
+                    throw new InvalidDataException($"Current character banner DrawPreview row {drawId}: expected GoodsId to contain at least one valid off-banner character with an Inver-Shard item id so shard rewards cannot fall back to target-only.");
+            }
+        }
+
+        private static void AssertDraw1488DuplicatePityTenDraw(DrawInfo eventConstruct1488)
+        {
+            const long playerId = 880010;
+            const int packetId = 8811;
+            const int drawId = 1488;
+            const int targetCharacterId = 1021007;
+            const int expectedDuplicateShardItemId = 592;
+            const string expectedDuplicateShardName = "Inver-Shard - Inverse Crown";
+            int[] genericShardRecycleMaterialIds =
+            [
+                AscNet.Common.Database.Inventory.SClassInverMaterial,
+                AscNet.Common.Database.Inventory.AClassInverMaterial,
+                AscNet.Common.Database.Inventory.SRankUniframeMaterial
+            ];
+            const int excludedVeraGeiravorCharacterId = 1131004;
+            const int excludedVeraGeiravorShardItemId = 581;
+            const string excludedVeraGeiravorShardItemName = "Inver-Shard - Geiravor";
+            const int targetDrawTicketItemId = 50005;
+            const int drawCount = 10;
+            const int desiredBottomTimesBeforeTenDraw = 7;
+            const string name = "Draw 1488 BottomTimes=7 duplicate pity 10x";
+
+            AssertEqual(drawId, eventConstruct1488.Id, $"{name} DrawInfo Id");
+            AssertEqual(targetDrawTicketItemId, eventConstruct1488.UseItemId, $"{name} DrawInfo UseItemId");
+            AssertEqual(60, eventConstruct1488.MaxBottomTimes, $"{name} DrawInfo MaxBottomTimes");
+            AssertEqual(47, eventConstruct1488.BottomTimes, $"{name} DrawInfo BottomTimes");
+            if (!eventConstruct1488.ResourceIds.TryGetValue(1, out int configuredTargetCharacterId))
+                throw new InvalidDataException($"{name}: expected ResourceIds[1] target character id.");
+            AssertEqual(targetCharacterId, configuredTargetCharacterId, $"{name} configured target character id");
+
+            Dictionary<int, CharacterTable> characterRowsById = TableReaderV2.Parse<CharacterTable>().ToDictionary(character => character.Id);
+            CharacterTable targetCharacter = characterRowsById[targetCharacterId];
+            int duplicateShardItemId = targetCharacter.ItemId;
+            AssertEqual(expectedDuplicateShardItemId, duplicateShardItemId, $"{name} Lucia: Inverse Crown Character.tsv ItemId");
+            if (!AscNet.Common.Database.Inventory.IsValidClientItemId(duplicateShardItemId))
+                throw new InvalidDataException($"{name}: Character.tsv duplicate shard ItemId {duplicateShardItemId} is not a valid client item.");
+            CharacterTable excludedVeraGeiravorCharacter = characterRowsById[excludedVeraGeiravorCharacterId];
+            AssertEqual(excludedVeraGeiravorShardItemId, excludedVeraGeiravorCharacter.ItemId, $"{name} Vera: Geiravor Character.tsv ItemId");
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            ItemTable duplicateShardItem = itemRowsById[duplicateShardItemId];
+            AssertEqual(expectedDuplicateShardName, duplicateShardItem.Name, $"{name} duplicate shard item name");
+            ItemTable excludedVeraGeiravorShardItem = itemRowsById[excludedVeraGeiravorShardItemId];
+            AssertEqual(excludedVeraGeiravorShardItemName, excludedVeraGeiravorShardItem.Name, $"{name} Vera: Geiravor shard item name");
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.AddCharacter((uint)targetCharacterId);
+            DrawInfo preloadedDrawInfo = PreloadDrawProgressToBottomTimes(playerId, eventConstruct1488, desiredBottomTimesBeforeTenDraw, name);
+            int forcedRewardIndex = preloadedDrawInfo.BottomTimes - 1;
+            AssertEqual(6, forcedRewardIndex, $"{name} forced duplicate reward index from table BottomTimes");
+
+            DrawDrawCardRequest drawCardRequest = new()
+            {
+                DrawId = drawId,
+                Count = drawCount,
+                UseDrawTicketId = 0
+            };
+            DrawDrawCardRequest drawCardRequestRoundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
+                MessagePackSerializer.Serialize(drawCardRequest));
+            AssertEqual(drawId, drawCardRequestRoundTrip.DrawId, $"{name} DrawDrawCardRequest DrawId MessagePack round-trip");
+            AssertEqual(drawCount, drawCardRequestRoundTrip.Count, $"{name} DrawDrawCardRequest Count MessagePack round-trip");
+            AssertEqual(0, drawCardRequestRoundTrip.UseDrawTicketId, $"{name} DrawDrawCardRequest UseDrawTicketId MessagePack round-trip");
+
+            DrawDrawCardResponse? drawCardResponse = null;
+            List<NotifyItemDataList> itemPushes = [];
+            using (LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, [new Item { Id = targetDrawTicketItemId, Count = eventConstruct1488.UseItemCount * drawCount }]),
+                "draw-1488-duplicate-pity-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawDrawCardRequest", harness.Session, packetId, drawCardRequestRoundTrip);
+
+                for (int packetIndex = 0; packetIndex < 8; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{name} packet {packetIndex + 1}");
+                    if (packet.Type == Packet.ContentType.Push)
+                    {
+                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                        if (push.Name == nameof(NotifyItemDataList))
+                            itemPushes.Add(MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content));
+                        continue;
+                    }
+
+                    AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} response packet type");
+                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                    AssertEqual(packetId, response.Id, $"{name} response packet id");
+                    AssertEqual(nameof(DrawDrawCardResponse), response.Name, $"{name} response packet name");
+                    drawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
+                    break;
+                }
+            }
+
+            if (drawCardResponse is null)
+                throw new InvalidDataException($"{name}: expected DrawDrawCardResponse after draw reward pushes.");
+            AssertEqual(0, drawCardResponse.Code, $"{name} Code");
+
+            Item[] notifiedItems = itemPushes.SelectMany(push => push.ItemDataList).ToArray();
+            if (notifiedItems.Length == 0)
+                throw new InvalidDataException($"{name}: expected NotifyItemDataList for ticket cost and duplicate compensation.");
+            if (notifiedItems.Any(item => item.Id == 0))
+                throw new InvalidDataException($"{name}: NotifyItemDataList must not contain unknown client item id 0.");
+
+            Item ticketItem = notifiedItems.Single(item => item.Id == targetDrawTicketItemId);
+            AssertEqual(0L, ticketItem.Count, $"{name} NotifyItemDataList consumed all draw tickets");
+
+            long duplicateShardCount = notifiedItems
+                .Where(item => item.Id == duplicateShardItemId)
+                .Sum(item => item.Count);
+            long excludedVeraGeiravorShardCount = notifiedItems
+                .Where(item => item.Id == excludedVeraGeiravorShardItemId)
+                .Sum(item => item.Count);
+            if (excludedVeraGeiravorShardCount > 0)
+                throw new InvalidDataException($"{name}: must not grant Vera: Geiravor shard item {excludedVeraGeiravorShardItemId} as duplicate compensation for Lucia: Inverse Crown, got {excludedVeraGeiravorShardCount}.");
+            Item[] forbiddenNotifiedItems = notifiedItems
+                .Where(item => genericShardRecycleMaterialIds.Contains(item.Id))
+                .ToArray();
+            if (forbiddenNotifiedItems.Length > 0)
+            {
+                string forbiddenItemSummary = string.Join(
+                    ", ",
+                    forbiddenNotifiedItems.Select(item => $"{item.Id} count {item.Count}"));
+                throw new InvalidDataException($"{name}: NotifyItemDataList must not grant generic shard recycle materials [{string.Join(", ", genericShardRecycleMaterialIds)}] as duplicate compensation for Lucia: Inverse Crown shard item {duplicateShardItemId}; got {forbiddenItemSummary}.");
+            }
+            if (duplicateShardCount <= 0)
+                throw new InvalidDataException($"{name}: expected NotifyItemDataList to grant positive Lucia: Inverse Crown shard item {duplicateShardItemId}, got {duplicateShardCount}.");
+
+            AssertEqual(drawCount, drawCardResponse.RewardGoodsList.Count, $"{name} RewardGoodsList count");
+            List<RewardGoods> forbiddenRewardGoods = drawCardResponse.RewardGoodsList
+                .Where(rewardGoods => rewardGoods.RewardType == (int)RewardType.Item
+                    && genericShardRecycleMaterialIds.Contains(rewardGoods.TemplateId))
+                .ToList();
+            if (forbiddenRewardGoods.Count > 0)
+            {
+                string forbiddenRewardSummary = string.Join(
+                    ", ",
+                    forbiddenRewardGoods.Select(rewardGoods => $"{rewardGoods.TemplateId} count {rewardGoods.Count}"));
+                throw new InvalidDataException($"{name}: RewardGoodsList must not grant generic shard recycle materials [{string.Join(", ", genericShardRecycleMaterialIds)}] as duplicate compensation for Lucia: Inverse Crown shard item {duplicateShardItemId}; got {forbiddenRewardSummary}.");
+            }
+            RewardGoods forcedDuplicateReward = drawCardResponse.RewardGoodsList[forcedRewardIndex];
+            AssertEqual((int)RewardType.Item, forcedDuplicateReward.RewardType, $"{name} forced pity duplicate reward type");
+            AssertEqual(duplicateShardItemId, forcedDuplicateReward.TemplateId, $"{name} forced pity duplicate shard item id");
+            if (forcedDuplicateReward.Count <= 0)
+                throw new InvalidDataException($"{name}: expected positive forced pity duplicate shard count for item {duplicateShardItemId}, got {forcedDuplicateReward.Count}.");
+            AssertConvertFromItemRewardShowQuality(
+                forcedDuplicateReward,
+                duplicateShardItemId,
+                targetCharacterId,
+                expectedSourceCharacterShowQuality: 3,
+                expectedShardItemQuality: 4,
+                expectedRewardQuality: 0,
+                expectedRewardConvertFrom: targetCharacterId,
+                expectedRewardShowQuality: 0,
+                name: $"{name} forced pity duplicate ConvertFrom RewardGoods");
+
+            DrawInfo clientDrawInfo = drawCardResponse.ClientDrawInfo
+                ?? throw new InvalidDataException($"{name}: expected ClientDrawInfo after draw.");
+            AssertEqual(preloadedDrawInfo.TotalCount + drawCount, clientDrawInfo.TotalCount, $"{name} ClientDrawInfo TotalCount after 10x draw");
+            int expectedClientBottomTimes = preloadedDrawInfo.BottomTimes - drawCount;
+            if (expectedClientBottomTimes <= 0)
+                expectedClientBottomTimes += eventConstruct1488.MaxBottomTimes;
+            AssertEqual(expectedClientBottomTimes, clientDrawInfo.BottomTimes, $"{name} ClientDrawInfo BottomTimes after crossing pity");
+        }
+
+        private static void AssertDraw1488RepresentativeRewardGoodsShowQualityHydrated()
+        {
+            const int targetCharacterId = 1021007;
+            const int duplicateShardItemId = 592;
+            const int targetCharacterShowQuality = 3;
+            const int lowRankDuplicateCharacterId = 1211002;
+            const int lowRankDuplicateShardItemId = 543;
+            const int lowRankDuplicateCharacterShowQuality = 2;
+            const int duplicateShardItemQuality = 4;
+            const string name = "Draw 1488 RewardGoods ShowQuality hydration";
+
+            Type drawModuleType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.DrawModule");
+            MethodInfo toDrawRewardGoods = RequiredMethod(
+                drawModuleType,
+                "ToDrawRewardGoods",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Reward)]);
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            MethodInfo drawOverclockMaterialReward = RequiredMethod(
+                drawManagerType,
+                "DrawOverclockMaterialReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo drawMemoryReward = RequiredMethod(
+                drawManagerType,
+                "DrawMemoryReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo drawExpMaterialReward = RequiredMethod(
+                drawManagerType,
+                "DrawExpMaterialReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo drawCogBoxReward = RequiredMethod(
+                drawManagerType,
+                "DrawCogBoxReward",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Type drawInfoTemplateType = drawManagerType.GetNestedType("DrawInfoTemplate", BindingFlags.NonPublic)
+                ?? throw new MissingMemberException(drawManagerType.FullName, "DrawInfoTemplate");
+            MethodInfo drawCharacterShardReward = RequiredMethod(
+                drawManagerType,
+                "DrawCharacterShardReward",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [drawInfoTemplateType]);
+            object draw1488Template = RequiredRetailDrawInfoTemplate(drawManagerType, drawInfoTemplateType, 1488, name);
+
+            DrawPreviewTable draw1488Preview = TableReaderV2.Parse<DrawPreviewTable>()
+                .SingleOrDefault(preview => preview.Id == 1488)
+                ?? throw new InvalidDataException($"{name}: expected DrawPreview.tsv row 1488.");
+            AssertEqual(true, draw1488Preview.GoodsId.Contains(lowRankDuplicateCharacterId), $"{name} low-rank duplicate fixture is in draw 1488 preview GoodsId");
+
+            RewardGoods normalItemSource = InvokeRewardGoodsFactory(drawOverclockMaterialReward, $"{name} normal item source");
+            RewardGoods normalItemReward = InvokeToDrawRewardGoods(toDrawRewardGoods, normalItemSource, $"{name} normal item");
+            AssertEqual((int)RewardType.Item, normalItemReward.RewardType, $"{name} normal item RewardType");
+            AssertRewardGoodsDrawShowQuality(normalItemReward, $"{name} normal item", requirePositive: true);
+
+            RewardGoods normalEquipSource = InvokeRewardGoodsFactory(drawMemoryReward, $"{name} normal equip source");
+            RewardGoods normalEquipReward = InvokeToDrawRewardGoods(toDrawRewardGoods, normalEquipSource, $"{name} normal equip");
+            AssertEqual((int)RewardType.Equip, normalEquipReward.RewardType, $"{name} normal equip RewardType");
+            AssertRewardGoodsDrawShowQuality(normalEquipReward, $"{name} normal equip", requirePositive: true);
+
+            RewardGoods lowRankDuplicateConvertFromReward = InvokeToDrawRewardGoods(
+                toDrawRewardGoods,
+                new Reward
+                {
+                    Id = lowRankDuplicateShardItemId,
+                    Count = 6,
+                    Type = RewardType.Item,
+                    ConvertFrom = lowRankDuplicateCharacterId
+                },
+                $"{name} low-rank duplicate ConvertFrom");
+            AssertConvertFromItemRewardShowQuality(
+                lowRankDuplicateConvertFromReward,
+                lowRankDuplicateShardItemId,
+                lowRankDuplicateCharacterId,
+                expectedSourceCharacterShowQuality: lowRankDuplicateCharacterShowQuality,
+                expectedShardItemQuality: duplicateShardItemQuality,
+                expectedRewardQuality: 0,
+                expectedRewardConvertFrom: lowRankDuplicateCharacterId,
+                expectedRewardShowQuality: 0,
+                name: $"{name} low-rank duplicate ConvertFrom");
+
+            RewardGoods duplicateConvertFromReward = InvokeToDrawRewardGoods(
+                toDrawRewardGoods,
+                new Reward
+                {
+                    Id = duplicateShardItemId,
+                    Count = 18,
+                    Type = RewardType.Item,
+                    ConvertFrom = targetCharacterId
+                },
+                $"{name} duplicate ConvertFrom");
+            AssertConvertFromItemRewardShowQuality(
+                duplicateConvertFromReward,
+                duplicateShardItemId,
+                targetCharacterId,
+                expectedSourceCharacterShowQuality: targetCharacterShowQuality,
+                expectedShardItemQuality: duplicateShardItemQuality,
+                expectedRewardQuality: 0,
+                expectedRewardConvertFrom: targetCharacterId,
+                expectedRewardShowQuality: 0,
+                name: $"{name} duplicate ConvertFrom");
+
+            AssertDrawFillerItemRewardFactoryExcludesUnsupportedClientRingQualities(
+                drawExpMaterialReward,
+                toDrawRewardGoods,
+                [30011, 31101, 31102, 31201, 31202],
+                $"{name} DrawManager.DrawExpMaterialReward");
+            AssertDrawFillerItemRewardFactoryExcludesUnsupportedClientRingQualities(
+                drawCogBoxReward,
+                toDrawRewardGoods,
+                [90011],
+                $"{name} DrawManager.DrawCogBoxReward");
+
+            AssertDrawCharacterShardRewardExcludesUnsupportedClientRingQualities(
+                drawCharacterShardReward,
+                toDrawRewardGoods,
+                draw1488Template,
+                [1021001, lowRankDuplicateCharacterId],
+                $"{name} DrawManager low-tier DrawCharacterShardReward branch");
+        }
+
+        private static void AssertDrawFillerItemRewardFactoryExcludesUnsupportedClientRingQualities(
+            MethodInfo factory,
+            MethodInfo toDrawRewardGoods,
+            int[] unsupportedItemIds,
+            string name)
+        {
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            Type drawManagerType = factory.DeclaringType
+                ?? throw new InvalidDataException($"{name}: expected {factory.Name} to have a declaring type.");
+            FieldInfo itemTablesField = drawManagerType.GetField("itemTables", BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "itemTables");
+            List<ItemTable> itemTables = itemTablesField.GetValue(null) as List<ItemTable>
+                ?? throw new InvalidDataException($"{name}: expected DrawManager.itemTables to be an initialized List<ItemTable>.");
+
+            ItemTable[] originalItemTables = itemTables.ToArray();
+            try
+            {
+                foreach (int unsupportedItemId in unsupportedItemIds)
+                {
+                    ItemTable unsupportedItem = itemRowsById.TryGetValue(unsupportedItemId, out ItemTable? itemRow)
+                        ? itemRow
+                        : throw new InvalidDataException($"{name}: expected Item.tsv row {unsupportedItemId}.");
+                    if (unsupportedItem.Quality is not (1 or 2))
+                        throw new InvalidDataException($"{name}: expected {unsupportedItem.Name} Item.tsv quality fixture to remain 1 or 2, got {unsupportedItem.Quality}.");
+
+                    itemTables.Clear();
+                    itemTables.Add(unsupportedItem);
+
+                    RewardGoods? unsupportedReward = factory.Invoke(null, null) as RewardGoods;
+                    if (unsupportedReward is null)
+                        continue;
+
+                    AssertDrawFillerItemRewardSupportedClientRingQuality(
+                        unsupportedReward,
+                        toDrawRewardGoods,
+                        itemRowsById,
+                        $"{name} single-row unsupported candidate {unsupportedItem.Id} {unsupportedItem.Name}");
+                }
+
+                itemTables.Clear();
+                itemTables.AddRange(originalItemTables);
+
+                RewardGoods representativeReward = InvokeRewardGoodsFactory(factory, $"{name} representative supported source");
+                AssertDrawFillerItemRewardSupportedClientRingQuality(
+                    representativeReward,
+                    toDrawRewardGoods,
+                    itemRowsById,
+                    $"{name} representative supported source");
+            }
+            finally
+            {
+                itemTables.Clear();
+                itemTables.AddRange(originalItemTables);
+            }
+        }
+
+        private static void AssertDrawFillerItemRewardSupportedClientRingQuality(
+            RewardGoods reward,
+            MethodInfo toDrawRewardGoods,
+            IReadOnlyDictionary<int, ItemTable> itemRowsById,
+            string name)
+        {
+            AssertEqual((int)RewardType.Item, reward.RewardType, $"{name} factory RewardGoods reward type");
+            AssertRewardGoodsDrawShowQuality(reward, $"{name} factory RewardGoods", requirePositive: false);
+
+            ItemTable item = itemRowsById.TryGetValue(reward.TemplateId, out ItemTable? itemRow)
+                ? itemRow
+                : throw new InvalidDataException($"{name}: expected Item.tsv row {reward.TemplateId}.");
+            AssertDrawFillerItemQualitySupportedClientRing(item, $"{name} Item.tsv row {item.Id} {item.Name}");
+
+            RewardGoods clientReward = InvokeToDrawRewardGoods(toDrawRewardGoods, reward, $"{name} client RewardGoods");
+            AssertEqual((int)RewardType.Item, clientReward.RewardType, $"{name} client RewardGoods reward type");
+            AssertEqual(reward.TemplateId, clientReward.TemplateId, $"{name} client RewardGoods TemplateId");
+            int showQuality = AssertRewardGoodsDrawShowQuality(clientReward, $"{name} client RewardGoods", requirePositive: true);
+            AssertEqual(item.Quality, showQuality, $"{name} client RewardGoods ShowQuality matches Item.tsv Quality");
+        }
+
+        private static void AssertDrawFillerItemQualitySupportedClientRing(ItemTable item, string name)
+        {
+            if (item.Quality is 1 or 2)
+                throw new InvalidDataException($"{name}: Item.tsv Quality {item.Quality} maps to missing client DrawRingQualityEffect{item.Quality}; expected DrawManager filler item rewards to choose quality 3/4/5/6 items.");
+            if (item.Quality is not (3 or 4 or 5 or 6))
+                throw new InvalidDataException($"{name}: expected Item.tsv Quality to be one of the client-supported positive draw ring indices 3/4/5/6, got {item.Quality}.");
+        }
+
+        private static void AssertDrawCharacterShardRewardExcludesUnsupportedClientRingQualities(
+            MethodInfo factory,
+            MethodInfo toDrawRewardGoods,
+            object drawInfoTemplate,
+            int[] unsupportedCharacterIds,
+            string name)
+        {
+            Dictionary<int, CharacterTable> characterRowsById = TableReaderV2.Parse<CharacterTable>().ToDictionary(character => character.Id);
+            Dictionary<int, ItemTable> itemRowsById = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            Type drawManagerType = factory.DeclaringType
+                ?? throw new InvalidDataException($"{name}: expected {factory.Name} to have a declaring type.");
+            FieldInfo charactersTablesField = drawManagerType.GetField("charactersTables", BindingFlags.Static | BindingFlags.Public)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "charactersTables");
+            List<CharacterTable> characterTables = charactersTablesField.GetValue(null) as List<CharacterTable>
+                ?? throw new InvalidDataException($"{name}: expected DrawManager.charactersTables to be an initialized List<CharacterTable>.");
+
+            CharacterTable[] originalCharacterTables = characterTables.ToArray();
+            try
+            {
+                foreach (int unsupportedCharacterId in unsupportedCharacterIds)
+                {
+                    CharacterTable unsupportedCharacter = characterRowsById.TryGetValue(unsupportedCharacterId, out CharacterTable? characterRow)
+                        ? characterRow
+                        : throw new InvalidDataException($"{name}: expected Character.tsv row {unsupportedCharacterId}.");
+                    int unsupportedCharacterQuality = GetFirstCharacterQuality(unsupportedCharacter.Id, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name}");
+                    if (unsupportedCharacterQuality is not (1 or 2))
+                        throw new InvalidDataException($"{name}: expected {unsupportedCharacter.Name} CharacterQuality.tsv minimum fixture to remain 1 or 2, got {unsupportedCharacterQuality}.");
+                    if (!AscNet.Common.Database.Inventory.IsValidClientItemId(unsupportedCharacter.ItemId))
+                        throw new InvalidDataException($"{name}: expected {unsupportedCharacter.Name} Character.tsv ItemId {unsupportedCharacter.ItemId} to be a valid shard item.");
+                    ItemTable shardItem = itemRowsById.TryGetValue(unsupportedCharacter.ItemId, out ItemTable? itemRow)
+                        ? itemRow
+                        : throw new InvalidDataException($"{name}: expected Item.tsv shard row {unsupportedCharacter.ItemId}.");
+
+                    characterTables.Clear();
+                    characterTables.Add(unsupportedCharacter);
+
+                    RewardGoods shardReward = factory.Invoke(null, [drawInfoTemplate]) as RewardGoods
+                        ?? throw new InvalidDataException($"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name}: expected DrawCharacterShardReward to return a shard item reward.");
+                    AssertEqual((int)RewardType.Item, shardReward.RewardType, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} factory RewardGoods reward type");
+                    AssertEqual(unsupportedCharacter.ItemId, shardReward.TemplateId, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} factory RewardGoods shard item id");
+                    if (shardReward.Count <= 0)
+                        throw new InvalidDataException($"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name}: expected positive shard item count, got {shardReward.Count}.");
+
+                    RewardGoods clientReward = InvokeToDrawRewardGoods(toDrawRewardGoods, shardReward, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} client RewardGoods");
+                    AssertEqual((int)RewardType.Item, clientReward.RewardType, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} client RewardGoods reward type");
+                    AssertEqual(unsupportedCharacter.ItemId, clientReward.TemplateId, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} client RewardGoods shard item id");
+                    AssertEqual(0, clientReward.ConvertFrom, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} client RewardGoods ConvertFrom");
+                    AssertEqual(shardItem.Quality, clientReward.Quality, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} client RewardGoods Quality matches Item.tsv Quality");
+                    int showQuality = AssertRewardGoodsDrawShowQuality(clientReward, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} client RewardGoods", requirePositive: true);
+                    AssertEqual(shardItem.Quality, showQuality, $"{name} single-row unsupported candidate {unsupportedCharacter.Id} {unsupportedCharacter.Name} client RewardGoods ShowQuality matches Item.tsv Quality");
+                }
+            }
+            finally
+            {
+                characterTables.Clear();
+                characterTables.AddRange(originalCharacterTables);
+            }
+        }
+
+        private static object RequiredRetailDrawInfoTemplate(Type drawManagerType, Type drawInfoTemplateType, int drawId, string name)
+        {
+            FieldInfo retailDrawInfoByIdField = drawManagerType.GetField("RetailDrawInfoById", BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingFieldException(drawManagerType.FullName, "RetailDrawInfoById");
+            if (retailDrawInfoByIdField.GetValue(null) is not System.Collections.IDictionary retailDrawInfoById)
+                throw new InvalidDataException($"{name}: expected DrawManager.RetailDrawInfoById to be an initialized dictionary.");
+            object drawInfoTemplate = retailDrawInfoById[drawId]
+                ?? throw new InvalidDataException($"{name}: expected DrawManager.RetailDrawInfoById to contain draw {drawId}.");
+            if (!drawInfoTemplateType.IsInstanceOfType(drawInfoTemplate))
+                throw new InvalidDataException($"{name}: expected draw {drawId} template to be a {drawInfoTemplateType.FullName}.");
+            return drawInfoTemplate;
+        }
+
+
+        private static void AssertConvertFromItemRewardShowQuality(
+            RewardGoods reward,
+            int expectedShardItemId,
+            int sourceCharacterId,
+            int expectedSourceCharacterShowQuality,
+            int expectedShardItemQuality,
+            int expectedRewardQuality,
+            int expectedRewardConvertFrom,
+            int expectedRewardShowQuality,
+            string name)
+        {
+            AssertEqual((int)RewardType.Item, reward.RewardType, $"{name} RewardType");
+            AssertEqual(expectedShardItemId, reward.TemplateId, $"{name} shard item id");
+            AssertEqual(expectedRewardConvertFrom, reward.ConvertFrom, $"{name} RewardGoods ConvertFrom presentation id");
+
+            CharacterTable sourceCharacter = TableReaderV2.Parse<CharacterTable>()
+                .SingleOrDefault(character => character.Id == sourceCharacterId)
+                ?? throw new InvalidDataException($"{name}: expected Character.tsv row {sourceCharacterId}.");
+            AssertEqual(expectedShardItemId, sourceCharacter.ItemId, $"{name} Character.tsv source ItemId");
+
+            ItemTable shardItem = TableReaderV2.Parse<ItemTable>()
+                .SingleOrDefault(item => item.Id == expectedShardItemId)
+                ?? throw new InvalidDataException($"{name}: expected Item.tsv shard row {expectedShardItemId}.");
+            AssertEqual(expectedShardItemQuality, shardItem.Quality, $"{name} Item.tsv shard Quality regression fixture");
+            int sourceCharacterQuality = GetFirstCharacterQuality(sourceCharacterId, name);
+            AssertEqual(expectedSourceCharacterShowQuality, sourceCharacterQuality, $"{name} ConvertFrom CharacterQuality minimum regression fixture");
+            if (shardItem.Quality == sourceCharacterQuality)
+                throw new InvalidDataException($"{name}: expected fixture shard Item.tsv Quality to differ from source CharacterQuality minimum so the assertion detects item-quality regressions.");
+
+            AssertEqual(expectedRewardQuality, reward.Quality, $"{name} RewardGoods Quality");
+            int showQuality = expectedRewardShowQuality > 0
+                ? AssertRewardGoodsDrawShowQuality(reward, name, requirePositive: true)
+                : GetRewardGoodsDrawShowQuality(reward, name);
+            AssertEqual(expectedRewardShowQuality, showQuality, $"{name} RewardGoods ShowQuality");
+        }
+
+        private static int GetFirstCharacterQuality(int characterId, string name)
+        {
+            return TableReaderV2.Parse<CharacterQualityTable>()
+                .Where(quality => quality.CharacterId == characterId)
+                .OrderBy(quality => quality.Quality)
+                .FirstOrDefault()?.Quality
+                ?? throw new InvalidDataException($"{name}: expected CharacterQuality.tsv rows for character {characterId}.");
+        }
+
+        private static RewardGoods InvokeRewardGoodsFactory(MethodInfo factory, string name)
+        {
+            return factory.Invoke(null, null) as RewardGoods
+                ?? throw new InvalidDataException($"{name}: expected {factory.Name} to return RewardGoods.");
+        }
+
+        private static RewardGoods InvokeToDrawRewardGoods(MethodInfo toDrawRewardGoods, RewardGoods source, string name)
+        {
+            return InvokeToDrawRewardGoods(
+                toDrawRewardGoods,
+                new Reward
+                {
+                    Id = source.TemplateId,
+                    Count = source.Count,
+                    Level = source.Level,
+                    Type = (RewardType)source.RewardType,
+                    ConvertFrom = source.ConvertFrom
+                },
+                name);
+        }
+
+        private static RewardGoods InvokeToDrawRewardGoods(MethodInfo toDrawRewardGoods, Reward source, string name)
+        {
+            return toDrawRewardGoods.Invoke(null, [source]) as RewardGoods
+                ?? throw new InvalidDataException($"{name}: expected DrawModule.ToDrawRewardGoods to return RewardGoods.");
+        }
+
+        private static int AssertRewardGoodsDrawShowQuality(RewardGoods reward, string name, bool requirePositive)
+        {
+            int showQuality = GetRewardGoodsDrawShowQuality(reward, name);
+
+            if (showQuality is 1 or 2)
+                throw new InvalidDataException($"{name}: RewardGoods.ShowQuality {showQuality} maps to missing client DrawRingQualityEffect{showQuality}; expected a supported ring index 0/3/4/5/6.");
+            if (showQuality is not (0 or 3 or 4 or 5 or 6))
+                throw new InvalidDataException($"{name}: expected RewardGoods.ShowQuality to be one of the client-supported draw ring indices 0/3/4/5/6, got {showQuality}.");
+            if (requirePositive && showQuality <= 0)
+                throw new InvalidDataException($"{name}: expected positive RewardGoods.ShowQuality for a draw reward rendered with a ring, got {showQuality}.");
+
+            return showQuality;
+        }
+
+        private static int GetRewardGoodsDrawShowQuality(RewardGoods reward, string name)
+        {
+            object? showQualityValue;
+            PropertyInfo? showQualityProperty = typeof(RewardGoods).GetProperty("ShowQuality", BindingFlags.Instance | BindingFlags.Public);
+            if (showQualityProperty is not null)
+            {
+                showQualityValue = showQualityProperty.GetValue(reward);
+            }
+            else
+            {
+                FieldInfo? showQualityField = typeof(RewardGoods).GetField("ShowQuality", BindingFlags.Instance | BindingFlags.Public);
+                if (showQualityField is null)
+                    throw new MissingMemberException(typeof(RewardGoods).FullName, "ShowQuality");
+                showQualityValue = showQualityField.GetValue(reward);
+            }
+
+            if (showQualityValue is null)
+                throw new InvalidDataException($"{name}: expected RewardGoods.ShowQuality to be populated.");
+
+            try
+            {
+                return Convert.ToInt32(showQualityValue);
+            }
+            catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
+            {
+                throw new InvalidDataException($"{name}: expected RewardGoods.ShowQuality to be an integer value, got {showQualityValue}.", ex);
+            }
+        }
+
+        private static void AssertDrawDrawCardHandlerRejectsInvalidOrUnaffordableRequests(DrawInfo drawInfo)
+        {
+            const int packetId = 8814;
+            const long invalidDrawPlayerId = 880013;
+            const long invalidTicketPlayerId = 880014;
+            const long insufficientCostPlayerId = 880015;
+            const int invalidDrawId = 9_999_999;
+            const int invalidTicketId = 9_999_998;
+            const string name = "DrawDrawCardRequest invalid cost rejection";
+
+            AssertRejected(
+                invalidDrawPlayerId,
+                new DrawDrawCardRequest
+                {
+                    DrawId = invalidDrawId,
+                    Count = 1,
+                    UseDrawTicketId = 0
+                },
+                CreateDrawCompatibilityInventory(
+                    invalidDrawPlayerId,
+                    [new Item { Id = drawInfo.UseItemId, Count = drawInfo.UseItemCount }]),
+                drawInfo.UseItemId,
+                drawInfo.UseItemCount,
+                $"{name} invalid draw id");
+
+            AssertRejected(
+                invalidTicketPlayerId,
+                new DrawDrawCardRequest
+                {
+                    DrawId = drawInfo.Id,
+                    Count = 1,
+                    UseDrawTicketId = invalidTicketId
+                },
+                CreateDrawCompatibilityInventory(
+                    invalidTicketPlayerId,
+                    [new Item { Id = drawInfo.UseItemId, Count = drawInfo.UseItemCount }]),
+                drawInfo.UseItemId,
+                drawInfo.UseItemCount,
+                $"{name} invalid UseDrawTicketId");
+
+            long insufficientCount = Math.Max(0, drawInfo.UseItemCount - 1L);
+            AssertRejected(
+                insufficientCostPlayerId,
+                new DrawDrawCardRequest
+                {
+                    DrawId = drawInfo.Id,
+                    Count = 1,
+                    UseDrawTicketId = 0
+                },
+                CreateDrawCompatibilityInventory(
+                    insufficientCostPlayerId,
+                    [new Item { Id = drawInfo.UseItemId, Count = insufficientCount }]),
+                drawInfo.UseItemId,
+                insufficientCount,
+                $"{name} insufficient draw tickets");
+
+            void AssertRejected(
+                long playerId,
+                DrawDrawCardRequest request,
+                AscNet.Common.Database.Inventory inventory,
+                int expectedItemId,
+                long expectedItemCount,
+                string caseName)
+            {
+                DrawDrawCardRequest roundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
+                    MessagePackSerializer.Serialize(request));
+                using LoopbackSessionHarness harness = new(
+                    CreateDrawCompatibilityCharacter(playerId),
+                    CreateDrawCompatibilityPlayer(playerId),
+                    inventory,
+                    caseName);
+
+                InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, packetId, roundTrip);
+                DrawDrawCardResponse response = ReadResponsePayload<DrawDrawCardResponse>(
+                    harness,
+                    packetId,
+                    nameof(DrawDrawCardResponse),
+                    $"{caseName} response");
+
+                AssertEqual(1, response.Code, $"{caseName} Code");
+                AssertEmptyList(response.RewardGoodsList, $"{caseName} RewardGoodsList");
+                if (response.ClientDrawInfo is not null)
+                    throw new InvalidDataException($"{caseName}: expected nil ClientDrawInfo on rejected draw.");
+                if (harness.TryReadAvailablePacket($"{caseName} unexpected packet", out Packet unexpectedPacket))
+                    throw new InvalidDataException($"{caseName}: rejected draw must not send reward pushes, got {unexpectedPacket.Type}.");
+
+                long actualItemCount = inventory.Items.FirstOrDefault(item => item.Id == expectedItemId)?.Count ?? 0;
+                AssertEqual(expectedItemCount, actualItemCount, $"{caseName} inventory item {expectedItemId} unchanged");
+            }
+        }
+
+        private static void AssertDraw1488TargetCharacterRewardGoodsHydrated(DrawInfo eventConstruct1488)
+        {
+            const long playerId = 880011;
+            const int packetId = 8812;
+            const int drawId = 1488;
+            const int targetCharacterId = 1021007;
+            const int targetDrawTicketItemId = 50005;
+            const string name = "Draw 1488 forced target character RewardGoods hydration";
+
+            AssertEqual(drawId, eventConstruct1488.Id, $"{name} DrawInfo Id");
+            AssertEqual(targetDrawTicketItemId, eventConstruct1488.UseItemId, $"{name} DrawInfo UseItemId");
+            DrawInfo preloadedDrawInfo = PreloadDrawProgressToBottomTimes(playerId, eventConstruct1488, desiredBottomTimes: 1, name);
+
+            DrawDrawCardRequest drawCardRequest = new()
+            {
+                DrawId = drawId,
+                Count = 1,
+                UseDrawTicketId = 0
+            };
+            DrawDrawCardRequest drawCardRequestRoundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
+                MessagePackSerializer.Serialize(drawCardRequest));
+            AssertEqual(drawId, drawCardRequestRoundTrip.DrawId, $"{name} DrawDrawCardRequest DrawId MessagePack round-trip");
+            AssertEqual(1, drawCardRequestRoundTrip.Count, $"{name} DrawDrawCardRequest Count MessagePack round-trip");
+            AssertEqual(0, drawCardRequestRoundTrip.UseDrawTicketId, $"{name} DrawDrawCardRequest UseDrawTicketId MessagePack round-trip");
+
+            DrawDrawCardResponse? drawCardResponse = null;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, [new Item { Id = targetDrawTicketItemId, Count = eventConstruct1488.UseItemCount }]),
+                "draw-1488-target-character-reward-goods-hydration-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawDrawCardRequest", harness.Session, packetId, drawCardRequestRoundTrip);
+
+                for (int packetIndex = 0; packetIndex < 8; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{name} packet {packetIndex + 1}");
+                    if (packet.Type == Packet.ContentType.Push)
+                        continue;
+
+                    AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} response packet type");
+                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                    AssertEqual(packetId, response.Id, $"{name} response packet id");
+                    AssertEqual(nameof(DrawDrawCardResponse), response.Name, $"{name} response packet name");
+                    drawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
+                    break;
+                }
+            }
+
+            if (drawCardResponse is null)
+                throw new InvalidDataException($"{name}: expected DrawDrawCardResponse after draw reward pushes.");
+
+            AssertEqual(1, drawCardResponse.RewardGoodsList.Count, $"{name} RewardGoodsList count");
+            AssertCharacterRewardGoodsHydrated(drawCardResponse.RewardGoodsList[0], targetCharacterId, name);
+            AssertEqual(0, GetRewardGoodsDrawShowQuality(drawCardResponse.RewardGoodsList[0], $"{name} RewardGoods target character"), $"{name} RewardGoods target character ShowQuality stays zero so client uses character rank");
+            DrawInfo clientDrawInfo = drawCardResponse.ClientDrawInfo
+                ?? throw new InvalidDataException($"{name}: expected ClientDrawInfo after draw.");
+            AssertEqual(preloadedDrawInfo.TotalCount + 1, clientDrawInfo.TotalCount, $"{name} ClientDrawInfo TotalCount after 1x draw");
+            AssertEqual(eventConstruct1488.MaxBottomTimes, clientDrawInfo.BottomTimes, $"{name} ClientDrawInfo BottomTimes resets after forced target pity");
+        }
+
+        private static void AssertCharacterRewardGoodsHydrated(RewardGoods reward, int expectedCharacterId, string name)
+        {
+            int expectedQuality = TableReaderV2.Parse<CharacterQualityTable>()
+                .Where(quality => quality.CharacterId == expectedCharacterId)
+                .OrderBy(quality => quality.Quality)
+                .FirstOrDefault()?.Quality
+                ?? throw new InvalidDataException($"{name}: expected CharacterQualityTable row for character {expectedCharacterId}.");
+
+            AssertEqual((int)RewardType.Character, reward.RewardType, $"{name} RewardGoods reward type");
+            AssertEqual(expectedCharacterId, reward.TemplateId, $"{name} RewardGoods character id");
+            AssertEqual(1, reward.Count, $"{name} RewardGoods count");
+            AssertEqual(1, reward.Level, $"{name} RewardGoods level");
+            AssertEqual(expectedQuality, reward.Quality, $"{name} RewardGoods table-derived Quality");
+            AssertEqual(1, reward.Grade, $"{name} RewardGoods initial Grade");
+        }
+
+        private static void AssertDrawEquipRewardPushesRecycleFlag(DrawInfo drawInfo)
+        {
+            const long playerId = 880012;
+            const int packetId = 8813;
+            const string name = "Draw target equip reward NotifyEquipDataList recycle flag";
+            if (!drawInfo.ResourceIds.TryGetValue(1, out int targetEquipId))
+                throw new InvalidDataException($"{name}: expected ResourceIds[1] target equip id.");
+
+            DrawInfo preloadedDrawInfo = PreloadDrawProgressToBottomTimes(playerId, drawInfo, desiredBottomTimes: 1, name);
+            DrawDrawCardRequest drawCardRequest = new()
+            {
+                DrawId = drawInfo.Id,
+                Count = 1,
+                UseDrawTicketId = 0
+            };
+            DrawDrawCardRequest drawCardRequestRoundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
+                MessagePackSerializer.Serialize(drawCardRequest));
+            AssertEqual(drawInfo.Id, drawCardRequestRoundTrip.DrawId, $"{name} DrawDrawCardRequest DrawId MessagePack round-trip");
+            AssertEqual(1, drawCardRequestRoundTrip.Count, $"{name} DrawDrawCardRequest Count MessagePack round-trip");
+            AssertEqual(0, drawCardRequestRoundTrip.UseDrawTicketId, $"{name} DrawDrawCardRequest UseDrawTicketId MessagePack round-trip");
+
+            DrawDrawCardResponse? drawCardResponse = null;
+            NotifyEquipDataList? drawEquipPush = null;
+            using (LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, [new Item { Id = drawInfo.UseItemId, Count = drawInfo.UseItemCount }]),
+                "draw-target-equip-recycle-flag-compat-test"))
+            {
+                InvokeRegisteredRequestHandler("DrawDrawCardRequest", harness.Session, packetId, drawCardRequestRoundTrip);
+
+                for (int packetIndex = 0; packetIndex < 8; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{name} packet {packetIndex + 1}");
+                    if (packet.Type == Packet.ContentType.Push)
+                    {
+                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                        if (push.Name == nameof(NotifyEquipDataList))
+                            drawEquipPush = MessagePackSerializer.Deserialize<NotifyEquipDataList>(push.Content);
+                        continue;
+                    }
+
+                    AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} response packet type");
+                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                    AssertEqual(packetId, response.Id, $"{name} response packet id");
+                    AssertEqual(nameof(DrawDrawCardResponse), response.Name, $"{name} response packet name");
+                    drawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
+                    break;
+                }
+            }
+
+            if (drawCardResponse is null)
+                throw new InvalidDataException($"{name}: expected DrawDrawCardResponse after draw reward pushes.");
+            if (drawEquipPush is null)
+                throw new InvalidDataException($"{name}: expected NotifyEquipDataList for forced equip reward {targetEquipId}.");
+
+            AssertEqual(1, drawCardResponse.RewardGoodsList.Count, $"{name} RewardGoodsList count");
+            RewardGoods reward = drawCardResponse.RewardGoodsList[0];
+            AssertEqual((int)RewardType.Equip, reward.RewardType, $"{name} RewardGoods reward type");
+            AssertEqual(targetEquipId, reward.TemplateId, $"{name} RewardGoods target equip id");
+            AssertEqual(1, drawEquipPush.EquipDataList.Count, $"{name} NotifyEquipDataList equip count");
+            EquipData equipReward = drawEquipPush.EquipDataList.Single(equip => equip.TemplateId == (uint)targetEquipId);
+            AssertEqual(true, equipReward.IsRecycle, $"{name} EquipData.IsRecycle");
+            DrawInfo clientDrawInfo = drawCardResponse.ClientDrawInfo
+                ?? throw new InvalidDataException($"{name}: expected ClientDrawInfo after draw.");
+            AssertEqual(preloadedDrawInfo.TotalCount + 1, clientDrawInfo.TotalCount, $"{name} ClientDrawInfo TotalCount after 1x draw");
+        }
+
+        private static DrawInfo PreloadDrawProgressToBottomTimes(long playerId, DrawInfo drawInfo, int desiredBottomTimes, string name)
+        {
+            if (drawInfo.MaxBottomTimes <= 0)
+                throw new InvalidDataException($"{name}: draw {drawInfo.Id} must have positive MaxBottomTimes.");
+            if (desiredBottomTimes <= 0 || desiredBottomTimes >= drawInfo.MaxBottomTimes)
+                throw new InvalidDataException($"{name}: desired BottomTimes {desiredBottomTimes}/{drawInfo.MaxBottomTimes} cannot cross pity in one 10x draw.");
+
+            int progressToApply = drawInfo.BottomTimes - desiredBottomTimes;
+            if (progressToApply < 0)
+                progressToApply += drawInfo.MaxBottomTimes;
+
+            DrawInfo preloadedDrawInfo = InvokeApplyDrawProgress(playerId, drawInfo.Id, progressToApply, name);
+            AssertEqual(desiredBottomTimes, preloadedDrawInfo.BottomTimes, $"{name} preloaded BottomTimes");
+            return preloadedDrawInfo;
+        }
+
+        private static DrawInfo InvokeApplyDrawProgress(long playerId, int drawId, int count, string name)
+        {
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            MethodInfo applyDrawProgress = RequiredMethod(
+                drawManagerType,
+                "ApplyDrawProgress",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(long), typeof(int), typeof(int)]);
+            return applyDrawProgress.Invoke(null, [playerId, drawId, count]) as DrawInfo
+                ?? throw new InvalidDataException($"{name}: DrawManager.ApplyDrawProgress returned nil or an unexpected payload.");
         }
 
         private static void AssertCurrentWeaponBannerTargetEquipRows(IReadOnlyDictionary<int, int> expectedTargetEquipIds, IReadOnlyList<DrawInfo> drawInfos)
@@ -1002,6 +4705,96 @@ namespace AscNet.Test
                     throw new InvalidDataException($"Current weapon-banner draw {drawId}: expected EquipTable row {actualTargetEquipId} to be a weapon row, got Type {targetEquip.Type}.");
                 AssertEqual(0, targetEquip.Site, $"Current weapon-banner draw {drawId} target equip Site");
                 AssertEqual(true, AscNet.Common.Database.Character.IsOwnableEquipTemplate(targetEquip), $"Current weapon-banner draw {drawId} target equip ownable template");
+            }
+        }
+
+        private static void AssertCurrentWeaponBannerShopFlags(IReadOnlyDictionary<int, bool> expectedIsShowShopByDrawId, IReadOnlyList<DrawInfo> drawInfos)
+        {
+            Dictionary<int, DrawInfo> drawInfoById = drawInfos.ToDictionary(info => info.Id);
+            foreach ((int drawId, bool expectedIsShowShop) in expectedIsShowShopByDrawId.OrderBy(entry => entry.Key))
+            {
+                if (!drawInfoById.TryGetValue(drawId, out DrawInfo? drawInfo))
+                    throw new InvalidDataException($"Current weapon-banner draw {drawId}: expected DrawInfo row for IsShowShop retail flag.");
+                AssertEqual(expectedIsShowShop, drawInfo.IsShowShop, $"Current weapon-banner draw {drawId} IsShowShop retail flag");
+            }
+        }
+
+        private static void AssertCurrentWeaponBannerDrawPreviewRows(IReadOnlyList<int> expectedDrawIds, IReadOnlyList<DrawInfo> drawInfos)
+        {
+            Dictionary<int, DrawInfo> drawInfoById = drawInfos.ToDictionary(info => info.Id);
+            List<DrawPreviewTable> previewRows = TableReaderV2.Parse<DrawPreviewTable>();
+            Dictionary<int, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>().ToDictionary(equip => equip.Id);
+
+            foreach (int drawId in expectedDrawIds)
+            {
+                if (!drawInfoById.TryGetValue(drawId, out DrawInfo? drawInfo))
+                    throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected served DrawInfo row.");
+                if (!drawInfo.ResourceIds.TryGetValue(1, out int targetEquipId))
+                    throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected served DrawInfo ResourceIds[1] target equip id.");
+
+                DrawPreviewTable preview = previewRows.SingleOrDefault(preview => preview.Id == drawId)
+                    ?? throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected DrawPreview.tsv row for served current weapon banner.");
+                AssertEqual(true, preview.UpGoodsId.Contains(targetEquipId), $"Current weapon-banner DrawPreview row {drawId} UpGoodsId contains target equip {targetEquipId}");
+
+                int[] goodsEquipIds = preview.GoodsId.Distinct().ToArray();
+                if (goodsEquipIds.Length == 0)
+                    throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected non-empty GoodsId equip pool.");
+                if (goodsEquipIds.Length < 2)
+                    throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected GoodsId to contain an off-banner equip pair.");
+                if (goodsEquipIds.Contains(targetEquipId))
+                    throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected GoodsId off-banner pool not to repeat target equip {targetEquipId}.");
+                foreach (int equipId in goodsEquipIds)
+                {
+                    if (!equipRowsById.TryGetValue(equipId, out EquipTable? equip))
+                        throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected GoodsId {equipId} to resolve to an EquipTable row.");
+                    if (equip.Type <= 0)
+                        throw new InvalidDataException($"Current weapon-banner DrawPreview row {drawId}: expected GoodsId {equipId} to be a weapon equip, got Type {equip.Type}.");
+                    AssertEqual(true, AscNet.Common.Database.Character.IsOwnableEquipTemplate(equip), $"Current weapon-banner DrawPreview row {drawId} GoodsId {equipId} ownable weapon template");
+                }
+            }
+        }
+
+
+        private static void AssertCurrentOwnableWeaponBreakthroughCoverage()
+        {
+            Dictionary<int, int> expectedBreakthroughCountsByQuality = new()
+            {
+                [2] = 1,
+                [3] = 3,
+                [4] = 4,
+                [5] = 5,
+                [6] = 5
+            };
+            EquipTable[] ownableWeaponRows = TableReaderV2.Parse<EquipTable>()
+                .Where(equip => equip.Site == 0
+                    && equip.Type != 0
+                    && equip.Type != 99
+                    && equip.Quality > 0
+                    && equip.Priority != 100)
+                .OrderBy(equip => equip.Id)
+                .ToArray();
+            if (ownableWeaponRows.Length == 0)
+                throw new InvalidDataException("Current ownable weapon breakthrough coverage: expected at least one current-client ownable weapon EquipTable row.");
+
+            ILookup<int, EquipBreakThroughTable> breakthroughRowsByEquipId = TableReaderV2.Parse<EquipBreakThroughTable>()
+                .ToLookup(breakthrough => breakthrough.EquipId);
+            foreach (EquipTable weaponRow in ownableWeaponRows)
+            {
+                if (!expectedBreakthroughCountsByQuality.TryGetValue(weaponRow.Quality, out int expectedBreakthroughCount))
+                    throw new InvalidDataException($"Current ownable weapon {weaponRow.Id}: unsupported EquipTable quality {weaponRow.Quality} for breakthrough coverage.");
+
+                EquipBreakThroughTable[] breakthroughRows = breakthroughRowsByEquipId[weaponRow.Id]
+                    .OrderBy(breakthrough => breakthrough.Times)
+                    .ToArray();
+                AssertEqual(expectedBreakthroughCount, breakthroughRows.Length, $"Current ownable weapon {weaponRow.Id} breakthrough row count for quality {weaponRow.Quality}");
+
+                for (int times = 0; times < expectedBreakthroughCount; times++)
+                {
+                    EquipBreakThroughTable breakthroughRow = breakthroughRows.SingleOrDefault(breakthrough => breakthrough.Times == times)
+                        ?? throw new InvalidDataException($"Current ownable weapon {weaponRow.Id}: missing EquipBreakThrough row for breakthrough {times}.");
+                    AssertEqual(true, breakthroughRow.LevelLimit > 0, $"Current ownable weapon {weaponRow.Id} breakthrough {times} LevelLimit nonzero");
+                    AssertEqual(true, breakthroughRow.LevelUpTemplateId > 0, $"Current ownable weapon {weaponRow.Id} breakthrough {times} LevelUpTemplateId nonzero");
+                }
             }
         }
 
@@ -1315,6 +5108,8 @@ namespace AscNet.Test
             bool sawTargetWithMoreThanEightInitialSkills = false;
             bool sawTargetWithOwnableDefaultEquipRepair = false;
             bool sawLunaOblivionChakramDefault = false;
+            bool sawMismatchedNonzeroFashionRepair = false;
+            bool preferVeraMismatchedFashionRepair = characterIds.Distinct().Contains(1131004);
 
             foreach (int characterId in characterIds.Distinct())
             {
@@ -1426,6 +5221,17 @@ namespace AscNet.Test
                     AssertEqual((uint)defaultFashionId, repairedCharacter.CharacterHeadInfo.HeadFashionId, $"Current draw target character {characterId} repaired HeadFashionId");
                     FashionList repairedFashion = persistedCharacter.Fashions.Single(fashion => fashion.Id == defaultFashionId);
                     AssertEqual(false, repairedFashion.IsLock, $"Current draw target character {characterId} repaired default fashion unlocked");
+                    if (characterId == 1131004 || (!preferVeraMismatchedFashionRepair && !sawMismatchedNonzeroFashionRepair))
+                    {
+                        sawMismatchedNonzeroFashionRepair = true;
+                        AssertMismatchedNonzeroFashionRepair(
+                            characterId,
+                            characterRow,
+                            firstQualityRow,
+                            expectedSkillIds,
+                            fashionRowsById,
+                            equipRowsById);
+                    }
                 }
 
                 if (characterRow.EquipId > 0
@@ -1450,6 +5256,94 @@ namespace AscNet.Test
                 throw new InvalidDataException("Current draw target characters: expected at least one row with an ownable CharacterTable EquipId for default equip repair.");
             if (!sawLunaOblivionChakramDefault)
                 throw new InvalidDataException("Current draw target characters: expected Luna Oblivion to be covered by default Chakram Reappearance assertions.");
+            if (!sawMismatchedNonzeroFashionRepair)
+                throw new InvalidDataException("Current draw target characters: expected at least one row to cover mismatched nonzero fashion/head-fashion repair.");
+        }
+
+        private static void AssertMismatchedNonzeroFashionRepair(
+            int characterId,
+            CharacterTable characterRow,
+            CharacterQualityTable firstQualityRow,
+            IReadOnlyList<uint> expectedSkillIds,
+            IReadOnlyDictionary<int, FashionTable> fashionRowsById,
+            IReadOnlyDictionary<int, EquipTable> equipRowsById)
+        {
+            int defaultFashionId = characterRow.DefaultNpcFashtionId;
+            if (defaultFashionId <= 0)
+                throw new InvalidDataException($"Current draw target character {characterId}: expected a positive default fashion id for mismatched fashion repair coverage.");
+            if (!fashionRowsById.TryGetValue(defaultFashionId, out FashionTable? defaultFashionRow))
+                throw new InvalidDataException($"Current draw target character {characterId}: expected FashionTable row {defaultFashionId} for mismatched fashion repair coverage.");
+            AssertEqual(characterId, defaultFashionRow.CharacterId, $"Current draw target character {characterId} mismatched repair default fashion CharacterId");
+
+            FashionTable mismatchedFashionRow = fashionRowsById.Values
+                .Where(fashion => fashion.Id > 0 && fashion.CharacterId != characterId)
+                .OrderBy(fashion => fashion.Id)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException($"Current draw target character {characterId}: expected at least one valid Fashion.tsv row from another character for mismatched fashion repair coverage.");
+
+            AscNet.Common.Database.Character persistedCharacter = new()
+            {
+                Uid = characterId,
+                Characters =
+                [
+                    new CharacterData
+                    {
+                        Id = (uint)characterId,
+                        Level = 1,
+                        Quality = firstQualityRow.Quality,
+                        InitQuality = firstQualityRow.Quality,
+                        Grade = 1,
+                        TrustLv = 1,
+                        LiberateLv = 1,
+                        CreateTime = 1,
+                        SkillList = expectedSkillIds
+                            .Select(skillId => new CharacterSkill { Id = skillId, Level = 1 })
+                            .ToList(),
+                        EnhanceSkillList = [],
+                        FashionId = (uint)mismatchedFashionRow.Id,
+                        CharacterHeadInfo = new()
+                        {
+                            HeadFashionId = (uint)mismatchedFashionRow.Id,
+                            HeadFashionType = 1
+                        }
+                    }
+                ],
+                Equips = [],
+                Fashions =
+                [
+                    new FashionList
+                    {
+                        Id = mismatchedFashionRow.Id,
+                        IsLock = false
+                    }
+                ]
+            };
+
+            if (characterRow.EquipId > 0
+                && equipRowsById.TryGetValue(characterRow.EquipId, out EquipTable? defaultEquipRow)
+                && AscNet.Common.Database.Character.IsOwnableEquipTemplate(defaultEquipRow))
+            {
+                persistedCharacter.Equips.Add(new EquipData
+                {
+                    Id = 990002,
+                    TemplateId = (uint)characterRow.EquipId,
+                    CharacterId = characterId,
+                    Level = 1,
+                    ResonanceInfo = [],
+                    UnconfirmedResonanceInfo = [],
+                    AwakeSlotList = [],
+                    WeaponOverrunData = new()
+                });
+            }
+
+            AssertEqual(true, persistedCharacter.NormalizeCharactersForCurrentTables(), $"Current draw target character {characterId} mismatched nonzero fashion repair reports mutation");
+            CharacterData repairedCharacter = persistedCharacter.Characters.Single(character => character.Id == characterId);
+            AssertEqual((uint)defaultFashionId, repairedCharacter.FashionId, $"Current draw target character {characterId} mismatched nonzero FashionId resets to default");
+            if (repairedCharacter.CharacterHeadInfo is null)
+                throw new InvalidDataException($"Current draw target character {characterId}: expected mismatched fashion repair to preserve CharacterHeadInfo.");
+            AssertEqual((uint)defaultFashionId, repairedCharacter.CharacterHeadInfo.HeadFashionId, $"Current draw target character {characterId} mismatched nonzero HeadFashionId resets to default");
+            FashionList repairedDefaultFashion = persistedCharacter.Fashions.Single(fashion => fashion.Id == defaultFashionId);
+            AssertEqual(false, repairedDefaultFashion.IsLock, $"Current draw target character {characterId} mismatched nonzero repair default fashion unlocked");
         }
 
         private static uint AddCharacterSkillIdFromGroup(int characterId, int skillGroupId)
@@ -1474,7 +5368,7 @@ namespace AscNet.Test
             if (expectedTargetCharacterId.HasValue)
                 AssertEqual(expectedTargetCharacterId.Value, targetCharacterId, $"{name} configured target character id");
 
-            int pityPullOffset = drawInfo.MaxBottomTimes - (drawInfo.TotalCount % drawInfo.MaxBottomTimes) - 1;
+            int pityPullOffset = drawInfo.BottomTimes - 1;
             if (pityPullOffset < 0)
                 pityPullOffset += drawInfo.MaxBottomTimes;
 
@@ -1502,7 +5396,7 @@ namespace AscNet.Test
         {
             if (!drawInfo.ResourceIds.TryGetValue(1, out int targetEquipId))
                 throw new InvalidDataException($"Draw {drawInfo.Id} target weapon pity: expected ResourceIds[1] target equip id.");
-            int pityPullOffset = drawInfo.MaxBottomTimes - (drawInfo.TotalCount % drawInfo.MaxBottomTimes) - 1;
+            int pityPullOffset = drawInfo.BottomTimes - 1;
             if (pityPullOffset < 0)
                 pityPullOffset += drawInfo.MaxBottomTimes;
 
@@ -1546,6 +5440,7 @@ namespace AscNet.Test
                     EquipData equipReward = drawEquipPush.EquipDataList.Single(equip => equip.TemplateId == (uint)reward.TemplateId);
                     AssertEqual(1, drawEquipPush.EquipDataList.Count, $"{name} equip reward push count");
                     AssertEqual((uint)reward.TemplateId, equipReward.TemplateId, $"{name} equip reward template");
+                    AssertEqual(true, equipReward.IsRecycle, $"{name} equip reward recycle flag");
                     break;
                 default:
                     throw new InvalidDataException($"{name}: unexpected reward type {(RewardType)reward.RewardType} for draw {drawInfo.Id}.");
@@ -1573,6 +5468,624 @@ namespace AscNet.Test
             ExecuteBlackCardCommandAndAssertGrant([], initialBlackCards: 0, expectedBlackCards: 30_000, playerId: 90_001, "BlackCardCommand default grant behavior");
             ExecuteBlackCardCommandAndAssertGrant(["875"], initialBlackCards: 125, expectedBlackCards: 1_000, playerId: 90_002, "BlackCardCommand explicit grant behavior");
         }
+
+        private static void ValidateMissingFeatureCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForMissingFeatureCompatibility();
+
+            const long playerId = 99_001;
+            const long headPortraitId = 9000003;
+            const long headFrameId = 2203001;
+            const long medalId = 50001;
+            const long chatBoardId = 2100001;
+
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.PlayerData.Sign = "MissingFeatureCompatibility";
+            player.PlayerData.CurrHeadPortraitId = 0;
+            player.PlayerData.CurrHeadFrameId = 0;
+            player.PlayerData.CurrMedalId = 0;
+            player.PlayerData.CurrentChatBoardId = 0;
+            player.PlayerData.LastLoginTime = 1_720_000_001;
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters.Add(new CharacterData
+            {
+                Id = 1021001,
+                Level = 80
+            });
+
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "missing-feature-compat-test");
+
+            const int setHeadPortraitPacketId = 11_001;
+            InvokeRegisteredRequestHandler(
+                nameof(SetHeadPortraitRequest),
+                harness.Session,
+                setHeadPortraitPacketId,
+                new SetHeadPortraitRequest { Id = headPortraitId });
+            SetHeadPortraitResponse setHeadPortraitResponse = ReadResponsePayload<SetHeadPortraitResponse>(
+                harness,
+                setHeadPortraitPacketId,
+                nameof(SetHeadPortraitResponse),
+                "SetHeadPortraitRequest response");
+            AssertEqual(0, setHeadPortraitResponse.Code, "SetHeadPortraitResponse Code");
+            AssertEqual(headPortraitId, player.PlayerData.CurrHeadPortraitId, "SetHeadPortraitRequest persisted CurrHeadPortraitId");
+
+            const int setHeadFramePacketId = 11_002;
+            InvokeRegisteredRequestHandler(
+                nameof(SetHeadFrameRequest),
+                harness.Session,
+                setHeadFramePacketId,
+                new SetHeadFrameRequest { Id = headFrameId });
+            SetHeadFrameResponse setHeadFrameResponse = ReadResponsePayload<SetHeadFrameResponse>(
+                harness,
+                setHeadFramePacketId,
+                nameof(SetHeadFrameResponse),
+                "SetHeadFrameRequest response");
+            AssertEqual(0, setHeadFrameResponse.Code, "SetHeadFrameResponse Code");
+            AssertEqual(headFrameId, player.PlayerData.CurrHeadFrameId, "SetHeadFrameRequest persisted CurrHeadFrameId");
+
+            const int setCurrentMedalPacketId = 11_003;
+            InvokeRegisteredRequestHandler(
+                nameof(SetCurrentMedalRequest),
+                harness.Session,
+                setCurrentMedalPacketId,
+                new SetCurrentMedalRequest { Id = medalId });
+            NotifyPlayerCurrMedalId medalPush = ReadPushPayload<NotifyPlayerCurrMedalId>(
+                harness,
+                nameof(NotifyPlayerCurrMedalId),
+                "SetCurrentMedalRequest medal push");
+            AssertEqual(medalId, medalPush.CurrMedalId, "NotifyPlayerCurrMedalId CurrMedalId");
+            SetCurrentMedalResponse setCurrentMedalResponse = ReadResponsePayload<SetCurrentMedalResponse>(
+                harness,
+                setCurrentMedalPacketId,
+                nameof(SetCurrentMedalResponse),
+                "SetCurrentMedalRequest response");
+            AssertEqual(0, setCurrentMedalResponse.Code, "SetCurrentMedalResponse Code");
+            AssertEqual(medalId, player.PlayerData.CurrMedalId, "SetCurrentMedalRequest persisted CurrMedalId");
+
+            const int setCurChatBoardPacketId = 11_004;
+            InvokeRegisteredRequestHandler(
+                nameof(SetCurChatBoardRequest),
+                harness.Session,
+                setCurChatBoardPacketId,
+                new SetCurChatBoardRequest { ChatBoardId = chatBoardId });
+            NotifyCurChatBoardId chatBoardPush = ReadPushPayload<NotifyCurChatBoardId>(
+                harness,
+                nameof(NotifyCurChatBoardId),
+                "SetCurChatBoardRequest chat-board push");
+            AssertEqual(chatBoardId, chatBoardPush.CurrentChatBoardId, "NotifyCurChatBoardId CurrentChatBoardId");
+            SetCurChatBoardResponse setCurChatBoardResponse = ReadResponsePayload<SetCurChatBoardResponse>(
+                harness,
+                setCurChatBoardPacketId,
+                nameof(SetCurChatBoardResponse),
+                "SetCurChatBoardRequest response");
+            AssertEqual(0, setCurChatBoardResponse.Code, "SetCurChatBoardResponse Code");
+            AssertEqual(chatBoardId, player.PlayerData.CurrentChatBoardId, "SetCurChatBoardRequest persisted CurrentChatBoardId");
+
+            const int getPlayerInfoPacketId = 11_005;
+            const uint unknownPlayerIdA = 990_000_001;
+            const uint unknownPlayerIdB = 990_000_002;
+            uint currentPlayerId = (uint)playerId;
+            InvokeRegisteredRequestHandler(
+                nameof(GetPlayerInfoListRequest),
+                harness.Session,
+                getPlayerInfoPacketId,
+                new GetPlayerInfoListRequest { Ids = [currentPlayerId, unknownPlayerIdA, currentPlayerId, unknownPlayerIdB, unknownPlayerIdA] });
+            GetPlayerInfoListResponse playerInfoListResponse = ReadResponsePayload<GetPlayerInfoListResponse>(
+                harness,
+                getPlayerInfoPacketId,
+                nameof(GetPlayerInfoListResponse),
+                "GetPlayerInfoListRequest response");
+            AssertEqual(0, playerInfoListResponse.Code, "GetPlayerInfoListResponse Code");
+            AssertEqual(3, playerInfoListResponse.PlayerInfoList.Count, "GetPlayerInfoListResponse distinct requested player count");
+            AssertIntegerList(
+                [currentPlayerId, unknownPlayerIdA, unknownPlayerIdB],
+                playerInfoListResponse.PlayerInfoList.Select(info => (long)info.Id).ToArray(),
+                "GetPlayerInfoListResponse distinct player ids in request order");
+            GetPlayerInfoListResponse.GetPlayerInfoListResponsePlayerInfo playerInfo = playerInfoListResponse.PlayerInfoList[0];
+            AssertEqual(currentPlayerId, playerInfo.Id, "GetPlayerInfoListResponse current PlayerInfo Id");
+            AssertEqual(player.PlayerData.Name, playerInfo.Name, "GetPlayerInfoListResponse current PlayerInfo Name");
+            AssertEqual((int)player.PlayerData.Level, playerInfo.Level, "GetPlayerInfoListResponse current PlayerInfo Level");
+            AssertEqual(player.PlayerData.Sign, playerInfo.Sign, "GetPlayerInfoListResponse current PlayerInfo Sign");
+            AssertEqual((uint)headPortraitId, playerInfo.CurrHeadPortraitId, "GetPlayerInfoListResponse current PlayerInfo CurrHeadPortraitId");
+            AssertEqual((int)headFrameId, playerInfo.CurrHeadFrameId, "GetPlayerInfoListResponse current PlayerInfo CurrHeadFrameId");
+            AssertEqual((uint)player.PlayerData.LastLoginTime, playerInfo.LastLoginTime, "GetPlayerInfoListResponse current PlayerInfo LastLoginTime");
+            AssertEqual((int)medalId, playerInfo.CurrMedalId, "GetPlayerInfoListResponse current PlayerInfo CurrMedalId");
+            AssertEqual(false, playerInfo.IsCancel, "GetPlayerInfoListResponse current PlayerInfo IsCancel");
+            AssertEqual(0, playerInfo.DlcMultiplayerTitle, "GetPlayerInfoListResponse current PlayerInfo DlcMultiplayerTitle");
+            for (int infoIndex = 1; infoIndex < playerInfoListResponse.PlayerInfoList.Count; infoIndex++)
+            {
+                GetPlayerInfoListResponse.GetPlayerInfoListResponsePlayerInfo unknownPlayerInfo = playerInfoListResponse.PlayerInfoList[infoIndex];
+                if (string.IsNullOrWhiteSpace(unknownPlayerInfo.Name))
+                    throw new InvalidDataException($"GetPlayerInfoListResponse unknown PlayerInfo {unknownPlayerInfo.Id} Name: expected non-empty fallback display name.");
+            }
+
+            const int votePacketId = 11_006;
+            InvokeRegisteredRequestHandler(nameof(GetVoteGroupListRequest), harness.Session, votePacketId, new GetVoteGroupListRequest());
+            GetVoteGroupListResponse voteGroupListResponse = ReadResponsePayload<GetVoteGroupListResponse>(
+                harness,
+                votePacketId,
+                nameof(GetVoteGroupListResponse),
+                "GetVoteGroupListRequest response");
+            AssertEqual(true, voteGroupListResponse.VoteGroupList.Count > 0, "GetVoteGroupListResponse VoteGroupList non-empty");
+            GetVoteGroupListResponse.GetVoteGroupListResponseVoteGroup voteGroup = voteGroupListResponse.VoteGroupList[0];
+            AssertEqual(true, voteGroup.VoteDic is not null && voteGroup.VoteDic.Count > 0, "GetVoteGroupListResponse VoteGroupList[0] VoteDic non-empty");
+
+            const int guildDetailPacketId = 11_007;
+            InvokeRegisteredRequestHandler(
+                nameof(GuildListDetailRequest),
+                harness.Session,
+                guildDetailPacketId,
+                new GuildListDetailRequest { GuildId = 365 });
+            GuildListDetailResponse guildDetailResponse = ReadResponsePayload<GuildListDetailResponse>(
+                harness,
+                guildDetailPacketId,
+                nameof(GuildListDetailResponse),
+                "GuildListDetailRequest response");
+            AssertEqual(0, guildDetailResponse.Code, "GuildListDetailResponse Code");
+            AssertEqual(365U, guildDetailResponse.GuildId, "GuildListDetailResponse GuildId");
+            AssertEqual(player.PlayerData.Name, guildDetailResponse.GuildLeaderName, "GuildListDetailResponse GuildLeaderName");
+            if (guildDetailResponse.GiftLevelGot is null)
+                throw new InvalidDataException("GuildListDetailResponse GiftLevelGot: expected initialized list.");
+
+            const int guildMemberPacketId = 11_008;
+            InvokeRegisteredRequestHandler(
+                nameof(GuildMemberDetailRequest),
+                harness.Session,
+                guildMemberPacketId,
+                new GuildMemberDetailRequest { GuildId = 365 });
+            GuildMemberDetailResponse guildMemberResponse = ReadResponsePayload<GuildMemberDetailResponse>(
+                harness,
+                guildMemberPacketId,
+                nameof(GuildMemberDetailResponse),
+                "GuildMemberDetailRequest response");
+            AssertEqual(0, guildMemberResponse.Code, "GuildMemberDetailResponse Code");
+            AssertEqual(1, guildMemberResponse.MembersData.Count, "GuildMemberDetailResponse MembersData count");
+            GuildMemberDetailResponse.GuildMemberDetailResponseMembersData guildMember = guildMemberResponse.MembersData.Single();
+            AssertEqual((uint)playerId, guildMember.Id, "GuildMemberDetailResponse current member Id");
+            AssertEqual(player.PlayerData.Name, guildMember.Name, "GuildMemberDetailResponse current member Name");
+
+            const int guildChatPacketId = 11_009;
+            InvokeRegisteredRequestHandler(nameof(GuildListChatRequest), harness.Session, guildChatPacketId, new GuildListChatRequest());
+            GuildListChatResponse guildChatResponse = ReadResponsePayload<GuildListChatResponse>(
+                harness,
+                guildChatPacketId,
+                nameof(GuildListChatResponse),
+                "GuildListChatRequest response");
+            AssertEqual(0, guildChatResponse.Code, "GuildListChatResponse Code");
+            if (guildChatResponse.ChatList is null)
+                throw new InvalidDataException("GuildListChatResponse ChatList: expected initialized list.");
+            AssertEqual(1, guildChatResponse.ChatList.Count, "GuildListChatResponse ChatList count");
+            JObject guildChat = JObject.Parse(guildChatResponse.ChatList.Single());
+            AssertEqual(6, guildChat.Value<int>("ChannelType"), "GuildListChatResponse ChatList[0] ChannelType");
+            AssertEqual(1, guildChat.Value<int>("MsgType"), "GuildListChatResponse ChatList[0] MsgType");
+            AssertEqual("AscNet", guildChat.Value<string>("GuildName"), "GuildListChatResponse ChatList[0] GuildName");
+            if (string.IsNullOrWhiteSpace(guildChat.Value<string>("Content")))
+                throw new InvalidDataException("GuildListChatResponse ChatList[0] Content: expected visible text.");
+
+            const int guildSupportPacketId = 11_010;
+            InvokeRegisteredRequestHandler(
+                nameof(GuildWarOpenSupportPanelRequest),
+                harness.Session,
+                guildSupportPacketId,
+                new GuildWarOpenSupportPanelRequest());
+            GuildWarOpenSupportPanelResponse guildSupportResponse = ReadResponsePayload<GuildWarOpenSupportPanelResponse>(
+                harness,
+                guildSupportPacketId,
+                nameof(GuildWarOpenSupportPanelResponse),
+                "GuildWarOpenSupportPanelRequest response");
+            AssertEqual(0, guildSupportResponse.Code, "GuildWarOpenSupportPanelResponse Code");
+            if (guildSupportResponse.SupportDetail is null)
+                throw new InvalidDataException("GuildWarOpenSupportPanelResponse SupportDetail: expected initialized detail.");
+            AssertEqual(1021001, guildSupportResponse.SupportDetail.CharacterId, "GuildWarOpenSupportPanelResponse SupportDetail CharacterId");
+            if (guildSupportResponse.SupportDetail.ToAssistRecords is null
+                || guildSupportResponse.SupportDetail.MyLogs is null
+                || guildSupportResponse.SupportDetail.GetAssistRecords is null
+                || guildSupportResponse.SupportDetail.MyAssistRecords is null)
+                throw new InvalidDataException("GuildWarOpenSupportPanelResponse SupportDetail: expected initialized record lists.");
+
+            const int fixedShopPacketId = 11_011;
+            InvokeRegisteredRequestHandler(
+                nameof(GetFixedShopListRequest),
+                harness.Session,
+                fixedShopPacketId,
+                new GetFixedShopListRequest { IdList = [1436] });
+            GetFixedShopListResponse fixedShopResponse = ReadResponsePayload<GetFixedShopListResponse>(
+                harness,
+                fixedShopPacketId,
+                nameof(GetFixedShopListResponse),
+                "GetFixedShopListRequest response");
+            AssertEqual(0, fixedShopResponse.Code, "GetFixedShopListResponse Code");
+            AssertEqual(1, fixedShopResponse.ClientShopList.Count, "GetFixedShopListResponse ClientShopList count");
+            GetShopInfoResponse.GetShopInfoResponseClientShop fixedShop = fixedShopResponse.ClientShopList.Single();
+            AssertEqual(1436U, fixedShop.Id, "GetFixedShopListResponse ClientShop Id");
+            AssertEqual(true, fixedShop.ShowIds.Contains(50135), "GetFixedShopListResponse ClientShop ShowIds includes 50135");
+            AssertEqual(3, fixedShop.GoodsList.Count, "GetFixedShopListResponse ClientShop GoodsList count");
+            foreach (GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods fixedShopGoods in fixedShop.GoodsList)
+            {
+                if (fixedShopGoods.RewardGoods is null)
+                    throw new InvalidDataException($"GetFixedShopListResponse goods {fixedShopGoods.Id} RewardGoods: expected initialized reward.");
+                AssertEqual(false, fixedShopGoods.RewardGoods.IsGift, $"GetFixedShopListResponse goods {fixedShopGoods.Id} RewardGoods IsGift");
+                AssertEqual(0, fixedShopGoods.RewardGoods.RewardMulti, $"GetFixedShopListResponse goods {fixedShopGoods.Id} RewardGoods RewardMulti");
+                AssertEqual(0, fixedShopGoods.BuyPriority, $"GetFixedShopListResponse goods {fixedShopGoods.Id} BuyPriority");
+                AssertEqual(0, fixedShopGoods.ActivityConsumeCount, $"GetFixedShopListResponse goods {fixedShopGoods.Id} ActivityConsumeCount");
+                AssertEqual(0, fixedShopGoods.ActivityDiscount, $"GetFixedShopListResponse goods {fixedShopGoods.Id} ActivityDiscount");
+            }
+
+            const int lottoInfoPacketId = 11_012;
+            InvokeRegisteredRequestHandler(nameof(LottoInfoRequest), harness.Session, lottoInfoPacketId, new LottoInfoRequest());
+            LottoInfoResponse lottoInfoResponse = ReadResponsePayload<LottoInfoResponse>(
+                harness,
+                lottoInfoPacketId,
+                nameof(LottoInfoResponse),
+                "LottoInfoRequest response");
+            AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse Code");
+            if (lottoInfoResponse.LottoInfos is null)
+                throw new InvalidDataException("LottoInfoResponse LottoInfos: expected initialized list.");
+
+            const int enterWorldChatPacketId = 11_013;
+            InvokeRegisteredRequestHandler(nameof(EnterWorldChatRequest), harness.Session, enterWorldChatPacketId, new EnterWorldChatRequest());
+            EnterWorldChatResponse enterWorldChatResponse = ReadResponsePayload<EnterWorldChatResponse>(
+                harness,
+                enterWorldChatPacketId,
+                nameof(EnterWorldChatResponse),
+                "EnterWorldChatRequest response");
+            AssertEqual(0, enterWorldChatResponse.Code, "EnterWorldChatResponse Code");
+            AssertEqual(1, enterWorldChatResponse.ChannelId, "EnterWorldChatResponse retail ChannelId");
+
+            const int getWorldChannelInfoPacketId = 11_014;
+            InvokeRegisteredRequestHandler(nameof(GetWorldChannelInfoRequest), harness.Session, getWorldChannelInfoPacketId, new GetWorldChannelInfoRequest());
+            GetWorldChannelInfoResponse worldChannelInfoResponse = ReadResponsePayload<GetWorldChannelInfoResponse>(
+                harness,
+                getWorldChannelInfoPacketId,
+                nameof(GetWorldChannelInfoResponse),
+                "GetWorldChannelInfoRequest response");
+            AssertEqual(0, worldChannelInfoResponse.Code, "GetWorldChannelInfoResponse Code");
+            AssertEqual(8, worldChannelInfoResponse.ChannelInfos.Count, "GetWorldChannelInfoResponse ChannelInfos count");
+            for (int channelIndex = 0; channelIndex < worldChannelInfoResponse.ChannelInfos.Count; channelIndex++)
+            {
+                GetWorldChannelInfoResponse.GetWorldChannelInfoResponseChannelInfo channelInfo = worldChannelInfoResponse.ChannelInfos[channelIndex];
+                AssertEqual(channelIndex, channelInfo.ChannelId, $"GetWorldChannelInfoResponse ChannelInfos[{channelIndex}] ChannelId");
+                AssertEqual(0, channelInfo.PlayerNum, $"GetWorldChannelInfoResponse ChannelInfos[{channelIndex}] PlayerNum");
+            }
+        }
+
+        private static void ValidateItemUseCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+
+            const long playerId = 99_201;
+            const int cogPackSmallId = 90_011;
+            const int useCount = 2;
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [
+                    new Item { Id = cogPackSmallId, Count = 3 },
+                    new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = 100 }
+                ]);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                inventory,
+                "item-use-compat-test");
+
+            const int packetId = 14_001;
+            AscNet.GameServer.Handlers.ItemUseRequest request = new()
+            {
+                Id = cogPackSmallId,
+                Count = useCount
+            };
+            InvokeRegisteredRequestHandler(nameof(AscNet.GameServer.Handlers.ItemUseRequest), harness.Session, packetId, request);
+
+            NotifyItemDataList consumePush = ReadPushPayload<NotifyItemDataList>(
+                harness,
+                nameof(NotifyItemDataList),
+                "ItemUseRequest consumed pack push");
+            Item consumedPack = consumePush.ItemDataList.Single(item => item.Id == cogPackSmallId);
+            AssertEqual(1L, consumedPack.Count, "ItemUseRequest consumed Cog Pack count");
+
+            NotifyItemDataList rewardPush = ReadPushPayload<NotifyItemDataList>(
+                harness,
+                nameof(NotifyItemDataList),
+                "ItemUseRequest reward push");
+            Item rewardedCogs = rewardPush.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
+            AssertEqual(20_100L, rewardedCogs.Count, "ItemUseRequest rewarded Cog count");
+
+            AscNet.GameServer.Handlers.ItemUseResponse response = ReadResponsePayload<AscNet.GameServer.Handlers.ItemUseResponse>(
+                harness,
+                packetId,
+                nameof(AscNet.GameServer.Handlers.ItemUseResponse),
+                "ItemUseRequest response");
+            AssertEqual(0, response.Code, "ItemUseResponse Code");
+            RewardGoods rewardGoods = response.RewardGoodsList.Single();
+            AssertEqual(1, rewardGoods.RewardType, "ItemUseResponse RewardGoodsList[0] RewardType");
+            AssertEqual(AscNet.Common.Database.Inventory.Coin, rewardGoods.TemplateId, "ItemUseResponse RewardGoodsList[0] TemplateId");
+            AssertEqual(20_000, rewardGoods.Count, "ItemUseResponse RewardGoodsList[0] Count");
+        }
+
+        private static void ValidateChatCompatibility()
+        {
+            const long playerId = 99_301;
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "chat-compat-test");
+
+            const int enterWorldChatPacketId = 15_001;
+            InvokeRegisteredRequestHandler(
+                nameof(AscNet.GameServer.Handlers.EnterWorldChatRequest),
+                harness.Session,
+                enterWorldChatPacketId,
+                new AscNet.GameServer.Handlers.EnterWorldChatRequest());
+            EnterWorldChatResponse enterWorldChatResponse = ReadResponsePayload<EnterWorldChatResponse>(
+                harness,
+                enterWorldChatPacketId,
+                nameof(EnterWorldChatResponse),
+                "EnterWorldChatRequest response");
+            AssertEqual(0, enterWorldChatResponse.Code, "EnterWorldChatResponse Code");
+            AssertEqual(1, enterWorldChatResponse.ChannelId, "EnterWorldChatResponse retail ChannelId");
+            if (harness.TryReadAvailablePacket("EnterWorldChatRequest unexpected post-response packet", out Packet enterWorldChatUnexpectedPacket))
+                throw new InvalidDataException($"EnterWorldChatRequest: expected only EnterWorldChatResponse before GetWorldChannelInfoRequest, got {enterWorldChatUnexpectedPacket.Type}.");
+
+            const int getWorldChannelInfoPacketId = 15_002;
+            InvokeRegisteredRequestHandler(
+                nameof(AscNet.GameServer.Handlers.GetWorldChannelInfoRequest),
+                harness.Session,
+                getWorldChannelInfoPacketId,
+                new AscNet.GameServer.Handlers.GetWorldChannelInfoRequest());
+            GetWorldChannelInfoResponse worldChannelInfoResponse = ReadResponsePayload<GetWorldChannelInfoResponse>(
+                harness,
+                getWorldChannelInfoPacketId,
+                nameof(GetWorldChannelInfoResponse),
+                "GetWorldChannelInfoRequest response");
+            AssertEqual(0, worldChannelInfoResponse.Code, "GetWorldChannelInfoResponse Code");
+            AssertEqual(8, worldChannelInfoResponse.ChannelInfos.Count, "GetWorldChannelInfoResponse ChannelInfos count");
+            for (int channelIndex = 0; channelIndex < worldChannelInfoResponse.ChannelInfos.Count; channelIndex++)
+            {
+                GetWorldChannelInfoResponse.GetWorldChannelInfoResponseChannelInfo channelInfo = worldChannelInfoResponse.ChannelInfos[channelIndex];
+                AssertEqual(channelIndex, channelInfo.ChannelId, $"GetWorldChannelInfoResponse ChannelInfos[{channelIndex}] ChannelId");
+                AssertEqual(0, channelInfo.PlayerNum, $"GetWorldChannelInfoResponse ChannelInfos[{channelIndex}] PlayerNum");
+            }
+
+            const int sendChatPacketId = 15_003;
+            InvokeRegisteredRequestHandler(
+                nameof(AscNet.GameServer.Handlers.SendChatRequest),
+                harness.Session,
+                sendChatPacketId,
+                new AscNet.GameServer.Handlers.SendChatRequest
+                {
+                    TargetIdList = [playerId],
+                    ChatData = new AscNet.GameServer.Handlers.ChatData
+                    {
+                        ChannelType = AscNet.GameServer.Handlers.ChatChannelType.World,
+                        MsgType = AscNet.GameServer.Handlers.ChatMsgType.Normal,
+                        Content = "\ntest"
+                    }
+                });
+            NotifyChatMessage notifyChatMessage = ReadPushPayload<NotifyChatMessage>(
+                harness,
+                nameof(NotifyChatMessage),
+                "SendChatRequest NotifyChatMessage push");
+            AssertEqual(playerId, notifyChatMessage.SenderId, "NotifyChatMessage SenderId");
+            AssertEqual(AscNet.GameServer.Handlers.ChatChannelType.World, notifyChatMessage.ChannelType, "NotifyChatMessage ChannelType");
+            AssertEqual("test", notifyChatMessage.Content, "NotifyChatMessage Content");
+            SendChatResponse sendChatResponse = ReadResponsePayload<SendChatResponse>(
+                harness,
+                sendChatPacketId,
+                nameof(SendChatResponse),
+                "SendChatRequest response");
+            AssertEqual(0, sendChatResponse.Code, "SendChatResponse Code");
+            AssertEqual(0L, sendChatResponse.RefreshTime, "SendChatResponse RefreshTime");
+            AscNet.GameServer.Handlers.NotifyWorldChat worldChatPush = ReadPushPayload<AscNet.GameServer.Handlers.NotifyWorldChat>(
+                harness,
+                nameof(AscNet.GameServer.Handlers.NotifyWorldChat),
+                "SendChatRequest empty world-chat push");
+            AssertEqual(0, worldChatPush.ChatMessages.Count, "NotifyWorldChat ChatMessages count");
+
+            ValidateDeferredPreLoginChatCompatibility();
+
+            static void ValidateDeferredPreLoginChatCompatibility()
+            {
+                const long playerId = 99_302;
+                AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+                using LoopbackSessionHarness harness = new(
+                    CreateDrawCompatibilityCharacter(playerId),
+                    player,
+                    CreateDrawCompatibilityInventory(playerId, []),
+                    "chat-deferred-compat-test");
+                harness.Session.player = null!;
+
+                const int enterWorldChatPacketId = 15_101;
+                InvokeRegisteredRequestHandler(
+                    nameof(AscNet.GameServer.Handlers.EnterWorldChatRequest),
+                    harness.Session,
+                    enterWorldChatPacketId,
+                    new AscNet.GameServer.Handlers.EnterWorldChatRequest());
+                const int getWorldChannelInfoPacketId = 15_102;
+                InvokeRegisteredRequestHandler(
+                    nameof(AscNet.GameServer.Handlers.GetWorldChannelInfoRequest),
+                    harness.Session,
+                    getWorldChannelInfoPacketId,
+                    new AscNet.GameServer.Handlers.GetWorldChannelInfoRequest());
+                if (harness.TryReadAvailablePacket("deferred pre-login chat unexpected packet", out Packet unexpectedPacket))
+                    throw new InvalidDataException($"Deferred pre-login chat: expected no packets before login flush, got {unexpectedPacket.Type}.");
+
+                harness.Session.player = player;
+                Type chatModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.ChatModule");
+                MethodInfo flushPendingLoginChat = RequiredMethod(chatModule, "FlushPendingLoginChat", BindingFlags.Static | BindingFlags.Public, [typeof(Session)]);
+                flushPendingLoginChat.Invoke(null, [harness.Session]);
+
+                EnterWorldChatResponse enterWorldChatResponse = ReadResponsePayload<EnterWorldChatResponse>(
+                    harness,
+                    enterWorldChatPacketId,
+                    nameof(EnterWorldChatResponse),
+                    "deferred EnterWorldChatRequest response");
+                AssertEqual(0, enterWorldChatResponse.Code, "deferred EnterWorldChatResponse Code");
+                AssertEqual(1, enterWorldChatResponse.ChannelId, "deferred EnterWorldChatResponse retail ChannelId");
+                GetWorldChannelInfoResponse worldChannelInfoResponse = ReadResponsePayload<GetWorldChannelInfoResponse>(
+                    harness,
+                    getWorldChannelInfoPacketId,
+                    nameof(GetWorldChannelInfoResponse),
+                    "deferred GetWorldChannelInfoRequest response");
+                AssertEqual(8, worldChannelInfoResponse.ChannelInfos.Count, "deferred GetWorldChannelInfoResponse ChannelInfos count");
+                if (harness.TryReadAvailablePacket("deferred pre-login chat unexpected trailing packet", out Packet unexpectedTrailingPacket))
+                    throw new InvalidDataException($"Deferred pre-login chat: expected no trailing packets after flush, got {unexpectedTrailingPacket.Type}.");
+            }
+        }
+
+        private static void ValidateShopCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+
+            const long playerId = 99_101;
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [new Item { Id = 1, Count = 30_000 }]);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                inventory,
+                "shop-compat-test");
+
+            const int shopInfoPacketId = 12_001;
+            InvokeRegisteredRequestHandler(
+                nameof(GetShopInfoRequest),
+                harness.Session,
+                shopInfoPacketId,
+                new GetShopInfoRequest { Id = 1 });
+            GetShopInfoResponse shopInfoResponse = ReadResponsePayload<GetShopInfoResponse>(
+                harness,
+                shopInfoPacketId,
+                nameof(GetShopInfoResponse),
+                "GetShopInfoRequest shop 1 response");
+            AssertEqual(0, shopInfoResponse.Code, "GetShopInfoResponse Code");
+            AssertSupplyShopClientShop(shopInfoResponse.ClientShop, "GetShopInfoResponse ClientShop");
+
+            const int fixedShopPacketId = 12_002;
+            InvokeRegisteredRequestHandler(
+                nameof(GetFixedShopListRequest),
+                harness.Session,
+                fixedShopPacketId,
+                new GetFixedShopListRequest { IdList = [502, 504] });
+            GetFixedShopListResponse fixedShopResponse = ReadResponsePayload<GetFixedShopListResponse>(
+                harness,
+                fixedShopPacketId,
+                nameof(GetFixedShopListResponse),
+                "GetFixedShopListRequest 502/504 response");
+            AssertEqual(0, fixedShopResponse.Code, "GetFixedShopListResponse 502/504 Code");
+            AssertEqual(2, fixedShopResponse.ClientShopList.Count, "GetFixedShopListResponse 502/504 ClientShopList count");
+            AssertIntegerList(
+                [502, 504],
+                fixedShopResponse.ClientShopList.Select(shop => (long)shop.Id).Order().ToArray(),
+                "GetFixedShopListResponse 502/504 ClientShop ids");
+            foreach (uint shopId in new uint[] { 502, 504 })
+            {
+                GetShopInfoResponse.GetShopInfoResponseClientShop clientShop = fixedShopResponse.ClientShopList.Single(shop => shop.Id == shopId);
+                AssertEqual(true, clientShop.GoodsList.Count > 0, $"GetFixedShopListResponse shop {shopId} GoodsList non-empty");
+            }
+
+            Type getShopValidInfoRequestType = RequiredShopMessageType("GetShopValidInfoRequest");
+            Type getShopValidInfoResponseType = RequiredShopMessageType("GetShopValidInfoResponse");
+            object getShopValidInfoRequest = Activator.CreateInstance(getShopValidInfoRequestType)
+                ?? throw new InvalidDataException("GetShopValidInfoRequest: expected a public parameterless constructor for MessagePack.");
+            SetFirstAvailableIntegerList(
+                getShopValidInfoRequest,
+                ["ShopIds", "ShopIdList", "IdList"],
+                [502, 504],
+                "GetShopValidInfoRequest shop ids");
+
+            const int validInfoPacketId = 12_003;
+            InvokeRegisteredRequestHandler(
+                "GetShopValidInfoRequest",
+                harness.Session,
+                validInfoPacketId,
+                getShopValidInfoRequest);
+            object getShopValidInfoResponse = ReadResponsePayload(
+                harness,
+                validInfoPacketId,
+                "GetShopValidInfoResponse",
+                "GetShopValidInfoRequest 502/504 response",
+                getShopValidInfoResponseType);
+            AssertEqual(0, GetRequiredIntegerMember(getShopValidInfoResponse, "Code"), "GetShopValidInfoResponse Code");
+            List<object> shopValidInfos = GetRequiredObjectListMember(
+                getShopValidInfoResponse,
+                ["ShopValidInfos", "ShopValidInfoList", "ValidInfoList"],
+                "GetShopValidInfoResponse ShopValidInfos");
+            AssertEqual(2, shopValidInfos.Count, "GetShopValidInfoResponse ShopValidInfos count");
+            AssertIntegerList(
+                [502, 504],
+                shopValidInfos.Select(info => (long)GetRequiredIntegerMember(info, "Id")).Order().ToArray(),
+                "GetShopValidInfoResponse ShopValidInfos ids");
+            foreach (int shopId in new[] { 502, 504 })
+            {
+                object shopValidInfo = shopValidInfos.Single(info => GetRequiredIntegerMember(info, "Id") == shopId);
+                AssertEqual(0, GetRequiredIntegerMember(shopValidInfo, "StartTime"), $"GetShopValidInfoResponse shop {shopId} StartTime");
+                AssertEqual(0, GetRequiredIntegerMember(shopValidInfo, "EndTime"), $"GetShopValidInfoResponse shop {shopId} EndTime");
+                AssertEqual(false, GetRequiredBooleanMember(shopValidInfo, "IsUnShelve"), $"GetShopValidInfoResponse shop {shopId} IsUnShelve");
+                AssertObjectListEmpty(GetRequiredMemberValue(shopValidInfo, "ConditionIds"), $"GetShopValidInfoResponse shop {shopId} ConditionIds");
+            }
+
+            Type buyRequestType = RequiredShopMessageType("BuyRequest");
+            Type buyResponseType = RequiredShopMessageType("BuyResponse");
+            object buyRequest = Activator.CreateInstance(buyRequestType)
+                ?? throw new InvalidDataException("BuyRequest: expected a public parameterless constructor for MessagePack.");
+            SetRequiredIntegerMember(buyRequest, "ShopId", 1);
+            SetRequiredIntegerMember(buyRequest, "GoodsId", 1003000);
+            SetRequiredIntegerMember(buyRequest, "Count", 1);
+
+            const int buyPacketId = 12_004;
+            InvokeRegisteredRequestHandler(
+                "BuyRequest",
+                harness.Session,
+                buyPacketId,
+                buyRequest);
+            object buyResponse = ReadResponsePayload(
+                harness,
+                buyPacketId,
+                "BuyResponse",
+                "BuyRequest shop 1 goods 1003000 response",
+                buyResponseType,
+                maxPacketsToRead: 4);
+            AssertEqual(0, GetRequiredIntegerMember(buyResponse, "Code"), "BuyResponse Code");
+            AssertEqual(false, GetRequiredBooleanMember(buyResponse, "IsShowBuyResult"), "BuyResponse IsShowBuyResult");
+            List<object> goodList = GetRequiredObjectListMember(buyResponse, ["GoodList"], "BuyResponse GoodList");
+            AssertEqual(1, goodList.Count, "BuyResponse GoodList count");
+            object boughtReward = goodList.Single();
+            AssertEqual(40103, GetRequiredIntegerMember(boughtReward, "TemplateId"), "BuyResponse GoodList[0] TemplateId");
+            AssertEqual(1, GetRequiredIntegerMember(boughtReward, "Count"), "BuyResponse GoodList[0] Count");
+        }
+
+        private static void AssertSupplyShopClientShop(GetShopInfoResponse.GetShopInfoResponseClientShop clientShop, string name)
+        {
+            if (clientShop is null)
+                throw new InvalidDataException($"{name}: expected initialized shop payload.");
+
+            AssertEqual(1U, clientShop.Id, $"{name} Id");
+            AssertEqual("Supply Shop", clientShop.Name, $"{name} Name");
+            AssertEqual(true, clientShop.GoodsList.Count > 0, $"{name} GoodsList non-empty");
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods supplyGoods = clientShop.GoodsList.SingleOrDefault(goods => goods.Id == 1003000)
+                ?? throw new InvalidDataException($"{name} GoodsList: expected goods 1003000.");
+            if (supplyGoods.RewardGoods is null)
+                throw new InvalidDataException($"{name} goods 1003000 RewardGoods: expected initialized reward.");
+            AssertEqual(40103U, supplyGoods.RewardGoods.TemplateId, $"{name} goods 1003000 RewardGoods TemplateId");
+            AssertEqual(1, supplyGoods.RewardGoods.Count, $"{name} goods 1003000 RewardGoods Count");
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods.GetShopInfoResponseClientShopGoodsConsume consume = supplyGoods.ConsumeList.SingleOrDefault(item => item.Id == 1)
+                ?? throw new InvalidDataException($"{name} goods 1003000 ConsumeList: expected item 1.");
+            AssertEqual(30000U, consume.Count, $"{name} goods 1003000 ConsumeList item 1 Count");
+        }
+
+        private static Type RequiredShopMessageType(string typeName)
+        {
+            return typeof(GetShopInfoRequest).Assembly.GetType($"AscNet.Common.MsgPack.{typeName}", throwOnError: false)
+                ?? typeof(PacketFactory).Assembly.GetType($"AscNet.GameServer.Handlers.{typeName}", throwOnError: false)
+                ?? throw new TypeLoadException($"AscNet.Common.MsgPack.{typeName}");
+        }
+
 
         private static void AssertBlackCardCommandAccepts(Type expectedType, string[] args, string name)
         {
@@ -1733,6 +6246,24 @@ namespace AscNet.Test
                 [
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>())
+                ]);
+            }
+
+            public static MongoCollectionOverride InstallForMissingFeatureCompatibility()
+            {
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), CreateNoOpMongoCollection<AscNet.Common.Database.Player>())
+                ]);
+            }
+
+            public static MongoCollectionOverride InstallForShopCompatibility()
+            {
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), CreateNoOpMongoCollection<AscNet.Common.Database.Player>())
                 ]);
             }
 
@@ -2553,6 +7084,7 @@ namespace AscNet.Test
                 new("CharacterUpgradeSkillGroupRequest", "CharacterUpgradeSkillGroupRequestHandler"),
                 new("CharacterUnlockEnhanceSkillRequest", "CharacterUnlockEnhanceSkillRequestHandler"),
                 new("CharacterUpgradeEnhanceSkillRequest", "CharacterUpgradeEnhanceSkillRequestHandler"),
+                new("CharacterEnhanceSkillNoticeRequest", "CharacterEnhanceSkillNoticeRequestHandler"),
                 new("CharacterExchangeRequest", "CharacterExchangeRequestHandler")
             ];
 
@@ -2984,18 +7516,35 @@ namespace AscNet.Test
             {
                 FubenBossSingleData = new()
                 {
-                    ActivityNo = 1,
+                    ActivityNo = 260,
                     TotalScore = 0,
                     MaxScore = 0,
-                    OldLevelType = 1,
-                    LevelType = 1,
+                    OldLevelType = 8,
+                    LevelType = 8,
                     ChallengeCount = 0,
                     RemainTime = 3600 * 24,
                     AutoFightCount = 0,
-                    RankPlatform = 0,
-                    AfreshId = 0,
+                    RankPlatform = 1,
+                    TrialStageInfoList =
+                    [
+                        BuildBossSingleStageInfo(30302803),
+                        BuildBossSingleStageInfo(30302804),
+                        BuildBossSingleStageInfo(30302805)
+                    ],
+                    AfreshId = 1,
                     ChallengeLevelType = 0,
-                    IsResetOpen = false
+                    IsResetOpen = true,
+                    NormalStageTeamInfos =
+                    [
+                        BuildBossSingleTeamInfo(2030),
+                        BuildBossSingleTeamInfo(2034),
+                        BuildBossSingleTeamInfo(2038)
+                    ]
+                },
+                BossListDict = new()
+                {
+                    [7] = new() { 102, 104, 109 },
+                    [8] = new() { 2030, 2034, 2038 }
                 }
             };
 
@@ -3008,16 +7557,51 @@ namespace AscNet.Test
             AssertEmptyList(bossSingleData.HistoryList, "NotifyFubenBossSingleData FubenBossSingleData.HistoryList");
             AssertEmptyList(bossSingleData.RewardIds, "NotifyFubenBossSingleData FubenBossSingleData.RewardIds");
             AssertEmptyList(bossSingleData.BossList, "NotifyFubenBossSingleData FubenBossSingleData.BossList");
-            AssertEmptyList(bossSingleData.TrialStageInfoList, "NotifyFubenBossSingleData FubenBossSingleData.TrialStageInfoList");
             AssertEmptyList(bossSingleData.BestiraryStageInfoList, "NotifyFubenBossSingleData FubenBossSingleData.BestiraryStageInfoList");
             AssertEmptyList(bossSingleData.ChallengeStageHistoryList, "NotifyFubenBossSingleData FubenBossSingleData.ChallengeStageHistoryList");
             AssertEmptyList(bossSingleData.StageRecordList, "NotifyFubenBossSingleData FubenBossSingleData.StageRecordList");
-            AssertEqual(false, bossSingleData.IsResetOpen, "NotifyFubenBossSingleData FubenBossSingleData.IsResetOpen");
-            AssertEqual(0, bossSingleData.AfreshId, "NotifyFubenBossSingleData FubenBossSingleData.AfreshId");
-            AssertEqual(1, bossSingleData.LevelType, "NotifyFubenBossSingleData FubenBossSingleData.LevelType");
-            AssertEqual(1, bossSingleData.OldLevelType, "NotifyFubenBossSingleData FubenBossSingleData.OldLevelType");
+            AssertEqual(3, bossSingleData.TrialStageInfoList.Count, "NotifyFubenBossSingleData FubenBossSingleData.TrialStageInfoList count");
+            AssertEqual(3, bossSingleData.NormalStageTeamInfos.Count, "NotifyFubenBossSingleData FubenBossSingleData.NormalStageTeamInfos count");
+            AssertEqual(true, bossSingleData.IsResetOpen, "NotifyFubenBossSingleData FubenBossSingleData.IsResetOpen");
+            AssertEqual(1, bossSingleData.AfreshId, "NotifyFubenBossSingleData FubenBossSingleData.AfreshId");
+            AssertEqual(8, bossSingleData.LevelType, "NotifyFubenBossSingleData FubenBossSingleData.LevelType");
+            AssertEqual(8, bossSingleData.OldLevelType, "NotifyFubenBossSingleData FubenBossSingleData.OldLevelType");
+            AssertEqual(2, roundTrip.BossListDict.Count, "NotifyFubenBossSingleData BossListDict section count");
+            AssertBossListDictValues(roundTrip.BossListDict, 7, [102, 104, 109]);
+            AssertBossListDictValues(roundTrip.BossListDict, 8, [2030, 2034, 2038]);
+            if (!roundTrip.BossListDict.ContainsKey(bossSingleData.LevelType))
+                throw new InvalidDataException("NotifyFubenBossSingleData BossListDict: expected a section list for FubenBossSingleData.LevelType.");
             if (bossSingleData.RemainTime == 0)
                 throw new InvalidDataException("NotifyFubenBossSingleData FubenBossSingleData.RemainTime: expected a positive value.");
+
+            static Dictionary<string, object> BuildBossSingleStageInfo(int stageId)
+            {
+                return new()
+                {
+                    ["StageId"] = stageId,
+                    ["Score"] = 0
+                };
+            }
+
+            static Dictionary<string, object> BuildBossSingleTeamInfo(int sectionId)
+            {
+                return new()
+                {
+                    ["SectionId"] = sectionId,
+                    ["CharacterIds"] = Array.Empty<int>()
+                };
+            }
+
+            static void AssertBossListDictValues(
+                IReadOnlyDictionary<int, List<int>> bossListDict,
+                int sectionId,
+                int[] expectedBossIds)
+            {
+                if (!bossListDict.TryGetValue(sectionId, out List<int>? actualBossIds))
+                    throw new InvalidDataException($"NotifyFubenBossSingleData BossListDict: expected section {sectionId}.");
+                if (!actualBossIds.SequenceEqual(expectedBossIds))
+                    throw new InvalidDataException($"NotifyFubenBossSingleData BossListDict section {sectionId}: expected {string.Join(",", expectedBossIds)}, got {string.Join(",", actualBossIds)}.");
+            }
         }
 
         private static void ValidateCurrentClientGuideTableCompatibility()
@@ -3130,6 +7714,41 @@ namespace AscNet.Test
             AssertEqual(expectedPacketId, response.Id, $"{name} packet id");
             AssertEqual(expectedResponseName, response.Name, $"{name} packet name");
             return MessagePackSerializer.Deserialize<TResponse>(response.Content);
+        }
+
+        private static object ReadResponsePayload(
+            LoopbackSessionHarness harness,
+            int expectedPacketId,
+            string expectedResponseName,
+            string name,
+            Type responseType,
+            int maxPacketsToRead = 1)
+        {
+            for (int packetIndex = 0; packetIndex < maxPacketsToRead; packetIndex++)
+            {
+                Packet packet = harness.ReadPacket(packetIndex == 0 ? name : $"{name} packet {packetIndex + 1}");
+                if (packet.Type == Packet.ContentType.Push && maxPacketsToRead > 1)
+                    continue;
+
+                AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} packet type");
+                Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                AssertEqual(expectedPacketId, response.Id, $"{name} packet id");
+                AssertEqual(expectedResponseName, response.Name, $"{name} packet name");
+                return MessagePackDeserialize(responseType, response.Content)
+                    ?? throw new InvalidDataException($"{name}: {responseType.FullName} deserialized as nil.");
+            }
+
+            throw new InvalidDataException($"{name}: expected {expectedResponseName} response within {maxPacketsToRead} packets.");
+        }
+
+
+        private static TPush ReadPushPayload<TPush>(LoopbackSessionHarness harness, string expectedPushName, string name)
+        {
+            Packet packet = harness.ReadPacket(name);
+            AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+            AssertEqual(expectedPushName, push.Name, $"{name} packet name");
+            return MessagePackSerializer.Deserialize<TPush>(push.Content);
         }
 
         private static MethodInfo RequiredMethod(Type declaringType, string name, BindingFlags bindingFlags)
@@ -3611,6 +8230,95 @@ namespace AscNet.Test
                 };
             }
 
+            public static byte[] SerializeClientRequestFrame(string requestName, int packetId, object? request)
+            {
+                byte[] content = request is null ? [] : MessagePackSerialize(request.GetType(), request);
+                return SerializeClientRequestFrame(requestName, packetId, content);
+            }
+
+            public static byte[] SerializeClientRequestFrameWithTotalLength(string requestName, int packetId, int totalFrameLength)
+            {
+                if (totalFrameLength <= sizeof(int))
+                    throw new ArgumentOutOfRangeException(nameof(totalFrameLength), totalFrameLength, "Client request frame length must include a four-byte packet length prefix and an encrypted packet payload.");
+
+                int low = 0;
+                int high = Math.Max(1, totalFrameLength);
+                byte[] highFrame = SerializeClientRequestFrame(requestName, packetId, CreateDeterministicPayload(high));
+                while (highFrame.Length < totalFrameLength)
+                {
+                    if (high > totalFrameLength * 4)
+                        throw new InvalidDataException($"Could not synthesize a {totalFrameLength}-byte {requestName} client frame; reached {highFrame.Length} bytes with {high} content bytes.");
+
+                    low = high + 1;
+                    high *= 2;
+                    highFrame = SerializeClientRequestFrame(requestName, packetId, CreateDeterministicPayload(high));
+                }
+
+                while (low <= high)
+                {
+                    int mid = low + ((high - low) / 2);
+                    byte[] frame = SerializeClientRequestFrame(requestName, packetId, CreateDeterministicPayload(mid));
+                    if (frame.Length == totalFrameLength)
+                        return frame;
+
+                    if (frame.Length < totalFrameLength)
+                        low = mid + 1;
+                    else
+                        high = mid - 1;
+                }
+
+                int searchStart = Math.Max(0, low - 4096);
+                int searchEnd = low + 4096;
+                for (int contentLength = searchStart; contentLength <= searchEnd; contentLength++)
+                {
+                    byte[] frame = SerializeClientRequestFrame(requestName, packetId, CreateDeterministicPayload(contentLength));
+                    if (frame.Length == totalFrameLength)
+                        return frame;
+                }
+
+                throw new InvalidDataException($"Could not synthesize a {totalFrameLength}-byte {requestName} client frame without brittle literal payload data.");
+            }
+
+            public void WriteClientBytes(ReadOnlySpan<byte> bytes)
+            {
+                clientSide.GetStream().Write(bytes);
+            }
+
+            private static byte[] SerializeClientRequestFrame(string requestName, int packetId, byte[] content)
+            {
+                Packet.Request request = new()
+                {
+                    Id = packetId,
+                    Name = requestName,
+                    Content = content
+                };
+                byte[] serializedPacket = MessagePackSerializer.Serialize(new Packet
+                {
+                    No = 0,
+                    Type = Packet.ContentType.Request,
+                    Content = MessagePackSerializer.Serialize(request)
+                }, PacketSerializerOptions);
+                Crypto.HaruCrypt.Encrypt(serializedPacket);
+
+                byte[] frame = GC.AllocateUninitializedArray<byte>(serializedPacket.Length + sizeof(int));
+                BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(0, sizeof(int)), serializedPacket.Length);
+                serializedPacket.AsSpan().CopyTo(frame.AsSpan(sizeof(int)));
+                return frame;
+            }
+
+            private static byte[] CreateDeterministicPayload(int length)
+            {
+                byte[] payload = GC.AllocateUninitializedArray<byte>(length);
+                uint state = 0x9E3779B9;
+                for (int index = 0; index < payload.Length; index++)
+                {
+                    state = unchecked((state * 1664525) + 1013904223);
+                    payload[index] = (byte)(state >> 24);
+                }
+
+                return payload;
+            }
+
             public Packet ReadPacket(string name)
             {
                 NetworkStream stream = clientSide.GetStream();
@@ -3622,6 +8330,40 @@ namespace AscNet.Test
                 byte[] packetBytes = ReadExact(stream, packetLength, name);
                 Crypto.HaruCrypt.Decrypt(packetBytes);
                 return MessagePackSerializer.Deserialize<Packet>(packetBytes, PacketSerializerOptions);
+            }
+
+            public bool TryReadAvailablePacket(string name, out Packet packet)
+            {
+                NetworkStream stream = clientSide.GetStream();
+                if (!stream.DataAvailable)
+                {
+                    packet = default!;
+                    return false;
+                }
+
+                packet = ReadPacket(name);
+                return true;
+            }
+
+            public void SendClientPush(string name, byte[] content)
+            {
+                Packet.Push push = new()
+                {
+                    Name = name,
+                    Content = content
+                };
+                byte[] serializedPacket = MessagePackSerializer.Serialize(new Packet
+                {
+                    No = 0,
+                    Type = Packet.ContentType.Push,
+                    Content = MessagePackSerializer.Serialize(push)
+                }, PacketSerializerOptions);
+                Crypto.HaruCrypt.Encrypt(serializedPacket);
+
+                byte[] sendBytes = GC.AllocateUninitializedArray<byte>(serializedPacket.Length + sizeof(int));
+                BinaryPrimitives.WriteInt32LittleEndian(sendBytes.AsSpan()[..sizeof(int)], serializedPacket.Length);
+                Array.Copy(serializedPacket, 0, sendBytes, sizeof(int), serializedPacket.Length);
+                clientSide.GetStream().Write(sendBytes);
             }
 
             public void Dispose()
@@ -4071,6 +8813,51 @@ namespace AscNet.Test
             return Convert.ToInt32(value);
         }
 
+        private static bool GetRequiredBooleanMember(object target, string memberName)
+        {
+            object? value = GetRequiredMemberValue(target, memberName);
+            if (value is null)
+                throw new InvalidDataException($"{target.GetType().FullName}.{memberName}: expected a boolean, got nil.");
+            if (value is bool boolean)
+                return boolean;
+            throw new InvalidDataException($"{target.GetType().FullName}.{memberName}: expected a boolean, got {value.GetType().FullName}.");
+        }
+
+        private static void SetFirstAvailableIntegerList(object target, IReadOnlyList<string> memberNames, IReadOnlyList<int> values, string name)
+        {
+            foreach (string memberName in memberNames)
+            {
+                MemberInfo? member = OptionalDataMember(target.GetType(), memberName);
+                if (member is null)
+                    continue;
+
+                object list = CreateIntegerList(MemberValueType(member), values, $"{target.GetType().FullName}.{memberName}");
+                SetRequiredMemberValue(target, member, list);
+                return;
+            }
+
+            throw new MissingMemberException(target.GetType().FullName, string.Join("|", memberNames));
+        }
+
+        private static List<object> GetRequiredObjectListMember(object target, IReadOnlyList<string> memberNames, string name)
+        {
+            object? value = GetFirstAvailableMemberValue(target, memberNames);
+            return ReadObjectList(value, name);
+        }
+
+        private static object? GetFirstAvailableMemberValue(object target, IReadOnlyList<string> memberNames)
+        {
+            foreach (string memberName in memberNames)
+            {
+                MemberInfo? member = OptionalDataMember(target.GetType(), memberName);
+                if (member is not null)
+                    return GetRequiredMemberValue(target, member);
+            }
+
+            throw new MissingMemberException(target.GetType().FullName, string.Join("|", memberNames));
+        }
+
+
         private static void SetRequiredIntegerList(object target, string memberName, IReadOnlyList<int> values)
         {
             MemberInfo member = RequiredDataMember(target.GetType(), memberName);
@@ -4091,6 +8878,16 @@ namespace AscNet.Test
             AssertEqual(expected.Count, actual.Count, $"{name} count");
             for (int index = 0; index < expected.Count; index++)
                 AssertEqual(expected[index], actual[index], $"{name}[{index}]");
+        }
+
+        private static void AssertIntegerSetContainsAll(IReadOnlyList<long> expectedIds, IReadOnlyList<long> actualIds, string name)
+        {
+            HashSet<long> actualDistinctIds = actualIds.ToHashSet();
+            foreach (long expectedId in expectedIds)
+            {
+                if (!actualDistinctIds.Contains(expectedId))
+                    throw new InvalidDataException($"{name}: missing id {expectedId}.");
+            }
         }
 
         private static void AssertIntegerDictionary(IReadOnlyDictionary<int, int> expected, IReadOnlyDictionary<int, int> actual, string name)
@@ -4235,6 +9032,81 @@ namespace AscNet.Test
                 return (ulong)value;
 
             throw new InvalidDataException($"Expected integer field or list element type, got {targetType.FullName}.");
+        }
+
+        private static void AssertObjectListEmpty(object? value, string name)
+        {
+            List<object> list = ReadObjectList(value, name);
+            if (list.Count != 0)
+                throw new InvalidDataException($"{name}: expected an empty list, got {list.Count} entries.");
+        }
+
+        private static List<object> ReadObjectList(object? value, string name)
+        {
+            if (value is null)
+                throw new InvalidDataException($"{name}: expected a list, got nil.");
+            if (value is not System.Collections.IEnumerable values || value is string)
+                throw new InvalidDataException($"{name}: expected a list.");
+
+            List<object> result = new();
+            foreach (object? item in values)
+            {
+                if (item is null)
+                    throw new InvalidDataException($"{name}: expected non-nil entries.");
+                result.Add(item);
+            }
+
+            return result;
+        }
+
+        private static System.Collections.IDictionary RequiredDynamicMap(object? value, string name)
+        {
+            if (value is System.Collections.IDictionary map)
+                return map;
+
+            string actualType = value?.GetType().FullName ?? "nil";
+            throw new InvalidDataException($"{name}: expected a dynamic map, got {actualType}.");
+        }
+
+        private static object RequiredDynamicValue(System.Collections.IDictionary map, string key, string name)
+        {
+            if (!map.Contains(key))
+                throw new InvalidDataException($"{name}: expected dynamic field {key}.");
+
+            return map[key] ?? throw new InvalidDataException($"{name}.{key}: expected non-nil value.");
+        }
+
+        private static int RequiredDynamicInteger(System.Collections.IDictionary map, string key, string name)
+        {
+            return Convert.ToInt32(RequiredDynamicValue(map, key, name));
+        }
+
+        private static bool RequiredDynamicBoolean(System.Collections.IDictionary map, string key, string name)
+        {
+            object value = RequiredDynamicValue(map, key, name);
+            if (value is bool boolean)
+                return boolean;
+
+            throw new InvalidDataException($"{name}.{key}: expected a boolean, got {value.GetType().FullName}.");
+        }
+
+        private static List<object> RequiredDynamicObjectList(System.Collections.IDictionary map, string key, string name)
+        {
+            return ReadObjectList(RequiredDynamicValue(map, key, name), name);
+        }
+
+        private static MemberInfo? OptionalDataMember(Type type, string memberName)
+        {
+            MemberInfo[] members = type.GetMember(memberName, BindingFlags.Instance | BindingFlags.Public)
+                .Where(member => member is FieldInfo || member is PropertyInfo { GetMethod: not null })
+                .ToArray();
+
+            return members.Length switch
+            {
+                0 => null,
+                1 => members[0],
+                _ => throw new AmbiguousMatchException($"{type.FullName}.{memberName} matched {members.Length} members.")
+            };
         }
 
         private static MemberInfo RequiredDataMember(Type type, string memberName)
@@ -5256,12 +10128,35 @@ namespace AscNet.Test
                 case OperandType.InlineI:
                     offset += 4;
                     return BitConverter.ToInt32(il, operandOffset);
+                case OperandType.ShortInlineR:
+                    offset += 4;
+                    return BitConverter.ToSingle(il, operandOffset);
+                case OperandType.InlineR:
+                    offset += 8;
+                    return BitConverter.ToDouble(il, operandOffset);
+                case OperandType.ShortInlineVar:
+                    offset += 1;
+                    return (int)il[operandOffset];
+                case OperandType.InlineVar:
+                    offset += 2;
+                    return BitConverter.ToUInt16(il, operandOffset);
                 case OperandType.ShortInlineBrTarget:
                     offset += 1;
                     return offset + (sbyte)il[operandOffset];
                 case OperandType.InlineBrTarget:
                     offset += 4;
                     return offset + BitConverter.ToInt32(il, operandOffset);
+                case OperandType.InlineSwitch:
+                    int switchCount = BitConverter.ToInt32(il, operandOffset);
+                    offset += 4;
+                    int[] switchTargets = new int[switchCount];
+                    int switchBaseOffset = offset + (switchCount * 4);
+                    for (int targetIndex = 0; targetIndex < switchCount; targetIndex++)
+                    {
+                        switchTargets[targetIndex] = switchBaseOffset + BitConverter.ToInt32(il, offset);
+                        offset += 4;
+                    }
+                    return switchTargets;
                 case OperandType.InlineMethod:
                     offset += 4;
                     return ResolveToken(module, BitConverter.ToInt32(il, operandOffset), typeArguments, methodArguments);
@@ -5322,6 +10217,16 @@ namespace AscNet.Test
                 return 8;
             if (instruction.OpCode is { } opCode && (opCode == OpCodes.Ldc_I4 || opCode == OpCodes.Ldc_I4_S) && instruction.Operand is int value)
                 return value;
+
+            return null;
+        }
+
+        private static double? LdcR8Value(IlInstruction instruction)
+        {
+            if (instruction.OpCode == OpCodes.Ldc_R8 && instruction.Operand is double doubleValue)
+                return doubleValue;
+            if (instruction.OpCode == OpCodes.Ldc_R4 && instruction.Operand is float floatValue)
+                return floatValue;
 
             return null;
         }
@@ -5407,7 +10312,7 @@ namespace AscNet.Test
                 OperandType.InlineNone => 0,
                 OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
                 OperandType.InlineVar => 2,
-                OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType or OperandType.ShortInlineR => 4,
+                OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType or OperandType.ShortInlineR => 4,
                 OperandType.InlineI8 or OperandType.InlineR => 8,
                 OperandType.InlineSwitch => 4 + (BitConverter.ToInt32(il, offset) * 4),
                 _ => throw new InvalidDataException($"Unsupported IL operand type {operandType}.")
@@ -5486,6 +10391,14 @@ namespace AscNet.Test
             JObject scrollPicNotice = JObject.Parse(File.ReadAllText(ResourcePath("Configs", "Notices", "4.5.0", "ScrollPicNotice.json")));
             AssertEqual("6a1e16a2f1b4a13fd8bf490e", scrollPicNotice.Value<string>("Id"), "ScrollPicNotice Id");
             AssertEqual(10, scrollPicNotice.Value<JArray>("Content")!.Count, "ScrollPicNotice content count");
+            foreach (JObject content in scrollPicNotice.Value<JArray>("Content")!.Cast<JObject>())
+            {
+                string picAddr = RequiredNonEmptyString(content, "PicAddr", "ScrollPicNotice content");
+                string[] picPathParts = picAddr.Split('/');
+                string picPath = ResourcePath(["Configs", "Notices", "4.5.0", .. picPathParts]);
+                if (!File.Exists(picPath))
+                    throw new FileNotFoundException($"ScrollPicNotice image fixture missing: {picAddr}", picPath);
+            }
 
             JArray gameNotices = JArray.Parse(File.ReadAllText(ResourcePath("Configs", "Notices", "4.5.0", "GameNotice.json")));
             AssertEqual(16, gameNotices.Count, "GameNotice count");
@@ -5508,6 +10421,7 @@ namespace AscNet.Test
                 [
                     "/prod/client/notice/config/prod-encdn-tx/com.kurogame.pc.punishing.grayraven.en/4.5.0/SecondMenuNotice.json",
                     "/prod/client/notice/config/prod-encdn-tx/com.kurogame.pc.punishing.grayraven.en/4.5.0/PopUpPicNotice.json",
+                    "/prod/client/notice/config/prod-encdn-tx/com.kurogame.pc.punishing.grayraven.en/4.5.0/ScrollPicNotice.json",
                 ];
 
                 foreach (string endpoint in endpoints)
@@ -5519,6 +10433,32 @@ namespace AscNet.Test
                         throw new InvalidDataException($"{endpoint}: expected HTTP 200, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
 
                     AssertCurrentClientNoticePayload(JObject.Parse(body), endpoint);
+                }
+
+                using HttpResponseMessage picResponse = await client.GetAsync("/prod/client/notice/pic/6a1e1534f1b4a13fd8bf4904.png");
+                byte[] picBody = await picResponse.Content.ReadAsByteArrayAsync();
+                if (picResponse.StatusCode != HttpStatusCode.OK)
+                    throw new InvalidDataException($"notice pic endpoint: expected HTTP 200, got {(int)picResponse.StatusCode} {picResponse.StatusCode}.");
+                if (picBody.Length < 8 || picBody[0] != 0x89 || picBody[1] != 0x50 || picBody[2] != 0x4E || picBody[3] != 0x47)
+                    throw new InvalidDataException("notice pic endpoint did not return PNG data.");
+
+                (string endpoint, string title)[] noticeHtmlEndpoints = CurrentClientNoticeHtmlEndpoints().ToArray();
+                AssertCurrentClientNoticeHtmlEndpointIsCovered(noticeHtmlEndpoints, "/prod/client/notice/html/6a1e0fcbf1b4a13fd8bf48ff.html");
+                foreach ((string endpoint, string title) in noticeHtmlEndpoints)
+                    await AssertCurrentClientNoticeHtmlEndpoint(client, endpoint, title);
+
+                foreach (string missingEndpoint in new[]
+                {
+                    "/prod/client/notice/html/unknown-notice.html",
+                    "/prod/client/notice/html/unknown-notice.txt",
+                })
+                {
+                    using HttpResponseMessage missingResponse = await client.GetAsync(missingEndpoint);
+                    if (missingResponse.StatusCode != HttpStatusCode.NotFound)
+                    {
+                        string missingBody = await missingResponse.Content.ReadAsStringAsync();
+                        throw new InvalidDataException($"{missingEndpoint}: expected HTTP 404, got {(int)missingResponse.StatusCode} {missingResponse.StatusCode}. Body: {missingBody}");
+                    }
                 }
             }
             finally
@@ -5533,6 +10473,61 @@ namespace AscNet.Test
             _ = RequiredValue<long>(payload, "ModifyTime", JTokenType.Integer, endpoint);
             _ = RequiredToken(payload, "Content", JTokenType.Array, endpoint);
             _ = RequiredToken(payload, "LoginPlatformList", JTokenType.Array, endpoint);
+        }
+
+        private static IEnumerable<(string Endpoint, string Title)> CurrentClientNoticeHtmlEndpoints()
+        {
+            JObject loginNotice = JObject.Parse(File.ReadAllText(ResourcePath("Configs", "Notices", "4.5.0", "LoginNotice.json")));
+            yield return NoticeHtmlEndpoint(
+                RequiredNonEmptyString(loginNotice, "HtmlUrl", "LoginNotice"),
+                RequiredNonEmptyString(loginNotice, "Title", "LoginNotice"));
+
+            JArray gameNotices = JArray.Parse(File.ReadAllText(ResourcePath("Configs", "Notices", "4.5.0", "GameNotice.json")));
+            foreach (JObject notice in gameNotices.OfType<JObject>())
+            {
+                foreach (JObject content in (notice.Value<JArray>("Content") ?? new JArray()).OfType<JObject>())
+                {
+                    yield return NoticeHtmlEndpoint(
+                        RequiredNonEmptyString(content, "Url", "GameNotice Content"),
+                        RequiredNonEmptyString(content, "Title", "GameNotice Content"));
+                }
+            }
+        }
+
+        private static (string Endpoint, string Title) NoticeHtmlEndpoint(string htmlUrl, string title)
+        {
+            string[] parts = htmlUrl.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            string fileName = parts.Length == 0 ? string.Empty : parts[^1];
+            if (!fileName.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"{htmlUrl}: expected notice HTML URL ending in .html.");
+
+            return ($"/prod/client/notice/html/{fileName}", title);
+        }
+
+        private static void AssertCurrentClientNoticeHtmlEndpointIsCovered((string Endpoint, string Title)[] endpoints, string expectedEndpoint)
+        {
+            if (!endpoints.Any(endpoint => endpoint.Endpoint == expectedEndpoint))
+                throw new InvalidDataException($"Current GameNotice fixture does not reference required notice HTML endpoint {expectedEndpoint}.");
+        }
+
+        private static async Task AssertCurrentClientNoticeHtmlEndpoint(HttpClient client, string endpoint, string title)
+        {
+            using HttpResponseMessage response = await client.GetAsync(endpoint);
+            string body = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode != HttpStatusCode.OK)
+                throw new InvalidDataException($"{endpoint}: expected HTTP 200, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+
+            string? mediaType = response.Content.Headers.ContentType?.MediaType;
+            if (!string.Equals(mediaType, "text/html", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"{endpoint}: expected text/html Content-Type, got '{response.Content.Headers.ContentType}'.");
+
+            if (body.Length == 0)
+                throw new InvalidDataException($"{endpoint}: expected non-empty HTML body.");
+
+            string encodedTitle = WebUtility.HtmlEncode(title);
+            if (!body.Contains(encodedTitle, StringComparison.Ordinal))
+                throw new InvalidDataException($"{endpoint}: expected HTML body to contain notice title '{title}'.");
         }
 
         private static void ValidateSteamClientConfig()
@@ -5562,6 +10557,8 @@ namespace AscNet.Test
             AssertEqual("4.5.12", ConfigValue(remoteConfigs, "LaunchModuleVersion"), "Steam LaunchModuleVersion config");
             AssertEqual("http://127.0.0.1:8080/api/XPay/KuroPayResult", ConfigValue(remoteConfigs, "KuroPayCallbackUrl"), "KuroPayCallbackUrl");
             AssertEqual("http://127.0.0.1:8080/api/XPay/KuroPayResult", ConfigValue(remoteConfigs, "PcPayCallbackUrl"), "PcPayCallbackUrl");
+            AssertEqual("0", ConfigValue(remoteConfigs, "IsHideFunc"), "IsHideFunc config");
+            AssertEqual("0", ConfigValue(remoteConfigs, "IsHideFuncAndroid"), "IsHideFuncAndroid config");
         }
 
         private const string KuroSdkDummyEmail = "krsdk-test@ascnet.local";
@@ -5959,6 +10956,16 @@ namespace AscNet.Test
             }
 
             throw new FileNotFoundException($"Resource file not found: {Path.Combine(segments)}");
+        }
+
+        private static void AssertWorldChatSeed(AscNet.GameServer.Handlers.NotifyWorldChat notifyWorldChat, string name)
+        {
+            if (notifyWorldChat.ChatMessages is null || notifyWorldChat.ChatMessages.Count == 0)
+                throw new InvalidDataException($"{name}: expected at least one cached chat message.");
+
+            AscNet.GameServer.Handlers.ChatData seedMessage = notifyWorldChat.ChatMessages[0];
+            AssertEqual(AscNet.GameServer.Handlers.ChatChannelType.World, seedMessage.ChannelType, $"{name} first ChatMessages ChannelType");
+            AssertEqual(true, seedMessage.SenderId != 0, $"{name} first ChatMessages nonzero SenderId");
         }
 
         private static void AssertEqual<T>(T expected, T actual, string name)

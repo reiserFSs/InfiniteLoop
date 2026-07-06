@@ -84,6 +84,66 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class SetHeadPortraitRequest
+    {
+        public long Id { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class SetHeadPortraitResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class SetHeadFrameRequest
+    {
+        public long Id { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class SetHeadFrameResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class SetCurrentMedalRequest
+    {
+        public long Id { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class SetCurrentMedalResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class NotifyPlayerCurrMedalId
+    {
+        public long CurrMedalId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class SetCurChatBoardRequest
+    {
+        public long ChatBoardId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class SetCurChatBoardResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class NotifyCurChatBoardId
+    {
+        public long CurrentChatBoardId { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class NotifyPlayerName
     {
         public string Name;
@@ -301,6 +361,110 @@ namespace AscNet.GameServer.Handlers
             session.player.PlayerData.Sign = request.Msg;
 
             session.SendResponse(new ChangePlayerSignResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("SetHeadPortraitRequest")]
+        public static void SetHeadPortraitRequestHandler(Session session, Packet.Request packet)
+        {
+            SetHeadPortraitRequest request = MessagePackSerializer.Deserialize<SetHeadPortraitRequest>(packet.Content);
+            session.player.PlayerData.CurrHeadPortraitId = request.Id;
+            session.player.Save();
+            session.SendResponse(new SetHeadPortraitResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("SetHeadFrameRequest")]
+        public static void SetHeadFrameRequestHandler(Session session, Packet.Request packet)
+        {
+            SetHeadFrameRequest request = MessagePackSerializer.Deserialize<SetHeadFrameRequest>(packet.Content);
+            session.player.PlayerData.CurrHeadFrameId = request.Id;
+            session.player.Save();
+            session.SendResponse(new SetHeadFrameResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("SetCurrentMedalRequest")]
+        public static void SetCurrentMedalRequestHandler(Session session, Packet.Request packet)
+        {
+            SetCurrentMedalRequest request = MessagePackSerializer.Deserialize<SetCurrentMedalRequest>(packet.Content);
+            session.player.PlayerData.CurrMedalId = request.Id;
+            session.player.Save();
+            session.SendPush(new NotifyPlayerCurrMedalId
+            {
+                CurrMedalId = session.player.PlayerData.CurrMedalId
+            });
+            session.SendResponse(new SetCurrentMedalResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("SetCurChatBoardRequest")]
+        public static void SetCurChatBoardRequestHandler(Session session, Packet.Request packet)
+        {
+            SetCurChatBoardRequest request = MessagePackSerializer.Deserialize<SetCurChatBoardRequest>(packet.Content);
+            session.player.PlayerData.CurrentChatBoardId = request.ChatBoardId;
+            session.player.Save();
+            session.SendPush(new NotifyCurChatBoardId
+            {
+                CurrentChatBoardId = session.player.PlayerData.CurrentChatBoardId
+            });
+            session.SendResponse(new SetCurChatBoardResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("GetPlayerInfoListRequest")]
+        public static void GetPlayerInfoListRequestHandler(Session session, Packet.Request packet)
+        {
+            GetPlayerInfoListRequest request = MessagePackSerializer.Deserialize<GetPlayerInfoListRequest>(packet.Content);
+            GetPlayerInfoListResponse response = new();
+            HashSet<uint> emittedPlayerIds = new();
+
+            foreach (uint id in request.Ids)
+            {
+                if (!emittedPlayerIds.Add(id))
+                    continue;
+
+                Player? player = (long)id == session.player.PlayerData.Id
+                    ? session.player
+                    : Player.TryFromPlayerId(id);
+
+                response.PlayerInfoList.Add(player is null ? ToFallbackPlayerInfo(id) : ToPlayerInfo(player));
+            }
+
+            session.SendResponse(response, packet.Id);
+        }
+
+        private static GetPlayerInfoListResponse.GetPlayerInfoListResponsePlayerInfo ToPlayerInfo(Player player)
+        {
+            return new()
+            {
+                Id = (uint)player.PlayerData.Id,
+                Name = player.PlayerData.Name,
+                Level = (int)player.PlayerData.Level,
+                FriendExp = 0,
+                Sign = player.PlayerData.Sign,
+                CurrHeadPortraitId = (uint)player.PlayerData.CurrHeadPortraitId,
+                CurrHeadFrameId = (int)player.PlayerData.CurrHeadFrameId,
+                LastLoginTime = (uint)player.PlayerData.LastLoginTime,
+                IsOnline = false,
+                CurrMedalId = (int)player.PlayerData.CurrMedalId,
+                IsCancel = false,
+                DlcMultiplayerTitle = 0
+            };
+        }
+
+        private static GetPlayerInfoListResponse.GetPlayerInfoListResponsePlayerInfo ToFallbackPlayerInfo(uint id)
+        {
+            return new()
+            {
+                Id = id,
+                Name = $"Commandant {id}",
+                Level = 1,
+                FriendExp = 0,
+                Sign = string.Empty,
+                CurrHeadPortraitId = 9000003,
+                CurrHeadFrameId = 0,
+                LastLoginTime = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
+                IsOnline = false,
+                CurrMedalId = 0,
+                IsCancel = false,
+                DlcMultiplayerTitle = 0
+            };
         }
 
         [RequestPacketHandler("ChangePlayerBirthdayRequest")]

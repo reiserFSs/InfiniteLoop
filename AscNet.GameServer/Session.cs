@@ -22,9 +22,11 @@ namespace AscNet.GameServer
         public Stage stage = default!;
         public Fight? fight;
         public Inventory inventory = default!;
+        public int? PendingEnterWorldChatRequestId;
+        public int? PendingGetWorldChannelInfoRequestId;
         public readonly Logger log;
         private long lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        private ushort packetNo = 0;
+        private int packetNo = 0;
         private readonly MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block);
 
         public Session(string id, TcpClient tcpClient)
@@ -39,7 +41,19 @@ namespace AscNet.GameServer
 
         public async void ClientLoop()
         {
-            NetworkStream stream = client.GetStream();
+            NetworkStream stream;
+            try
+            {
+                stream = client.GetStream();
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+            catch (InvalidOperationException) when (!client.Connected)
+            {
+                return;
+            }
             int prevBuf = 0;
             byte[] msg = new byte[1 << 16];
 
@@ -47,55 +61,76 @@ namespace AscNet.GameServer
             {
                 try
                 {
-                    int len = 0;
+                    bool readAnyBytes = false;
 
-                    read:
                     while (stream.DataAvailable)
                     {
-                        len = stream.Read(msg, prevBuf, msg.Length - prevBuf);
+                        if (prevBuf == msg.Length)
+                            break;
+
+                        int len = stream.Read(msg, prevBuf, msg.Length - prevBuf);
+                        if (len <= 0)
+                            break;
+
                         prevBuf += len;
+                        readAnyBytes = true;
                     }
+
+                    if (readAnyBytes)
+                        lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                     if (prevBuf > 0)
                     {
-                        lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                         List<Packet> packets = new();
 
                         int readbytes = 0;
                         while (readbytes < prevBuf)
                         {
-                            int packetLen = BinaryPrimitives.ReadInt32LittleEndian(msg.AsSpan()[readbytes..]);
-                            if (prevBuf > 0)
-                                readbytes += 4;
+                            int remainingBytes = prevBuf - readbytes;
+                            if (remainingBytes < 4)
+                                break;
+
+                            int packetLen = BinaryPrimitives.ReadInt32LittleEndian(msg.AsSpan(readbytes, 4));
                             if (packetLen < 1)
                             {
                                 prevBuf = 0;
+                                readbytes = 0;
                                 break;
                             }
-                            if (packetLen > prevBuf)
-                            {
-                                goto read;
-                            }
-                            else
-                            {
-                                byte[] packet = GC.AllocateUninitializedArray<byte>(packetLen);
-                                Array.Copy(msg, readbytes, packet, 0, packetLen);
-                                readbytes += packetLen;
-                                Crypto.HaruCrypt.Decrypt(packet);
 
-                                try
-                                {
-                                    packets.Add(MessagePackSerializer.Deserialize<Packet>(packet, lz4Options));
-                                }
-                                catch (Exception)
-                                {
-                                    log.Debug(BitConverter.ToString(msg).Replace("-", ""));
-                                    log.Debug($"PacketLen = {packetLen}, ReadLen = {prevBuf}");
-                                    log.Error("Failed to deserialize packet: " + BitConverter.ToString(packet).Replace("-", ""));
-                                }
+                            if (packetLen > remainingBytes - 4)
+                                break;
+
+                            readbytes += 4;
+                            byte[] packet = GC.AllocateUninitializedArray<byte>(packetLen);
+                            Array.Copy(msg, readbytes, packet, 0, packetLen);
+                            readbytes += packetLen;
+                            Crypto.HaruCrypt.Decrypt(packet);
+
+                            try
+                            {
+                                packets.Add(MessagePackSerializer.Deserialize<Packet>(packet, lz4Options));
+                            }
+                            catch (Exception)
+                            {
+                                log.Debug(BitConverter.ToString(msg).Replace("-", ""));
+                                log.Debug($"PacketLen = {packetLen}, ReadLen = {prevBuf}");
+                                log.Error("Failed to deserialize packet: " + BitConverter.ToString(packet).Replace("-", ""));
                             }
                         }
-                        prevBuf = 0;
+
+                        if (readbytes > 0)
+                        {
+                            int unreadBytes = prevBuf - readbytes;
+                            if (unreadBytes > 0)
+                                Buffer.BlockCopy(msg, readbytes, msg, 0, unreadBytes);
+                            prevBuf = unreadBytes;
+                        }
+                        else if (prevBuf == msg.Length)
+                        {
+                            log.Error("Packet length exceeds receive buffer");
+                            prevBuf = 0;
+                        }
 
                         foreach (var packet in packets)
                         {
@@ -168,8 +203,15 @@ namespace AscNet.GameServer
             return name switch
             {
                 "BoardMutualRequest" => true,
+                "ReconnectAck" => true,
                 _ => false
             };
+        }
+
+        public void ContinuePushSequenceFrom(int lastMsgSeqNo)
+        {
+            if (lastMsgSeqNo > packetNo)
+                packetNo = lastMsgSeqNo;
         }
 
         public void SendPush<T>(T push) where T : new()

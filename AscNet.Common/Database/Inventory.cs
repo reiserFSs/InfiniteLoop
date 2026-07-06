@@ -29,7 +29,10 @@ namespace AscNet.Common.Database
         public const int BountyTaskExp = 18;
         public const int DormCoin = 30;
         public const int FurnitureCoin = 31;
+        public const int AClassInverMaterial = 34;
+        public const int SClassInverMaterial = 35;
         public const int DormEnterIcon = 36;
+        public const int SRankUniframeMaterial = 48;
         public const int BaseEquipCoin = 300;
         public const int InfestorActionPoint = 50;
         public const int InfestorMoney = 51;
@@ -40,6 +43,19 @@ namespace AscNet.Common.Database
         #endregion
 
         public static readonly IMongoCollection<Inventory> collection = Common.db.GetCollection<Inventory>("inventory");
+        private static readonly Lazy<HashSet<int>> ClientItemIds = new(() =>
+            TableReaderV2.Parse<ItemTable>().Select(item => item.Id).ToHashSet());
+
+        public static bool IsValidClientItemId(int itemId)
+        {
+            return itemId > 0 && ClientItemIds.Value.Contains(itemId);
+        }
+
+        public static List<Item> FilterClientItems(IEnumerable<Item> items)
+        {
+            return items.Where(item => IsValidClientItemId(item.Id)).ToList();
+        }
+
 
         public static Inventory FromUid(long uid)
         {
@@ -73,6 +89,9 @@ namespace AscNet.Common.Database
 
         public Item Do(int itemId, int amount)
         {
+            if (!IsValidClientItemId(itemId))
+                throw new InvalidDataException($"Cannot mutate unknown client item id {itemId}.");
+
             Item? item = Items.FirstOrDefault(x => x.Id == itemId);
             ItemTable? itemTable = TableReaderV2.Parse<ItemTable>().Find(x => x.Id == itemId);
 

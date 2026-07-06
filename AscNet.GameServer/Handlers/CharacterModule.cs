@@ -40,6 +40,20 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class CharacterEnhanceSkillNoticeRequest
+    {
+        public int TemplateId;
+        public int CharacterId;
+        public int Id;
+    }
+
+    [MessagePackObject(true)]
+    public class CharacterEnhanceSkillNoticeResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
     public class CharacterLevelUpRequest
     {
         public uint TemplateId;
@@ -536,6 +550,37 @@ namespace AscNet.GameServer.Handlers
             SaveCharacterProgress(session);
 
             session.SendResponse(new CharacterUpgradeEnhanceSkillResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("CharacterEnhanceSkillNoticeRequest")]
+        public static void CharacterEnhanceSkillNoticeRequestHandler(Session session, Packet.Request packet)
+        {
+            CharacterEnhanceSkillNoticeRequest request = packet.Deserialize<CharacterEnhanceSkillNoticeRequest>();
+            int characterId = request.TemplateId > 0 ? request.TemplateId
+                : request.CharacterId > 0 ? request.CharacterId
+                : request.Id;
+
+            IEnumerable<CharacterData> affectedCharacters = characterId > 0
+                ? session.character.Characters.Where(character => character.Id == characterId)
+                : session.character.Characters;
+
+            NotifyCharacterDataList notifyCharacterData = new();
+            foreach (CharacterData character in affectedCharacters)
+            {
+                if (!character.IsEnhanceSkillNotice)
+                    continue;
+
+                character.IsEnhanceSkillNotice = false;
+                notifyCharacterData.CharacterDataList.Add(character);
+            }
+
+            if (notifyCharacterData.CharacterDataList.Count > 0)
+            {
+                session.SendPush(notifyCharacterData);
+                SaveCharacterProgress(session);
+            }
+
+            session.SendResponse(new CharacterEnhanceSkillNoticeResponse(), packet.Id);
         }
 
         [RequestPacketHandler("CharacterExchangeRequest")]

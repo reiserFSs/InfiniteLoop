@@ -20,11 +20,14 @@ namespace AscNet.GameServer.Game
         private static readonly List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
         private static readonly List<ItemTable> itemTables = TableReaderV2.Parse<ItemTable>();
         private static readonly HashSet<int> drawPreviewIds = drawPreviewTables.Select(x => x.Id).ToHashSet();
+        private static readonly HashSet<int> drawWaferShowIds = TableReaderV2.Parse<DrawWaferShowTable>().Select(x => x.Id).ToHashSet();
         private static readonly Logger log = new(typeof(DrawManager), LogLevel.DEBUG, LogLevel.DEBUG);
+        private const int MinDrawItemShowQuality = 3;
         private static readonly object stateLock = new();
         private static readonly Dictionary<long, Dictionary<int, DrawProgress>> drawProgressByPlayer = new();
         private static readonly Dictionary<long, Dictionary<int, Dictionary<int, int>>> selectedDrawByPlayerGroup = new();
         private static readonly Dictionary<long, Dictionary<int, int>> switchCountByPlayerGroup = new();
+        private static readonly Dictionary<(long PlayerId, int GroupId, int GroupSubType), List<DrawHistoryEntry>> drawHistoryByPlayerGroup = new();
 
         #region DrawTags
         public const int TagBase = 1;
@@ -59,6 +62,7 @@ namespace AscNet.GameServer.Game
         #endregion
 
         private sealed record DrawProgress(int TodayCount, int TotalCount);
+        private sealed record DrawHistoryEntry(RewardGoods RewardGoods, long DrawTime);
 
         private sealed record DrawGroupDefinition(
             int Id,
@@ -307,6 +311,77 @@ namespace AscNet.GameServer.Game
             return groups;
         }
 
+        public static List<(int DrawGroupId, int Priority)> GetDrawHistoryGroups()
+        {
+            return GroupDefinitions
+                .Where(definition => RetailDrawInfosByGroup.TryGetValue(definition.Id, out List<DrawInfoTemplate>? infos) && infos.Count > 0)
+                .Select(definition => (definition.Id, definition.Priority))
+                .ToList();
+        }
+
+        public static (int BottomTimes, int MaxBottomTimes) GetDrawHistoryStatus(long playerId, int groupId, int groupSubType)
+        {
+            if (!RetailDrawInfosByGroup.TryGetValue(groupId, out List<DrawInfoTemplate>? infos) || infos.Count == 0)
+                return (0, 0);
+
+            DrawInfoTemplate template = infos.FirstOrDefault(info => info.GroupSubType == groupSubType)
+                ?? GetSelectedTemplate(groupId, GetUseDrawIdDict(playerId, GroupDefinitions.First(definition => definition.Id == groupId)))
+                ?? infos[0];
+            DrawInfo drawInfo = BuildDrawInfo(template, playerId);
+            return (drawInfo.BottomTimes, drawInfo.MaxBottomTimes);
+        }
+
+        public static void RecordDrawHistory(long playerId, int drawId, IEnumerable<RewardGoods> rewards)
+        {
+            if (!RetailDrawInfoById.TryGetValue(drawId, out DrawInfoTemplate? template))
+                return;
+
+            long drawTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            (long PlayerId, int GroupId, int GroupSubType) key = (playerId, template.GroupId, template.GroupSubType);
+
+            lock (stateLock)
+            {
+                if (!drawHistoryByPlayerGroup.TryGetValue(key, out List<DrawHistoryEntry>? history))
+                {
+                    history = [];
+                    drawHistoryByPlayerGroup[key] = history;
+                }
+
+                history.AddRange(rewards.Select(reward => new DrawHistoryEntry(CloneRewardGoods(reward), drawTime)));
+                if (history.Count > 100)
+                    history.RemoveRange(0, history.Count - 100);
+            }
+        }
+
+        public static List<(RewardGoods RewardGoods, long DrawTime)> GetDrawHistory(long playerId, int groupId, int groupSubType)
+        {
+            lock (stateLock)
+            {
+                return drawHistoryByPlayerGroup.TryGetValue((playerId, groupId, groupSubType), out List<DrawHistoryEntry>? history)
+                    ? history.Select(entry => (CloneRewardGoods(entry.RewardGoods), entry.DrawTime)).ToList()
+                    : [];
+            }
+        }
+
+        private static RewardGoods CloneRewardGoods(RewardGoods reward)
+        {
+            return new RewardGoods
+            {
+                RewardType = reward.RewardType,
+                TemplateId = reward.TemplateId,
+                Count = reward.Count,
+                Level = reward.Level,
+                Quality = reward.Quality,
+                Grade = reward.Grade,
+                Breakthrough = reward.Breakthrough,
+                ConvertFrom = reward.ConvertFrom,
+                ShowQuality = reward.ShowQuality,
+                Id = reward.Id,
+                IsGift = reward.IsGift,
+                RewardMulti = reward.RewardMulti
+            };
+        }
+
         public static List<DrawAdjustActivityInfo> GetDrawAdjustActivityInfos()
         {
             return
@@ -414,8 +489,8 @@ namespace AscNet.GameServer.Game
             }
 
             DrawProgress progress = GetDrawProgress(playerId, drawId);
-            int totalAfterPull = template.BaseTotalCount + progress.TotalCount + pullOffset + 1;
-            bool forceRare = template.MaxBottomTimes > 0 && totalAfterPull % template.MaxBottomTimes == 0;
+            int bottomTimesBeforePull = GetBottomTimes(template.MaxBottomTimes, template.BottomTimes, progress.TotalCount + pullOffset);
+            bool forceRare = template.MaxBottomTimes > 0 && bottomTimesBeforePull == 1;
 
             RewardGoods? reward = DrawRetailReward(template, forceRare);
             if (reward is not null)
@@ -459,6 +534,7 @@ namespace AscNet.GameServer.Game
                 PurchaseId = [.. template.PurchaseId],
                 CapacityCheckType = template.CapacityCheckType,
                 UpGoodsId = 0,
+                IsShowShop = template.Id is 374 or 376,
                 GroupSubType = template.GroupSubType,
                 ShowPriority = 0
             };
@@ -543,35 +619,31 @@ namespace AscNet.GameServer.Game
                     : 0;
             }
         }
-
         private static RewardGoods? DrawCharacterReward(DrawInfoTemplate template, bool forceRare)
         {
             if (forceRare && TryCreateTargetCharacterReward(template, out RewardGoods? targetReward))
                 return targetReward;
 
-            int roll = Random.Shared.Next(10000);
-            if (roll < 190 && TryCreateTargetCharacterReward(template, out targetReward))
+            int roll = Random.Shared.Next(9860);
+            if (roll < 50 && TryCreateTargetCharacterReward(template, out targetReward))
                 return targetReward;
 
-            if (roll < 1585)
-                return DrawRandomCharacterReward(maxInitialQuality: 2) ?? DrawCharacterShardReward(template);
-
-            if (roll < 3796)
+            if (roll < 1445)
                 return DrawCharacterShardReward(template);
 
-            if (roll < 6689)
+            if (roll < 3656)
+                return DrawCharacterShardReward(template);
+
+            if (roll < 6495)
                 return DrawMemoryReward();
 
-            if (roll < 7831)
+            if (roll < 7937)
                 return DrawOverclockMaterialReward();
 
-            if (roll < 8312)
+            if (roll < 8418)
                 return DrawExpMaterialReward();
 
-            if (roll < 9247)
-                return DrawCogBoxReward();
-
-            return DrawFallbackItemReward() ?? DrawCogBoxReward();
+            return DrawCogBoxReward();
         }
 
         private static RewardGoods? DrawLegacyCharacterReward(DrawInfoTemplate template, bool forceRare)
@@ -648,15 +720,23 @@ namespace AscNet.GameServer.Game
 
         private static RewardGoods? DrawCharacterShardReward(DrawInfoTemplate template)
         {
-            int characterId = template.ResourceIds.GetValueOrDefault(1);
-            CharacterTable? targetCharacter = charactersTables.FirstOrDefault(x => x.Id == characterId);
-            int shardId = targetCharacter?.ItemId > 0
-                ? targetCharacter.ItemId
-                : PickRandomId(itemTables
-                    .Where(item => item.Name.StartsWith("Inver-Shard"))
-                    .Select(item => item.Id)
-                    .ToList());
+            List<int> shardIds = drawPreviewTables
+                .FirstOrDefault(x => x.Id == template.Id)
+                ?.GoodsId
+                .Select(characterId => charactersTables.FirstOrDefault(character => character.Id == characterId)?.ItemId ?? 0)
+                .Where(Inventory.IsValidClientItemId)
+                .Distinct()
+                .ToList() ?? [];
 
+            if (shardIds.Count == 0)
+            {
+                int characterId = template.ResourceIds.GetValueOrDefault(1);
+                CharacterTable? targetCharacter = charactersTables.FirstOrDefault(x => x.Id == characterId);
+                if (targetCharacter is not null && Inventory.IsValidClientItemId(targetCharacter.ItemId))
+                    shardIds.Add(targetCharacter.ItemId);
+            }
+
+            int shardId = PickRandomId(shardIds);
             if (shardId <= 0)
                 return DrawFallbackItemReward();
 
@@ -672,7 +752,10 @@ namespace AscNet.GameServer.Game
         private static RewardGoods? DrawMemoryReward()
         {
             List<EquipTable> memories = equipTables
-                .Where(equip => equip.Type == 0 && equip.Quality == 4 && Character.IsOwnableEquipTemplate(equip))
+                .Where(equip => equip.Type == 0
+                    && equip.Quality == 4
+                    && Character.IsOwnableEquipTemplate(equip)
+                    && drawWaferShowIds.Contains(equip.Id))
                 .ToList();
             if (memories.Count == 0)
                 return DrawFallbackItemReward();
@@ -703,27 +786,12 @@ namespace AscNet.GameServer.Game
                     && Character.IsOwnableEquipTemplate(equip))
                 .ToList();
             if (weapons.Count == 0)
-                return null;
+                return DrawFallbackItemReward();
 
             EquipTable weapon = weapons[Random.Shared.Next(weapons.Count)];
             return CreateRewardGoods(RewardType.Equip, weapon.Id, 1, level: 1);
         }
 
-        private static RewardGoods? DrawRandomCharacterReward(int maxInitialQuality)
-        {
-            List<CharacterTable> pool = charactersTables
-                .Where(character =>
-                {
-                    int quality = GetFirstQuality(character.Id);
-                    return quality > 0 && quality <= maxInitialQuality;
-                })
-                .ToList();
-            if (pool.Count == 0)
-                return null;
-
-            CharacterTable character = pool[Random.Shared.Next(pool.Count)];
-            return CreateRewardGoods(RewardType.Character, character.Id, 1, level: 1);
-        }
 
         private static RewardGoods? DrawOverclockMaterialReward()
         {
@@ -737,7 +805,7 @@ namespace AscNet.GameServer.Game
 
         private static RewardGoods? DrawCogBoxReward()
         {
-            return DrawItemReward(item => item.Name.StartsWith("Cog Pack"), fallbackCount: 1);
+            return DrawItemReward(item => item.Name.StartsWith("Cog Pack") && item.Quality >= MinDrawItemShowQuality, fallbackCount: 1);
         }
 
         private static RewardGoods? DrawFallbackItemReward()
@@ -748,7 +816,7 @@ namespace AscNet.GameServer.Game
         private static RewardGoods? DrawItemRewardByIds(int[] ids, int fallbackCount)
         {
             HashSet<int> allowedIds = [.. ids];
-            return DrawItemReward(item => allowedIds.Contains(item.Id), fallbackCount);
+            return DrawItemReward(item => allowedIds.Contains(item.Id) && item.Quality >= MinDrawItemShowQuality, fallbackCount);
         }
 
         private static RewardGoods? DrawItemReward(Func<ItemTable, bool> predicate, int fallbackCount)
@@ -795,6 +863,7 @@ namespace AscNet.GameServer.Game
                 RewardMulti = 0
             };
         }
+
 
         private static bool IsCharacterId(int templateId)
         {

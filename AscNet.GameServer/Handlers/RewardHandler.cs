@@ -4,6 +4,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.GameServer.Handlers.Drops;
 using AscNet.Table.V2.share.character;
+using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.equip;
@@ -16,6 +17,8 @@ namespace AscNet.GameServer.Handlers
         public int Count = 1;
         public int Level = 1;
         public RewardType Type;
+        public bool IsRecycle;
+        public int ConvertFrom;
     }
 
     internal class RewardHandler
@@ -88,31 +91,17 @@ namespace AscNet.GameServer.Handlers
 
         public static void GiveRewards(IEnumerable<Reward> rewards, Session session)
         {
-            List<Reward> transformedRewards = [];
+            List<Reward> resolvedRewards = ResolveRewards(rewards, session);
 
             NotifyEquipDataList notifyEquipData = new();
             FashionSyncNotify fashionSync = new();
             NotifyCharacterDataList notifyCharacterData = new();
             NotifyItemDataList notifyItemData = new();
 
-            foreach (var reward in rewards)
-            {
-                transformedRewards.AddRange(
-                    HandleReward(
-                        reward,
-                        session,
-                        notifyItemData.ItemDataList,
-                        notifyCharacterData.CharacterDataList,
-                        fashionSync.FashionList,
-                        notifyEquipData.EquipDataList
-                    )
-                );
-            }
-
-            foreach (var transformedReward in transformedRewards)
+            foreach (var reward in resolvedRewards)
             {
                 HandleReward(
-                    transformedReward,
+                    reward,
                     session,
                     notifyItemData.ItemDataList,
                     notifyCharacterData.CharacterDataList,
@@ -142,14 +131,23 @@ namespace AscNet.GameServer.Handlers
             }
         }
 
-        private static IEnumerable<Reward> HandleReward(
-            Reward reward,
-            Session session,
-            List<Item> itemDataList,
-            List<CharacterData> characterDataList,
-            List<FashionList> fashionList,
-            List<EquipData> equipDataList
-        ) {
+        public static List<Reward> ResolveRewards(IEnumerable<Reward> rewards, Session session)
+        {
+            List<Reward> resolvedRewards = [];
+            HashSet<int> ownedCharacterIds = session.character.Characters.Select(x => (int)x.Id).ToHashSet();
+            foreach (Reward reward in rewards)
+            {
+                List<Reward> resolved = ResolveReward(reward, session, ownedCharacterIds).ToList();
+                resolvedRewards.AddRange(resolved);
+                if (resolved.Count == 1 && resolved[0].Type == RewardType.Character)
+                    ownedCharacterIds.Add(resolved[0].Id);
+            }
+
+            return resolvedRewards;
+        }
+
+        private static IEnumerable<Reward> ResolveReward(Reward reward, Session session, HashSet<int> ownedCharacterIds)
+        {
             switch (reward.Type)
             {
                 case RewardType.Item:
@@ -169,23 +167,46 @@ namespace AscNet.GameServer.Handlers
                             });
                         }
                     }
-
-                    itemDataList.Add(session.inventory.Do(reward.Id, reward.Count));
                     break;
                 case RewardType.Character:
-                    if (session.character.Characters.Any(x => x.Id == reward.Id))
+                    if (ownedCharacterIds.Contains(reward.Id))
                     {
                         var characterData = TableReaderV2.Parse<CharacterTable>().Find(x => x.Id == reward.Id);
                         if (characterData == null) return [];
 
                         var decomposeCount = Character.GetMinCharacterFragment(reward.Id)?.DecomposeCount ?? 18;
+                        if (!Inventory.IsValidClientItemId(characterData.ItemId))
+                            return [];
+
                         return [new()
                         {
                             Id = characterData.ItemId,
                             Count = decomposeCount,
                             Type = RewardType.Item,
+                            ConvertFrom = reward.Id,
                         }];
                     }
+                    break;
+            }
+
+            return [reward];
+        }
+
+
+        private static void HandleReward(
+            Reward reward,
+            Session session,
+            List<Item> itemDataList,
+            List<CharacterData> characterDataList,
+            List<FashionList> fashionList,
+            List<EquipData> equipDataList
+        ) {
+            switch (reward.Type)
+            {
+                case RewardType.Item:
+                    itemDataList.Add(session.inventory.Do(reward.Id, reward.Count));
+                    break;
+                case RewardType.Character:
 
                     var characterRet = session.character.AddCharacter((uint)reward.Id, level: reward.Level);
                     characterDataList.Add(characterRet.Character);
@@ -197,7 +218,10 @@ namespace AscNet.GameServer.Handlers
                 case RewardType.Equip:
                     EquipData? equip = session.character.AddEquip((uint)reward.Id, level: reward.Level);
                     if (equip is not null)
+                    {
+                        equip.IsRecycle = reward.IsRecycle;
                         equipDataList.Add(equip);
+                    }
                     break;
                 case RewardType.Fashion:
                     break;
@@ -231,7 +255,6 @@ namespace AscNet.GameServer.Handlers
                     break;
             }
 
-            return [];
         }
     }
 }

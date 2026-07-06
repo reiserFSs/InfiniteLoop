@@ -1,4 +1,5 @@
 ﻿using AscNet.Common.MsgPack;
+using AscNet.Common.Database;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.item;
 
@@ -37,7 +38,7 @@ namespace AscNet.GameServer.Commands
 
                         NotifyItemDataList notifyItemData = new()
                         {
-                            ItemDataList = session.inventory.Items
+                            ItemDataList = Inventory.FilterClientItems(session.inventory.Items)
                         };
                         session.SendPush(notifyItemData);
                     }
