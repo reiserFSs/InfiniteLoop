@@ -541,6 +541,13 @@ namespace AscNet.GameServer.Handlers
             uint responseStageId = ResolveFightSettleStageId(session, req);
             bool isQuickClear = responseStageId != req.Result.StageId;
             bool isFirstClear = !session.stage.Stages.ContainsKey(responseStageId);
+            bool isSuccessfulSettle = req.Result.IsWin && !req.Result.IsForceExit;
+            if (!isSuccessfulSettle)
+            {
+                session.fight = null;
+                session.SendResponse(BuildFailedFightSettleResponse(responseStageId, req), packet.Id);
+                return;
+            }
             int teamExp = stageTable is null ? 0 : GetStageTeamExp(stageTable, isFirstClear) * challengeCount;
             int cardExp = stageTable is null ? 0 : GetStageCardExp(stageTable, isFirstClear) * challengeCount;
 
@@ -682,6 +689,26 @@ namespace AscNet.GameServer.Handlers
         {
             uint speedrunStageId = session.fight?.PreFight.PreFightData.SpeedrunStageId ?? 0;
             return speedrunStageId != 0 ? speedrunStageId : req.Result.StageId;
+        }
+
+        private static FightSettleResponse BuildFailedFightSettleResponse(uint stageId, FightSettleRequest req)
+        {
+            return new FightSettleResponse
+            {
+                Code = 0,
+                Settle = new()
+                {
+                    IsWin = false,
+                    StageId = stageId,
+                    StarsMark = 0,
+                    Achievement = 0,
+                    RewardGoodsList = null!,
+                    LeftTime = (int)req.Result.LeftTime,
+                    NpcHpInfo = req.Result.NpcHpInfo,
+                    MultiRewardGoodsList = null!,
+                    ChallengeCount = 0
+                }
+            };
         }
 
         private static StageDatum BuildFightSettleStageDatum(uint stageId, long starsMark, List<long> bestCardIds, bool isQuickClear)

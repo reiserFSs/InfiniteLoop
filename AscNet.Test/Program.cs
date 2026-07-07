@@ -172,6 +172,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--fight-settle-retreat-compat-only"))
+                {
+                    ValidateFightSettleRetreatCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--pr2-quality-compat-only"))
                 {
                     ValidatePr2QualityCompatibility();
@@ -285,6 +291,7 @@ namespace AscNet.Test
                 ValidateStoryCourseRewardCompatibility();
                 ValidatePrequelRewardCompatibility();
                 ValidateStoryDeployVersionGapCompatibility();
+                ValidateFightSettleRetreatCompatibility();
                 ValidatePr2QualityCompatibility();
                 ValidateInventoryEquipCompatibility();
                 ValidateDrawCompatibility();
@@ -9423,6 +9430,125 @@ namespace AscNet.Test
             }
         }
 
+        private static void ValidateFightSettleRetreatCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForStoryDeployVersionGapCompatibility();
+            const uint retailStageId = 10_400_101;
+            const int retailRobotId = 172_410;
+            const uint retailRobotCharacterId = 1_021_007;
+            const int expectedRebootId = 17;
+            const int expectedPassTimeLimit = 300;
+            const long winPlayerId = 88_020;
+            const long retreatPlayerId = 88_021;
+            const int winPreFightPacketId = 13_201;
+            const int winFightSettlePacketId = 13_202;
+            const int retreatPreFightPacketId = 13_203;
+            const int retreatFightSettlePacketId = 13_204;
+            const int retailRetreatLeftTime = 274;
+
+            StageTable retailStage = AssertRetailStageTableProgressionCompatibility(
+                retailStageId,
+                expectedRebootId,
+                expectedPassTimeLimit,
+                retailRobotId);
+            RobotTable requestedRobot = AssertStoryDeployRobotCharacterTableCompatibility(retailRobotId, retailRobotCharacterId);
+            AssertRetailCapturedStageDeployPath(
+                (uint)retailStage.StageId,
+                retailRobotId,
+                requestedRobot,
+                expectedRebootId,
+                expectedPassTimeLimit,
+                winPlayerId,
+                winPreFightPacketId,
+                winFightSettlePacketId);
+
+            AscNet.Common.Database.Stage retreatStage = CreateLoginAccountCompatibilityStage(retreatPlayerId);
+            AscNet.Common.Database.Inventory retreatInventory = CreateDrawCompatibilityInventory(retreatPlayerId, []);
+            using LoopbackSessionHarness retreatHarness = new(
+                CreateDrawCompatibilityCharacter(retreatPlayerId),
+                CreateDrawCompatibilityPlayer(retreatPlayerId),
+                retreatInventory,
+                "fight-settle-retreat-compat-test");
+            retreatHarness.Session.stage = retreatStage;
+
+            if (retreatStage.Stages.ContainsKey(retailStageId))
+                throw new InvalidDataException($"FightSettleRequest retail retreat test setup: stage {retailStageId} must not be pre-cleared.");
+            AssertEmptyList(retreatInventory.Items, "FightSettleRequest retail retreat test setup inventory");
+
+            PreFightRequest retreatPreFightRequest = new()
+            {
+                PreFightData = new()
+                {
+                    CvType = 1,
+                    SettleCgIndex = 0,
+                    RobotIds = [retailRobotId, 0, 0],
+                    FirstFightPos = 1,
+                    ChallengeCount = 1,
+                    CardIds = [0, 0, 0],
+                    EnterCgIndex = 0,
+                    IsHasAssist = false,
+                    CaptainPos = 1,
+                    StageId = retailStageId
+                }
+            };
+            PreFightRequest retreatPreFightRoundTrip = MessagePackSerializer.Deserialize<PreFightRequest>(
+                MessagePackSerializer.Serialize(retreatPreFightRequest));
+            AssertEqual(retailStageId, retreatPreFightRoundTrip.PreFightData.StageId, "FightSettleRequest retail retreat PreFightRequest StageId MessagePack round-trip");
+            AssertIntegerList([retailRobotId, 0, 0], retreatPreFightRoundTrip.PreFightData.RobotIds!.Select(robotId => (long)robotId).ToArray(), "FightSettleRequest retail retreat PreFightRequest RobotIds MessagePack round-trip");
+            AssertIntegerList([0, 0, 0], retreatPreFightRoundTrip.PreFightData.CardIds!.Select(cardId => (long)cardId).ToArray(), "FightSettleRequest retail retreat PreFightRequest CardIds MessagePack round-trip");
+
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), retreatHarness.Session, retreatPreFightPacketId, retreatPreFightRoundTrip);
+            PreFightResponse retreatPreFightResponse = ReadResponsePayload<PreFightResponse>(
+                retreatHarness,
+                retreatPreFightPacketId,
+                nameof(PreFightResponse),
+                "FightSettleRequest retail retreat PreFightResponse");
+            AssertEqual(0, retreatPreFightResponse.Code, "FightSettleRequest retail retreat PreFightResponse Code");
+            if (retreatPreFightResponse.FightData is null)
+                throw new InvalidDataException("FightSettleRequest retail retreat PreFightResponse: expected FightData for accepted retail story stage.");
+            AssertEqual(retailStageId, retreatPreFightResponse.FightData.StageId, "FightSettleRequest retail retreat PreFightResponse FightData.StageId");
+            AssertEqual(expectedRebootId, retreatPreFightResponse.FightData.RebootId, "FightSettleRequest retail retreat PreFightResponse FightData.RebootId");
+            AssertEqual(expectedPassTimeLimit, retreatPreFightResponse.FightData.PassTimeLimit, "FightSettleRequest retail retreat PreFightResponse FightData.PassTimeLimit");
+            AssertPreFightDeployedCharacterIds(
+                retreatPreFightResponse,
+                retreatPlayerId,
+                [(long)retailRobotCharacterId],
+                "FightSettleRequest retail retreat PreFightResponse retail robot deployed character ids");
+
+            FightSettleRequest retreatSettleRequest = CreateMissingStageSettleRequest(
+                retailStageId,
+                retreatPreFightResponse.FightData.FightId,
+                retreatPlayerId);
+            retreatSettleRequest.Result.IsWin = false;
+            retreatSettleRequest.Result.IsForceExit = true;
+            retreatSettleRequest.Result.AddStars = 0;
+            retreatSettleRequest.Result.Achievement = 2;
+            retreatSettleRequest.Result.LeftTime = retailRetreatLeftTime;
+            FightSettleRequest retreatSettleRoundTrip = MessagePackSerializer.Deserialize<FightSettleRequest>(
+                MessagePackSerializer.Serialize(retreatSettleRequest));
+            AssertEqual(false, retreatSettleRoundTrip.Result.IsWin, "FightSettleRequest retail retreat Result.IsWin MessagePack round-trip");
+            AssertEqual(true, retreatSettleRoundTrip.Result.IsForceExit, "FightSettleRequest retail retreat Result.IsForceExit MessagePack round-trip");
+            AssertEqual(retailStageId, retreatSettleRoundTrip.Result.StageId, "FightSettleRequest retail retreat Result.StageId MessagePack round-trip");
+            AssertEqual(0, retreatSettleRoundTrip.Result.AddStars, "FightSettleRequest retail retreat Result.AddStars MessagePack round-trip");
+            AssertEqual(2, retreatSettleRoundTrip.Result.Achievement, "FightSettleRequest retail retreat Result.Achievement MessagePack round-trip");
+            AssertEqual(retailRetreatLeftTime, retreatSettleRoundTrip.Result.LeftTime, "FightSettleRequest retail retreat Result.LeftTime MessagePack round-trip");
+
+            InvokeRegisteredRequestHandler(
+                nameof(FightSettleRequest),
+                retreatHarness.Session,
+                retreatFightSettlePacketId,
+                retreatSettleRoundTrip);
+            FightSettleResponse retreatSettleResponse = ReadFightSettleResponseAndAssertNoForbiddenPushes(
+                retreatHarness,
+                retreatFightSettlePacketId,
+                "FightSettleRequest retail retreat response");
+            AssertRetailRetreatFightSettleResponse(retreatSettleResponse, retailStageId, retailRetreatLeftTime);
+
+            if (retreatStage.Stages.TryGetValue(retailStageId, out StageDatum? clearedStage))
+                throw new InvalidDataException($"FightSettleRequest retail retreat: stage {retailStageId} must not be persisted as cleared, got Passed={clearedStage.Passed}, StarsMark={clearedStage.StarsMark}.");
+            AssertEmptyList(retreatInventory.Items, "FightSettleRequest retail retreat inventory after failed settle");
+        }
+
         private static void ValidateStoryDeployVersionGapCompatibility()
         {
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForStoryDeployVersionGapCompatibility();
@@ -10181,6 +10307,90 @@ namespace AscNet.Test
                 throw new InvalidDataException("FightSettleRequest unknown Stage.tsv row: expected FightSettleResponse.");
 
             return (stagePush, settleResponse);
+        }
+
+        private static FightSettleResponse ReadFightSettleResponseAndAssertNoForbiddenPushes(
+            LoopbackSessionHarness harness,
+            int expectedPacketId,
+            string name)
+        {
+            FightSettleResponse? settleResponse = null;
+
+            for (int packetIndex = 0; packetIndex < 16 && settleResponse is null; packetIndex++)
+            {
+                Packet packet = harness.ReadPacket(packetIndex == 0
+                    ? $"{name} first packet"
+                    : $"{name} packet {packetIndex + 1}");
+
+                switch (packet.Type)
+                {
+                    case Packet.ContentType.Push:
+                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                        AssertFightSettleRetreatDidNotEmitForbiddenPush(push.Name, name);
+                        break;
+                    case Packet.ContentType.Response:
+                        Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                        AssertEqual(expectedPacketId, response.Id, $"{name} packet id");
+                        AssertEqual(nameof(FightSettleResponse), response.Name, $"{name} packet name");
+                        settleResponse = MessagePackSerializer.Deserialize<FightSettleResponse>(response.Content);
+                        break;
+                    default:
+                        throw new InvalidDataException($"{name}: unexpected packet type {packet.Type}.");
+                }
+            }
+
+            if (settleResponse is null)
+                throw new InvalidDataException($"{name}: expected FightSettleResponse.");
+
+            int followUpPacketIndex = 0;
+            while (harness.TryReadAvailablePacket($"{name} follow-up packet {followUpPacketIndex + 1}", out Packet followUpPacket))
+            {
+                followUpPacketIndex++;
+                if (followUpPacket.Type == Packet.ContentType.Push)
+                {
+                    Packet.Push followUpPush = MessagePackSerializer.Deserialize<Packet.Push>(followUpPacket.Content);
+                    AssertFightSettleRetreatDidNotEmitForbiddenPush(followUpPush.Name, name);
+                    continue;
+                }
+
+                throw new InvalidDataException($"{name}: unexpected follow-up packet type {followUpPacket.Type} after FightSettleResponse.");
+            }
+
+            return settleResponse;
+        }
+
+        private static void AssertFightSettleRetreatDidNotEmitForbiddenPush(string pushName, string name)
+        {
+            string[] forbiddenPushNames =
+            [
+                nameof(NotifyStageData),
+                nameof(NotifyItemDataList),
+                nameof(NotifyEquipDataList),
+                nameof(NotifyCharacterDataList),
+                nameof(FashionSyncNotify),
+                nameof(NotifyTask),
+                nameof(NotifyTaskData)
+            ];
+
+            if (forbiddenPushNames.Contains(pushName, StringComparer.Ordinal))
+                throw new InvalidDataException($"{name}: failed/retreat settle must not emit {pushName}.");
+        }
+
+        private static void AssertRetailRetreatFightSettleResponse(FightSettleResponse settleResponse, uint expectedStageId, int expectedLeftTime)
+        {
+            AssertEqual(0, settleResponse.Code, "FightSettleResponse retail retreat Code");
+            if (settleResponse.Settle is null)
+                throw new InvalidDataException("FightSettleResponse retail retreat: expected Settle payload.");
+            AssertEqual(false, settleResponse.Settle.IsWin, "FightSettleResponse retail retreat Settle.IsWin");
+            AssertEqual(expectedStageId, (uint)settleResponse.Settle.StageId, "FightSettleResponse retail retreat Settle.StageId");
+            AssertEqual(0, settleResponse.Settle.StarsMark, "FightSettleResponse retail retreat Settle.StarsMark");
+            AssertEqual(0, settleResponse.Settle.Achievement, "FightSettleResponse retail retreat Settle.Achievement");
+            if (settleResponse.Settle.RewardGoodsList is not null)
+                throw new InvalidDataException($"FightSettleResponse retail retreat Settle.RewardGoodsList: expected nil, got {settleResponse.Settle.RewardGoodsList.Count} rewards.");
+            if (settleResponse.Settle.MultiRewardGoodsList is not null)
+                throw new InvalidDataException($"FightSettleResponse retail retreat Settle.MultiRewardGoodsList: expected nil, got {settleResponse.Settle.MultiRewardGoodsList.Count} reward groups.");
+            AssertEqual(0, settleResponse.Settle.ChallengeCount, "FightSettleResponse retail retreat Settle.ChallengeCount");
+            AssertEqual(expectedLeftTime, settleResponse.Settle.LeftTime, "FightSettleResponse retail retreat Settle.LeftTime");
         }
 
         private static void AssertPassedUnknownStageDatum(StageDatum stageDatum, string name)
