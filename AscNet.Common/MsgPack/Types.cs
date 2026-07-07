@@ -1233,8 +1233,8 @@ namespace AscNet.Common.MsgPack
         [global::MessagePack.MessagePackObject(true)]
         public class NotifyFubenPrequelDataFubenPrequelData
         {
-            public List<dynamic> RewardedStages { get; set; } = new();
-            public List<dynamic> UnlockChallengeStages { get; set; } = new();
+            public List<int> RewardedStages { get; set; } = new();
+            public List<int> UnlockChallengeStages { get; set; } = new();
         }
 
         public NotifyFubenPrequelDataFubenPrequelData FubenPrequelData { get; set; }
@@ -2748,7 +2748,7 @@ namespace AscNet.Common.MsgPack
     [MessagePack.MessagePackObject(true)]
     public class NotifyPrequelUnlockChallengeStages
     {
-        public List<dynamic> UnlockChallengeStages { get; set; } = new();
+        public List<int> UnlockChallengeStages { get; set; } = new();
     }
 
     [global::MessagePack.MessagePackObject(true)]

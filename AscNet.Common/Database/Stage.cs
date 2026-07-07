@@ -15,7 +15,11 @@ namespace AscNet.Common.Database
         
         public static Stage FromUid(long uid)
         {
-            return collection.AsQueryable().FirstOrDefault(x => x.Uid == uid) ?? Create(uid);
+            Stage stage = collection.AsQueryable().FirstOrDefault(x => x.Uid == uid) ?? Create(uid);
+            stage.Course ??= new();
+            stage.FinishedTasks ??= new();
+            stage.PrequelRewardedStages ??= new();
+            return stage;
         }
 
         private static Stage Create(long uid)
@@ -72,6 +76,18 @@ namespace AscNet.Common.Database
             return true;
         }
 
+        public bool AddPrequelRewardedStage(int stageId)
+        {
+            PrequelRewardedStages ??= new();
+            if (PrequelRewardedStages.Contains(stageId))
+            {
+                return false;
+            }
+
+            PrequelRewardedStages.Add(stageId);
+            return true;
+        }
+
         public bool AddFinishedTask(int taskId)
         {
             if (FinishedTasks.Contains(taskId))
@@ -103,6 +119,9 @@ namespace AscNet.Common.Database
         // List of claimed StageIds
         [BsonElement("course")]
         public List<uint> Course { get; set; } = new();
+
+        [BsonElement("prequel_rewarded_stages")]
+        public List<int> PrequelRewardedStages { get; set; } = new();
 
         [BsonElement("finished_tasks")]
         public List<int> FinishedTasks { get; set; } = new();

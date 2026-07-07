@@ -160,6 +160,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--prequel-reward-compat-only"))
+                {
+                    ValidatePrequelRewardCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--story-deploy-version-gap-compat-only"))
                 {
                     ValidateStoryDeployVersionGapCompatibility();
@@ -277,6 +283,7 @@ namespace AscNet.Test
                 ValidateCharacterEnhanceSkillTableBackedCompatibility();
                 ValidateExpLevelCompatibility();
                 ValidateStoryCourseRewardCompatibility();
+                ValidatePrequelRewardCompatibility();
                 ValidateStoryDeployVersionGapCompatibility();
                 ValidatePr2QualityCompatibility();
                 ValidateInventoryEquipCompatibility();
@@ -9223,6 +9230,197 @@ namespace AscNet.Test
             MethodInfo fightSettleHandler = GetRegisteredRequestHandlerMethod("FightSettleRequest");
             AssertEqual("FightSettleRequestHandler", fightSettleHandler.Name, "FightSettleRequest registered handler method");
             AssertMethodDoesNotTransitivelyCall(fightSettleHandler, stageAddCourse, "FightSettleRequestHandler course claim marker");
+        }
+
+        private static void ValidatePrequelRewardCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForStoryDeployVersionGapCompatibility();
+            const string requestName = "ReceivePrequelRewardRequest";
+            const string responseName = "ReceivePrequelRewardResponse";
+            const int firstStageId = 13_012_411;
+            const int secondStageId = 13_012_412;
+            const long playerId = 88_011;
+            const int firstPacketId = 13_020;
+            const int secondPacketId = 13_021;
+
+            AscNet.Common.Database.Stage stage = CreateLoginAccountCompatibilityStage(playerId);
+            AddPassedPrequelStage(stage, firstStageId);
+            AddPassedPrequelStage(stage, secondStageId);
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters.Add(CreateLoginAccountCompatibilityCharacter(1021001, fashionId: 3021001));
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                inventory,
+                "prequel-reward-compat-test");
+            harness.Session.stage = stage;
+
+            JObject firstResponse = ClaimPrequelRewardAndReadResponse(
+                harness,
+                requestName,
+                responseName,
+                firstPacketId,
+                firstStageId,
+                "ReceivePrequelRewardRequest stage 13012411");
+            AssertPrequelRewardResponse(
+                firstResponse,
+                firstStageId,
+                [
+                    (RewardType: 1, TemplateId: 3, Count: 30, Level: 0, Id: 130_101_110),
+                    (RewardType: 1, TemplateId: 1, Count: 1_000, Level: 0, Id: 130_101_111),
+                    (RewardType: 3, TemplateId: 2_993_001, Count: 1, Level: 1, Id: 130_101_112)
+                ],
+                "ReceivePrequelRewardResponse stage 13012411");
+            AssertIntegerList([firstStageId], stage.PrequelRewardedStages.Select(stageId => (long)stageId).ToArray(), "ReceivePrequelRewardRequest stage 13012411 persisted rewarded stages");
+
+            JObject secondResponse = ClaimPrequelRewardAndReadResponse(
+                harness,
+                requestName,
+                responseName,
+                secondPacketId,
+                secondStageId,
+                "ReceivePrequelRewardRequest stage 13012412");
+            AssertPrequelRewardResponse(
+                secondResponse,
+                secondStageId,
+                [
+                    (RewardType: 1, TemplateId: 3, Count: 30, Level: 0, Id: 130_101_120),
+                    (RewardType: 1, TemplateId: 1, Count: 2_000, Level: 0, Id: 130_101_121),
+                    (RewardType: 3, TemplateId: 3_913_001, Count: 1, Level: 1, Id: 130_101_122)
+                ],
+                "ReceivePrequelRewardResponse stage 13012412");
+            AssertIntegerList([firstStageId, secondStageId], stage.PrequelRewardedStages.Select(stageId => (long)stageId).ToArray(), "ReceivePrequelRewardRequest persisted rewarded stages after second captured claim");
+
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo doLogin = RequiredMethod(
+                accountModule,
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            doLogin.Invoke(null, [harness.Session]);
+            NotifyFubenPrequelData loginPrequelData = ReadStartupPrequelData(
+                harness,
+                maxStartupPushes: 192,
+                "AccountModule.DoLogin prequel startup payload after captured rewards");
+            if (loginPrequelData.FubenPrequelData is null)
+                throw new InvalidDataException("NotifyFubenPrequelData login payload: expected FubenPrequelData.");
+            AssertIntegerList(
+                [firstStageId, secondStageId],
+                loginPrequelData.FubenPrequelData.RewardedStages.Select(stageId => (long)stageId).ToArray(),
+                "NotifyFubenPrequelData login payload RewardedStages");
+            AssertEmptyList(loginPrequelData.FubenPrequelData.UnlockChallengeStages, "NotifyFubenPrequelData login payload UnlockChallengeStages");
+
+            static void AddPassedPrequelStage(AscNet.Common.Database.Stage stage, int stageId)
+            {
+                stage.AddStage(new StageDatum
+                {
+                    StageId = stageId,
+                    StarsMark = 7,
+                    Achievement = 0,
+                    Passed = true,
+                    PassTimesToday = 0,
+                    PassTimesTotal = 1,
+                    BuyCount = 0,
+                    Score = 0,
+                    LastPassTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                });
+            }
+
+            static JObject ClaimPrequelRewardAndReadResponse(
+                LoopbackSessionHarness harness,
+                string requestName,
+                string responseName,
+                int packetId,
+                int stageId,
+                string name)
+            {
+                byte[] requestPayload = MessagePackSerializer.Serialize(new Dictionary<string, int>
+                {
+                    ["StageId"] = stageId
+                });
+                RequestPacketHandlerDelegate handler = GetRegisteredRequestHandler(requestName);
+                Packet.Request packet = new()
+                {
+                    Id = packetId,
+                    Name = requestName,
+                    Content = requestPayload
+                };
+
+                try
+                {
+                    handler.Invoke(harness.Session, packet);
+                }
+                catch (Exception exception)
+                {
+                    throw new InvalidDataException($"{name}: registered handler invocation failed.", exception);
+                }
+
+                AssertNextPushName(harness, nameof(NotifyItemDataList), $"{name} first outbound packet");
+                AssertNextPushName(harness, nameof(NotifyEquipDataList), $"{name} second outbound packet");
+
+                Packet responsePacket = harness.ReadPacket($"{name} third outbound packet");
+                AssertEqual(Packet.ContentType.Response, responsePacket.Type, $"{name} response packet type");
+                Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(responsePacket.Content);
+                AssertEqual(packetId, response.Id, $"{name} response packet id");
+                AssertEqual(responseName, response.Name, $"{name} response packet name");
+                return JObject.Parse(MessagePackSerializer.ConvertToJson(response.Content));
+            }
+
+            static void AssertNextPushName(LoopbackSessionHarness harness, string expectedPushName, string name)
+            {
+                Packet packet = harness.ReadPacket(name);
+                AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                AssertEqual(expectedPushName, push.Name, $"{name} push name");
+            }
+
+            static void AssertPrequelRewardResponse(
+                JObject response,
+                int expectedStageId,
+                IReadOnlyList<(int RewardType, int TemplateId, int Count, int Level, int Id)> expectedRewards,
+                string name)
+            {
+                AssertEqual(0, RequiredValue<int>(response, "Code", JTokenType.Integer, name), $"{name} Code");
+                AssertEqual(expectedStageId, RequiredValue<int>(response, "StageId", JTokenType.Integer, name), $"{name} StageId");
+                JArray rewards = (JArray)RequiredToken(response, "RewardGoodsList", JTokenType.Array, name);
+                AssertEqual(expectedRewards.Count, rewards.Count, $"{name} RewardGoodsList count");
+
+                for (int index = 0; index < expectedRewards.Count; index++)
+                {
+                    if (rewards[index] is not JObject reward)
+                        throw new InvalidDataException($"{name} RewardGoodsList[{index}]: expected JSON object.");
+                    (int rewardType, int templateId, int count, int level, int id) = expectedRewards[index];
+                    AssertEqual(rewardType, RequiredValue<int>(reward, "RewardType", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].RewardType");
+                    AssertEqual(templateId, RequiredValue<int>(reward, "TemplateId", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].TemplateId");
+                    AssertEqual(count, RequiredValue<int>(reward, "Count", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].Count");
+                    AssertEqual(level, RequiredValue<int>(reward, "Level", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].Level");
+                    AssertEqual(0, RequiredValue<int>(reward, "Quality", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].Quality");
+                    AssertEqual(0, RequiredValue<int>(reward, "Grade", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].Grade");
+                    AssertEqual(0, RequiredValue<int>(reward, "Breakthrough", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].Breakthrough");
+                    AssertEqual(0, RequiredValue<int>(reward, "ConvertFrom", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].ConvertFrom");
+                    AssertEqual(false, RequiredValue<bool>(reward, "IsGift", JTokenType.Boolean, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].IsGift");
+                    AssertEqual(0, RequiredValue<int>(reward, "RewardMulti", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].RewardMulti");
+                    AssertEqual(id, RequiredValue<int>(reward, "Id", JTokenType.Integer, $"{name} RewardGoodsList[{index}]"), $"{name} RewardGoodsList[{index}].Id");
+                }
+            }
+
+            static NotifyFubenPrequelData ReadStartupPrequelData(LoopbackSessionHarness harness, int maxStartupPushes, string name)
+            {
+                List<string> pushNames = new();
+                for (int packetIndex = 0; packetIndex < maxStartupPushes; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{name} {packetIndex + 1}");
+                    AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} {packetIndex + 1} packet type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    pushNames.Add(push.Name);
+                    if (push.Name == nameof(NotifyFubenPrequelData))
+                        return MessagePackSerializer.Deserialize<NotifyFubenPrequelData>(push.Content);
+                }
+
+                throw new InvalidDataException($"{name}: expected NotifyFubenPrequelData; observed {(pushNames.Count == 0 ? "<none>" : string.Join(", ", pushNames))}.");
+            }
         }
 
         private static void ValidateStoryDeployVersionGapCompatibility()

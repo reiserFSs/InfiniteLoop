@@ -1054,7 +1054,7 @@ Sorry for the inconvenience.
             SendEmptyStartupPush(session, "NotifyAccumulateExpendData");
             session.SendPush(new NotifyArenaActivity());
             session.SendPush(BuildEmptyNotifyTask());
-            session.SendPush(new NotifyFubenPrequelData() { FubenPrequelData = new() });
+            session.SendPush(new NotifyFubenPrequelData() { FubenPrequelData = new() { RewardedStages = session.stage.PrequelRewardedStages } });
             session.SendPush(new NotifyPrequelChallengeRefreshTime() { NextRefreshTime = NextDailyRefreshTime() });
             session.SendPush(new NotifyDailyFubenLoginData() { RefreshTime = NextDailyRefreshTime() });
             session.SendPush(notifyBirthdayPlot);
