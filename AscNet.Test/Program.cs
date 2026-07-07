@@ -7287,6 +7287,8 @@ namespace AscNet.Test
                 [1],
                 "MainLineLuosaitaPayloadFactory stage 17013901 captured progress SectionInfo");
 
+            AssertFightSettleResponseCurrentClientShape();
+
             Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
             MethodInfo buildNotifyLogin = RequiredMethod(
                 accountModule,
@@ -7457,9 +7459,140 @@ namespace AscNet.Test
                 [1],
                 "FightSettleRequest stage 17013901 NotifyMainLineLuosaitaSectionInfo SectionInfo");
 
+            const long quickClearPlayerId = 78_005;
+            const int quickClearPreFightPacketId = 78_110;
+            const int quickClearFightSettlePacketId = 78_111;
+            const uint quickClearInternalStageId = 17_013_901;
+            const uint quickClearVisibleStageId = 10_380_101;
+            const int quickClearLeftTime = 321;
+            const int quickClearAchievement = 7;
+            using LoopbackSessionHarness quickClearHarness = new(
+                CreateDrawCompatibilityCharacter(quickClearPlayerId),
+                CreateDrawCompatibilityPlayer(quickClearPlayerId),
+                CreateDrawCompatibilityInventory(quickClearPlayerId, []),
+                "mainline-luosaita-quick-clear-fight-settle-compat-test");
+            quickClearHarness.Session.stage = CreateLoginAccountCompatibilityStage(quickClearPlayerId);
+            PreFightRequest quickClearPreFightRequest = new()
+            {
+                PreFightData = new()
+                {
+                    ChallengeCount = 0,
+                    StageId = quickClearInternalStageId,
+                    SpeedrunStageId = quickClearVisibleStageId,
+                    CardIds = [],
+                    RobotIds = [],
+                    FirstFightPos = 1,
+                    CaptainPos = 1,
+                    IsHasAssist = false
+                }
+            };
+            PreFightRequest quickClearPreFightRoundTrip = MessagePackSerializer.Deserialize<PreFightRequest>(
+                MessagePackSerializer.Serialize(quickClearPreFightRequest));
+            AssertEqual(quickClearInternalStageId, quickClearPreFightRoundTrip.PreFightData.StageId, "Quick-clear PreFightRequest internal StageId MessagePack round-trip");
+            AssertEqual(quickClearVisibleStageId, quickClearPreFightRoundTrip.PreFightData.SpeedrunStageId, "Quick-clear PreFightRequest visible SpeedrunStageId MessagePack round-trip");
+            InvokeRegisteredRequestHandler(
+                nameof(PreFightRequest),
+                quickClearHarness.Session,
+                quickClearPreFightPacketId,
+                quickClearPreFightRoundTrip);
+            PreFightResponse quickClearPreFightResponse = ReadResponsePayload<PreFightResponse>(
+                quickClearHarness,
+                quickClearPreFightPacketId,
+                nameof(PreFightResponse),
+                "Quick-clear PreFightRequest internal stage 17013901 visible stage 10380101 response");
+            AssertEqual(0, quickClearPreFightResponse.Code, "Quick-clear PreFightResponse Code");
+            if (quickClearPreFightResponse.FightData is null)
+                throw new InvalidDataException("Quick-clear PreFightResponse: expected FightData for accepted internal Luosaita fight stage.");
+
+            FightSettleRequest quickClearFightSettleRequest = CreateMissingStageSettleRequest(
+                quickClearInternalStageId,
+                quickClearPreFightResponse.FightData.FightId,
+                quickClearPlayerId);
+            quickClearFightSettleRequest.Result.LeftTime = quickClearLeftTime;
+            quickClearFightSettleRequest.Result.AddStars = quickClearAchievement;
+            InvokeRegisteredRequestHandler(
+                nameof(FightSettleRequest),
+                quickClearHarness.Session,
+                quickClearFightSettlePacketId,
+                quickClearFightSettleRequest);
+            (NotifyStageData quickClearStagePush, NotifyMainLineLuosaitaSectionInfo quickClearLuosaitaPush, FightSettleResponse quickClearFightSettleResponse) =
+                ReadQuickClearFightSettleResult(
+                    quickClearHarness,
+                    quickClearFightSettlePacketId,
+                    "Quick-clear FightSettleRequest internal stage 17013901 visible stage 10380101");
+            AssertEqual(0, quickClearFightSettleResponse.Code, "Quick-clear FightSettleResponse Code");
+            if (quickClearFightSettleResponse.Settle is null)
+                throw new InvalidDataException("Quick-clear FightSettleResponse: expected Settle payload.");
+            if (quickClearStagePush.StageList.Count == 0)
+                throw new InvalidDataException("Quick-clear NotifyStageData StageList: expected visible story stage update.");
+            AssertEqual(quickClearVisibleStageId, (uint)quickClearStagePush.StageList[0].StageId, "Quick-clear NotifyStageData StageList[0].StageId uses visible story stage");
+            AssertEqual(quickClearVisibleStageId, (uint)quickClearFightSettleResponse.Settle.StageId, "Quick-clear FightSettleResponse Settle.StageId uses visible story stage");
+            AssertEqual(quickClearLeftTime, quickClearFightSettleResponse.Settle.LeftTime, "Quick-clear FightSettleResponse Settle.LeftTime comes from request Result.LeftTime");
+            AssertEqual(quickClearAchievement, quickClearFightSettleResponse.Settle.Achievement, "Quick-clear FightSettleResponse Settle.Achievement comes from request Result.AddStars");
+            AssertEqual(0, quickClearFightSettleResponse.Settle.ChallengeCount, "Quick-clear FightSettleResponse Settle.ChallengeCount");
+            AssertLuosaitaStageProgressDocs(
+                quickClearLuosaitaPush.SectionInfo,
+                1,
+                [1],
+                "Quick-clear FightSettleRequest internal stage 17013901 NotifyMainLineLuosaitaSectionInfo SectionInfo");
+
             ValidateRequestHandlerRegistration(nameof(MainLineLuosaitaEnterRequest));
             ValidateRequestHandlerRegistration(nameof(MainLineLuosaitaMoveRequest));
             ValidateRequestHandlerRegistration(nameof(MainLineLuosaitaUseDocRequest));
+
+            static void AssertFightSettleResponseCurrentClientShape()
+            {
+                Type settleType = typeof(FightSettleResponse.FightSettleResponseSettle);
+                AssertEqual(typeof(int), MemberValueType(RequiredDataMember(settleType, nameof(FightSettleResponse.FightSettleResponseSettle.Achievement))), "FightSettleResponse.Settle Achievement retail field type");
+                AssertEqual(typeof(int), MemberValueType(RequiredDataMember(settleType, nameof(FightSettleResponse.FightSettleResponseSettle.LeftTime))), "FightSettleResponse.Settle LeftTime retail field type");
+
+                string[] nullableResultFields =
+                [
+                    "RiftSettleResult",
+                    "SpecialTrainCubeResult",
+                    "BrilliantWalkResult",
+                    "Maverick2SettleResult",
+                    "MazeResult",
+                    "RpgSettleResult",
+                    "MonsterCombatResult",
+                    "TransfiniteBattleResult",
+                    "TeachingActivityFightResult",
+                    "PracticeFightResult",
+                    "KotodamaSettleResult",
+                    "BossInshotSettleResult",
+                    "SucceedBossBattleResult",
+                    "FpsGameSettleResult",
+                    "Maverick3SettleResult",
+                    "ScoreTowerSettleResult",
+                    "SoloReformSettleResult",
+                    "PbrFightSettleShowData"
+                ];
+
+                FightSettleResponse response = new()
+                {
+                    Code = 0,
+                    Settle = new()
+                    {
+                        IsWin = true,
+                        StageId = 10_380_101,
+                        StarsMark = 7,
+                        Achievement = 7,
+                        LeftTime = 321
+                    }
+                };
+
+                foreach (string field in nullableResultFields)
+                    SetRequiredMemberValue(response.Settle, RequiredDataMember(settleType, field), null);
+
+                FightSettleResponse roundTrip = MessagePackSerializer.Deserialize<FightSettleResponse>(
+                    MessagePackSerializer.Serialize(response));
+                if (roundTrip.Settle is null)
+                    throw new InvalidDataException("FightSettleResponse.Settle current-client shape round-trip: expected Settle payload.");
+                AssertEqual(7, roundTrip.Settle.Achievement, "FightSettleResponse.Settle Achievement MessagePack round-trip");
+                AssertEqual(321, roundTrip.Settle.LeftTime, "FightSettleResponse.Settle LeftTime MessagePack round-trip");
+                foreach (string field in nullableResultFields)
+                    AssertRequiredMemberNull(roundTrip.Settle, field, $"FightSettleResponse.Settle {field} nullable MessagePack round-trip");
+            }
 
             static void AssertLuosaitaInitialSection(MainLineLuosaitaSectionInfo? sectionInfo, string name)
             {
@@ -7672,6 +7805,51 @@ namespace AscNet.Test
                     throw new InvalidDataException($"{name}: expected FightSettleResponse.");
 
                 return (luosaitaPush, fightSettleResponse);
+            }
+
+            static (NotifyStageData StagePush, NotifyMainLineLuosaitaSectionInfo LuosaitaPush, FightSettleResponse Response) ReadQuickClearFightSettleResult(
+                LoopbackSessionHarness harness,
+                int expectedPacketId,
+                string name)
+            {
+                NotifyStageData? stagePush = null;
+                NotifyMainLineLuosaitaSectionInfo? luosaitaPush = null;
+                FightSettleResponse? fightSettleResponse = null;
+
+                for (int packetIndex = 0; packetIndex < 16 && (stagePush is null || luosaitaPush is null || fightSettleResponse is null); packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket(packetIndex == 0
+                        ? $"{name} first packet"
+                        : $"{name} packet {packetIndex + 1}");
+
+                    switch (packet.Type)
+                    {
+                        case Packet.ContentType.Push:
+                            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                            if (push.Name == nameof(NotifyStageData))
+                                stagePush = MessagePackSerializer.Deserialize<NotifyStageData>(push.Content);
+                            else if (push.Name == nameof(NotifyMainLineLuosaitaSectionInfo))
+                                luosaitaPush = MessagePackSerializer.Deserialize<NotifyMainLineLuosaitaSectionInfo>(push.Content);
+                            break;
+                        case Packet.ContentType.Response:
+                            Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                            AssertEqual(expectedPacketId, response.Id, $"{name} packet id");
+                            AssertEqual(nameof(FightSettleResponse), response.Name, $"{name} packet name");
+                            fightSettleResponse = MessagePackSerializer.Deserialize<FightSettleResponse>(response.Content);
+                            break;
+                        default:
+                            throw new InvalidDataException($"{name}: unexpected packet type {packet.Type}.");
+                    }
+                }
+
+                if (stagePush is null)
+                    throw new InvalidDataException($"{name}: expected NotifyStageData push.");
+                if (luosaitaPush is null)
+                    throw new InvalidDataException($"{name}: expected NotifyMainLineLuosaitaSectionInfo push.");
+                if (fightSettleResponse is null)
+                    throw new InvalidDataException($"{name}: expected FightSettleResponse.");
+
+                return (stagePush, luosaitaPush, fightSettleResponse);
             }
             static void AssertLuosaitaDocUsed(MainLineLuosaitaSectionInfo? sectionInfo, int expectedSectionId, int docId, string name)
             {

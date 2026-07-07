@@ -165,6 +165,7 @@ namespace AscNet.Common.MsgPack
     {
         public long StageId { get; set; }
         public long StarsMark { get; set; }
+        public long Achievement { get; set; }
         public bool Passed { get; set; }
         public long PassTimesToday { get; set; }
         public long PassTimesTotal { get; set; }
@@ -2596,6 +2597,11 @@ namespace AscNet.Common.MsgPack
             public Int32 FirstFightPos { get; set; }
             public Int32 CaptainPos { get; set; }
             public Boolean IsHasAssist { get; set; }
+            public UInt32 SpeedrunStageId { get; set; }
+            public Int32 SettleCgIndex { get; set; }
+            public Int32 EnterCgIndex { get; set; }
+            public Int32 CvType { get; set; }
+            public Int32 GeneralSkill { get; set; }
         }
 
         public PreFightRequestPreFightData PreFightData { get; set; }
@@ -2671,6 +2677,7 @@ namespace AscNet.Common.MsgPack
             public Boolean IsWin { get; set; }
             public long StageId { get; set; }
             public Int32 StarsMark { get; set; }
+            public Int32 Achievement { get; set; }
             public List<RewardGoods> RewardGoodsList { get; set; } = new();
             public Int32 LeftTime { get; set; }
             public dynamic? NpcHpInfo { get; set; }
@@ -2707,6 +2714,24 @@ namespace AscNet.Common.MsgPack
             public dynamic? SpecialTrainBreakthroughResult { get; set; }
             public dynamic? TwoSideTowerSettleResult { get; set; }
             public dynamic? BabelTowerSettleResult { get; set; }
+            public dynamic? RiftSettleResult { get; set; }
+            public dynamic? SpecialTrainCubeResult { get; set; }
+            public dynamic? BrilliantWalkResult { get; set; }
+            public dynamic? Maverick2SettleResult { get; set; }
+            public dynamic? MazeResult { get; set; }
+            public dynamic? RpgSettleResult { get; set; }
+            public dynamic? MonsterCombatResult { get; set; }
+            public dynamic? TransfiniteBattleResult { get; set; }
+            public dynamic? TeachingActivityFightResult { get; set; }
+            public dynamic? PracticeFightResult { get; set; }
+            public dynamic? KotodamaSettleResult { get; set; }
+            public dynamic? BossInshotSettleResult { get; set; }
+            public dynamic? SucceedBossBattleResult { get; set; }
+            public dynamic? FpsGameSettleResult { get; set; }
+            public dynamic? Maverick3SettleResult { get; set; }
+            public dynamic? ScoreTowerSettleResult { get; set; }
+            public dynamic? SoloReformSettleResult { get; set; }
+            public dynamic? PbrFightSettleShowData { get; set; }
         }
 
         public FightSettleResponseSettle Settle { get; set; }

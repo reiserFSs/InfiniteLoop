@@ -90,6 +90,7 @@ namespace AscNet.GameServer.Handlers
         public long FightId { get; set; }
         public int RebootCount { get; set; }
         public int AddStars { get; set; }
+        public int Achievement { get; set; }
         public long StartFrame { get; set; }
         public long SettleFrame { get; set; }
         public long PauseFrame { get; set; }
@@ -537,7 +538,9 @@ namespace AscNet.GameServer.Handlers
                     .OrderBy(x => Math.Abs(session.player.PlayerData.Level - x.MaxLevel))
                     .FirstOrDefault();
             int challengeCount = session.fight?.PreFight.PreFightData.ChallengeCount ?? 1;
-            bool isFirstClear = !session.stage.Stages.ContainsKey(req.Result.StageId);
+            uint responseStageId = ResolveFightSettleStageId(session, req);
+            bool isQuickClear = responseStageId != req.Result.StageId;
+            bool isFirstClear = !session.stage.Stages.ContainsKey(responseStageId);
             int teamExp = stageTable is null ? 0 : GetStageTeamExp(stageTable, isFirstClear) * challengeCount;
             int cardExp = stageTable is null ? 0 : GetStageCardExp(stageTable, isFirstClear) * challengeCount;
 
@@ -633,24 +636,18 @@ namespace AscNet.GameServer.Handlers
                 .Where(x => x.Value.CharacterId > 0)
                 .Select(x => (long)x.Value.CharacterId)
                 .ToList() ?? [];
-            StageDatum stageData = new()
-            {
-                StageId = req.Result.StageId,
-                StarsMark = 7,
-                Passed = true,
-                PassTimesToday = 0,
-                PassTimesTotal = 1,
-                BuyCount = 0,
-                Score = 0,
-                LastPassTime = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-                RefreshTime = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-                CreateTime = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-                BestRecordTime = 0,
-                LastRecordTime = 0,
-                BestCardIds = bestCardIds,
-                LastCardIds = bestCardIds
-            };
+            StageDatum stageData = BuildFightSettleStageDatum(
+                responseStageId,
+                isQuickClear ? 0 : 7,
+                bestCardIds,
+                isQuickClear);
             session.stage.AddStage(stageData);
+
+            if (isQuickClear && MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.Result.StageId))
+            {
+                StageDatum luosaitaProgressStageData = BuildFightSettleStageDatum(req.Result.StageId, 7, bestCardIds, false);
+                session.stage.AddStage(luosaitaProgressStageData);
+            }
 
             session.player.Save();
             session.inventory.Save();
@@ -662,13 +659,15 @@ namespace AscNet.GameServer.Handlers
                 Code = 0,
                 Settle = new()
                 {
-                    IsWin = true,
-                    StageId = (uint)stageData.StageId,
+                    IsWin = req.Result.IsWin,
+                    StageId = stageData.StageId,
                     StarsMark = (int)stageData.StarsMark,
+                    Achievement = req.Result.AddStars,
                     RewardGoodsList = multiRewards.Count > 0 ? multiRewards.First() : [],
-                    MultiRewardGoodsList = multiRewards,
+                    LeftTime = (int)req.Result.LeftTime,
                     NpcHpInfo = req.Result.NpcHpInfo,
-                    ChallengeCount = challengeCount
+                    MultiRewardGoodsList = multiRewards,
+                    ChallengeCount = isQuickClear ? 0 : challengeCount
                 }
             };
 
@@ -677,6 +676,35 @@ namespace AscNet.GameServer.Handlers
             SendMainLineLuosaitaSectionInfoIfCaptured(session, (int)req.Result.StageId);
             TaskModule.SendStoryTaskSync(session);
             session.SendResponse(fightSettleResponse, packet.Id);
+        }
+
+        private static uint ResolveFightSettleStageId(Session session, FightSettleRequest req)
+        {
+            uint speedrunStageId = session.fight?.PreFight.PreFightData.SpeedrunStageId ?? 0;
+            return speedrunStageId != 0 ? speedrunStageId : req.Result.StageId;
+        }
+
+        private static StageDatum BuildFightSettleStageDatum(uint stageId, long starsMark, List<long> bestCardIds, bool isQuickClear)
+        {
+            long now = DateTimeOffset.Now.ToUnixTimeSeconds();
+            return new StageDatum
+            {
+                StageId = stageId,
+                StarsMark = starsMark,
+                Achievement = 0,
+                Passed = true,
+                PassTimesToday = 0,
+                PassTimesTotal = isQuickClear ? 0 : 1,
+                BuyCount = 0,
+                Score = 0,
+                LastPassTime = isQuickClear ? 0 : now,
+                RefreshTime = isQuickClear ? 0 : now,
+                CreateTime = now,
+                BestRecordTime = 0,
+                LastRecordTime = 0,
+                BestCardIds = isQuickClear ? [] : bestCardIds,
+                LastCardIds = isQuickClear ? [] : bestCardIds
+            };
         }
 
         private static void SendMainLineLuosaitaSectionInfoIfCaptured(Session session, int stageId)
