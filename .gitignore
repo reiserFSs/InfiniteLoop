@@ -379,3 +379,6 @@ Scripts/table
 
 # ignore proxylog
 proxylog
+
+# ignore clanker memory
+*.md

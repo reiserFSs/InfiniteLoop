@@ -28,6 +28,7 @@ Id	Type	Site	Quality	Star	WeaponSkillId	Priority	DefaultLock	CharacterId	SuitId	
 2045001	4	0	5	5	2045001	2045001	0			0	Falcon E-3320	5★ Bow: Falcon E-3320	Developed by Kurono Holdings' weapons development arm, it is as unruly as it is powerful, resulting in production being canceled due to the difficulty of finding suitable users.	0
 2046001	4	0	6	6	2046001	2046001	0			0	Ramiel	6★ Bow: Ramiel	Named after the fallen angel, its tracking capability ensures a kill regardless of the environment.	0
 2046002	4	0	6	6	2046002	2046002	0			0	Tonitrus	6★ Bow: Tonitrus	Tonitrus received several special upgrades during the forging process, greatly improving its conductivity. Not only that, it also has considerable electrical and thermal resistance, which enables Tonitrus to adapt to most harsh environments on the surface.	0
+2046003	4	0	6	6	2046003	2046003	0			0	Astraea	6★ Bow: Astraea	A 6★ Bow weapon.	0
 2053001	5	0	3	3	2053001	2053001	0			0	Chainsaw	3★ Saw: Chainsaw	A general-purpose chainsaw, and is very common in the industrial field.	0
 2054001	5	0	4	4	2054001	2054001	0			0	Noise	4★ Saw: Noise	Massive chainsaw that runs on gasoline. Its biggest weakness is the effort needed to get it started.	0
 2055001	5	0	5	5	2055001	2055001	0			0	Lightning Spark	5★ Saw: Lightning Spark	The first generation of chainsaw developed specifically as a weapon. Named after the sparks it created during testing.	0
@@ -133,45 +134,91 @@ Id	Type	Site	Quality	Star	WeaponSkillId	Priority	DefaultLock	CharacterId	SuitId	
 2355001	35	0	5	5	2355001	2355001	0			0	Returning Wind	5★ Folding Fan Returning Wind	Special decorations were added to this fan according to the user's needs, making it look more like a dance prop than a weapon. The fan gives a radiant brilliance when waved, but its power should never be underestimated on the battlefield.	0
 2356001	35	0	6	6	2356001	2356001	0			0	Perpetuity	6★ Folding Fan Perpetuity	The special metal used to forge the blade on the fan has not only further enhanced its function as a weapon on top of the original design, but also made its beauty more astonishing among the dazzling shines. When this design was completed, Pulao secretly added a flower on the fan's main bone.	0
 2364001	36	0	4	4	2364001	2364001	0	0	0	0	Lightning Devourer	4★ Claw Blades Lightning Devourer	The design of these edged weapons is based on the claws of predatory animals. Very few Constructs can adapt to using them in battle as they significantly deviate from the typical human battle mindset.	0
+2365001	36	0	5	5	2365001	2365001	0	0	0	0	Trio-Claws	5★ Claw Blades Trio-Claws	A 5★ Claw Blades weapon.	0
+2366001	36	0	6	6	2366001	2366001	0	0	0	0	Managarm	6★ Claw Blades Managarm	A 6★ Claw Blades weapon.	0
 2374001	37	0	4	4	2374001	2374001	0	0	0	0	Golden Heart	4★ Robotic Arm: Heart of Gold	Forged from a special alloy, this robotic arm's supersolid layer assembly allows it to withstand high temperatures and pressures. It is a perfect answer to those who question the performance of Construct weapons.	0
+2375001	37	0	5	5	2375001	2375001	0	0	0	0	FPT-II-Mod	5★ Robotic Arm: FPT-II-Mod	A 5★ Robotic Arm weapon.	0
+2376001	37	0	6	6	2376001	2376001	0	0	0	0	Crimson Howl	6★ Robotic Arm: Crimson Howl	A 6★ Robotic Arm weapon.	0
 2384001	38	0	4	4	2384001	2384001	0	0	0	0	Atoll	4★ Halberd Blade Atoll	Inspired by coastal reefs, this weapon's irregular blade makes its attacks unpredictable. Very few can handle this weapon well.	0
+2385001	38	0	5	5	2385001	2385001	0	0	0	0	Reversal Node	5★ Halberd Blade Reversal Node	A 5★ Halberd Blade weapon.	0
+2386001	38	0	6	6	2386001	2386001	0	0	0	0	Metis	6★ Halberd Blade Metis	A 6★ Halberd Blade weapon.	0
 2395001	39	0	5	5	2395001	2395001	0	0	0	0	Rock Cannon	5★ Bladed Cannon - Rock Cannon	Capable of firing 20 rocks per second, it can also transform into a giant blade.	0
+2396001	39	0	6	6	2396001	2396001	0	0	0	0	★Rock Cannon	6★ Bladed Cannon - ★Rock Cannon	A 6★ Bladed Cannon weapon.	0
 2404001	40	0	4	4	2404001	2404001	0	0	0	0	Black Raven	4★ Trailblade: Black Raven	The new military composite metal has proved it once again that with the enough toughness and strength, it is okay to reduce the weight of a weapon to the minimum.	0
+2405001	40	0	5	5	2405001	2405001	0	0	0	0	Pale Plume	5★ Trailblade: Pale Plume	A 5★ Trailblade weapon.	0
+2406001	40	0	6	6	2406001	2406001	0	0	0	0	Dark Falcon	6★ Trailblade: Dark Falcon	A 6★ Trailblade weapon.	0
 2414001	41	0	4	4	2414001	2414001	0	0	0	0	Emerald Quill	4★ Longsword Emerald Quill	Forged from a new type of alloy, this mass-produced longsword is based on a blueprint and features a sharp blade and a slender body. Its color scheme mainly consists of black and dark green.	0
+2415001	41	0	5	5	2415001	2415001	0	0	0	0	Phoenix Edge	5★ Longsword Phoenix Edge	A 5★ Longsword weapon.	0
+2416001	41	0	6	6	2416001	2416001	0	0	0	0	Akasha Keyblade	6★ Longsword Akasha Keyblade	A 6★ Longsword weapon.	0
 2424001	42	0	4	4	2424001	2424001	0	0	0	0	PESW-II - Mod	4★ Tactical Headphones PESW-II - Mod	A military headphones prototype installed with the Second-Generation Communication Protocol Framework, it excels at high-speed computing and cyberspace conflicts. With its dependable battery life, it can adapts to different battlefields.	0
+2425001	42	0	5	5	2425001	2425001	0	0	0	0	White Night's Noise	5★ Tactical Headphones White Night's Noise	A 5★ Tactical Headphones weapon.	0
+2426001	42	0	6	6	2426001	2426001	0	0	0	0	Hacker's Tune	6★ Tactical Headphones Hacker's Tune	A 6★ Tactical Headphones weapon.	0
 2434001	43	0	4	4	2434001	2434001	0	0	0	0	Reappearance	4★ Chakram Reappearance	Condensed from the Red Tide, this weapon embodies a new power that has transcended countless hardships. Though its form is still somewhat naive, it already radiates a brilliance sharp enough to shake the world.	0
 2435001	43	0	5	5	2435001	2435001	0			0	Dark Moon	5★ Chakram Dark Moon		0
 2436001	43	0	6	6	2436001	2436001	0			0	Reconstruction of Law	6★ Chakram Reconstruction of Law		0
 2444001	44	0	4	4	2444001	2444001	0			0	Standard Tactical Tonfas	4★ Tactical Tonfas Standard Tactical Tonfas	Developed specifically for the Support Force, this mass-produced weapon features superb stability, a simple and intuitive design, and a user-friendly structure, making it suitable for most rescue missions.	0
+2445001	44	0	5	5	2445001	2445001	0	0	0	0	Everburning Ray	5★ Tactical Tonfas Everburning Ray	A 5★ Tactical Tonfas weapon.	0
+2446001	44	0	6	6	2446001	2446001	0	0	0	0	Cestus	6★ Tactical Tonfas Cestus	A 6★ Tactical Tonfas weapon.	0
 2454001	45	0	4	4	2454001	2454001	0	0	0	0	Frontier Foliage	4★ Pipa  Frontier Foliage	As the famous Kowloong lyric poem Song of Concubine Ming goes, 'She travels thousands of miles on horseback with her pipa, the spring back in the palace now feels like a whole different world to her.' After the strings are broken and buried in sand, summer arrives, but there would be no one to appreciate the beautiful scenery.	0
+2455001	45	0	5	5	2455001	2455001	0	0	0	0	Moonside Petal	5★ Pipa  Moonside Petal	A 5★ Pipa weapon.	0
+2456001	45	0	6	6	2456001	2456001	0	0	0	0	Dream Roamer	6★ Pipa  Dream Roamer	A 6★ Pipa weapon.	0
 2464001	46	0	4	4	2464001	2464001	0	0	0	0	Load & Rest	4★ Revolver - Load & Rest	It was specifically stated that it should not have an overly complicated design because it would be hard to carry around. Most importantly, that will affect Wanshi's ability to sleep on the spot when he wants to.	0
+2465001	46	0	5	5	2465001	2465001	0	0	0	0	Eternal Peace	5★ Revolver - Eternal Peace	A 5★ Revolver weapon.	0
+2466001	46	0	6	6	2466001	2466001	0	0	0	0	Renewed Dawn	6★ Revolver - Renewed Dawn	A 6★ Revolver weapon.	0
 2474001	47	0	4	4	2474001	2474001	0	0	0	0	LB - Flash Prototype	4★ Pyro Katana LB - Flash Prototype	A prototype weapon made according to the latest military directives. It features a blade stem embedded with a pyro core and an exterior forged from high-entropy alloy, capable of slicing through steel like butter. Originally designed to test the limits of the pyro technology, its remarkable performance has led to its formal induction into active duty.	0
+2475001	47	0	5	5	2475001	2475001	0	0	0	0	Mist Netherlight	5★ Pyro Katana Mist Netherlight	A 5★ Pyro Katana weapon.	0
+2476001	47	0	6	6	2476001	2476001	0	0	0	0	Flamewing of Dawn	6★ Pyro Katana Flamewing of Dawn	A 6★ Pyro Katana weapon.	0
 2484001	48	0	4	4	2484001	2484001	0	0	0	0	Rasetsu	4★ Powered Arms: Rasetsu	This new weapon, forged from military-grade prosthetics using a revolutionary super-solid layering process, excels in diverse combat scenarios and significantly boosts individual combat effectiveness. Its potential is immense, whether deployed on the battlefield or adapted for civilian use.	0
+2485001	48	0	5	5	2485001	2485001	0	0	0	0	Raijin	5★ Powered Arms: Raijin	A 5★ Powered Arms weapon.	0
+2486001	48	0	6	6	2486001	2486001	0	0	0	0	Fudo Myo-o	6★ Powered Arms: Fudo Myo-o	A 6★ Powered Arms weapon.	0
 2494001	49	0	4	4	2494001	2494001	0	0	0	0	Shield Axe ZL-07 Prototype	4★ Shield Axe ZL-07 Prototype	Crafted from standard alloy, this Shield Axe is both offensive and defensive, capable of multiple form transformations. But due to its weight, mass production was not approved.	0
+2495001	49	0	5	5	2495001	2495001	0	0	0	0	Spark ZL-09-Mod	5★ Shield Axe Spark ZL-09-Mod	A 5★ Shield Axe weapon.	0
+2496001	49	0	6	6	2496001	2496001	0	0	0	0	Starlight Glare	6★ Shield Axe Starlight Glare	A 6★ Shield Axe weapon.	0
 2504001	50	0	4	4	2504001	2504001	0	0	0	0	The Last Answer	4★ Keystaff: The Last Answer	Designed to traverse unknown realms, the prototype of this key-shaped probe boasted nearly unmatchable computing power for unobservable universe exploration.	0
+2505001	50	0	5	5	2505001	2505001	0	0	0	0	Celestial Reflection	5★ Keystaff: Celestial Reflection	A 5★ Keystaff weapon.	0
+2506001	50	0	6	6	2506001	2506001	0	0	0	0	Alpha-Omega	6★ Keystaff: Alpha-Omega	A 6★ Keystaff weapon.	0
 2514001	51	0	4	4	2514001	2514001	0	0	0	0	Rosy Silhouette	4★ Moon Umbrella  Rosy Silhouette	The appearance is inspired by the hand umbrella knife of the female lead in some famous Golden Age crime movies. This design has some practical value, but it can only lie in the collector's showcase due to its heavy handle.	0
+2515001	51	0	5	5	2515001	2515001	0	0	0	0	Glazed Enigma	5★ Moon Umbrella  Glazed Enigma	A 5★ Moon Umbrella weapon.	0
+2516001	51	0	6	6	2516001	2516001	0	0	0	0	Sorrow of Fata Morgana	6★ Moon Umbrella  Sorrow of Fata Morgana	A 6★ Moon Umbrella weapon.	0
 2524001	52	0	4	4	2524001	2524001	0	0	0	0	Verse Abiding	4★ Bowstring Rapier Verse Abiding	A prototype Bowstring Rapier designed by the Science Council with a pressing device that has features of an entry-level musical instrument. When the strings are bowed, it would create an ethereal resonance on the battlefield.	0
+2525001	52	0	5	5	2525001	2525001	0	0	0	0	Crowned Laurel	5★ Bowstring Rapier Crowned Laurel	A 5★ Bowstring Rapier weapon.	0
+2526001	52	0	6	6	2526001	2526001	0	0	0	0	Orpheus' Lullaby	6★ Bowstring Rapier Orpheus' Lullaby	A 6★ Bowstring Rapier weapon.	0
 2534001	53	0	4	4	2534001	2534001	0			0	Standard MK II	4★ Fusion Gunsword Standard MK II	Designed and manufactured by Leibowitz Company, this general-purpose Fusion Gunsword is widely issued to armed personnel.	0
+2535001	53	0	5	5	2535001	2535001	0	0	0	0	Lethal Shadow	5★ Fusion Gunsword Lethal Shadow	A 5★ Fusion Gunsword weapon.	0
+2536001	53	0	6	6	2536001	2536001	0	0	0	0	Final Arbiter	6★ Fusion Gunsword Final Arbiter	A 6★ Fusion Gunsword weapon.	0
 2544001	54	0	4	4	2544001	2544001	0			0	Firecrash	4★ Dual-Bladed Lance: Firecrash	The designer drew inspiration from Golden Age legends of valkyries and created this rare weapon that combines the elegant appearance and extreme kinetic energy. It can adapt to all kinds of battlefields and swiftly switch between a spear and dual blades, meeting the user's demands for both melee and ranged battles.	0
+2545001	54	0	5	5	2545001	2545001	0	0	0	0	Fiery Twilight	5★ Dual-Bladed Lance: Fiery Twilight	A 5★ Dual-Bladed Lance weapon.	0
+2546001	54	0	6	6	2546001	2546001	0	0	0	0	Deathless Flame	6★ Dual-Bladed Lance: Deathless Flame	A 6★ Dual-Bladed Lance weapon.	0
 2555001	55	0	5	5	2555001	2555001	0	0	0	0	Yamato - Kageuchi	5★ Yamato: Yamato - Kageuchi	A legendary sword that looks similar to Yamato. It can't separate things like Yamato but can surely slice an enemy in half.	0
+2556001	55	0	6	6	2556001	2556001	0	0	0	0	Yamato	6★ Yamato: Yamato	A 6★ Yamato weapon.	0
 2565001	56	0	5	5	2565001	2565001	0	0	0	0	Devil Hunter Sword	5★ Devil Sword: Devil Hunter Sword	This replica of Devil Sword Dante looks very similar to the original but is able to enhance the power of fire due to the demonic materials added during forging.	0
+2566001	56	0	6	6	2566001	2566001	0	0	0	0	Debil Sword Dante	6★ Devil Sword: Debil Sword Dante	A 6★ Devil Sword weapon.	0
 2574001	57	0	4	4	2574001	2574001	0	0	0	0	Smiter	4★ Lashblade: Smiter	This weapon, with its transformable blade, boasts exceptional performance. Don't let its general-purpose, mass-produced status fool you; its power is nothing to scoff at.	0
+2575001	57	0	5	5	2575001	2575001	0	0	0	0	Night Sunderer	5★ Lashblade: Night Sunderer	A 5★ Lashblade weapon.	0
 2576001	57	0	6	6	2576001	2576001	0			0	Aurora	6★ Lashblade: Aurora		0
 2584001	58	0	4	4	2584001	2584001	0	0	0	0	Laceration	4★ Scissors: Laceration	At Discord's request, the design remains simple and undecorated. The familiar shape reminds her of the ordinary scissors she once used, the soft and gentle texture of fabric still lingering at her fingertips—she still remembers that quiet dream of sewing and cutting.	0
+2585001	58	0	5	5	2585001	2585001	0	0	0	0	Spinbreaker	5★ Scissors: Spinbreaker	A 5★ Scissors weapon.	0
 2586001	58	0	6	6	2586001	2586001	0			0	Osseous Guillotine	6★ Scissors: Osseous Guillotine		0
 2594001	59	0	4	4	2594001	2594001	0	0	0	0	Flamethorn	4★ Lance: Flamethorn	The lances used in tournaments may look magnificent, but they are actually constructed with hollow cores, similar to those wielded by winged hussars. This design ensures a solid feel while maintaining excellent balance and weight distribution.	0
+2595001	59	0	5	5	2595001	2595001	0	0	0	0	Skyradiance	5★ Lance: Skyradiance	A 5★ Lance weapon.	0
 2596001	59	0	6	6	2596001	2596001	0			0	Empyrean Wrath	6★ Lance: Empyrean Wrath		0
 2604001	60	0	4	4	2604001	2604001	0	0	0	0	Lotus Wheel MW-03 Prototype	4★ Lotus Wheel MW-03 Prototype	Built from Liv's new frame, the Empyrea frame's scepter was turned into a floating core, and controllable blades were added around it. The Engineering Force named this prototype weapon the Spinning Blade.	0
+2605001	60	0	5	5	2605001	2605001	0	0	0	0	Cyan Blossom	5★ Lotus Wheel Cyan Blossom	A 5★ Lotus Wheel weapon.	0
 2606001	60	0	6	6	2606001	2606001	0			0	Ripples of the Aloft Sea	6★ Lotus Wheel Wheel: Ripples of the Aloft Sea		0
 2614001	61	0	4	4	2614001	2614001	0	0	0	0	Lunar Stride	4★ Digital Warboots: Lunar Stride	Pale soil, white-suited astronauts, footprints on the moon. We choose to go to the moon, not because it's easy, but because it's hard.	0
+2615001	61	0	5	5	2615001	2615001	0	0	0	0	Skybound Beats	5★ Digital Warboots: Skybound Beats	A 5★ Digital Warboots weapon.	0
 2616001	61	0	6	6	2616001	2616001	0			0	Neon Wayfarer	6★ Digital Warboots: Neon Wayfarer		0
 2624001	62	0	4	4	2624001	2624001	0	0	0	0	Aftershock Halberd	4★ Radiant Halberd: Aftershock Halberd	This was an early mechanical halberd fitted with a small energy core. When it struck, mechanical resonance caused an aftershock effect, making it suitable for mid- to close-range charges and suppression. However, very few users could handle it properly, so only a small number of prototypes were preserved.	0
+2625001	62	0	5	5	2625001	2625001	0	0	0	0	Mirage Halberd	5★ Radiant Halberd: Mirage Halberd	A 5★ Radiant Halberd weapon.	0
 2626001	62	0	6	6	2626001	2626001	0			0	Mirage Halberd: Amalga	6★ Radiant Halberd: Mirage Halberd: Amalga		0
 2634001	63	0	4	4	2634001	2634001	0	0	0	0	Grief's End	4★ Judgment Scythe: Grief's End	The design was inspired by the mythic weapon of Death, with raven-like transformations worked into its build. Right up until the prototype stage, crafting this scythe blade was seen as impossible.	0
+2635001	63	0	5	5	2635001	2635001	0	0	0	0	Death's Plume	5★ Judgment Scythe: Death's Plume	A 5★ Judgment Scythe weapon.	0
 2636001	63	0	6	6	2636001	2636001	0			0	Obituary for Yesterday	6★ Judgment Scythe: Obituary for Yesterday		0
 2644001	64	0	4	4	2644001	2644001	0	0	0	0	Folded Edge	4★ Kinetic Greatsword: Folded Edge	The retractable blade is made from a new alloy, reinforced to keep up with the higher output of the new frame. And maybe because of that, when the inner blade slides all the way down the track and locks into place, it makes a clean metallic click that is oddly satisfying.	0
+2645001	64	0	5	5	2645001	2645001	0	0	0	0	Ray Slasher	5★ Kinetic Greatsword: Ray Slasher	A 5★ Kinetic Greatsword weapon.	0
 2646001	64	0	6	6	2646001	2646001	0			0	Solar Flare	6★ Kinetic Greatsword: Solar Flare		0
 2654001	65	0	4	4	2654001	2654001	0	0	0	0	Ratchet Blade AX-01 Prototype	4★ Cylinder Katana Ratchet Blade AX-01 Prototype	An experimental weapon derived from early attempts to miniaturize and embed an energy engine directly within the sword hilt. A ratchet firing mechanism integrated at the guard facilitates multi-stage output cycling. Upon blade draw, the engine engages, imparting a transient kinetic surge that drives the blade instantaneously into a high-frequency vibration cutting state. In principle, this configuration markedly enhances cutting throughput and bolsters close-range suppressive capability.	0
+2655001	65	0	5	5	2655001	2655001	0	0	0	0	BX-02M Fellfrost	5★ Cylinder Katana BX-02M Fellfrost	A 5★ Cylinder Katana weapon.	0
 2656001	65	0	6	6	2656001	2656001	0			0	Lightless Dusk	6★ Cylinder Katana Lightless Dusk		0
 2980201	2	0	4	4	2013001	100	0			0	Vera Katana	Display weapon - Sariel		0
 2980202	2	0	4	4	2013001	100	0			0	Lupercalia	Display weapon - Lupercalia		0

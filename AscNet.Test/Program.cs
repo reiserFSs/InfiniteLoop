@@ -6573,21 +6573,757 @@ namespace AscNet.Test
 
             }
 
-            using LoopbackSessionHarness adjacentHarness = new(
-                CreateDrawCompatibilityCharacter(playerId + 1),
-                CreateDrawCompatibilityPlayer(playerId + 1),
-                CreateDrawCompatibilityInventory(playerId + 1, []),
-                "big-world-adjacent-compat-test");
-            AssertBigWorldAck(adjacentHarness, "BigWorldOnModuleLoadCompleteRequest", 12_002);
-            AssertBigWorldAck(adjacentHarness, "BigWorldSaveFovDataRequest", 12_003);
-            AssertBigWorldAck(adjacentHarness, "BigWorldTeamChangeRequest", 12_004);
-            AssertBigWorldAck(adjacentHarness, "BigWorldCheckIsShowMainRedPointRequest", 12_005);
-            AssertDlcWorldSaveData(adjacentHarness, 12_006, expectedWorldId, expectedLevelId);
-            byte[] capturedXRpcPayload = AssertLoadCompleteEmitsStartFightThenPendingBigWorldXRpc(adjacentHarness, 12_007, playerId + 1);
-            AssertXRpcAck(adjacentHarness, "XRpcCommon", "XRpcCommonResponse", 12_008, capturedXRpcPayload);
-            AssertXRpcAck(adjacentHarness, "XRpcComponentAction", "XRpcComponentActionResponse", 12_009, capturedXRpcPayload);
-            AssertXRpcPlayerInteractEmitsRetailNotifies(adjacentHarness, 12_010, playerId + 1);
+            string originalWorkingDirectory = Directory.GetCurrentDirectory();
+            string bigWorldResourceDirectory = Path.GetFullPath(Path.Combine(
+                Path.GetDirectoryName(ResourcePath("table", "share", "reward", "Reward.tsv"))!,
+                "..",
+                "..",
+                ".."));
+            try
+            {
+                Directory.SetCurrentDirectory(bigWorldResourceDirectory);
+                using LoopbackSessionHarness adjacentHarness = new(
+                    CreateDrawCompatibilityCharacter(playerId + 1),
+                    CreateDrawCompatibilityPlayer(playerId + 1),
+                    CreateDrawCompatibilityInventory(playerId + 1, []),
+                    "big-world-adjacent-compat-test");
+                AssertBigWorldAck(adjacentHarness, "BigWorldOnModuleLoadCompleteRequest", 12_002);
+                AssertBigWorldAck(adjacentHarness, "BigWorldSaveFovDataRequest", 12_003);
+                AssertBigWorldAck(adjacentHarness, "BigWorldTeamChangeRequest", 12_004);
+                AssertBigWorldAck(adjacentHarness, "BigWorldCheckIsShowMainRedPointRequest", 12_005);
+                AssertDlcWorldSaveData(adjacentHarness, 12_006, expectedWorldId, expectedLevelId);
+                AssertEnterInstLevelEmitsNewLevelNotify(adjacentHarness, 12_007, expectedWorldId, expectedLevelId);
+                byte[] capturedXRpcPayload = AssertLoadCompleteEmitsStartFightThenBigWorldBootstrap(adjacentHarness, 12_008, playerId + 1);
+                AssertXRpcAck(adjacentHarness, "XRpcCommon", "XRpcCommonResponse", 12_009, capturedXRpcPayload);
+                AssertXRpcAck(adjacentHarness, "XRpcComponentAction", "XRpcComponentActionResponse", 12_010, capturedXRpcPayload);
+                AssertXRpcPlayerInteractEmitsRetailStartFinishNotifies(adjacentHarness, 12_011, playerId + 1);
+                AssertXRpcSceneObjectInteractEmitsRewardSidecar(adjacentHarness, 12_012, playerId + 1);
+            }
+            finally
+            {
+                Directory.SetCurrentDirectory(originalWorkingDirectory);
+            }
             AssertBigWorldLoginStartupPushes(playerId + 2);
+            ValidateBigWorldEnterLeaveReenter(playerId + 6, expectedWorldId, expectedLevelId);
+            ValidateBigWorldCourseCoreSetReadReentry(playerId + 8, expectedWorldId, expectedLevelId);
+
+            ValidateEnterInstLevelAdvanceTargetsRemainObservable(playerId + 5, expectedWorldId);
+            ValidateUnsupportedPersistedBigWorldLastLocation(
+                playerId + 3,
+                expectedWorldId,
+                expectedLevelId,
+                persistedWorldId: expectedWorldId,
+                persistedLevelId: 5001,
+                poisonedPosition: (12.25D, 34.5D, 56.75D));
+            ValidateSupportedPersistedBigWorldLastLocation(
+                playerId + 7,
+                expectedWorldId,
+                expectedLevelId,
+                persistedPosition: (716.25D, 84.5D, 902.75D));
+            ValidatePersistedBigWorldClaimedChest(
+                playerId + 4,
+                expectedWorldId,
+                expectedLevelId,
+                claimedPlaceId: 100016);
+
+            void ValidateBigWorldCourseCoreSetReadReentry(long coursePlayerId, int expectedWorldId, int expectedLevelId)
+            {
+                const string name = "BigWorld course core read/re-entry regression";
+                const int firstReadPacketId = 12_060;
+                const int secondReadPacketId = 12_061;
+                const int reenterPacketId = 12_062;
+
+                AscNet.Common.Database.Player coursePlayer = CreateDrawCompatibilityPlayer(coursePlayerId);
+                using LoopbackSessionHarness courseHarness = new(
+                    CreateDrawCompatibilityCharacter(coursePlayerId),
+                    coursePlayer,
+                    CreateDrawCompatibilityInventory(coursePlayerId, []),
+                    "big-world-course-core-read-compat-test");
+
+                AssertCourseCoreSetReadRequest(
+                    courseHarness,
+                    firstReadPacketId,
+                    versionId: 1,
+                    elementIds: [1001, 1002],
+                    expectedTaskProgressTotal: 2);
+                AssertCourseCoreSetReadRequest(
+                    courseHarness,
+                    secondReadPacketId,
+                    versionId: 1,
+                    elementIds: [2101],
+                    expectedTaskProgressTotal: null);
+
+                object enterRequest = Activator.CreateInstance(enterRequestType)
+                    ?? throw new InvalidDataException($"{enterRequestName}: expected a public parameterless constructor.");
+                SetRequiredIntegerMember(enterRequest, "WorldId", requestWorldId);
+                SetRequiredIntegerMember(enterRequest, "LevelId", requestLevelId);
+
+                InvokeRegisteredRequestHandler(enterRequestName, courseHarness.Session, reenterPacketId, enterRequest);
+                JObject enterResponse = ReadBigWorldEnterWorldResponseWithPushes(
+                    courseHarness,
+                    reenterPacketId,
+                    enterResponseName,
+                    expectedCourseTaskTotalProgress: 2,
+                    expectedCourseReadElementIds: [1001, 1002, 2101],
+                    expectedTeleporterPlaceIdsForLevel4001: [100122, 100121, 100030, 100027]);
+                AssertEqual(0L, RequiredValue<long>(enterResponse, "Code", JTokenType.Integer, $"{name} {enterResponseName}"), $"{name} {enterResponseName} Code");
+
+                JObject enterResultData = RequiredObject(enterResponse, "EnterResultData", $"{name} {enterResponseName}");
+                JObject worldData = RequiredObject(enterResultData, "WorldData", $"{name} {enterResponseName}.EnterResultData");
+                AssertEqual((long)expectedWorldId, RequiredValue<long>(worldData, "WorldId", JTokenType.Integer, $"{name} {enterResponseName}.EnterResultData.WorldData"), $"{name} EnterResultData.WorldData.WorldId");
+                AssertEqual((long)expectedLevelId, RequiredValue<long>(worldData, "LevelId", JTokenType.Integer, $"{name} {enterResponseName}.EnterResultData.WorldData"), $"{name} EnterResultData.WorldData.LevelId");
+            }
+
+            static void AssertCourseCoreSetReadRequest(
+                LoopbackSessionHarness harness,
+                int packetId,
+                int versionId,
+                IReadOnlyList<int> elementIds,
+                int? expectedTaskProgressTotal)
+            {
+                BigWorldCourseCoreSetReadRequest request = new()
+                {
+                    VersionId = versionId,
+                    ElementIds = elementIds.ToList()
+                };
+
+                InvokeRegisteredRequestHandler(nameof(BigWorldCourseCoreSetReadRequest), harness.Session, packetId, request);
+                BigWorldCourseCoreSetReadResponse response = ReadResponsePayload<BigWorldCourseCoreSetReadResponse>(
+                    harness,
+                    packetId,
+                    nameof(BigWorldCourseCoreSetReadResponse),
+                    $"{nameof(BigWorldCourseCoreSetReadRequest)} response");
+                AssertEqual(0, response.Code, $"{nameof(BigWorldCourseCoreSetReadResponse)} Code");
+                AssertIntegerList(
+                    elementIds.Select(elementId => (long)elementId).ToArray(),
+                    response.SuccessIds.Select(elementId => (long)elementId).ToArray(),
+                    $"{nameof(BigWorldCourseCoreSetReadResponse)} SuccessIds");
+
+                if (expectedTaskProgressTotal.HasValue)
+                {
+                    AssertBigWorldCourseTaskCntProgressPush(
+                        harness,
+                        versionId,
+                        expectedTaskProgressTotal.Value,
+                        $"{nameof(BigWorldCourseCoreSetReadRequest)} NotifyBigWorldCourseTaskCntProgress");
+                    return;
+                }
+
+                if (harness.TryReadAvailablePacket($"{nameof(BigWorldCourseCoreSetReadRequest)} unexpected task-progress push", out Packet unexpectedPacket))
+                    throw new InvalidDataException($"{nameof(BigWorldCourseCoreSetReadRequest)}: expected no second NotifyBigWorldCourseTaskCntProgress after progress was already complete, got {DescribePacket(unexpectedPacket)}.");
+            }
+
+            static void AssertBigWorldCourseTaskCntProgressPush(
+                LoopbackSessionHarness harness,
+                int expectedVersionId,
+                int expectedTotalProgress,
+                string name)
+            {
+                Packet packet = harness.ReadPacket($"{name} packet");
+                AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                AssertEqual("NotifyBigWorldCourseTaskCntProgress", push.Name, $"{name} packet name");
+                JObject payload = JObject.Parse(MessagePackSerializer.ConvertToJson(push.Content));
+                AssertEqual((long)expectedVersionId, RequiredValue<long>(payload, "VersionId", JTokenType.Integer, name), $"{name} VersionId");
+                AssertEqual((long)expectedTotalProgress, RequiredValue<long>(payload, "TotalProgress", JTokenType.Integer, name), $"{name} TotalProgress");
+            }
+
+            void ValidateBigWorldEnterLeaveReenter(long reentryPlayerId, int worldId, int levelId)
+            {
+                const string name = "BigWorld enter/leave/re-enter regression";
+                const int firstEnterPacketId = 12_050;
+                const int leavePacketId = 12_051;
+                const int secondEnterPacketId = 12_052;
+
+                using LoopbackSessionHarness reentryHarness = new(
+                    CreateDrawCompatibilityCharacter(reentryPlayerId),
+                    CreateDrawCompatibilityPlayer(reentryPlayerId),
+                    CreateDrawCompatibilityInventory(reentryPlayerId, []),
+                    "big-world-reentry-compat-test");
+
+                _ = AssertEnterRoundTrip(firstEnterPacketId, $"{name} first enter");
+
+                InvokeRegisteredRequestHandler(nameof(LeaveWorldRequest), reentryHarness.Session, leavePacketId, new LeaveWorldRequest());
+                LeaveWorldResponse leaveResponse = ReadResponsePayload<LeaveWorldResponse>(
+                    reentryHarness,
+                    leavePacketId,
+                    nameof(LeaveWorldResponse),
+                    $"{name} LeaveWorldRequest response");
+                AssertEqual(0, leaveResponse.Code, $"{name} LeaveWorldResponse Code");
+
+                _ = AssertEnterRoundTrip(secondEnterPacketId, $"{name} second enter");
+
+                JObject AssertEnterRoundTrip(int packetId, string stepName)
+                {
+                    object enterRequest = Activator.CreateInstance(enterRequestType)
+                        ?? throw new InvalidDataException($"{enterRequestName}: expected a public parameterless constructor.");
+                    SetRequiredIntegerMember(enterRequest, "WorldId", requestWorldId);
+                    SetRequiredIntegerMember(enterRequest, "LevelId", requestLevelId);
+
+                    InvokeRegisteredRequestHandler(enterRequestName, reentryHarness.Session, packetId, enterRequest);
+                    JObject enterResponse = ReadBigWorldEnterWorldResponseWithPushes(
+                        reentryHarness,
+                        packetId,
+                        enterResponseName);
+                    AssertEqual(0L, RequiredValue<long>(enterResponse, "Code", JTokenType.Integer, $"{stepName} {enterResponseName}"), $"{stepName} {enterResponseName} Code");
+
+                    JObject enterResultData = RequiredObject(enterResponse, "EnterResultData", $"{stepName} {enterResponseName}");
+                    JObject worldData = RequiredObject(enterResultData, "WorldData", $"{stepName} {enterResponseName}.EnterResultData");
+                    AssertEqual((long)worldId, RequiredValue<long>(worldData, "WorldId", JTokenType.Integer, $"{stepName} {enterResponseName}.EnterResultData.WorldData"), $"{stepName} EnterResultData.WorldData.WorldId");
+                    AssertEqual((long)levelId, RequiredValue<long>(worldData, "LevelId", JTokenType.Integer, $"{stepName} {enterResponseName}.EnterResultData.WorldData"), $"{stepName} EnterResultData.WorldData.LevelId");
+                    return enterResponse;
+                }
+            }
+
+            void ValidateUnsupportedPersistedBigWorldLastLocation(
+                long persistedPlayerId,
+                int expectedWorldId,
+                int expectedLevelId,
+                int persistedWorldId,
+                int persistedLevelId,
+                (double X, double Y, double Z) poisonedPosition)
+            {
+                const string name = "BigWorld unsupported persisted last-location regression";
+                AscNet.Common.Database.Player persistedPlayer = CreateDrawCompatibilityPlayer(persistedPlayerId);
+                SetPersistedBigWorldState(
+                    persistedPlayer,
+                    persistedWorldId,
+                    persistedLevelId,
+                    poisonedPosition);
+
+                using (LoopbackSessionHarness enterHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-unsupported-persisted-last-location-enter-test"))
+                {
+                    object enterRequest = Activator.CreateInstance(enterRequestType)
+                        ?? throw new InvalidDataException($"{enterRequestName}: expected a public parameterless constructor.");
+                    SetRequiredIntegerMember(enterRequest, "WorldId", 0);
+                    SetRequiredIntegerMember(enterRequest, "LevelId", 0);
+
+                    InvokeRegisteredRequestHandler(enterRequestName, enterHarness.Session, 12_020, enterRequest);
+                    JObject enterResponse = ReadBigWorldEnterWorldResponseWithPushes(
+                        enterHarness,
+                        12_020,
+                        enterResponseName);
+                    AssertEqual(0L, RequiredValue<long>(enterResponse, "Code", JTokenType.Integer, $"{name} {enterResponseName}"), $"{name} {enterResponseName} Code");
+                    JObject enterResultData = RequiredObject(enterResponse, "EnterResultData", $"{name} {enterResponseName}");
+                    JObject worldData = RequiredObject(enterResultData, "WorldData", $"{name} {enterResponseName}.EnterResultData");
+                    AssertEqual((long)expectedWorldId, RequiredValue<long>(worldData, "WorldId", JTokenType.Integer, $"{name} {enterResponseName}.EnterResultData.WorldData"), $"{name} EnterResultData.WorldData.WorldId ignores unsupported persisted player state");
+                    AssertEqual((long)expectedLevelId, RequiredValue<long>(worldData, "LevelId", JTokenType.Integer, $"{name} {enterResponseName}.EnterResultData.WorldData"), $"{name} EnterResultData.WorldData.LevelId ignores unsupported persisted player state");
+                    JObject bornData = RequiredFirstPlayerBornData(worldData, $"{name} {enterResponseName}.EnterResultData.WorldData");
+                    AssertEqual((long)expectedWorldId, RequiredValue<long>(bornData, "LastWorldId", JTokenType.Integer, $"{name} BornData"), $"{name} BornData.LastWorldId ignores unsupported persisted player state");
+                    AssertEqual((long)expectedLevelId, RequiredValue<long>(bornData, "LastLevelId", JTokenType.Integer, $"{name} BornData"), $"{name} BornData.LastLevelId ignores unsupported persisted player state");
+                    AssertPositionDoesNotEqual(poisonedPosition, RequiredObject(bornData, "Position", $"{name} BornData"), $"{name} BornData.Position ignores unsupported persisted player state");
+
+                    JObject responsePlayerData = RequiredObject(enterResponse, "PlayerData", $"{name} {enterResponseName}");
+                    AssertEqual((long)expectedWorldId, RequiredValue<long>(responsePlayerData, "LastWorldId", JTokenType.Integer, $"{name} {enterResponseName}.PlayerData"), $"{name} PlayerData.LastWorldId ignores unsupported persisted player state");
+                    AssertEqual((long)expectedLevelId, RequiredValue<long>(responsePlayerData, "LastLevelId", JTokenType.Integer, $"{name} {enterResponseName}.PlayerData"), $"{name} PlayerData.LastLevelId ignores unsupported persisted player state");
+                    AssertPlayerDataLastTransformIsNull(responsePlayerData, $"{name} {enterResponseName}.PlayerData");
+                }
+
+                using LoopbackSessionHarness saveHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-unsupported-persisted-last-location-save-test");
+                AssertDlcWorldSaveData(
+                    saveHarness,
+                    12_021,
+                    expectedWorldId,
+                    expectedLevelId,
+                    forbiddenReliablePos: poisonedPosition);
+            }
+
+            void ValidateSupportedPersistedBigWorldLastLocation(
+                long persistedPlayerId,
+                int expectedWorldId,
+                int expectedLevelId,
+                (double X, double Y, double Z) persistedPosition)
+            {
+                const string name = "BigWorld supported persisted last-location regression";
+                AscNet.Common.Database.Player persistedPlayer = CreateDrawCompatibilityPlayer(persistedPlayerId);
+                SetPersistedBigWorldState(
+                    persistedPlayer,
+                    expectedWorldId,
+                    expectedLevelId,
+                    persistedPosition);
+
+                using (LoopbackSessionHarness enterHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-supported-persisted-last-location-enter-test"))
+                {
+                    object enterRequest = Activator.CreateInstance(enterRequestType)
+                        ?? throw new InvalidDataException($"{enterRequestName}: expected a public parameterless constructor.");
+                    SetRequiredIntegerMember(enterRequest, "WorldId", 0);
+                    SetRequiredIntegerMember(enterRequest, "LevelId", 0);
+
+                    InvokeRegisteredRequestHandler(enterRequestName, enterHarness.Session, 12_022, enterRequest);
+                    JObject enterResponse = ReadBigWorldEnterWorldResponseWithPushes(
+                        enterHarness,
+                        12_022,
+                        enterResponseName);
+                    AssertEqual(0L, RequiredValue<long>(enterResponse, "Code", JTokenType.Integer, $"{name} {enterResponseName}"), $"{name} {enterResponseName} Code");
+                    JObject enterResultData = RequiredObject(enterResponse, "EnterResultData", $"{name} {enterResponseName}");
+                    JObject worldData = RequiredObject(enterResultData, "WorldData", $"{name} {enterResponseName}.EnterResultData");
+                    AssertEqual((long)expectedWorldId, RequiredValue<long>(worldData, "WorldId", JTokenType.Integer, $"{name} {enterResponseName}.EnterResultData.WorldData"), $"{name} EnterResultData.WorldData.WorldId remains on retail fixture");
+                    AssertEqual((long)expectedLevelId, RequiredValue<long>(worldData, "LevelId", JTokenType.Integer, $"{name} {enterResponseName}.EnterResultData.WorldData"), $"{name} EnterResultData.WorldData.LevelId remains on retail fixture");
+                    JObject bornData = RequiredFirstPlayerBornData(worldData, $"{name} {enterResponseName}.EnterResultData.WorldData");
+                    AssertEqual((long)expectedWorldId, RequiredValue<long>(bornData, "LastWorldId", JTokenType.Integer, $"{name} BornData"), $"{name} BornData.LastWorldId remains on retail fixture");
+                    AssertEqual((long)expectedLevelId, RequiredValue<long>(bornData, "LastLevelId", JTokenType.Integer, $"{name} BornData"), $"{name} BornData.LastLevelId remains on retail fixture");
+                    AssertPositionEquals(persistedPosition, RequiredObject(bornData, "Position", $"{name} BornData"), $"{name} BornData.Position uses supported persisted player state");
+
+                    JObject responsePlayerData = RequiredObject(enterResponse, "PlayerData", $"{name} {enterResponseName}");
+                    AssertEqual((long)expectedWorldId, RequiredValue<long>(responsePlayerData, "LastWorldId", JTokenType.Integer, $"{name} {enterResponseName}.PlayerData"), $"{name} PlayerData.LastWorldId remains on retail fixture");
+                    AssertEqual((long)expectedLevelId, RequiredValue<long>(responsePlayerData, "LastLevelId", JTokenType.Integer, $"{name} {enterResponseName}.PlayerData"), $"{name} PlayerData.LastLevelId remains on retail fixture");
+                    AssertPlayerDataLastTransformIsNull(responsePlayerData, $"{name} {enterResponseName}.PlayerData");
+                }
+
+                using LoopbackSessionHarness saveHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-supported-persisted-last-location-save-test");
+                AssertDlcWorldSaveData(
+                    saveHarness,
+                    12_023,
+                    expectedWorldId,
+                    expectedLevelId,
+                    expectedReliablePos: persistedPosition);
+            }
+
+            void ValidatePersistedBigWorldClaimedChest(
+                long persistedPlayerId,
+                int worldId,
+                int levelId,
+                int claimedPlaceId)
+            {
+                const string name = "BigWorld persisted claimed chest regression";
+                AscNet.Common.Database.Player persistedPlayer = CreateDrawCompatibilityPlayer(persistedPlayerId);
+                SetPersistedBigWorldState(
+                    persistedPlayer,
+                    worldId,
+                    levelId,
+                    (615.273193359375D, 157.8118133544922D, 1280.5546875D),
+                    claimedSceneObjectLevelId: levelId,
+                    claimedSceneObjectPlaceId: claimedPlaceId);
+
+                using (LoopbackSessionHarness enterHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-persisted-claimed-chest-enter-test"))
+                {
+                    object enterRequest = Activator.CreateInstance(enterRequestType)
+                        ?? throw new InvalidDataException($"{enterRequestName}: expected a public parameterless constructor.");
+                    SetRequiredIntegerMember(enterRequest, "WorldId", worldId);
+                    SetRequiredIntegerMember(enterRequest, "LevelId", levelId);
+
+                    InvokeRegisteredRequestHandler(enterRequestName, enterHarness.Session, 12_030, enterRequest);
+                    _ = ReadBigWorldEnterWorldResponseWithPushes(
+                        enterHarness,
+                        12_030,
+                        enterResponseName,
+                        expectedBoxRewardedCountForLevel4001: 4);
+                }
+
+                using (LoopbackSessionHarness saveHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-persisted-claimed-chest-save-test"))
+                {
+                    _ = AssertDlcWorldSaveData(
+                        saveHarness,
+                        12_031,
+                        worldId,
+                        levelId,
+                        expectedBoxRewardedCountForLevel4001: 4,
+                        expectedClaimedPlaceId: claimedPlaceId);
+                }
+
+                using (LoopbackSessionHarness sceneObjectHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-persisted-claimed-chest-scene-object-test"))
+                {
+                    AssertDlcWorldSceneObjectDataContainsClaimedChest(
+                        sceneObjectHarness,
+                        12_032,
+                        worldId,
+                        levelId,
+                        claimedPlaceId,
+                        name);
+                }
+
+                using LoopbackSessionHarness interactHarness = new(
+                    CreateDrawCompatibilityCharacter(persistedPlayerId),
+                    persistedPlayer,
+                    CreateDrawCompatibilityInventory(persistedPlayerId, []),
+                    "big-world-persisted-claimed-chest-interact-test");
+                AssertClaimedXRpcSceneObjectInteractDoesNotEmitRewardSidecars(
+                    interactHarness,
+                    12_033,
+                    persistedPlayerId,
+                    levelId,
+                    claimedPlaceId);
+            }
+
+            static void ValidateEnterInstLevelAdvanceTargetsRemainObservable(long advancePlayerId, int worldId)
+            {
+                using LoopbackSessionHarness advanceHarness = new(
+                    CreateDrawCompatibilityCharacter(advancePlayerId),
+                    CreateDrawCompatibilityPlayer(advancePlayerId),
+                    CreateDrawCompatibilityInventory(advancePlayerId, []),
+                    "big-world-advance-level-observable-test");
+                AssertEnterInstLevelEmitsNewLevelNotify(advanceHarness, 12_040, worldId, 5001);
+                AssertEnterInstLevelEmitsNewLevelNotify(advanceHarness, 12_041, worldId, 6001);
+            }
+
+            static void SetPersistedBigWorldState(
+                AscNet.Common.Database.Player player,
+                int worldId,
+                int levelId,
+                (double X, double Y, double Z) position,
+                int? claimedSceneObjectLevelId = null,
+                int? claimedSceneObjectPlaceId = null)
+            {
+                MemberInfo stateMember = RequiredFirstDataMember(
+                    typeof(AscNet.Common.Database.Player),
+                    ["BigWorldState", "BigWorldData", "BigWorld"]);
+                object state = GetRequiredMemberValue(player, stateMember)
+                    ?? (Activator.CreateInstance(MemberValueType(stateMember))
+                        ?? throw new InvalidDataException($"{typeof(AscNet.Common.Database.Player).FullName}.{stateMember.Name}: expected a constructible per-player BigWorld state document."));
+
+                SetFirstAvailableIntegerMember(state, ["LastWorldId", "WorldId"], worldId, "Player.BigWorldState last world");
+                SetFirstAvailableIntegerMember(state, ["LastLevelId", "LevelId"], levelId, "Player.BigWorldState last level");
+                SetFirstAvailablePositionMember(state, ["LastPosition", "Position", "ReliablePos", "LastReliablePos"], position, "Player.BigWorldState last position");
+
+                if (claimedSceneObjectLevelId is int claimedLevelId && claimedSceneObjectPlaceId is int claimedPlaceId)
+                    AddClaimedSceneObjectKey(state, claimedLevelId, claimedPlaceId);
+
+                SetRequiredMemberValue(player, stateMember, state);
+            }
+
+            static MemberInfo RequiredFirstDataMember(Type type, IReadOnlyList<string> memberNames)
+            {
+                foreach (string memberName in memberNames)
+                {
+                    MemberInfo? member = OptionalDataMember(type, memberName);
+                    if (member is not null)
+                        return member;
+                }
+
+                throw new MissingMemberException(type.FullName, string.Join("|", memberNames));
+            }
+
+            static void SetFirstAvailableIntegerMember(object target, IReadOnlyList<string> memberNames, int value, string name)
+            {
+                MemberInfo member = RequiredFirstDataMember(target.GetType(), memberNames);
+                SetRequiredMemberValue(target, member, ConvertIntegerForType(MemberValueType(member), value));
+            }
+
+            static void SetFirstAvailablePositionMember(object target, IReadOnlyList<string> memberNames, (double X, double Y, double Z) position, string name)
+            {
+                MemberInfo member = RequiredFirstDataMember(target.GetType(), memberNames);
+                object value = CreateBigWorldPositionValue(MemberValueType(member), position, name);
+                SetRequiredMemberValue(target, member, value);
+            }
+
+            static object CreateBigWorldPositionValue(Type positionType, (double X, double Y, double Z) position, string name)
+            {
+                Type? nullableType = Nullable.GetUnderlyingType(positionType);
+                if (nullableType is not null)
+                    return CreateBigWorldPositionValue(nullableType, position, name);
+
+                if (positionType == typeof(object)
+                    || positionType.IsAssignableFrom(typeof(Dictionary<string, object?>)))
+                {
+                    return new Dictionary<string, object?>
+                    {
+                        ["X"] = position.X,
+                        ["Y"] = position.Y,
+                        ["Z"] = position.Z
+                    };
+                }
+
+                object positionValue = Activator.CreateInstance(positionType)
+                    ?? throw new InvalidDataException($"{name}: expected a constructible position type, got {positionType.FullName}.");
+                SetFirstAvailableFloatingMember(positionValue, ["X", "x", "PosX"], position.X, $"{name}.X");
+                SetFirstAvailableFloatingMember(positionValue, ["Y", "y", "PosY"], position.Y, $"{name}.Y");
+                SetFirstAvailableFloatingMember(positionValue, ["Z", "z", "PosZ"], position.Z, $"{name}.Z");
+                return positionValue;
+            }
+
+            static void SetFirstAvailableFloatingMember(object target, IReadOnlyList<string> memberNames, double value, string name)
+            {
+                MemberInfo member = RequiredFirstDataMember(target.GetType(), memberNames);
+                SetRequiredMemberValue(target, member, ConvertFloatingForType(MemberValueType(member), value, name));
+            }
+
+            static object ConvertFloatingForType(Type targetType, double value, string name)
+            {
+                Type? nullableType = Nullable.GetUnderlyingType(targetType);
+                if (nullableType is not null)
+                    return ConvertFloatingForType(nullableType, value, name);
+                if (targetType == typeof(double))
+                    return value;
+                if (targetType == typeof(float))
+                    return (float)value;
+                if (targetType == typeof(decimal))
+                    return (decimal)value;
+                if (targetType == typeof(int))
+                    return checked((int)value);
+                if (targetType == typeof(long))
+                    return checked((long)value);
+                throw new InvalidDataException($"{name}: expected a numeric position member, got {targetType.FullName}.");
+            }
+
+            static void AddClaimedSceneObjectKey(object state, int levelId, int placeId)
+            {
+                MemberInfo member = RequiredFirstDataMember(
+                    state.GetType(),
+                    ["ClaimedSceneObjectKeys", "ClaimedSceneObjectPlaces", "ClaimedChestKeys", "ClaimedChests", "ClaimedSceneObjects"]);
+                object collection = GetRequiredMemberValue(state, member)
+                    ?? CreateClaimedSceneObjectCollection(MemberValueType(member), $"{state.GetType().FullName}.{member.Name}");
+                AddClaimedSceneObjectKeyToCollection(collection, levelId, placeId, $"{state.GetType().FullName}.{member.Name}");
+                SetRequiredMemberValue(state, member, collection);
+            }
+
+            static object CreateClaimedSceneObjectCollection(Type collectionType, string name)
+            {
+                if (collectionType == typeof(object)
+                    || collectionType.IsAssignableFrom(typeof(HashSet<string>)))
+                    return new HashSet<string>(StringComparer.Ordinal);
+                if (collectionType.IsAssignableFrom(typeof(List<string>)))
+                    return new List<string>();
+
+                Type? elementType = TryGetSingleGenericEnumerableElementType(collectionType);
+                if (elementType is not null)
+                {
+                    Type concreteSetType = typeof(HashSet<>).MakeGenericType(elementType);
+                    if (collectionType.IsAssignableFrom(concreteSetType))
+                        return Activator.CreateInstance(concreteSetType)
+                            ?? throw new InvalidDataException($"{name}: expected to construct {concreteSetType.FullName}.");
+
+                    Type concreteListType = typeof(List<>).MakeGenericType(elementType);
+                    if (collectionType.IsAssignableFrom(concreteListType))
+                        return Activator.CreateInstance(concreteListType)
+                            ?? throw new InvalidDataException($"{name}: expected to construct {concreteListType.FullName}.");
+                }
+
+                if (!collectionType.IsInterface && Activator.CreateInstance(collectionType) is object collection)
+                    return collection;
+                throw new InvalidDataException($"{name}: expected a constructible claimed scene-object key collection, got {collectionType.FullName}.");
+            }
+
+            static Type? TryGetSingleGenericEnumerableElementType(Type collectionType)
+            {
+                if (collectionType.IsGenericType && collectionType.GetGenericArguments().Length == 1)
+                    return collectionType.GetGenericArguments()[0];
+
+                Type[] enumerableInterfaces = collectionType.GetInterfaces()
+                    .Where(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                    .ToArray();
+                return enumerableInterfaces.Length == 1 ? enumerableInterfaces[0].GetGenericArguments()[0] : null;
+            }
+
+            static void AddClaimedSceneObjectKeyToCollection(object collection, int levelId, int placeId, string name)
+            {
+                if (collection is System.Collections.IDictionary dictionary)
+                {
+                    dictionary[$"{levelId}:{placeId}"] = true;
+                    return;
+                }
+
+                if (collection is System.Collections.IList list)
+                {
+                    Type listElementType = RequiredListElementType(collection.GetType(), name);
+                    list.Add(CreateClaimedSceneObjectKeyValue(listElementType, levelId, placeId, name));
+                    return;
+                }
+
+                MethodInfo? addMethod = collection.GetType()
+                    .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                    .Where(method => method.Name == "Add" && method.GetParameters().Length == 1)
+                    .OrderBy(method => method.GetParameters()[0].ParameterType == typeof(string) ? 0 : 1)
+                    .FirstOrDefault();
+                if (addMethod is null)
+                    throw new InvalidDataException($"{name}: expected a claimed key collection with Add(value).");
+
+                Type elementType = addMethod.GetParameters()[0].ParameterType;
+                addMethod.Invoke(collection, [CreateClaimedSceneObjectKeyValue(elementType, levelId, placeId, name)]);
+            }
+
+            static object CreateClaimedSceneObjectKeyValue(Type keyType, int levelId, int placeId, string name)
+            {
+                if (keyType == typeof(string) || keyType == typeof(object))
+                    return $"{levelId}:{placeId}";
+                if (keyType.IsGenericType
+                    && keyType.GetGenericTypeDefinition() == typeof(ValueTuple<,>)
+                    && keyType.GetGenericArguments() is { Length: 2 } tupleTypes)
+                {
+                    return Activator.CreateInstance(
+                        keyType,
+                        ConvertIntegerForType(tupleTypes[0], levelId),
+                        ConvertIntegerForType(tupleTypes[1], placeId))
+                        ?? throw new InvalidDataException($"{name}: expected to construct claimed scene-object tuple key.");
+                }
+
+                object key = Activator.CreateInstance(keyType)
+                    ?? throw new InvalidDataException($"{name}: expected a constructible claimed scene-object key type, got {keyType.FullName}.");
+                SetFirstAvailableIntegerMember(key, ["LevelId", "InstLevelId"], levelId, $"{name} claimed key level");
+                SetFirstAvailableIntegerMember(key, ["PlaceId", "SceneObjectPlaceId", "ObjectPlaceId"], placeId, $"{name} claimed key place");
+                return key;
+            }
+
+            static JObject RequiredFirstPlayerBornData(JObject worldData, string path)
+            {
+                JArray players = (JArray)RequiredToken(worldData, "Players", JTokenType.Array, path);
+                if (players.Count == 0)
+                    throw new InvalidDataException($"{path}.Players: expected at least one player entry.");
+                if (players[0] is not JObject firstPlayer)
+                    throw new InvalidDataException($"{path}.Players[0]: expected JSON object, got {players[0]!.Type}.");
+                return RequiredObject(firstPlayer, "BornData", $"{path}.Players[0]");
+            }
+
+            static void AssertPositionEquals((double X, double Y, double Z) expected, JObject actual, string name)
+            {
+                AssertJsonNumberNear(expected.X, RequiredValue<double>(actual, "X", JTokenType.Float, name), $"{name}.X");
+                AssertJsonNumberNear(expected.Y, RequiredValue<double>(actual, "Y", JTokenType.Float, name), $"{name}.Y");
+                AssertJsonNumberNear(expected.Z, RequiredValue<double>(actual, "Z", JTokenType.Float, name), $"{name}.Z");
+            }
+
+            static void AssertPositionDoesNotEqual((double X, double Y, double Z) forbidden, JObject actual, string name)
+            {
+                double actualX = RequiredValue<double>(actual, "X", JTokenType.Float, name);
+                double actualY = RequiredValue<double>(actual, "Y", JTokenType.Float, name);
+                double actualZ = RequiredValue<double>(actual, "Z", JTokenType.Float, name);
+                if (Math.Abs(forbidden.X - actualX) <= 0.001D
+                    && Math.Abs(forbidden.Y - actualY) <= 0.001D
+                    && Math.Abs(forbidden.Z - actualZ) <= 0.001D)
+                    throw new InvalidDataException($"{name}: must not equal unsupported persisted position ({forbidden.X}, {forbidden.Y}, {forbidden.Z}).");
+            }
+
+            static void AssertPlayerDataLastTransformIsNull(JObject playerData, string name)
+            {
+                _ = RequiredToken(playerData, "LastPosition", JTokenType.Null, name);
+                _ = RequiredToken(playerData, "LastRotation", JTokenType.Null, name);
+            }
+
+            static void AssertJsonNumberNear(double expected, double actual, string name)
+            {
+                if (Math.Abs(expected - actual) > 0.001D)
+                    throw new InvalidDataException($"{name}: expected {expected}, got {actual}.");
+            }
+
+            static void AssertSaveDataSceneObjectAbsent(JObject levelData, int placeId, string path)
+            {
+                JObject actorSaveData = RequiredObject(levelData, "ActorSaveData", path);
+                JObject soSaveDatas = RequiredObject(actorSaveData, "SoSaveDatas", $"{path}.ActorSaveData");
+                string placeKey = placeId.ToString();
+                if (soSaveDatas.TryGetValue(placeKey, out JToken? claimedSaveData))
+                    throw new InvalidDataException($"{path}.ActorSaveData.SoSaveDatas[{placeId}]: expected claimed chest save-data entry to be removed, got {claimedSaveData.Type}.");
+            }
+
+            static void AssertSceneObjectNoLongerInteractable(JObject sceneObjectState, string name)
+            {
+                bool provesUnavailable = false;
+                if (sceneObjectState.TryGetValue("IsInteractable", out JToken? interactable)
+                    && interactable.Type == JTokenType.Boolean)
+                {
+                    if (interactable.Value<bool>())
+                        throw new InvalidDataException($"{name}: expected claimed chest not to be interactable.");
+                    provesUnavailable = true;
+                }
+
+                if (sceneObjectState.TryGetValue("Active", out JToken? active)
+                    && active.Type == JTokenType.Boolean)
+                {
+                    if (!active.Value<bool>())
+                        provesUnavailable = true;
+                    else if (!provesUnavailable)
+                        throw new InvalidDataException($"{name}: expected claimed chest not to be active or not to be interactable.");
+                }
+
+                if (!provesUnavailable)
+                    throw new InvalidDataException($"{name}: expected IsInteractable=false or Active=false for claimed chest state.");
+            }
+
+            static void AssertDlcWorldSceneObjectDataContainsClaimedChest(
+                LoopbackSessionHarness harness,
+                int packetId,
+                int worldId,
+                int levelId,
+                int claimedPlaceId,
+                string name)
+            {
+                const string requestName = "DlcWorldSceneObjectDataRequest";
+                const string responseName = "DlcWorldSceneObjectDataResponse";
+                byte[] requestContent = MessagePackSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["WorldId"] = worldId,
+                    ["LevelId"] = levelId
+                });
+                InvokeRegisteredRequestHandlerWithContent(requestName, harness.Session, packetId, requestContent);
+
+                Packet responsePacket = harness.ReadPacket($"{name} {requestName} response packet");
+                AssertEqual(Packet.ContentType.Response, responsePacket.Type, $"{name} {requestName} response packet type");
+                Packet.Response packetResponse = MessagePackSerializer.Deserialize<Packet.Response>(responsePacket.Content);
+                AssertEqual(packetId, packetResponse.Id, $"{name} {responseName} packet id");
+                AssertEqual(responseName, packetResponse.Name, $"{name} {responseName} packet name");
+                JObject response = JObject.Parse(MessagePackSerializer.ConvertToJson(packetResponse.Content));
+                AssertEqual(0L, RequiredValue<long>(response, "Code", JTokenType.Integer, $"{name} {responseName}"), $"{name} {responseName} Code");
+                JObject sceneObjectStates = RequiredObject(response, "SceneObjectStates", $"{name} {responseName}");
+                JObject claimedState = RequiredObject(sceneObjectStates, claimedPlaceId.ToString(), $"{name} {responseName}.SceneObjectStates");
+                AssertSceneObjectNoLongerInteractable(claimedState, $"{name} {responseName}.SceneObjectStates[{claimedPlaceId}]");
+            }
+
+            static void AssertClaimedXRpcSceneObjectInteractDoesNotEmitRewardSidecars(
+                LoopbackSessionHarness harness,
+                int packetId,
+                long playerId,
+                int levelId,
+                int claimedPlaceId)
+            {
+                const string requestName = "XRpcCommon RpcPlayerInteractRequest persisted claimed chest";
+                byte[] requestPayload = BuildXRpcPlayerInteractRequestPayload(
+                    playerId,
+                    targetUuid: 95,
+                    targetPlaceId: claimedPlaceId,
+                    targetType: 2,
+                    optionId: 1);
+
+                InvokeRegisteredRequestHandlerWithContent("XRpcCommon", harness.Session, packetId, requestPayload);
+
+                Packet startPacket = harness.ReadPacket($"{requestName} start notify packet");
+                AssertXRpcCommonPushPacketArgs(
+                    startPacket,
+                    "RpcNpcInteractStartNotify",
+                    [95, claimedPlaceId, 2, 1],
+                    $"{requestName} start notify");
+                AssertXRpcCommonPushArgs(
+                    harness,
+                    "RpcNpcInteractFinishNotify",
+                    [],
+                    $"{requestName} finish notify");
+
+                Type responseType = RequiredPayloadType("XRpcCommonResponse");
+                object response = ReadResponsePayload(
+                    harness,
+                    packetId,
+                    "XRpcCommonResponse",
+                    $"{requestName} response",
+                    responseType,
+                    maxPacketsToRead: 1);
+                AssertEqual(0, GetRequiredIntegerMember(response, "Code"), $"{requestName} response Code");
+                if (harness.TryReadAvailablePacket($"{requestName} unexpected packet after claimed interaction", out Packet extraPacket))
+                    throw new InvalidDataException($"{requestName}: claimed {levelId}/{claimedPlaceId} must not emit reward sidecars or inventory rewards; got extra {DescribePacket(extraPacket)}.");
+            }
 
             static void AssertNestedBigWorldNativePayloadIdentityAndCommanderPartData(
                 JObject enterResultData,
@@ -6999,14 +7735,21 @@ namespace AscNet.Test
             static JObject ReadBigWorldEnterWorldResponseWithPushes(
                 LoopbackSessionHarness harness,
                 int expectedPacketId,
-                string expectedResponseName)
+                string expectedResponseName,
+                int expectedBoxRewardedCountForLevel4001 = 3,
+                int? expectedCourseTaskTotalProgress = null,
+                IReadOnlyList<long>? expectedCourseReadElementIds = null,
+                IReadOnlyList<long>? expectedTeleporterPlaceIdsForLevel4001 = null)
             {
+                bool expectCourseDataPush = expectedCourseTaskTotalProgress.GetValueOrDefault() > 0
+                    || expectedCourseReadElementIds is { Count: > 0 };
+                int expectedPushCount = expectCourseDataPush ? 4 : 3;
                 JObject? responsePayload = null;
                 List<string> packetNames = [];
                 List<string> pushNames = [];
                 Dictionary<string, byte[]> pushContentsByName = new(StringComparer.Ordinal);
 
-                for (int packetIndex = 0; packetIndex < 4; packetIndex++)
+                for (int packetIndex = 0; packetIndex < expectedPushCount + 1; packetIndex++)
                 {
                     Packet packet = harness.ReadPacket($"{expectedResponseName} response/push packet {packetIndex + 1}");
                     switch (packet.Type)
@@ -7034,13 +7777,19 @@ namespace AscNet.Test
                 if (responsePayload is null)
                     throw new InvalidDataException($"{expectedResponseName}: expected a response packet around BigWorld startup pushes.");
 
-                string[] expectedPushNames =
-                [
-                    "NotifyBigWorldAlbumUpdate",
-                    "NotifyBigWorldMapData",
-                    "NotifySgDormData"
-                ];
-                AssertEqual(3, pushNames.Count, $"{expectedResponseName} BigWorld enter push count");
+                string[] expectedPushNames = expectCourseDataPush
+                    ? [
+                        "NotifyBigWorldAlbumUpdate",
+                        "NotifyBigWorldMapData",
+                        "NotifySgDormData",
+                        "NotifyBigWorldCourseData"
+                    ]
+                    : [
+                        "NotifyBigWorldAlbumUpdate",
+                        "NotifyBigWorldMapData",
+                        "NotifySgDormData"
+                    ];
+                AssertEqual(expectedPushCount, pushNames.Count, $"{expectedResponseName} BigWorld enter push count");
                 AssertEqual(expectedResponseName, packetNames[0], $"{expectedResponseName} first packet");
                 for (int pushIndex = 0; pushIndex < expectedPushNames.Length; pushIndex++)
                 {
@@ -7054,28 +7803,146 @@ namespace AscNet.Test
 
                 if (!pushContentsByName.TryGetValue("NotifyBigWorldMapData", out byte[]? mapDataContent))
                     throw new InvalidDataException($"{expectedResponseName}: expected NotifyBigWorldMapData content.");
-                AssertEqual(25, mapDataContent.Length, "NotifyBigWorldMapData raw payload length");
+                if (expectedBoxRewardedCountForLevel4001 == 3)
+                    AssertEqual(25, mapDataContent.Length, "NotifyBigWorldMapData raw payload length");
                 JObject mapData = JObject.Parse(MessagePackSerializer.ConvertToJson(mapDataContent));
                 JObject boxRewardedCntData = RequiredObject(mapData, "BoxRewardedCntData", "NotifyBigWorldMapData");
-                AssertEqual(3L, RequiredValue<long>(boxRewardedCntData, "4001", JTokenType.Integer, "NotifyBigWorldMapData.BoxRewardedCntData"), "NotifyBigWorldMapData BoxRewardedCntData[4001]");
+                AssertEqual((long)expectedBoxRewardedCountForLevel4001, RequiredValue<long>(boxRewardedCntData, "4001", JTokenType.Integer, "NotifyBigWorldMapData.BoxRewardedCntData"), $"NotifyBigWorldMapData BoxRewardedCntData[4001] rewarded chest count");
 
                 if (!pushContentsByName.TryGetValue("NotifySgDormData", out byte[]? dormDataContent))
                     throw new InvalidDataException($"{expectedResponseName}: expected NotifySgDormData content.");
                 AssertEqual(388, dormDataContent.Length, "NotifySgDormData raw payload length");
+
+                if (expectCourseDataPush)
+                {
+                    if (!pushContentsByName.TryGetValue("NotifyBigWorldCourseData", out byte[]? courseDataContent))
+                        throw new InvalidDataException($"{expectedResponseName}: expected NotifyBigWorldCourseData content for progressed BigWorld state.");
+                    JObject courseData = JObject.Parse(MessagePackSerializer.ConvertToJson(courseDataContent));
+                    AssertBigWorldCourseData(
+                        courseData,
+                        expectedBoxRewardedCountForLevel4001,
+                        expectedCourseTaskTotalProgress,
+                        expectedCourseReadElementIds,
+                        "NotifyBigWorldCourseData");
+                }
+
+                AssertBigWorldTeleporterData(
+                    responsePayload,
+                    expectedTeleporterPlaceIdsForLevel4001 ?? [100122, 100121],
+                    expectedResponseName);
+
+                if (harness.TryReadAvailablePacket($"{expectedResponseName} unexpected packet after BigWorld enter pushes", out Packet extraPacket))
+                {
+                    string extraPacketDetail = extraPacket.Type.ToString();
+                    if (extraPacket.Type == Packet.ContentType.Push)
+                    {
+                        Packet.Push extraPush = MessagePackSerializer.Deserialize<Packet.Push>(extraPacket.Content);
+                        extraPacketDetail = $"{extraPacket.Type} {extraPush.Name}";
+                    }
+                    else if (extraPacket.Type == Packet.ContentType.Response)
+                    {
+                        Packet.Response extraResponse = MessagePackSerializer.Deserialize<Packet.Response>(extraPacket.Content);
+                        extraPacketDetail = $"{extraPacket.Type} {extraResponse.Name}";
+                    }
+
+                    throw new InvalidDataException($"{expectedResponseName}: unexpected packet after expected BigWorld enter pushes: {extraPacketDetail}.");
+                }
+
                 return responsePayload;
             }
 
+            static void AssertBigWorldTeleporterData(
+                JObject enterResponse,
+                IReadOnlyList<long> expectedPlaceIds,
+                string name)
+            {
+                JObject playerData = RequiredObject(enterResponse, "PlayerData", name);
+                JObject teleporterData = RequiredObject(playerData, "TeleporterData", $"{name}.PlayerData");
+                AssertIntegerList(
+                    expectedPlaceIds,
+                    RequiredJsonIntegerArray(teleporterData, "4001", $"{name}.PlayerData.TeleporterData"),
+                    $"{name}.PlayerData.TeleporterData[4001]");
+            }
 
-            static void AssertDlcWorldSaveData(
+            static void AssertBigWorldCourseData(
+                JObject courseData,
+                int expectedBoxRewardedCountForLevel4001,
+                int? expectedCourseTaskTotalProgress,
+                IReadOnlyList<long>? expectedCourseReadElementIds,
+                string name)
+            {
+                JObject data = RequiredObject(courseData, "Data", name);
+                JObject datas = RequiredObject(data, "Datas", $"{name}.Data");
+                JObject versionData = RequiredObject(datas, "1", $"{name}.Data.Datas");
+                AssertEqual(1L, RequiredValue<long>(versionData, "VersionId", JTokenType.Integer, $"{name}.Data.Datas[1]"), $"{name}.Data.Datas[1].VersionId");
+
+                JObject taskCntData = RequiredObject(versionData, "TaskCntData", $"{name}.Data.Datas[1]");
+                if (expectedCourseTaskTotalProgress.HasValue)
+                    AssertEqual((long)expectedCourseTaskTotalProgress.Value, RequiredValue<long>(taskCntData, "TotalProgress", JTokenType.Integer, $"{name}.Data.Datas[1].TaskCntData"), $"{name}.Data.Datas[1].TaskCntData.TotalProgress");
+
+                JObject coreCntData = RequiredObject(versionData, "CoreCntData", $"{name}.Data.Datas[1]");
+                if (expectedCourseReadElementIds is not null)
+                {
+                    AssertIntegerList(
+                        expectedCourseReadElementIds,
+                        RequiredJsonIntegerArray(coreCntData, "ReadElementIds", $"{name}.Data.Datas[1].CoreCntData"),
+                        $"{name}.Data.Datas[1].CoreCntData.ReadElementIds");
+                }
+
+                JObject exploreCntData = RequiredObject(versionData, "ExploreCntData", $"{name}.Data.Datas[1]");
+                JObject exploreDatas = RequiredObject(exploreCntData, "ExploreDatas", $"{name}.Data.Datas[1].ExploreCntData");
+                JObject exploreData = RequiredObject(exploreDatas, "1", $"{name}.Data.Datas[1].ExploreCntData.ExploreDatas");
+                JObject poiCounts = RequiredObject(exploreData, "PoiCounts", $"{name}.Data.Datas[1].ExploreCntData.ExploreDatas[1]");
+                AssertEqual((long)expectedBoxRewardedCountForLevel4001, RequiredValue<long>(poiCounts, "101", JTokenType.Integer, $"{name}.Data.Datas[1].ExploreCntData.ExploreDatas[1].PoiCounts"), $"{name} rewarded chest PoiCounts[101]");
+
+                AssertBigWorldCourseVersionContentIds(datas, 2, 201, 202, 203, name);
+                AssertBigWorldCourseVersionContentIds(datas, 3, 301, 302, 303, name);
+            }
+
+            static void AssertBigWorldCourseVersionContentIds(
+                JObject datas,
+                int versionId,
+                long expectedTaskContentId,
+                long expectedExploreContentId,
+                long expectedCoreContentId,
+                string name)
+            {
+                string versionKey = versionId.ToString();
+                JObject versionData = RequiredObject(datas, versionKey, $"{name}.Data.Datas");
+                AssertEqual((long)versionId, RequiredValue<long>(versionData, "VersionId", JTokenType.Integer, $"{name}.Data.Datas[{versionKey}]"), $"{name}.Data.Datas[{versionKey}].VersionId");
+                JObject taskCntData = RequiredObject(versionData, "TaskCntData", $"{name}.Data.Datas[{versionKey}]");
+                AssertEqual(expectedTaskContentId, RequiredValue<long>(taskCntData, "ContentId", JTokenType.Integer, $"{name}.Data.Datas[{versionKey}].TaskCntData"), $"{name}.Data.Datas[{versionKey}].TaskCntData.ContentId");
+                JObject exploreCntData = RequiredObject(versionData, "ExploreCntData", $"{name}.Data.Datas[{versionKey}]");
+                AssertEqual(expectedExploreContentId, RequiredValue<long>(exploreCntData, "ContentId", JTokenType.Integer, $"{name}.Data.Datas[{versionKey}].ExploreCntData"), $"{name}.Data.Datas[{versionKey}].ExploreCntData.ContentId");
+                JObject coreCntData = RequiredObject(versionData, "CoreCntData", $"{name}.Data.Datas[{versionKey}]");
+                AssertEqual(expectedCoreContentId, RequiredValue<long>(coreCntData, "ContentId", JTokenType.Integer, $"{name}.Data.Datas[{versionKey}].CoreCntData"), $"{name}.Data.Datas[{versionKey}].CoreCntData.ContentId");
+            }
+
+
+            static void AssertStartFightNotifyPacket(Packet packet, string name)
+            {
+                AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                AssertEqual("StartFightNotify", push.Name, $"{name} packet name");
+                JObject payload = JObject.Parse(MessagePackSerializer.ConvertToJson(push.Content));
+                AssertEqual(0L, RequiredValue<long>(payload, "Code", JTokenType.Integer, "StartFightNotify"), $"{name} Code");
+            }
+
+
+            static JObject AssertDlcWorldSaveData(
                 LoopbackSessionHarness harness,
                 int packetId,
                 int expectedWorldId,
-                int expectedLevelId)
+                int expectedLevelId,
+                int expectedBoxRewardedCountForLevel4001 = 3,
+                (double X, double Y, double Z)? expectedReliablePos = null,
+                (double X, double Y, double Z)? forbiddenReliablePos = null,
+                int? expectedClaimedPlaceId = null)
             {
                 const string requestName = "DlcWorldSaveDataRequest";
                 const string responseName = "DlcWorldSaveDataResponse";
                 Type requestType = RequiredPayloadType(requestName);
-                _ = RequiredPayloadType(responseName);
+                Type responseType = RequiredPayloadType(responseName);
                 object request = Activator.CreateInstance(requestType)
                     ?? throw new InvalidDataException($"{requestName}: expected a public parameterless constructor.");
                 SetRequiredIntegerMember(request, "WorldId", expectedWorldId);
@@ -7088,7 +7955,17 @@ namespace AscNet.Test
                 AssertEqual(packetId, packetResponse.Id, $"{responseName} packet id");
                 AssertEqual(responseName, packetResponse.Name, $"{responseName} packet name");
                 byte[] rawResponseContent = packetResponse.Content;
-                AssertEqual(9_730, rawResponseContent.Length, $"{responseName} raw payload length");
+                _ = MessagePackDeserialize(responseType, rawResponseContent)
+                    ?? throw new InvalidDataException($"{responseName}: response content deserialized as nil.");
+                if (expectedWorldId == 400
+                    && expectedLevelId == 4001
+                    && expectedBoxRewardedCountForLevel4001 == 3
+                    && expectedReliablePos is null
+                    && forbiddenReliablePos is null
+                    && expectedClaimedPlaceId is null)
+                {
+                    AssertEqual(9_730, rawResponseContent.Length, $"{responseName} raw payload length");
+                }
                 JObject response = JObject.Parse(MessagePackSerializer.ConvertToJson(rawResponseContent));
 
                 AssertEqual(0L, RequiredValue<long>(response, "Code", JTokenType.Integer, $"{responseName}"), $"{responseName} Code");
@@ -7097,20 +7974,177 @@ namespace AscNet.Test
                 JObject levelData = RequiredObject(levelDataDict, expectedLevelId.ToString(), $"{responseName}.WorldSaveData.LevelDataDict");
                 AssertEqual((long)expectedWorldId, RequiredValue<long>(levelData, "WorldId", JTokenType.Integer, $"{responseName}.WorldSaveData.LevelDataDict[{expectedLevelId}]"), $"{responseName} LevelDataDict[{expectedLevelId}].WorldId");
                 AssertEqual((long)expectedLevelId, RequiredValue<long>(levelData, "LevelId", JTokenType.Integer, $"{responseName}.WorldSaveData.LevelDataDict[{expectedLevelId}]"), $"{responseName} LevelDataDict[{expectedLevelId}].LevelId");
-                if (harness.TryReadAvailablePacket($"{requestName} unexpected packet before LoadCompleteRequest", out Packet extraPacket))
+                if (expectedReliablePos.HasValue)
                 {
-                    string extraPacketDetail = extraPacket.Type.ToString();
-                    if (extraPacket.Type == Packet.ContentType.Push)
-                    {
-                        Packet.Push extraPush = MessagePackSerializer.Deserialize<Packet.Push>(extraPacket.Content);
-                        extraPacketDetail = $"{extraPacket.Type} {extraPush.Name}";
-                    }
+                    AssertPositionEquals(expectedReliablePos.Value, RequiredObject(levelData, "ReliablePos", $"{responseName}.WorldSaveData.LevelDataDict[{expectedLevelId}]"), $"{responseName} persisted ReliablePos");
+                    AssertReliablePosComponentsUseFloat32(rawResponseContent, expectedLevelId, $"{responseName} persisted ReliablePos");
+                }
+                if (forbiddenReliablePos.HasValue)
+                    AssertPositionDoesNotEqual(forbiddenReliablePos.Value, RequiredObject(levelData, "ReliablePos", $"{responseName}.WorldSaveData.LevelDataDict[{expectedLevelId}]"), $"{responseName} ReliablePos ignores unsupported persisted player state");
+                if (expectedClaimedPlaceId is int claimedPlaceId)
+                    AssertSaveDataSceneObjectAbsent(levelData, claimedPlaceId, $"{responseName}.WorldSaveData.LevelDataDict[{expectedLevelId}]");
+                if (harness.TryReadAvailablePacket($"{requestName} unexpected packet after {responseName}", out Packet extraPacket))
+                    throw new InvalidDataException($"{requestName}: expected exactly {responseName} before the next request, got extra {DescribePacket(extraPacket)}.");
 
-                    throw new InvalidDataException($"{requestName}: expected only {responseName} before LoadCompleteRequest; StartFightNotify must wait for LoadCompleteRequest, got {extraPacketDetail} packet.");
+                return response;
+            }
+
+            static void AssertReliablePosComponentsUseFloat32(byte[] payload, int expectedLevelId, string name)
+            {
+                MessagePackReader reader = new(new System.Buffers.ReadOnlySequence<byte>(payload));
+                try
+                {
+                    ReadRequiredMessagePackMapMember(ref reader, "WorldSaveData", name);
+                    ReadRequiredMessagePackMapMember(ref reader, "LevelDataDict", $"{name}.WorldSaveData");
+                    ReadRequiredMessagePackMapKey(ref reader, expectedLevelId, $"{name}.WorldSaveData.LevelDataDict");
+                    ReadRequiredMessagePackMapMember(ref reader, "ReliablePos", $"{name}.WorldSaveData.LevelDataDict[{expectedLevelId}]");
+                    AssertMessagePackFloat32MapFields(ref reader, payload, ["X", "Y", "Z"], $"{name}.WorldSaveData.LevelDataDict[{expectedLevelId}].ReliablePos");
+                }
+                catch (Exception exception) when (exception is not InvalidDataException)
+                {
+                    throw new InvalidDataException($"{name}: expected raw MessagePack map containing WorldSaveData.LevelDataDict[{expectedLevelId}].ReliablePos.", exception);
                 }
             }
 
-            static byte[] AssertLoadCompleteEmitsStartFightThenPendingBigWorldXRpc(
+            static void ReadRequiredMessagePackMapMember(ref MessagePackReader reader, string memberName, string name)
+            {
+                int fieldCount = reader.ReadMapHeader();
+                for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+                {
+                    if (reader.NextMessagePackType != MessagePackType.String)
+                    {
+                        reader.Skip();
+                        reader.Skip();
+                        continue;
+                    }
+
+                    string? key = reader.ReadString();
+                    if (string.Equals(key, memberName, StringComparison.Ordinal))
+                        return;
+
+                    reader.Skip();
+                }
+
+                throw new InvalidDataException($"{name}: expected MessagePack map member {memberName}.");
+            }
+
+            static void ReadRequiredMessagePackMapKey(ref MessagePackReader reader, int expectedKey, string name)
+            {
+                int fieldCount = reader.ReadMapHeader();
+                string expectedStringKey = expectedKey.ToString();
+                for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+                {
+                    if (TryReadMessagePackMapKey(ref reader, expectedKey, expectedStringKey))
+                        return;
+
+                    reader.Skip();
+                }
+
+                throw new InvalidDataException($"{name}: expected MessagePack map key {expectedKey}.");
+            }
+
+            static bool TryReadMessagePackMapKey(ref MessagePackReader reader, int expectedIntegerKey, string expectedStringKey)
+            {
+                if (reader.NextMessagePackType == MessagePackType.Integer)
+                {
+                    long key = reader.ReadInt64();
+                    return key == expectedIntegerKey;
+                }
+
+                if (reader.NextMessagePackType == MessagePackType.String)
+                {
+                    string? key = reader.ReadString();
+                    return string.Equals(key, expectedStringKey, StringComparison.Ordinal);
+                }
+
+                reader.Skip();
+                return false;
+            }
+
+            static void AssertMessagePackFloat32MapFields(ref MessagePackReader reader, byte[] payload, IReadOnlyCollection<string> expectedFields, string name)
+            {
+                HashSet<string> remainingFields = new(expectedFields, StringComparer.Ordinal);
+                int fieldCount = reader.ReadMapHeader();
+                for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+                {
+                    if (reader.NextMessagePackType != MessagePackType.String)
+                        throw new InvalidDataException($"{name}: expected string key at map field {fieldIndex} while checking float markers.");
+
+                    string? key = reader.ReadString();
+                    if (key is not null && remainingFields.Remove(key))
+                    {
+                        int markerOffset = checked((int)reader.Consumed);
+                        if ((uint)markerOffset >= (uint)payload.Length)
+                            throw new InvalidDataException($"{name}.{key}: missing MessagePack value marker.");
+
+                        byte marker = payload[markerOffset];
+                        if (marker == 0xCB)
+                            throw new InvalidDataException($"{name}.{key}: expected MessagePack float32 marker 0xCA, got float64 marker 0xCB.");
+                        if (marker != 0xCA)
+                            throw new InvalidDataException($"{name}.{key}: expected MessagePack float32 marker 0xCA, got marker 0x{marker:X2}.");
+                    }
+
+                    reader.Skip();
+                }
+
+                if (remainingFields.Count > 0)
+                    throw new InvalidDataException($"{name}: expected MessagePack float fields {string.Join(", ", remainingFields)}.");
+            }
+
+            static void AssertEnterInstLevelEmitsNewLevelNotify(
+                LoopbackSessionHarness harness,
+                int packetId,
+                int expectedWorldId,
+                int expectedInstLevelId)
+            {
+                const string requestName = "EnterInstLevelRequest";
+                const string responseName = "EnterInstLevelResponse";
+                const string notifyName = "NotifyNewEnteredBigWorldLevelId";
+                Type requestType = RequiredPayloadType(requestName);
+                Type responseType = RequiredPayloadType(responseName);
+                object request = Activator.CreateInstance(requestType)
+                    ?? throw new InvalidDataException($"{requestName}: expected a public parameterless constructor.");
+                SetRequiredIntegerMember(request, "WorldId", expectedWorldId);
+                SetRequiredIntegerMember(request, "InstLevelId", expectedInstLevelId);
+
+                InvokeRegisteredRequestHandler(requestName, harness.Session, packetId, request);
+
+                bool sawResponse = false;
+                bool sawNotify = false;
+                for (int packetIndex = 0; packetIndex < 2; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{requestName} response/push packet {packetIndex + 1}");
+                    if (packet.Type == Packet.ContentType.Response)
+                    {
+                        if (sawResponse)
+                            throw new InvalidDataException($"{requestName}: expected one {responseName}, got a second response.");
+                        Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                        AssertEqual(packetId, response.Id, $"{responseName} packet id");
+                        AssertEqual(responseName, response.Name, $"{responseName} packet name");
+                        object responsePayload = MessagePackDeserialize(responseType, response.Content)
+                            ?? throw new InvalidDataException($"{responseName}: response deserialized as nil.");
+                        AssertEqual(0, GetRequiredIntegerMember(responsePayload, "Code"), $"{responseName} Code");
+                        sawResponse = true;
+                        continue;
+                    }
+
+                    AssertEqual(Packet.ContentType.Push, packet.Type, $"{requestName} notify packet type");
+                    if (sawNotify)
+                        throw new InvalidDataException($"{requestName}: expected one {notifyName}, got a second push.");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    AssertEqual(notifyName, push.Name, $"{requestName} notify packet name");
+                    JToken notifyPayload = JToken.Parse(MessagePackSerializer.ConvertToJson(push.Content));
+                    AssertJsonContainsInteger(notifyPayload, expectedInstLevelId, $"{notifyName} payload requested InstLevelId");
+                    sawNotify = true;
+                }
+
+                if (!sawResponse)
+                    throw new InvalidDataException($"{requestName}: expected {responseName}.");
+                if (!sawNotify)
+                    throw new InvalidDataException($"{requestName}: expected {notifyName} for InstLevelId {expectedInstLevelId}.");
+            }
+
+            static byte[] AssertLoadCompleteEmitsStartFightThenBigWorldBootstrap(
                 LoopbackSessionHarness harness,
                 int packetId,
                 long expectedPlayerId)
@@ -7124,12 +8158,8 @@ namespace AscNet.Test
 
                 InvokeRegisteredRequestHandler(requestName, harness.Session, packetId, request);
 
-                Packet startFightPacket = harness.ReadPacket($"{requestName} StartFightNotify push");
-                AssertEqual(Packet.ContentType.Push, startFightPacket.Type, $"{requestName} StartFightNotify packet type");
-                Packet.Push startFightPush = MessagePackSerializer.Deserialize<Packet.Push>(startFightPacket.Content);
-                AssertEqual("StartFightNotify", startFightPush.Name, $"{requestName} StartFightNotify packet name");
-                JObject startFightPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(startFightPush.Content));
-                AssertEqual(0L, RequiredValue<long>(startFightPayload, "Code", JTokenType.Integer, "StartFightNotify"), "StartFightNotify Code after LoadCompleteRequest");
+                Packet startFightPacket = harness.ReadPacket($"{requestName} StartFightNotify");
+                AssertStartFightNotifyPacket(startFightPacket, $"{requestName} StartFightNotify");
 
                 Packet responsePacket = harness.ReadPacket($"{requestName} response");
                 AssertEqual(Packet.ContentType.Response, responsePacket.Type, $"{requestName} response packet type");
@@ -7177,7 +8207,16 @@ namespace AscNet.Test
                 if (!observedMethods.SequenceEqual(expectedMethods))
                     throw new InvalidDataException($"{requestName} XRpcCommon method list: expected {string.Join(" -> ", expectedMethods)}, got {string.Join(" -> ", observedMethods)}.");
                 if (harness.TryReadAvailablePacket($"{requestName} unexpected packet after XRpcCommon bootstrap", out Packet extraPacket))
-                    throw new InvalidDataException($"{requestName}: expected exactly five XRpcCommon pushes after {responseName}, got extra {extraPacket.Type} packet.");
+                {
+                    if (extraPacket.Type == Packet.ContentType.Push)
+                    {
+                        Packet.Push extraPush = MessagePackSerializer.Deserialize<Packet.Push>(extraPacket.Content);
+                        if (string.Equals(extraPush.Name, "StartFightNotify", StringComparison.Ordinal))
+                            throw new InvalidDataException($"{requestName}: expected no duplicate StartFightNotify after XRpcCommon bootstrap.");
+                    }
+
+                    throw new InvalidDataException($"{requestName}: expected exactly StartFightNotify, {responseName}, and five XRpcCommon pushes, got extra {DescribePacket(extraPacket)}.");
+                }
 
                 return firstXRpcPayload
                     ?? throw new InvalidDataException($"{requestName}: expected at least one captured XRpc payload.");
@@ -7203,35 +8242,29 @@ namespace AscNet.Test
                 AssertEqual(0, GetRequiredIntegerMember(response, "Code"), $"{responseName} Code");
             }
 
-            static void AssertXRpcPlayerInteractEmitsRetailNotifies(
+            static void AssertXRpcPlayerInteractEmitsRetailStartFinishNotifies(
                 LoopbackSessionHarness harness,
                 int packetId,
                 long playerId)
             {
-                const string requestName = "XRpcCommon RpcPlayerInteractRequest";
-                byte[] argsPayload = MessagePackSerializer.Serialize(new object?[]
-                {
-                    checked((int)playerId),
-                    1,
-                    991,
-                    95,
-                    100016,
-                    2,
-                    4001,
-                    1
-                });
-                byte[] requestPayload = MessagePackSerializer.Serialize(new object?[]
-                {
-                    "RpcPlayerInteractRequest",
-                    argsPayload,
-                    1,
-                    15,
-                    4001
-                });
+                const string requestName = "XRpcCommon RpcPlayerInteractRequest retail start/finish";
+                byte[] requestPayload = BuildXRpcPlayerInteractRequestPayload(
+                    playerId,
+                    targetUuid: 95,
+                    targetPlaceId: 100016,
+                    targetType: 2,
+                    optionId: 1);
 
                 InvokeRegisteredRequestHandlerWithContent("XRpcCommon", harness.Session, packetId, requestPayload);
-                AssertXRpcCommonPushArgs(
+
+                Packet startPacket = ReadXRpcCommonAfterOptionalBigWorldRewardSidecars(
                     harness,
+                    requestName,
+                    expectedRewardItemId: 3,
+                    expectedRewardCount: 100);
+
+                AssertXRpcCommonPushPacketArgs(
+                    startPacket,
                     "RpcNpcInteractStartNotify",
                     [95, 100016, 2, 1],
                     $"{requestName} start notify",
@@ -7250,10 +8283,267 @@ namespace AscNet.Test
                     "XRpcCommonResponse",
                     $"{requestName} response",
                     responseType,
-                    maxPacketsToRead: 1);
+                    maxPacketsToRead: 4);
                 AssertEqual(0, GetRequiredIntegerMember(response, "Code"), $"{requestName} response Code");
                 if (harness.TryReadAvailablePacket($"{requestName} unexpected packet after response", out Packet extraPacket))
-                    throw new InvalidDataException($"{requestName}: expected exactly start notify, finish notify, and response; got extra {DescribePacket(extraPacket)}.");
+                    throw new InvalidDataException($"{requestName}: expected retail start/finish notifies, optional reward pushes, and response; got extra {DescribePacket(extraPacket)}.");
+            }
+
+            static void AssertXRpcSceneObjectInteractEmitsRewardSidecar(
+                LoopbackSessionHarness harness,
+                int packetId,
+                long playerId)
+            {
+                const string requestName = "XRpcCommon RpcPlayerInteractRequest SceneObject table reward";
+                const int targetUuid = 117;
+                const int targetPlaceId = 100017;
+                const int targetType = 2;
+                const int optionId = 1;
+                const int expectedRewardItemId = 1;
+                const long expectedRewardCount = 7_500;
+                long initialRewardItemCount = harness.Session.inventory.Items.FirstOrDefault(item => item.Id == expectedRewardItemId)?.Count ?? 0;
+                long expectedInventoryRewardItemCount = initialRewardItemCount + expectedRewardCount;
+                byte[] requestPayload = BuildXRpcPlayerInteractRequestPayload(
+                    playerId,
+                    targetUuid,
+                    targetPlaceId,
+                    targetType,
+                    optionId);
+
+                InvokeRegisteredRequestHandlerWithContent("XRpcCommon", harness.Session, packetId, requestPayload);
+
+                ReadXRpcComponentActionCollectAfterBigWorldProgressSidecars(
+                    harness,
+                    requestName,
+                    expectedRewardItemId,
+                    expectedRewardCount);
+                AssertXRpcCommonPushArgs(
+                    harness,
+                    "RpcNpcInteractStartNotify",
+                    [targetUuid, targetPlaceId, targetType, optionId],
+                    $"{requestName} start notify");
+                AssertXRpcCommonPushArgs(
+                    harness,
+                    "RpcNpcInteractFinishNotify",
+                    [],
+                    $"{requestName} finish notify");
+                AssertRewardInventoryPushBeforeXRpcCommonResponse(
+                    harness,
+                    packetId,
+                    requestName,
+                    expectedRewardItemId,
+                    expectedInventoryRewardItemCount);
+
+                if (harness.TryReadAvailablePacket($"{requestName} unexpected packet after response", out Packet extraPacket))
+                    throw new InvalidDataException($"{requestName}: expected collect sidecar, start/finish notifies, reward inventory push, and response; got extra {DescribePacket(extraPacket)}.");
+            }
+
+            static byte[] BuildXRpcPlayerInteractRequestPayload(
+                long playerId,
+                int targetUuid,
+                int targetPlaceId,
+                int targetType,
+                int optionId)
+            {
+                byte[] argsPayload = MessagePackSerializer.Serialize(new object?[]
+                {
+                    checked((int)playerId),
+                    1,
+                    991,
+                    targetUuid,
+                    targetPlaceId,
+                    targetType,
+                    4001,
+                    optionId
+                });
+                return MessagePackSerializer.Serialize(new object?[]
+                {
+                    "RpcPlayerInteractRequest",
+                    argsPayload,
+                    1,
+                    15,
+                    4001
+                });
+            }
+
+            static Packet ReadXRpcCommonAfterOptionalBigWorldRewardSidecars(
+                LoopbackSessionHarness harness,
+                string requestName,
+                int expectedRewardItemId,
+                long expectedRewardCount)
+            {
+                for (int packetIndex = 0; packetIndex < 4; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{requestName} pre-start packet {packetIndex + 1}");
+                    AssertEqual(Packet.ContentType.Push, packet.Type, $"{requestName} pre-start packet {packetIndex + 1} type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    if (string.Equals(push.Name, "XRpcCommon", StringComparison.Ordinal))
+                        return packet;
+
+                    if (string.Equals(push.Name, "XRpcComponentAction", StringComparison.Ordinal))
+                    {
+                        AssertXRpcComponentActionCollectNotify(
+                            push.Content,
+                            $"{requestName} optional collect sidecar",
+                            expectedRewardItemId,
+                            expectedRewardCount);
+                        continue;
+                    }
+
+                    if (string.Equals(push.Name, "NotifyBigWorldBoxData", StringComparison.Ordinal)
+                        || string.Equals(push.Name, "NotifyBigWorldCourseExploreProgress", StringComparison.Ordinal))
+                        continue;
+
+                    throw new InvalidDataException($"{requestName}: expected optional BigWorld reward sidecar or XRpcCommon start notify, got push {push.Name}.");
+                }
+
+                throw new InvalidDataException($"{requestName}: expected XRpcCommon start notify after optional BigWorld reward sidecars.");
+            }
+
+            static void ReadXRpcComponentActionCollectAfterBigWorldProgressSidecars(
+                LoopbackSessionHarness harness,
+                string requestName,
+                int expectedRewardItemId,
+                long expectedRewardCount)
+            {
+                for (int packetIndex = 0; packetIndex < 4; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{requestName} collect/prelude packet {packetIndex + 1}");
+                    AssertEqual(Packet.ContentType.Push, packet.Type, $"{requestName} collect/prelude packet {packetIndex + 1} type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    if (string.Equals(push.Name, "XRpcComponentAction", StringComparison.Ordinal))
+                    {
+                        AssertXRpcComponentActionCollectNotify(
+                            push.Content,
+                            $"{requestName} collect sidecar",
+                            expectedRewardItemId,
+                            expectedRewardCount);
+                        return;
+                    }
+
+                    if (string.Equals(push.Name, "NotifyBigWorldBoxData", StringComparison.Ordinal)
+                        || string.Equals(push.Name, "NotifyBigWorldCourseExploreProgress", StringComparison.Ordinal))
+                        continue;
+
+                    throw new InvalidDataException($"{requestName}: expected BigWorld reward progress sidecar or XRpcComponentAction collect notify, got push {push.Name}.");
+                }
+
+                throw new InvalidDataException($"{requestName}: expected XRpcComponentAction collect notify before XRpcCommon start/finish.");
+            }
+
+            static void AssertXRpcComponentActionCollectNotify(
+                byte[] payload,
+                string name,
+                int expectedRewardItemId,
+                long expectedRewardCount)
+            {
+                object?[] rpc = DeserializeXRpcList(payload, name);
+                AssertEqual(6, rpc.Length, $"{name} XRpcComponentAction envelope field count");
+                AssertEqual("RpcSceneObjectCollectNotify", RequiredXRpcMethodName(rpc, name), $"{name} method name");
+                byte[] argsPayload = RequiredXRpcArgsPayload(rpc, $"{name} args payload");
+                if (argsPayload.Length == 0)
+                    throw new InvalidDataException($"{name}: expected non-empty RpcSceneObjectCollectNotify args payload.");
+
+                object?[] args = DeserializeXRpcArgsList(argsPayload, $"{name} args");
+                if (args.Length == 0)
+                    throw new InvalidDataException($"{name} args: expected reward goods list argument.");
+                if (args[0] is not object?[] rewardGoods || rewardGoods.Length == 0)
+                    throw new InvalidDataException($"{name} args[0]: expected non-empty reward goods list.");
+
+                Dictionary<string, object?>? matchingReward = null;
+                List<long> observedTemplateIds = [];
+                for (int rewardIndex = 0; rewardIndex < rewardGoods.Length; rewardIndex++)
+                {
+                    Dictionary<string, object?> reward = RequiredStringKeyMap(rewardGoods[rewardIndex], $"{name} args[0][{rewardIndex}]");
+                    long templateId = RequiredXRpcInteger(reward, "TemplateId", $"{name} args[0][{rewardIndex}]");
+                    observedTemplateIds.Add(templateId);
+                    if (templateId == expectedRewardItemId)
+                    {
+                        matchingReward = reward;
+                        break;
+                    }
+                }
+
+                if (matchingReward is null)
+                    throw new InvalidDataException($"{name}: expected reward goods TemplateId {expectedRewardItemId}, got [{string.Join(", ", observedTemplateIds)}].");
+                AssertEqual(expectedRewardCount, RequiredXRpcInteger(matchingReward, "Count", $"{name} reward goods TemplateId {expectedRewardItemId}"), $"{name} reward goods count");
+            }
+
+            static Dictionary<string, object?> RequiredStringKeyMap(object? value, string name)
+            {
+                if (value is not System.Collections.IDictionary dictionary)
+                    throw new InvalidDataException($"{name}: expected MessagePack map, got {value?.GetType().FullName ?? "null"}.");
+
+                Dictionary<string, object?> map = new(StringComparer.Ordinal);
+                foreach (System.Collections.DictionaryEntry entry in dictionary)
+                {
+                    if (entry.Key is not string key)
+                        throw new InvalidDataException($"{name}: expected string map key, got {entry.Key?.GetType().FullName ?? "null"}.");
+                    map[key] = entry.Value;
+                }
+
+                return map;
+            }
+
+            static void AssertRewardInventoryPushBeforeXRpcCommonResponse(
+                LoopbackSessionHarness harness,
+                int packetId,
+                string requestName,
+                int expectedRewardItemId,
+                long expectedRewardCount)
+            {
+                bool sawRewardInventoryPush = false;
+                Type responseType = RequiredPayloadType("XRpcCommonResponse");
+                for (int packetIndex = 0; packetIndex < 5; packetIndex++)
+                {
+                    Packet packet = harness.ReadPacket($"{requestName} reward/response packet {packetIndex + 1}");
+                    if (packet.Type == Packet.ContentType.Response)
+                    {
+                        if (!sawRewardInventoryPush)
+                            throw new InvalidDataException($"{requestName}: expected NotifyItemDataList reward push before XRpcCommonResponse.");
+
+                        Packet.Response packetResponse = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                        AssertEqual(packetId, packetResponse.Id, $"{requestName} response packet id");
+                        AssertEqual("XRpcCommonResponse", packetResponse.Name, $"{requestName} response packet name");
+                        object response = MessagePackDeserialize(responseType, packetResponse.Content)
+                            ?? throw new InvalidDataException($"{requestName} response: XRpcCommonResponse deserialized as nil.");
+                        AssertEqual(0, GetRequiredIntegerMember(response, "Code"), $"{requestName} response Code");
+                        return;
+                    }
+
+                    AssertEqual(Packet.ContentType.Push, packet.Type, $"{requestName} reward/response packet {packetIndex + 1} type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    if (string.Equals(push.Name, nameof(NotifyItemDataList), StringComparison.Ordinal))
+                    {
+                        AssertRewardInventoryPush(push.Content, requestName, expectedRewardItemId, expectedRewardCount);
+                        sawRewardInventoryPush = true;
+                        continue;
+                    }
+
+                    if (string.Equals(push.Name, "NotifyBigWorldBoxData", StringComparison.Ordinal)
+                        || string.Equals(push.Name, "NotifyBigWorldCourseExploreProgress", StringComparison.Ordinal)
+                        || string.Equals(push.Name, "NotifyEquipDataList", StringComparison.Ordinal))
+                        continue;
+                    throw new InvalidDataException($"{requestName}: expected NotifyItemDataList reward push before XRpcCommonResponse, got unexpected push {push.Name}.");
+                }
+
+                throw new InvalidDataException($"{requestName}: expected XRpcCommonResponse after reward inventory push.");
+            }
+
+            static void AssertRewardInventoryPush(
+                byte[] content,
+                string requestName,
+                int expectedRewardItemId,
+                long expectedRewardCount)
+            {
+                NotifyItemDataList rewardPush = MessagePackSerializer.Deserialize<NotifyItemDataList>(content);
+                if (rewardPush.ItemDataList.Count == 0)
+                    throw new InvalidDataException($"{requestName} NotifyItemDataList: expected at least one reward item.");
+
+                Item? rewardItem = rewardPush.ItemDataList.SingleOrDefault(item => item.Id == expectedRewardItemId);
+                if (rewardItem is null)
+                    throw new InvalidDataException($"{requestName} NotifyItemDataList: expected reward item {expectedRewardItemId}.");
+                AssertEqual(expectedRewardCount, rewardItem.Count, $"{requestName} NotifyItemDataList reward item count");
             }
 
             static void AssertXRpcCommonPushArgs(
@@ -7264,6 +8554,16 @@ namespace AscNet.Test
                 string? expectedPayloadHex = null)
             {
                 Packet packet = harness.ReadPacket($"{name} packet");
+                AssertXRpcCommonPushPacketArgs(packet, expectedMethodName, expectedArgs, name, expectedPayloadHex);
+            }
+
+            static void AssertXRpcCommonPushPacketArgs(
+                Packet packet,
+                string expectedMethodName,
+                IReadOnlyList<long> expectedArgs,
+                string name,
+                string? expectedPayloadHex = null)
+            {
                 AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
                 Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
                 AssertEqual("XRpcCommon", push.Name, $"{name} packet name");

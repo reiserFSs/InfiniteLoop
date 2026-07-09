@@ -25,12 +25,17 @@ namespace AscNet.GameServer
         public int? PendingEnterWorldChatRequestId;
         public int? PendingGetWorldChannelInfoRequestId;
         public bool PendingBigWorldLoadCompleteXRpc;
+        public bool PendingBigWorldStartFightNotify;
         public readonly Logger log;
         private long lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private int packetNo = 0;
         private readonly MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block);
         private const int InitialReceiveBufferLength = 1 << 16;
         private const int MaxReceivePacketLength = 1 << 22;
+        private static readonly object BigWorldPacketDumpLock = new();
+        private static long BigWorldPacketDumpOrdinal;
+        private static readonly string BigWorldPacketDumpRootDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".runtime"));
+        private static readonly string DefaultBigWorldPacketDumpDirectory = Path.Combine(BigWorldPacketDumpRootDirectory, "bigworld-packet-dumps");
 
 
         public Session(string id, TcpClient tcpClient)
@@ -161,7 +166,7 @@ namespace AscNet.GameServer
                                     case Packet.ContentType.Request:
                                         Packet.Request request = MessagePackSerializer.Deserialize<Packet.Request>(packet.Content);
                                         debugContent = request.Content;
-
+                                        ProbeBigWorldPacket("request", request.Name, request.Content, request.Id, packet.No);
                                         RequestPacketHandlerDelegate? requestPacketHandler = PacketFactory.GetRequestPacketHandler(request.Name);
                                         if (requestPacketHandler is not null)
                                         {
@@ -180,6 +185,7 @@ namespace AscNet.GameServer
                                     case Packet.ContentType.Push:
                                         Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
                                         debugContent = push.Content;
+                                        ProbeBigWorldPacket("client-push", push.Name, push.Content, null, packet.No);
                                         if (IsKnownClientPush(push.Name))
                                             log.Info(push.Name);
                                         else
@@ -263,6 +269,7 @@ namespace AscNet.GameServer
                 Name = typeof(T).Name,
                 Content = MessagePackSerializer.Serialize(push)
             };
+            ProbeBigWorldPacket("push", packet.Name, packet.Content, null, packetNo + 1);
             ProbeEquipmentPush(packet.Name, push);
             Send(new Packet()
             {
@@ -280,6 +287,7 @@ namespace AscNet.GameServer
                 Name = name,
                 Content = push
             };
+            ProbeBigWorldPacket("push", packet.Name, packet.Content, null, packetNo + 1);
             ProbeEquipmentPush(name, push);
             Send(new Packet()
             {
@@ -324,6 +332,87 @@ namespace AscNet.GameServer
             }
         }
 
+        private void ProbeBigWorldPacket(string direction, string name, byte[] content, int? requestId, int outerPacketNo)
+        {
+            if (!IsBigWorldPacketDumpEnabled() || !ShouldDumpBigWorldPacket(name))
+                return;
+
+            try
+            {
+                string dumpDirectory = GetBigWorldPacketDumpDirectory();
+                Directory.CreateDirectory(dumpDirectory);
+                long ordinal = System.Threading.Interlocked.Increment(ref BigWorldPacketDumpOrdinal);
+                string timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddTHHmmss.fffffffZ");
+                string baseName = $"{timestamp}-{ordinal:D6}-{SanitizeDumpFileSegment(id)}-{SanitizeDumpFileSegment(direction)}-{SanitizeDumpFileSegment(name)}";
+                string msgpackPath = Path.Combine(dumpDirectory, baseName + ".msgpack");
+                string jsonPath = Path.Combine(dumpDirectory, baseName + ".json");
+                string indexPath = Path.Combine(dumpDirectory, "index.jsonl");
+                string line = JsonConvert.SerializeObject(new
+                {
+                    Timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                    SessionId = id,
+                    Direction = direction,
+                    Name = name,
+                    RequestId = requestId,
+                    OuterPacketNo = outerPacketNo,
+                    PayloadBytes = content.Length,
+                    MessagePackPath = msgpackPath,
+                    JsonPath = jsonPath
+                }) + Environment.NewLine;
+
+                lock (BigWorldPacketDumpLock)
+                {
+                    File.WriteAllBytes(msgpackPath, content);
+                    File.WriteAllText(jsonPath, FormatMessagePackContent(content));
+                    File.AppendAllText(indexPath, line);
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Warn($"BigWorld packet dump failed: {ex.Message}");
+            }
+        }
+
+        private static bool IsBigWorldPacketDumpEnabled()
+        {
+            string? value = Environment.GetEnvironmentVariable("ASCNET_DUMP_BIGWORLD_PACKETS")
+                ?? Environment.GetEnvironmentVariable("ASCNET_DUMP_BIGWORLD");
+            return string.Equals(value, "1", StringComparison.Ordinal)
+                || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetBigWorldPacketDumpDirectory()
+        {
+            string? configured = Environment.GetEnvironmentVariable("ASCNET_DUMP_BIGWORLD_DIR");
+            if (string.IsNullOrWhiteSpace(configured))
+                return DefaultBigWorldPacketDumpDirectory;
+
+            return Path.IsPathRooted(configured)
+                ? Path.GetFullPath(configured)
+                : Path.GetFullPath(Path.Combine(BigWorldPacketDumpRootDirectory, configured));
+        }
+
+        private static bool ShouldDumpBigWorldPacket(string name)
+        {
+            return name.Contains("BigWorld", StringComparison.Ordinal)
+                || name.StartsWith("DlcWorld", StringComparison.Ordinal)
+                || name.StartsWith("XRpc", StringComparison.Ordinal)
+                || name is "NotifySgDormData"
+                    or "StartFightNotify"
+                    or "LoadCompleteRequest"
+                    or "LoadCompleteResponse"
+                    or "EnterInstLevelRequest"
+                    or "EnterInstLevelResponse"
+                    or "LeaveWorldRequest"
+                    or "LeaveWorldResponse";
+        }
+
+        private static string SanitizeDumpFileSegment(string value)
+        {
+            return new string(value.Select(static c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '_').ToArray());
+        }
+
         private static string DescribeEquipList(IReadOnlyCollection<EquipData>? equips)
         {
             if (equips is null)
@@ -350,6 +439,7 @@ namespace AscNet.GameServer
                 Name = typeof(T).Name,
                 Content = MessagePackSerializer.Serialize(response)
             };
+            ProbeBigWorldPacket("response", packet.Name, packet.Content, packet.Id, 0);
             Send(new Packet()
             {
                 No = 0,
@@ -367,6 +457,7 @@ namespace AscNet.GameServer
                 Name = name,
                 Content = responseContent
             };
+            ProbeBigWorldPacket("response", packet.Name, packet.Content, packet.Id, 0);
             Send(new Packet()
             {
                 No = 0,
