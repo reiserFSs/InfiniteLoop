@@ -30,6 +30,20 @@ namespace AscNet.GameServer.Handlers
         public int Code;
         public List<RewardGoods> RewardGoodsList { get; set; } = new();
     }
+
+    [MessagePackObject(true)]
+    public class ItemSellRequest
+    {
+        public Dictionary<int, int> SellItems { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
+    public class ItemSellResponse
+    {
+        public int Code { get; set; }
+        public Dictionary<int, int> ObtainItems { get; set; } = new();
+    }
+
     [MessagePackObject(true)]
     public class ItemBuyAssetRequest
     {
@@ -104,6 +118,267 @@ namespace AscNet.GameServer.Handlers
             session.inventory.Save();
             session.character.Save();
             session.SendResponse(response, packet.Id);
+        }
+
+        [RequestPacketHandler("ItemSellRequest")]
+        public static void ItemSellRequestHandler(Session session, Packet.Request packet)
+        {
+            ItemSellRequest request = packet.Deserialize<ItemSellRequest>();
+            if (!TryBuildItemSale(
+                    session.inventory,
+                    request.SellItems,
+                    out ItemSellFailure failure,
+                    out Dictionary<int, int> obtainItems,
+                    out Dictionary<int, int> itemDeltas))
+            {
+                session.log.Warn($"ItemSellRequest rejected: {failure}; SellItems={FormatItemSellRequest(request.SellItems)}.");
+                session.SendResponse(new ItemSellResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            List<Item> changedItems = itemDeltas
+                .OrderBy(itemDelta => itemDelta.Key)
+                .Where(itemDelta => itemDelta.Value != 0)
+                .Select(itemDelta => session.inventory.Do(itemDelta.Key, itemDelta.Value))
+                .ToList();
+
+            session.SendPush(new NotifyItemDataList { ItemDataList = changedItems });
+            session.inventory.Save();
+            session.SendResponse(new ItemSellResponse
+            {
+                Code = 0,
+                ObtainItems = obtainItems
+            }, packet.Id);
+        }
+
+        private enum ItemSellFailure
+        {
+            None,
+            EmptyRequest,
+            InvalidRequest,
+            UnknownItem,
+            UnconfiguredSale,
+            InvalidPayout,
+            InvalidInventoryState,
+            InsufficientStock,
+            ArithmeticOverflow,
+            InvalidFinalBalance
+        }
+
+        private static bool TryBuildItemSale(
+            AscNet.Common.Database.Inventory inventory,
+            Dictionary<int, int>? sellItems,
+            out ItemSellFailure failure,
+            out Dictionary<int, int> obtainItems,
+            out Dictionary<int, int> itemDeltas)
+        {
+            failure = ItemSellFailure.None;
+            obtainItems = [];
+            itemDeltas = [];
+            if (sellItems is null || sellItems.Count == 0)
+                return FailItemSale(out failure, ItemSellFailure.EmptyRequest);
+
+            Dictionary<int, ItemTable> itemTables = TableReaderV2.Parse<ItemTable>()
+                .ToDictionary(item => item.Id);
+            Dictionary<int, List<Item>> inventoryItems = inventory.Items
+                .GroupBy(inventoryItem => inventoryItem.Id)
+                .ToDictionary(group => group.Key, group => group.ToList());
+
+            foreach ((int itemId, int count) in sellItems)
+            {
+                if (itemId <= 0 || count <= 0)
+                    return FailItemSale(out failure, ItemSellFailure.InvalidRequest);
+                if (!itemTables.TryGetValue(itemId, out ItemTable? itemTable))
+                    return FailItemSale(out failure, ItemSellFailure.UnknownItem);
+                if (itemTable.SellForId is not int obtainItemId
+                    || itemTable.SellForCount is not int obtainItemCount
+                    || obtainItemId <= 0
+                    || obtainItemCount <= 0)
+                {
+                    return FailItemSale(out failure, ItemSellFailure.UnconfiguredSale);
+                }
+                if (!itemTables.ContainsKey(obtainItemId)
+                    || !AscNet.Common.Database.Inventory.IsValidClientItemId(obtainItemId))
+                {
+                    return FailItemSale(out failure, ItemSellFailure.InvalidPayout);
+                }
+                if (!TryGetInventoryItemCount(inventoryItems, itemId, out long inventoryCount))
+                    return FailItemSale(out failure, ItemSellFailure.InvalidInventoryState);
+                if (inventoryCount < count)
+                    return FailItemSale(out failure, ItemSellFailure.InsufficientStock);
+
+                long obtainedCount;
+                try
+                {
+                    obtainedCount = checked((long)count * obtainItemCount);
+                }
+                catch (OverflowException)
+                {
+                    return FailItemSale(out failure, ItemSellFailure.ArithmeticOverflow);
+                }
+
+                if (obtainedCount > int.MaxValue
+                    || !TryAddItemDelta(itemDeltas, itemId, -count)
+                    || !TryAddItemDelta(itemDeltas, obtainItemId, obtainedCount)
+                    || !TryAddObtainItem(obtainItems, obtainItemId, obtainedCount))
+                {
+                    return FailItemSale(out failure, ItemSellFailure.ArithmeticOverflow);
+                }
+            }
+
+            foreach ((int itemId, int delta) in itemDeltas)
+            {
+                ItemTable itemTable = itemTables[itemId];
+                long currentCount = 0;
+                if (inventoryItems.ContainsKey(itemId)
+                    && !TryGetInventoryItemCount(inventoryItems, itemId, out currentCount))
+                {
+                    return FailItemSale(out failure, ItemSellFailure.InvalidInventoryState);
+                }
+
+                long finalCount;
+                try
+                {
+                    finalCount = checked(currentCount + delta);
+                }
+                catch (OverflowException)
+                {
+                    return FailItemSale(out failure, ItemSellFailure.ArithmeticOverflow);
+                }
+
+                if (finalCount < 0
+                    || itemTable.MaxCount is int maxCount && finalCount > maxCount)
+                {
+                    return FailItemSale(out failure, ItemSellFailure.InvalidFinalBalance);
+                }
+            }
+
+            return TryNormalizeInventoryItemStacks(inventory, inventoryItems, itemDeltas.Keys)
+                || FailItemSale(out failure, ItemSellFailure.InvalidInventoryState);
+        }
+
+        private static bool FailItemSale(out ItemSellFailure failure, ItemSellFailure reason)
+        {
+            failure = reason;
+            return false;
+        }
+
+        private static string FormatItemSellRequest(Dictionary<int, int>? sellItems)
+        {
+            if (sellItems is null)
+                return "<null>";
+
+            const int maxLoggedItems = 32;
+            SortedDictionary<int, int> loggedItems = new();
+            foreach ((int itemId, int count) in sellItems)
+            {
+                if (loggedItems.Count < maxLoggedItems)
+                {
+                    loggedItems.Add(itemId, count);
+                    continue;
+                }
+
+                int largestLoggedItemId = loggedItems.Last().Key;
+                if (itemId < largestLoggedItemId)
+                {
+                    loggedItems.Remove(largestLoggedItemId);
+                    loggedItems.Add(itemId, count);
+                }
+            }
+
+            string truncation = sellItems.Count > loggedItems.Count ? ",..." : string.Empty;
+            return $"[{string.Join(",", loggedItems.Select(item => $"{item.Key}:{item.Value}"))}{truncation}] total={sellItems.Count}";
+        }
+
+        private static bool TryGetInventoryItemCount(Dictionary<int, List<Item>> inventoryItems, int itemId, out long count)
+        {
+            count = 0;
+            if (!inventoryItems.TryGetValue(itemId, out List<Item>? items))
+                return false;
+
+            try
+            {
+                foreach (Item item in items)
+                {
+                    if (item.Count < 0)
+                        return false;
+
+                    count = checked(count + item.Count);
+                }
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryNormalizeInventoryItemStacks(
+            AscNet.Common.Database.Inventory inventory,
+            Dictionary<int, List<Item>> inventoryItems,
+            IEnumerable<int> itemIds)
+        {
+            foreach (int itemId in itemIds)
+            {
+                if (!inventoryItems.TryGetValue(itemId, out List<Item>? items) || items.Count <= 1)
+                    continue;
+                if (!TryGetInventoryItemCount(inventoryItems, itemId, out long count))
+                    return false;
+
+                Item primaryItem = items[0];
+                primaryItem.Count = count;
+                foreach (Item duplicateItem in items.Skip(1))
+                    inventory.Items.Remove(duplicateItem);
+
+                inventoryItems[itemId] = [primaryItem];
+            }
+
+            return true;
+        }
+
+        private static bool TryAddItemDelta(Dictionary<int, int> itemDeltas, int itemId, long delta)
+        {
+            long currentDelta = itemDeltas.TryGetValue(itemId, out int existingDelta)
+                ? existingDelta
+                : 0;
+            long nextDelta;
+            try
+            {
+                nextDelta = checked(currentDelta + delta);
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+
+            if (nextDelta < int.MinValue || nextDelta > int.MaxValue)
+                return false;
+
+            itemDeltas[itemId] = (int)nextDelta;
+            return true;
+        }
+
+        private static bool TryAddObtainItem(Dictionary<int, int> obtainItems, int itemId, long count)
+        {
+            long currentCount = obtainItems.TryGetValue(itemId, out int existingCount)
+                ? existingCount
+                : 0;
+            long nextCount;
+            try
+            {
+                nextCount = checked(currentCount + count);
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+
+            if (nextCount > int.MaxValue)
+                return false;
+
+            obtainItems[itemId] = (int)nextCount;
+            return true;
         }
 
         private static int ResolveFixedGiftRewardId(ItemTable itemTable)

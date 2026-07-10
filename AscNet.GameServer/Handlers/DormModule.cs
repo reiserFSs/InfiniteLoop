@@ -37,6 +37,7 @@ namespace AscNet.GameServer.Handlers
         public static void DormEnterRequestHandler(Session session, Packet.Request packet)
         {
             session.SendResponse(new DormEnterResponse(), packet.Id);
+            TaskModule.RecordConditionType(session, 29014);
         }
         
         // TODO: Dorm list (called from Details section within account info menu)

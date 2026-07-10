@@ -998,7 +998,11 @@ Sorry for the inconvenience.
             if (updateLoginAccounting)
             {
                 bool isNewDay = currentTime / 86_400 > session.player.PlayerData.LastLoginTime / 86_400;
-                if (isNewDay)
+                if (session.player.PlayerData.NewPlayerTaskActiveDay <= 0)
+                {
+                    session.player.PlayerData.NewPlayerTaskActiveDay = 1;
+                }
+                else if (isNewDay)
                 {
                     session.player.PlayerData.NewPlayerTaskActiveDay += 1;
                 }
@@ -1028,11 +1032,13 @@ Sorry for the inconvenience.
             {
                 TaskData = new()
                 {
-                    NewbieHonorReward = false,
+                    NewbieHonorReward = session.player.MissionProgress.NewbieHonorReward,
                     NewbieUnlockPeriod = 7,
                     Course = session.stage.Course,
                     FinishedTasks = session.stage.FinishedTasks,
-                    Tasks = TaskModule.BuildStoryTaskData(session),
+                    NewPlayerRewardRecord = session.player.MissionProgress.NewPlayerRewardRecords,
+                    NewbieRecvProgress = session.player.MissionProgress.NewbieRewardRecords,
+                    Tasks = TaskModule.BuildTaskData(session),
                 }
             };
             NotifyGatherRewardList notifyGatherRewardList = new()
@@ -1075,8 +1081,9 @@ Sorry for the inconvenience.
             session.SendPush(notifyChatLoginData);
             session.SendPush(new NotifySocialData());
             session.SendPush(notifyTaskData);
-            session.SendPush(new NotifyActivenessStatus());
+            session.SendPush(TaskModule.BuildActivenessStatus(session));
             session.SendPush(notifyNewPlayerTaskStatus);
+            TaskModule.SendTaskSync(session);
             session.SendPush(BuildRegressionLoginData());
             session.SendPush(new NotifyMaintainerActionData());
             session.SendPush(new NotifyAllRedEnvelope());

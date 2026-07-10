@@ -72,6 +72,13 @@ def _is_ascnet_host(host):
         or (host.startswith("prod-encdn-") and host.endswith(".kurogame.net"))
     )
 
+def _is_upstream_notice_html_request(flow):
+    path = flow.request.path.split("?", 1)[0]
+    return (
+        _is_ascnet_host(flow.request.pretty_host)
+        and path.startswith("/prod/client/notice/html/")
+    )
+
 
 def _is_ascnet_gate_request(flow):
     return flow.request.path.split("?", 1)[0] == "/api/Login/Login"
@@ -121,6 +128,12 @@ def request(flow: http.HTTPFlow) -> None:
     if _is_feedback_request(flow):
         flow.response = http.Response.make(200, b"OK", {"Content-Type": "text/plain"})
         _log_flow("SINK", flow)
+        return
+
+    # Notice metadata points at version-specific CDN HTML files. Keep those
+    # requests on the original CDN so new notices work without local fixtures.
+    if _is_upstream_notice_html_request(flow):
+        _log_flow("PASS", flow)
         return
 
     if not (_is_ascnet_host(flow.request.pretty_host) or _is_ascnet_gate_request(flow) or _is_wildcard_ascnet_request(flow)):

@@ -382,3 +382,6 @@ proxylog
 
 # ignore clanker memory
 *.md
+
+# ignore test scripts
+test_proxy.py

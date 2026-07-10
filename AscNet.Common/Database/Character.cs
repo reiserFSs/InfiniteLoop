@@ -54,6 +54,22 @@ namespace AscNet.Common.Database
             return equip.Priority != 100;
         }
 
+        public static EquipTable? ResolveEquipTemplate(uint templateId)
+        {
+            EquipTable? exact = TableReaderV2.Parse<EquipTable>()
+                .FirstOrDefault(equip => equip.Id == templateId);
+            return exact is not null && IsOwnableEquipTemplate(exact) ? exact : null;
+        }
+
+        public static EquipBreakThroughTable? ResolveEquipBreakThrough(uint templateId, int breakthrough)
+        {
+            if (ResolveEquipTemplate(templateId) is null)
+                return null;
+
+            return TableReaderV2.Parse<EquipBreakThroughTable>()
+                .FirstOrDefault(row => row.EquipId == templateId && row.Times == breakthrough);
+        }
+
         public bool NormalizeEquipsForCurrentTables()
         {
             if (Equips is null)
@@ -72,7 +88,8 @@ namespace AscNet.Common.Database
 
             foreach (EquipData equip in Equips)
             {
-                if (equip.TemplateId == 0 || equip.IsRecycle || !ownableEquipTemplates.ContainsKey(equip.TemplateId))
+                if (equip.TemplateId == 0 || equip.IsRecycle
+                    || !ownableEquipTemplates.ContainsKey(equip.TemplateId))
                 {
                     changed = true;
                     continue;
@@ -94,6 +111,26 @@ namespace AscNet.Common.Database
                 {
                     equip.Level = 1;
                     changed = true;
+                }
+
+                EquipBreakThroughTable? progression = ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough);
+                if (progression is not null)
+                {
+                    int clampedLevel = Math.Clamp(equip.Level, 1, progression.LevelLimit);
+                    if (equip.Level != clampedLevel)
+                    {
+                        equip.Level = clampedLevel;
+                        changed = true;
+                    }
+
+                    EquipLevelUpTemplate? levelTemplate = equipLevelUpTemplates.FirstOrDefault(row =>
+                        row.TemplateId == progression.LevelUpTemplateId && row.Level == equip.Level);
+                    int clampedExp = Math.Clamp(equip.Exp, 0, levelTemplate?.Exp ?? 0);
+                    if (equip.Exp != clampedExp)
+                    {
+                        equip.Exp = clampedExp;
+                        changed = true;
+                    }
                 }
 
                 if (equip.ResonanceInfo is null)
@@ -581,8 +618,10 @@ namespace AscNet.Common.Database
         public EquipData? AddEquipExp(int equipId, int exp)
         {
             var equip = Equips.FirstOrDefault(x => x.Id == equipId);
-            EquipTable? equipData = TableReaderV2.Parse<EquipTable>().FirstOrDefault(x => x.Id == equip?.TemplateId);
-            EquipBreakThroughTable? equipBreakThroughTable = TableReaderV2.Parse<EquipBreakThroughTable>().FirstOrDefault(x => x.EquipId == equip?.TemplateId && x.Times == equip?.Breakthrough);
+            EquipTable? equipData = equip is null ? null : ResolveEquipTemplate(equip.TemplateId);
+            EquipBreakThroughTable? equipBreakThroughTable = equip is null
+                ? null
+                : ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough);
 
             if (equip is not null && equipData is not null && equipBreakThroughTable is not null)
             {
@@ -590,7 +629,7 @@ namespace AscNet.Common.Database
 
                 if (levelUpTemplate is not null)
                 {
-                    if (exp + equip.Exp < levelUpTemplate.Exp)
+                    if ((long)Math.Max(0, exp) + equip.Exp < levelUpTemplate.Exp)
                     {
                         equip.Exp += Math.Max(0, exp);
                     }
@@ -614,24 +653,27 @@ namespace AscNet.Common.Database
         public int GetEquipExpRequiredToReach(int equipId, int targetLevel, int targetExp = 0)
         {
             var equip = Equips.FirstOrDefault(x => x.Id == equipId);
-            EquipBreakThroughTable? equipBreakThroughTable = TableReaderV2.Parse<EquipBreakThroughTable>().FirstOrDefault(x => x.EquipId == equip?.TemplateId && x.Times == equip?.Breakthrough);
+            EquipBreakThroughTable? equipBreakThroughTable = equip is null
+                ? null
+                : ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough);
             if (equip is null || equipBreakThroughTable is null)
                 return 0;
 
-            int clampedTargetLevel = Math.Clamp(targetLevel, equip.Level, equipBreakThroughTable.LevelLimit);
+            int currentLevel = Math.Min(equip.Level, equipBreakThroughTable.LevelLimit);
+            int clampedTargetLevel = Math.Clamp(targetLevel, currentLevel, equipBreakThroughTable.LevelLimit);
             int currentExp = Math.Max(0, equip.Exp);
             int requiredExp = 0;
 
-            for (int level = equip.Level; level < clampedTargetLevel; level++)
+            for (int level = currentLevel; level < clampedTargetLevel; level++)
             {
                 EquipLevelUpTemplate? levelUpTemplate = equipLevelUpTemplates.FirstOrDefault(x => x.TemplateId == equipBreakThroughTable.LevelUpTemplateId && x.Level == level);
                 if (levelUpTemplate is null)
                     return requiredExp;
 
-                requiredExp += Math.Max(0, levelUpTemplate.Exp - (level == equip.Level ? currentExp : 0));
+                requiredExp += Math.Max(0, levelUpTemplate.Exp - (level == currentLevel ? currentExp : 0));
             }
 
-            if (clampedTargetLevel == equip.Level)
+            if (clampedTargetLevel == currentLevel)
             {
                 requiredExp += Math.Max(0, targetExp - currentExp);
             }
@@ -644,14 +686,6 @@ namespace AscNet.Common.Database
             return Math.Max(0, requiredExp);
         }
 
-        public int AddEquipExpUpTo(int equipId, int exp, int targetLevel, int targetExp = 0)
-        {
-            int appliedExp = Math.Min(Math.Max(0, exp), GetEquipExpRequiredToReach(equipId, targetLevel, targetExp));
-            if (appliedExp > 0)
-                AddEquipExp(equipId, appliedExp);
-
-            return appliedExp;
-        }
 
         public void Save()
         {

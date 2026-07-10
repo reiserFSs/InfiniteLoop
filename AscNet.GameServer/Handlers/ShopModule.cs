@@ -153,6 +153,7 @@ namespace AscNet.GameServer.Handlers
                 ApplyShopReward(session, rewardGoods);
                 session.inventory.Save();
                 session.character.Save();
+                TaskModule.RecordConditionType(session, 20201);
             }
 
             session.SendResponse(response, packet.Id);

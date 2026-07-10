@@ -681,6 +681,7 @@ namespace AscNet.Common.MsgPack
                 public Int32 State { get; set; }
                 public UInt32 RecordTime { get; set; }
                 public Int32 ActivityId { get; set; }
+                public Int32 ActivateTime { get; set; }
             }
 
             public List<NotifyTaskDataTaskDataTask> Tasks { get; set; } = new();
@@ -740,6 +741,7 @@ namespace AscNet.Common.MsgPack
                 public Int32 State { get; set; }
                 public UInt32 RecordTime { get; set; }
                 public Int32 ActivityId { get; set; }
+                public Int32 ActivateTime { get; set; }
             }
 
             public List<NotifyTaskTasksTask> Tasks { get; set; } = new();

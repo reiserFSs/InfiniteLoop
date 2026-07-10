@@ -80,6 +80,31 @@ namespace AscNet.Common.Database
         public long ClaimedAt { get; set; }
     }
 
+    public class MissionProgressState
+    {
+        [BsonElement("condition_counters")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> ConditionCounters { get; set; } = new();
+
+        [BsonElement("claimed_task_ids")]
+        public List<int> ClaimedTaskIds { get; set; } = new();
+
+        [BsonElement("new_player_reward_records")]
+        public List<int> NewPlayerRewardRecords { get; set; } = new();
+
+        [BsonElement("newbie_reward_records")]
+        public List<int> NewbieRewardRecords { get; set; } = new();
+
+        [BsonElement("newbie_honor_reward")]
+        public bool NewbieHonorReward { get; set; }
+
+        [BsonElement("daily_reset_day")]
+        public long DailyResetDay { get; set; } = -1;
+
+        [BsonElement("weekly_reset_week")]
+        public long WeeklyResetWeek { get; set; } = -1;
+    }
+
     public class Player
     {
         public static readonly IMongoCollection<Player> collection = Common.db.GetCollection<Player>("players");
@@ -283,6 +308,9 @@ namespace AscNet.Common.Database
 
         [BsonElement("fuben_main_line_data")]
         public FubenMainLineData FubenMainLineData { get; set; } = new();
+
+        [BsonElement("mission_progress")]
+        public MissionProgressState MissionProgress { get; set; } = new();
 
         [BsonElement("big_world_state")]
         public BigWorldPlayerState BigWorldState { get; set; } = new();

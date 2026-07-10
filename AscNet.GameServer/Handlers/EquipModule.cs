@@ -1,8 +1,10 @@
-﻿using AscNet.Common;
+﻿using System.Globalization;
+using AscNet.Common;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.attrib;
+using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.item;
 using MessagePack;
@@ -135,6 +137,7 @@ namespace AscNet.GameServer.Handlers
     public class EquipDecomposeResponse
     {
         public int Code;
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
     }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
@@ -143,11 +146,22 @@ namespace AscNet.GameServer.Handlers
     {
         private const int EquipFeedOperationTypeLevelUp = 1;
         private const int EquipFeedOperationTypeBreakthrough = 2;
+        private const int MaxDecomposedEquipCount = 100;
+        private const int MaxReturnedEquipCount = 10_000;
 
         [RequestPacketHandler("EquipLevelUpRequest")]
         public static void EquipLevelUpRequestHandler(Session session, Packet.Request packet)
         {
             EquipLevelUpRequest request = packet.Deserialize<EquipLevelUpRequest>();
+            EquipData? targetEquip = session.character.Equips.Find(equip => equip.Id == request.EquipId);
+            EquipBreakThroughTable? progression = targetEquip is null
+                ? null
+                : Character.ResolveEquipBreakThrough(targetEquip.TemplateId, targetEquip.Breakthrough);
+            if (targetEquip is null || progression is null)
+            {
+                session.SendResponse(new EquipLevelUpResponse { Code = 20021012 }, packet.Id);
+                return;
+            }
 
             NotifyItemDataList notifyItemData = new();
             int totalExp = 0;
@@ -188,6 +202,8 @@ namespace AscNet.GameServer.Handlers
                 notifyEquipDataList.EquipDataList.Add(upEquip);
                 session.SendPush(notifyEquipDataList);
             }
+                session.character.Save();
+                session.inventory.Save();
 
             session.SendResponse(rsp, packet.Id);
         }
@@ -214,7 +230,7 @@ namespace AscNet.GameServer.Handlers
             List<ItemTable> itemTables = TableReaderV2.Parse<ItemTable>();
             List<EquipBreakThroughTable> equipBreakThroughTables = TableReaderV2.Parse<EquipBreakThroughTable>();
             List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
-            EquipTable? targetEquipTable = equipTables.FirstOrDefault(x => x.Id == targetEquip.TemplateId);
+            EquipTable? targetEquipTable = Character.ResolveEquipTemplate(targetEquip.TemplateId);
             if (targetEquipTable is null)
             {
                 response.Code = 20021012;
@@ -225,32 +241,16 @@ namespace AscNet.GameServer.Handlers
             Dictionary<int, int> itemDeltas = new();
             NotifyEquipDataList notifyEquipDataList = new();
 
-            foreach (EquipFeedOperationInfo operationInfo in request.OperationInfos ?? [])
-            {
-                switch (operationInfo.OperationType)
-                {
-                    case EquipFeedOperationTypeLevelUp:
-                    {
-                        int targetLevel = GetOperationTargetLevel(targetEquip, request.TargetBreakthrough, request.TargetLevel, equipBreakThroughTables);
-                        if (ShouldUseCogOnlyEnhancement(targetEquipTable) && !HasFeedMaterials(operationInfo))
-                        {
-                            int requiredExp = session.character.GetEquipExpRequiredToReach(request.EquipId, targetLevel);
-                            int appliedExp = session.character.AddEquipExpUpTo(request.EquipId, requiredExp, targetLevel);
-                            AddItemDelta(itemDeltas, Inventory.Coin, appliedExp * -10);
-                            break;
-                        }
-
-                        ConsumeFeedItems(session, itemTables, request.EquipId, operationInfo, itemDeltas);
-                        ConsumeFeedEquips(session, targetEquip, targetEquipTable, equipTables, equipBreakThroughTables, operationInfo, itemDeltas, notifyEquipDataList);
-                        break;
-                    }
-                    case EquipFeedOperationTypeBreakthrough:
-                    {
-                        ApplyEquipBreakthrough(targetEquip, equipBreakThroughTables, itemDeltas);
-                        break;
-                    }
-                }
-            }
+            ApplyFeedOperations(
+                session,
+                request,
+                targetEquip,
+                targetEquipTable,
+                itemTables,
+                equipBreakThroughTables,
+                equipTables,
+                itemDeltas,
+                notifyEquipDataList);
 
             response.Breakthrough = targetEquip.Breakthrough;
             response.Level = targetEquip.Level;
@@ -280,7 +280,39 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(response, packet.Id);
         }
 
-        private static int ConsumeFeedItems(Session session, List<ItemTable> itemTables, int targetEquipId, EquipFeedOperationInfo operationInfo, Dictionary<int, int> itemDeltas)
+        private static void ApplyFeedOperations(
+            Session session,
+            EquipOneKeyFeedRequest request,
+            EquipData targetEquip,
+            EquipTable targetEquipTable,
+            List<ItemTable> itemTables,
+            List<EquipBreakThroughTable> equipBreakThroughTables,
+            List<EquipTable> equipTables,
+            Dictionary<int, int> itemDeltas,
+            NotifyEquipDataList notifyEquipDataList)
+        {
+            foreach (EquipFeedOperationInfo operationInfo in request.OperationInfos ?? [])
+            {
+                switch (operationInfo.OperationType)
+                {
+                    case EquipFeedOperationTypeLevelUp:
+                    {
+                        int targetLevel = GetOperationTargetLevel(targetEquip, request.TargetBreakthrough, request.TargetLevel, equipBreakThroughTables);
+
+                        ConsumeFeedItems(session, itemTables, request.EquipId, targetLevel, operationInfo, itemDeltas);
+                        ConsumeFeedEquips(session, targetEquip, targetEquipTable, equipTables, equipBreakThroughTables, targetLevel, operationInfo, itemDeltas, notifyEquipDataList);
+                        break;
+                    }
+                    case EquipFeedOperationTypeBreakthrough:
+                    {
+                        ApplyEquipBreakthrough(targetEquip, equipBreakThroughTables, itemDeltas);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private static int ConsumeFeedItems(Session session, List<ItemTable> itemTables, int targetEquipId, int targetLevel, EquipFeedOperationInfo operationInfo, Dictionary<int, int> itemDeltas)
         {
             if (operationInfo.UseItemIdList is null || operationInfo.UseItemCountList is null)
                 return 0;
@@ -303,7 +335,6 @@ namespace AscNet.GameServer.Handlers
 
                 var upgradeInfo = perItemUpgradeInfo * requestedCount;
                 session.character.AddEquipExp(targetEquipId, upgradeInfo.Exp);
-
                 totalFeedExp += upgradeInfo.Exp;
                 AddItemDelta(itemDeltas, itemId, requestedCount * -1);
                 AddItemDelta(itemDeltas, Inventory.Coin, upgradeInfo.Cost * -1);
@@ -312,7 +343,7 @@ namespace AscNet.GameServer.Handlers
             return totalFeedExp;
         }
 
-        private static int ConsumeFeedEquips(Session session, EquipData targetEquip, EquipTable? targetEquipTable, List<EquipTable> equipTables, List<EquipBreakThroughTable> equipBreakThroughTables, EquipFeedOperationInfo operationInfo, Dictionary<int, int> itemDeltas, NotifyEquipDataList notifyEquipDataList)
+        private static int ConsumeFeedEquips(Session session, EquipData targetEquip, EquipTable? targetEquipTable, List<EquipTable> equipTables, List<EquipBreakThroughTable> equipBreakThroughTables, int targetLevel, EquipFeedOperationInfo operationInfo, Dictionary<int, int> itemDeltas, NotifyEquipDataList notifyEquipDataList)
         {
             if (operationInfo.UseEquipIdList is null)
                 return 0;
@@ -322,6 +353,8 @@ namespace AscNet.GameServer.Handlers
             {
                 if (equipId == targetEquip.Id || notifyEquipDataList.DeletedEquipIdList.Contains((uint)equipId))
                     continue;
+                if (Character.ResolveEquipBreakThrough(targetEquip.TemplateId, targetEquip.Breakthrough) is null)
+                    break;
 
                 EquipData? feedEquip = session.character.Equips.Find(x => x.Id == equipId);
                 if (feedEquip is null || feedEquip.IsLock || feedEquip.CharacterId != 0)
@@ -349,40 +382,34 @@ namespace AscNet.GameServer.Handlers
 
         private static int GetOperationTargetLevel(EquipData targetEquip, int requestedBreakthrough, int requestedLevel, List<EquipBreakThroughTable> equipBreakThroughTables)
         {
-            if (targetEquip.Breakthrough == requestedBreakthrough)
-                return Math.Max(1, requestedLevel);
+            EquipBreakThroughTable? currentBreakThrough = Character.ResolveEquipBreakThrough(
+                targetEquip.TemplateId,
+                targetEquip.Breakthrough);
+            if (currentBreakThrough is null)
+                return targetEquip.Level;
 
-            EquipBreakThroughTable? currentBreakThrough = equipBreakThroughTables.FirstOrDefault(x => x.EquipId == targetEquip.TemplateId && x.Times == targetEquip.Breakthrough);
-            return currentBreakThrough?.LevelLimit ?? targetEquip.Level;
+            int targetLevel = targetEquip.Breakthrough == requestedBreakthrough
+                ? Math.Max(1, requestedLevel)
+                : currentBreakThrough.LevelLimit;
+            return Math.Clamp(targetLevel, targetEquip.Level, currentBreakThrough.LevelLimit);
         }
 
-        private static bool ShouldUseCogOnlyEnhancement(EquipTable? targetEquipTable)
-        {
-            return targetEquipTable is not null
-                && targetEquipTable.Type == 1
-                && targetEquipTable.Quality <= 3;
-        }
 
-        private static bool HasFeedMaterials(EquipFeedOperationInfo operationInfo)
-        {
-            return operationInfo.UseEquipIdList?.Count > 0
-                || (operationInfo.UseItemIdList?.Count > 0 && operationInfo.UseItemCountList?.Any(count => count > 0) == true);
-        }
 
         private static bool CanFeedEquipIntoTarget(EquipTable? targetEquipTable, EquipTable? feedEquipTable)
         {
             if (targetEquipTable is null || feedEquipTable is null)
                 return false;
 
-            if (feedEquipTable.Type == 99)
-                return feedEquipTable.Site == targetEquipTable.Site;
+            if (targetEquipTable.Type == 1)
+                return feedEquipTable.Type == 1
+                    || (feedEquipTable.Type == 99 && feedEquipTable.Site == 0);
 
-            if (targetEquipTable.Site == 0)
-                return feedEquipTable.Site == 0 && feedEquipTable.Type != 99;
+            if (targetEquipTable.Type == 0)
+                return feedEquipTable.Type == 0
+                    || (feedEquipTable.Type == 99 && feedEquipTable.Site != 0);
 
-            return targetEquipTable.Type == 0
-                && feedEquipTable.Type == 0
-                && feedEquipTable.Site == targetEquipTable.Site;
+            return false;
         }
 
         private static bool IsSameEquipSlot(EquipTable? equippedTable, EquipTable targetTable)
@@ -399,14 +426,18 @@ namespace AscNet.GameServer.Handlers
 
         private static int GetEquipFeedExp(EquipData equip, List<EquipBreakThroughTable> equipBreakThroughTables)
         {
-            EquipBreakThroughTable? feedEquipBreakThrough = equipBreakThroughTables.FirstOrDefault(x => x.EquipId == equip.TemplateId && x.Times == equip.Breakthrough);
+            EquipBreakThroughTable? feedEquipBreakThrough = Character.ResolveEquipBreakThrough(
+                equip.TemplateId,
+                equip.Breakthrough);
             return (feedEquipBreakThrough?.Exp ?? 0) + Math.Max(0, equip.Exp);
         }
 
         private static void ApplyEquipBreakthrough(EquipData equip, List<EquipBreakThroughTable> equipBreakThroughTables, Dictionary<int, int> itemDeltas)
         {
-            EquipBreakThroughTable? equipBreakThrough = equipBreakThroughTables.FirstOrDefault(x => x.EquipId == equip.TemplateId && x.Times == equip.Breakthrough);
-            if (equipBreakThrough is null || !equipBreakThroughTables.Any(x => x.EquipId == equip.TemplateId && x.Times == equip.Breakthrough + 1))
+            EquipBreakThroughTable? equipBreakThrough = Character.ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough);
+            if (equipBreakThrough is null
+                || equip.Level < equipBreakThrough.LevelLimit
+                || Character.ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough + 1) is null)
                 return;
 
             for (int i = 0; i < Math.Min(equipBreakThrough.ItemId.Count, equipBreakThrough.ItemCount.Count); i++)
@@ -414,8 +445,8 @@ namespace AscNet.GameServer.Handlers
                 AddItemDelta(itemDeltas, equipBreakThrough.ItemId[i], equipBreakThrough.ItemCount[i] * -1);
             }
 
-            if (equipBreakThrough.UseItemId is not null && equipBreakThrough.UseMoney is not null && equipBreakThrough.UseMoney > 0)
-                AddItemDelta(itemDeltas, equipBreakThrough.UseItemId.Value, equipBreakThrough.UseMoney.Value * -1);
+            if (equipBreakThrough.UseItemId != 0 && equipBreakThrough.UseMoney > 0)
+                AddItemDelta(itemDeltas, equipBreakThrough.UseItemId, equipBreakThrough.UseMoney * -1);
 
             equip.Breakthrough++;
             equip.Level = 1;
@@ -454,23 +485,36 @@ namespace AscNet.GameServer.Handlers
             }
             else
             {
-                EquipBreakThroughTable? equipBreakThrough = TableReaderV2.Parse<EquipBreakThroughTable>().Find(x => x.EquipId == equip.TemplateId && equip.Breakthrough == x.Times);
-                if (equipBreakThrough is not null && TableReaderV2.Parse<EquipBreakThroughTable>().Any(x => x.EquipId == equip.TemplateId && equip.Breakthrough + 1 == x.Times))
+                EquipBreakThroughTable? equipBreakThrough = Character.ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough);
+                if (equipBreakThrough is not null
+                    && Character.ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough + 1) is not null)
                 {
+                    if (equip.Level < equipBreakThrough.LevelLimit)
+                    {
+                        response.Code = 20021011;
+                        session.SendResponse(response, packet.Id);
+                        return;
+                    }
+
                     NotifyItemDataList notifyItemData = new();
 
                     for (int i = 0; i < Math.Min(equipBreakThrough.ItemId.Count, equipBreakThrough.ItemCount.Count); i++)
                     {
                         notifyItemData.ItemDataList.Add(session.inventory.Do(equipBreakThrough.ItemId[i], equipBreakThrough.ItemCount[i] * -1));
                     }
-                    if (equipBreakThrough.UseMoney is not null && equipBreakThrough.UseMoney > 0)
-                        notifyItemData.ItemDataList.Add(session.inventory.Do(equipBreakThrough.UseItemId ?? 1, (equipBreakThrough.UseMoney ?? 0) * -1));
+                    if (equipBreakThrough.UseItemId != 0 && equipBreakThrough.UseMoney > 0)
+                        notifyItemData.ItemDataList.Add(session.inventory.Do(equipBreakThrough.UseItemId, equipBreakThrough.UseMoney * -1));
 
                     session.SendPush(notifyItemData);
 
                     equip.Breakthrough += 1;
                     equip.Level = 1;
                     equip.Exp = 0;
+                    NotifyEquipDataList notifyEquipDataList = new();
+                    notifyEquipDataList.EquipDataList.Add(equip);
+                    session.SendPush(notifyEquipDataList);
+                    session.character.Save();
+                    session.inventory.Save();
                 }
                 else if (equipBreakThrough is not null)
                 {
@@ -642,11 +686,355 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new EquipResonanceResponse() { ResonanceData = resonance }, packet.Id);
         }
 
-        // TODO: Equipment scrapping
         [RequestPacketHandler("EquipDecomposeRequest")]
         public static void EquipDecomposeRequestHandler(Session session, Packet.Request packet)
         {
-            session.SendResponse(new EquipDecomposeResponse() { Code = 1 }, packet.Id);
+            EquipDecomposeRequest request = packet.Deserialize<EquipDecomposeRequest>();
+            if (!TryBuildEquipDecomposeRewards(
+                    session,
+                    request.EquipIds,
+                    out List<EquipData> sourceEquips,
+                    out List<EquipDecomposeReward> rewardSpecs))
+            {
+                session.SendResponse(new EquipDecomposeResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            NotifyItemDataList notifyItemData = new();
+            NotifyEquipDataList notifyEquipData = new();
+
+            // Add returned equipment before deleting sources so Character.AddEquip's
+            // max-based allocator cannot reuse a deleted source UID.
+            foreach (IGrouping<int, EquipDecomposeReward> itemRewards in rewardSpecs
+                         .Where(reward => reward.Type == RewardType.Item)
+                         .GroupBy(reward => reward.TemplateId))
+            {
+                notifyItemData.ItemDataList.Add(
+                    session.inventory.Do(itemRewards.Key, itemRewards.Sum(reward => reward.Count)));
+            }
+
+            foreach (EquipDecomposeReward reward in rewardSpecs.Where(reward => reward.Type == RewardType.Equip))
+            {
+                for (int i = 0; i < reward.Count; i++)
+                {
+                    EquipData? returnedEquip = session.character.AddEquip(
+                        (uint)reward.TemplateId,
+                        level: Math.Max(1, reward.Level));
+                    if (returnedEquip is null)
+                        throw new InvalidDataException($"Unable to grant decomposed equipment template {reward.TemplateId}.");
+
+                    notifyEquipData.EquipDataList.Add(returnedEquip);
+                }
+            }
+
+            foreach (EquipData sourceEquip in sourceEquips)
+            {
+                if (!session.character.Equips.Remove(sourceEquip))
+                    throw new InvalidDataException($"Unable to remove decomposed equipment UID {sourceEquip.Id}.");
+
+                notifyEquipData.DeletedEquipIdList.Add(sourceEquip.Id);
+            }
+
+            if (notifyItemData.ItemDataList.Count > 0)
+                session.SendPush(notifyItemData);
+            if (notifyEquipData.EquipDataList.Count > 0 || notifyEquipData.DeletedEquipIdList.Count > 0)
+                session.SendPush(notifyEquipData);
+
+            session.character.Save();
+            session.inventory.Save();
+            session.SendResponse(new EquipDecomposeResponse
+            {
+                Code = 0,
+                RewardGoodsList = BuildEquipDecomposeResponseRewards(rewardSpecs)
+            }, packet.Id);
+        }
+
+        private sealed class EquipDecomposeReward
+        {
+            public RewardType Type { get; init; }
+            public int TemplateId { get; init; }
+            public int Count { get; set; }
+            public int Level { get; init; }
+            public int Id { get; init; }
+        }
+
+
+        private static List<RewardGoods> BuildEquipDecomposeResponseRewards(
+            IEnumerable<EquipDecomposeReward> rewardSpecs)
+        {
+            return rewardSpecs
+                .GroupBy(reward => (reward.Type, reward.TemplateId))
+                .OrderBy(group => group.Key.Type)
+                .ThenBy(group => group.Key.TemplateId)
+                .Select(group => new RewardGoods
+                {
+                    RewardType = (int)group.Key.Type,
+                    TemplateId = group.Key.TemplateId,
+                    Count = group.Sum(reward => reward.Count),
+                    Level = group.Max(reward => reward.Level),
+                    Id = 0
+                })
+                .ToList();
+        }
+
+
+        private static bool TryBuildEquipDecomposeRewards(
+            Session session,
+            List<int>? equipIds,
+            out List<EquipData> sourceEquips,
+            out List<EquipDecomposeReward> rewardSpecs)
+        {
+            sourceEquips = [];
+            rewardSpecs = [];
+            if (equipIds is null || equipIds.Count == 0 || equipIds.Count > MaxDecomposedEquipCount)
+                return false;
+
+            HashSet<int> requestedIds = [];
+            IGrouping<uint, EquipData>[] equipGroups = session.character.Equips
+                .GroupBy(equip => equip.Id)
+                .ToArray();
+            if (equipGroups.Any(group => group.Count() != 1))
+                return false;
+
+            Dictionary<uint, EquipData> equipsById = equipGroups
+                .ToDictionary(group => group.Key, group => group.Single());
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            List<EquipBreakThroughTable> breakthroughTables = TableReaderV2.Parse<EquipBreakThroughTable>();
+            List<EquipDecomposeTable> decomposeTables = TableReaderV2.Parse<EquipDecomposeTable>();
+            EquipDecomposeConfigTable? returnRateConfig = TableReaderV2
+                .Parse<EquipDecomposeConfigTable>()
+                .FirstOrDefault(config => config.Key == "EquipDecomposeReturnRate");
+            if (returnRateConfig is null || returnRateConfig.Value <= 0)
+                return false;
+
+            Dictionary<(RewardType Type, int TemplateId, int RewardId), EquipDecomposeReward> rewardByKey = [];
+            foreach (int requestedId in equipIds)
+            {
+                if (requestedId <= 0 || !requestedIds.Add(requestedId))
+                    return false;
+                if (!equipsById.TryGetValue((uint)requestedId, out EquipData? equip)
+                    || equip.IsLock
+                    || equip.CharacterId != 0
+                    || equip.IsRecycle)
+                {
+                    return false;
+                }
+
+                EquipTable? equipTable = equipTables.FirstOrDefault(table => table.Id == equip.TemplateId);
+                if (equipTable is null || !Character.IsOwnableEquipTemplate(equipTable))
+                    return false;
+
+                EquipDecomposeTable? decomposeTable = decomposeTables.FirstOrDefault(table =>
+                    table.Site == equipTable.Site
+                    && table.Star == equipTable.Star
+                    && table.Breakthrough == equip.Breakthrough);
+                EquipBreakThroughTable? breakthroughTable = breakthroughTables.FirstOrDefault(table =>
+                    table.EquipId == equip.TemplateId
+                    && table.Times == equip.Breakthrough);
+                EquipLevelUpTemplate? levelUpTemplate = breakthroughTable is null
+                    ? null
+                    : Character.equipLevelUpTemplates.FirstOrDefault(template =>
+                        template.TemplateId == breakthroughTable.LevelUpTemplateId
+                        && template.Level == equip.Level);
+                if (decomposeTable is null
+                    || breakthroughTable is null
+                    || levelUpTemplate is null
+                    || equip.Exp < 0
+                    || (levelUpTemplate.Exp > 0 && equip.Exp > levelUpTemplate.Exp)
+                    || !decimal.TryParse(
+                        decomposeTable.ExpToOneCoin,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out decimal expToOneCoin)
+                    || expToOneCoin <= 0)
+                {
+                    return false;
+                }
+
+                decimal totalExp;
+                try
+                {
+                    totalExp = checked((decimal)equip.Exp + levelUpTemplate.AllExp + breakthroughTable.Exp);
+                }
+                catch (OverflowException)
+                {
+                    return false;
+                }
+
+                decimal coinCountDecimal = totalExp / expToOneCoin;
+                if (coinCountDecimal > int.MaxValue)
+                    return false;
+
+                int coinCount = FloorToInt(coinCountDecimal);
+                if (coinCount > 0)
+                    AddEquipDecomposeReward(rewardByKey, RewardType.Item, Inventory.Coin, coinCount, level: 0, rewardId: 0);
+
+                EquipBreakThroughTable? foodBreakthroughTable = breakthroughTables.FirstOrDefault(table =>
+                    table.EquipId == decomposeTable.ExpToEquipId
+                    && table.Times == 0);
+                if (foodBreakthroughTable is null || foodBreakthroughTable.Exp <= 0)
+                    return false;
+
+                decimal foodCountDecimal;
+                try
+                {
+                    foodCountDecimal = checked(
+                        totalExp * returnRateConfig.Value
+                        / (foodBreakthroughTable.Exp * 10_000m));
+                }
+                catch (OverflowException)
+                {
+                    return false;
+                }
+
+                if (foodCountDecimal > MaxReturnedEquipCount)
+                    return false;
+                int foodCount = FloorToInt(foodCountDecimal);
+                if (foodCount > 0)
+                {
+                    EquipTable? foodEquipTable = equipTables.FirstOrDefault(table => table.Id == decomposeTable.ExpToEquipId);
+                    if (foodEquipTable is null || !Character.IsOwnableEquipTemplate(foodEquipTable))
+                        return false;
+
+                    AddEquipDecomposeReward(
+                        rewardByKey,
+                        RewardType.Equip,
+                        decomposeTable.ExpToEquipId,
+                        foodCount,
+                        level: 1,
+                        rewardId: 0);
+                }
+
+                foreach (RewardGoodsTable rewardGoods in RewardHandler.GetRewardGoods(decomposeTable.RewardId))
+                {
+                    RewardType? rewardType = RewardHandler.GetRewardType(rewardGoods);
+                    if (rewardType is null
+                        || (rewardType != RewardType.Item && rewardType != RewardType.Equip)
+                        || rewardGoods.Count <= 0)
+                    {
+                        return false;
+                    }
+
+                    AddEquipDecomposeReward(
+                        rewardByKey,
+                        rewardType.Value,
+                        rewardGoods.TemplateId,
+                        rewardGoods.Count,
+                        rewardType == RewardType.Equip ? 1 : 0,
+                        rewardGoods.Id);
+                }
+
+                sourceEquips.Add(equip);
+            }
+
+            if (rewardByKey.Count == 0)
+                return false;
+
+            Dictionary<int, long> inventoryCounts = session.inventory.Items
+                .GroupBy(item => item.Id)
+                .ToDictionary(group => group.Key, group => group.Sum(item => item.Count));
+
+            long returnedEquipCount = rewardByKey.Values
+                .Where(reward => reward.Type == RewardType.Equip)
+                .Sum(reward => (long)reward.Count);
+            if (returnedEquipCount > MaxReturnedEquipCount)
+                return false;
+
+            Dictionary<int, ItemTable> itemTablesById = TableReaderV2.Parse<ItemTable>()
+                .ToDictionary(table => table.Id);
+            foreach (EquipDecomposeReward reward in rewardByKey.Values.Where(reward => reward.Type == RewardType.Equip))
+            {
+                EquipTable? rewardEquipTable = equipTables.FirstOrDefault(table => table.Id == reward.TemplateId);
+                if (rewardEquipTable is null
+                    || !Character.IsOwnableEquipTemplate(rewardEquipTable)
+                    || reward.Level < 1)
+                {
+                    return false;
+                }
+            }
+
+            Dictionary<int, long> requestedItemCounts = [];
+            foreach (EquipDecomposeReward reward in rewardByKey.Values.Where(reward => reward.Type == RewardType.Item))
+            {
+                if (!itemTablesById.TryGetValue(reward.TemplateId, out ItemTable? itemTable)
+                    || !Inventory.IsValidClientItemId(reward.TemplateId))
+                {
+                    return false;
+                }
+
+                long requestedCount;
+                try
+                {
+                    requestedCount = checked(
+                        requestedItemCounts.GetValueOrDefault(reward.TemplateId)
+                        + reward.Count);
+                }
+                catch (OverflowException)
+                {
+                    return false;
+                }
+
+                if (requestedCount > int.MaxValue)
+                    return false;
+                requestedItemCounts[reward.TemplateId] = requestedCount;
+                long finalCount;
+                try
+                {
+                    finalCount = checked(
+                        inventoryCounts.GetValueOrDefault(reward.TemplateId)
+                        + requestedCount);
+                }
+                catch (OverflowException)
+                {
+                    return false;
+                }
+
+                if (finalCount > int.MaxValue)
+                    return false;
+                if (itemTable.MaxCount is int maxCount && finalCount > maxCount)
+                    return false;
+            }
+
+            rewardSpecs = rewardByKey.Values
+                .OrderBy(reward => reward.Type)
+                .ThenBy(reward => reward.TemplateId)
+                .ThenBy(reward => reward.Id)
+                .ToList();
+            return true;
+        }
+
+        private static void AddEquipDecomposeReward(
+            Dictionary<(RewardType Type, int TemplateId, int RewardId), EquipDecomposeReward> rewardByKey,
+            RewardType type,
+            int templateId,
+            int count,
+            int level,
+            int rewardId)
+        {
+            (RewardType Type, int TemplateId, int RewardId) key = (type, templateId, rewardId);
+            if (rewardByKey.TryGetValue(key, out EquipDecomposeReward? existingReward))
+            {
+                existingReward.Count = checked(existingReward.Count + count);
+                return;
+            }
+
+            rewardByKey[key] = new EquipDecomposeReward
+            {
+                Type = type,
+                TemplateId = templateId,
+                Count = count,
+                Level = level,
+                Id = rewardId
+            };
+        }
+
+        private static int FloorToInt(decimal value)
+        {
+            if (value <= 0)
+                return 0;
+            if (value >= int.MaxValue)
+                return int.MaxValue;
+            return decimal.ToInt32(decimal.Floor(value));
         }
     }
 }

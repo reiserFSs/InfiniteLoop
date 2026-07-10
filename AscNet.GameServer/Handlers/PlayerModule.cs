@@ -340,6 +340,7 @@ namespace AscNet.GameServer.Handlers
             TouchBoardMutualRequest request = MessagePackSerializer.Deserialize<TouchBoardMutualRequest>(packet.Content);
 
             session.SendResponse(new TouchBoardMutualResponse(), packet.Id);
+            TaskModule.RecordConditionType(session, 13212);
         }
 
         [RequestPacketHandler("ChangePlayerNameRequest")]

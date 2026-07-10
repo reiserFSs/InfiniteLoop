@@ -759,8 +759,8 @@ namespace AscNet.GameServer.Handlers
             if (!sentTheatreProgress)
             {
                 SendMainLineLuosaitaSectionInfoIfCaptured(session, (int)req.Result.StageId);
-                TaskModule.SendStoryTaskSync(session);
             }
+            TaskModule.RecordStageClear(session, (int)req.Result.StageId, challengeCount);
             session.SendResponse(fightSettleResponse, packet.Id);
         }
 

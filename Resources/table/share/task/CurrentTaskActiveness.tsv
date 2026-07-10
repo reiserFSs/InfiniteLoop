@@ -1,0 +1,5 @@
+Type	HonorRewardId	Activeness[0]	Activeness[1]	Activeness[2]	Activeness[3]	Activeness[4]	Activeness[5]	Activeness[6]	Activeness[7]	RewardId[0]	RewardId[1]	RewardId[2]	RewardId[3]	RewardId[4]	RewardId[5]	RewardId[6]	RewardId[7]
+3	0	20	40	60	80	100	120	140	160	1201	1202	1203	1204	1205	1206	1207	5000000
+4	701200	7	14	21	28	35	42	49		701201	701202	701203	701204	701205	701206	701207	
+1	0	20	40	60	80	100				1001	1002	1003	1004	1005			
+2	0	400	700							1010	1011						

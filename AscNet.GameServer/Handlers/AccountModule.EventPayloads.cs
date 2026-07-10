@@ -41,35 +41,7 @@ namespace AscNet.GameServer.Handlers
 
         private static void SendCurrentEventTaskBatch(Session session, int[] taskIds)
         {
-            session.SendPush("NotifyTask", SerializeStartupPayload(BuildCurrentEventTaskPayload(taskIds)));
-        }
-
-        private static Dictionary<string, object?> BuildCurrentEventTaskPayload(int[] taskIds)
-        {
-            int recordTime = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            return new Dictionary<string, object?>
-            {
-                ["Tasks"] = new Dictionary<string, object?>
-                {
-                    ["Tasks"] = taskIds.Select(taskId => new Dictionary<string, object?>
-                    {
-                        ["Id"] = taskId,
-                        ["Schedule"] = new object[]
-                        {
-                            new Dictionary<string, object?>
-                            {
-                                ["Id"] = taskId,
-                                ["Value"] = 0
-                            }
-                        },
-                        ["State"] = 1,
-                        ["RecordTime"] = recordTime,
-                        ["ActivityId"] = 0,
-                        ["ActivateTime"] = 0
-                    }).ToArray()
-                },
-                ["TaskLimitIdActiveInfos"] = null
-            };
+            TaskModule.SendCurrentTaskBatch(session, taskIds);
         }
 
         private static Dictionary<string, object?> PayloadFromJson(string json)
