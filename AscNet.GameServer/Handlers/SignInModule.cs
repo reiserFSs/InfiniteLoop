@@ -1,4 +1,4 @@
-﻿﻿using AscNet.Common.Database;
+﻿using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using MessagePack;
 
@@ -7,9 +7,11 @@ namespace AscNet.GameServer.Handlers
     internal class SignInModule
     {
         private const int CurrentSignInId = 1;
-        private const int CurrentSignInRewardRecordId = 50210;
-        private const int CurrentSignInRewardItemId = Inventory.Coin;
-        private const int CurrentSignInRewardCount = 10_000;
+        private const int FirstSignInRewardId = 5000;
+        private const int SignInDaysPerRound = 28;
+        // The active schedule expiry is configuration-owned; no local source provides it.
+        private const int UnspecifiedSignInFinishDay = 0;
+
 
         [RequestPacketHandler("SignInRequest")]
         public static void SignInRequestHandler(Session session, Packet.Request packet)
@@ -19,22 +21,22 @@ namespace AscNet.GameServer.Handlers
 
             if (request.Id == CurrentSignInId && !HasSignedInToday(session.player))
             {
-                RewardGoods rewardGoods = BuildDailySignInReward();
-                signInResponse.RewardGoodsList.Add(rewardGoods);
-                RewardHandler.GiveRewards(new[]
+                List<RewardGoods> rewardGoods = RewardHandler.GiveRewards(
+                    RewardHandler.GetRewardGoods(GetCurrentSignInRewardId(session.player)),
+                    session);
+                if (rewardGoods.Count > 0)
                 {
-                    new Reward
-                    {
-                        Id = rewardGoods.TemplateId,
-                        Count = rewardGoods.Count,
-                        Level = rewardGoods.Level,
-                        Type = (RewardType)rewardGoods.RewardType
-                    }
-                }, session);
-
-                session.player.LastSignInTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                session.inventory.Save();
-                session.player.Save();
+                    signInResponse.RewardGoodsList.AddRange(rewardGoods);
+                    session.player.SignInClaimCount = Math.Max(session.player.SignInClaimCount, 0) + 1;
+                    session.player.LastSignInTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                    session.inventory.Save();
+                    session.character.Save();
+                    session.player.Save();
+                }
+                else
+                {
+                    session.log.Error($"No rewards configured for daily sign-in day {GetCurrentSignInDay(session.player, signedToday: false)}.");
+                }
             }
 
             session.SendResponse(signInResponse, packet.Id);
@@ -47,7 +49,14 @@ namespace AscNet.GameServer.Handlers
             [
                 new() { Id = 2, Round = 2, Day = 7, Got = true, FinishDay = 1002 },
                 new() { Id = 42, Round = 1, Day = 7, Got = true, FinishDay = 996 },
-                new() { Id = CurrentSignInId, Round = 1, Day = 22, Got = signedToday, FinishDay = signedToday ? 1787 : 1786 },
+                new()
+                {
+                    Id = CurrentSignInId,
+                    Round = GetCurrentSignInRound(player, signedToday),
+                    Day = GetCurrentSignInDay(player, signedToday),
+                    Got = signedToday,
+                    FinishDay = UnspecifiedSignInFinishDay
+                },
                 new() { Id = 76, Round = 1, Day = 1, Got = false, FinishDay = 0 },
                 new() { Id = 87, Round = 1, Day = 1, Got = false, FinishDay = 0 },
                 new() { Id = 93, Round = 1, Day = 1, Got = false, FinishDay = 0 },
@@ -67,22 +76,25 @@ namespace AscNet.GameServer.Handlers
             return lastSignInDate == DateTimeOffset.UtcNow.UtcDateTime.Date;
         }
 
-        private static RewardGoods BuildDailySignInReward()
+        private static int GetCurrentSignInRewardId(Player player)
         {
-            return new()
-            {
-                RewardType = (int)RewardType.Item,
-                TemplateId = CurrentSignInRewardItemId,
-                Count = CurrentSignInRewardCount,
-                Level = 0,
-                Quality = 0,
-                Grade = 0,
-                Breakthrough = 0,
-                ConvertFrom = 0,
-                Id = CurrentSignInRewardRecordId,
-                IsGift = false,
-                RewardMulti = 0
-            };
+            return FirstSignInRewardId + (int)GetCurrentSignInDay(player, signedToday: false) - 1;
+        }
+
+        private static long GetCurrentSignInRound(Player player, bool signedToday)
+        {
+            return GetDisplayedSignInClaimCount(player, signedToday) / SignInDaysPerRound + 1;
+        }
+
+        private static long GetCurrentSignInDay(Player player, bool signedToday)
+        {
+            return GetDisplayedSignInClaimCount(player, signedToday) % SignInDaysPerRound + 1;
+        }
+
+        private static long GetDisplayedSignInClaimCount(Player player, bool signedToday)
+        {
+            long completedClaims = Math.Max(player.SignInClaimCount, 0);
+            return signedToday && completedClaims > 0 ? completedClaims - 1 : completedClaims;
         }
     }
 }

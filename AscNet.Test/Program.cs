@@ -72,6 +72,12 @@ namespace AscNet.Test
                     ValidateLoginAccountCompatibility();
                     return;
                 }
+                if (args.Contains("--daily-sign-in-compat-only"))
+                {
+                    ValidateSignInDailyRewardCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--session-framing-compat-only"))
                 {
                     ValidateSessionClientLoopFramingCompatibility();
@@ -762,6 +768,7 @@ namespace AscNet.Test
             List<SignInfo> currentSignInfos = roundTrip.SignInfos.Where(signInfo => signInfo.Id == 1).ToList();
             AssertEqual(1, currentSignInfos.Count, "NotifyLogin SignInfos unsigned current daily reward entry count");
             AssertEqual(false, currentSignInfos[0].Got, "NotifyLogin SignInfos unsigned current daily reward Got");
+            AssertEqual(1L, currentSignInfos[0].Day, "NotifyLogin SignInfos unsigned current daily reward Day");
 
             if (roundTrip.HaveBackgroundIds is null || roundTrip.HaveBackgroundIds.Count == 0)
                 throw new InvalidDataException("NotifyLogin HaveBackgroundIds MessagePack round-trip: expected initialized owned background ids.");
@@ -866,11 +873,33 @@ namespace AscNet.Test
 
         private static void ValidateSignInDailyRewardCompatibility()
         {
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
+            Type signInModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.SignInModule");
+            MethodInfo buildLoginSignInfos = RequiredMethod(
+                signInModule,
+                "BuildLoginSignInfos",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(AscNet.Common.Database.Player)]);
             const long playerId = 88_002;
             AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
             player.LastSignInTime = 0;
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+
+            SignInfo BuildCurrentSignInInfo(AscNet.Common.Database.Player currentPlayer)
+            {
+                List<SignInfo> signInfos = (List<SignInfo>)(buildLoginSignInfos.Invoke(null, [currentPlayer])
+                    ?? throw new InvalidDataException("BuildLoginSignInfos returned no sign-in data."));
+                return signInfos.Single(signInfo => signInfo.Id == 1);
+            }
+
+            SignInfo initialSignIn = BuildCurrentSignInInfo(player);
+            AssertEqual(1L, initialSignIn.Round, "NotifyLogin first daily reward Round");
+            AssertEqual(1L, initialSignIn.Day, "NotifyLogin first daily reward Day");
+            AssertEqual(false, initialSignIn.Got, "NotifyLogin first daily reward Got");
+            AssertEqual(0L, initialSignIn.FinishDay, "NotifyLogin first daily reward neutral FinishDay");
 
             using LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
@@ -898,14 +927,18 @@ namespace AscNet.Test
             AssertEqual((int)RewardType.Item, firstReward.RewardType, "SignInResponse first daily reward RewardType");
             AssertEqual(AscNet.Common.Database.Inventory.Coin, firstReward.TemplateId, "SignInResponse first daily reward TemplateId");
             AssertEqual(10_000, firstReward.Count, "SignInResponse first daily reward Count");
-            AssertEqual(50210, firstReward.Id, "SignInResponse first daily reward Id");
+            AssertEqual(50_000, firstReward.Id, "SignInResponse first daily reward Id");
             AssertEqual(false, firstReward.IsGift, "SignInResponse first daily reward IsGift");
             AssertEqual(0, firstReward.RewardMulti, "SignInResponse first daily reward RewardMulti");
             if (player.LastSignInTime <= 0)
                 throw new InvalidDataException("SignInRequest first daily reward: expected Player.LastSignInTime to be recorded.");
+            AssertEqual(1L, player.SignInClaimCount, "SignInRequest first daily reward claim count");
 
             Item coinAfterFirstSignIn = inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
             AssertEqual(10_000L, coinAfterFirstSignIn.Count, "SignInRequest first daily reward inventory coin count");
+            AssertEqual(1, playerCollection.ReplaceOneCalls, "SignInRequest first daily reward persisted player saves");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, "SignInRequest first daily reward persisted character saves");
+            AssertEqual(1, inventoryCollection.ReplaceOneCalls, "SignInRequest first daily reward persisted inventory saves");
 
             const int secondPacketId = 13_002;
             InvokeRegisteredRequestHandler(
@@ -925,6 +958,64 @@ namespace AscNet.Test
             AssertEmptyList(secondResponse.RewardGoodsList, "SignInResponse duplicate same-day RewardGoodsList");
             Item coinAfterSecondSignIn = inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin);
             AssertEqual(10_000L, coinAfterSecondSignIn.Count, "SignInRequest duplicate same-day inventory coin count");
+            AssertEqual(1L, player.SignInClaimCount, "SignInRequest duplicate same-day claim count");
+            AssertEqual(1, playerCollection.ReplaceOneCalls, "SignInRequest duplicate same-day player saves");
+
+            AscNet.Common.Database.Player persistedPlayer = playerCollection.LastReplacement
+                ?? throw new InvalidDataException("SignInRequest first daily reward: expected a persisted player replacement.");
+            byte[] serializedPlayer = persistedPlayer.ToBson();
+            BsonDocument playerDocument = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(serializedPlayer);
+            AssertEqual(1L, playerDocument["sign_in_claim_count"].ToInt64(), "Player BSON persisted daily reward claim count");
+            AscNet.Common.Database.Player reloadedPlayer =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(serializedPlayer);
+            AssertEqual(1L, reloadedPlayer.SignInClaimCount, "Player BSON reloaded daily reward claim count");
+
+            SignInfo signedTodaySignIn = BuildCurrentSignInInfo(reloadedPlayer);
+            AssertEqual(1L, signedTodaySignIn.Round, "NotifyLogin claimed daily reward Round");
+            AssertEqual(1L, signedTodaySignIn.Day, "NotifyLogin claimed daily reward Day");
+            AssertEqual(true, signedTodaySignIn.Got, "NotifyLogin claimed daily reward Got");
+            AssertEqual(0L, signedTodaySignIn.FinishDay, "NotifyLogin claimed daily reward stable FinishDay");
+
+            reloadedPlayer.LastSignInTime = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
+            SignInfo nextDaySignIn = BuildCurrentSignInInfo(reloadedPlayer);
+            AssertEqual(1L, nextDaySignIn.Round, "NotifyLogin next daily reward Round");
+            AssertEqual(2L, nextDaySignIn.Day, "NotifyLogin next daily reward Day");
+            AssertEqual(false, nextDaySignIn.Got, "NotifyLogin next daily reward Got");
+            AssertEqual(0L, nextDaySignIn.FinishDay, "NotifyLogin next daily reward stable FinishDay");
+
+            using LoopbackSessionHarness nextDayHarness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                reloadedPlayer,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "login-account-sign-in-reload-compat-test");
+
+            const int nextDayPacketId = 13_003;
+            InvokeRegisteredRequestHandler(
+                nameof(SignInRequest),
+                nextDayHarness.Session,
+                nextDayPacketId,
+                new SignInRequest { Id = 1 });
+            SignInResponse nextDayResponse = (SignInResponse)ReadResponsePayload(
+                nextDayHarness,
+                nextDayPacketId,
+                nameof(SignInResponse),
+                "SignInRequest next daily reward response",
+                typeof(SignInResponse),
+                maxPacketsToRead: 2);
+
+            AssertEqual(0, nextDayResponse.Code, "SignInResponse next daily reward Code");
+            AssertEqual(1, nextDayResponse.RewardGoodsList.Count, "SignInResponse next daily reward count");
+            RewardGoods nextDayReward = nextDayResponse.RewardGoodsList[0];
+            AssertEqual((int)RewardType.Equip, nextDayReward.RewardType, "SignInResponse next daily reward RewardType");
+            AssertEqual(3_914_001, nextDayReward.TemplateId, "SignInResponse next daily reward TemplateId");
+            AssertEqual(1, nextDayReward.Count, "SignInResponse next daily reward Count");
+            AssertEqual(50_010, nextDayReward.Id, "SignInResponse next daily reward Id");
+            AssertEqual(2L, reloadedPlayer.SignInClaimCount, "SignInRequest next daily reward claim count");
+            AssertEqual(2, playerCollection.ReplaceOneCalls, "SignInRequest next daily reward persisted player saves");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, "SignInRequest next daily reward persisted character saves");
+            AssertEqual(2, inventoryCollection.ReplaceOneCalls, "SignInRequest next daily reward persisted inventory saves");
+            if (characterCollection.LastReplacement?.Equips.Count != 1)
+                throw new InvalidDataException("SignInRequest next daily reward: expected the claimed equipment to be persisted.");
         }
 
         private static void ValidateLoginStartupPushOrder()
@@ -10467,6 +10558,22 @@ namespace AscNet.Test
                 [
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), recordingPlayerCollection)
+                ]);
+            }
+
+            public static MongoCollectionOverride InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection)
+            {
+                IMongoCollection<AscNet.Common.Database.Player> recordingPlayerCollection = CreateRecordingMongoCollection(out playerCollection);
+                IMongoCollection<AscNet.Common.Database.Character> recordingCharacterCollection = CreateRecordingMongoCollection(out characterCollection);
+                IMongoCollection<AscNet.Common.Database.Inventory> recordingInventoryCollection = CreateRecordingMongoCollection(out inventoryCollection);
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), recordingInventoryCollection),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), recordingCharacterCollection),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), recordingPlayerCollection)
                 ]);
             }

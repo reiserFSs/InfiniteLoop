@@ -257,6 +257,9 @@ namespace AscNet.Common.Database
         [BsonElement("last_sign_in_time")]
         public long LastSignInTime { get; set; }
 
+        [BsonElement("sign_in_claim_count")]
+        public long SignInClaimCount { get; set; }
+
         [BsonElement("red_point_records")]
         public RedPointRecords RedPointRecords { get; set; } = new();
 
