@@ -18999,6 +18999,11 @@ namespace AscNet.Test
                 "ConsumeFeedEquips",
                 BindingFlags.Static | BindingFlags.NonPublic,
                 [typeof(Session), typeof(EquipData), typeof(EquipTable), typeof(List<EquipTable>), typeof(List<EquipBreakThroughTable>), typeof(int), operationInfoType, typeof(Dictionary<int, int>), typeof(NotifyEquipDataList)]);
+            MethodInfo tryConsumeValidatedFeedEquips = RequiredMethod(
+                equipModuleType,
+                "TryConsumeValidatedFeedEquips",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session), typeof(EquipData), typeof(EquipTable), typeof(List<int>), typeof(List<EquipTable>), typeof(List<EquipBreakThroughTable>), typeof(Dictionary<int, int>), typeof(NotifyEquipDataList), typeof(int).MakeByRefType()]);
             MethodInfo applyEquipBreakthrough = RequiredMethod(
                 equipModuleType,
                 "ApplyEquipBreakthrough",
@@ -19055,6 +19060,40 @@ namespace AscNet.Test
             if (lowRarityTargetEquip.Level <= targetLevel && lowRarityTargetEquip.Exp == 0)
                 throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior incorrectly discarded feed exp beyond TargetLevel.");
 
+            EquipTable capturedWeaponTargetTable = equipTables.Single(row => row.Id == 2655001);
+            EquipTable capturedWeaponFodderTable = equipTables.Single(row => row.Id == 2013001);
+            AssertEqual(65, capturedWeaponTargetTable.Type, "Captured request 0227 target weapon Type");
+            AssertEqual(0, capturedWeaponTargetTable.Site, "Captured request 0227 target weapon Site");
+            EquipData capturedWeaponTarget = NewEquip(2838, capturedWeaponTargetTable);
+            EquipData capturedWeaponFodder = NewEquip(2954, capturedWeaponFodderTable);
+            AscNet.Common.Database.Character capturedWeaponCharacter = NewCharacter(18408465, capturedWeaponTarget, capturedWeaponFodder);
+            Session capturedWeaponSession = NewSession(capturedWeaponCharacter, NewInventory(capturedWeaponCharacter.Uid));
+            Dictionary<int, int> capturedWeaponDeltas = new();
+            NotifyEquipDataList capturedWeaponNotify = new();
+            object capturedWeaponOperation = NewOperationInfo([2954], null, null);
+            int capturedWeaponExp = (int)(consumeFeedEquips.Invoke(null,
+                [capturedWeaponSession, capturedWeaponTarget, capturedWeaponTargetTable, equipTables, equipBreakThroughTables, 2, capturedWeaponOperation, capturedWeaponDeltas, capturedWeaponNotify])
+                ?? throw new InvalidDataException("Captured request 0227 weapon fodder returned nil."));
+            AssertEqual(100, capturedWeaponExp, "Captured request 0227 credits weapon fodder EXP");
+            AssertEqual(false, capturedWeaponCharacter.Equips.Any(equip => equip.Id == 2954), "Captured request 0227 removes weapon fodder");
+            AssertIntegerList([2954], capturedWeaponNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "Captured request 0227 DeletedEquipIdList");
+            AssertEqual(-1000, capturedWeaponDeltas[AscNet.Common.Database.Inventory.Coin], "Captured request 0227 Cog delta");
+
+            EquipTable[] allThreeToFiveStarWeapons = equipTables
+                .Where(table => table.Site == 0
+                    && table.Star is >= 3 and <= 5
+                    && AscNet.Common.Database.Character.IsOwnableEquipTemplate(table))
+                .ToArray();
+            AssertEqual(139, allThreeToFiveStarWeapons.Length, "Current ownable 3-5 star weapon template count");
+            foreach (EquipTable weapon in allThreeToFiveStarWeapons)
+            {
+                EquipBreakThroughTable progression = equipBreakThroughTables.FirstOrDefault(row =>
+                        row.EquipId == weapon.Id && row.Times == 0)
+                    ?? throw new InvalidDataException($"Weapon feed audit rejected template {weapon.Id}: missing breakthrough-0 progression.");
+                if (progression.Exp <= 0)
+                    throw new InvalidDataException($"Weapon feed audit rejected template {weapon.Id}: non-positive base EXP {progression.Exp}.");
+            }
+
             var highRarityFeedCase = FindHighRarityWeaponFeedCase();
             EquipTable highRarityTargetEquipTable = highRarityFeedCase.Target;
             EquipTable normalWeaponFodderEquipTable = highRarityFeedCase.NormalWeaponFeed;
@@ -19083,6 +19122,91 @@ namespace AscNet.Test
             AssertEqual(false, highRarityCharacter.Equips.Any(equip => equip.Id == enhancementFodderEquipId), "EquipOneKeyFeedRequestHandler behavior high-rarity weapon consumes Type 99 enhancement fodder");
             AssertIntegerList([normalWeaponFodderEquipId, enhancementFodderEquipId], highRarityNotifyEquipDataList.DeletedEquipIdList.Select(equipId => (long)equipId).ToArray(), "EquipOneKeyFeedRequestHandler behavior high-rarity exact deleted equip ids");
             AssertEqual(highRarityFeedExp * -10, highRarityItemDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeedRequestHandler behavior high-rarity coin cost is based on full feed exp");
+
+            const int directTargetEquipId = 7151;
+            const int directWeaponFodderId = 7152;
+            EquipData directTargetEquip = NewEquip(directTargetEquipId, highRarityTargetEquipTable);
+            EquipData directWeaponFodder = NewEquip(directWeaponFodderId, normalWeaponFodderEquipTable);
+            directWeaponFodder.Exp = 37;
+            AscNet.Common.Database.Character directCharacter = NewCharacter(9051, directTargetEquip, directWeaponFodder);
+            Session directSession = NewSession(directCharacter, NewInventory(directCharacter.Uid));
+            Dictionary<int, int> directDeltas = new();
+            NotifyEquipDataList directNotify = new();
+            object[] directArguments = [directSession, directTargetEquip, highRarityTargetEquipTable, new List<int> { directWeaponFodderId }, equipTables, equipBreakThroughTables, directDeltas, directNotify, 0];
+            bool directConsumed = (bool)(tryConsumeValidatedFeedEquips.Invoke(null, directArguments)
+                ?? throw new InvalidDataException("EquipLevelUpRequest weapon fodder consumption returned nil."));
+            int directFeedExp = (int)directArguments[8];
+            AssertEqual(true, directConsumed, "EquipLevelUpRequest consumes compatible normal weapon fodder");
+            AssertEqual(highRarityFeedCase.NormalWeaponFeedExp + 37, directFeedExp, "EquipLevelUpRequest credits configured base plus accumulated weapon EXP");
+            AssertEqual(false, directCharacter.Equips.Any(equip => equip.Id == directWeaponFodderId), "EquipLevelUpRequest removes consumed weapon fodder");
+            AssertIntegerList([directWeaponFodderId], directNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "EquipLevelUpRequest emits exact DeletedEquipIdList");
+            AssertEqual(directFeedExp * -10, directDeltas[AscNet.Common.Database.Inventory.Coin], "EquipLevelUpRequest charges weapon fodder coin cost");
+            directCharacter.AddEquipExp(directTargetEquipId, directFeedExp);
+            if (directTargetEquip.Level <= 1 && directTargetEquip.Exp == 0)
+                throw new InvalidDataException("EquipLevelUpRequest weapon fodder did not increase target progress.");
+
+            EquipData atomicTarget = NewEquip(7161, highRarityTargetEquipTable);
+            EquipData atomicFodder = NewEquip(7162, normalWeaponFodderEquipTable);
+            AscNet.Common.Database.Character atomicCharacter = NewCharacter(9052, atomicTarget, atomicFodder);
+            Session atomicSession = NewSession(atomicCharacter, NewInventory(atomicCharacter.Uid));
+            Dictionary<int, int> atomicDeltas = new();
+            NotifyEquipDataList atomicNotify = new();
+            object[] atomicArguments = [atomicSession, atomicTarget, highRarityTargetEquipTable, new List<int> { 7162, missingFodderEquipId }, equipTables, equipBreakThroughTables, atomicDeltas, atomicNotify, 0];
+            bool atomicConsumed = (bool)(tryConsumeValidatedFeedEquips.Invoke(null, atomicArguments)
+                ?? throw new InvalidDataException("EquipLevelUpRequest invalid fodder validation returned nil."));
+            AssertEqual(false, atomicConsumed, "EquipLevelUpRequest rejects a list containing nonexistent fodder");
+            AssertEqual(true, atomicCharacter.Equips.Any(equip => equip.Id == 7162), "EquipLevelUpRequest invalid list does not partially remove valid fodder");
+            AssertEqual(0, atomicNotify.DeletedEquipIdList.Count, "EquipLevelUpRequest invalid list emits no deletion");
+            AssertEqual(0, atomicDeltas.Count, "EquipLevelUpRequest invalid list charges nothing");
+
+            EquipTable liveRecycleTargetTable = equipTables.Single(row => row.Id == 2025001);
+            EquipTable liveRecycleFodderTable = equipTables.Single(row => row.Id == 2014001);
+            EquipData recycledTarget = NewEquip(533, liveRecycleTargetTable);
+            EquipData recycledFodder = NewEquip(588, liveRecycleFodderTable);
+            recycledFodder.IsRecycle = true;
+            AscNet.Common.Database.Character recycledCharacter = NewCharacter(9053, recycledTarget, recycledFodder);
+            Session recycledSession = NewSession(recycledCharacter, NewInventory(recycledCharacter.Uid));
+            Dictionary<int, int> recycledDeltas = new();
+            NotifyEquipDataList recycledNotify = new();
+            object recycledOperation = NewOperationInfo([588], null, null);
+            int recycledExp = (int)(consumeFeedEquips.Invoke(null,
+                [recycledSession, recycledTarget, liveRecycleTargetTable, equipTables, equipBreakThroughTables, 2, recycledOperation, recycledDeltas, recycledNotify])
+                ?? throw new InvalidDataException("Live recycled-marked OneKeyFeed fodder returned nil."));
+            if (recycledExp <= 0)
+                throw new InvalidDataException("Live recycled-marked OneKeyFeed weapon did not contribute EXP.");
+            AssertEqual(false, recycledCharacter.Equips.Any(equip => equip.Id == 588), "EquipOneKeyFeed consumes visible recycled-marked fodder");
+            AssertIntegerList([588], recycledNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "EquipOneKeyFeed recycled-marked fodder deletion");
+            AssertEqual(recycledExp * -10, recycledDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeed recycled-marked fodder coin cost");
+
+            EquipData directRecycleTarget = NewEquip(733, liveRecycleTargetTable);
+            EquipData directRecycleFodder = NewEquip(788, liveRecycleFodderTable);
+            directRecycleFodder.IsRecycle = true;
+            AscNet.Common.Database.Character directRecycleCharacter = NewCharacter(9055, directRecycleTarget, directRecycleFodder);
+            Session directRecycleSession = NewSession(directRecycleCharacter, NewInventory(directRecycleCharacter.Uid));
+            Dictionary<int, int> directRecycleDeltas = new();
+            NotifyEquipDataList directRecycleNotify = new();
+            object[] directRecycleArguments = [directRecycleSession, directRecycleTarget, liveRecycleTargetTable, new List<int> { 788 }, equipTables, equipBreakThroughTables, directRecycleDeltas, directRecycleNotify, 0];
+            AssertEqual(true, (bool)(tryConsumeValidatedFeedEquips.Invoke(null, directRecycleArguments)
+                ?? throw new InvalidDataException("Direct recycled-marked weapon fodder returned nil.")), "EquipLevelUpRequest accepts visible recycled-marked fodder");
+            AssertEqual(false, directRecycleCharacter.Equips.Any(equip => equip.Id == 788), "EquipLevelUpRequest consumes recycled-marked fodder");
+            AssertIntegerList([788], directRecycleNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "EquipLevelUpRequest recycled-marked fodder deletion");
+
+            EquipData overflowTarget = NewEquip(7181, capturedWeaponTargetTable);
+            EquipData overflowFodder = NewEquip(7182, capturedWeaponFodderTable);
+            EquipData secondOverflowFodder = NewEquip(7183, capturedWeaponFodderTable);
+            overflowFodder.Exp = int.MaxValue / 20;
+            secondOverflowFodder.Exp = int.MaxValue / 20;
+            AscNet.Common.Database.Character overflowCharacter = NewCharacter(9054, overflowTarget, overflowFodder, secondOverflowFodder);
+            Session overflowSession = NewSession(overflowCharacter, NewInventory(overflowCharacter.Uid));
+            Dictionary<int, int> overflowDeltas = new();
+            NotifyEquipDataList overflowNotify = new();
+            object[] overflowArguments = [overflowSession, overflowTarget, capturedWeaponTargetTable, new List<int> { 7182, 7183 }, equipTables, equipBreakThroughTables, overflowDeltas, overflowNotify, 0];
+            AssertEqual(false, (bool)(tryConsumeValidatedFeedEquips.Invoke(null, overflowArguments)
+                ?? throw new InvalidDataException("Aggregate-overflowing EquipLevelUp fodder returned nil.")), "EquipLevelUpRequest rejects aggregate equipment coin overflow");
+            AssertEqual(true, overflowCharacter.Equips.Any(equip => equip.Id == 7182), "EquipLevelUpRequest aggregate overflow preserves first fodder");
+            AssertEqual(true, overflowCharacter.Equips.Any(equip => equip.Id == 7183), "EquipLevelUpRequest aggregate overflow preserves second fodder");
+            AssertEqual(0, overflowNotify.DeletedEquipIdList.Count, "EquipLevelUpRequest aggregate overflow emits no deletion");
+            AssertEqual(0, overflowDeltas.Count, "EquipLevelUpRequest aggregate overflow charges nothing");
 
             int itemTargetRequiredExp = FreshRequiredExpToTargetLevel(highRarityTargetEquipTable);
             int itemUseCount = itemTargetRequiredExp / equipExpItemUpgradeInfo.Exp + 1;

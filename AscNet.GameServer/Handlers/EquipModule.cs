@@ -222,6 +222,23 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new EquipLevelUpResponse { Code = 20021012 }, packet.Id);
                 return;
             }
+            EquipTable? targetEquipTable = Character.ResolveEquipTemplate(targetEquip.TemplateId);
+            NotifyEquipDataList notifyEquipDataList = new();
+            Dictionary<int, int> equipItemDeltas = new();
+            if (!TryConsumeValidatedFeedEquips(
+                    session,
+                    targetEquip,
+                    targetEquipTable,
+                    request.UseEquipIdList,
+                    TableReaderV2.Parse<EquipTable>(),
+                    TableReaderV2.Parse<EquipBreakThroughTable>(),
+                    equipItemDeltas,
+                    notifyEquipDataList,
+                    out int equipFeedExp))
+            {
+                session.SendResponse(new EquipLevelUpResponse { Code = 20021012 }, packet.Id);
+                return;
+            }
 
             NotifyItemDataList notifyItemData = new();
             int totalExp = 0;
@@ -238,11 +255,9 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            // TODO: Handle equip enchantment with equip cost
-            /*foreach (var costEquipId in request.UseEquipIdList ?? [])
-            {
-
-            }*/
+            totalExp += equipFeedExp;
+            if (equipItemDeltas.TryGetValue(Inventory.Coin, out int equipCoinDelta))
+                totalCost -= equipCoinDelta;
 
             notifyItemData.ItemDataList.Add(session.inventory.Do(Inventory.Coin, totalCost * -1));
             session.SendPush(notifyItemData);
@@ -258,10 +273,11 @@ namespace AscNet.GameServer.Handlers
                 rsp.Level = upEquip.Level;
                 rsp.Exp = upEquip.Exp;
 
-                NotifyEquipDataList notifyEquipDataList = new();
                 notifyEquipDataList.EquipDataList.Add(upEquip);
-                session.SendPush(notifyEquipDataList);
             }
+
+            if (notifyEquipDataList.DeletedEquipIdList.Count > 0 || notifyEquipDataList.EquipDataList.Count > 0)
+                session.SendPush(notifyEquipDataList);
                 session.character.Save();
                 session.inventory.Save();
 
@@ -416,17 +432,25 @@ namespace AscNet.GameServer.Handlers
                 if (Character.ResolveEquipBreakThrough(targetEquip.TemplateId, targetEquip.Breakthrough) is null)
                     break;
 
-                EquipData? feedEquip = session.character.Equips.Find(x => x.Id == equipId);
-                if (feedEquip is null || feedEquip.IsLock || feedEquip.CharacterId != 0)
+                if (!TryResolveFeedEquip(
+                        session,
+                        targetEquip,
+                        targetEquipTable,
+                        equipId,
+                        equipTables,
+                        equipBreakThroughTables,
+                        out EquipData feedEquip,
+                        out int feedExp))
+                {
                     continue;
+                }
 
-                EquipTable? feedEquipTable = equipTables.FirstOrDefault(x => x.Id == feedEquip.TemplateId);
-                if (!CanFeedEquipIntoTarget(targetEquipTable, feedEquipTable))
-                    continue;
-
-                int feedExp = GetEquipFeedExp(feedEquip, equipBreakThroughTables);
-                if (feedExp <= 0)
-                    continue;
+                if (totalFeedExp > int.MaxValue - feedExp
+                    || feedExp > int.MaxValue / 10
+                    || !CanAddItemDelta(itemDeltas, Inventory.Coin, feedExp * -10))
+                {
+                    break;
+                }
 
                 if (!session.character.Equips.Remove(feedEquip))
                     continue;
@@ -438,6 +462,99 @@ namespace AscNet.GameServer.Handlers
             }
 
             return totalFeedExp;
+        }
+
+        private static bool TryConsumeValidatedFeedEquips(
+            Session session,
+            EquipData targetEquip,
+            EquipTable? targetEquipTable,
+            List<int>? requestedEquipIds,
+            List<EquipTable> equipTables,
+            List<EquipBreakThroughTable> equipBreakThroughTables,
+            Dictionary<int, int> itemDeltas,
+            NotifyEquipDataList notifyEquipDataList,
+            out int totalFeedExp)
+        {
+            totalFeedExp = 0;
+            if (requestedEquipIds is null || requestedEquipIds.Count == 0)
+                return true;
+
+            HashSet<int> requestedIds = [];
+            List<(EquipData Equip, int Exp)> validated = [];
+            long projectedExp = 0;
+            foreach (int equipId in requestedEquipIds)
+            {
+                if (equipId <= 0 || equipId == targetEquip.Id || !requestedIds.Add(equipId))
+                    return false;
+
+                if (!TryResolveFeedEquip(
+                        session,
+                        targetEquip,
+                        targetEquipTable,
+                        equipId,
+                        equipTables,
+                        equipBreakThroughTables,
+                        out EquipData feedEquip,
+                        out int feedExp)
+                    || projectedExp + feedExp > int.MaxValue / 10L)
+                {
+                    return false;
+                }
+
+                projectedExp += feedExp;
+                validated.Add((feedEquip, feedExp));
+            }
+            int aggregateCoinDelta = checked((int)(projectedExp * -10L));
+            if (!CanAddItemDelta(itemDeltas, Inventory.Coin, aggregateCoinDelta))
+                return false;
+            totalFeedExp = (int)projectedExp;
+
+            foreach ((EquipData feedEquip, _) in validated)
+            {
+                if (!session.character.Equips.Remove(feedEquip))
+                    throw new InvalidOperationException($"Validated feed equip {feedEquip.Id} disappeared before consumption.");
+                notifyEquipDataList.DeletedEquipIdList.Add(feedEquip.Id);
+            }
+            AddItemDelta(itemDeltas, Inventory.Coin, aggregateCoinDelta);
+
+            return true;
+        }
+
+        private static bool TryResolveFeedEquip(
+            Session session,
+            EquipData targetEquip,
+            EquipTable? targetEquipTable,
+            int equipId,
+            List<EquipTable> equipTables,
+            List<EquipBreakThroughTable> equipBreakThroughTables,
+            out EquipData feedEquip,
+            out int feedExp)
+        {
+            EquipData? resolvedEquip = session.character.Equips.Find(equip => equip.Id == equipId);
+            feedExp = 0;
+            if (resolvedEquip is null
+                || resolvedEquip.IsLock
+                || resolvedEquip.CharacterId != 0)
+            {
+                feedEquip = null!;
+                return false;
+            }
+
+            feedEquip = resolvedEquip;
+            EquipTable? feedEquipTable = equipTables.FirstOrDefault(table => table.Id == resolvedEquip.TemplateId);
+            if (!CanFeedEquipIntoTarget(targetEquipTable, feedEquipTable))
+                return false;
+
+            feedExp = GetEquipFeedExp(feedEquip, equipBreakThroughTables);
+            return feedExp > 0;
+        }
+
+        private static bool CanAddItemDelta(Dictionary<int, int> itemDeltas, int itemId, int delta)
+        {
+            int current = itemDeltas.GetValueOrDefault(itemId);
+            return delta >= 0
+                ? current <= int.MaxValue - delta
+                : current >= int.MinValue - delta;
         }
 
         private static int GetOperationTargetLevel(EquipData targetEquip, int requestedBreakthrough, int requestedLevel, List<EquipBreakThroughTable> equipBreakThroughTables)
@@ -461,15 +578,9 @@ namespace AscNet.GameServer.Handlers
             if (targetEquipTable is null || feedEquipTable is null)
                 return false;
 
-            if (targetEquipTable.Type == 1)
-                return feedEquipTable.Type == 1
-                    || (feedEquipTable.Type == 99 && feedEquipTable.Site == 0);
-
-            if (targetEquipTable.Type == 0)
-                return feedEquipTable.Type == 0
-                    || (feedEquipTable.Type == 99 && feedEquipTable.Site != 0);
-
-            return false;
+            bool targetIsWeapon = targetEquipTable.Site == 0;
+            bool feedIsWeapon = feedEquipTable.Site == 0;
+            return targetIsWeapon == feedIsWeapon;
         }
 
         private static bool IsSameEquipSlot(EquipTable? equippedTable, EquipTable targetTable)
@@ -489,7 +600,8 @@ namespace AscNet.GameServer.Handlers
             EquipBreakThroughTable? feedEquipBreakThrough = Character.ResolveEquipBreakThrough(
                 equip.TemplateId,
                 equip.Breakthrough);
-            return (feedEquipBreakThrough?.Exp ?? 0) + Math.Max(0, equip.Exp);
+            long feedExp = (long)(feedEquipBreakThrough?.Exp ?? 0) + Math.Max(0, equip.Exp);
+            return feedExp is > 0 and <= int.MaxValue ? (int)feedExp : 0;
         }
 
         private static void ApplyEquipBreakthrough(EquipData equip, List<EquipBreakThroughTable> equipBreakThroughTables, Dictionary<int, int> itemDeltas)
