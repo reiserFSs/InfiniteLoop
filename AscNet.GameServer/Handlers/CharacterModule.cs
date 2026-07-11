@@ -149,6 +149,19 @@ namespace AscNet.GameServer.Handlers
     {
         public List<FashionList> FashionList = new();
     }
+
+	[MessagePackObject(true)]
+    public class CharacterSetHeadInfoRequest
+    {
+        public int TemplateId;
+        public CharacterHeadInfo CharacterHeadInfo { get; set; }
+    }
+
+	[MessagePackObject(true)]
+    public class CharacterSetHeadInfoResponse
+    {
+        public int Code;
+    }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
@@ -646,5 +659,24 @@ namespace AscNet.GameServer.Handlers
 
             session.SendResponse(new CharacterExchangeResponse(), packet.Id);
         }
+
+		[RequestPacketHandler("CharacterSetHeadInfoRequest")]
+		public static void CharacterSetHeadInfoRequestHandler(Session session, Packet.Request packet)
+		{
+			CharacterSetHeadInfoRequest request = packet.Deserialize<CharacterSetHeadInfoRequest>();
+            var character = session.character.Characters.Find(x => x.Id == request.TemplateId);
+            if (character is not null)
+            {
+                character.CharacterHeadInfo.HeadFashionId = (uint)request.CharacterHeadInfo.HeadFashionId;
+                character.CharacterHeadInfo.HeadFashionType = (int)request.CharacterHeadInfo.HeadFashionType;
+				
+            
+                NotifyCharacterDataList notifyCharacterData = new();
+                notifyCharacterData.CharacterDataList.Add(character);
+                session.SendPush(notifyCharacterData);
+            }
+			
+            session.SendResponse(new CharacterSetHeadInfoResponse(), packet.Id);
+		}
     }
 }

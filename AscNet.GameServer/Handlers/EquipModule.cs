@@ -42,10 +42,10 @@ namespace AscNet.GameServer.Handlers
     public class EquipResonanceRequest
     {
         public int EquipId;
-        public int Slot;
+        public List<int> Slots;
         public int? UseItemId;
         public int? UseEquipId;
-        public int? SelectSkillId;
+        public List<int>? SelectSkillIds;
         public int? CharacterId;
         public EquipResonanceType? SelectType;
     }
@@ -614,14 +614,16 @@ namespace AscNet.GameServer.Handlers
         }
 
         // TODO: Swapping equip resonance is broken, this is only partially implemented!
+		// 为什么要把装备和意识的共鸣放在一起
         [RequestPacketHandler("EquipResonanceRequest")]
         public static void EquipResonanceRequestHandler(Session session, Packet.Request packet)
         {
             EquipResonanceRequest request = packet.Deserialize<EquipResonanceRequest>();
 
             var equip = session.character.Equips.Find(x => x.Id == request.EquipId);
+			var character = session.character.Characters.Find(x => x.Id == request.CharacterId);
 
-            if (equip is null)
+            if (equip is null || character is null)
             {
                 // EquipManagerGetCharEquipBySiteNotFound
                 session.SendResponse(new EquipResonanceResponse() { Code = 20021012 }, packet.Id);
@@ -630,28 +632,73 @@ namespace AscNet.GameServer.Handlers
 
             #region Pools
             EquipResonanceTable? equipResonance = TableReaderV2.Parse<EquipResonanceTable>().Find(x => x.Id == equip.TemplateId);
+			EquipTable? equipTable = TableReaderV2.Parse<EquipTable>().Find(x => x.Id == equip.TemplateId);
             List<ResonanceInfo> resonancePool = new();
-            foreach (var attribPoolId in equipResonance?.AttribPoolId ?? [])
-            {
-                var attribPool = TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId);
-                foreach (var attrib in attribPool)
-                {
-                    resonancePool.Add(new()
-                    {
-                        Slot = request.Slot,
-                        Type = EquipResonanceType.Attrib,
-                        TemplateId = attrib.Id
-                    });
-                }
-            }
-            foreach (var characterSkillPoolId in equipResonance?.CharacterSkillPoolId ?? [])
-            {
-                throw new NotImplementedException();
-            }
-            foreach (var weaponSkillPoolId in equipResonance?.WeaponSkillPoolId ?? [])
-            {
-                throw new NotImplementedException();
-            }
+			if (equipTable is null)
+			{
+				throw new NotImplementedException();
+			}
+
+
+			if (equipTable.Quality == 5)
+			{
+				var attribPoolId = equipResonance?.AttribPoolId?[request.Slots[0] - 1];
+				var attribPool = TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId);
+				foreach (var attrib in attribPool)
+				{
+					resonancePool.Add(new()
+					{
+						Slot = request.Slots[0],
+						Type = (equipTable.Site > 0) ?  EquipResonanceType.CharacterSkill : EquipResonanceType.Attrib,
+						TemplateId = attrib.Id
+					});
+				}
+			}
+			else
+			{
+				if (request.CharacterId is null)
+				{
+					throw new NotImplementedException();
+				}
+
+				if (request.SelectSkillIds?[0] is not null)
+				{
+					resonancePool.Add(new()
+					{
+						Slot = request.Slots[0],
+						Type = (equipTable.Site > 0) ?  EquipResonanceType.Attrib : EquipResonanceType.WeaponSkill,
+						CharacterId = (int)request.CharacterId,
+						TemplateId = request.SelectSkillIds[0]
+					});
+				}
+				else
+				{
+					var attribPoolId1 = equipResonance?.AttribPoolId?[request.Slots[0] - 1];
+					var attribPool1 = TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId1);
+					var attribPoolId2 = equipResonance?.CharacterSkillPoolId?[request.Slots[0] - 1];
+					var attribPool2 = TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId2);
+					foreach (var attrib in attribPool1)
+					{
+						resonancePool.Add(new()
+						{
+							Slot = request.Slots[0],
+							Type = EquipResonanceType.CharacterSkill,
+							CharacterId = (int)request.CharacterId,
+							TemplateId = attrib.Id
+						});
+					}
+					foreach (var attrib in attribPool2)
+					{
+						resonancePool.Add(new()
+						{
+							Slot = request.Slots[0],
+							Type = EquipResonanceType.CharacterSkill,
+							CharacterId = (int)request.CharacterId,
+							TemplateId = attrib.Id
+						});
+					}
+				}
+			}
             #endregion
 
             if (request.UseItemId is not null && request.UseItemId > 0)
@@ -677,13 +724,38 @@ namespace AscNet.GameServer.Handlers
             }
             else if (request.UseEquipId is not null && request.UseEquipId > 0)
             {
-                throw new NotImplementedException();
+				NotifyEquipDataList notifyEquipData = new();
+				EquipData? useEquip = session.character.Equips.Find(x => x.Id == request.UseEquipId);
+				if (useEquip is not null)
+				{
+					session.character.Equips.Remove(useEquip);
+					notifyEquipData.EquipDataList.Add(useEquip);
+
+					session.SendPush(notifyEquipData);
+				}
+				else
+				{
+					session.log.Error($"EquipResonanceUseEquip for template {request.UseEquipId} not found!");
+                    session.SendResponse(new EquipResonanceResponse() { Code = 20021038 }, packet.Id);
+                    return;
+				}
             }
 
+			var existing = equip.ResonanceInfo.Find(r => r.Slot == request.Slots[0]);
+			if (existing is not null)
+			{
+				equip.ResonanceInfo.Remove(existing);
+			}
             ResonanceInfo resonance = resonancePool[Random.Shared.Next(resonancePool.Count)];
             equip.ResonanceInfo.Add(resonance);
 
-            session.SendResponse(new EquipResonanceResponse() { ResonanceData = resonance }, packet.Id);
+			NotifyEquipDataList notifyEquipDataList = new();
+			notifyEquipDataList.EquipDataList.Add(equip);
+			session.SendPush(notifyEquipDataList);
+
+			session.inventory.Save();
+			session.character.Save();
+            session.SendResponse(new EquipResonanceResponse(), packet.Id);
         }
 
         [RequestPacketHandler("EquipDecomposeRequest")]

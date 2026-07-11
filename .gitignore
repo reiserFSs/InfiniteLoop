@@ -385,3 +385,4 @@ proxylog
 
 # ignore test scripts
 test_proxy.py
+.vscode/
