@@ -1,6 +1,7 @@
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Common;
+using Inventory = AscNet.Common.Database.Inventory;
 using AscNet.GameServer;
 using AscNet.GameServer.Handlers;
 using AscNet.SDKServer.Models;
@@ -64,6 +65,24 @@ namespace AscNet.Test
                 if (args.Contains("--notify-login-compat-only"))
                 {
                     ValidateNotifyLoginCurrentClientCompatibilityShape();
+                    return;
+                }
+
+                if (args.Contains("--partner-compose-compat-only"))
+                {
+                    ValidatePartnerComposeCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--equip-resonance-compat-only"))
+                {
+                    ValidateEquipResonanceCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--weapon-overrun-compat-only"))
+                {
+                    ValidateWeaponOverrunCompatibility();
                     return;
                 }
 
@@ -131,6 +150,12 @@ namespace AscNet.Test
                 if (args.Contains("--boss-single-login-compat-only"))
                 {
                     ValidateBossSingleLoginCompatibilityShape();
+                    return;
+                }
+
+                if (args.Contains("--simulated-battlefield-compat-only"))
+                {
+                    ValidateSimulatedBattlefieldCompatibility();
                     return;
                 }
 
@@ -266,6 +291,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--inventory-max-count-compat-only"))
+                {
+                    ValidateInventoryMaxCountCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--item-sell-compat-only"))
                 {
                     ValidateItemSellCompatibility();
@@ -359,6 +390,7 @@ namespace AscNet.Test
                 ValidateMainLineTreasureRewardCompatibility();
                 ValidateGatherAwakenRewardCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
+                ValidateSimulatedBattlefieldCompatibility();
                 ValidateCurrentClientGuideTableCompatibility();
                 ValidatePlayerCostTimeUploadCompatibility();
                 ValidateRecordPlayerPointCompatibility();
@@ -381,6 +413,7 @@ namespace AscNet.Test
                 ValidateDrawCompatibility();
                 ValidateItemUseCompatibility();
                 ValidateItemSellCompatibility();
+                ValidateInventoryMaxCountCompatibility();
                 ValidateChatCompatibility();
                 ValidateCommandCompatibility();
                 ValidateMissingFeatureCompatibility();
@@ -398,6 +431,889 @@ namespace AscNet.Test
                 Environment.ExitCode = 1;
             }
         }
+
+        private static void ValidateWeaponOverrunCompatibility()
+        {
+            const uint equipId = 1457;
+            EquipData equip = new()
+            {
+                Id = equipId,
+                TemplateId = 2386001,
+                Level = 45,
+                WeaponOverrunData = new()
+            };
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = equipId,
+                Characters = [],
+                Equips = [equip],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items =
+                [
+                    new Item { Id = 34000, Count = 239, CreateTime = 1, RefreshTime = 1 },
+                    new Item { Id = 47, Count = 18583, CreateTime = 1, RefreshTime = 1 }
+                ]
+            };
+
+            using LoopbackSessionHarness harness = new(character, inventory: inventory);
+            InvokeRequestHandler(
+                harness,
+                nameof(EquipWeaponOverrunLevelUpRequest),
+                16_109,
+                new EquipWeaponOverrunLevelUpRequest { EquipId = (int)equipId });
+            AssertItemPush(
+                harness.ReadPacket("EquipWeaponOverrunLevelUpRequest item push"),
+                34000,
+                214,
+                "EquipWeaponOverrunLevelUpRequest item push");
+            EquipWeaponOverrunLevelUpResponse levelResponse =
+                ReadResponsePayload<EquipWeaponOverrunLevelUpResponse>(
+                    harness.ReadPacket("EquipWeaponOverrunLevelUpResponse"),
+                    nameof(EquipWeaponOverrunLevelUpResponse));
+            AssertEqual(0, levelResponse.Code, "EquipWeaponOverrunLevelUpResponse code");
+            AssertEqual(1, levelResponse.WeaponOverrunData.Level, "EquipWeaponOverrunLevelUpResponse level");
+            AssertEqual(0, levelResponse.WeaponOverrunData.ActiveSuits.Count, "EquipWeaponOverrunLevelUpResponse active suits");
+            AssertEqual(0, levelResponse.WeaponOverrunData.ChoseSuit, "EquipWeaponOverrunLevelUpResponse chosen suit");
+
+            InvokeRequestHandler(
+                harness,
+                nameof(EquipWeaponActiveOverrunSuitRequest),
+                16_114,
+                new EquipWeaponActiveOverrunSuitRequest { EquipId = (int)equipId, SuitId = 1606 });
+            AssertItemPush(
+                harness.ReadPacket("EquipWeaponActiveOverrunSuitRequest item push"),
+                47,
+                17383,
+                "EquipWeaponActiveOverrunSuitRequest item push");
+            EquipWeaponActiveOverrunSuitResponse activeResponse =
+                ReadResponsePayload<EquipWeaponActiveOverrunSuitResponse>(
+                    harness.ReadPacket("EquipWeaponActiveOverrunSuitResponse"),
+                    nameof(EquipWeaponActiveOverrunSuitResponse));
+            AssertEqual(0, activeResponse.Code, "EquipWeaponActiveOverrunSuitResponse code");
+            AssertIntegerList([1606], activeResponse.WeaponOverrunData.ActiveSuits.Select(id => (long)id).ToArray(), "EquipWeaponActiveOverrunSuitResponse active suits");
+            AssertEqual(0, activeResponse.WeaponOverrunData.ChoseSuit, "EquipWeaponActiveOverrunSuitResponse chosen suit");
+
+            InvokeRequestHandler(
+                harness,
+                nameof(EquipWeaponChoseOverrunSuitRequest),
+                16_115,
+                new EquipWeaponChoseOverrunSuitRequest { EquipId = (int)equipId, SuitId = 1606 });
+            EquipWeaponChoseOverrunSuitResponse choseResponse =
+                ReadResponsePayload<EquipWeaponChoseOverrunSuitResponse>(
+                    harness.ReadPacket("EquipWeaponChoseOverrunSuitResponse"),
+                    nameof(EquipWeaponChoseOverrunSuitResponse));
+            AssertEqual(0, choseResponse.Code, "EquipWeaponChoseOverrunSuitResponse code");
+            AssertIntegerList([1606], choseResponse.WeaponOverrunData.ActiveSuits.Select(id => (long)id).ToArray(), "EquipWeaponChoseOverrunSuitResponse active suits");
+            AssertEqual(1606, choseResponse.WeaponOverrunData.ChoseSuit, "EquipWeaponChoseOverrunSuitResponse chosen suit");
+        }
+
+        private static void InvokeRequestHandler<TRequest>(
+            LoopbackSessionHarness harness,
+            string requestName,
+            int packetId,
+            TRequest request)
+        {
+            GetRegisteredRequestHandler(requestName).Invoke(
+                harness.Session,
+                new Packet.Request
+                {
+                    Id = packetId,
+                    Name = requestName,
+                    Content = MessagePackSerializer.Serialize(request)
+                });
+        }
+
+        private static TResponse ReadResponsePayload<TResponse>(Packet packet, string responseName)
+        {
+            AssertEqual(Packet.ContentType.Response, packet.Type, $"{responseName} packet type");
+            Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+            AssertEqual(responseName, response.Name, $"{responseName} packet name");
+            return MessagePackSerializer.Deserialize<TResponse>(response.Content);
+        }
+
+        private static NotifyItemDataList ReadItemPush(Packet packet, string name)
+        {
+            AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+            AssertEqual(nameof(NotifyItemDataList), push.Name, $"{name} packet name");
+            return MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
+        }
+
+        private static void AssertItemPush(Packet packet, int itemId, long expectedCount, string name)
+        {
+            Item item = ReadItemPush(packet, name).ItemDataList.Single();
+            AssertEqual(itemId, item.Id, $"{name} item id");
+            AssertEqual(expectedCount, item.Count, $"{name} item count");
+        }
+
+        private static void ValidatePartnerComposeCompatibility()
+        {
+            const int shardId = 201;
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 70_001,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items = [new Item { Id = shardId, Count = 30 }]
+            };
+
+            using LoopbackSessionHarness harness = new(character, inventory: inventory, sessionId: "partner-compose-test");
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerComposeRequest),
+                17_001,
+                new PartnerComposeRequest { TemplateIds = [16_010_000], IsOneKey = false });
+
+            AssertItemPush(harness.ReadPacket("PartnerComposeRequest item push"), shardId, 0, "PartnerComposeRequest item push");
+            Packet partnerPacket = harness.ReadPacket("NotifyPartnerDataList");
+            AssertEqual(Packet.ContentType.Push, partnerPacket.Type, "NotifyPartnerDataList packet type");
+            Packet.Push partnerPush = MessagePackSerializer.Deserialize<Packet.Push>(partnerPacket.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), partnerPush.Name, "NotifyPartnerDataList packet name");
+            NotifyPartnerDataList partnerPayload = MessagePackSerializer.Deserialize<NotifyPartnerDataList>(partnerPush.Content);
+            PartnerData partner = partnerPayload.PartnerDataList.Single();
+            AssertEqual(16_010_000, partner.TemplateId, "composed partner template");
+            AssertIntegerList([1], partnerPayload.OperateTypes.Select(value => (long)value).ToArray(), "partner add operation");
+            AssertEqual(6, partner.SkillList.Count, "composed partner skills");
+            PartnerSkillData activeSkill = partner.SkillList.Single(skill => skill.Type == 1);
+            AssertEqual(1011, activeSkill.Id, "composed partner active skill id");
+            AssertEqual(1, activeSkill.Level, "composed partner active skill level");
+            AssertEqual(true, activeSkill.IsWear, "composed partner active skill wear state");
+            AssertIntegerList(
+                [50000, 50010, 50020, 50030, 50040],
+                partner.SkillList.Where(skill => skill.Type == 2).Select(skill => (long)skill.Id).ToArray(),
+                "composed partner passive skill ids");
+
+            PartnerComposeResponse response = ReadResponsePayload<PartnerComposeResponse>(
+                harness.ReadPacket("PartnerComposeResponse"),
+                nameof(PartnerComposeResponse));
+            AssertEqual(0, response.Code, "PartnerComposeResponse code");
+            AssertEqual(1, character.Partners.Count, "persisted composed partner count");
+            AssertEqual(0L, inventory.Items.Single(item => item.Id == shardId).Count, "composed shard balance");
+
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerComposeRequest),
+                17_002,
+                new PartnerComposeRequest { TemplateIds = [16_010_000], IsOneKey = false });
+            PartnerComposeResponse insufficientResponse = ReadResponsePayload<PartnerComposeResponse>(
+                harness.ReadPacket("insufficient PartnerComposeResponse"),
+                nameof(PartnerComposeResponse));
+            AssertEqual(1, insufficientResponse.Code, "insufficient PartnerComposeResponse code");
+            AssertEqual(1, character.Partners.Count, "insufficient compose partner count");
+
+            AscNet.Common.Database.Character legacyCharacter = new()
+            {
+                Uid = 70_002,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners =
+                [
+                    new PartnerData
+                    {
+                        Id = 1,
+                        TemplateId = 16_010_000,
+                        SkillList =
+                        [
+                            new PartnerSkillData { Id = 50000, Level = 1, Type = 2 }
+                        ]
+                    }
+                ]
+            };
+            AssertEqual(true, legacyCharacter.NormalizeCharactersForCurrentTables(), "legacy partner normalization changed state");
+            PartnerSkillData repairedActiveSkill = legacyCharacter.Partners.Single().SkillList.Single(skill => skill.Type == 1);
+            AssertEqual(1011, repairedActiveSkill.Id, "legacy partner repaired active skill id");
+            AssertEqual(1, repairedActiveSkill.Level, "legacy partner repaired active skill level");
+
+            AscNet.Common.Database.Character carriedPartnerMigration = new()
+            {
+                Uid = 70_005,
+                Characters =
+                [
+                    new CharacterData { Id = 1021001 },
+                    new CharacterData { Id = 1021005 },
+                    new CharacterData
+                    {
+                        Id = 1341002,
+                        SkillList = [new CharacterSkill { Id = 134216, Level = 1 }]
+                    }
+                ],
+                Equips = [],
+                Fashions = [],
+                Partners =
+                [
+                    new PartnerData
+                    {
+                        Id = 1,
+                        TemplateId = 16_150_000,
+                        CharacterId = 1021001,
+                        SkillList = [new PartnerSkillData { Id = 1291, Level = 5, IsWear = true, Type = 1 }]
+                    },
+                    new PartnerData
+                    {
+                        Id = 2,
+                        TemplateId = 16_150_000,
+                        CharacterId = 1021005,
+                        SkillList = [new PartnerSkillData { Id = 1291, Level = 3, IsWear = true, Type = 1 }]
+                    },
+                    new PartnerData { Id = 3, TemplateId = 16_090_000, CharacterId = 1021005 },
+                    new PartnerData { Id = 4, TemplateId = 16_090_000, CharacterId = 1021001 }
+                ]
+            };
+            AssertEqual(true, carriedPartnerMigration.NormalizeCharactersForCurrentTables(),
+                "persisted partner carry normalization changed state");
+            AssertEqual(1021001, carriedPartnerMigration.Partners.Single(partner => partner.Id == 1).CharacterId,
+                "non-recommended persisted Motorbolt retained");
+            AssertEqual(1021005, carriedPartnerMigration.Partners.Single(partner => partner.Id == 2).CharacterId,
+                "recommended persisted Motorbolt retained");
+            AssertEqual(1292,
+                carriedPartnerMigration.Partners.Single(partner => partner.Id == 1)
+                    .SkillList.Single(skill => skill.Type == 1).Id,
+                "persisted carried main skill remapped to non-recommended character element");
+            AssertEqual(5,
+                carriedPartnerMigration.Partners.Single(partner => partner.Id == 1)
+                    .SkillList.Single(skill => skill.Type == 1).Level,
+                "persisted carried main skill level preserved");
+            AssertEqual(1294,
+                carriedPartnerMigration.Partners.Single(partner => partner.Id == 2)
+                    .SkillList.Single(skill => skill.Type == 1).Id,
+                "persisted carried main skill remapped to recommended character element");
+            AssertEqual(0, carriedPartnerMigration.Partners.Single(partner => partner.Id == 3).CharacterId,
+                "duplicate persisted carrier unequipped");
+            AssertEqual(0, carriedPartnerMigration.Partners.Single(partner => partner.Id == 4).CharacterId,
+                "second duplicate persisted carrier unequipped without recommendation preference");
+            CharacterData normalizedJetavie = carriedPartnerMigration.Characters.Single(character => character.Id == 1341002);
+            AssertEqual(false, normalizedJetavie.SkillList.Any(skill => skill.Id == 134216),
+                "unconfigured persisted character skill removed");
+            AssertEqual(true, normalizedJetavie.SkillList.Any(skill => skill.Id == 132216),
+                "configured character skill restored");
+
+            AscNet.Common.Database.Character highIndexCharacter = new()
+            {
+                Uid = 70_004,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners = []
+            };
+            AscNet.Common.Database.Inventory highIndexInventory = new()
+            {
+                Uid = highIndexCharacter.Uid,
+                Items = [new Item { Id = 239, Count = 30 }]
+            };
+            using (LoopbackSessionHarness highIndexHarness = new(
+                highIndexCharacter,
+                inventory: highIndexInventory,
+                sessionId: "partner-high-index-compose-test"))
+            {
+                InvokeRequestHandler(
+                    highIndexHarness,
+                    nameof(PartnerComposeRequest),
+                    17_003,
+                    new PartnerComposeRequest { TemplateIds = [239], IsOneKey = false });
+                AssertItemPush(
+                    highIndexHarness.ReadPacket("high-index PartnerComposeRequest item push"),
+                    239,
+                    0,
+                    "high-index PartnerComposeRequest item push");
+                Packet highIndexPartnerPacket = highIndexHarness.ReadPacket("high-index NotifyPartnerDataList");
+                Packet.Push highIndexPartnerPush = MessagePackSerializer.Deserialize<Packet.Push>(highIndexPartnerPacket.Content);
+                NotifyPartnerDataList highIndexPartnerPayload =
+                    MessagePackSerializer.Deserialize<NotifyPartnerDataList>(highIndexPartnerPush.Content);
+                AssertEqual(16_390_000, highIndexPartnerPayload.PartnerDataList.Single().TemplateId, "high-index composed partner template");
+                AssertEqual(0, ReadResponsePayload<PartnerComposeResponse>(
+                    highIndexHarness.ReadPacket("high-index PartnerComposeResponse"),
+                    nameof(PartnerComposeResponse)).Code, "high-index PartnerComposeResponse code");
+            }
+
+            ValidatePartnerProgressionCompatibility();
+        }
+
+        private static void ValidatePartnerProgressionCompatibility()
+        {
+            PartnerData partner = new()
+            {
+                Id = 44,
+                TemplateId = 16_090_000,
+                CharacterId = 1041005,
+                Level = 1,
+                Quality = 2,
+                SkillList =
+                [
+                    new PartnerSkillData { Id = 1185, Level = 1, IsWear = true, Type = 1 },
+                    new PartnerSkillData { Id = 58000, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58010, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58020, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58030, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58040, Level = 1, Type = 2 }
+                ],
+                UnlockSkillGroup = [117, 118]
+            };
+            PartnerData duplicatePartner = new()
+            {
+                Id = 45,
+                TemplateId = partner.TemplateId,
+                Quality = partner.Quality,
+                SkillList = [],
+                UnlockSkillGroup = []
+            };
+            AscNet.Common.Database.Character character = new()
+            {
+                Characters = [new CharacterData { Id = 1021001 }, new CharacterData { Id = 1021005 }, new CharacterData { Id = 1041005 }],
+                Equips = [],
+                Fashions = [],
+                Partners = [partner, duplicatePartner]
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items =
+                [
+                    new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = 100_000 },
+                    new Item { Id = 30113, Count = 1 },
+                    new Item { Id = 40200, Count = 36 },
+                    new Item { Id = 40201, Count = 12 },
+                    new Item { Id = 40301, Count = 60 },
+                    new Item { Id = 30114, Count = 1 },
+                ]
+            };
+
+            using LoopbackSessionHarness harness = new(character, inventory: inventory, sessionId: "partner-progression-test");
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerLevelUpRequest),
+                17_100,
+                new PartnerLevelUpRequest { PartnerId = partner.Id, UseItems = new() { [30114] = 1 } });
+            PartnerLevelUpResponse rejectedMaterialResponse = ReadResponsePayload<PartnerLevelUpResponse>(
+                harness.ReadPacket("invalid-material PartnerLevelUpResponse"),
+                nameof(PartnerLevelUpResponse));
+            AssertEqual(1, rejectedMaterialResponse.Code, "invalid-material PartnerLevelUpResponse code");
+            AssertEqual(1, partner.Level, "invalid-material partner level");
+            AssertEqual(1L, inventory.Items.Single(item => item.Id == 30114).Count, "invalid-material balance");
+
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerLevelUpRequest),
+                17_101,
+                new PartnerLevelUpRequest { PartnerId = partner.Id, UseItems = new() { [30113] = 1 } });
+            NotifyItemDataList levelItems = ReadItemPush(harness.ReadPacket("PartnerLevelUpRequest item push"), "PartnerLevelUpRequest item push");
+            AssertEqual(95_000L, levelItems.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count, "partner level-up coin balance");
+            AssertEqual(0L, levelItems.ItemDataList.Single(item => item.Id == 30113).Count, "partner level-up material balance");
+            PartnerLevelUpResponse levelResponse = ReadResponsePayload<PartnerLevelUpResponse>(
+                harness.ReadPacket("PartnerLevelUpResponse"),
+                nameof(PartnerLevelUpResponse));
+            AssertEqual(0, levelResponse.Code, "PartnerLevelUpResponse code");
+            AssertEqual(10, levelResponse.Level, "PartnerLevelUpResponse level");
+            AssertEqual(0, levelResponse.Exp, "PartnerLevelUpResponse exp");
+
+            InvokeRequestHandler(harness, nameof(PartnerBreakThroughRequest), 17_102,
+                new PartnerBreakThroughRequest { PartnerId = partner.Id });
+            NotifyItemDataList breakthroughItems = ReadItemPush(
+                harness.ReadPacket("PartnerBreakThroughRequest item push"), "PartnerBreakThroughRequest item push");
+            AssertEqual(85_000L, breakthroughItems.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count, "partner breakthrough coin balance");
+            AssertEqual(0L, breakthroughItems.ItemDataList.Single(item => item.Id == 40200).Count, "partner breakthrough first material");
+            AssertEqual(0L, breakthroughItems.ItemDataList.Single(item => item.Id == 40201).Count, "partner breakthrough second material");
+            PartnerBreakThroughResponse breakthroughResponse = ReadResponsePayload<PartnerBreakThroughResponse>(
+                harness.ReadPacket("PartnerBreakThroughResponse"), nameof(PartnerBreakThroughResponse));
+            AssertEqual(0, breakthroughResponse.Code, "PartnerBreakThroughResponse code");
+            AssertEqual(1, breakthroughResponse.BreakTimes, "PartnerBreakThroughResponse break times");
+            AssertEqual(1, partner.Level, "partner breakthrough reset level");
+            AssertEqual(0, partner.Exp, "partner breakthrough reset exp");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillUpRequest), 17_103,
+                new PartnerSkillUpRequest { PartnerId = partner.Id, SkillId = 58000, Times = 1 });
+            NotifyItemDataList skillItems = ReadItemPush(
+                harness.ReadPacket("PartnerSkillUpRequest item push"), "PartnerSkillUpRequest item push");
+            AssertEqual(65_000L, skillItems.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count, "partner skill-up coin balance");
+            AssertEqual(0L, skillItems.ItemDataList.Single(item => item.Id == 40301).Count, "partner skill-up material balance");
+            AssertPartnerUpdate(harness.ReadPacket("PartnerSkillUpRequest partner push"), partner, "PartnerSkillUpRequest partner push");
+            PartnerSkillUpResponse skillResponse = ReadResponsePayload<PartnerSkillUpResponse>(
+                harness.ReadPacket("PartnerSkillUpResponse"), nameof(PartnerSkillUpResponse));
+            PartnerSkillUpInfo skillUp = skillResponse.SkillUpInfo.Single();
+            AssertEqual(0, skillResponse.Code, "PartnerSkillUpResponse code");
+            AssertEqual(58000, skillUp.SkillId, "PartnerSkillUpResponse skill id");
+            AssertEqual(1, skillUp.OriginLevel, "PartnerSkillUpResponse origin level");
+            AssertEqual(2, skillUp.CurrentLevel, "PartnerSkillUpResponse current level");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillWearRequest), 17_104,
+                new PartnerSkillWearRequest
+                {
+                    PartnerId = partner.Id,
+                    SkillType = 1,
+                    SkillIdToWear = [new PartnerSkillWearInfo { IsWear = true, SkillId = 1181 }]
+                });
+            AssertPartnerUpdate(harness.ReadPacket("main PartnerSkillWearRequest partner push"), partner, "main PartnerSkillWearRequest partner push");
+            AssertEqual(0, ReadResponsePayload<PartnerSkillWearResponse>(
+                harness.ReadPacket("main PartnerSkillWearResponse"), nameof(PartnerSkillWearResponse)).Code,
+                "main PartnerSkillWearResponse code");
+            AssertEqual(1181, partner.SkillList.Single(skill => skill.Type == 1).Id, "worn main skill id");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillWearRequest), 17_105,
+                new PartnerSkillWearRequest
+                {
+                    PartnerId = partner.Id,
+                    SkillType = 2,
+                    SkillIdToWear = [new PartnerSkillWearInfo { IsWear = true, SkillId = 58010 }]
+                });
+            AssertPartnerUpdate(harness.ReadPacket("passive PartnerSkillWearRequest partner push"), partner, "passive PartnerSkillWearRequest partner push");
+            AssertEqual(0, ReadResponsePayload<PartnerSkillWearResponse>(
+                harness.ReadPacket("passive PartnerSkillWearResponse"), nameof(PartnerSkillWearResponse)).Code,
+                "passive PartnerSkillWearResponse code");
+            AssertEqual(true, partner.SkillList.Single(skill => skill.Id == 58010).IsWear, "worn passive skill state");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillUpRequest), 17_106,
+                new PartnerSkillUpRequest { PartnerId = partner.Id, SkillId = 58000, Times = 10 });
+            PartnerSkillUpResponse cappedResponse = ReadResponsePayload<PartnerSkillUpResponse>(
+                harness.ReadPacket("capped PartnerSkillUpResponse"), nameof(PartnerSkillUpResponse));
+            AssertEqual(1, cappedResponse.Code, "capped PartnerSkillUpResponse code");
+            AssertEqual(2, partner.SkillList.Single(skill => skill.Id == 58000).Level, "capped skill level");
+            InvokeRequestHandler(harness, nameof(PartnerEvolutionRequest), 17_107,
+                new PartnerEvolutionRequest { PartnerId = partner.Id });
+            AssertEqual(1, ReadResponsePayload<PartnerEvolutionResponse>(
+                harness.ReadPacket("incomplete-star PartnerEvolutionResponse"),
+                nameof(PartnerEvolutionResponse)).Code,
+                "incomplete-star PartnerEvolutionResponse code");
+            AssertEqual(2, partner.Quality, "incomplete-star partner quality");
+            AssertEqual(65_000L, inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count,
+                "incomplete-star evolution coin balance");
+
+            InvokeRequestHandler(harness, nameof(PartnerStarActivateRequest), 17_107,
+                new PartnerStarActivateRequest { PartnerId = partner.Id, UsePartnerIdList = [duplicatePartner.Id] });
+            Packet starPartnerPacket = harness.ReadPacket("PartnerStarActivateRequest partner push");
+            Packet.Push starPartnerPush = MessagePackSerializer.Deserialize<Packet.Push>(starPartnerPacket.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), starPartnerPush.Name, "PartnerStarActivateRequest partner push name");
+            NotifyPartnerDataList starPartnerPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(starPartnerPush.Content);
+            AssertIntegerList([45, 44], starPartnerPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "PartnerStarActivateRequest partner ids");
+            AssertIntegerList([3, 2], starPartnerPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "PartnerStarActivateRequest operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerStarActivateResponse>(
+                harness.ReadPacket("PartnerStarActivateResponse"),
+                nameof(PartnerStarActivateResponse)).Code,
+                "PartnerStarActivateResponse code");
+            AssertEqual(30, partner.StarSchedule, "activated partner star schedule");
+            AssertEqual(1, character.Partners.Count, "consumed duplicate partner count");
+
+            InvokeRequestHandler(harness, nameof(PartnerStarActivateRequest), 17_108,
+                new PartnerStarActivateRequest { PartnerId = partner.Id });
+            AssertEqual(1, ReadResponsePayload<PartnerStarActivateResponse>(
+                harness.ReadPacket("missing-material PartnerStarActivateResponse"),
+                nameof(PartnerStarActivateResponse)).Code,
+                "missing-material PartnerStarActivateResponse code");
+            AssertEqual(30, partner.StarSchedule, "missing-material partner star schedule");
+            InvokeRequestHandler(harness, nameof(PartnerEvolutionRequest), 17_110,
+                new PartnerEvolutionRequest { PartnerId = partner.Id });
+            AssertItemPush(
+                harness.ReadPacket("PartnerEvolutionRequest item push"),
+                AscNet.Common.Database.Inventory.Coin,
+                55_000,
+                "PartnerEvolutionRequest item push");
+            AssertPartnerUpdate(
+                harness.ReadPacket("PartnerEvolutionRequest partner push"),
+                partner,
+                "PartnerEvolutionRequest partner push");
+            AssertEqual(0, ReadResponsePayload<PartnerEvolutionResponse>(
+                harness.ReadPacket("PartnerEvolutionResponse"),
+                nameof(PartnerEvolutionResponse)).Code,
+                "PartnerEvolutionResponse code");
+            AssertEqual(3, partner.Quality, "evolved partner quality");
+            AssertEqual(30, partner.StarSchedule, "evolved partner cumulative star schedule");
+            PartnerData secondMaterial = new()
+            {
+                Id = 46,
+                TemplateId = partner.TemplateId,
+                Quality = partner.Quality,
+                SkillList = [],
+                UnlockSkillGroup = []
+            };
+            PartnerData thirdMaterial = new()
+            {
+                Id = 47,
+                TemplateId = partner.TemplateId,
+                Quality = partner.Quality,
+                SkillList = [],
+                UnlockSkillGroup = []
+            };
+            character.Partners.AddRange([secondMaterial, thirdMaterial]);
+            InvokeRequestHandler(harness, nameof(PartnerStarActivateRequest), 17_111,
+                new PartnerStarActivateRequest
+                {
+                    PartnerId = partner.Id,
+                    UsePartnerIdList = [secondMaterial.Id, thirdMaterial.Id]
+                });
+            Packet multiPartnerPacket = harness.ReadPacket("multi-material PartnerStarActivateRequest partner push");
+            Packet.Push multiPartnerPush = MessagePackSerializer.Deserialize<Packet.Push>(multiPartnerPacket.Content);
+            NotifyPartnerDataList multiPartnerPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(multiPartnerPush.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), multiPartnerPush.Name,
+                "multi-material PartnerStarActivateRequest push name");
+            AssertIntegerList([46, 47, 44],
+                multiPartnerPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "multi-material PartnerStarActivateRequest partner ids");
+            AssertIntegerList([3, 3, 2],
+                multiPartnerPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "multi-material PartnerStarActivateRequest operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerStarActivateResponse>(
+                harness.ReadPacket("multi-material PartnerStarActivateResponse"),
+                nameof(PartnerStarActivateResponse)).Code,
+                "multi-material PartnerStarActivateResponse code");
+            AssertEqual(90, partner.StarSchedule, "multi-material cumulative star schedule");
+            AssertEqual(1, character.Partners.Count, "multi-material consumed partner count");
+            PartnerData previouslyCarried = new()
+            {
+                Id = 48,
+                TemplateId = 16_150_000,
+                CharacterId = 1021005,
+                SkillList = [new PartnerSkillData { Id = 1304, Level = 5, IsWear = true, Type = 1 }],
+                UnlockSkillGroup = []
+            };
+            character.Partners.Add(previouslyCarried);
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_112,
+                new PartnerCarryRequest { PartnerId = partner.Id, CharacterId = 1021005 });
+            Packet carryPacket = harness.ReadPacket("PartnerCarryRequest partner push");
+            Packet.Push carryPush = MessagePackSerializer.Deserialize<Packet.Push>(carryPacket.Content);
+            NotifyPartnerDataList carryPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(carryPush.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), carryPush.Name, "PartnerCarryRequest push name");
+            AssertIntegerList([48, 44],
+                carryPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "PartnerCarryRequest partner ids");
+            AssertIntegerList([2, 3],
+                carryPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "PartnerCarryRequest operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "PartnerCarryResponse code");
+            AssertEqual(1041005, previouslyCarried.CharacterId, "displaced partner inherits selected previous character");
+            AssertEqual(1021005, partner.CharacterId, "carried partner character id");
+            AssertEqual(1305, previouslyCarried.SkillList.Single(skill => skill.Type == 1).Id,
+                "displaced partner preserves group and follows inherited character element");
+            AssertEqual(1184, partner.SkillList.Single(skill => skill.Type == 1).Id,
+                "selected partner preserves group and follows target character element");
+
+            PartnerData motorbolt = new()
+            {
+                Id = 49,
+                SkillList = [new PartnerSkillData { Id = 1291, Level = 1, IsWear = true, Type = 1 }],
+                TemplateId = 16_150_000,
+                UnlockSkillGroup = []
+            };
+            character.Partners.Add(motorbolt);
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_113,
+                new PartnerCarryRequest { PartnerId = motorbolt.Id, CharacterId = 1041005 });
+            NotifyPartnerDataList nonRecommendedPayload = MessagePackSerializer.Deserialize<NotifyPartnerDataList>(
+                MessagePackSerializer.Deserialize<Packet.Push>(
+                    harness.ReadPacket("non-recommended Motorbolt partner push").Content).Content);
+            AssertIntegerList([48, 49],
+                nonRecommendedPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "non-recommended Motorbolt partner ids");
+            AssertIntegerList([2, 3],
+                nonRecommendedPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "non-recommended Motorbolt operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("non-recommended Motorbolt PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "non-recommended Motorbolt PartnerCarryResponse code");
+            AssertEqual(1041005, motorbolt.CharacterId, "non-recommended Motorbolt state");
+            AssertEqual(0, previouslyCarried.CharacterId, "non-recommended Motorbolt displaced state");
+
+            PartnerData nondeployedPartner = new()
+            {
+                Id = 50,
+                TemplateId = 16_290_000,
+                CharacterId = 1131004
+            };
+            character.Partners.Add(nondeployedPartner);
+
+            const int partnerPreFightPacketId = 17_114;
+            InvokeRequestHandler(harness, nameof(PreFightRequest), partnerPreFightPacketId,
+                new PreFightRequest
+                {
+                    PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                    {
+                        StageId = 10_101_101,
+                        CardIds = [1021005, 1041005, 1021001],
+                        RobotIds = []
+                    }
+                });
+            PreFightResponse partnerPreFight = ReadResponsePayload<PreFightResponse>(
+                harness.ReadPacket("partner PreFightResponse"),
+                nameof(PreFightResponse));
+            PreFightResponse.PreFightResponseFightData.PreFightResponseFightDataRoleData playerRole =
+                partnerPreFight.FightData.RoleData.Single(role => role.Id == harness.Session.player.PlayerData.Id);
+            PartnerData firstFightPartner = ReadFightPartner(playerRole.NpcData[0], "first deployed character");
+            PartnerData secondFightPartner = ReadFightPartner(playerRole.NpcData[1], "second deployed character");
+            AssertFightPartnerAbsent(playerRole.NpcData[2], "third deployed character");
+            AssertEqual(3, playerRole.NpcData.Count, "PreFightResponse excludes nondeployed partner NPC entries");
+            AssertEqual(partner.Id, firstFightPartner.Id, "PreFightResponse first character partner id");
+            AssertEqual(partner.TemplateId, firstFightPartner.TemplateId, "PreFightResponse first character partner template");
+            AssertEqual(1021005, firstFightPartner.CharacterId, "PreFightResponse first character partner assignment");
+            AssertEqual(motorbolt.Id, secondFightPartner.Id, "PreFightResponse second character partner id");
+            AssertEqual(motorbolt.TemplateId, secondFightPartner.TemplateId, "PreFightResponse second character partner template");
+            AssertEqual(1041005, secondFightPartner.CharacterId, "PreFightResponse second character partner assignment");
+
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_115,
+                new PartnerCarryRequest { PartnerId = partner.Id, CharacterId = 9999999 });
+            AssertEqual(1, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("invalid-character PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "invalid-character PartnerCarryResponse code");
+            AssertEqual(1021005, partner.CharacterId, "invalid-character request preserves partner state");
+
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_116,
+                new PartnerCarryRequest { PartnerId = motorbolt.Id, CharacterId = 0 });
+            Packet.Push unequipPush = MessagePackSerializer.Deserialize<Packet.Push>(
+                harness.ReadPacket("Motorbolt unequip partner push").Content);
+            NotifyPartnerDataList unequipPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(unequipPush.Content);
+            AssertIntegerList([49], unequipPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "Motorbolt unequip partner ids");
+            AssertIntegerList([3], unequipPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "Motorbolt unequip operation types");
+            AssertEqual(1291, motorbolt.SkillList.Single(skill => skill.Type == 1).Id,
+                "Motorbolt unequip active skill returns to element one");
+            AssertEqual(0, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("Motorbolt unequip PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "Motorbolt unequip PartnerCarryResponse code");
+        }
+
+        private static void AssertPartnerUpdate(Packet packet, PartnerData expected, string name)
+        {
+            AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), push.Name, $"{name} packet name");
+            NotifyPartnerDataList payload = MessagePackSerializer.Deserialize<NotifyPartnerDataList>(push.Content);
+            AssertEqual(expected.Id, payload.PartnerDataList.Single().Id, $"{name} partner id");
+            AssertIntegerList([2], payload.OperateTypes.Select(value => (long)value).ToArray(), $"{name} operation type");
+        }
+
+        private static void ValidateEquipResonanceCompatibility()
+        {
+            EquipResonanceRequest request = MessagePackSerializer.Deserialize<EquipResonanceRequest>(
+                MessagePackSerializer.Serialize(new EquipResonanceRequest
+                {
+                    EquipId = 2848,
+                    Slots = [3],
+                    UseItemId = 3002,
+                    SelectSkillIds = [102],
+                    SelectType = EquipResonanceType.WeaponSkill,
+                    CharacterId = 1021007
+                }));
+            if (request.EquipId != 2848
+                || request.Slots.Count != 1
+                || request.Slots[0] != 3
+                || request.UseItemId != 3002
+                || request.CharacterId != 1021007
+                || request.SelectType != EquipResonanceType.WeaponSkill
+                || request.SelectSkillIds is not { Count: 1 }
+                || request.SelectSkillIds[0] != 102)
+            {
+                throw new InvalidDataException("EquipResonanceRequest does not preserve the current client contract.");
+            }
+
+            ResonanceInfo resonance = new()
+            {
+                Slot = 3,
+                Type = EquipResonanceType.WeaponSkill,
+                CharacterId = 1021007,
+                TemplateId = 102,
+                UseItemId = 3002,
+                IsUseEquip = false
+            };
+            string responseJson = MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(new EquipResonanceResponse { ResonanceDatas = [resonance] }));
+            JObject response = JObject.Parse(responseJson);
+            if (response["ResonanceDatas"] is not JArray { Count: 1 } resonanceDatas
+                || resonanceDatas[0]?["UseItemId"]?.Value<int>() != 3002
+                || resonanceDatas[0]?["CharacterId"]?.Value<int>() != 1021007
+                || resonanceDatas[0]?["Type"]?.Value<int>() != (int)EquipResonanceType.WeaponSkill
+                || resonanceDatas[0]?["TemplateId"]?.Value<int>() != request.SelectSkillIds[0])
+            {
+                throw new InvalidDataException("EquipResonanceResponse does not match the current client contract.");
+            }
+
+            EquipResonanceConfirmRequest confirm = MessagePackSerializer.Deserialize<EquipResonanceConfirmRequest>(
+                MessagePackSerializer.Serialize(new EquipResonanceConfirmRequest
+                {
+                    EquipId = 1607,
+                    Slot = 1,
+                    IsUse = true
+                }));
+            EquipData pendingRoundTrip = MessagePackSerializer.Deserialize<EquipData>(
+                MessagePackSerializer.Serialize(new EquipData
+                {
+                    Id = 1607,
+                    UnconfirmedResonanceInfo = [resonance]
+                }));
+            if (confirm.EquipId != 1607
+                || confirm.Slot != 1
+                || !confirm.IsUse
+                || pendingRoundTrip.UnconfirmedResonanceInfo is not [{ TemplateId: 102 }])
+            {
+                throw new InvalidDataException("Equip resonance confirmation does not preserve pending state.");
+            }
+
+            ValidateEquipResonanceSelectionAndSwapBehavior();
+        }
+
+        private static void ValidateEquipResonanceSelectionAndSwapBehavior()
+        {
+            const uint equipUid = 1607;
+            const uint equipTemplateId = 2016001;
+            const int materialId = 3002;
+            const int firstSelectedSkillId = 102;
+            const int swappedSkillId = 101;
+            const int characterId = 1021007;
+            EquipData equip = new()
+            {
+                Id = equipUid,
+                TemplateId = equipTemplateId,
+                Level = 1,
+                ResonanceInfo =
+                [
+                    new ResonanceInfo { Slot = 1, Type = EquipResonanceType.CharacterSkill, CharacterId = 1341002, TemplateId = 132201 },
+                    new ResonanceInfo { Slot = 2, Type = EquipResonanceType.CharacterSkill, CharacterId = 1341002, TemplateId = 132206 },
+                    new ResonanceInfo { Slot = 3, Type = EquipResonanceType.CharacterSkill, CharacterId = 1341002, TemplateId = 132211 }
+                ],
+                UnconfirmedResonanceInfo =
+                [
+                    new ResonanceInfo { Slot = 3, Type = EquipResonanceType.CharacterSkill, CharacterId = 1341002, TemplateId = 132216 }
+                ],
+                AwakeSlotList = []
+            };
+            EquipData persistedBrokenEquip = MessagePackSerializer.Deserialize<EquipData>(
+                MessagePackSerializer.Serialize(equip));
+            if (!AscNet.Common.Database.Character.NormalizeEquipResonances(persistedBrokenEquip)
+                || persistedBrokenEquip.ResonanceInfo.Count != 0
+                || persistedBrokenEquip.UnconfirmedResonanceInfo.Count != 0)
+            {
+                throw new InvalidDataException("Persisted weapon CharacterSkill resonance records were not removed.");
+            }
+            EquipData validMemoryEquip = new()
+            {
+                TemplateId = 3015001,
+                ResonanceInfo =
+                [
+                    new ResonanceInfo
+                    {
+                        Slot = 1,
+                        Type = EquipResonanceType.CharacterSkill,
+                        CharacterId = 1341002,
+                        TemplateId = 132201
+                    }
+                ],
+                UnconfirmedResonanceInfo = []
+            };
+            if (AscNet.Common.Database.Character.NormalizeEquipResonances(validMemoryEquip)
+                || validMemoryEquip.ResonanceInfo is not [{ TemplateId: 132201 }])
+            {
+                throw new InvalidDataException("Valid non-weapon CharacterSkill resonance was removed.");
+            }
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 1607,
+                Characters = [],
+                Equips = [equip],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items =
+                [
+                    new Item
+                    {
+                        Id = materialId,
+                        Count = 2,
+                        CreateTime = 1,
+                        RefreshTime = 1
+                    }
+                ]
+            };
+
+            using LoopbackSessionHarness harness = new(character, inventory: inventory);
+            EquipResonanceRequest initialRequest = new()
+            {
+                EquipId = (int)equipUid,
+                Slots = [3],
+                UseItemId = materialId,
+                SelectSkillIds = [firstSelectedSkillId],
+                SelectType = EquipResonanceType.WeaponSkill,
+                CharacterId = characterId
+            };
+            GetRegisteredRequestHandler(nameof(EquipResonanceRequest)).Invoke(
+                harness.Session,
+                new Packet.Request
+                {
+                    Id = 16_071,
+                    Name = nameof(EquipResonanceRequest),
+                    Content = MessagePackSerializer.Serialize(initialRequest)
+                });
+
+            Packet initialPushPacket = harness.ReadPacket("EquipResonanceRequest material push");
+            AssertEqual(Packet.ContentType.Push, initialPushPacket.Type, "EquipResonanceRequest material push type");
+            EquipResonanceResponse initialResponse = ReadEquipResonanceResponse(
+                harness.ReadPacket("EquipResonanceRequest selected response"),
+                "EquipResonanceRequest selected response");
+            AssertEqual(0, initialResponse.Code, "EquipResonanceRequest selected response code");
+            ResonanceInfo initialResonance = initialResponse.ResonanceDatas.Single();
+            AssertEqual(firstSelectedSkillId, initialResonance.TemplateId, "EquipResonanceRequest selected skill");
+            AssertEqual((int)EquipResonanceType.WeaponSkill, (int)initialResonance.Type, "EquipResonanceRequest retail SelectType");
+            AssertEqual(characterId, initialResonance.CharacterId, "EquipResonanceRequest retail CharacterId");
+            AssertEqual(firstSelectedSkillId, equip.ResonanceInfo.Single().TemplateId, "EquipResonanceRequest immediately activates selected skill");
+            AssertEqual(0, equip.UnconfirmedResonanceInfo.Count, "EquipResonanceRequest selected flow has no confirmation state");
+            AssertEqual(1L, inventory.Items.Single(item => item.Id == materialId).Count, "EquipResonanceRequest material consumption");
+
+            EquipResonanceRequest swapRequest = new()
+            {
+                EquipId = (int)equipUid,
+                Slots = [3],
+                SelectSkillIds = [swappedSkillId],
+                SelectType = EquipResonanceType.WeaponSkill,
+                CharacterId = characterId
+            };
+            GetRegisteredRequestHandler(nameof(EquipResonanceRequest)).Invoke(
+                harness.Session,
+                new Packet.Request
+                {
+                    Id = 16_073,
+                    Name = nameof(EquipResonanceRequest),
+                    Content = MessagePackSerializer.Serialize(swapRequest)
+                });
+            EquipResonanceResponse swapResponse = ReadEquipResonanceResponse(
+                harness.ReadPacket("EquipResonanceRequest swap response"),
+                "EquipResonanceRequest swap response");
+            ResonanceInfo swappedResonance = swapResponse.ResonanceDatas.Single();
+            AssertEqual(0, swapResponse.Code, "EquipResonanceRequest swap response code");
+            AssertEqual(swappedSkillId, swappedResonance.TemplateId, "EquipResonanceRequest exact swapped skill");
+            AssertEqual((int)EquipResonanceType.WeaponSkill, (int)swappedResonance.Type, "EquipResonanceRequest swap preserves retail SelectType");
+            AssertEqual(characterId, swappedResonance.CharacterId, "EquipResonanceRequest swap preserves retail CharacterId");
+            AssertEqual(swappedSkillId, equip.ResonanceInfo.Single().TemplateId, "EquipResonanceRequest immediately activates swapped skill");
+            AssertEqual(0, equip.UnconfirmedResonanceInfo.Count, "EquipResonanceRequest swap has no confirmation state");
+            AssertEqual(1L, inventory.Items.Single(item => item.Id == materialId).Count, "EquipResonanceRequest swap does not consume material");
+        }
+
+        private static EquipResonanceResponse ReadEquipResonanceResponse(Packet packet, string name)
+        {
+            AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} packet type");
+            Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+            AssertEqual(nameof(EquipResonanceResponse), response.Name, $"{name} packet name");
+            return MessagePackSerializer.Deserialize<EquipResonanceResponse>(response.Content);
+        }
+
 
         private static void ValidateNotifyLoginCurrentClientCompatibilityShape()
         {
@@ -6647,6 +7563,58 @@ namespace AscNet.Test
             }
         }
 
+        private static void ValidateInventoryMaxCountCompatibility()
+        {
+            Dictionary<int, ItemTable> itemRows = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            ItemTable basicWeaponTicket = itemRows[50001];
+            ItemTable assessmentShardChoice = itemRows[40906];
+            ItemTable constructShard = itemRows[402];
+            ItemTable scavengerTicket = itemRows[17];
+            ItemTable moneyWithoutTemplateMaximum = itemRows[Inventory.Coin];
+            ItemTable gift = itemRows.Values.First(item => item.ItemType == (int)ItemType.Gift);
+
+            AssertEqual(99_999, basicWeaponTicket.MaxCount, "Basic Weapon R&D Ticket template MaxCount");
+            AssertEqual(99_999L, Inventory.GetMaxCount(basicWeaponTicket), "Basic Weapon R&D Ticket effective MaxCount");
+            AssertEqual(9_999L, Inventory.GetMaxCount(assessmentShardChoice), "Assessment Manual Shard Choice effective MaxCount");
+            AssertEqual(999L, Inventory.GetMaxCount(constructShard), "Construct shard effective MaxCount");
+            AssertEqual(21L, Inventory.GetMaxCount(scavengerTicket), "Scavenger MK-II effective MaxCount");
+            AssertEqual(Inventory.GlobalItemMaxCount, Inventory.GetMaxCount(null), "Unknown item fallback MaxCount");
+            AssertEqual(Inventory.MoneyItemMaxCount, Inventory.GetMaxCount(moneyWithoutTemplateMaximum), "Money fallback MaxCount");
+
+            Inventory inventory = new()
+            {
+                Items =
+                [
+                    new Item { Id = basicWeaponTicket.Id, Count = 999 },
+                    new Item { Id = scavengerTicket.Id, Count = 20 }
+                ]
+            };
+            Item grantedTicket = inventory.Do(basicWeaponTicket.Id, 1_501);
+            AssertEqual(2_500L, grantedTicket.Count, "Basic Weapon R&D Ticket top-up count");
+            AssertEqual(2_500L, inventory.Items.Single(item => item.Id == basicWeaponTicket.Id).Count, "Basic Weapon R&D Ticket stored top-up count");
+            Item cappedScavengerTicket = inventory.Do(scavengerTicket.Id, 2);
+            AssertEqual(21L, cappedScavengerTicket.Count, "Scavenger MK-II configured maximum saturation");
+            AssertEqual(21L, inventory.Items.Single(item => item.Id == scavengerTicket.Id).Count, "Scavenger MK-II stored configured maximum");
+
+            inventory.Do(basicWeaponTicket.Id, 100_000);
+            AssertEqual(99_999L, grantedTicket.Count, "Basic Weapon R&D Ticket template maximum saturation");
+            inventory.Do(basicWeaponTicket.Id, int.MinValue);
+            AssertEqual(0L, grantedTicket.Count, "Basic Weapon R&D Ticket zero floor");
+
+            Type itemCommandType = RequiredAscNetGameServerType("AscNet.GameServer.Commands.ItemCommand");
+            MethodInfo getBatchAddMaxTargetCount = RequiredMethod(
+                itemCommandType,
+                "GetBatchAddMaxTargetCount",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(ItemTable)]);
+            long batchTargetCount = (long)(getBatchAddMaxTargetCount.Invoke(null, [basicWeaponTicket])
+                ?? throw new InvalidDataException("ItemCommand.GetBatchAddMaxTargetCount returned null."));
+            AssertEqual(Inventory.GlobalItemMaxCount, batchTargetCount, "ItemCommand bulk add safe maximum");
+            long giftBatchTargetCount = (long)(getBatchAddMaxTargetCount.Invoke(null, [gift])
+                ?? throw new InvalidDataException("ItemCommand.GetBatchAddMaxTargetCount returned null for a Gift template."));
+            AssertEqual(1L, giftBatchTargetCount, $"ItemCommand Gift bulk add safe maximum for {gift.Id} {gift.Name}");
+        }
+
         private static void ValidateCommandCompatibility()
         {
             AscNet.GameServer.Commands.CommandFactory.commands.Clear();
@@ -10752,7 +11720,7 @@ namespace AscNet.Test
             const long playerId = 99_101;
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
                 playerId,
-                [new Item { Id = 1, Count = 30_000 }, new Item { Id = 32_000, Count = 30 }]);
+                [new Item { Id = 1, Count = 30_000 }, new Item { Id = 200, Count = 1_000 }, new Item { Id = 32_000, Count = 30 }]);
             using LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
                 CreateDrawCompatibilityPlayer(playerId),
@@ -10914,6 +11882,58 @@ namespace AscNet.Test
             AssertEqual(32_018, GetRequiredIntegerMember(leapWaferGoodList.Single(), "TemplateId"), "Leap Wafer BuyResponse TemplateId");
             AssertEqual(15L, inventory.Items.Single(item => item.Id == 32_000).Count, "Leap Wafer Chip cost");
             AssertEqual(1L, inventory.Items.Single(item => item.Id == 32_018).Count, "Leap Wafer inventory reward");
+            SetRequiredIntegerMember(buyRequest, "ShopId", 303);
+            SetRequiredIntegerMember(buyRequest, "GoodsId", 30_301);
+            SetRequiredIntegerMember(buyRequest, "Count", 1);
+
+            const int weaponHarmonyBuyPacketId = 12_007;
+            InvokeRegisteredRequestHandler(
+                "BuyRequest",
+                harness.Session,
+                weaponHarmonyBuyPacketId,
+                buyRequest);
+            object weaponHarmonyBuyResponse = ReadResponsePayload(
+                harness,
+                weaponHarmonyBuyPacketId,
+                "BuyResponse",
+                "BuyRequest Weapon Harmony goods 30301 response",
+                buyResponseType,
+                maxPacketsToRead: 4);
+            AssertEqual(0, GetRequiredIntegerMember(weaponHarmonyBuyResponse, "Code"), "Weapon Harmony BuyResponse Code");
+            List<object> weaponHarmonyGoodList = GetRequiredObjectListMember(
+                weaponHarmonyBuyResponse,
+                ["GoodList"],
+                "Weapon Harmony BuyResponse GoodList");
+            AssertEqual(1, weaponHarmonyGoodList.Count, "Weapon Harmony BuyResponse GoodList count");
+            AssertEqual(34_000, GetRequiredIntegerMember(weaponHarmonyGoodList.Single(), "TemplateId"), "Weapon Harmony BuyResponse TemplateId");
+            AssertEqual(975L, inventory.Items.Single(item => item.Id == 200).Count, "Weapon Harmony Phantom Pain Scar cost");
+            AssertEqual(1L, inventory.Items.Single(item => item.Id == 34_000).Count, "Weapon Harmony inventory reward");
+
+            SetRequiredIntegerMember(buyRequest, "ShopId", 410);
+            SetRequiredIntegerMember(buyRequest, "GoodsId", 30_301);
+            const int crossShopBuyPacketId = 12_008;
+            InvokeRegisteredRequestHandler("BuyRequest", harness.Session, crossShopBuyPacketId, buyRequest);
+            object crossShopBuyResponse = ReadResponsePayload(
+                harness,
+                crossShopBuyPacketId,
+                "BuyResponse",
+                "BuyRequest cross-shop goods rejection",
+                buyResponseType);
+            AssertEqual(1, GetRequiredIntegerMember(crossShopBuyResponse, "Code"), "Cross-shop BuyResponse Code");
+            AssertEqual(975L, inventory.Items.Single(item => item.Id == 200).Count, "Cross-shop rejected purchase balance");
+
+            SetRequiredIntegerMember(buyRequest, "ShopId", 303);
+            SetRequiredIntegerMember(buyRequest, "Count", 100);
+            const int insufficientFundsBuyPacketId = 12_009;
+            InvokeRegisteredRequestHandler("BuyRequest", harness.Session, insufficientFundsBuyPacketId, buyRequest);
+            object insufficientFundsBuyResponse = ReadResponsePayload(
+                harness,
+                insufficientFundsBuyPacketId,
+                "BuyResponse",
+                "BuyRequest insufficient funds rejection",
+                buyResponseType);
+            AssertEqual(1, GetRequiredIntegerMember(insufficientFundsBuyResponse, "Code"), "Insufficient-funds BuyResponse Code");
+            AssertEqual(975L, inventory.Items.Single(item => item.Id == 200).Count, "Insufficient-funds rejected purchase balance");
         }
 
         private static void AssertSupplyShopClientShop(GetShopInfoResponse.GetShopInfoResponseClientShop clientShop, string name)
@@ -13974,25 +14994,32 @@ namespace AscNet.Test
         {
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
 
-            const int veronicaAegisCharacterId = 1381003;
-            const int targetSkillGroupId = 1383280;
-            const uint targetSkillId = 138328;
+            const int crimsonWeaveCharacterId = 1021005;
+            const int targetSkillGroupId = 1025280;
+            const uint targetSkillId = 102528;
             const int unlockPacketId = 16_011;
             const int upgradePacketId = 16_012;
             const long unlockPlayerId = 88_011;
             const long upgradePlayerId = 88_012;
             const long costSurplus = 10;
 
+            _ = AssertTableBackedEnhanceSkillCompatibilityFixture(
+                1131003,
+                [1132280, 1132290, 1132300],
+                1132280,
+                113228,
+                "Vera: Garnet table-backed CharacterEnhanceSkill compatibility fixture");
+
             (Dictionary<int, int> unlockCosts, Dictionary<int, int> upgradeCosts) = AssertTableBackedEnhanceSkillCompatibilityFixture(
-                veronicaAegisCharacterId,
-                [1383280, 1383290, 1383300],
+                crimsonWeaveCharacterId,
+                [1025280, 1025290, 1025300, 1025310],
                 targetSkillGroupId,
                 targetSkillId,
-                "Veronica: Aegis table-backed CharacterEnhanceSkill compatibility fixture");
+                "Lucia: Crimson Weave table-backed CharacterEnhanceSkill compatibility fixture");
 
-            AscNet.Common.Database.Character unlockRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            AscNet.Common.Database.Character unlockRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
             unlockRoster.Uid = unlockPlayerId;
-            CharacterData unlockCharacter = RequiredCharacterData(unlockRoster, veronicaAegisCharacterId);
+            CharacterData unlockCharacter = RequiredCharacterData(unlockRoster, crimsonWeaveCharacterId);
             unlockCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
 
             Dictionary<int, long> unlockInitialCounts = InitialCountsForCosts(unlockCosts, costSurplus);
@@ -14029,7 +15056,7 @@ namespace AscNet.Test
                     "CharacterUnlockEnhanceSkillRequest table-backed NotifyCharacterDataList");
                 CharacterData pushedUnlockCharacter = RequiredNotifyCharacterData(
                     unlockCharacterNotify,
-                    veronicaAegisCharacterId,
+                    crimsonWeaveCharacterId,
                     "CharacterUnlockEnhanceSkillRequest table-backed notify");
                 CharacterSkill unlockedSkill = RequiredEnhanceSkill(
                     pushedUnlockCharacter,
@@ -14045,9 +15072,9 @@ namespace AscNet.Test
                 AssertEqual(0, unlockResponse.Code, "CharacterUnlockEnhanceSkillResponse table-backed Code");
             }
 
-            AscNet.Common.Database.Character upgradeRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            AscNet.Common.Database.Character upgradeRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
             upgradeRoster.Uid = upgradePlayerId;
-            CharacterData upgradeCharacter = RequiredCharacterData(upgradeRoster, veronicaAegisCharacterId);
+            CharacterData upgradeCharacter = RequiredCharacterData(upgradeRoster, crimsonWeaveCharacterId);
             upgradeCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
             upgradeCharacter.EnhanceSkillList.Add(new CharacterSkill
             {
@@ -14090,7 +15117,7 @@ namespace AscNet.Test
                     "CharacterUpgradeEnhanceSkillRequest table-backed NotifyCharacterDataList");
                 CharacterData pushedUpgradeCharacter = RequiredNotifyCharacterData(
                     upgradeCharacterNotify,
-                    veronicaAegisCharacterId,
+                    crimsonWeaveCharacterId,
                     "CharacterUpgradeEnhanceSkillRequest table-backed notify");
                 CharacterSkill upgradedSkill = RequiredEnhanceSkill(
                     pushedUpgradeCharacter,
@@ -14104,6 +15131,33 @@ namespace AscNet.Test
                     nameof(CharacterUpgradeEnhanceSkillResponse),
                     "CharacterUpgradeEnhanceSkillRequest table-backed response");
                 AssertEqual(0, upgradeResponse.Code, "CharacterUpgradeEnhanceSkillResponse table-backed Code");
+            }
+
+            const int missingGroupPacketId = 16_013;
+            const int missingSkillGroupId = int.MaxValue;
+            AscNet.Common.Database.Character invalidUnlockRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
+            invalidUnlockRoster.Uid = 88_013;
+            using (LoopbackSessionHarness harness = new(
+                invalidUnlockRoster,
+                CreateDrawCompatibilityPlayer(invalidUnlockRoster.Uid),
+                CreateInventoryWithCosts(invalidUnlockRoster.Uid, new Dictionary<int, long>()),
+                "character-enhance-skill-missing-table-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(
+                    "CharacterUnlockEnhanceSkillRequest",
+                    harness.Session,
+                    missingGroupPacketId,
+                    new CharacterUnlockEnhanceSkillRequest
+                    {
+                        SkillGroupId = missingSkillGroupId
+                    });
+
+                CharacterUnlockEnhanceSkillResponse missingGroupResponse = ReadResponsePayload<CharacterUnlockEnhanceSkillResponse>(
+                    harness,
+                    missingGroupPacketId,
+                    nameof(CharacterUnlockEnhanceSkillResponse),
+                    "CharacterUnlockEnhanceSkillRequest missing table response");
+                AssertEqual(20009021, missingGroupResponse.Code, "CharacterUnlockEnhanceSkillResponse missing table Code");
             }
 
             static (Dictionary<int, int> UnlockCosts, Dictionary<int, int> UpgradeCosts) AssertTableBackedEnhanceSkillCompatibilityFixture(
@@ -16852,6 +17906,232 @@ namespace AscNet.Test
 
         private sealed record PersistenceHandlerContract(string RequestName, string HandlerMethodName);
 
+        private static void ValidateSimulatedBattlefieldCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const long playerId = 99_401;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.PlayerData.Name = "Battlefield Tester";
+            player.SimulatedBattlefield = new AscNet.Common.Database.SimulatedBattlefieldState
+            {
+                ArenaPoint = 321,
+                ArenaContributeScore = 321,
+                BossLevelType = 8,
+                BossClearedStageIds = [30_300_803]
+            };
+
+            Type arenaModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.ArenaModule");
+            MethodInfo buildArenaLoginData = RequiredMethod(
+                arenaModule,
+                "BuildLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(AscNet.Common.Database.Player), typeof(long?)]);
+            NotifyArenaActivity arenaLogin = buildArenaLoginData.Invoke(null, [player, (long?)1_783_000_000]) as NotifyArenaActivity
+                ?? throw new InvalidDataException("ArenaModule.BuildLoginData returned nil.");
+            AssertEqual(448, arenaLogin.ActivityNo, "Simulated Battlefield arena ActivityNo");
+            AssertEqual(14, arenaLogin.ChallengeId, "Simulated Battlefield arena ChallengeId");
+            AssertEqual(2, arenaLogin.Status, "Simulated Battlefield arena Status");
+            AssertEqual(1_783_274_400U, arenaLogin.ResultTime, "Simulated Battlefield arena ResultTime");
+            AssertEqual(2, arenaLogin.ProtectedScore, "Simulated Battlefield arena ProtectedScore");
+            AssertEqual(1, arenaLogin.ArenaIndex, "Simulated Battlefield arena ArenaIndex");
+
+            Type bossModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule");
+            MethodInfo buildBossLoginData = RequiredMethod(
+                bossModule,
+                "BuildLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(AscNet.Common.Database.Player), typeof(long?)]);
+            NotifyFubenBossSingleData bossLogin = buildBossLoginData.Invoke(null, [player, (long?)1_783_000_000]) as NotifyFubenBossSingleData
+                ?? throw new InvalidDataException("BossModule.BuildLoginData returned nil.");
+            AssertEqual(260, bossLogin.FubenBossSingleData.ActivityNo, "Phantom Pain Cage ActivityNo");
+            AssertEqual(8, bossLogin.FubenBossSingleData.LevelType, "Phantom Pain Cage LevelType");
+            AssertEqual(2, bossLogin.BossListDict.Count, "Phantom Pain Cage BossListDict count");
+            JObject clearedBossStage = JObject.FromObject(
+                bossLogin.FubenBossSingleData.TrialStageInfoList
+                    .Select(JObject.FromObject)
+                    .Single(stage => stage.Value<int>("StageId") == 30_300_803));
+            AssertEqual(1, clearedBossStage.Value<int>("Score"), "Phantom Pain Cage cleared stage score");
+
+            Type repeatChallengeModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RepeatChallengeModule");
+            MethodInfo buildRepeatChallengeLoginData = RequiredMethod(
+                repeatChallengeModule,
+                "BuildLoginData",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(AscNet.Common.Database.Player)]);
+            NotifyRepeatChallengeData repeatChallengeLogin = buildRepeatChallengeLoginData.Invoke(null, [player]) as NotifyRepeatChallengeData
+                ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil.");
+            AssertEqual(36, repeatChallengeLogin.Id, "Simulated Battlefield repeat challenge activity Id");
+            AssertEqual(1, repeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield initial Authority Level");
+            AssertEqual(0, repeatChallengeLogin.ExpInfo.Exp, "Simulated Battlefield initial Authority EXP");
+            JObject repeatChallengeChapter = JObject.FromObject(repeatChallengeLogin.RcChapters.Single());
+            AssertEqual(136_001, repeatChallengeChapter.Value<int>("Id"), "Simulated Battlefield repeat challenge ChapterId");
+
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                inventory,
+                "simulated-battlefield-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+
+            const int joinPacketId = 81_001;
+            InvokeRegisteredRequestHandler(
+                "JoinActivityRequest",
+                harness.Session,
+                joinPacketId,
+                new Dictionary<string, object>());
+            JoinActivityResponse joinResponse = ReadResponsePayload<JoinActivityResponse>(
+                harness,
+                joinPacketId,
+                nameof(JoinActivityResponse),
+                "Simulated Battlefield JoinActivityResponse");
+            AssertEqual(0, joinResponse.Code, "Simulated Battlefield JoinActivityResponse Code");
+            AssertEqual(14, joinResponse.ChallengeId, "Simulated Battlefield JoinActivityResponse ChallengeId");
+            AssertEqual(true, player.SimulatedBattlefield.ArenaJoined, "Simulated Battlefield joined persistence");
+
+            const int scorePacketId = 81_002;
+            InvokeRegisteredRequestHandler(
+                "ScoreQueryRequest",
+                harness.Session,
+                scorePacketId,
+                new Dictionary<string, object>());
+            AscNet.GameServer.Handlers.ScoreQueryResponse scoreResponse =
+                ReadResponsePayload<AscNet.GameServer.Handlers.ScoreQueryResponse>(
+                    harness,
+                    scorePacketId,
+                    nameof(AscNet.GameServer.Handlers.ScoreQueryResponse),
+                    "Simulated Battlefield ScoreQueryResponse");
+            AssertEqual(0, scoreResponse.Code, "Simulated Battlefield ScoreQueryResponse Code");
+            AssertEqual(321, scoreResponse.ContributeScore, "Simulated Battlefield ScoreQueryResponse ContributeScore");
+            AssertEqual(14, scoreResponse.ChallengeId, "Simulated Battlefield ScoreQueryResponse ChallengeId");
+
+            const int areaPacketId = 81_003;
+            InvokeRegisteredRequestHandler(
+                "AreaDataRequest",
+                harness.Session,
+                areaPacketId,
+                new Dictionary<string, object>());
+            AreaDataResponse areaResponse = ReadResponsePayload<AreaDataResponse>(
+                harness,
+                areaPacketId,
+                nameof(AreaDataResponse),
+                "Simulated Battlefield AreaDataResponse");
+            AssertEqual(0, areaResponse.Code, "Simulated Battlefield AreaDataResponse Code");
+            AssertEqual(321, areaResponse.TotalPoint, "Simulated Battlefield AreaDataResponse TotalPoint");
+            JObject arenaArea = JArray.FromObject(areaResponse.AreaList)
+                .OfType<JObject>()
+                .Single(area => area.Value<int>("AreaId") == 8);
+            AssertEqual(
+                JTokenType.Null,
+                arenaArea["StageInfos"]?.Type ?? JTokenType.None,
+                "Simulated Battlefield AreaDataResponse area 8 StageInfos");
+
+            const int repeatChallengePreFightPacketId = 81_004;
+            InvokeRegisteredRequestHandler(
+                nameof(PreFightRequest),
+                harness.Session,
+                repeatChallengePreFightPacketId,
+                new PreFightRequest
+                {
+                    PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                    {
+                        ChallengeCount = 1,
+                        StageId = 30_090_802,
+                        CardIds = [],
+                        RobotIds = []
+                    }
+                });
+            PreFightResponse repeatChallengePreFight = ReadResponsePayload<PreFightResponse>(
+                harness,
+                repeatChallengePreFightPacketId,
+                nameof(PreFightResponse),
+                "Simulated Battlefield PreFightResponse");
+            AssertEqual(0, repeatChallengePreFight.Code, "Simulated Battlefield PreFightResponse Code");
+            AssertEqual(30_090_802U, repeatChallengePreFight.FightData.StageId, "Simulated Battlefield PreFightResponse StageId");
+            AssertEqual(3, repeatChallengePreFight.FightData.RebootId, "Simulated Battlefield PreFightResponse RebootId");
+            if (!repeatChallengePreFight.FightData.MonsterLevel.SequenceEqual([357, 252, 197]))
+                throw new InvalidDataException($"Simulated Battlefield PreFightResponse MonsterLevel: expected 357,252,197, got {string.Join(",", repeatChallengePreFight.FightData.MonsterLevel)}.");
+            AssertEqual(51201, Convert.ToInt32(repeatChallengePreFight.FightData.EventIds.Single()), "Simulated Battlefield Authority Level 1 effect");
+
+            MethodInfo recordRepeatChallengeStageClear = RequiredMethod(
+                repeatChallengeModule,
+                "RecordStageClear",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(AscNet.Common.Database.Player), typeof(uint), typeof(int)]);
+            AssertEqual(
+                true,
+                (bool)(recordRepeatChallengeStageClear.Invoke(null, [player, 30_090_802U, 2])
+                    ?? throw new InvalidDataException("RepeatChallengeModule.RecordStageClear returned nil.")),
+                "Simulated Battlefield repeat challenge clear progression");
+            NotifyRepeatChallengeData progressedRepeatChallengeLogin = buildRepeatChallengeLoginData.Invoke(null, [player]) as NotifyRepeatChallengeData
+                ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil after stage clear.");
+            AssertEqual(2, progressedRepeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield progressed Authority Level");
+            AssertEqual(100, progressedRepeatChallengeLogin.ExpInfo.Exp, "Simulated Battlefield cumulative Authority EXP");
+            JObject progressedRepeatChallengeChapter = JObject.FromObject(progressedRepeatChallengeLogin.RcChapters.Single());
+            int[] finishStages = progressedRepeatChallengeChapter["FinishStages"]?.Values<int>().ToArray()
+                ?? throw new InvalidDataException("Simulated Battlefield progressed repeat challenge FinishStages serialized as nil.");
+            if (!finishStages.SequenceEqual([30_090_802]))
+                throw new InvalidDataException($"Simulated Battlefield progressed repeat challenge FinishStages: expected 30090802, got {string.Join(",", finishStages)}.");
+
+            const int progressedPreFightPacketId = 81_005;
+            InvokeRegisteredRequestHandler(
+                nameof(PreFightRequest),
+                harness.Session,
+                progressedPreFightPacketId,
+                new PreFightRequest
+                {
+                    PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                    {
+                        ChallengeCount = 1,
+                        StageId = 30_090_802,
+                        CardIds = [],
+                        RobotIds = []
+                    }
+                });
+            PreFightResponse progressedPreFight = ReadResponsePayload<PreFightResponse>(
+                harness,
+                progressedPreFightPacketId,
+                nameof(PreFightResponse),
+                "Simulated Battlefield Authority Level 2 PreFightResponse");
+            int[] progressedEventIds = progressedPreFight.FightData.EventIds.Select(Convert.ToInt32).ToArray();
+            if (!progressedEventIds.SequenceEqual([51201, 51202]))
+                throw new InvalidDataException($"Simulated Battlefield Authority Level 2 effects: expected 51201,51202, got {string.Join(",", progressedEventIds)}.");
+
+            recordRepeatChallengeStageClear.Invoke(null, [player, 30_090_802U, 200]);
+            NotifyRepeatChallengeData cappedRepeatChallengeLogin = buildRepeatChallengeLoginData.Invoke(null, [player]) as NotifyRepeatChallengeData
+                ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil at maximum Authority Level.");
+            AssertEqual(25, cappedRepeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield maximum Authority Level");
+            AssertEqual(7_175, cappedRepeatChallengeLogin.ExpInfo.Exp, "Simulated Battlefield maximum cumulative Authority EXP");
+
+            const int bossSelectPacketId = 81_006;
+            InvokeRegisteredRequestHandler(
+                nameof(BossSingleSelectLevelTypeRequest),
+                harness.Session,
+                bossSelectPacketId,
+                new BossSingleSelectLevelTypeRequest { LevelId = 7 });
+            BossSingleSelectLevelTypeResponse bossSelectResponse =
+                ReadResponsePayload<BossSingleSelectLevelTypeResponse>(
+                    harness,
+                    bossSelectPacketId,
+                    nameof(BossSingleSelectLevelTypeResponse),
+                    "Phantom Pain Cage BossSingleSelectLevelTypeResponse");
+            AssertEqual(0, bossSelectResponse.Code, "Phantom Pain Cage BossSingleSelectLevelTypeResponse Code");
+            AssertEqual(7, player.SimulatedBattlefield.BossLevelType, "Phantom Pain Cage selected level persistence");
+
+            const int bossRankPacketId = 81_007;
+            InvokeRegisteredRequestHandler(
+                nameof(BossSingleRankInfoRequest),
+                harness.Session,
+                bossRankPacketId,
+                new BossSingleRankInfoRequest { SectionId = 2020 });
+            BossSingleRankInfoResponse bossRankResponse = ReadResponsePayload<BossSingleRankInfoResponse>(
+                harness,
+                bossRankPacketId,
+                nameof(BossSingleRankInfoResponse),
+                "Phantom Pain Cage BossSingleRankInfoResponse");
+            AssertEqual(0, bossRankResponse.Code, "Phantom Pain Cage BossSingleRankInfoResponse Code");
+        }
+
         private static void ValidateBossSingleLoginCompatibilityShape()
         {
             NotifyFubenBossSingleData notification = new()
@@ -17779,6 +19059,11 @@ namespace AscNet.Test
                 "ConsumeFeedEquips",
                 BindingFlags.Static | BindingFlags.NonPublic,
                 [typeof(Session), typeof(EquipData), typeof(EquipTable), typeof(List<EquipTable>), typeof(List<EquipBreakThroughTable>), typeof(int), operationInfoType, typeof(Dictionary<int, int>), typeof(NotifyEquipDataList)]);
+            MethodInfo tryConsumeValidatedFeedEquips = RequiredMethod(
+                equipModuleType,
+                "TryConsumeValidatedFeedEquips",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session), typeof(EquipData), typeof(EquipTable), typeof(List<int>), typeof(List<EquipTable>), typeof(List<EquipBreakThroughTable>), typeof(Dictionary<int, int>), typeof(NotifyEquipDataList), typeof(int).MakeByRefType()]);
             MethodInfo applyEquipBreakthrough = RequiredMethod(
                 equipModuleType,
                 "ApplyEquipBreakthrough",
@@ -17835,6 +19120,40 @@ namespace AscNet.Test
             if (lowRarityTargetEquip.Level <= targetLevel && lowRarityTargetEquip.Exp == 0)
                 throw new InvalidDataException("EquipOneKeyFeedRequestHandler behavior incorrectly discarded feed exp beyond TargetLevel.");
 
+            EquipTable capturedWeaponTargetTable = equipTables.Single(row => row.Id == 2655001);
+            EquipTable capturedWeaponFodderTable = equipTables.Single(row => row.Id == 2013001);
+            AssertEqual(65, capturedWeaponTargetTable.Type, "Captured request 0227 target weapon Type");
+            AssertEqual(0, capturedWeaponTargetTable.Site, "Captured request 0227 target weapon Site");
+            EquipData capturedWeaponTarget = NewEquip(2838, capturedWeaponTargetTable);
+            EquipData capturedWeaponFodder = NewEquip(2954, capturedWeaponFodderTable);
+            AscNet.Common.Database.Character capturedWeaponCharacter = NewCharacter(18408465, capturedWeaponTarget, capturedWeaponFodder);
+            Session capturedWeaponSession = NewSession(capturedWeaponCharacter, NewInventory(capturedWeaponCharacter.Uid));
+            Dictionary<int, int> capturedWeaponDeltas = new();
+            NotifyEquipDataList capturedWeaponNotify = new();
+            object capturedWeaponOperation = NewOperationInfo([2954], null, null);
+            int capturedWeaponExp = (int)(consumeFeedEquips.Invoke(null,
+                [capturedWeaponSession, capturedWeaponTarget, capturedWeaponTargetTable, equipTables, equipBreakThroughTables, 2, capturedWeaponOperation, capturedWeaponDeltas, capturedWeaponNotify])
+                ?? throw new InvalidDataException("Captured request 0227 weapon fodder returned nil."));
+            AssertEqual(100, capturedWeaponExp, "Captured request 0227 credits weapon fodder EXP");
+            AssertEqual(false, capturedWeaponCharacter.Equips.Any(equip => equip.Id == 2954), "Captured request 0227 removes weapon fodder");
+            AssertIntegerList([2954], capturedWeaponNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "Captured request 0227 DeletedEquipIdList");
+            AssertEqual(-1000, capturedWeaponDeltas[AscNet.Common.Database.Inventory.Coin], "Captured request 0227 Cog delta");
+
+            EquipTable[] allThreeToFiveStarWeapons = equipTables
+                .Where(table => table.Site == 0
+                    && table.Star is >= 3 and <= 5
+                    && AscNet.Common.Database.Character.IsOwnableEquipTemplate(table))
+                .ToArray();
+            AssertEqual(139, allThreeToFiveStarWeapons.Length, "Current ownable 3-5 star weapon template count");
+            foreach (EquipTable weapon in allThreeToFiveStarWeapons)
+            {
+                EquipBreakThroughTable progression = equipBreakThroughTables.FirstOrDefault(row =>
+                        row.EquipId == weapon.Id && row.Times == 0)
+                    ?? throw new InvalidDataException($"Weapon feed audit rejected template {weapon.Id}: missing breakthrough-0 progression.");
+                if (progression.Exp <= 0)
+                    throw new InvalidDataException($"Weapon feed audit rejected template {weapon.Id}: non-positive base EXP {progression.Exp}.");
+            }
+
             var highRarityFeedCase = FindHighRarityWeaponFeedCase();
             EquipTable highRarityTargetEquipTable = highRarityFeedCase.Target;
             EquipTable normalWeaponFodderEquipTable = highRarityFeedCase.NormalWeaponFeed;
@@ -17863,6 +19182,91 @@ namespace AscNet.Test
             AssertEqual(false, highRarityCharacter.Equips.Any(equip => equip.Id == enhancementFodderEquipId), "EquipOneKeyFeedRequestHandler behavior high-rarity weapon consumes Type 99 enhancement fodder");
             AssertIntegerList([normalWeaponFodderEquipId, enhancementFodderEquipId], highRarityNotifyEquipDataList.DeletedEquipIdList.Select(equipId => (long)equipId).ToArray(), "EquipOneKeyFeedRequestHandler behavior high-rarity exact deleted equip ids");
             AssertEqual(highRarityFeedExp * -10, highRarityItemDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeedRequestHandler behavior high-rarity coin cost is based on full feed exp");
+
+            const int directTargetEquipId = 7151;
+            const int directWeaponFodderId = 7152;
+            EquipData directTargetEquip = NewEquip(directTargetEquipId, highRarityTargetEquipTable);
+            EquipData directWeaponFodder = NewEquip(directWeaponFodderId, normalWeaponFodderEquipTable);
+            directWeaponFodder.Exp = 37;
+            AscNet.Common.Database.Character directCharacter = NewCharacter(9051, directTargetEquip, directWeaponFodder);
+            Session directSession = NewSession(directCharacter, NewInventory(directCharacter.Uid));
+            Dictionary<int, int> directDeltas = new();
+            NotifyEquipDataList directNotify = new();
+            object[] directArguments = [directSession, directTargetEquip, highRarityTargetEquipTable, new List<int> { directWeaponFodderId }, equipTables, equipBreakThroughTables, directDeltas, directNotify, 0];
+            bool directConsumed = (bool)(tryConsumeValidatedFeedEquips.Invoke(null, directArguments)
+                ?? throw new InvalidDataException("EquipLevelUpRequest weapon fodder consumption returned nil."));
+            int directFeedExp = (int)directArguments[8];
+            AssertEqual(true, directConsumed, "EquipLevelUpRequest consumes compatible normal weapon fodder");
+            AssertEqual(highRarityFeedCase.NormalWeaponFeedExp + 37, directFeedExp, "EquipLevelUpRequest credits configured base plus accumulated weapon EXP");
+            AssertEqual(false, directCharacter.Equips.Any(equip => equip.Id == directWeaponFodderId), "EquipLevelUpRequest removes consumed weapon fodder");
+            AssertIntegerList([directWeaponFodderId], directNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "EquipLevelUpRequest emits exact DeletedEquipIdList");
+            AssertEqual(directFeedExp * -10, directDeltas[AscNet.Common.Database.Inventory.Coin], "EquipLevelUpRequest charges weapon fodder coin cost");
+            directCharacter.AddEquipExp(directTargetEquipId, directFeedExp);
+            if (directTargetEquip.Level <= 1 && directTargetEquip.Exp == 0)
+                throw new InvalidDataException("EquipLevelUpRequest weapon fodder did not increase target progress.");
+
+            EquipData atomicTarget = NewEquip(7161, highRarityTargetEquipTable);
+            EquipData atomicFodder = NewEquip(7162, normalWeaponFodderEquipTable);
+            AscNet.Common.Database.Character atomicCharacter = NewCharacter(9052, atomicTarget, atomicFodder);
+            Session atomicSession = NewSession(atomicCharacter, NewInventory(atomicCharacter.Uid));
+            Dictionary<int, int> atomicDeltas = new();
+            NotifyEquipDataList atomicNotify = new();
+            object[] atomicArguments = [atomicSession, atomicTarget, highRarityTargetEquipTable, new List<int> { 7162, missingFodderEquipId }, equipTables, equipBreakThroughTables, atomicDeltas, atomicNotify, 0];
+            bool atomicConsumed = (bool)(tryConsumeValidatedFeedEquips.Invoke(null, atomicArguments)
+                ?? throw new InvalidDataException("EquipLevelUpRequest invalid fodder validation returned nil."));
+            AssertEqual(false, atomicConsumed, "EquipLevelUpRequest rejects a list containing nonexistent fodder");
+            AssertEqual(true, atomicCharacter.Equips.Any(equip => equip.Id == 7162), "EquipLevelUpRequest invalid list does not partially remove valid fodder");
+            AssertEqual(0, atomicNotify.DeletedEquipIdList.Count, "EquipLevelUpRequest invalid list emits no deletion");
+            AssertEqual(0, atomicDeltas.Count, "EquipLevelUpRequest invalid list charges nothing");
+
+            EquipTable liveRecycleTargetTable = equipTables.Single(row => row.Id == 2025001);
+            EquipTable liveRecycleFodderTable = equipTables.Single(row => row.Id == 2014001);
+            EquipData recycledTarget = NewEquip(533, liveRecycleTargetTable);
+            EquipData recycledFodder = NewEquip(588, liveRecycleFodderTable);
+            recycledFodder.IsRecycle = true;
+            AscNet.Common.Database.Character recycledCharacter = NewCharacter(9053, recycledTarget, recycledFodder);
+            Session recycledSession = NewSession(recycledCharacter, NewInventory(recycledCharacter.Uid));
+            Dictionary<int, int> recycledDeltas = new();
+            NotifyEquipDataList recycledNotify = new();
+            object recycledOperation = NewOperationInfo([588], null, null);
+            int recycledExp = (int)(consumeFeedEquips.Invoke(null,
+                [recycledSession, recycledTarget, liveRecycleTargetTable, equipTables, equipBreakThroughTables, 2, recycledOperation, recycledDeltas, recycledNotify])
+                ?? throw new InvalidDataException("Live recycled-marked OneKeyFeed fodder returned nil."));
+            if (recycledExp <= 0)
+                throw new InvalidDataException("Live recycled-marked OneKeyFeed weapon did not contribute EXP.");
+            AssertEqual(false, recycledCharacter.Equips.Any(equip => equip.Id == 588), "EquipOneKeyFeed consumes visible recycled-marked fodder");
+            AssertIntegerList([588], recycledNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "EquipOneKeyFeed recycled-marked fodder deletion");
+            AssertEqual(recycledExp * -10, recycledDeltas[AscNet.Common.Database.Inventory.Coin], "EquipOneKeyFeed recycled-marked fodder coin cost");
+
+            EquipData directRecycleTarget = NewEquip(733, liveRecycleTargetTable);
+            EquipData directRecycleFodder = NewEquip(788, liveRecycleFodderTable);
+            directRecycleFodder.IsRecycle = true;
+            AscNet.Common.Database.Character directRecycleCharacter = NewCharacter(9055, directRecycleTarget, directRecycleFodder);
+            Session directRecycleSession = NewSession(directRecycleCharacter, NewInventory(directRecycleCharacter.Uid));
+            Dictionary<int, int> directRecycleDeltas = new();
+            NotifyEquipDataList directRecycleNotify = new();
+            object[] directRecycleArguments = [directRecycleSession, directRecycleTarget, liveRecycleTargetTable, new List<int> { 788 }, equipTables, equipBreakThroughTables, directRecycleDeltas, directRecycleNotify, 0];
+            AssertEqual(true, (bool)(tryConsumeValidatedFeedEquips.Invoke(null, directRecycleArguments)
+                ?? throw new InvalidDataException("Direct recycled-marked weapon fodder returned nil.")), "EquipLevelUpRequest accepts visible recycled-marked fodder");
+            AssertEqual(false, directRecycleCharacter.Equips.Any(equip => equip.Id == 788), "EquipLevelUpRequest consumes recycled-marked fodder");
+            AssertIntegerList([788], directRecycleNotify.DeletedEquipIdList.Select(id => (long)id).ToArray(), "EquipLevelUpRequest recycled-marked fodder deletion");
+
+            EquipData overflowTarget = NewEquip(7181, capturedWeaponTargetTable);
+            EquipData overflowFodder = NewEquip(7182, capturedWeaponFodderTable);
+            EquipData secondOverflowFodder = NewEquip(7183, capturedWeaponFodderTable);
+            overflowFodder.Exp = int.MaxValue / 20;
+            secondOverflowFodder.Exp = int.MaxValue / 20;
+            AscNet.Common.Database.Character overflowCharacter = NewCharacter(9054, overflowTarget, overflowFodder, secondOverflowFodder);
+            Session overflowSession = NewSession(overflowCharacter, NewInventory(overflowCharacter.Uid));
+            Dictionary<int, int> overflowDeltas = new();
+            NotifyEquipDataList overflowNotify = new();
+            object[] overflowArguments = [overflowSession, overflowTarget, capturedWeaponTargetTable, new List<int> { 7182, 7183 }, equipTables, equipBreakThroughTables, overflowDeltas, overflowNotify, 0];
+            AssertEqual(false, (bool)(tryConsumeValidatedFeedEquips.Invoke(null, overflowArguments)
+                ?? throw new InvalidDataException("Aggregate-overflowing EquipLevelUp fodder returned nil.")), "EquipLevelUpRequest rejects aggregate equipment coin overflow");
+            AssertEqual(true, overflowCharacter.Equips.Any(equip => equip.Id == 7182), "EquipLevelUpRequest aggregate overflow preserves first fodder");
+            AssertEqual(true, overflowCharacter.Equips.Any(equip => equip.Id == 7183), "EquipLevelUpRequest aggregate overflow preserves second fodder");
+            AssertEqual(0, overflowNotify.DeletedEquipIdList.Count, "EquipLevelUpRequest aggregate overflow emits no deletion");
+            AssertEqual(0, overflowDeltas.Count, "EquipLevelUpRequest aggregate overflow charges nothing");
 
             int itemTargetRequiredExp = FreshRequiredExpToTargetLevel(highRarityTargetEquipTable);
             int itemUseCount = itemTargetRequiredExp / equipExpItemUpgradeInfo.Exp + 1;
@@ -18715,6 +20119,29 @@ namespace AscNet.Test
             }
 
             return result;
+        }
+
+        private static PartnerData ReadFightPartner(object npcValue, string name)
+        {
+            System.Collections.IDictionary npc = RequiredDynamicMap(npcValue, $"{name} NpcData");
+            System.Collections.IDictionary partner = RequiredDynamicMap(
+                RequiredDynamicValue(npc, "Partner", $"{name} NpcData"),
+                $"{name} NpcData.Partner");
+            return new PartnerData
+            {
+                Id = RequiredDynamicInteger(partner, "Id", $"{name} Partner"),
+                TemplateId = RequiredDynamicInteger(partner, "TemplateId", $"{name} Partner"),
+                CharacterId = RequiredDynamicInteger(partner, "CharacterId", $"{name} Partner")
+            };
+        }
+
+        private static void AssertFightPartnerAbsent(object npcValue, string name)
+        {
+            System.Collections.IDictionary npc = RequiredDynamicMap(npcValue, $"{name} NpcData");
+            if (!npc.Contains("Partner"))
+                throw new InvalidDataException($"{name} NpcData: expected explicit Partner field.");
+            if (npc["Partner"] is not null)
+                throw new InvalidDataException($"{name} NpcData.Partner: expected nil.");
         }
 
         private static System.Collections.IDictionary RequiredDynamicMap(object? value, string name)

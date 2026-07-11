@@ -78,7 +78,7 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new GetShopInfoResponse
             {
                 Code = 0,
-                ClientShop = BuildClientShop(request.Id)
+                ClientShop = BuildClientShop(request.Id, session.player)
             }, packet.Id);
         }
         
@@ -88,7 +88,7 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new GetShopInfoResponse
             {
                 Code = 0,
-                ClientShop = BuildClientShop(0)
+                ClientShop = BuildClientShop(0, session.player)
             }, packet.Id);
         }
 
@@ -103,7 +103,7 @@ namespace AscNet.GameServer.Handlers
 
             foreach (uint shopId in request.IdList.Distinct())
             {
-                response.ClientShopList.Add(BuildClientShop(shopId));
+                response.ClientShopList.Add(BuildClientShop(shopId, session.player));
             }
 
             session.SendResponse(response, packet.Id);
@@ -136,26 +136,31 @@ namespace AscNet.GameServer.Handlers
         public static void BuyRequestHandler(Session session, Packet.Request packet)
         {
             BuyRequest request = MessagePackSerializer.Deserialize<BuyRequest>(packet.Content);
-            ClientShopGoods? goods = FindShopGoods(request.ShopId, request.GoodsId);
             BuyResponse response = new()
             {
-                Code = 0,
+                Code = 1,
                 IsShowBuyResult = false
             };
-
-            if (goods is not null)
+            ClientShopGoods? goods = FindShopGoods(request.ShopId, request.GoodsId);
+            if (goods is null
+                || !TryPreparePurchase(session, goods, request.Count, out RewardGoods rewardGoods))
             {
-                int count = Math.Max(1, request.Count);
-                RewardGoods rewardGoods = ToRewardGoods(goods.RewardGoods, count);
-                response.GoodList.Add(rewardGoods);
-
-                ApplyShopCosts(session, goods, count);
-                ApplyShopReward(session, rewardGoods);
-                session.inventory.Save();
-                session.character.Save();
-                TaskModule.RecordConditionType(session, 20201);
+                session.SendResponse(response, packet.Id);
+                return;
             }
 
+            ApplyShopCosts(session, goods, request.Count);
+            ApplyShopReward(session, rewardGoods);
+            session.player.ShopBuyTimes ??= new();
+            session.player.ShopBuyTimes[goods.Id] = checked(
+                session.player.ShopBuyTimes.GetValueOrDefault(goods.Id) + request.Count);
+            session.inventory.Save();
+            session.character.Save();
+            session.player.Save();
+            TaskModule.RecordConditionType(session, 20201);
+
+            response.Code = 0;
+            response.GoodList.Add(rewardGoods);
             session.SendResponse(response, packet.Id);
         }
         
@@ -175,10 +180,16 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
-        private static ClientShop BuildClientShop(uint shopId)
+        private static ClientShop BuildClientShop(uint shopId, Player player)
         {
-            if (RetailShopSnapshot.Value.TryGetValue(shopId, out ClientShop? shop))
+            if (RetailShopSnapshot.Value.TryGetValue(shopId, out ClientShop? snapshot))
             {
+                ClientShop shop = MessagePackSerializer.Deserialize<ClientShop>(
+                    MessagePackSerializer.Serialize(snapshot));
+                player.ShopBuyTimes ??= new();
+                foreach (ClientShopGoods goods in shop.GoodsList)
+                    goods.TotalBuyTimes = player.ShopBuyTimes.GetValueOrDefault(goods.Id);
+                shop.TotalBuyTimes = shop.GoodsList.Sum(goods => goods.TotalBuyTimes);
                 return shop;
             }
 
@@ -320,16 +331,60 @@ namespace AscNet.GameServer.Handlers
 
         private static ClientShopGoods? FindShopGoods(uint shopId, uint goodsId)
         {
-            if (RetailShopSnapshot.Value.TryGetValue(shopId, out ClientShop? shop))
+            return RetailShopSnapshot.Value.TryGetValue(shopId, out ClientShop? shop)
+                ? shop.GoodsList.FirstOrDefault(goods => goods.Id == goodsId)
+                : null;
+        }
+
+        private static bool TryPreparePurchase(
+            Session session,
+            ClientShopGoods goods,
+            int count,
+            out RewardGoods rewardGoods)
+        {
+            rewardGoods = null!;
+            if (count <= 0 || goods.RewardGoods.Count <= 0)
+                return false;
+
+            session.player.ShopBuyTimes ??= new();
+            int previousBuyTimes = session.player.ShopBuyTimes.GetValueOrDefault(goods.Id);
+            if (goods.BuyTimesLimit > 0
+                && (long)previousBuyTimes + count > goods.BuyTimesLimit)
             {
-                ClientShopGoods? goods = shop.GoodsList.FirstOrDefault(goods => goods.Id == goodsId);
-                if (goods is not null)
-                    return goods;
+                return false;
             }
 
-            return RetailShopSnapshot.Value.Values
-                .SelectMany(shop => shop.GoodsList)
-                .FirstOrDefault(goods => goods.Id == goodsId);
+            if (!Enum.IsDefined(typeof(RewardType), goods.RewardGoods.RewardType))
+                return false;
+            if ((RewardType)goods.RewardGoods.RewardType == RewardType.Item
+                && !Inventory.IsValidClientItemId((int)goods.RewardGoods.TemplateId))
+            {
+                return false;
+            }
+
+            foreach (ClientShopConsume consume in goods.ConsumeList)
+            {
+                long totalCost = (long)consume.Count * count;
+                long available = session.inventory.Items.FirstOrDefault(item => item.Id == consume.Id)?.Count ?? 0;
+                if (consume.Id <= 0
+                    || totalCost <= 0
+                    || totalCost > int.MaxValue
+                    || !Inventory.IsValidClientItemId(consume.Id)
+                    || available < totalCost)
+                {
+                    return false;
+                }
+            }
+
+            try
+            {
+                rewardGoods = ToRewardGoods(goods.RewardGoods, count);
+                return rewardGoods.Count > 0;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
         }
 
         private static RewardGoods ToRewardGoods(ClientShopRewardGoods reward, int countMultiplier)
@@ -338,7 +393,7 @@ namespace AscNet.GameServer.Handlers
             {
                 RewardType = reward.RewardType,
                 TemplateId = (int)reward.TemplateId,
-                Count = reward.Count * countMultiplier,
+                Count = checked(reward.Count * countMultiplier),
                 Level = reward.Level,
                 Quality = reward.Quality,
                 Grade = reward.Grade,
@@ -355,8 +410,8 @@ namespace AscNet.GameServer.Handlers
             NotifyItemDataList notifyItemDataList = new();
             foreach (ClientShopConsume consume in goods.ConsumeList)
             {
-                long totalCost = (long)consume.Count * count;
-                notifyItemDataList.ItemDataList.Add(session.inventory.Do(consume.Id, -(int)Math.Min(totalCost, int.MaxValue)));
+                int totalCost = checked((int)((long)consume.Count * count));
+                notifyItemDataList.ItemDataList.Add(session.inventory.Do(consume.Id, -totalCost));
             }
 
             if (notifyItemDataList.ItemDataList.Count > 0)

@@ -1,0 +1,40 @@
+Id	NpcId	Name	Desc	RecommendElement[1]	Icon	LiHuiPath	Priority	InitQuality	CarryCharacterType	ChipItemId	ChipNeedCount	DefaultLock	GoodsDesc	GoodsWorldDesc	DecomposeItemId[1]	DecomposeItemCount[1]	RecommendCharacterId	NoCameraSwitchDuringTransformation	PartnerType	AvaliableTimeId
+16010000	4201	Yuan Ye	Stun	2	Assets/Product/Texture/Image/RolePartner/RolePartnerPet2Niu2.png	Assets/Product/Texture/Image/Pets/Pet2NiuonMd010011.png	10	2	0	201	30	0			61	150	0	0	1	0
+16020000	4401	Noctua	Super Armor	5	Assets/Product/Texture/Image/RolePartner/Pet3Xiao2.png	Assets/Product/Texture/Image/Pets/Pet3XiaoonMd010011.png	20	2	0	202	30	0			61	150	0	0	1	0
+16030000	4203	Toniris	Pull, Charge	4	Assets/Product/Texture/Image/RolePartner/Pet3He2.png	Assets/Product/Texture/Image/Pets/Pet3HeonMd010011.png	30	3	0	203	30	0			62	150	1041003	0	1	0
+16040000	4204	Frost Oath	Crowd Control, Protection	1	Assets/Product/Texture/Image/RolePartner/Pet3Ma1.png	Assets/Product/Texture/Image/Pets/Pet3MaonMd010011.png	40	3	0	204	30	0			62	150	1141003	0	1	0
+16050000	4205	Seeshell	Area, Freeze	3	Assets/Product/Texture/Image/RolePartner/Pet2Bei1.png	Assets/Product/Texture/Image/Pets/Pet2BeionMd010011.png	50	2	0	205	30	0			61	150	0	0	1	0
+16060000	4206	Nitor	DMG	2	Assets/Product/Texture/Image/RolePartner/Pet3Mao1.png	Assets/Product/Texture/Image/Pets/Pet3MaoonMd010011.png	60	3	0	206	30	0			62	150	1071003	0	1	0
+16070000	4207	Lingya	DMG	4	Assets/Product/Texture/Image/RolePartner/Pet2Yang1.png	Assets/Product/Texture/Image/Pets/Pet2YangonMd010011.png	70	2	0	207	30	0			61	150	0	0	1	0
+16080000	4208	Boreas	Charge	3	Assets/Product/Texture/Image/RolePartner/Pet3Ying1.png	Assets/Product/Texture/Image/Pets/Pet3YingonMd010011.png	80	3	0	208	30	0			62	150	1121003	0	1	0
+16090000	4209	Thorny	Charge	1	Assets/Product/Texture/Image/RolePartner/Pet2Ciwei.png	Assets/Product/Texture/Image/Pets/Pet2CiweionMd010011.png	90	2	0	209	30	0			61	150	0	0	1	0
+16100000	4210	Jet Jaeger	Slash	2	Assets/Product/Texture/Image/RolePartner/Pet3Hu.png	Assets/Product/Texture/Image/Pets/Pet3HuonMd010011.png	100	3	0	210	30	0			62	150	1051004	0	1	0
+16110000	4211	Moonhopper	Control	5	Assets/Product/Texture/Image/RolePartner/Pet3Tu1.png	Assets/Product/Texture/Image/Pets/Pet3TuonMd010011.png	110	3	0	211	30	0			62	150	1071004	0	1	0
+16120000	4212	Shimmer	Pull, Charge	1	Assets/Product/Texture/Image/RolePartner/Pet3Yu1.png	Assets/Product/Texture/Image/Pets/Pet3YuonMd010011.png	120	3	0	212	30	0			62	150	1041004	0	1	0
+16130000	4213	Punchy	DMG	2	Assets/Product/Texture/Image/RolePartner/Pet3Quan1.png	Assets/Product/Texture/Image/Pets/Pet3QuanonMd010011.png	130	3	0	213	30	0			62	150	1011004	0	1	0
+16140000	4214	Rainbow	Pull, Damage	3	Assets/Product/Texture/Image/RolePartner/Pet3Wuzei1.png	Assets/Product/Texture/Image/Pets/Pet3WuzeioffMd010011.png	140	3	0	214	30	0			62	150	1091003	0	1	0
+16150000	4215	Motorbolt	Pull, Damage	4	Assets/Product/Texture/Image/RolePartner/Pet3Motor1.png	Assets/Product/Texture/Image/Pets/Pet3MotoroffMd010011.png	150	3	0	215	30	0			62	150	1021005	0	1	0
+16160000	4216	Hades Fangs	Crowd Control, Damage	4	Assets/Product/Texture/Image/RolePartner/Pet3Wolf1.png	Assets/Product/Texture/Image/Pets/Pet3WolfoffMd010011.png	160	3	0	216	30	0			62	150	1221003	0	1	0
+16170000	4217	Dawn Chorus	Damage, Super Armor	1	Assets/Product/Texture/Image/RolePartner/Pet3Griffon1.png	Assets/Product/Texture/Image/Pets/Pet3GriffonoffMd010011.png	170	3	0	217	30	0			62	150	1261003	0	1	0
+16180000	4218	Cetus	Damage, Crowd Control	5	Assets/Product/Texture/Image/RolePartner/Pet3Dolphin1.png	Assets/Product/Texture/Image/Pets/Pet3DolphinoffMd010011.png	180	3	0	218	30	0			62	150	1271003	0	1	0
+16190000	4219	Shadow Wing	Damage, Crowd Control	2	Assets/Product/Texture/Image/RolePartner/Pet3Bat1.png	Assets/Product/Texture/Image/Pets/Pet3BatoffMd010011.png	190	3	0	219	30	0			62	150	1081004	0	1	0
+16200000	4220	Huiyu	Damage, Crowd Control	3	Assets/Product/Texture/Image/RolePartner/Pet3Peacock1.png	Assets/Product/Texture/Image/Pets/Pet3PeacockoffMd010011.png	200	3	0	220	30	0			62	150	1521004	0	1	0
+16210000	4221	Guardrake	Crowd Control, Damage	6	Assets/Product/Texture/Image/RolePartner/Pet3Dragon1.png	Assets/Product/Texture/Image/Pets/Pet3DragonoffMd010011.png	210	3	0	221	30	0			62	150	1171004	0	1	0
+16220000	4222	Dreamwing	Crowd Control, Damage	1	Assets/Product/Texture/Image/RolePartner/Pet3Die1.png	Assets/Product/Texture/Image/Pets/Pet3DieoffMd010011.png	220	3	0	222	30	0			62	150	1241003	0	1	0
+16230000	4223	Snowveil	Crowd Control, Damage	3	Assets/Product/Texture/Image/RolePartner/Pet3Fox1.png	Assets/Product/Texture/Image/Pets/Pet3FoxoffMd010011.png	230	3	0	223	30	0			62	150	1211003	0	1	0
+16240000	4224	Corvus	Crowd Control, Damage	2	Assets/Product/Texture/Image/RolePartner/Pet3Raven1.png	Assets/Product/Texture/Image/Pets/Pet3RavenoffMd010011.png	240	3	0	224	30	0			62	150	1021006	0	1	0
+16250000	4225	Bramble Angler	Pull, Damage	4	Assets/Product/Texture/Image/RolePartner/Pet3Anglerfish1.png	Assets/Product/Texture/Image/Pets/Pet3AnglerfishoffMd010011.png	250	3	0	225	30	0			62	150	1051005	0	1	0
+16260000	4226	Diamaton	Pull, Damage	6	Assets/Product/Texture/Image/RolePartner/Pet3Pandora1.png	Assets/Product/Texture/Image/Pets/Pet3PandoraoffMd010011.png	260	3	0	226	30	0			62	150	1321003	1	1	0
+16270000	4227	Billie	Pull, Damage	5	Assets/Product/Texture/Image/RolePartner/Pet3Chiprobot1.png	Assets/Product/Texture/Image/Pets/Pet3ChiprobotoffMd010011.png	270	3	0	227	30	0			62	150	1331003	0	1	0
+16280000	4228	Snow Waltz	Pull, Damage	1	Assets/Product/Texture/Image/RolePartner/Pet3Speaker1.png	Assets/Product/Texture/Image/Pets/Pet3SpeakeronMd010011.png	280	3	0	228	30	0			62	150	1531005	0	1	0
+16290000	4230	Wrathfang	Pull, Damage	2	Assets/Product/Texture/Image/RolePartner/Pet3Redwolf1.png	Assets/Product/Texture/Image/Pets/Pet3RedwolfoffMd010011.png	290	3	0	229	30	0			62	150	1131004	0	1	0
+16300000	4202	Mirage Blades	Crowd Control, Damage	1	Assets/Product/Texture/Image/RolePartner/Pet3Vmirageblade1.png	Assets/Product/Texture/Image/Pets/Pet3VmiragebladeMd010011.png	300	3	0	230	30	0			62	150	1351003	0	2	910
+16310000	4229	Cavaliere	Pull, Damage	2	Assets/Product/Texture/Image/RolePartner/Pet3Dcavaliere1.png	Assets/Product/Texture/Image/Pets/Pet3DcavaliereMd010011.png	310	3	0	231	30	0			62	150	1361003	0	2	910
+16320000	4231	Noctiluca	Damage	5	Assets/Product/Texture/Image/RolePartner/Pet3Jellyfish1.png	Assets/Product/Texture/Image/Pets/Pet3JellyfishonMd010011.png	320	3	0	232	30	0			62	150	1041005	0	1	0
+16330000	4233	Scaled Rampart	Pull, Damage	1	Assets/Product/Texture/Image/RolePartner/Pet3Bladeshield1.png	Assets/Product/Texture/Image/Pets/Pet3BladeshieldonMd010011.png	330	3	0	233	30	0			62	150	1381003	0	1	0
+16340000	4234	Levvi	Damage, Control	4	Assets/Product/Texture/Image/RolePartner/Pet3Wuya1.png	Assets/Product/Texture/Image/Pets/Pet3WuyaonMd010011.png	340	3	0	234	30	0			62	150	1031005	0	1	0
+16350000	4235	Beep-Boop	Damage, Crowd Control	3	Assets/Product/Texture/Image/RolePartner/Pet3Elecpanda1.png	Assets/Product/Texture/Image/Pets/Pet3ElecpandaonMd010011.png	350	3	0	235	30	0			62	150	1291003	0	1	0
+16360000	4236	Buzzling	Damage, Crowd Control	5	Assets/Product/Texture/Image/RolePartner/Pet3Signal1.png	Assets/Product/Texture/Image/Pets/Pet3SignalonMd010011.png	360	3	0	236	30	0			62	150	1141004	0	1	0
+16370000	4237	Morigan	Damage, Crowd Control	6	Assets/Product/Texture/Image/RolePartner/Pet3Duya1.png	Assets/Product/Texture/Image/Pets/Pet3CrowoffMd010011.png	370	3	0	237	30	0			62	150	1391003	1	1	0
+16380000	4238	Ignis	Damage, Control	2	Assets/Product/Texture/Image/RolePartner/Pet3Lion1.png	Assets/Product/Texture/Image/Pets/Pet3LiononMd010011.png	380	3	0	238	30	0			62	150	1061004	0	1	0
+16390000	4239	Allos	Damage, Control	3	Assets/Product/Texture/Image/RolePartner/Pet3Motordragon1.png	Assets/Product/Texture/Image/Pets/Pet3MotordragononMd010011.png	390	3	0	239	30	0			62	150	1021007	0	1	0

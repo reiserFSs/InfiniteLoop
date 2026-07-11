@@ -11,6 +11,9 @@ namespace AscNet.Common.Database
     #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     public class Inventory
     {
+        public const long GlobalItemMaxCount = 999;
+        public const long MoneyItemMaxCount = 999_999_999;
+
         #region CommonItems
         public const int Coin = 1;
         public const int PaidGem = 2;
@@ -94,10 +97,11 @@ namespace AscNet.Common.Database
 
             Item? item = Items.FirstOrDefault(x => x.Id == itemId);
             ItemTable? itemTable = TableReaderV2.Parse<ItemTable>().Find(x => x.Id == itemId);
+            long maxCount = GetMaxCount(itemTable);
 
             if (item is not null && itemTable is not null)
             {
-                if (item.Count + amount <= itemTable.MaxCount && item.Count + amount >= 0)
+                if (item.Count + amount <= maxCount && item.Count + amount >= 0)
                 {
                     item.Count += amount;
                     item.RefreshTime = DateTimeOffset.Now.ToUnixTimeSeconds();
@@ -109,7 +113,7 @@ namespace AscNet.Common.Database
                 }
                 else
                 {
-                    item.Count = itemTable.MaxCount ?? item.Count + amount;
+                    item.Count = maxCount;
                     item.RefreshTime = DateTimeOffset.Now.ToUnixTimeSeconds();
                 }
             }
@@ -118,7 +122,7 @@ namespace AscNet.Common.Database
                 item = new Item()
                 {
                     Id = itemId,
-                    Count = Math.Max(0, amount),
+                    Count = Math.Min(Math.Max(0, amount), maxCount),
                     RefreshTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
                     CreateTime = DateTimeOffset.Now.ToUnixTimeSeconds()
                 };
@@ -126,6 +130,15 @@ namespace AscNet.Common.Database
             }
 
             return item;
+        }
+        public static long GetMaxCount(ItemTable? itemTable)
+        {
+            if (itemTable?.ItemType == (int)ItemType.Money)
+                return Math.Min(itemTable.MaxCount ?? MoneyItemMaxCount, MoneyItemMaxCount);
+
+            return itemTable?.MaxCount is > 0
+                ? itemTable.MaxCount.Value
+                : GlobalItemMaxCount;
         }
 
         public void Save()

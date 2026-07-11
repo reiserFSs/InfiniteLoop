@@ -4,6 +4,7 @@ using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.attrib;
+using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.item;
@@ -42,19 +43,73 @@ namespace AscNet.GameServer.Handlers
     public class EquipResonanceRequest
     {
         public int EquipId;
-        public List<int> Slots;
-        public int? UseItemId;
-        public int? UseEquipId;
+        public List<int> Slots = new();
+        public int UseItemId;
         public List<int>? SelectSkillIds;
-        public int? CharacterId;
         public EquipResonanceType? SelectType;
+        public int? CharacterId;
     }
 
     [MessagePackObject(true)]
     public class EquipResonanceResponse
     {
         public int Code;
-        public ResonanceInfo ResonanceData;
+        public List<ResonanceInfo> ResonanceDatas = new();
+    }
+
+    [MessagePackObject(true)]
+    public class EquipResonanceConfirmRequest
+    {
+        public int EquipId;
+        public int Slot;
+        public bool IsUse;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipResonanceConfirmResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipWeaponOverrunLevelUpRequest
+    {
+        public int EquipId;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipWeaponOverrunLevelUpResponse
+    {
+        public int Code;
+        public WeaponOverrunData WeaponOverrunData = new();
+    }
+
+    [MessagePackObject(true)]
+    public class EquipWeaponActiveOverrunSuitRequest
+    {
+        public int EquipId;
+        public int SuitId;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipWeaponActiveOverrunSuitResponse
+    {
+        public int Code;
+        public WeaponOverrunData WeaponOverrunData = new();
+    }
+
+    [MessagePackObject(true)]
+    public class EquipWeaponChoseOverrunSuitRequest
+    {
+        public int EquipId;
+        public int SuitId;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipWeaponChoseOverrunSuitResponse
+    {
+        public int Code;
+        public WeaponOverrunData WeaponOverrunData = new();
     }
 
     [MessagePackObject(true)]
@@ -148,6 +203,11 @@ namespace AscNet.GameServer.Handlers
         private const int EquipFeedOperationTypeBreakthrough = 2;
         private const int MaxDecomposedEquipCount = 100;
         private const int MaxReturnedEquipCount = 10_000;
+        private const int WeaponOverrunLevelMaterialId = 34000;
+        private const int WeaponOverrunLevelMaterialCount = 25;
+        private const int WeaponOverrunSuitMaterialId = 47;
+        private const int WeaponOverrunSuitMaterialCount = 1200;
+        private const int MaxWeaponOverrunLevel = 1;
 
         [RequestPacketHandler("EquipLevelUpRequest")]
         public static void EquipLevelUpRequestHandler(Session session, Packet.Request packet)
@@ -158,6 +218,23 @@ namespace AscNet.GameServer.Handlers
                 ? null
                 : Character.ResolveEquipBreakThrough(targetEquip.TemplateId, targetEquip.Breakthrough);
             if (targetEquip is null || progression is null)
+            {
+                session.SendResponse(new EquipLevelUpResponse { Code = 20021012 }, packet.Id);
+                return;
+            }
+            EquipTable? targetEquipTable = Character.ResolveEquipTemplate(targetEquip.TemplateId);
+            NotifyEquipDataList notifyEquipDataList = new();
+            Dictionary<int, int> equipItemDeltas = new();
+            if (!TryConsumeValidatedFeedEquips(
+                    session,
+                    targetEquip,
+                    targetEquipTable,
+                    request.UseEquipIdList,
+                    TableReaderV2.Parse<EquipTable>(),
+                    TableReaderV2.Parse<EquipBreakThroughTable>(),
+                    equipItemDeltas,
+                    notifyEquipDataList,
+                    out int equipFeedExp))
             {
                 session.SendResponse(new EquipLevelUpResponse { Code = 20021012 }, packet.Id);
                 return;
@@ -178,11 +255,9 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            // TODO: Handle equip enchantment with equip cost
-            /*foreach (var costEquipId in request.UseEquipIdList ?? [])
-            {
-
-            }*/
+            totalExp += equipFeedExp;
+            if (equipItemDeltas.TryGetValue(Inventory.Coin, out int equipCoinDelta))
+                totalCost -= equipCoinDelta;
 
             notifyItemData.ItemDataList.Add(session.inventory.Do(Inventory.Coin, totalCost * -1));
             session.SendPush(notifyItemData);
@@ -198,10 +273,11 @@ namespace AscNet.GameServer.Handlers
                 rsp.Level = upEquip.Level;
                 rsp.Exp = upEquip.Exp;
 
-                NotifyEquipDataList notifyEquipDataList = new();
                 notifyEquipDataList.EquipDataList.Add(upEquip);
-                session.SendPush(notifyEquipDataList);
             }
+
+            if (notifyEquipDataList.DeletedEquipIdList.Count > 0 || notifyEquipDataList.EquipDataList.Count > 0)
+                session.SendPush(notifyEquipDataList);
                 session.character.Save();
                 session.inventory.Save();
 
@@ -356,17 +432,25 @@ namespace AscNet.GameServer.Handlers
                 if (Character.ResolveEquipBreakThrough(targetEquip.TemplateId, targetEquip.Breakthrough) is null)
                     break;
 
-                EquipData? feedEquip = session.character.Equips.Find(x => x.Id == equipId);
-                if (feedEquip is null || feedEquip.IsLock || feedEquip.CharacterId != 0)
+                if (!TryResolveFeedEquip(
+                        session,
+                        targetEquip,
+                        targetEquipTable,
+                        equipId,
+                        equipTables,
+                        equipBreakThroughTables,
+                        out EquipData feedEquip,
+                        out int feedExp))
+                {
                     continue;
+                }
 
-                EquipTable? feedEquipTable = equipTables.FirstOrDefault(x => x.Id == feedEquip.TemplateId);
-                if (!CanFeedEquipIntoTarget(targetEquipTable, feedEquipTable))
-                    continue;
-
-                int feedExp = GetEquipFeedExp(feedEquip, equipBreakThroughTables);
-                if (feedExp <= 0)
-                    continue;
+                if (totalFeedExp > int.MaxValue - feedExp
+                    || feedExp > int.MaxValue / 10
+                    || !CanAddItemDelta(itemDeltas, Inventory.Coin, feedExp * -10))
+                {
+                    break;
+                }
 
                 if (!session.character.Equips.Remove(feedEquip))
                     continue;
@@ -378,6 +462,99 @@ namespace AscNet.GameServer.Handlers
             }
 
             return totalFeedExp;
+        }
+
+        private static bool TryConsumeValidatedFeedEquips(
+            Session session,
+            EquipData targetEquip,
+            EquipTable? targetEquipTable,
+            List<int>? requestedEquipIds,
+            List<EquipTable> equipTables,
+            List<EquipBreakThroughTable> equipBreakThroughTables,
+            Dictionary<int, int> itemDeltas,
+            NotifyEquipDataList notifyEquipDataList,
+            out int totalFeedExp)
+        {
+            totalFeedExp = 0;
+            if (requestedEquipIds is null || requestedEquipIds.Count == 0)
+                return true;
+
+            HashSet<int> requestedIds = [];
+            List<(EquipData Equip, int Exp)> validated = [];
+            long projectedExp = 0;
+            foreach (int equipId in requestedEquipIds)
+            {
+                if (equipId <= 0 || equipId == targetEquip.Id || !requestedIds.Add(equipId))
+                    return false;
+
+                if (!TryResolveFeedEquip(
+                        session,
+                        targetEquip,
+                        targetEquipTable,
+                        equipId,
+                        equipTables,
+                        equipBreakThroughTables,
+                        out EquipData feedEquip,
+                        out int feedExp)
+                    || projectedExp + feedExp > int.MaxValue / 10L)
+                {
+                    return false;
+                }
+
+                projectedExp += feedExp;
+                validated.Add((feedEquip, feedExp));
+            }
+            int aggregateCoinDelta = checked((int)(projectedExp * -10L));
+            if (!CanAddItemDelta(itemDeltas, Inventory.Coin, aggregateCoinDelta))
+                return false;
+            totalFeedExp = (int)projectedExp;
+
+            foreach ((EquipData feedEquip, _) in validated)
+            {
+                if (!session.character.Equips.Remove(feedEquip))
+                    throw new InvalidOperationException($"Validated feed equip {feedEquip.Id} disappeared before consumption.");
+                notifyEquipDataList.DeletedEquipIdList.Add(feedEquip.Id);
+            }
+            AddItemDelta(itemDeltas, Inventory.Coin, aggregateCoinDelta);
+
+            return true;
+        }
+
+        private static bool TryResolveFeedEquip(
+            Session session,
+            EquipData targetEquip,
+            EquipTable? targetEquipTable,
+            int equipId,
+            List<EquipTable> equipTables,
+            List<EquipBreakThroughTable> equipBreakThroughTables,
+            out EquipData feedEquip,
+            out int feedExp)
+        {
+            EquipData? resolvedEquip = session.character.Equips.Find(equip => equip.Id == equipId);
+            feedExp = 0;
+            if (resolvedEquip is null
+                || resolvedEquip.IsLock
+                || resolvedEquip.CharacterId != 0)
+            {
+                feedEquip = null!;
+                return false;
+            }
+
+            feedEquip = resolvedEquip;
+            EquipTable? feedEquipTable = equipTables.FirstOrDefault(table => table.Id == resolvedEquip.TemplateId);
+            if (!CanFeedEquipIntoTarget(targetEquipTable, feedEquipTable))
+                return false;
+
+            feedExp = GetEquipFeedExp(feedEquip, equipBreakThroughTables);
+            return feedExp > 0;
+        }
+
+        private static bool CanAddItemDelta(Dictionary<int, int> itemDeltas, int itemId, int delta)
+        {
+            int current = itemDeltas.GetValueOrDefault(itemId);
+            return delta >= 0
+                ? current <= int.MaxValue - delta
+                : current >= int.MinValue - delta;
         }
 
         private static int GetOperationTargetLevel(EquipData targetEquip, int requestedBreakthrough, int requestedLevel, List<EquipBreakThroughTable> equipBreakThroughTables)
@@ -401,15 +578,9 @@ namespace AscNet.GameServer.Handlers
             if (targetEquipTable is null || feedEquipTable is null)
                 return false;
 
-            if (targetEquipTable.Type == 1)
-                return feedEquipTable.Type == 1
-                    || (feedEquipTable.Type == 99 && feedEquipTable.Site == 0);
-
-            if (targetEquipTable.Type == 0)
-                return feedEquipTable.Type == 0
-                    || (feedEquipTable.Type == 99 && feedEquipTable.Site != 0);
-
-            return false;
+            bool targetIsWeapon = targetEquipTable.Site == 0;
+            bool feedIsWeapon = feedEquipTable.Site == 0;
+            return targetIsWeapon == feedIsWeapon;
         }
 
         private static bool IsSameEquipSlot(EquipTable? equippedTable, EquipTable targetTable)
@@ -429,7 +600,8 @@ namespace AscNet.GameServer.Handlers
             EquipBreakThroughTable? feedEquipBreakThrough = Character.ResolveEquipBreakThrough(
                 equip.TemplateId,
                 equip.Breakthrough);
-            return (feedEquipBreakThrough?.Exp ?? 0) + Math.Max(0, equip.Exp);
+            long feedExp = (long)(feedEquipBreakThrough?.Exp ?? 0) + Math.Max(0, equip.Exp);
+            return feedExp is > 0 and <= int.MaxValue ? (int)feedExp : 0;
         }
 
         private static void ApplyEquipBreakthrough(EquipData equip, List<EquipBreakThroughTable> equipBreakThroughTables, Dictionary<int, int> itemDeltas)
@@ -630,115 +802,91 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            #region Pools
+            AscNet.Common.Database.Character.NormalizeEquipResonances(equip);
+
+            int slot = request.Slots.FirstOrDefault();
+            EquipTable? equipTable = TableReaderV2.Parse<EquipTable>().Find(x => x.Id == equip.TemplateId);
             EquipResonanceTable? equipResonance = TableReaderV2.Parse<EquipResonanceTable>().Find(x => x.Id == equip.TemplateId);
-			EquipTable? equipTable = TableReaderV2.Parse<EquipTable>().Find(x => x.Id == equip.TemplateId);
-            List<ResonanceInfo> resonancePool = new();
-			if (equipTable is null)
-			{
-				throw new NotImplementedException();
-			}
-
-
-			if (equipTable.Quality == 5)
-			{
-				var attribPoolId = equipResonance?.AttribPoolId?[request.Slots[0] - 1];
-				var attribPool = TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId);
-				foreach (var attrib in attribPool)
-				{
-					resonancePool.Add(new()
-					{
-						Slot = request.Slots[0],
-						Type = (equipTable.Site > 0) ?  EquipResonanceType.CharacterSkill : EquipResonanceType.Attrib,
-						TemplateId = attrib.Id
-					});
-				}
-			}
-			else
-			{
-				if (request.CharacterId is null)
-				{
-					throw new NotImplementedException();
-				}
-
-				if (request.SelectSkillIds?[0] is not null)
-				{
-					resonancePool.Add(new()
-					{
-						Slot = request.Slots[0],
-						Type = (equipTable.Site > 0) ?  EquipResonanceType.Attrib : EquipResonanceType.WeaponSkill,
-						CharacterId = (int)request.CharacterId,
-						TemplateId = request.SelectSkillIds[0]
-					});
-				}
-				else
-				{
-					var attribPoolId1 = equipResonance?.AttribPoolId?[request.Slots[0] - 1];
-					var attribPool1 = TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId1);
-					var attribPoolId2 = equipResonance?.CharacterSkillPoolId?[request.Slots[0] - 1];
-					var attribPool2 = TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId2);
-					foreach (var attrib in attribPool1)
-					{
-						resonancePool.Add(new()
-						{
-							Slot = request.Slots[0],
-							Type = EquipResonanceType.CharacterSkill,
-							CharacterId = (int)request.CharacterId,
-							TemplateId = attrib.Id
-						});
-					}
-					foreach (var attrib in attribPool2)
-					{
-						resonancePool.Add(new()
-						{
-							Slot = request.Slots[0],
-							Type = EquipResonanceType.CharacterSkill,
-							CharacterId = (int)request.CharacterId,
-							TemplateId = attrib.Id
-						});
-					}
-				}
-			}
-            #endregion
-
-            if (request.UseItemId is not null && request.UseItemId > 0)
+            if (slot <= 0 || equipTable is null)
             {
-                EquipResonanceUseItemTable? resonanceUseItem = TableReaderV2.Parse<EquipResonanceUseItemTable>().Find(x => x.Id == equip.TemplateId);
-                if (resonanceUseItem is not null)
-                {
-                    NotifyItemDataList notifyItemData = new();
-                    for (int i = 0; i < Math.Min(resonanceUseItem.ItemId.Count, resonanceUseItem.ItemCount.Count); i++)
-                    {
-                        notifyItemData.ItemDataList.Add(session.inventory.Do(resonanceUseItem.ItemId[i], resonanceUseItem.ItemCount[i] * -1));
-                    }
+                session.SendResponse(new EquipResonanceResponse() { Code = 20021038 }, packet.Id);
+                return;
+            }
 
-                    session.SendPush(notifyItemData);
-                }
-                else
+            List<ResonanceInfo> resonancePool = new();
+            IEnumerable<int> attribPoolIds = equipResonance?.AttribPoolId ?? [];
+            if (!attribPoolIds.Any() && equipTable.Site == 0 && equipTable.Quality == 5)
+                attribPoolIds = [5, 8, 9];
+
+            foreach (int attribPoolId in attribPoolIds)
+            {
+                foreach (var attrib in TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId))
                 {
-                    session.log.Error($"EquipResonanceUseItem for template {equip.TemplateId} not found!");
-                    // EquipResonanceUseItemTemplateNotFound
-                    session.SendResponse(new EquipResonanceResponse() { Code = 20021038 }, packet.Id);
-                    return;
+                    resonancePool.Add(new()
+                    {
+                        Slot = slot,
+                        Type = EquipResonanceType.Attrib,
+                        TemplateId = attrib.Id,
+                        UseItemId = request.UseItemId
+                    });
                 }
             }
-            else if (request.UseEquipId is not null && request.UseEquipId > 0)
-            {
-				NotifyEquipDataList notifyEquipData = new();
-				EquipData? useEquip = session.character.Equips.Find(x => x.Id == request.UseEquipId);
-				if (useEquip is not null)
-				{
-					session.character.Equips.Remove(useEquip);
-					notifyEquipData.EquipDataList.Add(useEquip);
 
-					session.SendPush(notifyEquipData);
-				}
-				else
-				{
-					session.log.Error($"EquipResonanceUseEquip for template {request.UseEquipId} not found!");
-                    session.SendResponse(new EquipResonanceResponse() { Code = 20021038 }, packet.Id);
-                    return;
-				}
+            bool usesSkillResonance = (equipResonance?.WeaponSkillPoolId.Count ?? 0) > 0
+                || (equipTable.Site == 0 && equipTable.Quality >= 6);
+            if (usesSkillResonance && request.SelectSkillIds is { Count: > 0 })
+            {
+                int selectedSkillId = request.SelectSkillIds.FirstOrDefault(skillId => skillId > 0);
+                resonancePool.Clear();
+                if (selectedSkillId > 0)
+                {
+                    resonancePool.Add(new()
+                    {
+                        Slot = slot,
+                        Type = request.SelectType ?? EquipResonanceType.WeaponSkill,
+                        CharacterId = request.CharacterId ?? 0,
+                        TemplateId = selectedSkillId,
+                        UseItemId = request.UseItemId
+                    });
+                }
+            }
+            else if (usesSkillResonance && request.CharacterId is int characterId)
+            {
+                CharacterSkillTable? characterSkills = TableReaderV2.Parse<CharacterSkillTable>()
+                    .Find(x => x.CharacterId == characterId);
+                int skillPoolId = equipResonance?.WeaponSkillPoolId.ElementAtOrDefault(slot - 1) ?? slot;
+                int skillEntryCount = Math.Min(
+                    characterSkills?.SkillGroupId.Count ?? 0,
+                    characterSkills?.Pos.Count ?? 0);
+                for (int index = 0; index < skillEntryCount; index++)
+                {
+                    if (characterSkills!.Pos[index] != skillPoolId)
+                        continue;
+
+                    CharacterSkillGroupTable? skillGroup = TableReaderV2.Parse<CharacterSkillGroupTable>()
+                        .Find(group => group.Id == characterSkills.SkillGroupId[index]);
+                    foreach (int skillId in skillGroup?.SkillId ?? [])
+                    {
+                        resonancePool.Add(new()
+                        {
+                            Slot = slot,
+                            Type = EquipResonanceType.CharacterSkill,
+                            CharacterId = characterId,
+                            TemplateId = skillId,
+                            UseItemId = request.UseItemId
+                        });
+                    }
+                }
+            }
+
+            bool hasMaterial = request.UseItemId > 0
+                && session.inventory.Items.Any(item => item.Id == request.UseItemId && item.Count > 0);
+            bool isSkillSwap = request.SelectSkillIds is { Count: > 0 }
+                && equip.ResonanceInfo.Any(candidate => candidate.Slot == slot);
+            if (resonancePool.Count == 0 || (!hasMaterial && !isSkillSwap))
+            {
+                session.SendResponse(new EquipResonanceResponse() { Code = 1 }, packet.Id);
+                return;
             }
 
 			var existing = equip.ResonanceInfo.Find(r => r.Slot == request.Slots[0]);
@@ -747,15 +895,140 @@ namespace AscNet.GameServer.Handlers
 				equip.ResonanceInfo.Remove(existing);
 			}
             ResonanceInfo resonance = resonancePool[Random.Shared.Next(resonancePool.Count)];
-            equip.ResonanceInfo.Add(resonance);
+            if (hasMaterial)
+            {
+                NotifyItemDataList notifyItemData = new();
+                notifyItemData.ItemDataList.Add(session.inventory.Do(request.UseItemId, -1));
+                session.SendPush(notifyItemData);
+            }
+            if (request.SelectSkillIds is { Count: > 0 })
+            {
+                equip.ResonanceInfo.RemoveAll(candidate => candidate.Slot == resonance.Slot);
+                equip.ResonanceInfo.Add(resonance);
+                equip.UnconfirmedResonanceInfo.RemoveAll(candidate => candidate.Slot == resonance.Slot);
+            }
+            else
+            {
+                equip.UnconfirmedResonanceInfo.RemoveAll(candidate => candidate.Slot == resonance.Slot);
+                equip.UnconfirmedResonanceInfo.Add(resonance);
+            }
 
-			NotifyEquipDataList notifyEquipDataList = new();
-			notifyEquipDataList.EquipDataList.Add(equip);
-			session.SendPush(notifyEquipDataList);
+            session.SendResponse(new EquipResonanceResponse() { ResonanceDatas = [resonance] }, packet.Id);
+        }
 
-			session.inventory.Save();
-			session.character.Save();
-            session.SendResponse(new EquipResonanceResponse(), packet.Id);
+        [RequestPacketHandler("EquipResonanceConfirmRequest")]
+        public static void EquipResonanceConfirmRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipResonanceConfirmRequest request = packet.Deserialize<EquipResonanceConfirmRequest>();
+            var equip = session.character.Equips.Find(candidate => candidate.Id == request.EquipId);
+            ResonanceInfo? pending = equip?.UnconfirmedResonanceInfo
+                .Find(candidate => candidate.Slot == request.Slot);
+            if (equip is null || pending is null)
+            {
+                session.SendResponse(new EquipResonanceConfirmResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            if (request.IsUse)
+            {
+                equip.ResonanceInfo.RemoveAll(candidate => candidate.Slot == request.Slot);
+                equip.ResonanceInfo.Add(pending);
+            }
+
+            equip.UnconfirmedResonanceInfo.Remove(pending);
+            session.SendResponse(new EquipResonanceConfirmResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("EquipWeaponOverrunLevelUpRequest")]
+        public static void EquipWeaponOverrunLevelUpRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipWeaponOverrunLevelUpRequest request = packet.Deserialize<EquipWeaponOverrunLevelUpRequest>();
+            EquipData? equip = FindWeapon(session, request.EquipId);
+            long materialCount = session.inventory.Items
+                .FirstOrDefault(item => item.Id == WeaponOverrunLevelMaterialId)?.Count ?? 0;
+            if (equip is null
+                || equip.WeaponOverrunData.Level >= MaxWeaponOverrunLevel
+                || materialCount < WeaponOverrunLevelMaterialCount)
+            {
+                session.SendResponse(new EquipWeaponOverrunLevelUpResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            NotifyItemDataList notifyItems = new();
+            notifyItems.ItemDataList.Add(
+                session.inventory.Do(WeaponOverrunLevelMaterialId, -WeaponOverrunLevelMaterialCount));
+            session.SendPush(notifyItems);
+
+            equip.WeaponOverrunData.Level++;
+            session.SendResponse(new EquipWeaponOverrunLevelUpResponse
+            {
+                WeaponOverrunData = equip.WeaponOverrunData
+            }, packet.Id);
+        }
+
+        [RequestPacketHandler("EquipWeaponActiveOverrunSuitRequest")]
+        public static void EquipWeaponActiveOverrunSuitRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipWeaponActiveOverrunSuitRequest request = packet.Deserialize<EquipWeaponActiveOverrunSuitRequest>();
+            EquipData? equip = FindWeapon(session, request.EquipId);
+            long materialCount = session.inventory.Items
+                .FirstOrDefault(item => item.Id == WeaponOverrunSuitMaterialId)?.Count ?? 0;
+            bool validSuit = TableReaderV2.Parse<EquipTable>()
+                .Any(row => row.SuitId == request.SuitId && row.Quality == 6);
+            if (equip is null
+                || equip.WeaponOverrunData.Level <= 0
+                || equip.WeaponOverrunData.ActiveSuits.Contains(request.SuitId)
+                || !validSuit
+                || materialCount < WeaponOverrunSuitMaterialCount)
+            {
+                session.SendResponse(new EquipWeaponActiveOverrunSuitResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            NotifyItemDataList notifyItems = new();
+            notifyItems.ItemDataList.Add(
+                session.inventory.Do(WeaponOverrunSuitMaterialId, -WeaponOverrunSuitMaterialCount));
+            session.SendPush(notifyItems);
+
+            equip.WeaponOverrunData.ActiveSuits.Add(request.SuitId);
+            session.SendResponse(new EquipWeaponActiveOverrunSuitResponse
+            {
+                WeaponOverrunData = equip.WeaponOverrunData
+            }, packet.Id);
+        }
+
+        [RequestPacketHandler("EquipWeaponChoseOverrunSuitRequest")]
+        public static void EquipWeaponChoseOverrunSuitRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipWeaponChoseOverrunSuitRequest request = packet.Deserialize<EquipWeaponChoseOverrunSuitRequest>();
+            EquipData? equip = FindWeapon(session, request.EquipId);
+            if (equip is null || !equip.WeaponOverrunData.ActiveSuits.Contains(request.SuitId))
+            {
+                session.SendResponse(new EquipWeaponChoseOverrunSuitResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            equip.WeaponOverrunData.ChoseSuit = request.SuitId;
+            session.SendResponse(new EquipWeaponChoseOverrunSuitResponse
+            {
+                WeaponOverrunData = equip.WeaponOverrunData
+            }, packet.Id);
+        }
+
+        private static EquipData? FindWeapon(Session session, int equipId)
+        {
+            EquipData? equip = session.character.Equips.Find(candidate => candidate.Id == equipId);
+            if (equip is null)
+                return null;
+
+            EquipTable? equipTable = TableReaderV2.Parse<EquipTable>()
+                .Find(row => row.Id == equip.TemplateId);
+            if (equipTable is not { Site: 0, WeaponSkillId: > 0 })
+                return null;
+
+            equip.WeaponOverrunData ??= new();
+            equip.WeaponOverrunData.ActiveSuits ??= [];
+            return equip;
         }
 
         [RequestPacketHandler("EquipDecomposeRequest")]

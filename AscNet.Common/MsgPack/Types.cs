@@ -109,6 +109,8 @@ namespace AscNet.Common.MsgPack
         public EquipResonanceType Type { get; set; }
         public int CharacterId { get; set; }
         public int TemplateId { get; set; }
+        public int UseItemId { get; set; }
+        public bool IsUseEquip { get; set; }
     }
 
     public enum EquipResonanceType
@@ -525,7 +527,7 @@ namespace AscNet.Common.MsgPack
         public List<SignInfo> SignInfos { get; set; } = new();
         public List<dynamic> AssignChapterRecord { get; set; } = new();
         public List<dynamic> WeaponFashionList { get; set; } = new();
-        public List<dynamic> PartnerList { get; set; } = new();
+        public List<PartnerData> PartnerList { get; set; } = new();
         public List<dynamic> ShieldedProtocolList { get; set; } = new();
         public object LimitedLoginData { get; set; }
         public long UseBackgroundId { get; set; }
@@ -2059,6 +2061,11 @@ namespace AscNet.Common.MsgPack
         public UInt32 ResultTime { get; set; }
         public List<UInt32> MaxPointStageList { get; set; } = new();
         public Int32 ContributeScore { get; set; }
+        public dynamic? StopResetTime { get; set; }
+        public Int32 ProtectedScore { get; set; }
+        public Int32 BeforeChallengeId { get; set; }
+        public Int32 BeforeArenaLevel { get; set; }
+        public Int32 ArenaIndex { get; set; }
     }
 
 
@@ -2920,6 +2927,40 @@ namespace AscNet.Common.MsgPack
     }
 
     [global::MessagePack.MessagePackObject(true)]
+    public class PartnerSkillData
+    {
+        public Int32 Id { get; set; }
+        public Int32 Level { get; set; }
+        public Boolean IsWear { get; set; }
+        public Int32 Type { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class PartnerData
+    {
+        public Int32 Id { get; set; }
+        public Int32 TemplateId { get; set; }
+        public String? Name { get; set; }
+        public Int32 CharacterId { get; set; }
+        public Int32 Level { get; set; }
+        public Int32 Exp { get; set; }
+        public Int32 BreakThrough { get; set; }
+        public Boolean IsLock { get; set; }
+        public Int32 Quality { get; set; }
+        public Int32 StarSchedule { get; set; }
+        public List<PartnerSkillData> SkillList { get; set; } = new();
+        public List<Int32> UnlockSkillGroup { get; set; } = new();
+        public UInt32 CreateTime { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyPartnerDataList
+    {
+        public List<PartnerData> PartnerDataList { get; set; } = new();
+        public List<Int32> OperateTypes { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
     public class WeaponOverrunData
     {
         public Int32 Level { get; set; }
@@ -2938,7 +2979,7 @@ namespace AscNet.Common.MsgPack
         public Int32 Exp { get; set; }
         public Int32 Breakthrough { get; set; }
         public List<ResonanceInfo> ResonanceInfo { get; set; } = new();
-        public List<dynamic> UnconfirmedResonanceInfo { get; set; } = new();
+        public List<ResonanceInfo> UnconfirmedResonanceInfo { get; set; } = new();
         public List<dynamic> AwakeSlotList { get; set; } = new();
         public Boolean IsLock { get; set; }
         public UInt32 CreateTime { get; set; }
