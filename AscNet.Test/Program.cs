@@ -10752,7 +10752,7 @@ namespace AscNet.Test
             const long playerId = 99_101;
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
                 playerId,
-                [new Item { Id = 1, Count = 30_000 }]);
+                [new Item { Id = 1, Count = 30_000 }, new Item { Id = 32_000, Count = 30 }]);
             using LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
                 CreateDrawCompatibilityPlayer(playerId),
@@ -10772,6 +10772,31 @@ namespace AscNet.Test
                 "GetShopInfoRequest shop 1 response");
             AssertEqual(0, shopInfoResponse.Code, "GetShopInfoResponse Code");
             AssertSupplyShopClientShop(shopInfoResponse.ClientShop, "GetShopInfoResponse ClientShop");
+
+            const int leapShopInfoPacketId = 12_006;
+            InvokeRegisteredRequestHandler(
+                nameof(GetShopInfoRequest),
+                harness.Session,
+                leapShopInfoPacketId,
+                new GetShopInfoRequest { Id = 410 });
+            GetShopInfoResponse leapShopInfoResponse = ReadResponsePayload<GetShopInfoResponse>(
+                harness,
+                leapShopInfoPacketId,
+                nameof(GetShopInfoResponse),
+                "GetShopInfoRequest Leap Shop response");
+            long[] leapWaferIds = leapShopInfoResponse.ClientShop.GoodsList
+                .Select(goods => (long)goods.RewardGoods.TemplateId)
+                .Order()
+                .ToArray();
+            AssertIntegerList(
+                Enumerable.Range(32_002, 18).Select(id => (long)id).ToArray(),
+                leapWaferIds,
+                "Leap Shop reward item ids");
+            foreach (long leapWaferId in leapWaferIds)
+            {
+                if (!AscNet.Common.Database.Inventory.IsValidClientItemId((int)leapWaferId))
+                    throw new InvalidDataException($"Leap Shop reward item {leapWaferId} is missing from Item.tsv.");
+            }
 
             const int fixedShopPacketId = 12_002;
             InvokeRegisteredRequestHandler(
@@ -10865,6 +10890,30 @@ namespace AscNet.Test
             object boughtReward = goodList.Single();
             AssertEqual(40103, GetRequiredIntegerMember(boughtReward, "TemplateId"), "BuyResponse GoodList[0] TemplateId");
             AssertEqual(1, GetRequiredIntegerMember(boughtReward, "Count"), "BuyResponse GoodList[0] Count");
+
+            SetRequiredIntegerMember(buyRequest, "ShopId", 410);
+            SetRequiredIntegerMember(buyRequest, "GoodsId", 4_100_016);
+            SetRequiredIntegerMember(buyRequest, "Count", 1);
+
+            const int leapWaferBuyPacketId = 12_005;
+            InvokeRegisteredRequestHandler(
+                "BuyRequest",
+                harness.Session,
+                leapWaferBuyPacketId,
+                buyRequest);
+            object leapWaferBuyResponse = ReadResponsePayload(
+                harness,
+                leapWaferBuyPacketId,
+                "BuyResponse",
+                "BuyRequest Leap Shop goods 4100016 response",
+                buyResponseType,
+                maxPacketsToRead: 4);
+            AssertEqual(0, GetRequiredIntegerMember(leapWaferBuyResponse, "Code"), "Leap Wafer BuyResponse Code");
+            List<object> leapWaferGoodList = GetRequiredObjectListMember(leapWaferBuyResponse, ["GoodList"], "Leap Wafer BuyResponse GoodList");
+            AssertEqual(1, leapWaferGoodList.Count, "Leap Wafer BuyResponse GoodList count");
+            AssertEqual(32_018, GetRequiredIntegerMember(leapWaferGoodList.Single(), "TemplateId"), "Leap Wafer BuyResponse TemplateId");
+            AssertEqual(15L, inventory.Items.Single(item => item.Id == 32_000).Count, "Leap Wafer Chip cost");
+            AssertEqual(1L, inventory.Items.Single(item => item.Id == 32_018).Count, "Leap Wafer inventory reward");
         }
 
         private static void AssertSupplyShopClientShop(GetShopInfoResponse.GetShopInfoResponseClientShop clientShop, string name)
