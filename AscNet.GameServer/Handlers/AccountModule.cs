@@ -439,6 +439,7 @@ namespace AscNet.GameServer.Handlers
                 CharacterList = session.character.Characters.Select(ToLoginCharacter).ToList(),
                 EquipList = session.character.Equips,
                 FashionList = session.character.Fashions,
+                PartnerList = session.character.Partners,
                 FashionSuitList = [],
                 FashionColors = [],
                 HeadPortraitList = session.player.HeadPortraits,

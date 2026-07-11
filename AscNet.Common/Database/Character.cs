@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.fashion;
+using AscNet.Table.V2.share.partner;
 
 namespace AscNet.Common.Database
 {
@@ -239,6 +240,56 @@ namespace AscNet.Common.Database
                 changed = true;
             }
 
+            if (Partners is null)
+            {
+                Partners = new();
+                changed = true;
+            }
+
+
+            Dictionary<int, PartnerTable> partnerRowsById = TableReaderV2.Parse<PartnerTable>()
+                .ToDictionary(partner => partner.Id);
+            HashSet<int> carriedCharacterIds = new();
+
+            foreach (PartnerData partner in Partners)
+            {
+                if (partner.CharacterId != 0)
+                {
+                    bool ownsCharacter = Characters.Any(character => character.Id == partner.CharacterId);
+                    bool validTemplate = partnerRowsById.ContainsKey(partner.TemplateId);
+                    if (!ownsCharacter || !validTemplate || !carriedCharacterIds.Add(partner.CharacterId))
+                    {
+                        partner.CharacterId = 0;
+                        changed = true;
+                    }
+                }
+
+                partner.SkillList ??= new();
+                PartnerSkillData? activeSkill = partner.SkillList.FirstOrDefault(skill => skill.Type == 1);
+                int expectedActiveSkillId = InitialPartnerActiveSkillId(partner.TemplateId);
+                if (expectedActiveSkillId > 0 && (activeSkill is null || !IsPartnerActiveSkill(partner.TemplateId, activeSkill.Id)))
+                {
+                    if (activeSkill is not null)
+                        partner.SkillList.Remove(activeSkill);
+                    partner.SkillList.Insert(0, new PartnerSkillData
+                    {
+                        Id = expectedActiveSkillId,
+                        Level = 1,
+                        IsWear = true,
+                        Type = 1
+                    });
+                    changed = true;
+                }
+                else if (activeSkill is not null
+                    && MaxPartnerSkillLevel(activeSkill.Id) is int maxLevel and > 0
+                    && (activeSkill.Level < 1 || activeSkill.Level > maxLevel))
+                {
+                    activeSkill.Level = 1;
+                    changed = true;
+                }
+                changed |= NormalizePartnerMainSkillForCarrier(partner);
+            }
+
             Dictionary<int, CharacterTable> characterRowsById = TableReaderV2.Parse<CharacterTable>()
                 .ToDictionary(character => character.Id);
             Dictionary<int, CharacterSkillTable> skillRowsByCharacterId = TableReaderV2.Parse<CharacterSkillTable>()
@@ -325,26 +376,19 @@ namespace AscNet.Common.Database
 
                 if (skillRowsByCharacterId.TryGetValue((int)character.Id, out CharacterSkillTable? skillRow))
                 {
-                    Dictionary<uint, CharacterSkill> skillsById = character.SkillList?
+                    Dictionary<uint, CharacterSkill> existingSkillsById = character.SkillList?
                         .Where(skill => skill.Id > 0)
                         .GroupBy(skill => skill.Id)
                         .ToDictionary(group => group.Key, group => group.First()) ?? new();
-
-                    foreach (CharacterSkill expectedSkill in BuildInitialCharacterSkills(skillRow))
-                    {
-                        if (skillsById.ContainsKey(expectedSkill.Id))
-                            continue;
-
-                        skillsById.Add(expectedSkill.Id, expectedSkill);
-                        changed = true;
-                    }
-
-                    CharacterSkill[] normalizedSkills = skillsById.Values
+                    List<CharacterSkill> normalizedSkills = BuildInitialCharacterSkills(skillRow)
+                        .Select(expectedSkill => existingSkillsById.TryGetValue(expectedSkill.Id, out CharacterSkill? existingSkill)
+                            ? existingSkill
+                            : expectedSkill)
                         .OrderBy(skill => skill.Id)
-                        .ToArray();
-                    if (character.SkillList is null || character.SkillList.Count != normalizedSkills.Length || !character.SkillList.Select(skill => skill.Id).OrderBy(id => id).SequenceEqual(normalizedSkills.Select(skill => skill.Id)))
+                        .ToList();
+                    if (character.SkillList is null || character.SkillList.Count != normalizedSkills.Count || !character.SkillList.Select(skill => skill.Id).OrderBy(id => id).SequenceEqual(normalizedSkills.Select(skill => skill.Id)))
                     {
-                        character.SkillList = normalizedSkills.ToList();
+                        character.SkillList = normalizedSkills;
                         changed = true;
                     }
                 }
@@ -427,6 +471,41 @@ namespace AscNet.Common.Database
             return changed;
         }
 
+        private static int InitialPartnerActiveSkillId(int templateId)
+        {
+            PartnerSkillTable? skillConfig = TableReaderV2.Parse<PartnerSkillTable>()
+                .Find(row => row.PartnerId == templateId);
+            if (skillConfig is null)
+                return 0;
+
+            return TableReaderV2.Parse<PartnerMainSkillGroupTable>()
+                .Find(group => group.Id == skillConfig.DefaultMainSkillGroupId)?
+                .SkillId.FirstOrDefault() ?? 0;
+        }
+
+        private static bool IsPartnerActiveSkill(int templateId, int skillId)
+        {
+            PartnerSkillTable? skillConfig = TableReaderV2.Parse<PartnerSkillTable>()
+                .Find(row => row.PartnerId == templateId);
+            if (skillConfig is null)
+                return false;
+
+            HashSet<int> mainSkillGroupIds = skillConfig.MainSkillGroupId.ToHashSet();
+            return TableReaderV2.Parse<PartnerMainSkillGroupTable>()
+                .Where(group => mainSkillGroupIds.Contains(group.Id))
+                .SelectMany(group => group.SkillId)
+                .Contains(skillId);
+        }
+
+        private static int MaxPartnerSkillLevel(int skillId)
+        {
+            return TableReaderV2.Parse<PartnerSkillEffectTable>()
+                .Where(effect => effect.SkillId == skillId)
+                .Select(effect => effect.Level)
+                .DefaultIfEmpty()
+                .Max();
+        }
+
         private static List<CharacterSkill> BuildInitialCharacterSkills(CharacterSkillTable characterSkill)
         {
             return characterSkill.SkillGroupId
@@ -468,7 +547,8 @@ namespace AscNet.Common.Database
                 Uid = uid,
                 Characters = new(),
                 Equips = new(),
-                Fashions = new()
+                Fashions = new(),
+                Partners = new()
             };
             // Lucia havers by default
             character.AddCharacter(1021001);
@@ -738,6 +818,34 @@ namespace AscNet.Common.Database
         }
 
 
+        public bool NormalizePartnerMainSkillForCarrier(PartnerData partner)
+        {
+            PartnerSkillData? activeSkill = partner.SkillList?.FirstOrDefault(skill => skill.Type == 1);
+            if (activeSkill is null)
+                return false;
+
+            PartnerSkillTable? skillConfig = TableReaderV2.Parse<PartnerSkillTable>()
+                .Find(row => row.PartnerId == partner.TemplateId);
+            int mainSkillGroupId = activeSkill.Id / 10;
+            PartnerMainSkillGroupTable? mainSkillGroup = TableReaderV2.Parse<PartnerMainSkillGroupTable>()
+                .Find(group => group.Id == mainSkillGroupId
+                    && (skillConfig?.MainSkillGroupId.Contains(group.Id) ?? false));
+            int element = partner.CharacterId == 0
+                ? 1
+                : TableReaderV2.Parse<CharacterTable>()
+                    .Find(character => character.Id == partner.CharacterId)?.Element ?? 1;
+            int elementIndex = mainSkillGroup?.Element.IndexOf(element) ?? -1;
+            if (mainSkillGroup is null || elementIndex < 0 || elementIndex >= mainSkillGroup.SkillId.Count)
+                return false;
+
+            int expectedSkillId = mainSkillGroup.SkillId[elementIndex];
+            if (activeSkill.Id == expectedSkillId)
+                return false;
+
+            activeSkill.Id = expectedSkillId;
+            return true;
+        }
+
         public void Save()
         {
             collection.ReplaceOne(Builders<Character>.Filter.Eq(x => x.Id, Id), this);
@@ -761,6 +869,9 @@ namespace AscNet.Common.Database
         [BsonElement("fashions")]
         [BsonRequired]
         public List<FashionList> Fashions { get; set; }
+
+        [BsonElement("partners")]
+        public List<PartnerData> Partners { get; set; } = new();
     }
 
     public struct UpgradeCharacterSkillResult

@@ -527,7 +527,7 @@ namespace AscNet.Common.MsgPack
         public List<SignInfo> SignInfos { get; set; } = new();
         public List<dynamic> AssignChapterRecord { get; set; } = new();
         public List<dynamic> WeaponFashionList { get; set; } = new();
-        public List<dynamic> PartnerList { get; set; } = new();
+        public List<PartnerData> PartnerList { get; set; } = new();
         public List<dynamic> ShieldedProtocolList { get; set; } = new();
         public object LimitedLoginData { get; set; }
         public long UseBackgroundId { get; set; }
@@ -2924,6 +2924,40 @@ namespace AscNet.Common.MsgPack
         }
 
         public List<NotifyArchiveMonsterRecordMonster> Monsters { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class PartnerSkillData
+    {
+        public Int32 Id { get; set; }
+        public Int32 Level { get; set; }
+        public Boolean IsWear { get; set; }
+        public Int32 Type { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class PartnerData
+    {
+        public Int32 Id { get; set; }
+        public Int32 TemplateId { get; set; }
+        public String? Name { get; set; }
+        public Int32 CharacterId { get; set; }
+        public Int32 Level { get; set; }
+        public Int32 Exp { get; set; }
+        public Int32 BreakThrough { get; set; }
+        public Boolean IsLock { get; set; }
+        public Int32 Quality { get; set; }
+        public Int32 StarSchedule { get; set; }
+        public List<PartnerSkillData> SkillList { get; set; } = new();
+        public List<Int32> UnlockSkillGroup { get; set; } = new();
+        public UInt32 CreateTime { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyPartnerDataList
+    {
+        public List<PartnerData> PartnerDataList { get; set; } = new();
+        public List<Int32> OperateTypes { get; set; } = new();
     }
 
     [global::MessagePack.MessagePackObject(true)]

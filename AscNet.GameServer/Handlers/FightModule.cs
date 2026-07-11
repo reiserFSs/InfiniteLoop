@@ -441,10 +441,12 @@ namespace AscNet.GameServer.Handlers
                     equips = session.character.Equips.Where(x => x.CharacterId == cardId);
                 }
 
+                PartnerData? partner = session.character.Partners.FirstOrDefault(x => x.CharacterId == characterData.Id);
                 rsp.FightData.RoleData.First(x => x.Id == session.player.PlayerData.Id).NpcData.Add(i, new
                 {
                     Character = characterData,
-                    Equips = equips
+                    Equips = equips,
+                    Partner = partner
                 });
             }
 
@@ -513,6 +515,7 @@ namespace AscNet.GameServer.Handlers
                             }
                         },
                         Equips = equips,
+                        Partner = (PartnerData?)null,
                         IsRobot = true,
                         RobotId = robotId,
                         IsNpc = false,

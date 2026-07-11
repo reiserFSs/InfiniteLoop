@@ -1,0 +1,122 @@
+Id	PartnerId	ModelType	EffectType	EffectRootName	EffectPath
+1	16010000	CombatModel	Appear		Disappear
+2	16010000	CombatModel	Disappear		Disappear
+3	16020000	CombatModel	Appear		Disappear
+4	16020000	CombatModel	Disappear		Disappear
+5	16030000	StandbyModel	Disappear		Disappear
+6	16030000	CombatModel	Disappear		Disappear
+7	16040000	StandbyModel	Disappear		Disappear
+8	16040000	CombatModel	Disappear		Disappear
+9	16050000	CombatModel	Appear		Disappear
+10	16050000	CombatModel	Disappear		Disappear
+11	16060000	StandbyModel	Disappear		Disappear
+12	16060000	CombatModel	Disappear		Disappear
+13	16070000	CombatModel	Appear		Disappear
+14	16070000	CombatModel	Disappear		Disappear
+15	16080000	CombatModel	Appear		Disappear
+16	16080000	CombatModel	Disappear		Disappear
+17	16080000	CombatModel	Loop		Disappear
+18	16090000	CombatModel	Appear		Disappear
+19	16090000	CombatModel	Disappear		Disappear
+20	16100000	CombatModel	Appear		Disappear
+21	16100000	CombatModel	Disappear		Disappear
+22	16110000	CombatModel	Appear		Disappear
+23	16110000	CombatModel	Disappear		Disappear
+24	16120000	CombatModel	Appear		Disappear
+25	16120000	CombatModel	Disappear		Disappear
+26	16130000	CombatModel	Appear		Disappear
+27	16130000	CombatModel	Disappear		Disappear
+28	16140000	CombatModel	Appear		Disappear
+29	16140000	CombatModel	Disappear		Disappear
+30	16150000	StandbyModel	Disappear		Disappear
+31	16150000	CombatModel	Appear		Disappear
+32	16150000	StandbyModel	Appear		Disappear
+33	16150000	CombatModel	Disappear		Disappear
+34	16160000	CombatModel	Appear		Disappear
+35	16160000	CombatModel	Disappear		Disappear
+36	16170000	StandbyModel	Disappear		Disappear
+37	16170000	CombatModel	Appear		Disappear
+38	16170000	StandbyModel	Appear		Disappear
+39	16170000	CombatModel	Disappear		Disappear
+40	16180000	StandbyModel	Disappear		Disappear
+41	16180000	StandbyModel	Disappear	bodyBone01	Disappear
+42	16180000	StandbyModel	Disappear		Disappear
+43	16180000	StandbyModel	Appear	bodyBone01	Disappear
+44	16180000	CombatModel	Appear	bodyBone00	Disappear
+45	16180000	CombatModel	Disappear	bodyBone00	Disappear
+46	16190000	StandbyModel	Disappear		Disappear
+47	16190000	CombatModel	Appear		Disappear
+48	16190000	StandbyModel	Appear		Disappear
+49	16190000	CombatModel	Disappear		Disappear
+50	16200000	StandbyModel	Disappear	bipBone00	Disappear
+51	16200000	CombatModel	Appear	Bip001	Disappear
+52	16200000	StandbyModel	Appear	bipBone00	Disappear
+53	16200000	CombatModel	Disappear	Bip001	Disappear
+54	16210000	StandbyModel	Disappear	dragonBone	Disappear
+55	16210000	CombatModel	Disappear		Disappear
+56	16210000	StandbyModel	Appear	dragonBone	Disappear
+57	16210000	CombatModel	Appear	Bip001	Disappear
+58	16210000	CombatModel	Appear		Disappear
+59	16220000	StandbyModel	Disappear	morphoBone00	Disappear
+60	16220000	CombatModel	Appear	butterflyBone00	Disappear
+61	16220000	StandbyModel	Appear	morphoBone00	Disappear
+62	16220000	CombatModel	Disappear	butterflyBone00	Disappear
+63	16230000	StandbyModel	Disappear	foxBone00	Disappear
+64	16230000	CombatModel	Appear	tailBone18	Disappear
+65	16230000	CombatModel	Appear		Disappear
+66	16230000	StandbyModel	Appear	foxBone00	Disappear
+67	16230000	CombatModel	Disappear	tailBone18	Disappear
+68	16230000	CombatModel	Disappear		Disappear
+69	16240000	StandbyModel	Disappear	phoenixBone00	Disappear
+70	16240000	CombatModel	Appear		Disappear
+71	16240000	StandbyModel	Appear	phoenixBone00	Disappear
+72	16240000	CombatModel	Disappear	Bip001Pelvis	Disappear
+73	16250000	StandbyModel	Disappear	MonkfishoffBone00	Disappear
+74	16250000	CombatModel	Appear	MonkfishonBone00	Disappear
+75	16250000	CombatModel	Appear	MonkfishonBone23	Disappear
+76	16250000	StandbyModel	Appear	MonkfishoffBone00	Disappear
+77	16250000	CombatModel	Disappear	MonkfishonBone00	Disappear
+78	16250000	CombatModel	Disappear	MonkfishonBone23	Disappear
+79	16260000	StandbyModel	Disappear	PandoraonBone00	Disappear
+80	16260000	CombatModel	Appear	PandoraonBone00	Disappear
+81	16260000	StandbyModel	Appear	PandoraonBone00	Disappear
+82	16260000	CombatModel	Disappear	PandoraonBone00	Disappear
+83	16270000	StandbyModel	Disappear	BoneBody00	Disappear
+84	16270000	CombatModel	Appear		Disappear
+85	16270000	StandbyModel	Appear	BoneBody00	Disappear
+86	16270000	CombatModel	Disappear		Disappear
+87	16270000	CombatModel	ControlByAnimationEvent		Disappear
+88	16280000	StandbyModel	Disappear	PiaoBone01	Disappear
+89	16280000	CombatModel	Appear	PiaoBone01	Disappear
+90	16280000	StandbyModel	Appear	PiaoBone01	Disappear
+91	16280000	CombatModel	Disappear	PiaoBone01	Disappear
+92	16300000	CombatModel	Loop	Weaponbone4	Disappear
+93	16290000	StandbyModel	Disappear	PropBone01	Disappear
+96	16290000	StandbyModel	Appear	PropBone01	Disappear
+97	16320000	StandbyModel	Disappear	ChineBone00	Disappear
+98	16320000	StandbyModel	Appear	ChineBone00	Disappear
+99	16320000	CombatModel	Disappear	MachineBone00	Disappear
+100	16320000	CombatModel	Appear	MachineBone00	Disappear
+101	16320000	CombatModel	Appear		Disappear
+102	16330000	StandbyModel	Appear		Disappear
+103	16330000	CombatModel	Disappear	ShellBoneL01	Disappear
+104	16330000	CombatModel	Appear		Disappear
+105	16340000	CombatModel	Disappear		Disappear
+106	16360000	StandbyModel	Disappear	BodyBone	Disappear
+107	16360000	CombatModel	Disappear	BodyBone	Disappear
+108	16360000	CombatModel	Appear	BodyBone	Disappear
+109	16370000	CombatModel	Appear	PelvisBone	Disappear
+110	16370000	CombatModel	Appear	WingBoneR03	Disappear
+111	16370000	CombatModel	Appear	WingBoneL03	Disappear
+112	16370000	CombatModel	Disappear	PelvisBone	Disappear
+113	16370000	CombatModel	Disappear	WingBoneR03	Disappear
+114	16370000	CombatModel	Disappear	WingBoneL03	Disappear
+115	16380000	StandbyModel	Appear	MaskBone000	Disappear
+116	16380000	StandbyModel	Disappear	MaskBone000	Disappear
+117	16380000	CombatModel	Appear		Disappear
+118	16380000	CombatModel	Disappear		Disappear
+119	16390000	CombatModel	Appear		Disappear
+120	16390000	CombatModel	Disappear		Disappear
+121	16390000	CombatModel	Appear	Bip001	Disappear
+122	16390000	CombatModel	ControlByAnimationEvent	JawsBoneM01	Disappear
+123	16390000	StandbyModel	Disappear	FlotageBoneM01	Disappear

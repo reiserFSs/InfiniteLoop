@@ -67,6 +67,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--partner-compose-compat-only"))
+                {
+                    ValidatePartnerComposeCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--equip-resonance-compat-only"))
                 {
                     ValidateEquipResonanceCompatibility();
@@ -521,15 +527,569 @@ namespace AscNet.Test
             return MessagePackSerializer.Deserialize<TResponse>(response.Content);
         }
 
-        private static void AssertItemPush(Packet packet, int itemId, long expectedCount, string name)
+        private static NotifyItemDataList ReadItemPush(Packet packet, string name)
         {
             AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
             Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
             AssertEqual(nameof(NotifyItemDataList), push.Name, $"{name} packet name");
-            NotifyItemDataList payload = MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
-            Item item = payload.ItemDataList.Single();
+            return MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
+        }
+
+        private static void AssertItemPush(Packet packet, int itemId, long expectedCount, string name)
+        {
+            Item item = ReadItemPush(packet, name).ItemDataList.Single();
             AssertEqual(itemId, item.Id, $"{name} item id");
             AssertEqual(expectedCount, item.Count, $"{name} item count");
+        }
+
+        private static void ValidatePartnerComposeCompatibility()
+        {
+            const int shardId = 201;
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 70_001,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items = [new Item { Id = shardId, Count = 30 }]
+            };
+
+            using LoopbackSessionHarness harness = new(character, inventory: inventory, sessionId: "partner-compose-test");
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerComposeRequest),
+                17_001,
+                new PartnerComposeRequest { TemplateIds = [16_010_000], IsOneKey = false });
+
+            AssertItemPush(harness.ReadPacket("PartnerComposeRequest item push"), shardId, 0, "PartnerComposeRequest item push");
+            Packet partnerPacket = harness.ReadPacket("NotifyPartnerDataList");
+            AssertEqual(Packet.ContentType.Push, partnerPacket.Type, "NotifyPartnerDataList packet type");
+            Packet.Push partnerPush = MessagePackSerializer.Deserialize<Packet.Push>(partnerPacket.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), partnerPush.Name, "NotifyPartnerDataList packet name");
+            NotifyPartnerDataList partnerPayload = MessagePackSerializer.Deserialize<NotifyPartnerDataList>(partnerPush.Content);
+            PartnerData partner = partnerPayload.PartnerDataList.Single();
+            AssertEqual(16_010_000, partner.TemplateId, "composed partner template");
+            AssertIntegerList([1], partnerPayload.OperateTypes.Select(value => (long)value).ToArray(), "partner add operation");
+            AssertEqual(6, partner.SkillList.Count, "composed partner skills");
+            PartnerSkillData activeSkill = partner.SkillList.Single(skill => skill.Type == 1);
+            AssertEqual(1011, activeSkill.Id, "composed partner active skill id");
+            AssertEqual(1, activeSkill.Level, "composed partner active skill level");
+            AssertEqual(true, activeSkill.IsWear, "composed partner active skill wear state");
+            AssertIntegerList(
+                [50000, 50010, 50020, 50030, 50040],
+                partner.SkillList.Where(skill => skill.Type == 2).Select(skill => (long)skill.Id).ToArray(),
+                "composed partner passive skill ids");
+
+            PartnerComposeResponse response = ReadResponsePayload<PartnerComposeResponse>(
+                harness.ReadPacket("PartnerComposeResponse"),
+                nameof(PartnerComposeResponse));
+            AssertEqual(0, response.Code, "PartnerComposeResponse code");
+            AssertEqual(1, character.Partners.Count, "persisted composed partner count");
+            AssertEqual(0L, inventory.Items.Single(item => item.Id == shardId).Count, "composed shard balance");
+
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerComposeRequest),
+                17_002,
+                new PartnerComposeRequest { TemplateIds = [16_010_000], IsOneKey = false });
+            PartnerComposeResponse insufficientResponse = ReadResponsePayload<PartnerComposeResponse>(
+                harness.ReadPacket("insufficient PartnerComposeResponse"),
+                nameof(PartnerComposeResponse));
+            AssertEqual(1, insufficientResponse.Code, "insufficient PartnerComposeResponse code");
+            AssertEqual(1, character.Partners.Count, "insufficient compose partner count");
+
+            AscNet.Common.Database.Character legacyCharacter = new()
+            {
+                Uid = 70_002,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners =
+                [
+                    new PartnerData
+                    {
+                        Id = 1,
+                        TemplateId = 16_010_000,
+                        SkillList =
+                        [
+                            new PartnerSkillData { Id = 50000, Level = 1, Type = 2 }
+                        ]
+                    }
+                ]
+            };
+            AssertEqual(true, legacyCharacter.NormalizeCharactersForCurrentTables(), "legacy partner normalization changed state");
+            PartnerSkillData repairedActiveSkill = legacyCharacter.Partners.Single().SkillList.Single(skill => skill.Type == 1);
+            AssertEqual(1011, repairedActiveSkill.Id, "legacy partner repaired active skill id");
+            AssertEqual(1, repairedActiveSkill.Level, "legacy partner repaired active skill level");
+
+            AscNet.Common.Database.Character carriedPartnerMigration = new()
+            {
+                Uid = 70_005,
+                Characters =
+                [
+                    new CharacterData { Id = 1021001 },
+                    new CharacterData { Id = 1021005 },
+                    new CharacterData
+                    {
+                        Id = 1341002,
+                        SkillList = [new CharacterSkill { Id = 134216, Level = 1 }]
+                    }
+                ],
+                Equips = [],
+                Fashions = [],
+                Partners =
+                [
+                    new PartnerData
+                    {
+                        Id = 1,
+                        TemplateId = 16_150_000,
+                        CharacterId = 1021001,
+                        SkillList = [new PartnerSkillData { Id = 1291, Level = 5, IsWear = true, Type = 1 }]
+                    },
+                    new PartnerData
+                    {
+                        Id = 2,
+                        TemplateId = 16_150_000,
+                        CharacterId = 1021005,
+                        SkillList = [new PartnerSkillData { Id = 1291, Level = 3, IsWear = true, Type = 1 }]
+                    },
+                    new PartnerData { Id = 3, TemplateId = 16_090_000, CharacterId = 1021005 },
+                    new PartnerData { Id = 4, TemplateId = 16_090_000, CharacterId = 1021001 }
+                ]
+            };
+            AssertEqual(true, carriedPartnerMigration.NormalizeCharactersForCurrentTables(),
+                "persisted partner carry normalization changed state");
+            AssertEqual(1021001, carriedPartnerMigration.Partners.Single(partner => partner.Id == 1).CharacterId,
+                "non-recommended persisted Motorbolt retained");
+            AssertEqual(1021005, carriedPartnerMigration.Partners.Single(partner => partner.Id == 2).CharacterId,
+                "recommended persisted Motorbolt retained");
+            AssertEqual(1292,
+                carriedPartnerMigration.Partners.Single(partner => partner.Id == 1)
+                    .SkillList.Single(skill => skill.Type == 1).Id,
+                "persisted carried main skill remapped to non-recommended character element");
+            AssertEqual(5,
+                carriedPartnerMigration.Partners.Single(partner => partner.Id == 1)
+                    .SkillList.Single(skill => skill.Type == 1).Level,
+                "persisted carried main skill level preserved");
+            AssertEqual(1294,
+                carriedPartnerMigration.Partners.Single(partner => partner.Id == 2)
+                    .SkillList.Single(skill => skill.Type == 1).Id,
+                "persisted carried main skill remapped to recommended character element");
+            AssertEqual(0, carriedPartnerMigration.Partners.Single(partner => partner.Id == 3).CharacterId,
+                "duplicate persisted carrier unequipped");
+            AssertEqual(0, carriedPartnerMigration.Partners.Single(partner => partner.Id == 4).CharacterId,
+                "second duplicate persisted carrier unequipped without recommendation preference");
+            CharacterData normalizedJetavie = carriedPartnerMigration.Characters.Single(character => character.Id == 1341002);
+            AssertEqual(false, normalizedJetavie.SkillList.Any(skill => skill.Id == 134216),
+                "unconfigured persisted character skill removed");
+            AssertEqual(true, normalizedJetavie.SkillList.Any(skill => skill.Id == 132216),
+                "configured character skill restored");
+
+            AscNet.Common.Database.Character highIndexCharacter = new()
+            {
+                Uid = 70_004,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners = []
+            };
+            AscNet.Common.Database.Inventory highIndexInventory = new()
+            {
+                Uid = highIndexCharacter.Uid,
+                Items = [new Item { Id = 239, Count = 30 }]
+            };
+            using (LoopbackSessionHarness highIndexHarness = new(
+                highIndexCharacter,
+                inventory: highIndexInventory,
+                sessionId: "partner-high-index-compose-test"))
+            {
+                InvokeRequestHandler(
+                    highIndexHarness,
+                    nameof(PartnerComposeRequest),
+                    17_003,
+                    new PartnerComposeRequest { TemplateIds = [239], IsOneKey = false });
+                AssertItemPush(
+                    highIndexHarness.ReadPacket("high-index PartnerComposeRequest item push"),
+                    239,
+                    0,
+                    "high-index PartnerComposeRequest item push");
+                Packet highIndexPartnerPacket = highIndexHarness.ReadPacket("high-index NotifyPartnerDataList");
+                Packet.Push highIndexPartnerPush = MessagePackSerializer.Deserialize<Packet.Push>(highIndexPartnerPacket.Content);
+                NotifyPartnerDataList highIndexPartnerPayload =
+                    MessagePackSerializer.Deserialize<NotifyPartnerDataList>(highIndexPartnerPush.Content);
+                AssertEqual(16_390_000, highIndexPartnerPayload.PartnerDataList.Single().TemplateId, "high-index composed partner template");
+                AssertEqual(0, ReadResponsePayload<PartnerComposeResponse>(
+                    highIndexHarness.ReadPacket("high-index PartnerComposeResponse"),
+                    nameof(PartnerComposeResponse)).Code, "high-index PartnerComposeResponse code");
+            }
+
+            ValidatePartnerProgressionCompatibility();
+        }
+
+        private static void ValidatePartnerProgressionCompatibility()
+        {
+            PartnerData partner = new()
+            {
+                Id = 44,
+                TemplateId = 16_090_000,
+                CharacterId = 1041005,
+                Level = 1,
+                Quality = 2,
+                SkillList =
+                [
+                    new PartnerSkillData { Id = 1185, Level = 1, IsWear = true, Type = 1 },
+                    new PartnerSkillData { Id = 58000, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58010, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58020, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58030, Level = 1, Type = 2 },
+                    new PartnerSkillData { Id = 58040, Level = 1, Type = 2 }
+                ],
+                UnlockSkillGroup = [117, 118]
+            };
+            PartnerData duplicatePartner = new()
+            {
+                Id = 45,
+                TemplateId = partner.TemplateId,
+                Quality = partner.Quality,
+                SkillList = [],
+                UnlockSkillGroup = []
+            };
+            AscNet.Common.Database.Character character = new()
+            {
+                Characters = [new CharacterData { Id = 1021001 }, new CharacterData { Id = 1021005 }, new CharacterData { Id = 1041005 }],
+                Equips = [],
+                Fashions = [],
+                Partners = [partner, duplicatePartner]
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items =
+                [
+                    new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = 100_000 },
+                    new Item { Id = 30113, Count = 1 },
+                    new Item { Id = 40200, Count = 36 },
+                    new Item { Id = 40201, Count = 12 },
+                    new Item { Id = 40301, Count = 60 },
+                    new Item { Id = 30114, Count = 1 },
+                ]
+            };
+
+            using LoopbackSessionHarness harness = new(character, inventory: inventory, sessionId: "partner-progression-test");
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerLevelUpRequest),
+                17_100,
+                new PartnerLevelUpRequest { PartnerId = partner.Id, UseItems = new() { [30114] = 1 } });
+            PartnerLevelUpResponse rejectedMaterialResponse = ReadResponsePayload<PartnerLevelUpResponse>(
+                harness.ReadPacket("invalid-material PartnerLevelUpResponse"),
+                nameof(PartnerLevelUpResponse));
+            AssertEqual(1, rejectedMaterialResponse.Code, "invalid-material PartnerLevelUpResponse code");
+            AssertEqual(1, partner.Level, "invalid-material partner level");
+            AssertEqual(1L, inventory.Items.Single(item => item.Id == 30114).Count, "invalid-material balance");
+
+            InvokeRequestHandler(
+                harness,
+                nameof(PartnerLevelUpRequest),
+                17_101,
+                new PartnerLevelUpRequest { PartnerId = partner.Id, UseItems = new() { [30113] = 1 } });
+            NotifyItemDataList levelItems = ReadItemPush(harness.ReadPacket("PartnerLevelUpRequest item push"), "PartnerLevelUpRequest item push");
+            AssertEqual(95_000L, levelItems.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count, "partner level-up coin balance");
+            AssertEqual(0L, levelItems.ItemDataList.Single(item => item.Id == 30113).Count, "partner level-up material balance");
+            PartnerLevelUpResponse levelResponse = ReadResponsePayload<PartnerLevelUpResponse>(
+                harness.ReadPacket("PartnerLevelUpResponse"),
+                nameof(PartnerLevelUpResponse));
+            AssertEqual(0, levelResponse.Code, "PartnerLevelUpResponse code");
+            AssertEqual(10, levelResponse.Level, "PartnerLevelUpResponse level");
+            AssertEqual(0, levelResponse.Exp, "PartnerLevelUpResponse exp");
+
+            InvokeRequestHandler(harness, nameof(PartnerBreakThroughRequest), 17_102,
+                new PartnerBreakThroughRequest { PartnerId = partner.Id });
+            NotifyItemDataList breakthroughItems = ReadItemPush(
+                harness.ReadPacket("PartnerBreakThroughRequest item push"), "PartnerBreakThroughRequest item push");
+            AssertEqual(85_000L, breakthroughItems.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count, "partner breakthrough coin balance");
+            AssertEqual(0L, breakthroughItems.ItemDataList.Single(item => item.Id == 40200).Count, "partner breakthrough first material");
+            AssertEqual(0L, breakthroughItems.ItemDataList.Single(item => item.Id == 40201).Count, "partner breakthrough second material");
+            PartnerBreakThroughResponse breakthroughResponse = ReadResponsePayload<PartnerBreakThroughResponse>(
+                harness.ReadPacket("PartnerBreakThroughResponse"), nameof(PartnerBreakThroughResponse));
+            AssertEqual(0, breakthroughResponse.Code, "PartnerBreakThroughResponse code");
+            AssertEqual(1, breakthroughResponse.BreakTimes, "PartnerBreakThroughResponse break times");
+            AssertEqual(1, partner.Level, "partner breakthrough reset level");
+            AssertEqual(0, partner.Exp, "partner breakthrough reset exp");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillUpRequest), 17_103,
+                new PartnerSkillUpRequest { PartnerId = partner.Id, SkillId = 58000, Times = 1 });
+            NotifyItemDataList skillItems = ReadItemPush(
+                harness.ReadPacket("PartnerSkillUpRequest item push"), "PartnerSkillUpRequest item push");
+            AssertEqual(65_000L, skillItems.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count, "partner skill-up coin balance");
+            AssertEqual(0L, skillItems.ItemDataList.Single(item => item.Id == 40301).Count, "partner skill-up material balance");
+            AssertPartnerUpdate(harness.ReadPacket("PartnerSkillUpRequest partner push"), partner, "PartnerSkillUpRequest partner push");
+            PartnerSkillUpResponse skillResponse = ReadResponsePayload<PartnerSkillUpResponse>(
+                harness.ReadPacket("PartnerSkillUpResponse"), nameof(PartnerSkillUpResponse));
+            PartnerSkillUpInfo skillUp = skillResponse.SkillUpInfo.Single();
+            AssertEqual(0, skillResponse.Code, "PartnerSkillUpResponse code");
+            AssertEqual(58000, skillUp.SkillId, "PartnerSkillUpResponse skill id");
+            AssertEqual(1, skillUp.OriginLevel, "PartnerSkillUpResponse origin level");
+            AssertEqual(2, skillUp.CurrentLevel, "PartnerSkillUpResponse current level");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillWearRequest), 17_104,
+                new PartnerSkillWearRequest
+                {
+                    PartnerId = partner.Id,
+                    SkillType = 1,
+                    SkillIdToWear = [new PartnerSkillWearInfo { IsWear = true, SkillId = 1181 }]
+                });
+            AssertPartnerUpdate(harness.ReadPacket("main PartnerSkillWearRequest partner push"), partner, "main PartnerSkillWearRequest partner push");
+            AssertEqual(0, ReadResponsePayload<PartnerSkillWearResponse>(
+                harness.ReadPacket("main PartnerSkillWearResponse"), nameof(PartnerSkillWearResponse)).Code,
+                "main PartnerSkillWearResponse code");
+            AssertEqual(1181, partner.SkillList.Single(skill => skill.Type == 1).Id, "worn main skill id");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillWearRequest), 17_105,
+                new PartnerSkillWearRequest
+                {
+                    PartnerId = partner.Id,
+                    SkillType = 2,
+                    SkillIdToWear = [new PartnerSkillWearInfo { IsWear = true, SkillId = 58010 }]
+                });
+            AssertPartnerUpdate(harness.ReadPacket("passive PartnerSkillWearRequest partner push"), partner, "passive PartnerSkillWearRequest partner push");
+            AssertEqual(0, ReadResponsePayload<PartnerSkillWearResponse>(
+                harness.ReadPacket("passive PartnerSkillWearResponse"), nameof(PartnerSkillWearResponse)).Code,
+                "passive PartnerSkillWearResponse code");
+            AssertEqual(true, partner.SkillList.Single(skill => skill.Id == 58010).IsWear, "worn passive skill state");
+
+            InvokeRequestHandler(harness, nameof(PartnerSkillUpRequest), 17_106,
+                new PartnerSkillUpRequest { PartnerId = partner.Id, SkillId = 58000, Times = 10 });
+            PartnerSkillUpResponse cappedResponse = ReadResponsePayload<PartnerSkillUpResponse>(
+                harness.ReadPacket("capped PartnerSkillUpResponse"), nameof(PartnerSkillUpResponse));
+            AssertEqual(1, cappedResponse.Code, "capped PartnerSkillUpResponse code");
+            AssertEqual(2, partner.SkillList.Single(skill => skill.Id == 58000).Level, "capped skill level");
+            InvokeRequestHandler(harness, nameof(PartnerEvolutionRequest), 17_107,
+                new PartnerEvolutionRequest { PartnerId = partner.Id });
+            AssertEqual(1, ReadResponsePayload<PartnerEvolutionResponse>(
+                harness.ReadPacket("incomplete-star PartnerEvolutionResponse"),
+                nameof(PartnerEvolutionResponse)).Code,
+                "incomplete-star PartnerEvolutionResponse code");
+            AssertEqual(2, partner.Quality, "incomplete-star partner quality");
+            AssertEqual(65_000L, inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count,
+                "incomplete-star evolution coin balance");
+
+            InvokeRequestHandler(harness, nameof(PartnerStarActivateRequest), 17_107,
+                new PartnerStarActivateRequest { PartnerId = partner.Id, UsePartnerIdList = [duplicatePartner.Id] });
+            Packet starPartnerPacket = harness.ReadPacket("PartnerStarActivateRequest partner push");
+            Packet.Push starPartnerPush = MessagePackSerializer.Deserialize<Packet.Push>(starPartnerPacket.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), starPartnerPush.Name, "PartnerStarActivateRequest partner push name");
+            NotifyPartnerDataList starPartnerPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(starPartnerPush.Content);
+            AssertIntegerList([45, 44], starPartnerPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "PartnerStarActivateRequest partner ids");
+            AssertIntegerList([3, 2], starPartnerPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "PartnerStarActivateRequest operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerStarActivateResponse>(
+                harness.ReadPacket("PartnerStarActivateResponse"),
+                nameof(PartnerStarActivateResponse)).Code,
+                "PartnerStarActivateResponse code");
+            AssertEqual(30, partner.StarSchedule, "activated partner star schedule");
+            AssertEqual(1, character.Partners.Count, "consumed duplicate partner count");
+
+            InvokeRequestHandler(harness, nameof(PartnerStarActivateRequest), 17_108,
+                new PartnerStarActivateRequest { PartnerId = partner.Id });
+            AssertEqual(1, ReadResponsePayload<PartnerStarActivateResponse>(
+                harness.ReadPacket("missing-material PartnerStarActivateResponse"),
+                nameof(PartnerStarActivateResponse)).Code,
+                "missing-material PartnerStarActivateResponse code");
+            AssertEqual(30, partner.StarSchedule, "missing-material partner star schedule");
+            InvokeRequestHandler(harness, nameof(PartnerEvolutionRequest), 17_110,
+                new PartnerEvolutionRequest { PartnerId = partner.Id });
+            AssertItemPush(
+                harness.ReadPacket("PartnerEvolutionRequest item push"),
+                AscNet.Common.Database.Inventory.Coin,
+                55_000,
+                "PartnerEvolutionRequest item push");
+            AssertPartnerUpdate(
+                harness.ReadPacket("PartnerEvolutionRequest partner push"),
+                partner,
+                "PartnerEvolutionRequest partner push");
+            AssertEqual(0, ReadResponsePayload<PartnerEvolutionResponse>(
+                harness.ReadPacket("PartnerEvolutionResponse"),
+                nameof(PartnerEvolutionResponse)).Code,
+                "PartnerEvolutionResponse code");
+            AssertEqual(3, partner.Quality, "evolved partner quality");
+            AssertEqual(30, partner.StarSchedule, "evolved partner cumulative star schedule");
+            PartnerData secondMaterial = new()
+            {
+                Id = 46,
+                TemplateId = partner.TemplateId,
+                Quality = partner.Quality,
+                SkillList = [],
+                UnlockSkillGroup = []
+            };
+            PartnerData thirdMaterial = new()
+            {
+                Id = 47,
+                TemplateId = partner.TemplateId,
+                Quality = partner.Quality,
+                SkillList = [],
+                UnlockSkillGroup = []
+            };
+            character.Partners.AddRange([secondMaterial, thirdMaterial]);
+            InvokeRequestHandler(harness, nameof(PartnerStarActivateRequest), 17_111,
+                new PartnerStarActivateRequest
+                {
+                    PartnerId = partner.Id,
+                    UsePartnerIdList = [secondMaterial.Id, thirdMaterial.Id]
+                });
+            Packet multiPartnerPacket = harness.ReadPacket("multi-material PartnerStarActivateRequest partner push");
+            Packet.Push multiPartnerPush = MessagePackSerializer.Deserialize<Packet.Push>(multiPartnerPacket.Content);
+            NotifyPartnerDataList multiPartnerPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(multiPartnerPush.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), multiPartnerPush.Name,
+                "multi-material PartnerStarActivateRequest push name");
+            AssertIntegerList([46, 47, 44],
+                multiPartnerPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "multi-material PartnerStarActivateRequest partner ids");
+            AssertIntegerList([3, 3, 2],
+                multiPartnerPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "multi-material PartnerStarActivateRequest operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerStarActivateResponse>(
+                harness.ReadPacket("multi-material PartnerStarActivateResponse"),
+                nameof(PartnerStarActivateResponse)).Code,
+                "multi-material PartnerStarActivateResponse code");
+            AssertEqual(90, partner.StarSchedule, "multi-material cumulative star schedule");
+            AssertEqual(1, character.Partners.Count, "multi-material consumed partner count");
+            PartnerData previouslyCarried = new()
+            {
+                Id = 48,
+                TemplateId = 16_150_000,
+                CharacterId = 1021005,
+                SkillList = [new PartnerSkillData { Id = 1304, Level = 5, IsWear = true, Type = 1 }],
+                UnlockSkillGroup = []
+            };
+            character.Partners.Add(previouslyCarried);
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_112,
+                new PartnerCarryRequest { PartnerId = partner.Id, CharacterId = 1021005 });
+            Packet carryPacket = harness.ReadPacket("PartnerCarryRequest partner push");
+            Packet.Push carryPush = MessagePackSerializer.Deserialize<Packet.Push>(carryPacket.Content);
+            NotifyPartnerDataList carryPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(carryPush.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), carryPush.Name, "PartnerCarryRequest push name");
+            AssertIntegerList([48, 44],
+                carryPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "PartnerCarryRequest partner ids");
+            AssertIntegerList([2, 3],
+                carryPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "PartnerCarryRequest operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "PartnerCarryResponse code");
+            AssertEqual(1041005, previouslyCarried.CharacterId, "displaced partner inherits selected previous character");
+            AssertEqual(1021005, partner.CharacterId, "carried partner character id");
+            AssertEqual(1305, previouslyCarried.SkillList.Single(skill => skill.Type == 1).Id,
+                "displaced partner preserves group and follows inherited character element");
+            AssertEqual(1184, partner.SkillList.Single(skill => skill.Type == 1).Id,
+                "selected partner preserves group and follows target character element");
+
+            PartnerData motorbolt = new()
+            {
+                Id = 49,
+                SkillList = [new PartnerSkillData { Id = 1291, Level = 1, IsWear = true, Type = 1 }],
+                TemplateId = 16_150_000,
+                UnlockSkillGroup = []
+            };
+            character.Partners.Add(motorbolt);
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_113,
+                new PartnerCarryRequest { PartnerId = motorbolt.Id, CharacterId = 1041005 });
+            NotifyPartnerDataList nonRecommendedPayload = MessagePackSerializer.Deserialize<NotifyPartnerDataList>(
+                MessagePackSerializer.Deserialize<Packet.Push>(
+                    harness.ReadPacket("non-recommended Motorbolt partner push").Content).Content);
+            AssertIntegerList([48, 49],
+                nonRecommendedPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "non-recommended Motorbolt partner ids");
+            AssertIntegerList([2, 3],
+                nonRecommendedPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "non-recommended Motorbolt operation types");
+            AssertEqual(0, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("non-recommended Motorbolt PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "non-recommended Motorbolt PartnerCarryResponse code");
+            AssertEqual(1041005, motorbolt.CharacterId, "non-recommended Motorbolt state");
+            AssertEqual(0, previouslyCarried.CharacterId, "non-recommended Motorbolt displaced state");
+
+            PartnerData nondeployedPartner = new()
+            {
+                Id = 50,
+                TemplateId = 16_290_000,
+                CharacterId = 1131004
+            };
+            character.Partners.Add(nondeployedPartner);
+
+            const int partnerPreFightPacketId = 17_114;
+            InvokeRequestHandler(harness, nameof(PreFightRequest), partnerPreFightPacketId,
+                new PreFightRequest
+                {
+                    PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                    {
+                        StageId = 10_101_101,
+                        CardIds = [1021005, 1041005, 1021001],
+                        RobotIds = []
+                    }
+                });
+            PreFightResponse partnerPreFight = ReadResponsePayload<PreFightResponse>(
+                harness.ReadPacket("partner PreFightResponse"),
+                nameof(PreFightResponse));
+            PreFightResponse.PreFightResponseFightData.PreFightResponseFightDataRoleData playerRole =
+                partnerPreFight.FightData.RoleData.Single(role => role.Id == harness.Session.player.PlayerData.Id);
+            PartnerData firstFightPartner = ReadFightPartner(playerRole.NpcData[0], "first deployed character");
+            PartnerData secondFightPartner = ReadFightPartner(playerRole.NpcData[1], "second deployed character");
+            AssertFightPartnerAbsent(playerRole.NpcData[2], "third deployed character");
+            AssertEqual(3, playerRole.NpcData.Count, "PreFightResponse excludes nondeployed partner NPC entries");
+            AssertEqual(partner.Id, firstFightPartner.Id, "PreFightResponse first character partner id");
+            AssertEqual(partner.TemplateId, firstFightPartner.TemplateId, "PreFightResponse first character partner template");
+            AssertEqual(1021005, firstFightPartner.CharacterId, "PreFightResponse first character partner assignment");
+            AssertEqual(motorbolt.Id, secondFightPartner.Id, "PreFightResponse second character partner id");
+            AssertEqual(motorbolt.TemplateId, secondFightPartner.TemplateId, "PreFightResponse second character partner template");
+            AssertEqual(1041005, secondFightPartner.CharacterId, "PreFightResponse second character partner assignment");
+
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_115,
+                new PartnerCarryRequest { PartnerId = partner.Id, CharacterId = 9999999 });
+            AssertEqual(1, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("invalid-character PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "invalid-character PartnerCarryResponse code");
+            AssertEqual(1021005, partner.CharacterId, "invalid-character request preserves partner state");
+
+            InvokeRequestHandler(harness, nameof(PartnerCarryRequest), 17_116,
+                new PartnerCarryRequest { PartnerId = motorbolt.Id, CharacterId = 0 });
+            Packet.Push unequipPush = MessagePackSerializer.Deserialize<Packet.Push>(
+                harness.ReadPacket("Motorbolt unequip partner push").Content);
+            NotifyPartnerDataList unequipPayload =
+                MessagePackSerializer.Deserialize<NotifyPartnerDataList>(unequipPush.Content);
+            AssertIntegerList([49], unequipPayload.PartnerDataList.Select(value => (long)value.Id).ToArray(),
+                "Motorbolt unequip partner ids");
+            AssertIntegerList([3], unequipPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                "Motorbolt unequip operation types");
+            AssertEqual(1291, motorbolt.SkillList.Single(skill => skill.Type == 1).Id,
+                "Motorbolt unequip active skill returns to element one");
+            AssertEqual(0, ReadResponsePayload<PartnerCarryResponse>(
+                harness.ReadPacket("Motorbolt unequip PartnerCarryResponse"),
+                nameof(PartnerCarryResponse)).Code,
+                "Motorbolt unequip PartnerCarryResponse code");
+        }
+
+        private static void AssertPartnerUpdate(Packet packet, PartnerData expected, string name)
+        {
+            AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+            AssertEqual(nameof(NotifyPartnerDataList), push.Name, $"{name} packet name");
+            NotifyPartnerDataList payload = MessagePackSerializer.Deserialize<NotifyPartnerDataList>(push.Content);
+            AssertEqual(expected.Id, payload.PartnerDataList.Single().Id, $"{name} partner id");
+            AssertIntegerList([2], payload.OperateTypes.Select(value => (long)value).ToArray(), $"{name} operation type");
         }
 
         private static void ValidateEquipResonanceCompatibility()
@@ -19375,6 +19935,29 @@ namespace AscNet.Test
             }
 
             return result;
+        }
+
+        private static PartnerData ReadFightPartner(object npcValue, string name)
+        {
+            System.Collections.IDictionary npc = RequiredDynamicMap(npcValue, $"{name} NpcData");
+            System.Collections.IDictionary partner = RequiredDynamicMap(
+                RequiredDynamicValue(npc, "Partner", $"{name} NpcData"),
+                $"{name} NpcData.Partner");
+            return new PartnerData
+            {
+                Id = RequiredDynamicInteger(partner, "Id", $"{name} Partner"),
+                TemplateId = RequiredDynamicInteger(partner, "TemplateId", $"{name} Partner"),
+                CharacterId = RequiredDynamicInteger(partner, "CharacterId", $"{name} Partner")
+            };
+        }
+
+        private static void AssertFightPartnerAbsent(object npcValue, string name)
+        {
+            System.Collections.IDictionary npc = RequiredDynamicMap(npcValue, $"{name} NpcData");
+            if (!npc.Contains("Partner"))
+                throw new InvalidDataException($"{name} NpcData: expected explicit Partner field.");
+            if (npc["Partner"] is not null)
+                throw new InvalidDataException($"{name} NpcData.Partner: expected nil.");
         }
 
         private static System.Collections.IDictionary RequiredDynamicMap(object? value, string name)
