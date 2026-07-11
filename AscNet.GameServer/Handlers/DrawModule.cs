@@ -360,7 +360,7 @@ namespace AscNet.GameServer.Handlers
                 Count = x.Count,
                 Level = Math.Max(1, x.Level),
                 Type = (RewardType)x.RewardType,
-                IsRecycle = (RewardType)x.RewardType == RewardType.Equip,
+                NotifyAsRecycle = (RewardType)x.RewardType == RewardType.Equip,
                 ConvertFrom = x.ConvertFrom,
             }).ToList();
             List<Reward> rewards = RewardHandler.ResolveRewards(drawRewards, session);

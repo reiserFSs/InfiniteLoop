@@ -6727,6 +6727,8 @@ namespace AscNet.Test
 
             DrawDrawCardResponse? drawCardResponse = null;
             NotifyEquipDataList? drawEquipPush = null;
+            EquipData? canonicalEquip = null;
+            EquipData? reloadedEquip = null;
             using (LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
                 CreateDrawCompatibilityPlayer(playerId),
@@ -6753,6 +6755,41 @@ namespace AscNet.Test
                     drawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
                     break;
                 }
+                canonicalEquip = harness.Session.character.Equips.Single(equip => equip.TemplateId == (uint)targetEquipId);
+                AssertEqual(false, canonicalEquip.IsRecycle, $"{name} canonical EquipData.IsRecycle before save");
+                AssertEqual(false, harness.Session.character.NormalizeEquipsForCurrentTables(), $"{name} canonical equip survives reload normalization unchanged");
+                byte[] persistedCharacterBson = harness.Session.character.ToBson();
+                AscNet.Common.Database.Character reloadedCharacter =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(persistedCharacterBson);
+                AssertEqual(false, reloadedCharacter.NormalizeEquipsForCurrentTables(), $"{name} BSON-reloaded character normalization unchanged");
+                reloadedEquip = reloadedCharacter.Equips.Single(equip => equip.Id == canonicalEquip.Id);
+                AssertEqual(canonicalEquip.TemplateId, reloadedEquip.TemplateId, $"{name} BSON-reloaded equipment template");
+                AssertEqual(false, reloadedEquip.IsRecycle, $"{name} BSON-reloaded equipment recycle state");
+                const long persistenceUid = -8_800_012;
+                FilterDefinition<AscNet.Common.Database.Character> persistenceFilter =
+                    Builders<AscNet.Common.Database.Character>.Filter.Eq(character => character.Uid, persistenceUid);
+                using MongoCollectionOverride persistenceCollectionOverride =
+                    MongoCollectionOverride.InstallCharacterCollection(
+                        AscNet.Common.Common.db.GetCollection<AscNet.Common.Database.Character>("characters"));
+                AscNet.Common.Database.Character.collection.DeleteMany(persistenceFilter);
+                try
+                {
+                    reloadedCharacter.Id = ObjectId.GenerateNewId();
+                    reloadedCharacter.Uid = persistenceUid;
+                    AscNet.Common.Database.Character.collection.InsertOne(reloadedCharacter);
+                    reloadedCharacter.Save();
+
+                    AscNet.Common.Database.Character freshReload =
+                        AscNet.Common.Database.Character.FromUid(persistenceUid);
+                    EquipData freshReloadedEquip = freshReload.Equips.Single(equip => equip.Id == canonicalEquip.Id);
+                    AssertEqual(canonicalEquip.TemplateId, freshReloadedEquip.TemplateId, $"{name} database-reloaded equipment template");
+                    AssertEqual(false, freshReloadedEquip.IsRecycle, $"{name} database-reloaded equipment recycle state");
+                    reloadedEquip = freshReloadedEquip;
+                }
+                finally
+                {
+                    AscNet.Common.Database.Character.collection.DeleteMany(persistenceFilter);
+                }
             }
 
             if (drawCardResponse is null)
@@ -6767,6 +6804,12 @@ namespace AscNet.Test
             AssertEqual(1, drawEquipPush.EquipDataList.Count, $"{name} NotifyEquipDataList equip count");
             EquipData equipReward = drawEquipPush.EquipDataList.Single(equip => equip.TemplateId == (uint)targetEquipId);
             AssertEqual(true, equipReward.IsRecycle, $"{name} EquipData.IsRecycle");
+            if (canonicalEquip is null)
+                throw new InvalidDataException($"{name}: expected canonical equipment after draw.");
+            AssertEqual((uint)targetEquipId, canonicalEquip.TemplateId, $"{name} canonical equipment retained target template");
+            if (reloadedEquip is null)
+                throw new InvalidDataException($"{name}: expected BSON-reloaded equipment after persisted-state round-trip.");
+            AssertEqual(canonicalEquip.Id, reloadedEquip.Id, $"{name} persisted equipment UID retained");
             DrawInfo clientDrawInfo = drawCardResponse.ClientDrawInfo
                 ?? throw new InvalidDataException($"{name}: expected ClientDrawInfo after draw.");
             AssertEqual(preloadedDrawInfo.TotalCount + 1, clientDrawInfo.TotalCount, $"{name} ClientDrawInfo TotalCount after 1x draw");
@@ -12125,6 +12168,14 @@ namespace AscNet.Test
                 ]);
             }
 
+            public static MongoCollectionOverride InstallCharacterCollection(
+                IMongoCollection<AscNet.Common.Database.Character> collection)
+            {
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), collection)
+                ]);
+            }
             public static MongoCollectionOverride InstallForMissingFeatureCompatibility()
             {
                 return new MongoCollectionOverride(

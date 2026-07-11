@@ -19,6 +19,7 @@ namespace AscNet.GameServer.Handlers
         public int Level = 1;
         public RewardType Type;
         public bool IsRecycle;
+        public bool NotifyAsRecycle;
         public int ConvertFrom;
     }
 
@@ -248,7 +249,9 @@ namespace AscNet.GameServer.Handlers
                     if (equip is not null)
                     {
                         equip.IsRecycle = reward.IsRecycle;
-                        equipDataList.Add(equip);
+                        equipDataList.Add(reward.NotifyAsRecycle
+                            ? CloneEquipForNotification(equip, isRecycle: true)
+                            : equip);
                     }
                     break;
                 case RewardType.Fashion:
@@ -283,7 +286,31 @@ namespace AscNet.GameServer.Handlers
                 case RewardType.DrawTicket:
                     break;
             }
+        }
 
+        private static EquipData CloneEquipForNotification(EquipData equip, bool isRecycle)
+        {
+            return new EquipData
+            {
+                Id = equip.Id,
+                TemplateId = equip.TemplateId,
+                CharacterId = equip.CharacterId,
+                Level = equip.Level,
+                Exp = equip.Exp,
+                Breakthrough = equip.Breakthrough,
+                ResonanceInfo = equip.ResonanceInfo.ToList(),
+                UnconfirmedResonanceInfo = equip.UnconfirmedResonanceInfo.ToList(),
+                AwakeSlotList = equip.AwakeSlotList.ToList(),
+                IsLock = equip.IsLock,
+                CreateTime = equip.CreateTime,
+                WeaponOverrunData = new WeaponOverrunData
+                {
+                    Level = equip.WeaponOverrunData.Level,
+                    ActiveSuits = equip.WeaponOverrunData.ActiveSuits.ToList(),
+                    ChoseSuit = equip.WeaponOverrunData.ChoseSuit
+                },
+                IsRecycle = isRecycle
+            };
         }
     }
 }
