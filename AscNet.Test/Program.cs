@@ -134,6 +134,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--simulated-battlefield-compat-only"))
+                {
+                    ValidateSimulatedBattlefieldCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--guide-table-compat-only"))
                 {
                     ValidateCurrentClientGuideTableCompatibility();
@@ -359,6 +365,7 @@ namespace AscNet.Test
                 ValidateMainLineTreasureRewardCompatibility();
                 ValidateGatherAwakenRewardCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
+                ValidateSimulatedBattlefieldCompatibility();
                 ValidateCurrentClientGuideTableCompatibility();
                 ValidatePlayerCostTimeUploadCompatibility();
                 ValidateRecordPlayerPointCompatibility();
@@ -10752,7 +10759,7 @@ namespace AscNet.Test
             const long playerId = 99_101;
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
                 playerId,
-                [new Item { Id = 1, Count = 30_000 }, new Item { Id = 32_000, Count = 30 }]);
+                [new Item { Id = 1, Count = 30_000 }, new Item { Id = 200, Count = 1_000 }, new Item { Id = 32_000, Count = 30 }]);
             using LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
                 CreateDrawCompatibilityPlayer(playerId),
@@ -10914,6 +10921,58 @@ namespace AscNet.Test
             AssertEqual(32_018, GetRequiredIntegerMember(leapWaferGoodList.Single(), "TemplateId"), "Leap Wafer BuyResponse TemplateId");
             AssertEqual(15L, inventory.Items.Single(item => item.Id == 32_000).Count, "Leap Wafer Chip cost");
             AssertEqual(1L, inventory.Items.Single(item => item.Id == 32_018).Count, "Leap Wafer inventory reward");
+            SetRequiredIntegerMember(buyRequest, "ShopId", 303);
+            SetRequiredIntegerMember(buyRequest, "GoodsId", 30_301);
+            SetRequiredIntegerMember(buyRequest, "Count", 1);
+
+            const int weaponHarmonyBuyPacketId = 12_007;
+            InvokeRegisteredRequestHandler(
+                "BuyRequest",
+                harness.Session,
+                weaponHarmonyBuyPacketId,
+                buyRequest);
+            object weaponHarmonyBuyResponse = ReadResponsePayload(
+                harness,
+                weaponHarmonyBuyPacketId,
+                "BuyResponse",
+                "BuyRequest Weapon Harmony goods 30301 response",
+                buyResponseType,
+                maxPacketsToRead: 4);
+            AssertEqual(0, GetRequiredIntegerMember(weaponHarmonyBuyResponse, "Code"), "Weapon Harmony BuyResponse Code");
+            List<object> weaponHarmonyGoodList = GetRequiredObjectListMember(
+                weaponHarmonyBuyResponse,
+                ["GoodList"],
+                "Weapon Harmony BuyResponse GoodList");
+            AssertEqual(1, weaponHarmonyGoodList.Count, "Weapon Harmony BuyResponse GoodList count");
+            AssertEqual(34_000, GetRequiredIntegerMember(weaponHarmonyGoodList.Single(), "TemplateId"), "Weapon Harmony BuyResponse TemplateId");
+            AssertEqual(975L, inventory.Items.Single(item => item.Id == 200).Count, "Weapon Harmony Phantom Pain Scar cost");
+            AssertEqual(1L, inventory.Items.Single(item => item.Id == 34_000).Count, "Weapon Harmony inventory reward");
+
+            SetRequiredIntegerMember(buyRequest, "ShopId", 410);
+            SetRequiredIntegerMember(buyRequest, "GoodsId", 30_301);
+            const int crossShopBuyPacketId = 12_008;
+            InvokeRegisteredRequestHandler("BuyRequest", harness.Session, crossShopBuyPacketId, buyRequest);
+            object crossShopBuyResponse = ReadResponsePayload(
+                harness,
+                crossShopBuyPacketId,
+                "BuyResponse",
+                "BuyRequest cross-shop goods rejection",
+                buyResponseType);
+            AssertEqual(1, GetRequiredIntegerMember(crossShopBuyResponse, "Code"), "Cross-shop BuyResponse Code");
+            AssertEqual(975L, inventory.Items.Single(item => item.Id == 200).Count, "Cross-shop rejected purchase balance");
+
+            SetRequiredIntegerMember(buyRequest, "ShopId", 303);
+            SetRequiredIntegerMember(buyRequest, "Count", 100);
+            const int insufficientFundsBuyPacketId = 12_009;
+            InvokeRegisteredRequestHandler("BuyRequest", harness.Session, insufficientFundsBuyPacketId, buyRequest);
+            object insufficientFundsBuyResponse = ReadResponsePayload(
+                harness,
+                insufficientFundsBuyPacketId,
+                "BuyResponse",
+                "BuyRequest insufficient funds rejection",
+                buyResponseType);
+            AssertEqual(1, GetRequiredIntegerMember(insufficientFundsBuyResponse, "Code"), "Insufficient-funds BuyResponse Code");
+            AssertEqual(975L, inventory.Items.Single(item => item.Id == 200).Count, "Insufficient-funds rejected purchase balance");
         }
 
         private static void AssertSupplyShopClientShop(GetShopInfoResponse.GetShopInfoResponseClientShop clientShop, string name)
@@ -13974,25 +14033,32 @@ namespace AscNet.Test
         {
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
 
-            const int veronicaAegisCharacterId = 1381003;
-            const int targetSkillGroupId = 1383280;
-            const uint targetSkillId = 138328;
+            const int crimsonWeaveCharacterId = 1021005;
+            const int targetSkillGroupId = 1025280;
+            const uint targetSkillId = 102528;
             const int unlockPacketId = 16_011;
             const int upgradePacketId = 16_012;
             const long unlockPlayerId = 88_011;
             const long upgradePlayerId = 88_012;
             const long costSurplus = 10;
 
+            _ = AssertTableBackedEnhanceSkillCompatibilityFixture(
+                1131003,
+                [1132280, 1132290, 1132300],
+                1132280,
+                113228,
+                "Vera: Garnet table-backed CharacterEnhanceSkill compatibility fixture");
+
             (Dictionary<int, int> unlockCosts, Dictionary<int, int> upgradeCosts) = AssertTableBackedEnhanceSkillCompatibilityFixture(
-                veronicaAegisCharacterId,
-                [1383280, 1383290, 1383300],
+                crimsonWeaveCharacterId,
+                [1025280, 1025290, 1025300, 1025310],
                 targetSkillGroupId,
                 targetSkillId,
-                "Veronica: Aegis table-backed CharacterEnhanceSkill compatibility fixture");
+                "Lucia: Crimson Weave table-backed CharacterEnhanceSkill compatibility fixture");
 
-            AscNet.Common.Database.Character unlockRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            AscNet.Common.Database.Character unlockRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
             unlockRoster.Uid = unlockPlayerId;
-            CharacterData unlockCharacter = RequiredCharacterData(unlockRoster, veronicaAegisCharacterId);
+            CharacterData unlockCharacter = RequiredCharacterData(unlockRoster, crimsonWeaveCharacterId);
             unlockCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
 
             Dictionary<int, long> unlockInitialCounts = InitialCountsForCosts(unlockCosts, costSurplus);
@@ -14029,7 +14095,7 @@ namespace AscNet.Test
                     "CharacterUnlockEnhanceSkillRequest table-backed NotifyCharacterDataList");
                 CharacterData pushedUnlockCharacter = RequiredNotifyCharacterData(
                     unlockCharacterNotify,
-                    veronicaAegisCharacterId,
+                    crimsonWeaveCharacterId,
                     "CharacterUnlockEnhanceSkillRequest table-backed notify");
                 CharacterSkill unlockedSkill = RequiredEnhanceSkill(
                     pushedUnlockCharacter,
@@ -14045,9 +14111,9 @@ namespace AscNet.Test
                 AssertEqual(0, unlockResponse.Code, "CharacterUnlockEnhanceSkillResponse table-backed Code");
             }
 
-            AscNet.Common.Database.Character upgradeRoster = CreateTestCharacterRoster(veronicaAegisCharacterId, level: 1);
+            AscNet.Common.Database.Character upgradeRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
             upgradeRoster.Uid = upgradePlayerId;
-            CharacterData upgradeCharacter = RequiredCharacterData(upgradeRoster, veronicaAegisCharacterId);
+            CharacterData upgradeCharacter = RequiredCharacterData(upgradeRoster, crimsonWeaveCharacterId);
             upgradeCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
             upgradeCharacter.EnhanceSkillList.Add(new CharacterSkill
             {
@@ -14090,7 +14156,7 @@ namespace AscNet.Test
                     "CharacterUpgradeEnhanceSkillRequest table-backed NotifyCharacterDataList");
                 CharacterData pushedUpgradeCharacter = RequiredNotifyCharacterData(
                     upgradeCharacterNotify,
-                    veronicaAegisCharacterId,
+                    crimsonWeaveCharacterId,
                     "CharacterUpgradeEnhanceSkillRequest table-backed notify");
                 CharacterSkill upgradedSkill = RequiredEnhanceSkill(
                     pushedUpgradeCharacter,
@@ -14104,6 +14170,33 @@ namespace AscNet.Test
                     nameof(CharacterUpgradeEnhanceSkillResponse),
                     "CharacterUpgradeEnhanceSkillRequest table-backed response");
                 AssertEqual(0, upgradeResponse.Code, "CharacterUpgradeEnhanceSkillResponse table-backed Code");
+            }
+
+            const int missingGroupPacketId = 16_013;
+            const int missingSkillGroupId = int.MaxValue;
+            AscNet.Common.Database.Character invalidUnlockRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
+            invalidUnlockRoster.Uid = 88_013;
+            using (LoopbackSessionHarness harness = new(
+                invalidUnlockRoster,
+                CreateDrawCompatibilityPlayer(invalidUnlockRoster.Uid),
+                CreateInventoryWithCosts(invalidUnlockRoster.Uid, new Dictionary<int, long>()),
+                "character-enhance-skill-missing-table-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(
+                    "CharacterUnlockEnhanceSkillRequest",
+                    harness.Session,
+                    missingGroupPacketId,
+                    new CharacterUnlockEnhanceSkillRequest
+                    {
+                        SkillGroupId = missingSkillGroupId
+                    });
+
+                CharacterUnlockEnhanceSkillResponse missingGroupResponse = ReadResponsePayload<CharacterUnlockEnhanceSkillResponse>(
+                    harness,
+                    missingGroupPacketId,
+                    nameof(CharacterUnlockEnhanceSkillResponse),
+                    "CharacterUnlockEnhanceSkillRequest missing table response");
+                AssertEqual(20009021, missingGroupResponse.Code, "CharacterUnlockEnhanceSkillResponse missing table Code");
             }
 
             static (Dictionary<int, int> UnlockCosts, Dictionary<int, int> UpgradeCosts) AssertTableBackedEnhanceSkillCompatibilityFixture(
@@ -16851,6 +16944,232 @@ namespace AscNet.Test
         }
 
         private sealed record PersistenceHandlerContract(string RequestName, string HandlerMethodName);
+
+        private static void ValidateSimulatedBattlefieldCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const long playerId = 99_401;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.PlayerData.Name = "Battlefield Tester";
+            player.SimulatedBattlefield = new AscNet.Common.Database.SimulatedBattlefieldState
+            {
+                ArenaPoint = 321,
+                ArenaContributeScore = 321,
+                BossLevelType = 8,
+                BossClearedStageIds = [30_300_803]
+            };
+
+            Type arenaModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.ArenaModule");
+            MethodInfo buildArenaLoginData = RequiredMethod(
+                arenaModule,
+                "BuildLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(AscNet.Common.Database.Player), typeof(long?)]);
+            NotifyArenaActivity arenaLogin = buildArenaLoginData.Invoke(null, [player, (long?)1_783_000_000]) as NotifyArenaActivity
+                ?? throw new InvalidDataException("ArenaModule.BuildLoginData returned nil.");
+            AssertEqual(448, arenaLogin.ActivityNo, "Simulated Battlefield arena ActivityNo");
+            AssertEqual(14, arenaLogin.ChallengeId, "Simulated Battlefield arena ChallengeId");
+            AssertEqual(2, arenaLogin.Status, "Simulated Battlefield arena Status");
+            AssertEqual(1_783_274_400U, arenaLogin.ResultTime, "Simulated Battlefield arena ResultTime");
+            AssertEqual(2, arenaLogin.ProtectedScore, "Simulated Battlefield arena ProtectedScore");
+            AssertEqual(1, arenaLogin.ArenaIndex, "Simulated Battlefield arena ArenaIndex");
+
+            Type bossModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule");
+            MethodInfo buildBossLoginData = RequiredMethod(
+                bossModule,
+                "BuildLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(AscNet.Common.Database.Player), typeof(long?)]);
+            NotifyFubenBossSingleData bossLogin = buildBossLoginData.Invoke(null, [player, (long?)1_783_000_000]) as NotifyFubenBossSingleData
+                ?? throw new InvalidDataException("BossModule.BuildLoginData returned nil.");
+            AssertEqual(260, bossLogin.FubenBossSingleData.ActivityNo, "Phantom Pain Cage ActivityNo");
+            AssertEqual(8, bossLogin.FubenBossSingleData.LevelType, "Phantom Pain Cage LevelType");
+            AssertEqual(2, bossLogin.BossListDict.Count, "Phantom Pain Cage BossListDict count");
+            JObject clearedBossStage = JObject.FromObject(
+                bossLogin.FubenBossSingleData.TrialStageInfoList
+                    .Select(JObject.FromObject)
+                    .Single(stage => stage.Value<int>("StageId") == 30_300_803));
+            AssertEqual(1, clearedBossStage.Value<int>("Score"), "Phantom Pain Cage cleared stage score");
+
+            Type repeatChallengeModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RepeatChallengeModule");
+            MethodInfo buildRepeatChallengeLoginData = RequiredMethod(
+                repeatChallengeModule,
+                "BuildLoginData",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(AscNet.Common.Database.Player)]);
+            NotifyRepeatChallengeData repeatChallengeLogin = buildRepeatChallengeLoginData.Invoke(null, [player]) as NotifyRepeatChallengeData
+                ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil.");
+            AssertEqual(36, repeatChallengeLogin.Id, "Simulated Battlefield repeat challenge activity Id");
+            AssertEqual(1, repeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield initial Authority Level");
+            AssertEqual(0, repeatChallengeLogin.ExpInfo.Exp, "Simulated Battlefield initial Authority EXP");
+            JObject repeatChallengeChapter = JObject.FromObject(repeatChallengeLogin.RcChapters.Single());
+            AssertEqual(136_001, repeatChallengeChapter.Value<int>("Id"), "Simulated Battlefield repeat challenge ChapterId");
+
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                inventory,
+                "simulated-battlefield-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+
+            const int joinPacketId = 81_001;
+            InvokeRegisteredRequestHandler(
+                "JoinActivityRequest",
+                harness.Session,
+                joinPacketId,
+                new Dictionary<string, object>());
+            JoinActivityResponse joinResponse = ReadResponsePayload<JoinActivityResponse>(
+                harness,
+                joinPacketId,
+                nameof(JoinActivityResponse),
+                "Simulated Battlefield JoinActivityResponse");
+            AssertEqual(0, joinResponse.Code, "Simulated Battlefield JoinActivityResponse Code");
+            AssertEqual(14, joinResponse.ChallengeId, "Simulated Battlefield JoinActivityResponse ChallengeId");
+            AssertEqual(true, player.SimulatedBattlefield.ArenaJoined, "Simulated Battlefield joined persistence");
+
+            const int scorePacketId = 81_002;
+            InvokeRegisteredRequestHandler(
+                "ScoreQueryRequest",
+                harness.Session,
+                scorePacketId,
+                new Dictionary<string, object>());
+            AscNet.GameServer.Handlers.ScoreQueryResponse scoreResponse =
+                ReadResponsePayload<AscNet.GameServer.Handlers.ScoreQueryResponse>(
+                    harness,
+                    scorePacketId,
+                    nameof(AscNet.GameServer.Handlers.ScoreQueryResponse),
+                    "Simulated Battlefield ScoreQueryResponse");
+            AssertEqual(0, scoreResponse.Code, "Simulated Battlefield ScoreQueryResponse Code");
+            AssertEqual(321, scoreResponse.ContributeScore, "Simulated Battlefield ScoreQueryResponse ContributeScore");
+            AssertEqual(14, scoreResponse.ChallengeId, "Simulated Battlefield ScoreQueryResponse ChallengeId");
+
+            const int areaPacketId = 81_003;
+            InvokeRegisteredRequestHandler(
+                "AreaDataRequest",
+                harness.Session,
+                areaPacketId,
+                new Dictionary<string, object>());
+            AreaDataResponse areaResponse = ReadResponsePayload<AreaDataResponse>(
+                harness,
+                areaPacketId,
+                nameof(AreaDataResponse),
+                "Simulated Battlefield AreaDataResponse");
+            AssertEqual(0, areaResponse.Code, "Simulated Battlefield AreaDataResponse Code");
+            AssertEqual(321, areaResponse.TotalPoint, "Simulated Battlefield AreaDataResponse TotalPoint");
+            JObject arenaArea = JArray.FromObject(areaResponse.AreaList)
+                .OfType<JObject>()
+                .Single(area => area.Value<int>("AreaId") == 8);
+            AssertEqual(
+                JTokenType.Null,
+                arenaArea["StageInfos"]?.Type ?? JTokenType.None,
+                "Simulated Battlefield AreaDataResponse area 8 StageInfos");
+
+            const int repeatChallengePreFightPacketId = 81_004;
+            InvokeRegisteredRequestHandler(
+                nameof(PreFightRequest),
+                harness.Session,
+                repeatChallengePreFightPacketId,
+                new PreFightRequest
+                {
+                    PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                    {
+                        ChallengeCount = 1,
+                        StageId = 30_090_802,
+                        CardIds = [],
+                        RobotIds = []
+                    }
+                });
+            PreFightResponse repeatChallengePreFight = ReadResponsePayload<PreFightResponse>(
+                harness,
+                repeatChallengePreFightPacketId,
+                nameof(PreFightResponse),
+                "Simulated Battlefield PreFightResponse");
+            AssertEqual(0, repeatChallengePreFight.Code, "Simulated Battlefield PreFightResponse Code");
+            AssertEqual(30_090_802U, repeatChallengePreFight.FightData.StageId, "Simulated Battlefield PreFightResponse StageId");
+            AssertEqual(3, repeatChallengePreFight.FightData.RebootId, "Simulated Battlefield PreFightResponse RebootId");
+            if (!repeatChallengePreFight.FightData.MonsterLevel.SequenceEqual([357, 252, 197]))
+                throw new InvalidDataException($"Simulated Battlefield PreFightResponse MonsterLevel: expected 357,252,197, got {string.Join(",", repeatChallengePreFight.FightData.MonsterLevel)}.");
+            AssertEqual(51201, Convert.ToInt32(repeatChallengePreFight.FightData.EventIds.Single()), "Simulated Battlefield Authority Level 1 effect");
+
+            MethodInfo recordRepeatChallengeStageClear = RequiredMethod(
+                repeatChallengeModule,
+                "RecordStageClear",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(AscNet.Common.Database.Player), typeof(uint), typeof(int)]);
+            AssertEqual(
+                true,
+                (bool)(recordRepeatChallengeStageClear.Invoke(null, [player, 30_090_802U, 2])
+                    ?? throw new InvalidDataException("RepeatChallengeModule.RecordStageClear returned nil.")),
+                "Simulated Battlefield repeat challenge clear progression");
+            NotifyRepeatChallengeData progressedRepeatChallengeLogin = buildRepeatChallengeLoginData.Invoke(null, [player]) as NotifyRepeatChallengeData
+                ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil after stage clear.");
+            AssertEqual(2, progressedRepeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield progressed Authority Level");
+            AssertEqual(100, progressedRepeatChallengeLogin.ExpInfo.Exp, "Simulated Battlefield cumulative Authority EXP");
+            JObject progressedRepeatChallengeChapter = JObject.FromObject(progressedRepeatChallengeLogin.RcChapters.Single());
+            int[] finishStages = progressedRepeatChallengeChapter["FinishStages"]?.Values<int>().ToArray()
+                ?? throw new InvalidDataException("Simulated Battlefield progressed repeat challenge FinishStages serialized as nil.");
+            if (!finishStages.SequenceEqual([30_090_802]))
+                throw new InvalidDataException($"Simulated Battlefield progressed repeat challenge FinishStages: expected 30090802, got {string.Join(",", finishStages)}.");
+
+            const int progressedPreFightPacketId = 81_005;
+            InvokeRegisteredRequestHandler(
+                nameof(PreFightRequest),
+                harness.Session,
+                progressedPreFightPacketId,
+                new PreFightRequest
+                {
+                    PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                    {
+                        ChallengeCount = 1,
+                        StageId = 30_090_802,
+                        CardIds = [],
+                        RobotIds = []
+                    }
+                });
+            PreFightResponse progressedPreFight = ReadResponsePayload<PreFightResponse>(
+                harness,
+                progressedPreFightPacketId,
+                nameof(PreFightResponse),
+                "Simulated Battlefield Authority Level 2 PreFightResponse");
+            int[] progressedEventIds = progressedPreFight.FightData.EventIds.Select(Convert.ToInt32).ToArray();
+            if (!progressedEventIds.SequenceEqual([51201, 51202]))
+                throw new InvalidDataException($"Simulated Battlefield Authority Level 2 effects: expected 51201,51202, got {string.Join(",", progressedEventIds)}.");
+
+            recordRepeatChallengeStageClear.Invoke(null, [player, 30_090_802U, 200]);
+            NotifyRepeatChallengeData cappedRepeatChallengeLogin = buildRepeatChallengeLoginData.Invoke(null, [player]) as NotifyRepeatChallengeData
+                ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil at maximum Authority Level.");
+            AssertEqual(25, cappedRepeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield maximum Authority Level");
+            AssertEqual(7_175, cappedRepeatChallengeLogin.ExpInfo.Exp, "Simulated Battlefield maximum cumulative Authority EXP");
+
+            const int bossSelectPacketId = 81_006;
+            InvokeRegisteredRequestHandler(
+                nameof(BossSingleSelectLevelTypeRequest),
+                harness.Session,
+                bossSelectPacketId,
+                new BossSingleSelectLevelTypeRequest { LevelId = 7 });
+            BossSingleSelectLevelTypeResponse bossSelectResponse =
+                ReadResponsePayload<BossSingleSelectLevelTypeResponse>(
+                    harness,
+                    bossSelectPacketId,
+                    nameof(BossSingleSelectLevelTypeResponse),
+                    "Phantom Pain Cage BossSingleSelectLevelTypeResponse");
+            AssertEqual(0, bossSelectResponse.Code, "Phantom Pain Cage BossSingleSelectLevelTypeResponse Code");
+            AssertEqual(7, player.SimulatedBattlefield.BossLevelType, "Phantom Pain Cage selected level persistence");
+
+            const int bossRankPacketId = 81_007;
+            InvokeRegisteredRequestHandler(
+                nameof(BossSingleRankInfoRequest),
+                harness.Session,
+                bossRankPacketId,
+                new BossSingleRankInfoRequest { SectionId = 2020 });
+            BossSingleRankInfoResponse bossRankResponse = ReadResponsePayload<BossSingleRankInfoResponse>(
+                harness,
+                bossRankPacketId,
+                nameof(BossSingleRankInfoResponse),
+                "Phantom Pain Cage BossSingleRankInfoResponse");
+            AssertEqual(0, bossRankResponse.Code, "Phantom Pain Cage BossSingleRankInfoResponse Code");
+        }
 
         private static void ValidateBossSingleLoginCompatibilityShape()
         {

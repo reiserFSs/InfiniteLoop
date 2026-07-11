@@ -2059,6 +2059,11 @@ namespace AscNet.Common.MsgPack
         public UInt32 ResultTime { get; set; }
         public List<UInt32> MaxPointStageList { get; set; } = new();
         public Int32 ContributeScore { get; set; }
+        public dynamic? StopResetTime { get; set; }
+        public Int32 ProtectedScore { get; set; }
+        public Int32 BeforeChallengeId { get; set; }
+        public Int32 BeforeArenaLevel { get; set; }
+        public Int32 ArenaIndex { get; set; }
     }
 
 

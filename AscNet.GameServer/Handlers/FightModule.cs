@@ -318,7 +318,9 @@ namespace AscNet.GameServer.Handlers
             PreFightRequest req = MessagePackSerializer.Deserialize<PreFightRequest>(packet.Content);
 
             StageTable? stageTable = ResolveStageTable(req.PreFightData.StageId, out bool isCurrentStudyStage);
-            if (stageTable is null && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.PreFightData.StageId))
+            if (stageTable is null
+                && !RepeatChallengeModule.IsStage(req.PreFightData.StageId)
+                && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.PreFightData.StageId))
             {
                 string cardIds = req.PreFightData.CardIds is null
                     ? "<null>"
@@ -346,6 +348,8 @@ namespace AscNet.GameServer.Handlers
                     MonsterLevel = levelControl?.MonsterLevel ?? new()
                 }
             };
+
+            RepeatChallengeModule.ApplyPreFight(session.player, rsp.FightData);
 
             rsp.FightData.RoleData.Add(new()
             {
@@ -587,7 +591,9 @@ namespace AscNet.GameServer.Handlers
         {
             FightSettleRequest req = MessagePackSerializer.Deserialize<FightSettleRequest>(packet.Content);
             StageTable? stageTable = ResolveStageTable(req.Result.StageId, out _);
-            if (stageTable is null && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.Result.StageId))
+            if (stageTable is null
+                && !RepeatChallengeModule.IsStage(req.Result.StageId)
+                && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.Result.StageId))
             {
                 session.log.Warn($"[STAGE-PROBE] FightSettleStageTableMissing stageId={req.Result.StageId} fightId={req.Result.FightId}");
             }
@@ -730,6 +736,8 @@ namespace AscNet.GameServer.Handlers
                 session.stage.AddStage(luosaitaProgressStageData);
             }
 
+            bool updatedBossSingle = BossModule.RecordStageClear(session.player, (int)req.Result.StageId);
+            bool updatedRepeatChallenge = RepeatChallengeModule.RecordStageClear(session.player, req.Result.StageId, challengeCount);
             session.player.Save();
             session.inventory.Save();
             session.character.Save();
@@ -760,6 +768,10 @@ namespace AscNet.GameServer.Handlers
             {
                 SendMainLineLuosaitaSectionInfoIfCaptured(session, (int)req.Result.StageId);
             }
+            if (updatedBossSingle)
+                session.SendPush(BossModule.BuildLoginData(session.player));
+            if (updatedRepeatChallenge)
+                session.SendPush(RepeatChallengeModule.BuildLoginData(session.player));
             TaskModule.RecordStageClear(session, (int)req.Result.StageId, challengeCount);
             session.SendResponse(fightSettleResponse, packet.Id);
         }

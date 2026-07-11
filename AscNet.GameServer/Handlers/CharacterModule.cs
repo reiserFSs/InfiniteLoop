@@ -479,18 +479,33 @@ namespace AscNet.GameServer.Handlers
         {
             CharacterUnlockEnhanceSkillRequest request = packet.Deserialize<CharacterUnlockEnhanceSkillRequest>();
 
-            var enhanceSkillIds = TableReaderV2.Parse<EnhanceSkillGroupTable>().Where(x => x.Id == request.SkillGroupId).SelectMany(x => x.SkillId);
+            EnhanceSkillGroupTable? enhanceSkillGroup = TableReaderV2.Parse<EnhanceSkillGroupTable>()
+                .SingleOrDefault(x => x.Id == request.SkillGroupId);
+            int[] affectedChars = TableReaderV2.Parse<EnhanceSkillTable>()
+                .Where(x => x.SkillGroupId.Contains(request.SkillGroupId))
+                .Select(x => x.CharacterId)
+                .ToArray();
+            int[] enhanceSkillIds = enhanceSkillGroup?.SkillId.Where(skillId => skillId > 0).ToArray() ?? [];
+            Dictionary<int, EnhanceSkillUpgradeTable> unlockRows = TableReaderV2.Parse<EnhanceSkillUpgradeTable>()
+                .Where(x => enhanceSkillIds.Contains(x.SkillId) && x.Level == 0)
+                .ToDictionary(x => x.SkillId);
+
+            if (enhanceSkillIds.Length == 0
+                || unlockRows.Count != enhanceSkillIds.Length
+                || !session.character.Characters.Any(character => affectedChars.Contains((int)character.Id)))
+            {
+                // CharacterManagerGetCharacterDataNotFound. Never acknowledge an unlock that table data cannot fulfill.
+                session.SendResponse(new CharacterUnlockEnhanceSkillResponse() { Code = 20009021 }, packet.Id);
+                return;
+            }
 
             NotifyItemDataList notifyItemData = new();
             NotifyCharacterDataList notifyCharacterData = new();
-            foreach (var enhanceSkillId in enhanceSkillIds)
+            foreach (int enhanceSkillId in enhanceSkillIds)
             {
-                EnhanceSkillUpgradeTable? upgradeTable = TableReaderV2.Parse<EnhanceSkillUpgradeTable>().Find(x => x.SkillId == enhanceSkillId && x.Level == 0);
-                if (upgradeTable is null)
-                    continue;
+                EnhanceSkillUpgradeTable upgradeTable = unlockRows[enhanceSkillId];
 
                 bool unlockedAnyCharacter = false;
-                var affectedChars = TableReaderV2.Parse<EnhanceSkillTable>().Where(x => x.SkillGroupId.Contains(request.SkillGroupId)).Select(x => x.CharacterId).ToList();
                 foreach (var character in session.character.Characters.Where(x => affectedChars.Contains((int)x.Id)))
                 {
                     if (character.EnhanceSkillList.Any(x => x.Id == enhanceSkillId))

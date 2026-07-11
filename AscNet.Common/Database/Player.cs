@@ -105,6 +105,36 @@ namespace AscNet.Common.Database
         public long WeeklyResetWeek { get; set; } = -1;
     }
 
+    public class SimulatedBattlefieldState
+    {
+        [BsonElement("arena_joined")]
+        public bool ArenaJoined { get; set; }
+
+        [BsonElement("arena_point")]
+        public int ArenaPoint { get; set; }
+
+        [BsonElement("arena_contribute_score")]
+        public int ArenaContributeScore { get; set; }
+
+        [BsonElement("boss_level_type")]
+        public int BossLevelType { get; set; }
+
+        [BsonElement("boss_cleared_stage_ids")]
+        public List<int> BossClearedStageIds { get; set; } = new();
+
+        [BsonElement("boss_claimed_reward_ids")]
+        public List<int> BossClaimedRewardIds { get; set; } = new();
+
+        [BsonElement("repeat_challenge_level")]
+        public int RepeatChallengeLevel { get; set; } = 1;
+
+        [BsonElement("repeat_challenge_exp")]
+        public int RepeatChallengeExp { get; set; }
+
+        [BsonElement("repeat_challenge_cleared")]
+        public bool RepeatChallengeCleared { get; set; }
+    }
+
     public class Player
     {
         public static readonly IMongoCollection<Player> collection = Common.db.GetCollection<Player>("players");
@@ -301,6 +331,10 @@ namespace AscNet.Common.Database
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<uint, int> PurchaseBuyTimes { get; set; } = new();
 
+        [BsonElement("shop_buy_times")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<uint, int> ShopBuyTimes { get; set; } = new();
+
         [BsonElement("team_groups")]
         [BsonRequired]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
@@ -311,6 +345,9 @@ namespace AscNet.Common.Database
 
         [BsonElement("mission_progress")]
         public MissionProgressState MissionProgress { get; set; } = new();
+
+        [BsonElement("simulated_battlefield")]
+        public SimulatedBattlefieldState SimulatedBattlefield { get; set; } = new();
 
         [BsonElement("big_world_state")]
         public BigWorldPlayerState BigWorldState { get; set; } = new();

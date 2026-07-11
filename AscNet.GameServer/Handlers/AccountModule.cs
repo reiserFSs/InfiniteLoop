@@ -713,57 +713,6 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
-        private static NotifyFubenBossSingleData BuildBossSingleLoginData()
-        {
-            return new()
-            {
-                FubenBossSingleData = new()
-                {
-                    ActivityNo = 260,
-                    OldLevelType = 8,
-                    LevelType = 8,
-                    RemainTime = 3600 * 24,
-                    RankPlatform = 1,
-                    AfreshId = 1,
-                    IsResetOpen = true,
-                    TrialStageInfoList =
-                    [
-                        BuildBossSingleStageInfo(30302803),
-                        BuildBossSingleStageInfo(30302804),
-                        BuildBossSingleStageInfo(30302805)
-                    ],
-                    NormalStageTeamInfos =
-                    [
-                        BuildBossSingleTeamInfo(2030),
-                        BuildBossSingleTeamInfo(2034),
-                        BuildBossSingleTeamInfo(2038)
-                    ]
-                },
-                BossListDict = new()
-                {
-                    [7] = new() { 102, 104, 109 },
-                    [8] = new() { 2030, 2034, 2038 }
-                }
-            };
-        }
-
-        private static Dictionary<string, object> BuildBossSingleStageInfo(int stageId)
-        {
-            return new()
-            {
-                ["StageId"] = stageId,
-                ["Score"] = 0
-            };
-        }
-
-        private static Dictionary<string, object> BuildBossSingleTeamInfo(int sectionId)
-        {
-            return new()
-            {
-                ["SectionId"] = sectionId,
-                ["CharacterIds"] = Array.Empty<int>()
-            };
-        }
 
         private static uint NextDailyRefreshTime()
         {
@@ -1126,7 +1075,7 @@ Sorry for the inconvenience.
             session.SendPush(BuildExternalRequiredBigWorldPlayerData());
             session.SendPush(BuildCurrentAccumulatedPayData());
             SendEmptyStartupPush(session, "NotifyAccumulateExpendData");
-            session.SendPush(new NotifyArenaActivity());
+            session.SendPush(ArenaModule.BuildLoginData(session.player));
             SendCurrentEventTaskBatch(session, CurrentEventTaskBatchArena);
             session.SendPush(new NotifyFubenPrequelData() { FubenPrequelData = new() { RewardedStages = session.stage.PrequelRewardedStages } });
             session.SendPush(new NotifyPrequelChallengeRefreshTime() { NextRefreshTime = NextDailyRefreshTime() });
@@ -1149,7 +1098,7 @@ Sorry for the inconvenience.
             SendEmptyStartupPush(session, "NotifyActivityDrawGroupCount");
             SendEmptyStartupPush(session, "NotifyEscapeData");
             SendEmptyStartupPush(session, "NotifyExperimentData");
-            session.SendPush(BuildBossSingleLoginData());
+            session.SendPush(BossModule.BuildLoginData(session.player));
             SendEmptyStartupPush(session, "NotifyFestivalData");
             SendEmptyStartupPush(session, "NotifyKotodamaData");
             SendEmptyStartupPush(session, "NotifyMazeData");
@@ -1170,7 +1119,7 @@ Sorry for the inconvenience.
             SendEmptyStartupPush(session, "NotifyNonogramData");
             SendEmptyStartupPush(session, "NotifyPivotCombatData");
             SendEmptyStartupPush(session, "NotifySettingLoadingOption");
-            SendEmptyStartupPush(session, "NotifyRepeatChallengeData");
+            session.SendPush(RepeatChallengeModule.BuildLoginData(session.player));
             SendEmptyStartupPush(session, "NotifyPlayerReportData");
             SendEmptyStartupPush(session, "NotifySameColorGameData");
             SendEmptyStartupPush(session, "NotifyStrongholdLoginData");
