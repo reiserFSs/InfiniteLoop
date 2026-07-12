@@ -645,10 +645,21 @@ namespace AscNet.Common.Database
                 return character;
             }
 
+            int? highestConfiguredLevel = characterLevelUpTemplates
+                .Where(x => x.Type == characterData.LevelUpTemplateId)
+                .Select(x => (int?)x.Level)
+                .Max();
+
             int remainingExp = Math.Max(0, exp);
             while (true)
             {
-                CharacterLevelUpTemplate? levelUpTemplate = characterLevelUpTemplates.FirstOrDefault(x => x.Level == character.Level && x.Type == characterData.Type);
+                if (highestConfiguredLevel is not null && character.Level >= highestConfiguredLevel.Value)
+                {
+                    character.Exp = 0;
+                    break;
+                }
+
+                CharacterLevelUpTemplate? levelUpTemplate = characterLevelUpTemplates.FirstOrDefault(x => x.Level == character.Level && x.Type == characterData.LevelUpTemplateId);
                 if (levelUpTemplate is null)
                 {
                     break;
@@ -658,6 +669,13 @@ namespace AscNet.Common.Database
                 if (reachedLevelCap)
                 {
                     character.Exp = (uint)Math.Min(levelUpTemplate.Exp, (int)character.Exp + remainingExp);
+                    break;
+                }
+
+                bool hasNextLevelTemplate = characterLevelUpTemplates.Any(x =>
+                    x.Level == character.Level + 1 && x.Type == characterData.LevelUpTemplateId);
+                if (!hasNextLevelTemplate)
+                {
                     break;
                 }
 

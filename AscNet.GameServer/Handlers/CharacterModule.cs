@@ -181,8 +181,35 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            CharacterLevelUpTemplate? levelUpTemplate = Character.characterLevelUpTemplates.FirstOrDefault(x => x.Level == character.Level && x.Type == characterData.Type);
+            int? highestConfiguredLevel = Character.characterLevelUpTemplates
+                .Where(x => x.Type == characterData.LevelUpTemplateId)
+                .Select(x => (int?)x.Level)
+                .Max();
+            if (highestConfiguredLevel is null)
+            {
+                // CharacterManagerGetLevelUpTemplateNotFound
+                session.SendResponse(new CharacterLevelUpResponse() { Code = 20009002 }, packet.Id);
+                return;
+            }
+
+            if (character.Level >= highestConfiguredLevel.Value)
+            {
+                // CharacterManagerLevelUpMaxLevel
+                session.SendResponse(new CharacterLevelUpResponse() { Code = 20009014 }, packet.Id);
+                return;
+            }
+
+            CharacterLevelUpTemplate? levelUpTemplate = Character.characterLevelUpTemplates.FirstOrDefault(x => x.Level == character.Level && x.Type == characterData.LevelUpTemplateId);
             if (levelUpTemplate is null)
+            {
+                // CharacterManagerGetLevelUpTemplateNotFound
+                session.SendResponse(new CharacterLevelUpResponse() { Code = 20009002 }, packet.Id);
+                return;
+            }
+
+            bool hasNextLevelTemplate = Character.characterLevelUpTemplates.Any(x =>
+                x.Level == character.Level + 1 && x.Type == characterData.LevelUpTemplateId);
+            if (!hasNextLevelTemplate)
             {
                 // CharacterManagerGetLevelUpTemplateNotFound
                 session.SendResponse(new CharacterLevelUpResponse() { Code = 20009002 }, packet.Id);

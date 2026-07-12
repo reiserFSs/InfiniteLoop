@@ -15377,6 +15377,36 @@ namespace AscNet.Test
             AssertEqual(2, cappedResult.Level, "AddCharacterExp maxLvl cap level");
             AssertEqual((uint)levelTwoTemplate.Exp, cappedResult.Exp, "AddCharacterExp maxLvl cap exp");
 
+            const int camuCharacterId = 1511003;
+            CharacterTable camuTable = TableReaderV2.Parse<CharacterTable>().Single(character => character.Id == camuCharacterId);
+            AssertEqual(2, camuTable.Type, "Camu character classification type");
+            AssertEqual(1, camuTable.LevelUpTemplateId, "Camu level-up template mapping");
+            int camuLevelOneToSeventyEightExp = AscNet.Common.Database.Character.characterLevelUpTemplates
+                .Where(template => template.Type == camuTable.LevelUpTemplateId && template.Level >= 1 && template.Level < 78)
+                .Sum(template => template.Exp);
+            AssertEqual(440600, camuLevelOneToSeventyEightExp, "Camu template 1 level 1 through 77 exp sum");
+            AscNet.Common.Database.Character camuRoster = CreateTestCharacterRoster(camuCharacterId, level: 1);
+            CharacterData camuResult = camuRoster.AddCharacterExp(camuCharacterId, camuLevelOneToSeventyEightExp)
+                ?? throw new InvalidDataException("AddCharacterExp returned nil for Camu.");
+            AssertEqual(78, camuResult.Level, "AddCharacterExp Type 2 character uses LevelUpTemplateId 1 level");
+            AssertEqual(0U, camuResult.Exp, "AddCharacterExp Type 2 character uses LevelUpTemplateId 1 exp");
+
+            int camuLevelSeventyNineExp = RequiredCharacterLevelUpTemplate(camuCharacterId, level: 79).Exp;
+            AssertEqual(28800, camuLevelSeventyNineExp, "Camu template 1 level 79 exp threshold");
+            AscNet.Common.Database.Character levelSeventyNineRoster = CreateTestCharacterRoster(camuCharacterId, level: 79);
+            CharacterData levelEightyResult = levelSeventyNineRoster.AddCharacterExp(camuCharacterId, exp: camuLevelSeventyNineExp + 123, maxLvl: 80)
+                ?? throw new InvalidDataException("AddCharacterExp returned nil for Camu at level 79.");
+            AssertEqual(80, levelEightyResult.Level, "AddCharacterExp configured terminal takes precedence over maxLvl level");
+            AssertEqual(0U, levelEightyResult.Exp, "AddCharacterExp configured terminal discards surplus before maxLvl clamp");
+
+            AscNet.Common.Database.Character terminalRoster = CreateTestCharacterRoster(camuCharacterId, level: 80);
+            CharacterData terminalCharacter = RequiredCharacterData(terminalRoster, camuCharacterId);
+            terminalCharacter.Exp = 123;
+            CharacterData terminalResult = terminalRoster.AddCharacterExp(camuCharacterId, exp: 30000)
+                ?? throw new InvalidDataException("AddCharacterExp returned nil for Camu at terminal level.");
+            AssertEqual(80, terminalResult.Level, "AddCharacterExp terminal guard level");
+            AssertEqual(0U, terminalResult.Exp, "AddCharacterExp terminal guard exp");
+
             MethodInfo fightSettleHandler = GetRegisteredRequestHandlerMethod("FightSettleRequest");
             AssertEqual("FightSettleRequestHandler", fightSettleHandler.Name, "FightSettleRequest registered handler method");
 
@@ -15410,6 +15440,7 @@ namespace AscNet.Test
             MethodInfo levelUpHandler = GetRegisteredRequestHandlerMethod("CharacterLevelUpRequest");
             AssertEqual("CharacterLevelUpRequestHandler", levelUpHandler.Name, "CharacterLevelUpRequest registered handler method");
             AssertLevelUpMaxCapResponsePrecedesInventoryMutation(levelUpHandler, inventoryDo, inventorySave, "CharacterLevelUpRequestHandler commandant cap guard");
+            AssertLevelUpTemplateErrorsPrecedeInventoryMutation(levelUpHandler, inventoryDo, inventorySave, "CharacterLevelUpRequestHandler template guards");
 
             AssertMethodTransitivelyCalls(fightSettleHandler, expSanityCheck, "FightSettleRequestHandler commandant exp sanity settlement");
             AssertMethodTransitivelyCalls(fightSettleHandler, playerSave, "FightSettleRequestHandler player settlement persistence");
@@ -15442,8 +15473,8 @@ namespace AscNet.Test
         {
             CharacterTable characterTable = TableReaderV2.Parse<CharacterTable>().Single(character => character.Id == characterId);
             return AscNet.Common.Database.Character.characterLevelUpTemplates
-                .SingleOrDefault(template => template.Level == level && template.Type == characterTable.Type)
-                ?? throw new InvalidDataException($"CharacterLevelUpTemplate: missing level {level}, type {characterTable.Type} for character {characterId}.");
+                .SingleOrDefault(template => template.Level == level && template.Type == characterTable.LevelUpTemplateId)
+                ?? throw new InvalidDataException($"CharacterLevelUpTemplate: missing level {level}, template {characterTable.LevelUpTemplateId} for character {characterId}.");
         }
 
         private static void ValidatePr2QualityCompatibility()
@@ -20507,6 +20538,54 @@ namespace AscNet.Test
 
             if (!PathExits(instructions, maxLevelResponseIndex + 1))
                 throw new InvalidDataException($"{name}: expected the max-level response path to exit before reaching inventory consumption/save.");
+        }
+
+        private static void AssertLevelUpTemplateErrorsPrecedeInventoryMutation(MethodInfo method, MethodInfo inventoryDo, MethodInfo inventorySave, string name)
+        {
+            FieldInfo responseCode = typeof(CharacterLevelUpResponse).GetField(nameof(CharacterLevelUpResponse.Code), BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingFieldException(typeof(CharacterLevelUpResponse).FullName, nameof(CharacterLevelUpResponse.Code));
+            MethodInfo sendResponse = RequiredGenericMethodDefinition(
+                typeof(Session),
+                nameof(Session.SendResponse),
+                BindingFlags.Instance | BindingFlags.Public,
+                parameterCount: 2);
+
+            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
+            int firstInventoryMutationIndex = FindFirstInventoryMutationIndex(instructions, inventoryDo, inventorySave);
+            if (firstInventoryMutationIndex < 0)
+                throw new InvalidDataException($"{name}: expected the success path to consume inventory or save inventory changes.");
+
+            List<int> templateErrorCodeIndices = [];
+            for (int index = 0; index < instructions.Count; index++)
+            {
+                if (instructions[index].OpCode != OpCodes.Stfld
+                    || instructions[index].Operand is not FieldInfo assignedField
+                    || !FieldsMatch(assignedField, responseCode))
+                {
+                    continue;
+                }
+
+                for (int previousIndex = index - 1; previousIndex >= 0 && previousIndex >= index - 6; previousIndex--)
+                {
+                    if (LdcI4Value(instructions[previousIndex]) == 20009002)
+                    {
+                        templateErrorCodeIndices.Add(index);
+                        break;
+                    }
+                }
+            }
+
+            if (templateErrorCodeIndices.Count < 3)
+                throw new InvalidDataException($"{name}: expected missing-curve, missing-current-row, and missing-next-row responses with code 20009002.");
+
+            foreach (int codeIndex in templateErrorCodeIndices)
+            {
+                int responseIndex = FindGenericCallIndex(instructions, sendResponse, typeof(CharacterLevelUpResponse), startIndex: codeIndex + 1);
+                if (responseIndex < 0 || responseIndex >= firstInventoryMutationIndex)
+                    throw new InvalidDataException($"{name}: expected every 20009002 response before inventory consumption/save.");
+                if (!PathExits(instructions, responseIndex + 1))
+                    throw new InvalidDataException($"{name}: expected every 20009002 response path to exit before inventory consumption/save.");
+            }
         }
 
         private static void AssertRequestFieldFeedsSetterBeforePersistence(MethodInfo method, FieldInfo sourceField, MethodInfo targetSetter, MethodInfo persistenceMethod, string name)
