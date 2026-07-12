@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import contextlib
 import os
 import shutil
 import signal
@@ -16,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+import fcntl
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent
@@ -159,6 +161,35 @@ def wait_for_tcp(host: str, port: int, timeout: float, label: str) -> None:
             return
         time.sleep(0.25)
     raise SystemExit(f"{label} did not become reachable on {host}:{port} within {timeout:g}s.")
+
+
+@contextlib.contextmanager
+def serialized_build_lock() -> Iterable[None]:
+    """Prevent concurrent runner instances from writing the shared MSBuild obj tree."""
+    lock_path = ROOT / ".runtime" / "ascnet-build.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+b") as lock_file:
+        print(f"Waiting for AscNet build lock: {lock_path}", flush=True)
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def build_ascnet(dotnet: str, env: dict[str, str]) -> None:
+    """Build once under a cross-process lock; dotnet run then only executes outputs."""
+    project = "AscNet/AscNet.csproj"
+    with serialized_build_lock():
+        cmd = [dotnet, "build", project]
+        print("+ " + " ".join(cmd), flush=True)
+        completed = subprocess.run(cmd, cwd=ROOT, env=env)
+        if completed.returncode:
+            raise SystemExit(completed.returncode)
+
+
+def ascnet_run_command(dotnet: str, sdk_url: str) -> list[str]:
+    return [dotnet, "run", "--no-build", "--project", "AscNet/AscNet.csproj", "--", "--urls", sdk_url]
 
 
 def popen(cmd: list[str], *, env: dict[str, str] | None = None) -> subprocess.Popen[bytes]:
@@ -486,7 +517,8 @@ def main() -> int:
         repair_krsdk_login_cache(cache_dir)
 
     try:
-        ascnet = popen([dotnet, "run", "--project", "AscNet/AscNet.csproj", "--", "--urls", args.sdk_url], env=env)
+        build_ascnet(dotnet, env)
+        ascnet = popen(ascnet_run_command(dotnet, args.sdk_url), env=env)
         processes.append(ascnet)
 
         if not args.no_smoke:

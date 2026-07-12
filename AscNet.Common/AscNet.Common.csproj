@@ -20,14 +20,9 @@
 	<ItemGroup>
 		<Analyzer Include="../AscNet.Table/bin/$(Configuration)/netstandard2.0/AscNet.Table.dll" />
         <AdditionalFiles Include="../Resources/table/**/*.tsv" />
-        <Reference Include="AscNet.Logging">
-          <HintPath>..\AscNet.Logging\bin\$(Configuration)\net8.0\AscNet.Logging.dll</HintPath>
-        </Reference>
+        <ProjectReference Include="..\AscNet.Logging\AscNet.Logging.csproj" />
 	</ItemGroup>
 
-  <Target Name="BuildLogging" BeforeTargets="ResolveReferences">
-    <MSBuild Projects="../AscNet.Logging/AscNet.Logging.csproj" Targets="Build" Properties="Configuration=$(Configuration);TargetFramework=net8.0" />
-  </Target>
 
   <Target Name="BuildTableGenerator" BeforeTargets="CoreCompile">
     <MSBuild Projects="../AscNet.Table/AscNet.Table.csproj" Targets="Build" Properties="Configuration=$(Configuration);TargetFramework=netstandard2.0" />

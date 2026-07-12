@@ -19,16 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="AscNet.Common">
-      <HintPath>..\AscNet.Common\bin\$(Configuration)\net8.0\AscNet.Common.dll</HintPath>
-    </Reference>
-    <Reference Include="AscNet.Logging">
-      <HintPath>..\AscNet.Logging\bin\$(Configuration)\net8.0\AscNet.Logging.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\AscNet.Common\AscNet.Common.csproj" />
+    <ProjectReference Include="..\AscNet.Logging\AscNet.Logging.csproj" />
   </ItemGroup>
 
-  <Target Name="BuildGameServerDependencies" BeforeTargets="ResolveReferences">
-    <MSBuild Projects="..\AscNet.Common\AscNet.Common.csproj;..\AscNet.Logging\AscNet.Logging.csproj" Targets="Build" Properties="Configuration=$(Configuration);TargetFramework=net8.0" />
-  </Target>
 
 </Project>
