@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using AscNet.Logging;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.character.quality;
+using AscNet.Table.V2.share.attrib;
 using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.partner;
 
@@ -71,6 +72,48 @@ namespace AscNet.Common.Database
 
             return TableReaderV2.Parse<EquipBreakThroughTable>()
                 .FirstOrDefault(row => row.EquipId == templateId && row.Times == breakthrough);
+        }
+
+        private bool RepairUnambiguousEquippedAttributeResonanceBindings(EquipData equip, EquipTable? equipTable)
+        {
+            if (equipTable is null || equipTable.Site <= 0 || equip.CharacterId <= 0
+                || !Characters.Any(character => character.Id == equip.CharacterId))
+            {
+                return false;
+            }
+
+            EquipResonanceTable? resonanceTable = TableReaderV2.Parse<EquipResonanceTable>()
+                .Find(row => row.Id == equip.TemplateId);
+            if (resonanceTable is null)
+                return false;
+
+            bool changed = false;
+            HashSet<int> validAttributeTemplates = new();
+            foreach (ResonanceInfo resonance in (equip.ResonanceInfo ?? [])
+                         .Concat(equip.UnconfirmedResonanceInfo ?? [])
+                         .Where(value => value.Type == EquipResonanceType.Attrib
+                             && value.CharacterId == 0 && value.Slot > 0))
+            {
+                int poolId = resonanceTable.AttribPoolId.ElementAtOrDefault(resonance.Slot - 1);
+                if (poolId <= 0)
+                    continue;
+
+                validAttributeTemplates.Clear();
+                validAttributeTemplates.UnionWith(TableReaderV2.Parse<AttribPoolTable>()
+                    .Where(row => row.PoolId == poolId)
+                    .Select(row => row.Id));
+                if (!validAttributeTemplates.Contains(resonance.TemplateId))
+                    continue;
+
+                resonance.CharacterId = equip.CharacterId;
+                LoggerFactory.Logger?.Info(
+                    $"Repairing equipped attribute resonance binding equipId={equip.Id} " +
+                    $"templateId={equip.TemplateId} slot={resonance.Slot} characterId={equip.CharacterId} " +
+                    $"resonanceTemplateId={resonance.TemplateId}");
+                changed = true;
+            }
+
+            return changed;
         }
 
         public static bool NormalizeEquipResonances(EquipData equip)
@@ -214,6 +257,12 @@ namespace AscNet.Common.Database
                     changed = true;
                 }
 
+                if (RepairUnambiguousEquippedAttributeResonanceBindings(
+                        equip, ownableEquipTemplates[equip.TemplateId]))
+                {
+                    changed = true;
+                }
+
                 if (NormalizeEquipResonances(equip))
                     changed = true;
 
@@ -221,6 +270,25 @@ namespace AscNet.Common.Database
                 {
                     equip.AwakeSlotList = new();
                     changed = true;
+                }
+                else
+                {
+                    HashSet<int> activeResonanceSlots = equip.ResonanceInfo
+                        .Select(resonance => resonance.Slot)
+                        .ToHashSet();
+                    List<int> canonicalAwakeSlots = equip.AwakeSlotList
+                        .Select(value => Convert.ToInt32((object)value, CultureInfo.InvariantCulture))
+                        .Where(slot => activeResonanceSlots.Contains(slot))
+                        .Distinct()
+                        .Order()
+                        .ToList();
+                    if (!equip.AwakeSlotList
+                        .Select(value => Convert.ToInt32((object)value, CultureInfo.InvariantCulture))
+                        .SequenceEqual(canonicalAwakeSlots))
+                    {
+                        equip.AwakeSlotList = canonicalAwakeSlots.Cast<dynamic>().ToList();
+                        changed = true;
+                    }
                 }
 
                 if (equip.WeaponOverrunData is null)

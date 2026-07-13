@@ -75,6 +75,14 @@ namespace AscNet.Test
                     return;
                 }
 
+                string? liveResonanceUid = args.FirstOrDefault(value =>
+                    value.StartsWith("--verify-live-resonance-uid=", StringComparison.Ordinal));
+                if (liveResonanceUid is not null)
+                {
+                    ValidateLiveResonanceRelog(long.Parse(liveResonanceUid.Split('=', 2)[1]));
+                    return;
+                }
+
                 if (args.Contains("--equip-resonance-compat-only"))
                 {
                     ValidateEquipResonanceCompatibility();
@@ -1475,6 +1483,7 @@ namespace AscNet.Test
             int useItemId = targets[0].Cost.SelectSkillItemId!.Value;
             if (targets.Any(target => target.Cost.SelectSkillItemId != useItemId))
                 throw new InvalidDataException("Selected quick-resonance material is not shared by table-backed targets.");
+            int selectedCharacterId = TableReaderV2.Parse<CharacterTable>().First().Id;
 
             int Cost(EquipResonanceUseItemTable recipe) => recipe.SelectSkillItemCount!.Value;
             EquipQuickResonanceChipRequest Request(IEnumerable<uint> ids) => new()
@@ -1484,7 +1493,7 @@ namespace AscNet.Test
                 EquipIds = ids.Select(Convert.ToInt32).ToList(),
                 SelectSkillId = selectedAttribute.Id,
                 UseItemId = useItemId,
-                CharacterId = 0
+                CharacterId = selectedCharacterId
             };
             EquipData MakeEquip(int id, int targetIndex) => new()
             {
@@ -1492,6 +1501,7 @@ namespace AscNet.Test
                 TemplateId = Convert.ToUInt32(targets[targetIndex].Equip.Id),
                 Level = 1,
                 Breakthrough = 0,
+                CharacterId = selectedCharacterId,
                 ResonanceInfo = targetIndex == 0
                     ? [new ResonanceInfo
                     {
@@ -1504,8 +1514,11 @@ namespace AscNet.Test
             };
 
             EquipData singleEquip = MakeEquip(91_000, 0);
-            AscNet.Common.Database.Character singleCharacter = new() { Equips = [] };
-            singleCharacter.Equips.Add(singleEquip);
+            AscNet.Common.Database.Character singleCharacter = new()
+            {
+                Characters = [new CharacterData { Id = Convert.ToUInt32(selectedCharacterId) }],
+                Equips = [singleEquip]
+            };
             Inventory singleInventory = new() { Items = [] };
             singleInventory.Items.Add(new Item { Id = useItemId, Count = Cost(targets[0].Cost) });
             using (LoopbackSessionHarness singleHarness =
@@ -1528,14 +1541,18 @@ namespace AscNet.Test
                 AssertEqual((int)EquipResonanceType.Attrib, (int)applied.Type,
                     "single selected attribute type");
                 AssertEqual(selectedAttribute.Id, applied.TemplateId, "single selected attribute id");
-                AssertEqual(0, applied.CharacterId, "attribute resonance has no character binding");
+                AssertEqual(selectedCharacterId, applied.CharacterId,
+                    "attribute resonance preserves selected character binding");
             }
 
             List<EquipData> batchEquips = Enumerable.Range(0, targets.Count)
                 .Select(index => MakeEquip(91_100 + index, index))
                 .ToList();
-            AscNet.Common.Database.Character batchCharacter = new() { Equips = [] };
-            batchCharacter.Equips.AddRange(batchEquips);
+            AscNet.Common.Database.Character batchCharacter = new()
+            {
+                Characters = [new CharacterData { Id = Convert.ToUInt32(selectedCharacterId) }],
+                Equips = batchEquips
+            };
             int aggregateCost = targets.Sum(target => Cost(target.Cost));
             Inventory batchInventory = new() { Items = [] };
             batchInventory.Items.Add(new Item { Id = useItemId, Count = aggregateCost });
@@ -1593,7 +1610,11 @@ namespace AscNet.Test
                 TemplateId = Convert.ToUInt32(invalidTarget.Equip.Id),
                 ResonanceInfo = []
             };
-            AscNet.Common.Database.Character atomicCharacter = new() { Equips = [] };
+            AscNet.Common.Database.Character atomicCharacter = new()
+            {
+                Characters = [new CharacterData { Id = Convert.ToUInt32(selectedCharacterId) }],
+                Equips = []
+            };
             atomicCharacter.Equips.AddRange([validAtomicTarget, invalidAtomicTarget]);
             int mixedUseItemId = targets[0].Cost.ItemId.First(itemId =>
                 invalidTarget.Cost.ItemId.Contains(itemId));
@@ -1615,7 +1636,7 @@ namespace AscNet.Test
                     EquipIds = [Convert.ToInt32(validAtomicTarget.Id), Convert.ToInt32(invalidAtomicTarget.Id)],
                     SelectSkillId = selectedAttribute.Id,
                     UseItemId = mixedUseItemId,
-                    CharacterId = 0
+                    CharacterId = selectedCharacterId
                 });
             AssertEqual(20021114, ReadResponsePayload<EquipQuickResonanceChipResponse>(
                 atomicHarness.ReadPacket("mixed-pool attribute response"),
@@ -1654,6 +1675,64 @@ namespace AscNet.Test
         }
 
 
+        private static void ValidateLiveResonanceRelog(long uid)
+        {
+            AscNet.Common.Database.Character first = AscNet.Common.Database.Character.FromUid(uid);
+            AscNet.Common.Database.Character second = AscNet.Common.Database.Character.FromUid(uid);
+            List<EquipData> equippedMemories = second.Equips
+                .Where(equip => equip.CharacterId > 0
+                    && AscNet.Common.Database.Character.ResolveEquipTemplate(equip.TemplateId) is { Site: > 0 })
+                .Where(equip => equip.ResonanceInfo.Count > 0 || equip.AwakeSlotList.Count > 0)
+                .ToList();
+            if (equippedMemories.Count == 0)
+                throw new InvalidDataException("Live account has no equipped resonated Memories.");
+
+            int ordinaryCount = equippedMemories.Sum(equip => equip.ResonanceInfo.Count(resonance =>
+                resonance.CharacterId == equip.CharacterId));
+            int awakeCount = equippedMemories.Sum(equip =>
+            {
+                HashSet<int> awakeSlots = equip.AwakeSlotList
+                    .Select(value => Convert.ToInt32((object)value))
+                    .ToHashSet();
+                return equip.ResonanceInfo.Count(resonance =>
+                    resonance.CharacterId == equip.CharacterId && awakeSlots.Contains(resonance.Slot));
+            });
+            int activeCount = equippedMemories.Sum(equip => equip.ResonanceInfo.Count);
+            int activeAwakeCount = equippedMemories.Sum(equip =>
+                equip.AwakeSlotList.Select(value =>
+                        Convert.ToInt32((object)value))
+                    .Distinct()
+                    .Count(slot => equip.ResonanceInfo.Any(resonance => resonance.Slot == slot)));
+            AssertEqual(activeCount, ordinaryCount,
+                "live client ordinary predicate counts every active equipped Memory resonance");
+            AssertEqual(activeAwakeCount, awakeCount,
+                "live client hypertune predicate counts every awakened active equipped Memory resonance");
+
+            using LoopbackSessionHarness harness = new(second);
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "BuildNotifyLogin", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session)]);
+            NotifyLogin wire = (NotifyLogin?)buildNotifyLogin.Invoke(null, [harness.Session])
+                ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil.");
+            NotifyLogin roundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
+                MessagePackSerializer.Serialize(wire));
+            List<EquipData> served = roundTrip.EquipList
+                .Where(equip => equippedMemories.Any(memory => memory.Id == equip.Id))
+                .ToList();
+            AssertEqual(equippedMemories.Count, served.Count, "served NotifyLogin equipped Memory count");
+            AssertEqual(ordinaryCount, served.Sum(equip => equip.ResonanceInfo.Count(resonance =>
+                resonance.CharacterId == equip.CharacterId)), "served NotifyLogin ordinary predicate");
+            AssertEqual(awakeCount, served.Sum(equip =>
+            {
+                HashSet<int> awakeSlots = equip.AwakeSlotList.Select(value =>
+                    Convert.ToInt32((object)value)).ToHashSet();
+                return equip.ResonanceInfo.Count(resonance =>
+                    resonance.CharacterId == equip.CharacterId && awakeSlots.Contains(resonance.Slot));
+            }), "served NotifyLogin hypertune predicate");
+
+            AssertEqual(first.Equips.Count, second.Equips.Count, "second Character.FromUid idempotent equip count");
+        }
+
         private static void ValidateMemoryResonanceCharacterBinding()
         {
             const int characterId = 1121002;
@@ -1661,7 +1740,7 @@ namespace AscNet.Test
             AscNet.Common.Database.Character character = new()
             {
                 Uid = 16_076,
-                Characters = [],
+                Characters = [new CharacterData { Id = characterId }],
                 Equips = [equip],
                 Fashions = []
             };
@@ -1821,7 +1900,7 @@ namespace AscNet.Test
                 persistedCharacter.Save();
                 AscNet.Common.Database.Character databaseReload =
                     AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
-                EquipData databaseEquip = databaseReload.Equips.Single();
+                EquipData databaseEquip = databaseReload.Equips.Single(value => value.Id == relogin.Id);
                 AssertIntegerList([1, 2], databaseEquip.ResonanceInfo.OrderBy(value => value.Slot)
                     .Select(value => (long)value.Slot).ToArray(), "Mongo re-login top and bottom resonance slots");
                 AssertEqual(0, databaseEquip.UnconfirmedResonanceInfo.Count,
@@ -1841,9 +1920,10 @@ namespace AscNet.Test
                 TemplateId = 3036007,
                 Level = 45,
                 Breakthrough = 4,
+                CharacterId = 1191003,
                 ResonanceInfo =
                 [
-                    new ResonanceInfo { Slot = 1, Type = EquipResonanceType.Attrib, CharacterId = 1191003, TemplateId = 33 }
+                    new ResonanceInfo { Slot = 1, Type = EquipResonanceType.Attrib, CharacterId = 0, TemplateId = 33 }
                 ],
                 UnconfirmedResonanceInfo =
                 [
@@ -1855,23 +1935,38 @@ namespace AscNet.Test
                         TemplateId = 119322
                     }
                 ],
-                AwakeSlotList = [1, 2]
+                AwakeSlotList = [2, 1, 2]
             };
             AscNet.Common.Database.Character migrationCharacter = new()
             {
                 Id = ObjectId.GenerateNewId(),
                 Uid = resonancePersistenceUid,
-                Characters = [],
+                Characters = [new CharacterData { Id = 1191003 }],
                 Equips = [malformedExisting],
                 Fashions = []
             };
+            EquipData ambiguousUnequipped = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<EquipData>(
+                malformedExisting.ToBson());
+            ambiguousUnequipped.Id++;
+            ambiguousUnequipped.CharacterId = 0;
+            ambiguousUnequipped.ResonanceInfo.Single(value => value.Slot == 1).CharacterId = 0;
+            AscNet.Common.Database.Character ambiguousCharacter = new()
+            {
+                Characters = [new CharacterData { Id = 1191003 }],
+                Equips = [ambiguousUnequipped],
+                Fashions = []
+            };
+            _ = ambiguousCharacter.NormalizeEquipsForCurrentTables();
+            AssertEqual(0, ambiguousUnequipped.ResonanceInfo.Single(value => value.Slot == 1).CharacterId,
+                "unequipped legacy attribute binding remains unrepaired because carrier is ambiguous");
+
             AscNet.Common.Database.Character.collection.DeleteMany(resonanceFilter);
             try
             {
                 AscNet.Common.Database.Character.collection.InsertOne(migrationCharacter);
                 AscNet.Common.Database.Character firstMigrationReload =
                     AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
-                EquipData migrated = firstMigrationReload.Equips.Single();
+                EquipData migrated = firstMigrationReload.Equips.Single(value => value.Id == malformedExisting.Id);
                 AssertIntegerList([1, 2], migrated.ResonanceInfo.OrderBy(value => value.Slot)
                     .Select(value => (long)value.Slot).ToArray(), "Mongo migrated awake resonance slots");
                 AssertEqual(119322, migrated.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
@@ -1880,6 +1975,8 @@ namespace AscNet.Test
                     "Mongo migration clears promoted pending slot");
                 AssertIntegerList([1, 2], migrated.AwakeSlotList.Select(Convert.ToInt64).ToArray(),
                     "Mongo migration preserves BSON Int32 awake slots");
+                AssertEqual(1191003, migrated.ResonanceInfo.Single(value => value.Slot == 1).CharacterId,
+                    "Mongo migration repairs table-valid equipped attribute binding");
                 AscNet.Common.Database.Character originalSessionCharacter = harness.Session.character;
                 harness.Session.character = firstMigrationReload;
                 Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
@@ -1904,7 +2001,7 @@ namespace AscNet.Test
 
                 AscNet.Common.Database.Character secondMigrationReload =
                     AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
-                EquipData secondMigrated = secondMigrationReload.Equips.Single();
+                EquipData secondMigrated = secondMigrationReload.Equips.Single(value => value.Id == malformedExisting.Id);
                 AssertIntegerList([1, 2], secondMigrated.ResonanceInfo.OrderBy(value => value.Slot)
                     .Select(value => (long)value.Slot).ToArray(), "Mongo migration is idempotent");
                 AssertEqual(0, secondMigrated.UnconfirmedResonanceInfo.Count,
@@ -15531,6 +15628,10 @@ namespace AscNet.Test
             Dictionary<int, ExhibitionRewardTable> exhibitionRewardRowsById = TableReaderV2.Parse<ExhibitionRewardTable>()
                 .Where(reward => reward.CharacterId == luciaInverseCrownCharacterId)
                 .ToDictionary(reward => reward.Id);
+            ExhibitionRewardTable infinitasReward = exhibitionRewardRowsById.Values
+                .MaxBy(reward => reward.LevelId)
+                ?? throw new InvalidDataException($"{name}: missing exhibition rewards.");
+            AssertEqual(null, infinitasReward.RewardId, $"{name} Infinitas RewardId");
 
             AssertIntegerList(
                 [401, 402, 403, 404, 405],
@@ -15599,6 +15700,44 @@ namespace AscNet.Test
                 level2FashionId,
                 initialFashionIsLocked: true,
                 $"{name} claimed level 2 locked fashion login repair");
+            AssertGatherAwakenWithoutReward(
+                infinitasReward.Id,
+                $"{name} Infinitas");
+        }
+
+        private static void AssertGatherAwakenWithoutReward(int exhibitionRewardId, string name)
+        {
+            const long playerId = 102_100_705;
+            const int packetId = 102_100_705;
+
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                $"{name.Replace(' ', '-').ToLowerInvariant()}-test");
+
+            InvokeRegisteredRequestHandler(
+                nameof(GatherRewardRequest),
+                harness.Session,
+                packetId,
+                new GatherRewardRequest { Id = exhibitionRewardId });
+
+            AssertEqual(true, player.GatherRewards.Contains(exhibitionRewardId), $"{name} persisted claim");
+            NotifyGatherReward gatherRewardPush = ReadPushPayload<NotifyGatherReward>(
+                harness,
+                nameof(NotifyGatherReward),
+                $"{name} NotifyGatherReward");
+            AssertEqual(exhibitionRewardId, gatherRewardPush.Id, $"{name} claimed gather reward id");
+
+            GatherRewardResponse response = ReadResponsePayload<GatherRewardResponse>(
+                harness,
+                packetId,
+                nameof(GatherRewardResponse),
+                $"{name} GatherRewardResponse");
+            AssertEqual(0, response.Code, $"{name} response code");
+            AssertEqual(0, response.RewardGoods.Count, $"{name} reward goods count");
         }
 
         private static void AssertAwakenFashionRewardGoods(RewardGoodsTable rewardGoods, int expectedFashionId, string name)

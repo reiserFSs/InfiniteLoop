@@ -864,6 +864,17 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new EquipResonanceResponse() { Code = 20021038 }, packet.Id);
                 return;
             }
+            bool isMemoryAttributeRequest = equipTable.Site > 0
+                && (request.SelectType ?? EquipResonanceType.Attrib) == EquipResonanceType.Attrib;
+            if (isMemoryAttributeRequest
+                && (request.CharacterId is not int attributeCharacterId
+                    || attributeCharacterId <= 0
+                    || !session.character.Characters.Any(character => character.Id == attributeCharacterId)))
+            {
+                session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
+                return;
+            }
+
 
             List<ResonanceInfo> resonancePool = new();
             IEnumerable<int> attribPoolIds = equipResonance?.AttribPoolId ?? [];
@@ -1018,9 +1029,8 @@ namespace AscNet.GameServer.Handlers
                 || request.UseItemId <= 0
                 || request.EquipIds.Count == 0
                 || request.EquipIds.Count != request.EquipIds.Distinct().Count()
-                || (isCharacterSkillSelection
-                    && (request.CharacterId <= 0
-                        || !session.character.Characters.Any(character => character.Id == request.CharacterId))))
+                || request.CharacterId <= 0
+                || !session.character.Characters.Any(character => character.Id == request.CharacterId))
             {
                 RejectParameter("invalid request envelope");
                 return;
@@ -1123,7 +1133,7 @@ namespace AscNet.GameServer.Handlers
                 {
                     Slot = request.Slot,
                     Type = request.SelectType,
-                    CharacterId = isCharacterSkillSelection ? request.CharacterId : 0,
+                    CharacterId = request.CharacterId,
                     TemplateId = request.SelectSkillId,
                     UseItemId = request.UseItemId
                 });

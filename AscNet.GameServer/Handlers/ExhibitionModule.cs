@@ -29,14 +29,16 @@ namespace AscNet.GameServer.Handlers
         {
             GatherRewardRequest req = MessagePackSerializer.Deserialize<GatherRewardRequest>(packet.Content);
             ExhibitionRewardTable? exhibitionReward = TableReaderV2.Parse<ExhibitionRewardTable>().Find(x => x.Id == req.Id);
-            if (exhibitionReward is null || exhibitionReward.RewardId is null or <= 0)
+            if (exhibitionReward is null)
             {
                 session.SendResponse(new GatherRewardResponse() { Code = 1 }, packet.Id);
                 return;
             }
 
-            var rewardGoodsTables = RewardHandler.GetRewardGoods(exhibitionReward.RewardId.Value);
-            if (rewardGoodsTables.Count == 0)
+            var rewardGoodsTables = exhibitionReward.RewardId is > 0
+                ? RewardHandler.GetRewardGoods(exhibitionReward.RewardId.Value)
+                : [];
+            if (exhibitionReward.RewardId is > 0 && rewardGoodsTables.Count == 0)
             {
                 session.SendResponse(new GatherRewardResponse() { Code = 1 }, packet.Id);
                 return;
