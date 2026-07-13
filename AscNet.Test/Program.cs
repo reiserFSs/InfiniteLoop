@@ -18,6 +18,7 @@ using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.character.enhanceskill;
 using AscNet.Table.V2.share.equip;
+using AscNet.Table.V2.share.attrib;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.robot;
@@ -1177,6 +1178,7 @@ namespace AscNet.Test
             ValidateEquipAwakeBehavior();
             ValidateEquipQuickAwakeBehavior();
             ValidateEquipQuickResonanceChipBehavior();
+            ValidateEquipQuickAttributeResonanceBehavior();
 
 
         }
@@ -1444,6 +1446,213 @@ namespace AscNet.Test
                     nameof(EquipQuickResonanceChipResponse)).Code, "quick resonance parameter error");
             }
         }
+        private static void ValidateEquipQuickAttributeResonanceBehavior()
+        {
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            List<EquipResonanceTable> resonanceTables = TableReaderV2.Parse<EquipResonanceTable>();
+            List<AttribPoolTable> attributeTables = TableReaderV2.Parse<AttribPoolTable>();
+            List<EquipResonanceUseItemTable> useItemTables =
+                TableReaderV2.Parse<EquipResonanceUseItemTable>();
+            List<(EquipTable Equip, EquipResonanceTable Resonance, EquipResonanceUseItemTable Cost)> targets =
+                resonanceTables
+                    .Select(resonance => (
+                        Equip: equipTables.Find(equip => equip.Id == resonance.Id),
+                        Resonance: resonance,
+                        Cost: useItemTables.Find(cost => cost.Id == resonance.Id)))
+                    .Where(value => value.Equip is { Site: >= 1 and <= 6, Quality: 6 }
+                        && value.Resonance.AttribPoolId.ElementAtOrDefault(0) > 0
+                        && value.Cost?.SelectSkillItemId > 0
+                        && value.Cost.SelectSkillItemCount > 0)
+                    .Select(value => (value.Equip!, value.Resonance, value.Cost!))
+                    .Take(5)
+                    .ToList();
+            AssertEqual(5, targets.Count, "table-backed attribute quick resonance target count");
+            int attributePoolId = targets[0].Resonance.AttribPoolId[0];
+            AttribPoolTable selectedAttribute = attributeTables.First(attribute =>
+                attribute.PoolId == attributePoolId
+                && attribute.Name == "Ex - Precision Attack"
+                && targets.All(target => target.Resonance.AttribPoolId[0] == attribute.PoolId));
+            int useItemId = targets[0].Cost.SelectSkillItemId!.Value;
+            if (targets.Any(target => target.Cost.SelectSkillItemId != useItemId))
+                throw new InvalidDataException("Selected quick-resonance material is not shared by table-backed targets.");
+
+            int Cost(EquipResonanceUseItemTable recipe) => recipe.SelectSkillItemCount!.Value;
+            EquipQuickResonanceChipRequest Request(IEnumerable<uint> ids) => new()
+            {
+                Slot = 1,
+                SelectType = EquipResonanceType.Attrib,
+                EquipIds = ids.Select(Convert.ToInt32).ToList(),
+                SelectSkillId = selectedAttribute.Id,
+                UseItemId = useItemId,
+                CharacterId = 0
+            };
+            EquipData MakeEquip(int id, int targetIndex) => new()
+            {
+                Id = Convert.ToUInt32(id),
+                TemplateId = Convert.ToUInt32(targets[targetIndex].Equip.Id),
+                Level = 1,
+                Breakthrough = 0,
+                ResonanceInfo = targetIndex == 0
+                    ? [new ResonanceInfo
+                    {
+                        Slot = 2,
+                        Type = EquipResonanceType.Attrib,
+                        CharacterId = 0,
+                        TemplateId = selectedAttribute.Id
+                    }]
+                    : []
+            };
+
+            EquipData singleEquip = MakeEquip(91_000, 0);
+            AscNet.Common.Database.Character singleCharacter = new() { Equips = [] };
+            singleCharacter.Equips.Add(singleEquip);
+            Inventory singleInventory = new() { Items = [] };
+            singleInventory.Items.Add(new Item { Id = useItemId, Count = Cost(targets[0].Cost) });
+            using (LoopbackSessionHarness singleHarness =
+                new(singleCharacter, inventory: singleInventory))
+            {
+                InvokeRequestHandler(singleHarness, nameof(EquipQuickResonanceChipRequest), 16_092,
+                    Request([singleEquip.Id]));
+                _ = ReadPushPayload<NotifyArchiveEquip>(
+                    singleHarness, nameof(NotifyArchiveEquip), "single attribute archive push");
+                _ = ReadPushPayload<NotifyItemDataList>(
+                    singleHarness, nameof(NotifyItemDataList), "single attribute material push");
+                EquipQuickResonanceChipResponse response =
+                    ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                        singleHarness.ReadPacket("single attribute response"),
+                        nameof(EquipQuickResonanceChipResponse));
+                AssertEqual(0, response.Code, "single attribute response code");
+                AssertIntegerList([singleEquip.Id], response.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
+                    "single attribute success ids");
+                ResonanceInfo applied = singleEquip.ResonanceInfo.Single(value => value.Slot == 1);
+                AssertEqual((int)EquipResonanceType.Attrib, (int)applied.Type,
+                    "single selected attribute type");
+                AssertEqual(selectedAttribute.Id, applied.TemplateId, "single selected attribute id");
+                AssertEqual(0, applied.CharacterId, "attribute resonance has no character binding");
+            }
+
+            List<EquipData> batchEquips = Enumerable.Range(0, targets.Count)
+                .Select(index => MakeEquip(91_100 + index, index))
+                .ToList();
+            AscNet.Common.Database.Character batchCharacter = new() { Equips = [] };
+            batchCharacter.Equips.AddRange(batchEquips);
+            int aggregateCost = targets.Sum(target => Cost(target.Cost));
+            Inventory batchInventory = new() { Items = [] };
+            batchInventory.Items.Add(new Item { Id = useItemId, Count = aggregateCost });
+            using LoopbackSessionHarness batchHarness =
+                new(batchCharacter, inventory: batchInventory);
+            InvokeRequestHandler(batchHarness, nameof(EquipQuickResonanceChipRequest), 16_093,
+                Request(batchEquips.Select(equip => equip.Id)));
+            NotifyArchiveEquip archive = ReadPushPayload<NotifyArchiveEquip>(
+                batchHarness, nameof(NotifyArchiveEquip), "five-target attribute archive push");
+            AssertIntegerList([2, 1, 1, 1, 1],
+                archive.Equips.Select(value => (long)value.ResonanceCount).ToArray(),
+                "five-target attribute archive resonance counts");
+            NotifyItemDataList materialPush = ReadPushPayload<NotifyItemDataList>(
+                batchHarness, nameof(NotifyItemDataList), "five-target attribute material push");
+            AssertEqual(0L, materialPush.ItemDataList.Single().Count,
+                "five-target aggregate selected-material cost");
+            EquipQuickResonanceChipResponse batchResponse =
+                ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                    batchHarness.ReadPacket("five-target attribute response"),
+                    nameof(EquipQuickResonanceChipResponse));
+            AssertEqual(0, batchResponse.Code, "five-target attribute response code");
+            AssertIntegerList(batchEquips.Select(equip => (long)equip.Id).ToArray(),
+                batchResponse.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
+                "five-target attribute all-selected success ids");
+            foreach (EquipData equip in batchEquips)
+            {
+                ResonanceInfo applied = equip.ResonanceInfo.Single(value => value.Slot == 1);
+                AssertEqual(selectedAttribute.Id, applied.TemplateId,
+                    "five-target selected attribute persisted in memory");
+                EquipData persisted = MessagePackSerializer.Deserialize<EquipData>(
+                    MessagePackSerializer.Serialize(equip));
+                AssertEqual(selectedAttribute.Id,
+                    persisted.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                    "five-target selected attribute persistence round trip");
+            }
+
+            (EquipTable Equip, EquipResonanceTable Resonance, EquipResonanceUseItemTable Cost) invalidTarget =
+                resonanceTables
+                    .Select(resonance => (
+                        Equip: equipTables.Find(equip => equip.Id == resonance.Id),
+                        Resonance: resonance,
+                        Cost: useItemTables.Find(cost => cost.Id == resonance.Id)))
+                    .Where(value => value.Equip is { Site: >= 1 and <= 6 }
+                        && value.Cost is not null
+                        && value.Resonance.AttribPoolId.ElementAtOrDefault(0) > 0
+                        && !attributeTables.Any(attribute =>
+                            attribute.PoolId == value.Resonance.AttribPoolId[0]
+                            && attribute.Id == selectedAttribute.Id))
+                    .Select(value => (value.Equip!, value.Resonance, value.Cost!))
+                    .First();
+            EquipData validAtomicTarget = MakeEquip(91_200, 0);
+            EquipData invalidAtomicTarget = new()
+            {
+                Id = 91_201,
+                TemplateId = Convert.ToUInt32(invalidTarget.Equip.Id),
+                ResonanceInfo = []
+            };
+            AscNet.Common.Database.Character atomicCharacter = new() { Equips = [] };
+            atomicCharacter.Equips.AddRange([validAtomicTarget, invalidAtomicTarget]);
+            int mixedUseItemId = targets[0].Cost.ItemId.First(itemId =>
+                invalidTarget.Cost.ItemId.Contains(itemId));
+            int ConfiguredCost(EquipResonanceUseItemTable recipe, int itemId) =>
+                recipe.ItemCount[recipe.ItemId.IndexOf(itemId)];
+            int mixedMaterialCost = ConfiguredCost(targets[0].Cost, mixedUseItemId)
+                + ConfiguredCost(invalidTarget.Cost, mixedUseItemId);
+            Inventory atomicInventory = new() { Items = [] };
+            atomicInventory.Items.Add(new Item { Id = mixedUseItemId, Count = mixedMaterialCost });
+            if (mixedUseItemId != useItemId)
+                atomicInventory.Items.Add(new Item { Id = useItemId, Count = Cost(targets[0].Cost) * 2 });
+            using LoopbackSessionHarness atomicHarness =
+                new(atomicCharacter, inventory: atomicInventory);
+            InvokeRequestHandler(atomicHarness, nameof(EquipQuickResonanceChipRequest), 16_094,
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1,
+                    SelectType = EquipResonanceType.Attrib,
+                    EquipIds = [Convert.ToInt32(validAtomicTarget.Id), Convert.ToInt32(invalidAtomicTarget.Id)],
+                    SelectSkillId = selectedAttribute.Id,
+                    UseItemId = mixedUseItemId,
+                    CharacterId = 0
+                });
+            AssertEqual(20021114, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                atomicHarness.ReadPacket("mixed-pool attribute response"),
+                nameof(EquipQuickResonanceChipResponse)).Code,
+                "attribute invalid for one target parameter error");
+            AssertEqual(1, validAtomicTarget.ResonanceInfo.Count,
+                "mixed-pool failure preserves valid target existing lower slot");
+            AssertEqual(0, invalidAtomicTarget.ResonanceInfo.Count,
+                "mixed-pool failure preserves invalid target");
+            long atomicMaterial = atomicInventory.Items.Single(item => item.Id == mixedUseItemId).Count;
+
+            InvokeRequestHandler(atomicHarness, nameof(EquipQuickResonanceChipRequest), 16_095,
+                Request([validAtomicTarget.Id, validAtomicTarget.Id]));
+            AssertEqual(20021114, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                atomicHarness.ReadPacket("duplicate attribute response"),
+                nameof(EquipQuickResonanceChipResponse)).Code, "attribute duplicate target parameter error");
+            AssertEqual(atomicMaterial,
+                atomicInventory.Items.Single(item => item.Id == mixedUseItemId).Count,
+                "duplicate failure preserves material");
+
+            atomicInventory.Items.Single(item => item.Id == useItemId).Count =
+                Cost(targets[0].Cost) * 2 - 1;
+            EquipData secondValidTarget = MakeEquip(91_202, 0);
+            atomicCharacter.Equips.Add(secondValidTarget);
+            InvokeRequestHandler(atomicHarness, nameof(EquipQuickResonanceChipRequest), 16_096,
+                Request([validAtomicTarget.Id, secondValidTarget.Id]));
+            AssertEqual(20012004, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                atomicHarness.ReadPacket("aggregate-insufficient attribute response"),
+                nameof(EquipQuickResonanceChipResponse)).Code,
+                "attribute aggregate insufficient material error");
+            AssertEqual(false, secondValidTarget.ResonanceInfo.Any(value => value.Slot == 1),
+                "aggregate-insufficient failure does not apply the requested slot");
+            AssertEqual(Cost(targets[0].Cost) * 2 - 1,
+                atomicInventory.Items.Single(item => item.Id == useItemId).Count,
+                "aggregate-insufficient failure preserves material");
+        }
+
 
         private static void ValidateMemoryResonanceCharacterBinding()
         {

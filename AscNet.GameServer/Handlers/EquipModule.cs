@@ -1010,23 +1010,29 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new EquipQuickResonanceChipResponse { Code = paramError }, packet.Id);
             }
 
+            bool isAttributeSelection = request.SelectType == EquipResonanceType.Attrib;
+            bool isCharacterSkillSelection = request.SelectType == EquipResonanceType.CharacterSkill;
             if (request.Slot is not (1 or 2)
-                || request.SelectType != EquipResonanceType.CharacterSkill
+                || (!isAttributeSelection && !isCharacterSkillSelection)
                 || request.SelectSkillId <= 0
                 || request.UseItemId <= 0
-                || request.CharacterId <= 0
                 || request.EquipIds.Count == 0
                 || request.EquipIds.Count != request.EquipIds.Distinct().Count()
-                || !session.character.Characters.Any(character => character.Id == request.CharacterId))
+                || (isCharacterSkillSelection
+                    && (request.CharacterId <= 0
+                        || !session.character.Characters.Any(character => character.Id == request.CharacterId))))
             {
                 RejectParameter("invalid request envelope");
                 return;
             }
 
-            CharacterSkillTable? characterSkills = TableReaderV2.Parse<CharacterSkillTable>()
-                .Find(row => row.CharacterId == request.CharacterId);
+            CharacterSkillTable? characterSkills = isCharacterSkillSelection
+                ? TableReaderV2.Parse<CharacterSkillTable>()
+                    .Find(row => row.CharacterId == request.CharacterId)
+                : null;
             List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
             List<EquipResonanceTable> resonanceTables = TableReaderV2.Parse<EquipResonanceTable>();
+            List<AttribPoolTable> attribPoolTables = TableReaderV2.Parse<AttribPoolTable>();
             List<EquipResonanceUseItemTable> resonanceUseItemTables =
                 TableReaderV2.Parse<EquipResonanceUseItemTable>();
             List<EquipData> equips = new(request.EquipIds.Count);
@@ -1048,20 +1054,36 @@ namespace AscNet.GameServer.Handlers
                     return;
                 }
 
-                int skillPoolId = ResolveCharacterSkillPool(
-                    equipTable, request.Slot, resonanceTables);
-                if (skillPoolId <= 0)
+                int resonancePoolId;
+                if (isAttributeSelection)
                 {
-                    RejectParameter("character skill pool not resolved",
-                        equip.Id, equip.TemplateId, skillPoolId);
-                    return;
+                    resonancePoolId = ResolveAttributePool(equipTable, request.Slot, resonanceTables);
+                    if (resonancePoolId <= 0
+                        || !attribPoolTables.Any(row =>
+                            row.PoolId == resonancePoolId && row.Id == request.SelectSkillId))
+                    {
+                        RejectParameter("selected attribute is not in the resolved attribute pool",
+                            equip.Id, equip.TemplateId, resonancePoolId);
+                        return;
+                    }
                 }
-                if (!CharacterOwnsResonanceSkill(
-                    characterSkills, skillPoolId, request.SelectSkillId))
+                else
                 {
-                    RejectParameter("selected skill is not in the resolved character skill pool",
-                        equip.Id, equip.TemplateId, skillPoolId);
-                    return;
+                    resonancePoolId = ResolveCharacterSkillPool(
+                        equipTable, request.Slot, resonanceTables);
+                    if (resonancePoolId <= 0)
+                    {
+                        RejectParameter("character skill pool not resolved",
+                            equip.Id, equip.TemplateId, resonancePoolId);
+                        return;
+                    }
+                    if (!CharacterOwnsResonanceSkill(
+                        characterSkills, resonancePoolId, request.SelectSkillId))
+                    {
+                        RejectParameter("selected skill is not in the resolved character skill pool",
+                            equip.Id, equip.TemplateId, resonancePoolId);
+                        return;
+                    }
                 }
 
                 int equipMaterialCost = ResolveResonanceMaterialCost(
@@ -1069,7 +1091,7 @@ namespace AscNet.GameServer.Handlers
                 if (equipMaterialCost <= 0)
                 {
                     RejectParameter("resonance material recipe not resolved",
-                        equip.Id, equip.TemplateId, skillPoolId, equipMaterialCost);
+                        equip.Id, equip.TemplateId, resonancePoolId, equipMaterialCost);
                     return;
                 }
 
@@ -1080,7 +1102,7 @@ namespace AscNet.GameServer.Handlers
                 catch (OverflowException)
                 {
                     RejectParameter("total material cost overflow",
-                        equip.Id, equip.TemplateId, skillPoolId, equipMaterialCost);
+                        equip.Id, equip.TemplateId, resonancePoolId, equipMaterialCost);
                     return;
                 }
                 equips.Add(equip);
@@ -1101,7 +1123,7 @@ namespace AscNet.GameServer.Handlers
                 {
                     Slot = request.Slot,
                     Type = request.SelectType,
-                    CharacterId = request.CharacterId,
+                    CharacterId = isCharacterSkillSelection ? request.CharacterId : 0,
                     TemplateId = request.SelectSkillId,
                     UseItemId = request.UseItemId
                 });
@@ -1129,6 +1151,16 @@ namespace AscNet.GameServer.Handlers
             {
                 SuccessEquipIds = request.EquipIds.ToList()
             }, packet.Id);
+        }
+
+        private static int ResolveAttributePool(
+            EquipTable equip,
+            int slot,
+            List<EquipResonanceTable> resonanceTables)
+        {
+            return resonanceTables
+                .Find(row => row.Id == equip.Id)?
+                .AttribPoolId.ElementAtOrDefault(slot - 1) ?? 0;
         }
 
         private static int ResolveCharacterSkillPool(
