@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import contextlib
 import os
@@ -17,8 +18,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-import fcntl
-from typing import Iterable
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
+from typing import BinaryIO, Iterable
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_KRSDK_CACHE_DIR = Path.home() / "Applications/Sikarugir/Steam-AscNet.app/Contents/SharedSupport/prefix/drive_c/users/Sikarugir/AppData/Roaming/KR_G143/A1855"
@@ -163,6 +167,36 @@ def wait_for_tcp(host: str, port: int, timeout: float, label: str) -> None:
     raise SystemExit(f"{label} did not become reachable on {host}:{port} within {timeout:g}s.")
 
 
+def _lock_build_file(lock_file: BinaryIO) -> None:
+    if sys.platform != "win32":
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        return
+
+    lock_file.seek(0, os.SEEK_END)
+    if lock_file.tell() == 0:
+        lock_file.write(b"\0")
+        lock_file.flush()
+
+    while True:
+        lock_file.seek(0)
+        try:
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            return
+        except OSError as exc:
+            if exc.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                raise
+            time.sleep(0.05)
+
+def _unlock_build_file(lock_file: BinaryIO) -> None:
+    if sys.platform != "win32":
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        return
+
+    lock_file.seek(0)
+    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+
 @contextlib.contextmanager
 def serialized_build_lock() -> Iterable[None]:
     """Prevent concurrent runner instances from writing the shared MSBuild obj tree."""
@@ -170,11 +204,11 @@ def serialized_build_lock() -> Iterable[None]:
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+b") as lock_file:
         print(f"Waiting for AscNet build lock: {lock_path}", flush=True)
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        _lock_build_file(lock_file)
         try:
             yield
         finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            _unlock_build_file(lock_file)
 
 
 def build_ascnet(dotnet: str, env: dict[str, str]) -> None:

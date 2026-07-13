@@ -120,7 +120,7 @@ Minimum local tooling:
 
 - .NET SDK 8
 - MongoDB reachable at `127.0.0.1:27017`, or `mongod` available for `run_steam.py --with-mongo`
-- Python 3 for `run_steam.py`
+- Python 3.10 or newer for `run_steam.py`
 - mitmproxy/mitmdump for Steam/PC bridge mode
 - A local Punishing: Gray Raven PC/Steam installation for client testing
 
@@ -180,10 +180,13 @@ Common options:
 | `--ascnet-password test` | Password used when creating that local account. |
 | `--gate-fallback-username <name>` | Map unknown Steam/KRSDK gate logins to an existing local account. |
 | `--seed-krsdk-cache` | Opt in to writing local AscNet account data into KRSDK cache files. |
+| `--krsdk-cache-dir <path>` | Override the KRSDK login-cache directory used for repair/seeding. |
 | `--no-proxy` | Run only AscNet; skip mitmproxy. |
 | `--no-smoke` | Skip config smoke checks before launching. |
 | `--proxy-log <path>` | Write redacted request/response diagnostics. |
 | `--launch-cmd ...` | Command to start after AscNet/proxy are ready. |
+
+On native Windows, pass the client's actual `%APPDATA%\KR_G143\A1855` directory with `--krsdk-cache-dir` when using KRSDK cache repair or `--seed-krsdk-cache`; the default path targets the macOS/CrossOver launch example.
 
 The runner sets:
 
