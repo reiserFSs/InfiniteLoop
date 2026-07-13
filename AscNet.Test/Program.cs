@@ -297,6 +297,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--item-exchange-compat-only"))
+                {
+                    ValidateItemExchangeCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--item-sell-compat-only"))
                 {
                     ValidateItemSellCompatibility();
@@ -1167,6 +1173,836 @@ namespace AscNet.Test
             }
 
             ValidateEquipResonanceSelectionAndSwapBehavior();
+            ValidateMemoryResonanceCharacterBinding();
+            ValidateEquipAwakeBehavior();
+            ValidateEquipQuickAwakeBehavior();
+            ValidateEquipQuickResonanceChipBehavior();
+
+
+        }
+
+        private static void ValidateEquipQuickResonanceChipBehavior()
+        {
+            EquipQuickResonanceChipRequest captured = MessagePackSerializer.Deserialize<EquipQuickResonanceChipRequest>(
+                MessagePackSerializer.Serialize(new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1,
+                    SelectType = EquipResonanceType.CharacterSkill,
+                    EquipIds = [497],
+                    SelectSkillId = 102716,
+                    UseItemId = 3005,
+                    CharacterId = 1021007
+                }));
+            AssertEqual(1, captured.Slot, "captured quick resonance Slot");
+            AssertEqual((int)EquipResonanceType.CharacterSkill, (int)captured.SelectType,
+                "captured quick resonance SelectType");
+            AssertIntegerList([497], captured.EquipIds.Select(Convert.ToInt64).ToArray(),
+                "captured quick resonance EquipIds");
+            AssertEqual(102716, captured.SelectSkillId, "captured quick resonance SelectSkillId");
+            AssertEqual(3005, captured.UseItemId, "captured quick resonance UseItemId");
+            AssertEqual(1021007, captured.CharacterId, "captured quick resonance CharacterId");
+
+            EquipData capturedEquip = new()
+            {
+                Id = 1361,
+                TemplateId = 3016036,
+                Level = 45,
+                Breakthrough = 4,
+                ResonanceInfo =
+                [
+                    new ResonanceInfo
+                    {
+                        Slot = 2,
+                        Type = EquipResonanceType.CharacterSkill,
+                        CharacterId = 1261003,
+                        TemplateId = 126316,
+                        UseItemId = 3005
+                    }
+                ]
+            };
+            AscNet.Common.Database.Character capturedCharacter = new()
+            {
+                Uid = 16_086,
+                Characters = [new CharacterData { Id = 1261003 }],
+                Equips = [capturedEquip],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory capturedInventory = new()
+            {
+                Uid = capturedCharacter.Uid,
+                Items = [new Item { Id = 3005, Count = 1 }]
+            };
+            using (LoopbackSessionHarness capturedHarness = new(capturedCharacter, inventory: capturedInventory))
+            {
+                InvokeRequestHandler(capturedHarness, nameof(EquipQuickResonanceChipRequest), 16_086,
+                    new EquipQuickResonanceChipRequest
+                    {
+                        CharacterId = 1261003,
+                        SelectType = (EquipResonanceType)2,
+                        EquipIds = [1361],
+                        SelectSkillId = 126316,
+                        UseItemId = 3005,
+                        Slot = 1
+                    });
+                NotifyArchiveEquip archivePush = ReadPushPayload<NotifyArchiveEquip>(
+                    capturedHarness, nameof(NotifyArchiveEquip), "captured stale-table archive push");
+                NotifyArchiveEquip.NotifyArchiveEquipEquip archiveEquip = archivePush.Equips.Single();
+                AssertEqual(3_016_036L, Convert.ToInt64(archiveEquip.Id), "captured stale-table archive template");
+                AssertEqual(45, archiveEquip.Level, "captured stale-table archive level");
+                AssertEqual(4, archiveEquip.Breakthrough, "captured stale-table archive breakthrough");
+                AssertEqual(2, archiveEquip.ResonanceCount, "captured stale-table archive resonance count");
+                NotifyItemDataList itemPush = ReadPushPayload<NotifyItemDataList>(
+                    capturedHarness, nameof(NotifyItemDataList), "captured stale-table material push");
+                AssertEqual(0L, itemPush.ItemDataList.Single().Count, "captured item 3005 deduction");
+                EquipQuickResonanceChipResponse response = ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                    capturedHarness.ReadPacket("captured stale-table response"),
+                    nameof(EquipQuickResonanceChipResponse));
+                AssertEqual(0, response.Code, "captured stale-table response code");
+                AssertIntegerList([1361], response.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
+                    "captured stale-table success ids");
+                AssertEqual(126316, capturedEquip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                    "captured selected skill persisted in memory");
+                EquipData persistedCapturedEquip = MessagePackSerializer.Deserialize<EquipData>(
+                    MessagePackSerializer.Serialize(capturedEquip));
+                AssertEqual(126316,
+                    persistedCapturedEquip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                    "captured selected skill survives login persistence round trip");
+            }
+
+            EquipData first = new()
+            {
+                Id = 497,
+                TemplateId = 3046011,
+                Level = 45,
+                Breakthrough = 4,
+                ResonanceInfo =
+                [
+                    new ResonanceInfo
+                    {
+                        Slot = 1,
+                        Type = EquipResonanceType.CharacterSkill,
+                        CharacterId = 1021007,
+                        TemplateId = 102701,
+                        UseItemId = 47
+                    },
+                    new ResonanceInfo
+                    {
+                        Slot = 2,
+                        Type = EquipResonanceType.CharacterSkill,
+                        CharacterId = 1021007,
+                        TemplateId = 102717,
+                        UseItemId = 47
+                    }
+                ]
+            };
+            EquipData second = new() { Id = 498, TemplateId = 3026001 };
+            EquipData weapon = new() { Id = 499, TemplateId = 2016001 };
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 16_087,
+                Characters = [new CharacterData { Id = 1021007 }],
+                Equips = [first, second, weapon],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items = [new Item { Id = 3005, Count = 4 }]
+            };
+            using LoopbackSessionHarness harness = new(character, inventory: inventory);
+
+            InvokeRequestHandler(harness, nameof(EquipQuickResonanceChipRequest), 16_087, captured);
+            NotifyArchiveEquip singleArchivePush = ReadPushPayload<NotifyArchiveEquip>(
+                harness, nameof(NotifyArchiveEquip), "single quick resonance archive push");
+            AssertEqual(3_046_011L, Convert.ToInt64(singleArchivePush.Equips.Single().Id),
+                "single quick resonance archive template");
+            AssertEqual(45, singleArchivePush.Equips.Single().Level,
+                "single quick resonance archive level");
+            AssertEqual(4, singleArchivePush.Equips.Single().Breakthrough,
+                "single quick resonance archive breakthrough");
+            AssertEqual(2, singleArchivePush.Equips.Single().ResonanceCount,
+                "single quick resonance archive resonance count");
+            NotifyItemDataList singleItemPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "single quick resonance material push");
+            AssertEqual(3L, singleItemPush.ItemDataList.Single().Count, "single quick resonance material cost");
+            EquipQuickResonanceChipResponse singleResponse = ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                harness.ReadPacket("single quick resonance response"), nameof(EquipQuickResonanceChipResponse));
+            AssertEqual(0, singleResponse.Code, "single quick resonance response code");
+            AssertIntegerList([497], singleResponse.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
+                "single quick resonance successful equipment ids");
+            AssertEqual(102716, first.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                "quick reroll immediately replaces active resonance");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                "quick reroll creates no provisional session state");
+
+            InvokeRequestHandler(harness, nameof(EquipQuickResonanceChipRequest), 16_088,
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1,
+                    SelectType = EquipResonanceType.CharacterSkill,
+                    EquipIds = [497, 498],
+                    SelectSkillId = 102716,
+                    UseItemId = 3005,
+                    CharacterId = 1021007
+                });
+            NotifyArchiveEquip multiArchivePush = ReadPushPayload<NotifyArchiveEquip>(
+                harness, nameof(NotifyArchiveEquip), "multi quick resonance archive push");
+            AssertIntegerList([3046011, 3026001],
+                multiArchivePush.Equips.Select(value => (long)value.Id).ToArray(),
+                "multi quick resonance archive templates");
+            AssertIntegerList([2, 1],
+                multiArchivePush.Equips.Select(value => (long)value.ResonanceCount).ToArray(),
+                "multi quick resonance archive resonance counts");
+            NotifyItemDataList multiItemPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "multi quick resonance material push");
+            AssertEqual(1L, multiItemPush.ItemDataList.Single().Count, "multi quick resonance total material cost");
+            EquipQuickResonanceChipResponse multiResponse = ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                harness.ReadPacket("multi quick resonance response"), nameof(EquipQuickResonanceChipResponse));
+            AssertEqual(0, multiResponse.Code, "multi quick resonance response code");
+            AssertIntegerList([497, 498], multiResponse.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
+                "multi quick resonance successful equipment ids");
+            AssertEqual(102716, second.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                "quick first roll is immediately active");
+            EquipData persisted = MessagePackSerializer.Deserialize<EquipData>(
+                MessagePackSerializer.Serialize(second));
+            AssertEqual(102716, persisted.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                "quick resonance survives persistence round trip");
+
+            InvokeRequestHandler(harness, nameof(EquipQuickResonanceChipRequest), 16_089,
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1,
+                    SelectType = EquipResonanceType.CharacterSkill,
+                    EquipIds = [499],
+                    SelectSkillId = 102716,
+                    UseItemId = 3005,
+                    CharacterId = 1021007
+                });
+            AssertEqual(20021115, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                harness.ReadPacket("non-chip quick resonance response"),
+                nameof(EquipQuickResonanceChipResponse)).Code, "non-chip quick resonance error");
+
+            int firstSlotOneSkill = first.ResonanceInfo.Single(value => value.Slot == 1).TemplateId;
+            int secondSlotOneSkill = second.ResonanceInfo.Single(value => value.Slot == 1).TemplateId;
+            InvokeRequestHandler(harness, nameof(EquipQuickResonanceChipRequest), 16_090,
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1,
+                    SelectType = EquipResonanceType.CharacterSkill,
+                    EquipIds = [497, 498],
+                    SelectSkillId = 102716,
+                    UseItemId = 3005,
+                    CharacterId = 1021007
+                });
+            AssertEqual(20012004, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                harness.ReadPacket("insufficient quick resonance response"),
+                nameof(EquipQuickResonanceChipResponse)).Code, "insufficient quick resonance error");
+            AssertEqual(firstSlotOneSkill, first.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                "insufficient material preserves first target");
+            AssertEqual(secondSlotOneSkill, second.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                "insufficient material preserves second target");
+            AssertEqual(1L, inventory.Items.Single(value => value.Id == 3005).Count,
+                "insufficient quick resonance preserves material");
+
+            foreach (EquipQuickResonanceChipRequest invalid in new[]
+            {
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 3, SelectType = EquipResonanceType.CharacterSkill, EquipIds = [497],
+                    SelectSkillId = 102716, UseItemId = 3005, CharacterId = 1021007
+                },
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1, SelectType = EquipResonanceType.Attrib, EquipIds = [497],
+                    SelectSkillId = 102716, UseItemId = 3005, CharacterId = 1021007
+                },
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1, SelectType = EquipResonanceType.CharacterSkill, EquipIds = [497],
+                    SelectSkillId = 102721, UseItemId = 3005, CharacterId = 1021007
+                },
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1, SelectType = EquipResonanceType.CharacterSkill, EquipIds = [497],
+                    SelectSkillId = 102716, UseItemId = 3005, CharacterId = 1021006
+                },
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1, SelectType = EquipResonanceType.CharacterSkill, EquipIds = [497, 497],
+                    SelectSkillId = 102716, UseItemId = 3005, CharacterId = 1021007
+                },
+                new EquipQuickResonanceChipRequest
+                {
+                    Slot = 1, SelectType = EquipResonanceType.CharacterSkill, EquipIds = [497, 50_000],
+                    SelectSkillId = 102716, UseItemId = 3005, CharacterId = 1021007
+                }
+            })
+            {
+                InvokeRequestHandler(harness, nameof(EquipQuickResonanceChipRequest), 16_091, invalid);
+                AssertEqual(20021114, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                    harness.ReadPacket("invalid quick resonance response"),
+                    nameof(EquipQuickResonanceChipResponse)).Code, "quick resonance parameter error");
+            }
+        }
+
+        private static void ValidateMemoryResonanceCharacterBinding()
+        {
+            const int characterId = 1121002;
+            EquipData equip = new() { Id = 2970, TemplateId = 3016001 };
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 16_076,
+                Characters = [],
+                Equips = [equip],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items = [new Item { Id = 47, Count = 1_755 }]
+            };
+            using LoopbackSessionHarness harness = new(character, inventory: inventory);
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_076,
+                new EquipResonanceRequest
+                {
+                    UseItemId = 47,
+                    EquipId = 2970,
+                    CharacterId = characterId,
+                    Slots = [1],
+                    SelectSkillIds = null
+                });
+            NotifyItemDataList firstPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "memory resonance item push");
+            AssertEqual(1_170L, firstPush.ItemDataList.Single().Count, "captured first memory resonance cost");
+            EquipResonanceResponse response = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("memory EquipResonanceResponse"), nameof(EquipResonanceResponse));
+            AssertEqual(characterId, response.ResonanceDatas.Single().CharacterId,
+                "memory resonance preserves request CharacterId for hypertune eligibility");
+            AssertEqual(1, equip.ResonanceInfo.Count,
+                "captured first roll immediately becomes active");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                "captured first roll is not provisional");
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_077,
+                new EquipResonanceRequest
+                {
+                    UseItemId = 47,
+                    EquipId = 2970,
+                    CharacterId = characterId,
+                    Slots = [1],
+                    SelectSkillIds = null
+                });
+            _ = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "captured second-roll item push");
+            _ = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("captured second EquipResonanceResponse"), nameof(EquipResonanceResponse));
+            AssertEqual(1, harness.Session.PendingEquipResonances.Count,
+                "captured second roll against active is provisional");
+
+            InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_078,
+                new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 1, IsUse = false });
+            AssertEqual(0, ReadResponsePayload<EquipResonanceConfirmResponse>(
+                harness.ReadPacket("discarded memory resonance"), nameof(EquipResonanceConfirmResponse)).Code,
+                "discarded memory resonance response");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                "discard removes reroll provisional");
+            AssertEqual(1, equip.ResonanceInfo.Count,
+                "discard keeps first-roll active result");
+
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_079,
+                new EquipResonanceRequest { UseItemId = 47, EquipId = 2970, CharacterId = characterId, Slots = [1] });
+            NotifyItemDataList secondPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "captured third-roll item push");
+            AssertEqual(0L, secondPush.ItemDataList.Single().Count, "captured third resonance cost");
+            _ = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("captured third EquipResonanceResponse"), nameof(EquipResonanceResponse));
+            InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_080,
+                new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 1, IsUse = true });
+            _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
+                harness.ReadPacket("accepted memory resonance"), nameof(EquipResonanceConfirmResponse));
+            AssertEqual(1, equip.ResonanceInfo.Count, "accepted memory resonance becomes active");
+            AssertEqual(0, equip.UnconfirmedResonanceInfo.Count, "accepted memory resonance clears pending");
+            inventory.Items.Add(new Item { Id = 62738, Count = 613 });
+            Type resonanceAccountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo resonanceBuildNotifyLogin = RequiredMethod(
+                resonanceAccountModule,
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin resonanceLogin = resonanceBuildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
+                ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil.");
+            NotifyLogin resonanceLoginRoundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
+                MessagePackSerializer.Serialize(resonanceLogin));
+            Item loginMaterial = resonanceLoginRoundTrip.ItemList.Single(item => item.Id == 62738);
+            AssertEqual(613L, loginMaterial.Count,
+                "AccountModule.BuildNotifyLogin current resonance material 62738 count");
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_080,
+                new EquipResonanceRequest { UseItemId = 62738, EquipId = 2970, CharacterId = characterId, Slots = [2] });
+            NotifyItemDataList tokenPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "150-token memory resonance item push");
+            AssertEqual(0L, tokenPush.ItemDataList.Single().Count, "selected token resonance cost");
+            _ = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("150-token memory resonance"), nameof(EquipResonanceResponse));
+            InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_081,
+                new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 2, IsUse = false });
+            _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
+                harness.ReadPacket("discarded 150-token resonance"), nameof(EquipResonanceConfirmResponse));
+
+            inventory.Items.Single(item => item.Id == 62738).Count = 612;
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_082,
+                new EquipResonanceRequest { UseItemId = 62738, EquipId = 2970, CharacterId = characterId, Slots = [2] });
+            AssertEqual(20012004, ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("insufficient-token memory resonance"), nameof(EquipResonanceResponse)).Code,
+                "insufficient-token resonance error code");
+            AssertEqual(612L, inventory.Items.Single(item => item.Id == 62738).Count,
+                "insufficient-token resonance balance unchanged");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                "insufficient-token resonance does not mutate session pending state");
+            inventory.Items.Add(new Item { Id = 29, Count = 414 });
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_083,
+                new EquipResonanceRequest
+                {
+                    UseItemId = 29,
+                    EquipId = 2970,
+                    CharacterId = characterId,
+                    Slots = [2],
+                    SelectSkillIds = [112201]
+                });
+            NotifyItemDataList shardPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "6-star shard memory resonance item push");
+            AssertEqual(264L, shardPush.ItemDataList.Single().Count, "6-star shard resonance cost");
+            _ = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("6-star shard memory resonance"), nameof(EquipResonanceResponse));
+            AssertEqual(2, equip.ResonanceInfo.Count, "memory SelectSkillIds reroll keeps active slots pending confirmation");
+            AssertEqual(2, harness.Session.PendingEquipResonances.Single().Value.Slot,
+                "bottom-slot session-provisional slot");
+            InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_084,
+                new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 2, IsUse = true });
+            _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
+                harness.ReadPacket("accepted 6-star shard resonance"), nameof(EquipResonanceConfirmResponse));
+            AssertIntegerList([1, 2], equip.ResonanceInfo.OrderBy(value => value.Slot)
+                .Select(value => (long)value.Slot).ToArray(), "accepted top and bottom resonance slots");
+            EquipData relogin = MessagePackSerializer.Deserialize<EquipData>(
+                MessagePackSerializer.Serialize(equip));
+            _ = AscNet.Common.Database.Character.NormalizeEquipResonances(relogin);
+            AssertIntegerList([1, 2], relogin.ResonanceInfo.OrderBy(value => value.Slot)
+                .Select(value => (long)value.Slot).ToArray(), "relogin top and bottom resonance slots");
+            const long resonancePersistenceUid = -8_800_076;
+            FilterDefinition<AscNet.Common.Database.Character> resonanceFilter =
+                Builders<AscNet.Common.Database.Character>.Filter.Eq(value => value.Uid, resonancePersistenceUid);
+            AscNet.Common.Database.Character.collection.DeleteMany(resonanceFilter);
+            try
+            {
+                harness.Session.PendingEquipResonances[(equip.Id, 1)] = new ResonanceInfo
+                {
+                    Slot = 1,
+                    Type = EquipResonanceType.Attrib,
+                    CharacterId = characterId,
+                    TemplateId = 33,
+                    UseItemId = 47
+                };
+                AssertEqual(0, equip.UnconfirmedResonanceInfo.Count,
+                    "abandoned session result is absent from persisted character before logout");
+                AscNet.Common.Database.Character persistedCharacter =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                        character.ToBson());
+                persistedCharacter.Id = ObjectId.GenerateNewId();
+                persistedCharacter.Uid = resonancePersistenceUid;
+                persistedCharacter.Equips = [relogin];
+                AscNet.Common.Database.Character.collection.InsertOne(persistedCharacter);
+                persistedCharacter.Save();
+                AscNet.Common.Database.Character databaseReload =
+                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
+                EquipData databaseEquip = databaseReload.Equips.Single();
+                AssertIntegerList([1, 2], databaseEquip.ResonanceInfo.OrderBy(value => value.Slot)
+                    .Select(value => (long)value.Slot).ToArray(), "Mongo re-login top and bottom resonance slots");
+                AssertEqual(0, databaseEquip.UnconfirmedResonanceInfo.Count,
+                    "Mongo logout/relogin does not grant or replay abandoned session result");
+                AssertEqual(2, databaseEquip.ResonanceInfo.Count,
+                    "Mongo logout/relogin preserves only confirmed active results");
+                harness.Session.PendingEquipResonances.Clear();
+            }
+            finally
+            {
+                AscNet.Common.Database.Character.collection.DeleteMany(resonanceFilter);
+            }
+
+            EquipData malformedExisting = new()
+            {
+                Id = 524,
+                TemplateId = 3036007,
+                Level = 45,
+                Breakthrough = 4,
+                ResonanceInfo =
+                [
+                    new ResonanceInfo { Slot = 1, Type = EquipResonanceType.Attrib, CharacterId = 1191003, TemplateId = 33 }
+                ],
+                UnconfirmedResonanceInfo =
+                [
+                    new ResonanceInfo
+                    {
+                        Slot = 2,
+                        Type = EquipResonanceType.CharacterSkill,
+                        CharacterId = 1191003,
+                        TemplateId = 119322
+                    }
+                ],
+                AwakeSlotList = [1, 2]
+            };
+            AscNet.Common.Database.Character migrationCharacter = new()
+            {
+                Id = ObjectId.GenerateNewId(),
+                Uid = resonancePersistenceUid,
+                Characters = [],
+                Equips = [malformedExisting],
+                Fashions = []
+            };
+            AscNet.Common.Database.Character.collection.DeleteMany(resonanceFilter);
+            try
+            {
+                AscNet.Common.Database.Character.collection.InsertOne(migrationCharacter);
+                AscNet.Common.Database.Character firstMigrationReload =
+                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
+                EquipData migrated = firstMigrationReload.Equips.Single();
+                AssertIntegerList([1, 2], migrated.ResonanceInfo.OrderBy(value => value.Slot)
+                    .Select(value => (long)value.Slot).ToArray(), "Mongo migrated awake resonance slots");
+                AssertEqual(119322, migrated.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                    "Mongo migration promotes accepted pending slot 2");
+                AssertEqual(0, migrated.UnconfirmedResonanceInfo.Count,
+                    "Mongo migration clears promoted pending slot");
+                AssertIntegerList([1, 2], migrated.AwakeSlotList.Select(Convert.ToInt64).ToArray(),
+                    "Mongo migration preserves BSON Int32 awake slots");
+                AscNet.Common.Database.Character originalSessionCharacter = harness.Session.character;
+                harness.Session.character = firstMigrationReload;
+                Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+                MethodInfo buildNotifyLogin = RequiredMethod(
+                    accountModule,
+                    "BuildNotifyLogin",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    [typeof(Session)]);
+                NotifyLogin servedLogin = (NotifyLogin?)buildNotifyLogin.Invoke(null, [harness.Session])
+                    ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil.");
+                harness.Session.character = originalSessionCharacter;
+                JObject servedLoginJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                    MessagePackSerializer.Serialize(servedLogin)));
+                JObject servedEquipJson = (JObject?)servedLoginJson["EquipList"]?
+                    .Single(token => token["Id"]?.Value<uint>() == malformedExisting.Id)
+                    ?? throw new InvalidDataException("Migrated equip missing from served NotifyLogin.");
+                if (servedEquipJson["UnconfirmedResonanceInfo"] is not JArray { Count: 0 })
+                {
+                    throw new InvalidDataException(
+                        "Served NotifyLogin must retain an empty UnconfirmedResonanceInfo field after migration.");
+                }
+
+                AscNet.Common.Database.Character secondMigrationReload =
+                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
+                EquipData secondMigrated = secondMigrationReload.Equips.Single();
+                AssertIntegerList([1, 2], secondMigrated.ResonanceInfo.OrderBy(value => value.Slot)
+                    .Select(value => (long)value.Slot).ToArray(), "Mongo migration is idempotent");
+                AssertEqual(0, secondMigrated.UnconfirmedResonanceInfo.Count,
+                    "second Mongo reload leaves no resolved pending resonance");
+            }
+            finally
+            {
+                AscNet.Common.Database.Character.collection.DeleteMany(resonanceFilter);
+            }
+
+
+            inventory.Items.Add(new Item { Id = 3004, Count = 1 });
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_085,
+                new EquipResonanceRequest { UseItemId = 3004, EquipId = 2970, CharacterId = characterId, Slots = [2] });
+            NotifyItemDataList configuredPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "configured memory resonance item push");
+            AssertEqual(0L, configuredPush.ItemDataList.Single().Count, "table-backed resonance cost");
+            _ = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("configured memory resonance"), nameof(EquipResonanceResponse));
+            InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_086,
+                new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 2, IsUse = false });
+            _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
+                harness.ReadPacket("discarded configured resonance"), nameof(EquipResonanceConfirmResponse));
+
+        }
+
+        private static void ValidateEquipAwakeBehavior()
+        {
+            EquipAwakeRequest capturedRequest = MessagePackSerializer.Deserialize<EquipAwakeRequest>(
+                MessagePackSerializer.Serialize(new EquipAwakeRequest { CostType = 2, Slot = 1, EquipId = 1607 }));
+            AssertEqual(2, capturedRequest.CostType, "EquipAwakeRequest captured CostType");
+            AssertEqual(1, capturedRequest.Slot, "EquipAwakeRequest captured Slot");
+            AssertEqual(1607, capturedRequest.EquipId, "EquipAwakeRequest captured EquipId");
+
+            EquipData equip = new()
+            {
+                Id = 1607,
+                TemplateId = 3036008,
+                Level = 45,
+                Breakthrough = 4,
+                ResonanceInfo = [new ResonanceInfo { Slot = 1 }],
+                AwakeSlotList = []
+            };
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 16_072,
+                Characters = [],
+                Equips = [equip],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items =
+                [
+                    new Item { Id = Inventory.Coin, Count = 100_000 },
+                    new Item { Id = 70001, Count = 8_599 },
+                    new Item { Id = 70002, Count = 1_933 }
+                ]
+            };
+            using LoopbackSessionHarness harness = new(character, inventory: inventory);
+
+            InvokeRequestHandler(harness, nameof(EquipAwakeRequest), 16_072, capturedRequest);
+            NotifyItemDataList itemPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "EquipAwakeRequest item push");
+            AssertEqual(50_000L, itemPush.ItemDataList.Single(item => item.Id == Inventory.Coin).Count, "EquipAwakeRequest coin balance");
+            AssertEqual(8_119L, itemPush.ItemDataList.Single(item => item.Id == 70001).Count, "EquipAwakeRequest alpha balance");
+            AssertEqual(1_853L, itemPush.ItemDataList.Single(item => item.Id == 70002).Count, "EquipAwakeRequest beta balance");
+            EquipAwakeResponse response = ReadResponsePayload<EquipAwakeResponse>(
+                harness.ReadPacket("EquipAwakeResponse"), nameof(EquipAwakeResponse));
+            AssertEqual(0, response.Code, "EquipAwakeResponse captured response code");
+            AssertIntegerList([1], equip.AwakeSlotList.Select(Convert.ToInt64).ToArray(), "EquipAwakeRequest awake slots");
+
+            EquipData persisted = MessagePackSerializer.Deserialize<EquipData>(MessagePackSerializer.Serialize(equip));
+            AssertIntegerList([1], persisted.AwakeSlotList.Select(Convert.ToInt64).ToArray(), "EquipAwakeRequest persisted awake slots");
+
+            InvokeRequestHandler(harness, nameof(EquipAwakeRequest), 16_073, capturedRequest);
+            AssertEqual(0, ReadResponsePayload<EquipAwakeResponse>(
+                harness.ReadPacket("duplicate EquipAwakeResponse"), nameof(EquipAwakeResponse)).Code,
+                "duplicate EquipAwakeResponse code");
+            AssertEqual(8_119L, inventory.Items.Single(item => item.Id == 70001).Count, "duplicate EquipAwakeRequest does not consume");
+
+            InvokeRequestHandler(harness, nameof(EquipAwakeRequest), 16_074,
+                new EquipAwakeRequest { CostType = 2, Slot = 3, EquipId = 1607 });
+            AssertEqual(20021038, ReadResponsePayload<EquipAwakeResponse>(
+                harness.ReadPacket("invalid-slot EquipAwakeResponse"), nameof(EquipAwakeResponse)).Code,
+                "invalid-slot EquipAwakeResponse code");
+            InvokeRequestHandler(harness, nameof(EquipAwakeRequest), 16_075,
+                new EquipAwakeRequest { CostType = 2, Slot = 1, EquipId = 999999 });
+            AssertEqual(20021012, ReadResponsePayload<EquipAwakeResponse>(
+                harness.ReadPacket("missing-equip EquipAwakeResponse"), nameof(EquipAwakeResponse)).Code,
+                "missing-equip EquipAwakeResponse code");
+            EquipData insufficientEquip = new()
+            {
+                Id = 1608,
+                TemplateId = 3036008,
+                Level = 45,
+                Breakthrough = 4,
+                ResonanceInfo = [new ResonanceInfo { Slot = 1 }],
+                AwakeSlotList = []
+            };
+            character.Equips.Add(insufficientEquip);
+            inventory.Items.Single(item => item.Id == 70001).Count = 39;
+            InvokeRequestHandler(harness, nameof(EquipAwakeRequest), 16_076,
+                new EquipAwakeRequest { CostType = 2, Slot = 1, EquipId = 1608 });
+            AssertEqual(20012004, ReadResponsePayload<EquipAwakeResponse>(
+                harness.ReadPacket("insufficient-alpha EquipAwakeResponse"), nameof(EquipAwakeResponse)).Code,
+                "insufficient-alpha EquipAwakeResponse code");
+            AssertEqual(50_000L, inventory.Items.Single(item => item.Id == Inventory.Coin).Count,
+                "insufficient-alpha awake coin unchanged");
+            AssertEqual(1_853L, inventory.Items.Single(item => item.Id == 70002).Count,
+                "insufficient-alpha awake beta unchanged");
+            AssertEqual(0, insufficientEquip.AwakeSlotList.Count,
+                "insufficient-alpha awake state unchanged");
+        }
+
+        private static void ValidateEquipQuickAwakeBehavior()
+        {
+            EquipQuickAwakeRequest captured = MessagePackSerializer.Deserialize<EquipQuickAwakeRequest>(
+                MessagePackSerializer.Serialize(new EquipQuickAwakeRequest
+                {
+                    EquipQuickAwakeInfos =
+                    [
+                        new EquipQuickAwakeInfo { EquipId = 1837, Slots = [1, 2] }
+                    ]
+                }));
+            AssertEqual(1, captured.EquipQuickAwakeInfos.Count, "EquipQuickAwakeRequest info count");
+            AssertEqual(1837, captured.EquipQuickAwakeInfos[0].EquipId, "EquipQuickAwakeRequest EquipId");
+            AssertIntegerList([1, 2], captured.EquipQuickAwakeInfos[0].Slots.Select(Convert.ToInt64).ToArray(),
+                "EquipQuickAwakeRequest captured slots");
+            JObject requestJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(captured)));
+            AssertIntegerList([1, 2], requestJson["EquipQuickAwakeInfos"]![0]!["Slots"]!
+                    .Values<long>().ToArray(),
+                "EquipQuickAwakeRequest serialized slot order");
+            JObject responseJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(new EquipQuickAwakeResponse())));
+            AssertEqual(1, responseJson.Properties().Count(), "EquipQuickAwakeResponse field count");
+            AssertEqual(0, responseJson["Code"]!.Value<int>(), "EquipQuickAwakeResponse Code field");
+
+            static EquipData AwakeCandidate(uint id, uint templateId = 3036008)
+            {
+                return new EquipData
+                {
+                    Id = id,
+                    TemplateId = templateId,
+                    Level = 45,
+                    Breakthrough = 4,
+                    ResonanceInfo = [new ResonanceInfo { Slot = 1 }, new ResonanceInfo { Slot = 2 }],
+                    AwakeSlotList = []
+                };
+            }
+
+            EquipData capturedEquip = AwakeCandidate(1837);
+            AscNet.Common.Database.Character capturedCharacter = new()
+            {
+                Uid = 18_370,
+                Characters = [],
+                Equips = [capturedEquip],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory capturedInventory = new()
+            {
+                Uid = capturedCharacter.Uid,
+                Items =
+                [
+                    new Item { Id = Inventory.Coin, Count = 200_000 },
+                    new Item { Id = 70001, Count = 2_000 },
+                    new Item { Id = 70002, Count = 1_000 }
+                ]
+            };
+            using (LoopbackSessionHarness harness = new(capturedCharacter, inventory: capturedInventory))
+            {
+                InvokeRequestHandler(harness, nameof(EquipQuickAwakeRequest), 18_370, captured);
+                NotifyItemDataList push = ReadPushPayload<NotifyItemDataList>(
+                    harness, nameof(NotifyItemDataList), "captured EquipQuickAwakeRequest item push");
+                AssertIntegerList([Inventory.Coin, 70002, 70001],
+                    push.ItemDataList.Select(item => (long)item.Id).ToArray(),
+                    "captured quick awake item push order");
+                AssertEqual(100_000L, push.ItemDataList.Single(item => item.Id == Inventory.Coin).Count,
+                    "quick awake multiplied coin cost");
+                AssertEqual(1_040L, push.ItemDataList.Single(item => item.Id == 70001).Count,
+                    "quick awake multiplied alpha cost");
+                AssertEqual(840L, push.ItemDataList.Single(item => item.Id == 70002).Count,
+                    "quick awake multiplied beta cost");
+                AssertEqual(0, ReadResponsePayload<EquipQuickAwakeResponse>(
+                    harness.ReadPacket("captured EquipQuickAwakeResponse"), nameof(EquipQuickAwakeResponse)).Code,
+                    "captured EquipQuickAwakeResponse code");
+                AssertIntegerList([1, 2], capturedEquip.AwakeSlotList.Select(Convert.ToInt64).ToArray(),
+                    "quick awake slot persistence");
+                InvokeRequestHandler(harness, nameof(EquipQuickAwakeRequest), 18_371, captured);
+                AssertEqual(0, ReadResponsePayload<EquipQuickAwakeResponse>(
+                    harness.ReadPacket("idempotent EquipQuickAwakeResponse"), nameof(EquipQuickAwakeResponse)).Code,
+                    "idempotent EquipQuickAwakeResponse code");
+                AssertEqual(1_040L, capturedInventory.Items.Single(item => item.Id == 70001).Count,
+                    "idempotent quick awake does not consume");
+            }
+
+            EquipData first = AwakeCandidate(1841);
+            EquipData second = AwakeCandidate(1842);
+            AscNet.Common.Database.Character multipleCharacter = new()
+            {
+                Uid = 18_410,
+                Characters = [],
+                Equips = [first, second],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory multipleInventory = new()
+            {
+                Uid = multipleCharacter.Uid,
+                Items =
+                [
+                    new Item { Id = Inventory.Coin, Count = 100_000 },
+                    new Item { Id = 70001, Count = 960 },
+                    new Item { Id = 70002, Count = 160 }
+                ]
+            };
+            using (LoopbackSessionHarness harness = new(multipleCharacter, inventory: multipleInventory))
+            {
+                InvokeRequestHandler(harness, nameof(EquipQuickAwakeRequest), 18_410,
+                    new EquipQuickAwakeRequest
+                    {
+                        EquipQuickAwakeInfos =
+                        [
+                            new EquipQuickAwakeInfo { EquipId = 1841, Slots = [1] },
+                            new EquipQuickAwakeInfo { EquipId = 1842, Slots = [2] }
+                        ]
+                    });
+                _ = ReadPushPayload<NotifyItemDataList>(
+                    harness, nameof(NotifyItemDataList), "multiple EquipQuickAwakeRequest item push");
+                AssertEqual(0, ReadResponsePayload<EquipQuickAwakeResponse>(
+                    harness.ReadPacket("multiple EquipQuickAwakeResponse"), nameof(EquipQuickAwakeResponse)).Code,
+                    "multiple EquipQuickAwakeResponse code");
+                AssertIntegerList([1], first.AwakeSlotList.Select(Convert.ToInt64).ToArray(),
+                    "multiple quick awake first equip");
+                AssertIntegerList([2], second.AwakeSlotList.Select(Convert.ToInt64).ToArray(),
+                    "multiple quick awake second equip");
+                AssertEqual(0L, multipleInventory.Items.Single(item => item.Id == Inventory.Coin).Count,
+                    "multiple quick awake total coin");
+            }
+
+            EquipData atomicEquip = AwakeCandidate(1851);
+            EquipData nonMemory = AwakeCandidate(1852, 2016001);
+            AscNet.Common.Database.Character invalidCharacter = new()
+            {
+                Uid = 18_510,
+                Characters = [],
+                Equips = [atomicEquip, nonMemory],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory invalidInventory = new()
+            {
+                Uid = invalidCharacter.Uid,
+                Items =
+                [
+                    new Item { Id = Inventory.Coin, Count = 500_000 },
+                    new Item { Id = 70001, Count = 5_000 },
+                    new Item { Id = 70002, Count = 1_000 }
+                ]
+            };
+            using (LoopbackSessionHarness harness = new(invalidCharacter, inventory: invalidInventory))
+            {
+                InvokeRequestHandler(harness, nameof(EquipQuickAwakeRequest), 18_511,
+                    new EquipQuickAwakeRequest
+                    {
+                        EquipQuickAwakeInfos =
+                        [
+                            new EquipQuickAwakeInfo { EquipId = 1851, Slots = [1, 1] }
+                        ]
+                    });
+                AssertEqual(20021038, ReadResponsePayload<EquipQuickAwakeResponse>(
+                    harness.ReadPacket("duplicate quick awake"), nameof(EquipQuickAwakeResponse)).Code,
+                    "duplicate quick awake code");
+                AssertEqual(0, atomicEquip.AwakeSlotList.Count, "duplicate quick awake is atomic");
+                AssertEqual(500_000L, invalidInventory.Items.Single(item => item.Id == Inventory.Coin).Count,
+                    "duplicate quick awake leaves inventory");
+
+                InvokeRequestHandler(harness, nameof(EquipQuickAwakeRequest), 18_512,
+                    new EquipQuickAwakeRequest
+                    {
+                        EquipQuickAwakeInfos =
+                        [
+                            new EquipQuickAwakeInfo { EquipId = 1851, Slots = [1] },
+                            new EquipQuickAwakeInfo { EquipId = 1852, Slots = [1] }
+                        ]
+                    });
+                AssertEqual(20021038, ReadResponsePayload<EquipQuickAwakeResponse>(
+                    harness.ReadPacket("non-memory quick awake"), nameof(EquipQuickAwakeResponse)).Code,
+                    "non-memory quick awake code");
+                AssertEqual(0, atomicEquip.AwakeSlotList.Count, "non-memory batch is atomic");
+
+                invalidInventory.Items.Single(item => item.Id == 70002).Count = 79;
+                InvokeRequestHandler(harness, nameof(EquipQuickAwakeRequest), 18_513,
+                    new EquipQuickAwakeRequest
+                    {
+                        EquipQuickAwakeInfos =
+                        [
+                            new EquipQuickAwakeInfo { EquipId = 1851, Slots = [1] }
+                        ]
+                    });
+                AssertEqual(20012004, ReadResponsePayload<EquipQuickAwakeResponse>(
+                    harness.ReadPacket("insufficient quick awake"), nameof(EquipQuickAwakeResponse)).Code,
+                    "insufficient quick awake code");
+                AssertEqual(0, atomicEquip.AwakeSlotList.Count, "insufficient quick awake is atomic");
+                AssertEqual(500_000L, invalidInventory.Items.Single(item => item.Id == Inventory.Coin).Count,
+                    "insufficient quick awake leaves inventory");
+            }
         }
 
         private static void ValidateEquipResonanceSelectionAndSwapBehavior()
@@ -11350,6 +12186,116 @@ namespace AscNet.Test
             AssertEqual(1, rewardGoods.RewardType, "ItemUseResponse RewardGoodsList[0] RewardType");
             AssertEqual(AscNet.Common.Database.Inventory.Coin, rewardGoods.TemplateId, "ItemUseResponse RewardGoodsList[0] TemplateId");
             AssertEqual(20_000, rewardGoods.Count, "ItemUseResponse RewardGoodsList[0] Count");
+        }
+
+        private static void ValidateItemExchangeCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForItemSellCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
+
+            ItemExchangeRequest captured = new() { ItemId = 70_001, Count = 441, UseItemId = 39 };
+            byte[] capturedPayload = MessagePackSerializer.Serialize(captured);
+            AssertEqual(
+                "83A64974656D4964CE00011171A5436F756E74CD01B9A95573654974656D496427",
+                Convert.ToHexString(capturedPayload),
+                "captured ItemExchangeRequest MessagePack payload");
+            ItemExchangeRequest capturedRoundTrip = MessagePackSerializer.Deserialize<ItemExchangeRequest>(capturedPayload);
+            AssertEqual(70_001, capturedRoundTrip.ItemId, "captured ItemExchangeRequest ItemId");
+            AssertEqual(441, capturedRoundTrip.Count, "captured ItemExchangeRequest Count");
+            AssertEqual(39, capturedRoundTrip.UseItemId, "captured ItemExchangeRequest UseItemId");
+
+            List<ItemExchangeTable> recipes = TableReaderV2.Parse<ItemExchangeTable>();
+            AssertEqual(6, recipes.Count, "current ItemExchange recipe row count");
+            foreach (ItemExchangeTable recipe in recipes)
+            {
+                long playerId = 99_300 + recipe.Id;
+                AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                    playerId,
+                    [new Item { Id = recipe.UseItemId, Count = recipe.UseItemCount }]);
+                using LoopbackSessionHarness harness = new(
+                    CreateDrawCompatibilityCharacter(playerId),
+                    CreateDrawCompatibilityPlayer(playerId),
+                    inventory,
+                    $"item-exchange-recipe-{recipe.Id}");
+
+                InvokeRegisteredRequestHandler(
+                    nameof(ItemExchangeRequest),
+                    harness.Session,
+                    14_300 + recipe.Id,
+                    new ItemExchangeRequest
+                    {
+                        ItemId = recipe.ItemId,
+                        Count = recipe.MinCount,
+                        UseItemId = recipe.UseItemId
+                    });
+                NotifyItemDataList push = ReadPushPayload<NotifyItemDataList>(
+                    harness,
+                    nameof(NotifyItemDataList),
+                    $"ItemExchange recipe {recipe.Id} push");
+                AssertEqual(0L, push.ItemDataList.Single(item => item.Id == recipe.UseItemId).Count, $"recipe {recipe.Id} cost");
+                AssertEqual((long)recipe.MinCount, push.ItemDataList.Single(item => item.Id == recipe.ItemId).Count, $"recipe {recipe.Id} reward");
+                ItemExchangeResponse response = ReadResponsePayload<ItemExchangeResponse>(
+                    harness.ReadPacket($"ItemExchange recipe {recipe.Id} response"),
+                    nameof(ItemExchangeResponse));
+                AssertEqual(0, response.Code, $"recipe {recipe.Id} response Code");
+                RewardGoods reward = response.RewardGoodsList.Single();
+                AssertEqual((int)RewardType.Item, reward.RewardType, $"recipe {recipe.Id} reward type");
+                AssertEqual(recipe.ItemId, reward.TemplateId, $"recipe {recipe.Id} reward item");
+                AssertEqual(recipe.MinCount, reward.Count, $"recipe {recipe.Id} reward count");
+            }
+
+            ItemExchangeTable capturedRecipe = recipes.Single(recipe => recipe.ItemId == 70_001 && recipe.UseItemId == 39);
+            const long capturedPlayerId = 99_400;
+            AscNet.Common.Database.Inventory capturedInventory = CreateDrawCompatibilityInventory(
+                capturedPlayerId,
+                [
+                    new Item { Id = capturedRecipe.UseItemId, Count = 200 },
+                    new Item { Id = capturedRecipe.UseItemId, Count = 241 }
+                ]);
+            using LoopbackSessionHarness capturedHarness = new(
+                CreateDrawCompatibilityCharacter(capturedPlayerId),
+                CreateDrawCompatibilityPlayer(capturedPlayerId),
+                capturedInventory,
+                "item-exchange-captured");
+            InvokeRegisteredRequestHandler(nameof(ItemExchangeRequest), capturedHarness.Session, 14_400, captured);
+            NotifyItemDataList capturedPush = ReadPushPayload<NotifyItemDataList>(
+                capturedHarness,
+                nameof(NotifyItemDataList),
+                "captured ItemExchange push");
+            AssertEqual(0L, capturedPush.ItemDataList.Single(item => item.Id == captured.UseItemId).Count, "captured 441 cost");
+            AssertEqual(441L, capturedPush.ItemDataList.Single(item => item.Id == captured.ItemId).Count, "captured 441 reward");
+            _ = ReadResponsePayload<ItemExchangeResponse>(
+                capturedHarness.ReadPacket("captured ItemExchange response"),
+                nameof(ItemExchangeResponse));
+            AssertEqual(1, capturedInventory.Items.Count(item => item.Id == captured.UseItemId), "duplicate cost stacks normalized");
+            AssertEqual(7, inventoryCollection.ReplaceOneCalls, "successful ItemExchange persistence count");
+
+            foreach ((string name, ItemExchangeRequest request, int expectedCode) in new[]
+            {
+                ("insufficient", new ItemExchangeRequest { ItemId = captured.ItemId, Count = 2, UseItemId = captured.UseItemId }, 20012004),
+                ("invalid recipe", new ItemExchangeRequest { ItemId = captured.ItemId, Count = 1, UseItemId = 1 }, 20012001),
+                ("invalid count", new ItemExchangeRequest { ItemId = captured.ItemId, Count = 0, UseItemId = captured.UseItemId }, 20012001),
+                ("overflow", new ItemExchangeRequest { ItemId = 70_002, Count = int.MaxValue, UseItemId = 103 }, 20012001)
+            })
+            {
+                long playerId = 99_500 + request.Count;
+                AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                    playerId,
+                    [new Item { Id = request.UseItemId, Count = 1 }]);
+                long originalCount = inventory.Items.Single().Count;
+                using LoopbackSessionHarness harness = new(
+                    CreateDrawCompatibilityCharacter(playerId),
+                    CreateDrawCompatibilityPlayer(playerId),
+                    inventory,
+                    $"item-exchange-{name}");
+                InvokeRegisteredRequestHandler(nameof(ItemExchangeRequest), harness.Session, 14_500, request);
+                ItemExchangeResponse response = ReadResponsePayload<ItemExchangeResponse>(
+                    harness.ReadPacket($"ItemExchange {name} response"),
+                    nameof(ItemExchangeResponse));
+                AssertEqual(expectedCode, response.Code, $"ItemExchange {name} Code");
+                AssertEqual(originalCount, inventory.Items.Single().Count, $"ItemExchange {name} atomic inventory");
+                AssertEqual(7, inventoryCollection.ReplaceOneCalls, $"ItemExchange {name} no persistence");
+            }
         }
 
         private static void ValidateItemSellCompatibility()

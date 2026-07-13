@@ -45,6 +45,21 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class ItemExchangeRequest
+    {
+        public int ItemId { get; set; }
+        public int Count { get; set; }
+        public int UseItemId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class ItemExchangeResponse
+    {
+        public int Code { get; set; }
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
     public class ItemBuyAssetRequest
     {
         public int Times { get; set; }
@@ -466,6 +481,128 @@ namespace AscNet.GameServer.Handlers
             });
 
             return true;
+        }
+
+        [RequestPacketHandler("ItemExchangeRequest")]
+        public static void ItemExchangeRequestHandler(Session session, Packet.Request packet)
+        {
+            ItemExchangeRequest request = packet.Deserialize<ItemExchangeRequest>();
+            if (!TryBuildItemExchange(session.inventory, request, out int errorCode, out int totalCost))
+            {
+                session.SendResponse(new ItemExchangeResponse { Code = errorCode }, packet.Id);
+                return;
+            }
+
+            List<Item> changedItems =
+            [
+                session.inventory.Do(request.UseItemId, -totalCost),
+                session.inventory.Do(request.ItemId, request.Count)
+            ];
+            session.SendPush(new NotifyItemDataList { ItemDataList = changedItems });
+            session.inventory.Save();
+            session.SendResponse(new ItemExchangeResponse
+            {
+                RewardGoodsList =
+                {
+                    new RewardGoods
+                    {
+                        RewardType = (int)RewardType.Item,
+                        TemplateId = request.ItemId,
+                        Count = request.Count
+                    }
+                }
+            }, packet.Id);
+        }
+
+        private static bool TryBuildItemExchange(
+            AscNet.Common.Database.Inventory inventory,
+            ItemExchangeRequest request,
+            out int errorCode,
+            out int totalCost)
+        {
+            const int invalidRequestCode = 20012001;
+            const int itemCountNotEnoughCode = 20012004;
+            errorCode = invalidRequestCode;
+            totalCost = 0;
+
+            ItemExchangeTable? recipe = TableReaderV2.Parse<ItemExchangeTable>()
+                .SingleOrDefault(candidate =>
+                    candidate.ItemId == request.ItemId
+                    && candidate.UseItemId == request.UseItemId);
+            if (recipe is null
+                || request.Count <= 0
+                || request.Count < recipe.MinCount
+                || recipe.UseItemCount <= 0)
+            {
+                return false;
+            }
+
+            Dictionary<int, ItemTable> itemTables = TableReaderV2.Parse<ItemTable>()
+                .ToDictionary(item => item.Id);
+            if (!itemTables.TryGetValue(request.ItemId, out ItemTable? rewardTable)
+                || !itemTables.ContainsKey(request.UseItemId)
+                || !AscNet.Common.Database.Inventory.IsValidClientItemId(request.ItemId)
+                || !AscNet.Common.Database.Inventory.IsValidClientItemId(request.UseItemId))
+            {
+                return false;
+            }
+
+            try
+            {
+                totalCost = checked(request.Count * recipe.UseItemCount);
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+
+            List<Item> costStacks = inventory.Items.Where(item => item.Id == request.UseItemId).ToList();
+            if (costStacks.Count == 0 || costStacks.Any(item => item.Count < 0))
+            {
+                errorCode = itemCountNotEnoughCode;
+                return false;
+            }
+
+            long available;
+            try
+            {
+                available = costStacks.Aggregate(0L, (count, item) => checked(count + item.Count));
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+            if (available < totalCost)
+            {
+                errorCode = itemCountNotEnoughCode;
+                return false;
+            }
+
+            long finalRewardCount;
+            try
+            {
+                long currentRewardCount = inventory.Items
+                    .Where(item => item.Id == request.ItemId)
+                    .Aggregate(0L, (count, item) => checked(count + item.Count));
+                finalRewardCount = checked(currentRewardCount + request.Count);
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+            if (finalRewardCount < 0
+                || finalRewardCount > AscNet.Common.Database.Inventory.GetMaxCount(rewardTable))
+            {
+                return false;
+            }
+
+            Dictionary<int, List<Item>> inventoryItems = inventory.Items
+                .GroupBy(item => item.Id)
+                .ToDictionary(group => group.Key, group => group.ToList());
+            return TryNormalizeInventoryItemStacks(
+                inventory,
+                inventoryItems,
+                new[] { request.UseItemId, request.ItemId });
         }
 
         [RequestPacketHandler("ItemBuyAssetRequest")]

@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using System.Globalization;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using AscNet.Table.V2.share.character;
@@ -6,6 +7,7 @@ using AscNet.Table.V2.share.character.skill;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using Newtonsoft.Json;
+using AscNet.Logging;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.fashion;
@@ -75,9 +77,25 @@ namespace AscNet.Common.Database
         {
             EquipTable? equipTable = TableReaderV2.Parse<EquipTable>()
                 .Find(row => row.Id == equip.TemplateId);
-            bool isWeapon = equipTable is { Site: 0, WeaponSkillId: > 0 };
-            List<ResonanceInfo> active = NormalizeResonanceList(equip.ResonanceInfo, isWeapon);
-            List<ResonanceInfo> pending = NormalizeResonanceList(equip.UnconfirmedResonanceInfo, isWeapon);
+            foreach (ResonanceInfo dropped in (equip.ResonanceInfo ?? [])
+                         .Concat(equip.UnconfirmedResonanceInfo ?? [])
+                         .Where(resonance => !IsValidResonance(resonance, equipTable)))
+            {
+                LoggerFactory.Logger?.Warn(
+                    $"Dropping invalid equip resonance equipId={equip.Id} templateId={equip.TemplateId} " +
+                    $"slot={dropped.Slot} type={(int)dropped.Type} characterId={dropped.CharacterId} " +
+                    $"resonanceTemplateId={dropped.TemplateId} useItemId={dropped.UseItemId}");
+            }
+            List<ResonanceInfo> active = NormalizeResonanceList(equip.ResonanceInfo, equipTable);
+            List<ResonanceInfo> pending = NormalizeResonanceList(equip.UnconfirmedResonanceInfo, equipTable);
+            HashSet<int> activeSlots = active.Select(resonance => resonance.Slot).ToHashSet();
+            foreach (ResonanceInfo resonance in pending.Where(resonance =>
+                         !activeSlots.Contains(resonance.Slot)))
+            {
+                active.Add(resonance);
+                activeSlots.Add(resonance.Slot);
+            }
+            pending.Clear();
             bool changed = equip.ResonanceInfo is null
                 || equip.UnconfirmedResonanceInfo is null
                 || !equip.ResonanceInfo.SequenceEqual(active)
@@ -87,23 +105,25 @@ namespace AscNet.Common.Database
             return changed;
         }
 
+
         private static List<ResonanceInfo> NormalizeResonanceList(
             IEnumerable<ResonanceInfo>? resonances,
-            bool isWeapon)
+            EquipTable? equipTable)
         {
             return (resonances ?? [])
-                .Where(resonance => IsValidResonance(resonance, isWeapon))
+                .Where(resonance => IsValidResonance(resonance, equipTable))
                 .GroupBy(resonance => resonance.Slot)
                 .Select(slot => slot.Last())
                 .ToList();
         }
 
-        private static bool IsValidResonance(ResonanceInfo resonance, bool isWeapon)
+        private static bool IsValidResonance(ResonanceInfo resonance, EquipTable? equipTable)
         {
             if (resonance.Slot <= 0 || resonance.TemplateId <= 0)
                 return false;
             if (resonance.Type is EquipResonanceType.Attrib or EquipResonanceType.WeaponSkill)
                 return true;
+            bool isWeapon = equipTable is { Site: 0, WeaponSkillId: > 0 };
             if (isWeapon && resonance.Type == EquipResonanceType.CharacterSkill)
                 return false;
             if (resonance.Type != EquipResonanceType.CharacterSkill || resonance.CharacterId <= 0)

@@ -26,6 +26,7 @@ namespace AscNet.GameServer
         public int? PendingGetWorldChannelInfoRequestId;
         public bool PendingBigWorldLoadCompleteXRpc;
         public bool PendingBigWorldStartFightNotify;
+        public readonly Dictionary<(uint EquipId, int Slot), ResonanceInfo> PendingEquipResonances = new();
         public readonly Logger log;
         private long lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private int packetNo = 0;

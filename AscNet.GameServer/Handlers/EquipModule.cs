@@ -58,6 +58,24 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class EquipQuickResonanceChipRequest
+    {
+        public int Slot;
+        public EquipResonanceType SelectType;
+        public List<int> EquipIds = new();
+        public int SelectSkillId;
+        public int UseItemId;
+        public int CharacterId;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipQuickResonanceChipResponse
+    {
+        public int Code;
+        public List<int> SuccessEquipIds = new();
+    }
+
+    [MessagePackObject(true)]
     public class EquipResonanceConfirmRequest
     {
         public int EquipId;
@@ -67,6 +85,39 @@ namespace AscNet.GameServer.Handlers
 
     [MessagePackObject(true)]
     public class EquipResonanceConfirmResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipAwakeRequest
+    {
+        public int CostType;
+        public int Slot;
+        public int EquipId;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipAwakeResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipQuickAwakeInfo
+    {
+        public int EquipId;
+        public List<int> Slots = new();
+    }
+
+    [MessagePackObject(true)]
+    public class EquipQuickAwakeRequest
+    {
+        public List<EquipQuickAwakeInfo> EquipQuickAwakeInfos = new();
+    }
+
+    [MessagePackObject(true)]
+    public class EquipQuickAwakeResponse
     {
         public int Code;
     }
@@ -785,11 +836,14 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new EquipTakeOffResponse(), packet.Id);
         }
 
-        // TODO: Swapping equip resonance is broken, this is only partially implemented!
         [RequestPacketHandler("EquipResonanceRequest")]
         public static void EquipResonanceRequestHandler(Session session, Packet.Request packet)
         {
             EquipResonanceRequest request = packet.Deserialize<EquipResonanceRequest>();
+            session.log.Info(
+                $"EquipResonanceRequest received: EquipId={request.EquipId} Slot={request.Slots.FirstOrDefault()} " +
+                $"UseItemId={request.UseItemId} CharacterId={request.CharacterId ?? 0} " +
+                $"SelectType={(int?)request.SelectType} SelectSkillCount={request.SelectSkillIds?.Count ?? 0}.");
 
             var equip = session.character.Equips.Find(x => x.Id == request.EquipId);
 
@@ -824,17 +878,21 @@ namespace AscNet.GameServer.Handlers
                     {
                         Slot = slot,
                         Type = EquipResonanceType.Attrib,
+                        CharacterId = request.CharacterId ?? 0,
                         TemplateId = attrib.Id,
                         UseItemId = request.UseItemId
                     });
                 }
             }
 
-            bool usesSkillResonance = (equipResonance?.WeaponSkillPoolId.Count ?? 0) > 0
+            bool usesWeaponSkillResonance = (equipResonance?.WeaponSkillPoolId.Count ?? 0) > 0
                 || (equipTable.Site == 0 && equipTable.Quality >= 6);
-            if (usesSkillResonance && request.SelectSkillIds is { Count: > 0 })
+            bool usesCharacterSkillResonance = (equipResonance?.CharacterSkillPoolId.Count ?? 0) > 0;
+            bool isSelectedWeaponSkillRequest = usesWeaponSkillResonance
+                && request.SelectSkillIds is { Count: > 0 };
+            if (isSelectedWeaponSkillRequest)
             {
-                int selectedSkillId = request.SelectSkillIds.FirstOrDefault(skillId => skillId > 0);
+                int selectedSkillId = request.SelectSkillIds!.FirstOrDefault(skillId => skillId > 0);
                 resonancePool.Clear();
                 if (selectedSkillId > 0)
                 {
@@ -848,11 +906,11 @@ namespace AscNet.GameServer.Handlers
                     });
                 }
             }
-            else if (usesSkillResonance && request.CharacterId is int characterId)
+            else if (usesCharacterSkillResonance && request.CharacterId is int characterId)
             {
                 CharacterSkillTable? characterSkills = TableReaderV2.Parse<CharacterSkillTable>()
                     .Find(x => x.CharacterId == characterId);
-                int skillPoolId = equipResonance?.WeaponSkillPoolId.ElementAtOrDefault(slot - 1) ?? slot;
+                int skillPoolId = equipResonance!.CharacterSkillPoolId.ElementAtOrDefault(slot - 1);
                 int skillEntryCount = Math.Min(
                     characterSkills?.SkillGroupId.Count ?? 0,
                     characterSkills?.Pos.Count ?? 0);
@@ -877,13 +935,31 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            bool hasMaterial = request.UseItemId > 0
-                && session.inventory.Items.Any(item => item.Id == request.UseItemId && item.Count > 0);
-            bool isSkillSwap = request.SelectSkillIds is { Count: > 0 }
-                && equip.ResonanceInfo.Any(candidate => candidate.Slot == slot);
-            if (resonancePool.Count == 0 || (!hasMaterial && !isSkillSwap))
+            int materialCost = GetResonanceMaterialCost(equipTable, request.UseItemId);
+            bool hasMaterial = materialCost > 0
+                && session.inventory.Items.Any(item => item.Id == request.UseItemId && item.Count >= materialCost);
+            bool hasActiveResonance = equip.ResonanceInfo.Any(candidate => candidate.Slot == slot);
+            bool isSkillSwap = isSelectedWeaponSkillRequest
+                && hasActiveResonance;
+            if (resonancePool.Count == 0)
             {
-                session.SendResponse(new EquipResonanceResponse() { Code = 1 }, packet.Id);
+                session.log.Warn(
+                    $"EquipResonanceRequest rejected: resonance pool empty; EquipId={request.EquipId} " +
+                    $"TemplateId={equip.TemplateId} Slot={slot} UseItemId={request.UseItemId} " +
+                    $"SelectType={(int?)request.SelectType} SelectSkillCount={request.SelectSkillIds?.Count ?? 0}.");
+                session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
+                return;
+            }
+            if (!hasMaterial && !isSkillSwap)
+            {
+                long availableMaterial = session.inventory.Items
+                    .Find(item => item.Id == request.UseItemId)?.Count ?? 0;
+                session.log.Warn(
+                    $"EquipResonanceRequest rejected: resonance material unavailable; EquipId={request.EquipId} " +
+                    $"TemplateId={equip.TemplateId} Slot={slot} UseItemId={request.UseItemId} " +
+                    $"MaterialCost={materialCost} AvailableMaterial={availableMaterial} " +
+                    $"SelectType={(int?)request.SelectType} SelectSkillCount={request.SelectSkillIds?.Count ?? 0}.");
+                session.SendResponse(new EquipResonanceResponse { Code = 20012004 }, packet.Id);
                 return;
             }
 
@@ -891,22 +967,439 @@ namespace AscNet.GameServer.Handlers
             if (hasMaterial)
             {
                 NotifyItemDataList notifyItemData = new();
-                notifyItemData.ItemDataList.Add(session.inventory.Do(request.UseItemId, -1));
+                notifyItemData.ItemDataList.Add(session.inventory.Do(request.UseItemId, -materialCost));
                 session.SendPush(notifyItemData);
             }
-            if (request.SelectSkillIds is { Count: > 0 })
+            bool commitsImmediately = isSelectedWeaponSkillRequest || !hasActiveResonance;
+            if (commitsImmediately)
             {
                 equip.ResonanceInfo.RemoveAll(candidate => candidate.Slot == resonance.Slot);
                 equip.ResonanceInfo.Add(resonance);
-                equip.UnconfirmedResonanceInfo.RemoveAll(candidate => candidate.Slot == resonance.Slot);
+                session.PendingEquipResonances.Remove((equip.Id, resonance.Slot));
+                session.character.Save();
             }
             else
             {
-                equip.UnconfirmedResonanceInfo.RemoveAll(candidate => candidate.Slot == resonance.Slot);
-                equip.UnconfirmedResonanceInfo.Add(resonance);
+                session.PendingEquipResonances[(equip.Id, resonance.Slot)] = resonance;
+            }
+            if (hasMaterial)
+                session.inventory.Save();
+            session.SendResponse(new EquipResonanceResponse() { ResonanceDatas = [resonance] }, packet.Id);
+        }
+
+        [RequestPacketHandler("EquipQuickResonanceChipRequest")]
+        public static void EquipQuickResonanceChipRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipQuickResonanceChipRequest request = packet.Deserialize<EquipQuickResonanceChipRequest>();
+            session.log.Info(
+                $"EquipQuickResonanceChipRequest received: Slot={request.Slot} " +
+                $"SelectType={(int)request.SelectType} EquipCount={request.EquipIds.Count} " +
+                $"SelectSkillId={request.SelectSkillId} UseItemId={request.UseItemId} " +
+                $"CharacterId={request.CharacterId}.");
+            const int paramError = 20021114;
+            const int equipIsNotChip = 20021115;
+            void RejectParameter(string reason, long equipId = 0, long templateId = 0,
+                int skillPoolId = 0, int materialCost = 0)
+            {
+                session.log.Warn(
+                    $"EquipQuickResonanceChipRequest rejected: {reason}; " +
+                    $"Slot={request.Slot} SelectType={(int)request.SelectType} EquipId={equipId} " +
+                    $"TemplateId={templateId} SelectSkillId={request.SelectSkillId} " +
+                    $"UseItemId={request.UseItemId} CharacterId={request.CharacterId} " +
+                    $"SkillPoolId={skillPoolId} MaterialCost={materialCost}.");
+                session.SendResponse(new EquipQuickResonanceChipResponse { Code = paramError }, packet.Id);
             }
 
-            session.SendResponse(new EquipResonanceResponse() { ResonanceDatas = [resonance] }, packet.Id);
+            if (request.Slot is not (1 or 2)
+                || request.SelectType != EquipResonanceType.CharacterSkill
+                || request.SelectSkillId <= 0
+                || request.UseItemId <= 0
+                || request.CharacterId <= 0
+                || request.EquipIds.Count == 0
+                || request.EquipIds.Count != request.EquipIds.Distinct().Count()
+                || !session.character.Characters.Any(character => character.Id == request.CharacterId))
+            {
+                RejectParameter("invalid request envelope");
+                return;
+            }
+
+            CharacterSkillTable? characterSkills = TableReaderV2.Parse<CharacterSkillTable>()
+                .Find(row => row.CharacterId == request.CharacterId);
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            List<EquipResonanceTable> resonanceTables = TableReaderV2.Parse<EquipResonanceTable>();
+            List<EquipResonanceUseItemTable> resonanceUseItemTables =
+                TableReaderV2.Parse<EquipResonanceUseItemTable>();
+            List<EquipData> equips = new(request.EquipIds.Count);
+            int totalMaterialCost = 0;
+
+            foreach (int equipId in request.EquipIds)
+            {
+                EquipData? equip = session.character.Equips.Find(candidate => candidate.Id == equipId);
+                if (equip is null)
+                {
+                    RejectParameter("equipment instance not found", equipId);
+                    return;
+                }
+
+                EquipTable? equipTable = equipTables.Find(row => row.Id == equip.TemplateId);
+                if (equipTable is null || equipTable.Site is < 1 or > 6)
+                {
+                    session.SendResponse(new EquipQuickResonanceChipResponse { Code = equipIsNotChip }, packet.Id);
+                    return;
+                }
+
+                int skillPoolId = ResolveCharacterSkillPool(
+                    equipTable, request.Slot, resonanceTables);
+                if (skillPoolId <= 0)
+                {
+                    RejectParameter("character skill pool not resolved",
+                        equip.Id, equip.TemplateId, skillPoolId);
+                    return;
+                }
+                if (!CharacterOwnsResonanceSkill(
+                    characterSkills, skillPoolId, request.SelectSkillId))
+                {
+                    RejectParameter("selected skill is not in the resolved character skill pool",
+                        equip.Id, equip.TemplateId, skillPoolId);
+                    return;
+                }
+
+                int equipMaterialCost = ResolveResonanceMaterialCost(
+                    equipTable, request.UseItemId, resonanceUseItemTables);
+                if (equipMaterialCost <= 0)
+                {
+                    RejectParameter("resonance material recipe not resolved",
+                        equip.Id, equip.TemplateId, skillPoolId, equipMaterialCost);
+                    return;
+                }
+
+                try
+                {
+                    totalMaterialCost = checked(totalMaterialCost + equipMaterialCost);
+                }
+                catch (OverflowException)
+                {
+                    RejectParameter("total material cost overflow",
+                        equip.Id, equip.TemplateId, skillPoolId, equipMaterialCost);
+                    return;
+                }
+                equips.Add(equip);
+            }
+
+            Item? material = session.inventory.Items.Find(item => item.Id == request.UseItemId);
+            if (material is null || material.Count < totalMaterialCost)
+            {
+                session.SendResponse(new EquipQuickResonanceChipResponse { Code = 20012004 }, packet.Id);
+                return;
+            }
+
+            foreach (EquipData equip in equips)
+            {
+                AscNet.Common.Database.Character.NormalizeEquipResonances(equip);
+                equip.ResonanceInfo.RemoveAll(candidate => candidate.Slot == request.Slot);
+                equip.ResonanceInfo.Add(new ResonanceInfo
+                {
+                    Slot = request.Slot,
+                    Type = request.SelectType,
+                    CharacterId = request.CharacterId,
+                    TemplateId = request.SelectSkillId,
+                    UseItemId = request.UseItemId
+                });
+                session.PendingEquipResonances.Remove((equip.Id, request.Slot));
+            }
+
+            NotifyArchiveEquip archivePush = new();
+            foreach (EquipData equip in equips)
+            {
+                archivePush.Equips.Add(new NotifyArchiveEquip.NotifyArchiveEquipEquip
+                {
+                    Id = equip.TemplateId,
+                    Level = equip.Level,
+                    Breakthrough = equip.Breakthrough,
+                    ResonanceCount = equip.ResonanceInfo.Count
+                });
+            }
+            NotifyItemDataList itemPush = new();
+            itemPush.ItemDataList.Add(session.inventory.Do(request.UseItemId, -totalMaterialCost));
+            session.character.Save();
+            session.inventory.Save();
+            session.SendPush(archivePush);
+            session.SendPush(itemPush);
+            session.SendResponse(new EquipQuickResonanceChipResponse
+            {
+                SuccessEquipIds = request.EquipIds.ToList()
+            }, packet.Id);
+        }
+
+        private static int ResolveCharacterSkillPool(
+            EquipTable equip,
+            int slot,
+            List<EquipResonanceTable> resonanceTables)
+        {
+            return resonanceTables
+                .Find(row => row.Id == equip.Id)?
+                .CharacterSkillPoolId.ElementAtOrDefault(slot - 1) ?? 0;
+        }
+
+        private static bool CharacterOwnsResonanceSkill(
+            CharacterSkillTable? characterSkills,
+            int skillPoolId,
+            int selectedSkillId)
+        {
+            int skillEntryCount = Math.Min(
+                characterSkills?.SkillGroupId.Count ?? 0,
+                characterSkills?.Pos.Count ?? 0);
+            for (int index = 0; index < skillEntryCount; index++)
+            {
+                if (characterSkills!.Pos[index] != skillPoolId)
+                    continue;
+                CharacterSkillGroupTable? group = TableReaderV2.Parse<CharacterSkillGroupTable>()
+                    .Find(row => row.Id == characterSkills.SkillGroupId[index]);
+                if (group?.SkillId.Contains(selectedSkillId) == true)
+                    return true;
+            }
+            return false;
+        }
+
+        private static int ResolveResonanceMaterialCost(
+            EquipTable equip,
+            int useItemId,
+            List<EquipResonanceUseItemTable> useItemTables)
+        {
+            EquipResonanceUseItemTable? configured = useItemTables.Find(row => row.Id == equip.Id);
+            return configured is null ? 0 : GetConfiguredResonanceMaterialCost(configured, useItemId);
+        }
+        private static int GetResonanceMaterialCost(
+            EquipTable equip,
+            int useItemId)
+        {
+            EquipResonanceUseItemTable? configured = TableReaderV2.Parse<EquipResonanceUseItemTable>()
+                .Find(row => row.Id == equip.Id);
+            return configured is null ? 0 : GetConfiguredResonanceMaterialCost(configured, useItemId);
+        }
+
+
+        private static int GetConfiguredResonanceMaterialCost(
+            EquipResonanceUseItemTable configured,
+            int useItemId)
+        {
+            int configuredIndex = configured.ItemId.IndexOf(useItemId);
+            if (configuredIndex >= 0)
+                return configured.ItemCount.ElementAtOrDefault(configuredIndex);
+            return configured.SelectSkillItemId == useItemId
+                ? configured.SelectSkillItemCount ?? 0
+                : 0;
+        }
+
+        private const int EquipAwakeInvalidCode = 20021038;
+        private const int EquipAwakeInsufficientItemsCode = 20012004;
+
+        private static bool TryResolveAwakeCosts(
+            EquipData equip,
+            int costType,
+            out List<(int Id, int Count)> costs)
+        {
+            costs = new();
+            EquipAwakeTable? recipe = TableReaderV2.Parse<EquipAwakeTable>()
+                .Find(row => row.Id == equip.TemplateId);
+            if (recipe is null)
+                return false;
+
+            List<int> itemIds;
+            List<int> itemCounts;
+            switch (costType)
+            {
+                case 1:
+                    itemIds = recipe.ItemId;
+                    itemCounts = recipe.ItemCount;
+                    break;
+                case 2:
+                    itemIds = recipe.ItemCrystalId;
+                    itemCounts = recipe.ItemCrystalCount;
+                    break;
+                default:
+                    return false;
+            }
+
+            if (itemIds.Count == 0 || itemIds.Count != itemCounts.Count)
+                return false;
+            for (int index = 0; index < itemIds.Count; index++)
+            {
+                if (itemIds[index] <= 0 || itemCounts[index] <= 0)
+                    return false;
+                costs.Add((itemIds[index], itemCounts[index]));
+            }
+            return true;
+        }
+
+        private static bool CanAwakeEquipSlot(EquipData equip, int slot)
+        {
+            if (slot is not (1 or 2)
+                || equip.ResonanceInfo?.Any(info => info.Slot == slot) != true)
+                return false;
+
+            EquipBreakThroughTable? current = Character.ResolveEquipBreakThrough(
+                equip.TemplateId,
+                equip.Breakthrough);
+            return current is not null
+                && equip.Level == current.LevelLimit
+                && Character.ResolveEquipBreakThrough(equip.TemplateId, equip.Breakthrough + 1) is null;
+        }
+
+        private static bool HasAwakeSlot(EquipData equip, int slot)
+        {
+            return equip.AwakeSlotList?.Any(value =>
+                Convert.ToInt32(value, CultureInfo.InvariantCulture) == slot) == true;
+        }
+
+        private static bool HasAwakeCosts(Session session, IEnumerable<(int Id, long Count)> costs)
+        {
+            return costs.All(cost =>
+                cost.Count <= int.MaxValue
+                && session.inventory.Items.Any(item => item.Id == cost.Id && item.Count >= cost.Count));
+        }
+
+        private static NotifyItemDataList ConsumeAwakeCosts(
+            Session session,
+            IEnumerable<(int Id, long Count)> costs)
+        {
+            NotifyItemDataList notify = new();
+            List<(int Id, long Count)> orderedCosts = costs.ToList();
+            if (orderedCosts.Count > 0)
+            {
+                (int id, long count) = orderedCosts[0];
+                notify.ItemDataList.Add(session.inventory.Do(id, checked(-(int)count)));
+                for (int index = orderedCosts.Count - 1; index > 0; index--)
+                {
+                    (id, count) = orderedCosts[index];
+                    notify.ItemDataList.Add(session.inventory.Do(id, checked(-(int)count)));
+                }
+            }
+            return notify;
+        }
+
+        [RequestPacketHandler("EquipAwakeRequest")]
+        public static void EquipAwakeRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipAwakeRequest request = packet.Deserialize<EquipAwakeRequest>();
+            EquipData? equip = session.character.Equips.Find(candidate => candidate.Id == request.EquipId);
+            if (equip is null)
+            {
+                session.SendResponse(new EquipAwakeResponse { Code = 20021012 }, packet.Id);
+                return;
+            }
+
+            equip.AwakeSlotList ??= new();
+            if (HasAwakeSlot(equip, request.Slot))
+            {
+                session.SendResponse(new EquipAwakeResponse(), packet.Id);
+                return;
+            }
+            if (!CanAwakeEquipSlot(equip, request.Slot)
+                || !TryResolveAwakeCosts(equip, request.CostType, out List<(int Id, int Count)> resolvedCosts))
+            {
+                session.SendResponse(new EquipAwakeResponse { Code = EquipAwakeInvalidCode }, packet.Id);
+                return;
+            }
+
+            List<(int Id, long Count)> costs = resolvedCosts
+                .Select(cost => (cost.Id, (long)cost.Count))
+                .ToList();
+            if (!HasAwakeCosts(session, costs))
+            {
+                session.SendResponse(new EquipAwakeResponse { Code = EquipAwakeInsufficientItemsCode }, packet.Id);
+                return;
+            }
+
+            NotifyItemDataList notifyItemData = ConsumeAwakeCosts(session, costs);
+            equip.AwakeSlotList.Add(request.Slot);
+            session.character.Save();
+            session.inventory.Save();
+            session.SendPush(notifyItemData);
+            session.SendResponse(new EquipAwakeResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("EquipQuickAwakeRequest")]
+        public static void EquipQuickAwakeRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipQuickAwakeRequest request = packet.Deserialize<EquipQuickAwakeRequest>();
+            if (request.EquipQuickAwakeInfos.Count == 0)
+            {
+                session.SendResponse(new EquipQuickAwakeResponse { Code = EquipAwakeInvalidCode }, packet.Id);
+                return;
+            }
+
+            List<(EquipData Equip, int Slot)> targets = new();
+            HashSet<(int EquipId, int Slot)> uniqueTargets = new();
+            Dictionary<int, long> totalCosts = new();
+            foreach (EquipQuickAwakeInfo awakeInfo in request.EquipQuickAwakeInfos)
+            {
+                EquipData? equip = session.character.Equips.Find(candidate => candidate.Id == awakeInfo.EquipId);
+                if (equip is null)
+                {
+                    session.SendResponse(new EquipQuickAwakeResponse { Code = 20021012 }, packet.Id);
+                    return;
+                }
+                if (awakeInfo.Slots.Count == 0
+                    || !TryResolveAwakeCosts(equip, 2, out List<(int Id, int Count)> recipeCosts))
+                {
+                    session.SendResponse(new EquipQuickAwakeResponse { Code = EquipAwakeInvalidCode }, packet.Id);
+                    return;
+                }
+
+                foreach (int slot in awakeInfo.Slots)
+                {
+                    if (!uniqueTargets.Add((checked((int)equip.Id), slot)))
+                    {
+                        session.SendResponse(new EquipQuickAwakeResponse { Code = EquipAwakeInvalidCode }, packet.Id);
+                        return;
+                    }
+                    if (HasAwakeSlot(equip, slot))
+                        continue;
+                    if (!CanAwakeEquipSlot(equip, slot))
+                    {
+                        session.SendResponse(new EquipQuickAwakeResponse { Code = EquipAwakeInvalidCode }, packet.Id);
+                        return;
+                    }
+                    targets.Add((equip, slot));
+                    foreach ((int id, int count) in recipeCosts)
+                    {
+                        try
+                        {
+                            totalCosts[id] = checked(totalCosts.GetValueOrDefault(id) + count);
+                        }
+                        catch (OverflowException)
+                        {
+                            session.SendResponse(new EquipQuickAwakeResponse { Code = EquipAwakeInvalidCode }, packet.Id);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (targets.Count == 0)
+            {
+                session.SendResponse(new EquipQuickAwakeResponse(), packet.Id);
+                return;
+            }
+
+            List<(int Id, long Count)> costs = totalCosts.Select(cost => (cost.Key, cost.Value)).ToList();
+            if (!HasAwakeCosts(session, costs))
+            {
+                session.SendResponse(new EquipQuickAwakeResponse { Code = EquipAwakeInsufficientItemsCode }, packet.Id);
+                return;
+            }
+
+            NotifyItemDataList notifyItemData = ConsumeAwakeCosts(session, costs);
+            foreach ((EquipData equip, int slot) in targets)
+            {
+                equip.AwakeSlotList ??= new();
+                equip.AwakeSlotList.Add(slot);
+            }
+            session.character.Save();
+            session.inventory.Save();
+            session.SendPush(notifyItemData);
+            session.SendResponse(new EquipQuickAwakeResponse(), packet.Id);
         }
 
         [RequestPacketHandler("EquipResonanceConfirmRequest")]
@@ -914,11 +1407,17 @@ namespace AscNet.GameServer.Handlers
         {
             EquipResonanceConfirmRequest request = packet.Deserialize<EquipResonanceConfirmRequest>();
             var equip = session.character.Equips.Find(candidate => candidate.Id == request.EquipId);
-            ResonanceInfo? pending = equip?.UnconfirmedResonanceInfo
-                .Find(candidate => candidate.Slot == request.Slot);
-            if (equip is null || pending is null)
+            ResonanceInfo? pending = equip is null
+                ? null
+                : session.PendingEquipResonances.GetValueOrDefault((equip.Id, request.Slot));
+            if (equip is null)
             {
-                session.SendResponse(new EquipResonanceConfirmResponse { Code = 1 }, packet.Id);
+                session.SendResponse(new EquipResonanceConfirmResponse { Code = 20021012 }, packet.Id);
+                return;
+            }
+            if (pending is null)
+            {
+                session.SendResponse(new EquipResonanceConfirmResponse { Code = 20021038 }, packet.Id);
                 return;
             }
 
@@ -928,7 +1427,9 @@ namespace AscNet.GameServer.Handlers
                 equip.ResonanceInfo.Add(pending);
             }
 
-            equip.UnconfirmedResonanceInfo.Remove(pending);
+            session.PendingEquipResonances.Remove((equip.Id, request.Slot));
+            if (request.IsUse)
+                session.character.Save();
             session.SendResponse(new EquipResonanceConfirmResponse(), packet.Id);
         }
 
