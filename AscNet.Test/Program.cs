@@ -198,6 +198,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--character-switch-liberate-magic-compat-only"))
+                {
+                    ValidateCharacterSwitchLiberateMagicCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--character-progression-persistence-compat-only"))
                 {
                     ValidateCharacterProgressionPersistenceCompatibility();
@@ -423,6 +429,7 @@ namespace AscNet.Test
                 ValidateRecordPlayerPointCompatibility();
                 ValidateBoardMutualClientPushCompatibility();
                 ValidatePlayerGenderCompatibility();
+                ValidateCharacterSwitchLiberateMagicCompatibility();
                 ValidateCharacterProgressionPersistenceCompatibility();
                 ValidateCharacterSkillGroupTableBackedCompatibility();
                 ValidateCharacterEnhanceSkillTableBackedCompatibility();
@@ -12504,6 +12511,185 @@ namespace AscNet.Test
             AssertEqual(1, rewardGoods.RewardType, "ItemUseResponse RewardGoodsList[0] RewardType");
             AssertEqual(AscNet.Common.Database.Inventory.Coin, rewardGoods.TemplateId, "ItemUseResponse RewardGoodsList[0] TemplateId");
             AssertEqual(20_000, rewardGoods.Count, "ItemUseResponse RewardGoodsList[0] Count");
+        }
+
+        private static void ValidateCharacterSwitchLiberateMagicCompatibility()
+        {
+            const string requestName = nameof(CharacterSwitchLiberateMagicIdRequest);
+            const string responseName = nameof(CharacterSwitchLiberateMagicIdResponse);
+            const int packetId = 19_520;
+            const long playerId = 99_520;
+
+            MethodInfo handlerMethod = GetRegisteredRequestHandlerMethod(requestName);
+            AssertEqual("CharacterSwitchLiberateMagicIdRequestHandler", handlerMethod.Name, $"{requestName} registered handler method");
+
+            string[] skillEffectLines = File.ReadLines(
+                ResourcePath("table", "share", "character", "skill", "CharacterSkillLevelEffect.tsv")).ToArray();
+            string[] skillEffectHeader = skillEffectLines[0].Split('\t');
+            int[] bornMagicColumns = skillEffectHeader
+                .Select((name, index) => (name, index))
+                .Where(column => column.name.StartsWith("BornMagic[", StringComparison.Ordinal))
+                .Select(column => column.index)
+                .ToArray();
+            int[] fixtureMagicIds = skillEffectLines
+                .Skip(1)
+                .SelectMany(line =>
+                {
+                    string[] fields = line.Split('\t');
+                    return bornMagicColumns
+                        .Where(index => index < fields.Length && int.TryParse(fields[index], out int value) && value > 0)
+                        .Select(index => int.Parse(fields[index]));
+                })
+                .Distinct()
+                .Take(3)
+                .ToArray();
+            if (fixtureMagicIds.Length < 3)
+                throw new InvalidDataException("CharacterSkillLevelEffect.tsv: expected three fixture-derived positive BornMagic values.");
+
+            List<CharacterTable> characterRows = TableReaderV2.Parse<CharacterTable>();
+            CharacterTable ownedCharacterRow = characterRows.First(row => row.Type == 1);
+            CharacterTable otherOwnedCharacterRow = characterRows.First(row =>
+                row.Type == 1 && row.Id != ownedCharacterRow.Id);
+            int ownedCharacterId = ownedCharacterRow.Id;
+            int otherOwnedCharacterId = otherOwnedCharacterRow.Id;
+            CharacterSwitchLiberateMagicIdRequest request = new()
+            {
+                MagicId = fixtureMagicIds[1],
+                CharacterId = ownedCharacterId
+            };
+            JObject requestJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(request)));
+            AssertEqual(true, requestJson.Properties().Select(property => property.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .SequenceEqual(["CharacterId", "MagicId"]), $"{requestName} has only captured MessagePack fields");
+            CharacterSwitchLiberateMagicIdRequest requestRoundTrip =
+                MessagePackSerializer.Deserialize<CharacterSwitchLiberateMagicIdRequest>(
+                    MessagePackSerializer.Serialize(request));
+            AssertEqual(request.MagicId, requestRoundTrip.MagicId, $"{requestName} MagicId round-trip");
+            AssertEqual(request.CharacterId, requestRoundTrip.CharacterId, $"{requestName} CharacterId round-trip");
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            CharacterData selectedCharacter = CreateLoginAccountCompatibilityCharacter(
+                (uint)ownedCharacterId,
+                (uint)ownedCharacterRow.DefaultNpcFashtionId);
+            selectedCharacter.MagicList =
+            [
+                new CharacterSkill { Id = (uint)fixtureMagicIds[0], Level = 2 },
+                new CharacterSkill { Id = (uint)fixtureMagicIds[2], Level = 3 }
+            ];
+            CharacterData otherCharacter = CreateLoginAccountCompatibilityCharacter(
+                (uint)otherOwnedCharacterId,
+                (uint)otherOwnedCharacterRow.DefaultNpcFashtionId);
+            character.Characters = [selectedCharacter, otherCharacter];
+
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                sessionId: "character-switch-liberate-magic-compat");
+
+            InvokeRequestHandler(harness, requestName, packetId, requestRoundTrip);
+            NotifyCharacterDataList push = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{requestName} first packet");
+            AssertEqual(1, push.CharacterDataList.Count, $"{requestName} changed-character push count");
+            CharacterSkill pushedMagic = push.CharacterDataList.Single(data => data.Id == (uint)ownedCharacterId).MagicList.Single();
+            AssertEqual((uint)fixtureMagicIds[1], pushedMagic.Id, $"{requestName} pushed replacement magic id");
+            AssertEqual(1, pushedMagic.Level, $"{requestName} pushed replacement magic level");
+            CharacterSwitchLiberateMagicIdResponse response =
+                ReadResponsePayload<CharacterSwitchLiberateMagicIdResponse>(
+                    harness.ReadPacket($"{responseName} second packet"),
+                    responseName);
+            AssertEqual(0, response.Code, $"{responseName} Code");
+            JObject responseJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(response)));
+            AssertEqual(true, responseJson.Properties().Select(property => property.Name)
+                .SequenceEqual(["Code"]), $"{responseName} has only captured MessagePack Code field");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, $"{requestName} saves character exactly once");
+            CharacterSkill persistedMagic = characterCollection.LastReplacement!.Characters
+                .Single(data => data.Id == (uint)ownedCharacterId).MagicList.Single();
+            AssertEqual((uint)fixtureMagicIds[1], persistedMagic.Id, $"{requestName} persisted replacement magic id");
+            AssertEqual(1, persistedMagic.Level, $"{requestName} persisted replacement magic level");
+
+            AscNet.Common.Database.Character reloaded =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    characterCollection.LastReplacement.ToBson());
+            CharacterSkill bsonMagic = reloaded.Characters
+                .Single(data => data.Id == (uint)ownedCharacterId).MagicList.Single();
+            AssertEqual((uint)fixtureMagicIds[1], bsonMagic.Id, $"{requestName} BSON/Mongo round-trip magic id");
+            AssertEqual(1, bsonMagic.Level, $"{requestName} BSON/Mongo round-trip magic level");
+            harness.Session.character = reloaded;
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin login = (NotifyLogin)(buildNotifyLogin.Invoke(null, [harness.Session])
+                ?? throw new InvalidDataException("BuildNotifyLogin returned null."));
+            NotifyLogin loginRoundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
+                MessagePackSerializer.Serialize(login));
+            JObject loginCharacterJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(loginRoundTrip.CharacterList
+                    .Single(data => data.Id == (uint)ownedCharacterId))));
+            JArray loginMagicList = (JArray)(loginCharacterJson["MagicList"]
+                ?? throw new InvalidDataException("NotifyLogin CharacterList entry omitted MagicList."));
+            AssertEqual(1, loginMagicList.Count, "NotifyLogin persisted MagicList singleton count");
+            AssertEqual(fixtureMagicIds[1], loginMagicList[0]!["Id"]!.Value<int>(), "NotifyLogin persisted MagicList id");
+            AssertEqual(1, loginMagicList[0]!["Level"]!.Value<int>(), "NotifyLogin persisted MagicList level");
+
+            CharacterSwitchLiberateMagicIdRequest repeatedRequest = new()
+            {
+                MagicId = fixtureMagicIds[2],
+                CharacterId = ownedCharacterId
+            };
+            InvokeRequestHandler(harness, requestName, packetId + 1, repeatedRequest);
+            NotifyCharacterDataList repeatedPush = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{requestName} repeated first packet");
+            AssertEqual((uint)fixtureMagicIds[2], repeatedPush.CharacterDataList
+                .Single(data => data.Id == (uint)ownedCharacterId).MagicList.Single().Id,
+                $"{requestName} repeated switch replaces singleton");
+            CharacterSwitchLiberateMagicIdResponse repeatedResponse =
+                ReadResponsePayload<CharacterSwitchLiberateMagicIdResponse>(
+                    harness.ReadPacket($"{responseName} repeated second packet"),
+                    responseName);
+            AssertEqual(0, repeatedResponse.Code, $"{responseName} repeated Code");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, $"{requestName} repeated switch saves once");
+
+            int missingCharacterId = checked(TableReaderV2.Parse<CharacterTable>().Max(row => row.Id) + 1);
+            uint[] rosterBeforeMissing = harness.Session.character.Characters.Select(data => data.Id).ToArray();
+            uint magicBeforeMissing = harness.Session.character.Characters
+                .Single(data => data.Id == (uint)ownedCharacterId).MagicList.Single().Id;
+            InvokeRequestHandler(
+                harness,
+                requestName,
+                packetId + 2,
+                new CharacterSwitchLiberateMagicIdRequest
+                {
+                    MagicId = fixtureMagicIds[0],
+                    CharacterId = missingCharacterId
+                });
+            CharacterSwitchLiberateMagicIdResponse missingResponse =
+                ReadResponsePayload<CharacterSwitchLiberateMagicIdResponse>(
+                    harness.ReadPacket($"{responseName} missing character response"),
+                    responseName);
+            AssertEqual(20009011, missingResponse.Code, $"{responseName} missing character Code");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, $"{requestName} missing character does not save");
+            AssertEqual(true, rosterBeforeMissing.SequenceEqual(
+                harness.Session.character.Characters.Select(data => data.Id)),
+                $"{requestName} missing character does not mutate roster");
+            AssertEqual(magicBeforeMissing, harness.Session.character.Characters
+                .Single(data => data.Id == (uint)ownedCharacterId).MagicList.Single().Id,
+                $"{requestName} missing character does not mutate magic");
+            if (harness.TryReadAvailablePacket($"{requestName} missing character unexpected packet", out Packet unexpectedPacket))
+                throw new InvalidDataException($"{requestName} missing character emitted unexpected {unexpectedPacket.Type} packet.");
         }
 
         private static void ValidateCharacterHeadInfoCompatibility()

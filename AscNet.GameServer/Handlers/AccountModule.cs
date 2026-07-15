@@ -1218,6 +1218,7 @@ Sorry for the inconvenience.
                     Level = skill.Level
                 }).ToList(),
                 EnhanceSkillList = character.EnhanceSkillList.Cast<dynamic>().ToList(),
+                MagicList = character.MagicList,
                 FashionId = character.FashionId,
                 CreateTime = character.CreateTime,
                 TrustLv = character.TrustLv,

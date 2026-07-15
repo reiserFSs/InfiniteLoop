@@ -145,6 +145,19 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class CharacterSwitchLiberateMagicIdRequest
+    {
+        public int MagicId;
+        public int CharacterId;
+    }
+
+    [MessagePackObject(true)]
+    public class CharacterSwitchLiberateMagicIdResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
     public class CharacterSetHeadInfoRequest
     {
         public int TemplateId;
@@ -284,6 +297,29 @@ namespace AscNet.GameServer.Handlers
             session.character.Save();
 
             session.SendResponse(new CharacterSetCollectStateResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("CharacterSwitchLiberateMagicIdRequest")]
+        public static void CharacterSwitchLiberateMagicIdRequestHandler(Session session, Packet.Request packet)
+        {
+            CharacterSwitchLiberateMagicIdRequest request = packet.Deserialize<CharacterSwitchLiberateMagicIdRequest>();
+            CharacterData? character = session.character.Characters.Find(c => c.Id == request.CharacterId);
+            if (character is null)
+            {
+                session.SendResponse(new CharacterSwitchLiberateMagicIdResponse() { Code = 20009011 }, packet.Id);
+                return;
+            }
+
+            character.MagicList = new List<CharacterSkill>()
+            {
+                new() { Id = (uint)request.MagicId, Level = 1 }
+            };
+            session.SendPush(new NotifyCharacterDataList()
+            {
+                CharacterDataList = { character }
+            });
+            session.character.Save();
+            session.SendResponse(new CharacterSwitchLiberateMagicIdResponse(), packet.Id);
         }
 
         [RequestPacketHandler("CharacterPromoteGradeRequest")]

@@ -79,6 +79,7 @@ namespace AscNet.Common.MsgPack
         public long Grade { get; set; }
         public List<SkillList> SkillList { get; set; } = new();
         public List<dynamic> EnhanceSkillList { get; set; } = new();
+        public List<CharacterSkill> MagicList { get; set; } = new();
         public long FashionId { get; set; }
         public long CreateTime { get; set; }
         public long TrustLv { get; set; }
