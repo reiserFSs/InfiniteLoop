@@ -90,6 +90,16 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--weapon-fashion-unlock-compat-only"))
+                {
+                    ValidateWeaponFashionUnlockCompatibility();
+                    return;
+                }
+                if (args.Contains("--weapon-fashion-use-compat-only"))
+                {
+                    ValidateWeaponFashionUseCompatibility();
+                    return;
+                }
                 if (args.Contains("--equip-resonance-compat-only"))
                 {
                     ValidateEquipResonanceCompatibility();
@@ -1481,7 +1491,7 @@ namespace AscNet.Test
                         Slot = 2,
                         Type = EquipResonanceType.CharacterSkill,
                         CharacterId = 1261003,
-                        TemplateId = 126316,
+                        TemplateId = 126323,
                         UseItemId = 3005
                     }
                 ]
@@ -1526,13 +1536,64 @@ namespace AscNet.Test
                 AssertEqual(0, response.Code, "captured stale-table response code");
                 AssertIntegerList([1361], response.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
                     "captured stale-table success ids");
+                AssertEqual(126323, capturedEquip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                    "captured retail lower-slot skill is preserved");
                 AssertEqual(126316, capturedEquip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
-                    "captured selected skill persisted in memory");
+                    "captured upper-slot selected skill persisted in memory");
                 EquipData persistedCapturedEquip = MessagePackSerializer.Deserialize<EquipData>(
                     MessagePackSerializer.Serialize(capturedEquip));
                 AssertEqual(126316,
                     persistedCapturedEquip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
                     "captured selected skill survives login persistence round trip");
+
+                capturedInventory.Items.Single(value => value.Id == 3005).Count = 1;
+                InvokeRequestHandler(capturedHarness, nameof(EquipQuickResonanceChipRequest), 16_086,
+                    new EquipQuickResonanceChipRequest
+                    {
+                        CharacterId = 1261003,
+                        SelectType = EquipResonanceType.CharacterSkill,
+                        EquipIds = [1361],
+                        SelectSkillId = 126323,
+                        UseItemId = 3005,
+                        Slot = 2
+                    });
+                _ = ReadPushPayload<NotifyArchiveEquip>(
+                    capturedHarness, nameof(NotifyArchiveEquip), "lower-slot quick archive push");
+                NotifyItemDataList lowerItemPush = ReadPushPayload<NotifyItemDataList>(
+                    capturedHarness, nameof(NotifyItemDataList), "lower-slot quick material push");
+                AssertEqual(0L, lowerItemPush.ItemDataList.Single().Count, "lower-slot item 3005 deduction");
+                AssertEqual(0, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                    capturedHarness.ReadPacket("lower-slot quick response"),
+                    nameof(EquipQuickResonanceChipResponse)).Code, "lower-slot quick response code");
+                AssertEqual(126316, capturedEquip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                    "lower-slot quick resonance preserves upper slot");
+                AssertEqual(126323, capturedEquip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                    "lower-slot selected skill persisted");
+                EquipData persistedLowerEquip = MessagePackSerializer.Deserialize<EquipData>(
+                    MessagePackSerializer.Serialize(capturedEquip));
+                AssertEqual(126323,
+                    persistedLowerEquip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                    "lower-slot selected skill survives persistence round trip");
+
+                capturedInventory.Items.Single(value => value.Id == 3005).Count = 1;
+                InvokeRequestHandler(capturedHarness, nameof(EquipQuickResonanceChipRequest), 16_086,
+                    new EquipQuickResonanceChipRequest
+                    {
+                        CharacterId = 1261003,
+                        SelectType = EquipResonanceType.CharacterSkill,
+                        EquipIds = [1361],
+                        SelectSkillId = 126316,
+                        UseItemId = 3005,
+                        Slot = 2
+                    });
+                AssertEqual(20021114, ReadResponsePayload<EquipQuickResonanceChipResponse>(
+                    capturedHarness.ReadPacket("upper-pool skill in lower-slot response"),
+                    nameof(EquipQuickResonanceChipResponse)).Code,
+                    "upper-pool skill is invalid in lower slot");
+                AssertEqual(1L, capturedInventory.Items.Single(value => value.Id == 3005).Count,
+                    "wrong-pool quick selection preserves material");
+                AssertEqual(126323, capturedEquip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                    "wrong-pool quick selection preserves lower slot");
             }
 
             EquipData first = new()
@@ -2102,6 +2163,7 @@ namespace AscNet.Test
             AssertEqual(0, harness.Session.PendingEquipResonances.Count,
                 "insufficient-token resonance does not mutate session pending state");
             inventory.Items.Add(new Item { Id = 29, Count = 414 });
+            int activeCountBeforeInvalidSelection = equip.ResonanceInfo.Count;
             InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_083,
                 new EquipResonanceRequest
                 {
@@ -2109,27 +2171,26 @@ namespace AscNet.Test
                     EquipId = 2970,
                     CharacterId = characterId,
                     Slots = [2],
-                    SelectSkillIds = [112201]
+                    SelectSkillIds = [112201],
+                    SelectType = EquipResonanceType.CharacterSkill
                 });
-            NotifyItemDataList shardPush = ReadPushPayload<NotifyItemDataList>(
-                harness, nameof(NotifyItemDataList), "6-star shard memory resonance item push");
-            AssertEqual(264L, shardPush.ItemDataList.Single().Count, "6-star shard resonance cost");
-            _ = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("6-star shard memory resonance"), nameof(EquipResonanceResponse));
-            AssertEqual(2, equip.ResonanceInfo.Count, "memory SelectSkillIds reroll keeps active slots pending confirmation");
-            AssertEqual(2, harness.Session.PendingEquipResonances.Single().Value.Slot,
-                "bottom-slot session-provisional slot");
-            InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_084,
-                new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 2, IsUse = true });
-            _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
-                harness.ReadPacket("accepted 6-star shard resonance"), nameof(EquipResonanceConfirmResponse));
-            AssertIntegerList([1, 2], equip.ResonanceInfo.OrderBy(value => value.Slot)
-                .Select(value => (long)value.Slot).ToArray(), "accepted top and bottom resonance slots");
+            AssertEqual(20021038, ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("ordinary shard forced-selection response"),
+                nameof(EquipResonanceResponse)).Code,
+                "ordinary item 29 cannot force a selected resonance");
+            AssertEqual(414L, inventory.Items.Single(item => item.Id == 29).Count,
+                "rejected ordinary forced selection preserves shards");
+            AssertEqual(activeCountBeforeInvalidSelection, equip.ResonanceInfo.Count,
+                "rejected ordinary forced selection preserves active resonance");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                "rejected ordinary forced selection creates no pending resonance");
+
+            ValidateManualSelectedMemoryResonanceBehavior();
+
             EquipData relogin = MessagePackSerializer.Deserialize<EquipData>(
                 MessagePackSerializer.Serialize(equip));
             _ = AscNet.Common.Database.Character.NormalizeEquipResonances(relogin);
-            AssertIntegerList([1, 2], relogin.ResonanceInfo.OrderBy(value => value.Slot)
-                .Select(value => (long)value.Slot).ToArray(), "relogin top and bottom resonance slots");
+            AssertEqual(2, relogin.ResonanceInfo.Count, "relogin preserves confirmed random resonance slots");
             const long resonancePersistenceUid = -8_800_076;
             FilterDefinition<AscNet.Common.Database.Character> resonanceFilter =
                 Builders<AscNet.Common.Database.Character>.Filter.Eq(value => value.Uid, resonancePersistenceUid);
@@ -2158,7 +2219,7 @@ namespace AscNet.Test
                     AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
                 EquipData databaseEquip = databaseReload.Equips.Single(value => value.Id == relogin.Id);
                 AssertIntegerList([1, 2], databaseEquip.ResonanceInfo.OrderBy(value => value.Slot)
-                    .Select(value => (long)value.Slot).ToArray(), "Mongo re-login top and bottom resonance slots");
+                    .Select(value => (long)value.Slot).ToArray(), "Mongo re-login confirmed resonance slots");
                 AssertEqual(0, databaseEquip.UnconfirmedResonanceInfo.Count,
                     "Mongo logout/relogin does not grant or replay abandoned session result");
                 AssertEqual(2, databaseEquip.ResonanceInfo.Count,
@@ -2282,6 +2343,231 @@ namespace AscNet.Test
             _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
                 harness.ReadPacket("discarded configured resonance"), nameof(EquipResonanceConfirmResponse));
 
+        }
+
+        private static void ValidateManualSelectedMemoryResonanceBehavior()
+        {
+            const int characterId = 1261003;
+            const int selectedLowerSkillId = 126323;
+            const int upperPoolSkillId = 126316;
+            const int selectItemId = 3005;
+            const int testUid = 91_323;
+
+            EquipResonanceTable resonanceConfig =
+                TableReaderV2.Parse<EquipResonanceTable>().Single(value => value.Id == 3016036);
+            EquipResonanceUseItemTable costConfig =
+                TableReaderV2.Parse<EquipResonanceUseItemTable>().Single(value => value.Id == 3016036);
+            int selectCost = costConfig.SelectSkillItemCount!.Value;
+            AssertEqual(selectItemId, costConfig.SelectSkillItemId!.Value,
+                "6-star Memory configured select material");
+            int attributePoolId = resonanceConfig.AttribPoolId[0];
+            int lowerAttributePoolId = resonanceConfig.AttribPoolId[1];
+            List<AttribPoolTable> attributePools = TableReaderV2.Parse<AttribPoolTable>();
+            AttribPoolTable selectedAttribute =
+                attributePools.First(value => value.PoolId == attributePoolId);
+            AttribPoolTable wrongPoolAttribute = attributePools.First(candidate =>
+                candidate.PoolId != lowerAttributePoolId
+                && !attributePools.Any(lower =>
+                    lower.PoolId == lowerAttributePoolId && lower.Id == candidate.Id));
+
+            EquipData equip = new()
+            {
+                Id = 91_323,
+                TemplateId = 3016036,
+                CharacterId = characterId,
+                ResonanceInfo =
+                [
+                    new ResonanceInfo
+                    {
+                        Slot = 1,
+                        Type = EquipResonanceType.CharacterSkill,
+                        CharacterId = characterId,
+                        TemplateId = upperPoolSkillId,
+                        UseItemId = selectItemId
+                    },
+                    new ResonanceInfo
+                    {
+                        Slot = 2,
+                        Type = EquipResonanceType.CharacterSkill,
+                        CharacterId = characterId,
+                        TemplateId = 126321,
+                        UseItemId = selectItemId
+                    }
+                ]
+            };
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = testUid,
+                Characters = [new CharacterData { Id = characterId }],
+                Equips = [equip],
+                Fashions = []
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items = [new Item { Id = selectItemId, Count = 10 }]
+            };
+            using LoopbackSessionHarness harness = new(character, inventory: inventory);
+
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), testUid,
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId,
+                    EquipId = Convert.ToInt32(equip.Id),
+                    CharacterId = characterId,
+                    Slots = [2],
+                    SelectSkillIds = [selectedLowerSkillId],
+                    SelectType = EquipResonanceType.CharacterSkill
+                });
+            NotifyItemDataList characterItemPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "manual character-skill item push");
+            AssertEqual(10L - selectCost, characterItemPush.ItemDataList.Single().Count,
+                "manual character-skill configured select cost");
+            EquipResonanceResponse characterResponse = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("manual character-skill response"), nameof(EquipResonanceResponse));
+            ResonanceInfo selectedCharacterSkill = characterResponse.ResonanceDatas.Single();
+            AssertEqual(2, selectedCharacterSkill.Slot, "manual lower character-skill response slot");
+            AssertEqual((int)EquipResonanceType.CharacterSkill, (int)selectedCharacterSkill.Type,
+                "manual lower character-skill response type");
+            AssertEqual(selectedLowerSkillId, selectedCharacterSkill.TemplateId,
+                "manual lower character-skill exact response id");
+            AssertEqual(characterId, selectedCharacterSkill.CharacterId,
+                "manual lower character-skill response character");
+            AssertEqual(upperPoolSkillId, equip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                "manual lower selection preserves upper slot");
+            AssertEqual(126321, equip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                "manual reroll leaves active lower slot unchanged before confirm");
+            AssertEqual(selectedLowerSkillId,
+                harness.Session.PendingEquipResonances.Single().Value.TemplateId,
+                "manual reroll stores exact lower selection pending confirmation");
+
+            InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), testUid,
+                new EquipResonanceConfirmRequest { EquipId = Convert.ToInt32(equip.Id), Slot = 2, IsUse = true });
+            AssertEqual(0, ReadResponsePayload<EquipResonanceConfirmResponse>(
+                harness.ReadPacket("manual lower character-skill confirm"),
+                nameof(EquipResonanceConfirmResponse)).Code, "manual lower character-skill confirm code");
+            AssertEqual(selectedLowerSkillId, equip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                "manual lower character-skill commits on confirm");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                "manual lower character-skill confirm clears pending");
+
+            equip.ResonanceInfo.RemoveAll(value => value.Slot == 1);
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), testUid,
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId,
+                    EquipId = Convert.ToInt32(equip.Id),
+                    CharacterId = characterId,
+                    Slots = [1],
+                    SelectSkillIds = [selectedAttribute.Id],
+                    SelectType = EquipResonanceType.Attrib
+                });
+            NotifyItemDataList attributeItemPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "manual attribute item push");
+            AssertEqual(10L - selectCost * 2, attributeItemPush.ItemDataList.Single().Count,
+                "manual attribute configured select cost");
+            ResonanceInfo selectedAttributeResult = ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("manual attribute response"), nameof(EquipResonanceResponse))
+                .ResonanceDatas.Single();
+            AssertEqual(1, selectedAttributeResult.Slot, "manual attribute response slot");
+            AssertEqual((int)EquipResonanceType.Attrib, (int)selectedAttributeResult.Type,
+                "manual attribute response type");
+            AssertEqual(selectedAttribute.Id, selectedAttributeResult.TemplateId,
+                "manual attribute exact response id");
+            AssertEqual(selectedAttribute.Id, equip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
+                "manual selected attribute commits into empty slot");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                "manual selected attribute in empty slot is not pending");
+
+            long materialBeforeInvalid = inventory.Items.Single(value => value.Id == selectItemId).Count;
+            int activeLowerBeforeInvalid = equip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId;
+            foreach (EquipResonanceRequest invalid in new[]
+            {
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [], SelectSkillIds = [selectedLowerSkillId],
+                    SelectType = EquipResonanceType.CharacterSkill
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [2, 1], SelectSkillIds = [selectedLowerSkillId],
+                    SelectType = EquipResonanceType.CharacterSkill
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [2], SelectSkillIds = [], SelectType = EquipResonanceType.CharacterSkill
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [2], SelectSkillIds = [selectedLowerSkillId, 126321],
+                    SelectType = EquipResonanceType.CharacterSkill
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [2], SelectSkillIds = [selectedLowerSkillId],
+                    SelectType = EquipResonanceType.WeaponSkill
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [2], SelectSkillIds = [upperPoolSkillId],
+                    SelectType = EquipResonanceType.CharacterSkill
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [2], SelectSkillIds = [wrongPoolAttribute.Id],
+                    SelectType = EquipResonanceType.Attrib
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId, EquipId = Convert.ToInt32(equip.Id), CharacterId = 1261004,
+                    Slots = [2], SelectSkillIds = [selectedLowerSkillId],
+                    SelectType = EquipResonanceType.CharacterSkill
+                },
+                new EquipResonanceRequest
+                {
+                    UseItemId = 3004, EquipId = Convert.ToInt32(equip.Id), CharacterId = characterId,
+                    Slots = [2], SelectSkillIds = [selectedLowerSkillId],
+                    SelectType = EquipResonanceType.CharacterSkill
+                }
+            })
+            {
+                InvokeRequestHandler(harness, nameof(EquipResonanceRequest), testUid, invalid);
+                AssertEqual(20021038, ReadResponsePayload<EquipResonanceResponse>(
+                    harness.ReadPacket("malformed manual selection response"),
+                    nameof(EquipResonanceResponse)).Code, "malformed manual selection parameter error");
+                AssertEqual(materialBeforeInvalid,
+                    inventory.Items.Single(value => value.Id == selectItemId).Count,
+                    "malformed manual selection preserves select material");
+                AssertEqual(activeLowerBeforeInvalid,
+                    equip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
+                    "malformed manual selection preserves active lower resonance");
+                AssertEqual(0, harness.Session.PendingEquipResonances.Count,
+                    "malformed manual selection creates no pending state");
+            }
+
+            InvokeRequestHandler(harness, nameof(EquipResonanceRequest), testUid,
+                new EquipResonanceRequest
+                {
+                    UseItemId = selectItemId,
+                    EquipId = Convert.ToInt32(equip.Id),
+                    CharacterId = characterId,
+                    Slots = [2],
+                    SelectSkillIds = null,
+                    SelectType = EquipResonanceType.CharacterSkill
+                });
+            AssertEqual(20021038, ReadResponsePayload<EquipResonanceResponse>(
+                harness.ReadPacket("select material without selection response"),
+                nameof(EquipResonanceResponse)).Code,
+                "select material without valid selection parameter error");
+            AssertEqual(materialBeforeInvalid, inventory.Items.Single(value => value.Id == selectItemId).Count,
+                "select material without selection preserves material");
         }
 
         private static void ValidateEquipAwakeBehavior()
@@ -12695,6 +12981,494 @@ namespace AscNet.Test
 
                 throw new TypeLoadException($"Expected BigWorld payload type {typeName} in AscNet.GameServer.Handlers or AscNet.Common.MsgPack.");
             }
+        }
+
+        private static void ValidateWeaponFashionUnlockCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+
+            JObject shops = JObject.Parse(File.ReadAllText(ResourcePath("Configs", "client_shops.json")));
+            Dictionary<int, ItemTable> items = TableReaderV2.Parse<ItemTable>().ToDictionary(item => item.Id);
+            (uint ShopId, JObject Goods, ItemTable? Item) shopCase = shops.Properties()
+                .Select(property => (ShopId: uint.Parse(property.Name), Shop: (JObject)property.Value))
+                .Where(entry => entry.ShopId is 503 or 504)
+                .SelectMany(entry => ((JArray?)entry.Shop["GoodsList"] ?? [])
+                    .OfType<JObject>()
+                    .Select(goods => (entry.ShopId, Goods: goods)))
+                .Select(entry =>
+                {
+                    int templateId = (int?)entry.Goods["RewardGoods"]?["TemplateId"] ?? 0;
+                    return (entry.ShopId, entry.Goods, Item: items.GetValueOrDefault(templateId));
+                })
+                .FirstOrDefault(entry =>
+                    (int?)entry.Goods["RewardGoods"]?["RewardType"] == (int)RewardType.Item
+                    && entry.Item?.ItemType == (int)ItemType.WeaponFashion
+                    && entry.Item.SubTypeParams.FirstOrDefault() > 0);
+            if (shopCase.Item is null)
+                throw new InvalidDataException("Weapon fashion compatibility: shops 503/504 contain no catalog-backed coating good.");
+
+            int tokenItemId = shopCase.Item.Id;
+            int weaponFashionId = shopCase.Item.SubTypeParams[0];
+            uint goodsId = (uint?)shopCase.Goods["Id"] ?? 0;
+            JObject[] costs = ((JArray?)shopCase.Goods["ConsumeList"] ?? []).OfType<JObject>().ToArray();
+            if (goodsId == 0 || costs.Length == 0)
+                throw new InvalidDataException("Weapon fashion compatibility: selected shop good has no id or cost.");
+
+            const long playerId = 99_211;
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                costs.Select(cost => new Item
+                {
+                    Id = (int)cost["Id"]!,
+                    Count = (long)(uint)cost["Count"]!
+                }));
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                inventory,
+                "weapon-fashion-unlock-compat-test");
+
+            const int packetId = 14_211;
+            InvokeRegisteredRequestHandler(nameof(BuyRequest), harness.Session, packetId, new BuyRequest
+            {
+                ShopId = shopCase.ShopId,
+                GoodsId = goodsId,
+                Count = 1
+            });
+            NotifyItemDataList costPush = ReadPushPayload<NotifyItemDataList>(
+                harness, nameof(NotifyItemDataList), "weapon fashion shop cost push");
+            NotifyWeaponFashionInfo coatingPush = ReadPushPayload<NotifyWeaponFashionInfo>(
+                harness, nameof(NotifyWeaponFashionInfo), "weapon fashion shop ownership push");
+            _ = ReadPushPayload<NotifyTask>(
+                harness, nameof(NotifyTask), "weapon fashion shop task progress push");
+            BuyResponse buyResponse = ReadResponsePayload<BuyResponse>(
+                harness, packetId, nameof(BuyResponse), "weapon fashion shop response");
+            AssertEqual(0, buyResponse.Code, "weapon fashion BuyResponse Code");
+            RewardGoods boughtGood = buyResponse.GoodList.Single();
+            AssertEqual((int)RewardType.Item, boughtGood.RewardType, "weapon fashion BuyResponse reward type");
+            AssertEqual(tokenItemId, boughtGood.TemplateId, "weapon fashion BuyResponse configured template id");
+            AssertEqual(1, boughtGood.Count, "weapon fashion BuyResponse reward count");
+            AssertEqual(costs.Length, costPush.ItemDataList.Count, "weapon fashion changed cost item count");
+            foreach (JObject cost in costs)
+            {
+                int costId = (int)cost["Id"]!;
+                AssertEqual(0L, costPush.ItemDataList.Single(item => item.Id == costId).Count,
+                    $"weapon fashion cost {costId} pushed balance");
+                AssertEqual(0L, inventory.Items.Single(item => item.Id == costId).Count,
+                    $"weapon fashion cost {costId} inventory balance");
+            }
+            WeaponFashionData purchased = coatingPush.WeaponFashionDataList.Single();
+            AssertEqual(weaponFashionId, purchased.Id, "weapon fashion shop ownership id");
+            AssertEqual(0L, purchased.ExpireTime, "weapon fashion shop permanent expiry");
+            AssertEqual(0, purchased.UseCharacterList.Count, "weapon fashion shop use-character list");
+            AssertEqual(0, coatingPush.ExpireList.Count, "weapon fashion shop expiry removals");
+            WeaponFashionData owned = character.WeaponFashions.Single();
+            AssertEqual(purchased.Id, owned.Id, "weapon fashion exact stored id");
+            AssertEqual(purchased.ExpireTime, owned.ExpireTime, "weapon fashion exact stored expiry");
+            AssertIntegerList(purchased.UseCharacterList.Select(id => (long)id).ToArray(),
+                owned.UseCharacterList.Select(id => (long)id).ToArray(), "weapon fashion exact stored use-character list");
+            AssertEqual(0, inventory.Items.Count(item => item.Id == tokenItemId),
+                "weapon fashion shop reward leaves no 80xxx inventory token");
+            if (harness.TryReadAvailablePacket("weapon fashion shop unexpected packet", out Packet extra))
+                throw new InvalidDataException($"Weapon fashion shop: unexpected packet after BuyResponse: {extra.Type}.");
+
+            AscNet.Common.Database.Character reloaded =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(character.ToBson());
+            WeaponFashionData reloadedFashion = reloaded.WeaponFashions.Single();
+            AssertEqual(weaponFashionId, reloadedFashion.Id, "weapon fashion BSON id");
+            AssertEqual(0L, reloadedFashion.ExpireTime, "weapon fashion BSON expiry");
+            using (LoopbackSessionHarness loginHarness = new(
+                reloaded,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "weapon-fashion-login-roundtrip-test"))
+            {
+                MethodInfo buildNotifyLogin = RequiredMethod(
+                    RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                    "BuildNotifyLogin", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session)]);
+                NotifyLogin login = (NotifyLogin)(buildNotifyLogin.Invoke(null, [loginHarness.Session])
+                    ?? throw new InvalidDataException("Weapon fashion BuildNotifyLogin returned null."));
+                WeaponFashionData loginFashion = login.WeaponFashionList.Single();
+                AssertEqual(reloadedFashion.Id, loginFashion.Id, "weapon fashion NotifyLogin id");
+                AssertEqual(reloadedFashion.ExpireTime, loginFashion.ExpireTime, "weapon fashion NotifyLogin expiry");
+                AssertIntegerList(reloadedFashion.UseCharacterList.Select(id => (long)id).ToArray(),
+                    loginFashion.UseCharacterList.Select(id => (long)id).ToArray(), "weapon fashion NotifyLogin use-character list");
+            }
+
+            Type rewardHandlerType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
+            MethodInfo giveRewards = RequiredMethod(
+                rewardHandlerType,
+                "GiveRewards",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(IEnumerable<Reward>), typeof(Session)]);
+            giveRewards.Invoke(null,
+            [
+                new Reward[] { new() { Id = weaponFashionId, Count = 1, Type = RewardType.WeaponFashion } },
+                harness.Session
+            ]);
+            AssertEqual(1, character.WeaponFashions.Count, "duplicate permanent weapon fashion is idempotent");
+            if (harness.TryReadAvailablePacket("duplicate permanent unexpected packet", out Packet duplicatePacket))
+                throw new InvalidDataException($"Duplicate permanent weapon fashion emitted {duplicatePacket.Type} packet.");
+
+            int upgradeId = items.Values
+                .Where(item => item.ItemType == (int)ItemType.WeaponFashion)
+                .Select(item => item.SubTypeParams.FirstOrDefault())
+                .First(id => id > 0 && id != weaponFashionId);
+            character.WeaponFashions.Add(new WeaponFashionData
+            {
+                Id = upgradeId,
+                ExpireTime = DateTimeOffset.UtcNow.AddDays(1).ToUnixTimeSeconds(),
+                UseCharacterList = []
+            });
+            giveRewards.Invoke(null,
+            [
+                new Reward[]
+                {
+                    new() { Id = upgradeId, Count = 1, Type = RewardType.WeaponFashion },
+                    new() { Id = weaponFashionId, Count = 1, Type = RewardType.WeaponFashion }
+                },
+                harness.Session
+            ]);
+            NotifyWeaponFashionInfo upgradePush = ReadPushPayload<NotifyWeaponFashionInfo>(
+                harness, nameof(NotifyWeaponFashionInfo), "temporary weapon fashion upgrade push");
+            AssertEqual(1, upgradePush.WeaponFashionDataList.Count, "direct reward changed-only batch count");
+            AssertEqual(upgradeId, upgradePush.WeaponFashionDataList[0].Id, "temporary weapon fashion upgraded id");
+            AssertEqual(0L, upgradePush.WeaponFashionDataList[0].ExpireTime, "temporary weapon fashion upgraded permanent");
+
+            AscNet.GameServer.Commands.CommandFactory.commands.Clear();
+            AscNet.GameServer.Commands.CommandFactory.LoadCommands();
+            CharacterTable ownedCharacter = TableReaderV2.Parse<CharacterTable>().First(row => row.Type == 1);
+            character.Characters =
+            [
+                CreateLoginAccountCompatibilityCharacter(
+                    (uint)ownedCharacter.Id, (uint)ownedCharacter.DefaultNpcFashtionId)
+            ];
+            int savesBeforeCommand = characterCollection.ReplaceOneCalls;
+            AscNet.GameServer.Commands.Command command =
+                AscNet.GameServer.Commands.CommandFactory.CreateCommand(
+                    "coating", harness.Session, ["unlock", "all"])
+                ?? throw new InvalidDataException("Weapon fashion compatibility: coating command is not registered.");
+            command.Execute();
+            FashionSyncNotify fashionPush = ReadPushPayload<FashionSyncNotify>(
+                harness, nameof(FashionSyncNotify), "coating unlock all character fashion push");
+            NotifyWeaponFashionInfo allWeaponPush = ReadPushPayload<NotifyWeaponFashionInfo>(
+                harness, nameof(NotifyWeaponFashionInfo), "coating unlock all weapon fashion push");
+            HashSet<int> catalogWeaponIds = items.Values
+                .Where(item => item.ItemType == (int)ItemType.WeaponFashion)
+                .Select(item => item.SubTypeParams.FirstOrDefault())
+                .Where(id => id > 0)
+                .ToHashSet();
+            if (!catalogWeaponIds.SetEquals(character.WeaponFashions.Select(fashion => fashion.Id)))
+                throw new InvalidDataException("coating unlock all did not unlock the full catalog-backed weapon fashion set.");
+            HashSet<int> ownedCharacterFashionIds = TableReaderV2.Parse<FashionTable>()
+                .Where(fashion => fashion.CharacterId == ownedCharacter.Id)
+                .Select(fashion => fashion.Id)
+                .ToHashSet();
+            if (!ownedCharacterFashionIds.SetEquals(character.Fashions.Select(fashion => checked((int)fashion.Id))))
+                throw new InvalidDataException("coating unlock all did not unlock all fashions for the owned character.");
+            AssertEqual(ownedCharacterFashionIds.Count, fashionPush.FashionList.Count,
+                "coating unlock all character push changed count");
+            AssertEqual(catalogWeaponIds.Count - 2, allWeaponPush.WeaponFashionDataList.Count,
+                "coating unlock all weapon push changed count");
+            AssertEqual(savesBeforeCommand + 1, characterCollection.ReplaceOneCalls,
+                "coating unlock all saves once");
+
+            command = AscNet.GameServer.Commands.CommandFactory.CreateCommand(
+                "coating", harness.Session, ["unlock", "all"])
+                ?? throw new InvalidDataException("Weapon fashion compatibility: coating command disappeared.");
+            command.Execute();
+            AssertEqual(savesBeforeCommand + 1, characterCollection.ReplaceOneCalls,
+                "coating unlock all rerun does not save");
+            if (harness.TryReadAvailablePacket("coating unlock all rerun unexpected packet", out Packet rerunPacket))
+                throw new InvalidDataException($"coating unlock all rerun emitted {rerunPacket.Type} packet.");
+
+            Console.WriteLine(
+                $"Weapon fashion unlock compatibility passed: shop {shopCase.ShopId}/{goodsId}, " +
+                $"packets {nameof(NotifyItemDataList)} -> {nameof(NotifyWeaponFashionInfo)} -> {nameof(NotifyTask)} -> {nameof(BuyResponse)}; " +
+                $"BSON/{nameof(NotifyLogin)}, duplicate/direct upgrade, and coating unlock all ({catalogWeaponIds.Count} catalog coatings).");
+        }
+
+        private static void ValidateWeaponFashionUseCompatibility()
+        {
+            const string requestName = nameof(WeaponFashionUseRequest);
+            const string responseName = nameof(WeaponFashionUseResponse);
+            const int capturedFashionId = 12_340_004;
+            const int swapFashionId = 12_340_005;
+            const int expiredFashionId = 12_340_006;
+            const uint characterId = 1_021_005;
+            const uint otherCharacterId = 1_021_001;
+            const int storedCharacterId = checked((int)characterId);
+            const int storedOtherCharacterId = checked((int)otherCharacterId);
+            const long playerId = 99_212;
+            int packetId = 14_220;
+
+            PropertyInfo idProperty = typeof(WeaponFashionUseRequest).GetProperty(
+                nameof(WeaponFashionUseRequest.Id), BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingMemberException(typeof(WeaponFashionUseRequest).FullName, nameof(WeaponFashionUseRequest.Id));
+            PropertyInfo characterIdProperty = typeof(WeaponFashionUseRequest).GetProperty(
+                nameof(WeaponFashionUseRequest.CharacterId), BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingMemberException(typeof(WeaponFashionUseRequest).FullName, nameof(WeaponFashionUseRequest.CharacterId));
+            AssertEqual(typeof(int), idProperty.PropertyType, $"{requestName} Id CLR type");
+            AssertEqual(typeof(uint), characterIdProperty.PropertyType, $"{requestName} CharacterId CLR type");
+            AssertEqual(
+                true,
+                typeof(WeaponFashionUseRequest).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .SequenceEqual(["CharacterId", "Id"]),
+                $"{requestName} exact public property set");
+
+            WeaponFashionUseRequest capturedRequest = new() { Id = 0, CharacterId = characterId };
+            byte[] capturedBytes = MessagePackSerializer.Serialize(capturedRequest);
+            JObject capturedJson = JObject.Parse(MessagePackSerializer.ConvertToJson(capturedBytes));
+            AssertEqual(
+                true,
+                capturedJson.Properties().Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .SequenceEqual(["CharacterId", "Id"]),
+                $"{requestName} exact MessagePack fields");
+            AssertEqual(JTokenType.Integer, capturedJson[nameof(WeaponFashionUseRequest.Id)]!.Type,
+                $"{requestName} Id MessagePack type");
+            AssertEqual(JTokenType.Integer, capturedJson[nameof(WeaponFashionUseRequest.CharacterId)]!.Type,
+                $"{requestName} CharacterId MessagePack type");
+            WeaponFashionUseRequest capturedRoundTrip =
+                MessagePackSerializer.Deserialize<WeaponFashionUseRequest>(capturedBytes);
+            AssertEqual(0, capturedRoundTrip.Id, $"{requestName} captured Id round-trip");
+            AssertEqual(characterId, capturedRoundTrip.CharacterId, $"{requestName} captured CharacterId round-trip");
+            AssertEqual("HandleWeaponFashionUseRequest", GetRegisteredRequestHandlerMethod(requestName).Name,
+                $"{requestName} registered handler method");
+
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters =
+            [
+                CreateLoginAccountCompatibilityCharacter(characterId, 0),
+                CreateLoginAccountCompatibilityCharacter(otherCharacterId, 0)
+            ];
+            character.WeaponFashions =
+            [
+                new WeaponFashionData
+                {
+                    Id = capturedFashionId,
+                    ExpireTime = 0,
+                    UseCharacterList = [storedCharacterId]
+                },
+                new WeaponFashionData
+                {
+                    Id = swapFashionId,
+                    ExpireTime = 0,
+                    UseCharacterList = []
+                },
+                new WeaponFashionData
+                {
+                    Id = expiredFashionId,
+                    ExpireTime = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds(),
+                    UseCharacterList = []
+                }
+            ];
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                sessionId: "weapon-fashion-use-compat");
+
+            static void AssertFashion(
+                WeaponFashionData fashion,
+                int expectedId,
+                IReadOnlyList<int> expectedCharacters,
+                string name)
+            {
+                AssertEqual(expectedId, fashion.Id, $"{name} id");
+                AssertIntegerList(
+                    expectedCharacters.Select(id => (long)id).ToArray(),
+                    fashion.UseCharacterList.Select(id => (long)id).ToArray(),
+                    $"{name} use-character list");
+            }
+
+            static WeaponFashionUseResponse ReadUseResponse(
+                LoopbackSessionHarness targetHarness,
+                int expectedPacketId,
+                string name)
+            {
+                return ReadResponsePayload<WeaponFashionUseResponse>(
+                    targetHarness, expectedPacketId, nameof(WeaponFashionUseResponse), name);
+            }
+
+            InvokeRequestHandler(harness, requestName, packetId, capturedRoundTrip);
+            NotifyWeaponFashionInfo removalPush = ReadPushPayload<NotifyWeaponFashionInfo>(
+                harness, nameof(NotifyWeaponFashionInfo), $"{requestName} captured removal first packet");
+            AssertEqual(1, removalPush.WeaponFashionDataList.Count, "captured removal changed-record count");
+            AssertFashion(removalPush.WeaponFashionDataList[0], capturedFashionId, [],
+                "captured removal pushed fashion");
+            AssertEqual(0, removalPush.ExpireList.Count, "captured removal expiry list");
+            WeaponFashionUseResponse removalResponse =
+                ReadUseResponse(harness, packetId++, $"{responseName} captured removal second packet");
+            AssertEqual(0, removalResponse.Code, $"{responseName} captured removal Code");
+            AssertEqual(
+                true,
+                JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerializer.Serialize(removalResponse)))
+                    .Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                $"{responseName} exact MessagePack field set");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, "captured removal saves once");
+            AssertFashion(character.WeaponFashions[0], capturedFashionId, [],
+                "captured removal stored fashion");
+
+            InvokeRequestHandler(
+                harness,
+                requestName,
+                packetId,
+                new WeaponFashionUseRequest { Id = capturedFashionId, CharacterId = characterId });
+            NotifyWeaponFashionInfo equipPush = ReadPushPayload<NotifyWeaponFashionInfo>(
+                harness, nameof(NotifyWeaponFashionInfo), $"{requestName} captured equip first packet");
+            AssertEqual(1, equipPush.WeaponFashionDataList.Count, "captured equip changed-record count");
+            AssertFashion(equipPush.WeaponFashionDataList[0], capturedFashionId, [storedCharacterId],
+                "captured equip pushed fashion");
+            AssertEqual(0, ReadUseResponse(harness, packetId++, $"{responseName} captured equip second packet").Code,
+                $"{responseName} captured equip Code");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, "captured equip saves once");
+
+            AscNet.Common.Database.Character reloaded =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    characterCollection.LastReplacement!.ToBson());
+            AssertFashion(reloaded.WeaponFashions[0], capturedFashionId, [storedCharacterId],
+                "equipped BSON round-trip");
+            harness.Session.character = reloaded;
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin login = MessagePackSerializer.Deserialize<NotifyLogin>(MessagePackSerializer.Serialize(
+                (NotifyLogin)(buildNotifyLogin.Invoke(null, [harness.Session])
+                    ?? throw new InvalidDataException("Weapon fashion use BuildNotifyLogin returned null."))));
+            AssertFashion(login.WeaponFashionList[0], capturedFashionId, [storedCharacterId],
+                "equipped serialized NotifyLogin");
+
+            reloaded.WeaponFashions[0].UseCharacterList.Insert(0, storedOtherCharacterId);
+
+            InvokeRequestHandler(
+                harness,
+                requestName,
+                packetId,
+                new WeaponFashionUseRequest { Id = swapFashionId, CharacterId = characterId });
+            NotifyWeaponFashionInfo swapPush = ReadPushPayload<NotifyWeaponFashionInfo>(
+                harness, nameof(NotifyWeaponFashionInfo), $"{requestName} direct swap first packet");
+            AssertEqual(2, swapPush.WeaponFashionDataList.Count, "direct swap changed-record count");
+            AssertFashion(swapPush.WeaponFashionDataList[0], capturedFashionId, [storedOtherCharacterId],
+                "direct swap first changed record");
+            AssertFashion(swapPush.WeaponFashionDataList[1], swapFashionId, [storedCharacterId],
+                "direct swap second changed record");
+            AssertEqual(0, ReadUseResponse(harness, packetId++, $"{responseName} direct swap second packet").Code,
+                $"{responseName} direct swap Code");
+            AssertEqual(3, characterCollection.ReplaceOneCalls, "direct swap saves once");
+
+            InvokeRequestHandler(
+                harness,
+                requestName,
+                packetId,
+                new WeaponFashionUseRequest { Id = swapFashionId, CharacterId = characterId });
+            AssertEqual(0, ReadUseResponse(harness, packetId++, $"{responseName} idempotent response-only packet").Code,
+                $"{responseName} idempotent Code");
+            AssertEqual(3, characterCollection.ReplaceOneCalls, "idempotent request does not save");
+            if (harness.TryReadAvailablePacket($"{requestName} idempotent unexpected packet", out Packet idempotentExtra))
+                throw new InvalidDataException($"{requestName} idempotent request emitted unexpected {idempotentExtra.Type} packet.");
+
+            static (int Id, long ExpireTime, int[] Characters)[] Snapshot(
+                AscNet.Common.Database.Character source) =>
+                source.WeaponFashions.Select(fashion =>
+                    (fashion.Id, fashion.ExpireTime, fashion.UseCharacterList.ToArray())).ToArray();
+
+            static void AssertSnapshot(
+                IReadOnlyList<(int Id, long ExpireTime, int[] Characters)> expected,
+                AscNet.Common.Database.Character actual,
+                string name)
+            {
+                AssertEqual(expected.Count, actual.WeaponFashions.Count, $"{name} fashion count");
+                for (int index = 0; index < expected.Count; index++)
+                {
+                    AssertEqual(expected[index].Id, actual.WeaponFashions[index].Id, $"{name} fashion {index} id");
+                    AssertEqual(expected[index].ExpireTime, actual.WeaponFashions[index].ExpireTime,
+                        $"{name} fashion {index} expiry");
+                    AssertIntegerList(
+                        expected[index].Characters.Select(id => (long)id).ToArray(),
+                        actual.WeaponFashions[index].UseCharacterList.Select(id => (long)id).ToArray(),
+                        $"{name} fashion {index} characters");
+                }
+            }
+
+            void AssertRejected(
+                LoopbackSessionHarness targetHarness,
+                AscNet.Common.Database.Character targetCharacter,
+                WeaponFashionUseRequest request,
+                int expectedCode,
+                int expectedSaveCount,
+                string name)
+            {
+                (int Id, long ExpireTime, int[] Characters)[] before = Snapshot(targetCharacter);
+                InvokeRequestHandler(targetHarness, requestName, packetId, request);
+                WeaponFashionUseResponse response =
+                    ReadUseResponse(targetHarness, packetId++, $"{responseName} {name} response-only packet");
+                AssertEqual(expectedCode, response.Code, $"{responseName} {name} Code");
+                AssertSnapshot(before, targetCharacter, $"{name} atomic state");
+                AssertEqual(expectedSaveCount, characterCollection.ReplaceOneCalls, $"{name} does not save");
+                if (targetHarness.TryReadAvailablePacket($"{name} unexpected packet", out Packet unexpected))
+                    throw new InvalidDataException($"{name} emitted unexpected {unexpected.Type} packet.");
+            }
+
+            AssertRejected(
+                harness,
+                reloaded,
+                new WeaponFashionUseRequest { Id = 99_999_999, CharacterId = characterId },
+                20012001,
+                3,
+                "unowned target");
+            AssertRejected(
+                harness,
+                reloaded,
+                new WeaponFashionUseRequest { Id = expiredFashionId, CharacterId = characterId },
+                20012001,
+                3,
+                "expired target");
+
+            AscNet.Common.Database.Character missingCharacter = CreateDrawCompatibilityCharacter(playerId + 1);
+            missingCharacter.Characters = [];
+            missingCharacter.WeaponFashions =
+            [
+                new WeaponFashionData
+                {
+                    Id = capturedFashionId,
+                    ExpireTime = 0,
+                    UseCharacterList = [storedCharacterId]
+                }
+            ];
+            using (LoopbackSessionHarness missingHarness = new(
+                missingCharacter,
+                CreateDrawCompatibilityPlayer(playerId + 1),
+                CreateDrawCompatibilityInventory(playerId + 1, []),
+                sessionId: "weapon-fashion-use-missing-character"))
+            {
+                AssertRejected(
+                    missingHarness,
+                    missingCharacter,
+                    new WeaponFashionUseRequest { Id = 0, CharacterId = characterId },
+                    20009001,
+                    3,
+                    "missing character");
+            }
+
+            Console.WriteLine(
+                $"Weapon fashion use compatibility passed: fields Id/CharacterId; packets " +
+                $"{nameof(NotifyWeaponFashionInfo)} -> {responseName}; captured default/equip, BSON/{nameof(NotifyLogin)}, " +
+                "ordered direct swap, multi-character preservation, idempotency, and atomic rejection.");
         }
 
         private static void ValidateItemUseCompatibility()

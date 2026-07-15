@@ -1,4 +1,6 @@
-﻿using AscNet.Common.Database;
+﻿using AscNet.Common;
+using AscNet.Table.V2.share.item;
+using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using MessagePack;
@@ -356,10 +358,18 @@ namespace AscNet.GameServer.Handlers
 
             if (!Enum.IsDefined(typeof(RewardType), goods.RewardGoods.RewardType))
                 return false;
-            if ((RewardType)goods.RewardGoods.RewardType == RewardType.Item
-                && !Inventory.IsValidClientItemId((int)goods.RewardGoods.TemplateId))
+            if ((RewardType)goods.RewardGoods.RewardType == RewardType.Item)
             {
-                return false;
+                int rewardItemId = (int)goods.RewardGoods.TemplateId;
+                if (!Inventory.IsValidClientItemId(rewardItemId))
+                    return false;
+
+                ItemTable? rewardItem = TableReaderV2.Parse<ItemTable>().Find(item => item.Id == rewardItemId);
+                if (rewardItem?.ItemType == (int)ItemType.WeaponFashion
+                    && !RewardHandler.TryResolveWeaponFashionReward(rewardItemId, out _))
+                {
+                    return false;
+                }
             }
 
             foreach (ClientShopConsume consume in goods.ConsumeList)

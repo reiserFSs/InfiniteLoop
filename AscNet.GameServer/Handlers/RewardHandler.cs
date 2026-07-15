@@ -99,6 +99,7 @@ namespace AscNet.GameServer.Handlers
             FashionSyncNotify fashionSync = new();
             NotifyCharacterDataList notifyCharacterData = new();
             NotifyItemDataList notifyItemData = new();
+            NotifyWeaponFashionInfo notifyWeaponFashionInfo = new();
 
             foreach (var reward in resolvedRewards)
             {
@@ -108,7 +109,8 @@ namespace AscNet.GameServer.Handlers
                     notifyItemData.ItemDataList,
                     notifyCharacterData.CharacterDataList,
                     fashionSync.FashionList,
-                    notifyEquipData.EquipDataList
+                    notifyEquipData.EquipDataList,
+                    notifyWeaponFashionInfo.WeaponFashionDataList
                 );
             }
 
@@ -125,6 +127,11 @@ namespace AscNet.GameServer.Handlers
             if (fashionSync.FashionList.Count > 0)
             {
                 session.SendPush(fashionSync);
+            }
+
+            if (notifyWeaponFashionInfo.WeaponFashionDataList.Count > 0)
+            {
+                session.SendPush(notifyWeaponFashionInfo);
             }
 
             if (notifyCharacterData.CharacterDataList.Count > 0)
@@ -156,6 +163,17 @@ namespace AscNet.GameServer.Handlers
                     var itemData = TableReaderV2.Parse<ItemTable>().Find(x => x.Id == reward.Id);
                     if (itemData is not null)
                     {
+                        if (itemData.ItemType == (int)ItemType.WeaponFashion)
+                        {
+                            return TryResolveWeaponFashionReward(itemData, out int weaponFashionId)
+                                ? [new Reward
+                                {
+                                    Id = weaponFashionId,
+                                    Count = 1,
+                                    Type = RewardType.WeaponFashion,
+                                }]
+                                : [];
+                        }
                         // Custom handler for some items that aren't meant to be in the inventory.
                         DropHandlerDelegate? dropHandler = DropsHandlerFactory.GetDropHandler(itemData.Id);
                         if (itemData.IsHidden() && dropHandler is not null)
@@ -194,6 +212,61 @@ namespace AscNet.GameServer.Handlers
             return [reward];
         }
 
+        internal static bool TryResolveWeaponFashionReward(int itemId, out int weaponFashionId)
+        {
+            ItemTable? item = TableReaderV2.Parse<ItemTable>().Find(x => x.Id == itemId);
+            return TryResolveWeaponFashionReward(item, out weaponFashionId);
+        }
+
+        private static bool TryResolveWeaponFashionReward(ItemTable? item, out int weaponFashionId)
+        {
+            weaponFashionId = 0;
+            if (item is null
+                || item.ItemType != (int)ItemType.WeaponFashion
+                || item.SubTypeParams.Count == 0
+                || item.SubTypeParams[0] <= 0)
+            {
+                return false;
+            }
+
+            weaponFashionId = item.SubTypeParams[0];
+            return true;
+        }
+
+        public static bool UnlockWeaponFashionReward(
+            int weaponFashionId,
+            Session session,
+            List<WeaponFashionData>? weaponFashionDataList = null)
+        {
+            bool isCatalogWeaponFashion = TableReaderV2.Parse<ItemTable>()
+                .Any(item => TryResolveWeaponFashionReward(item, out int mappedId)
+                    && mappedId == weaponFashionId);
+            if (!isCatalogWeaponFashion)
+                return false;
+
+            WeaponFashionData? existing = session.character.WeaponFashions
+                .Find(x => x.Id == weaponFashionId);
+            if (existing is null)
+            {
+                existing = new WeaponFashionData
+                {
+                    Id = weaponFashionId,
+                    ExpireTime = 0,
+                    UseCharacterList = []
+                };
+                session.character.WeaponFashions.Add(existing);
+                weaponFashionDataList?.Add(existing);
+                return true;
+            }
+
+            if (existing.ExpireTime == 0)
+                return false;
+
+            existing.ExpireTime = 0;
+            weaponFashionDataList?.Add(existing);
+            return true;
+        }
+
         public static bool UnlockFashionReward(int fashionId, Session session, List<FashionList>? fashionList = null)
         {
             FashionTable? fashion = TableReaderV2.Parse<FashionTable>().Find(x => x.Id == fashionId);
@@ -228,7 +301,8 @@ namespace AscNet.GameServer.Handlers
             List<Item> itemDataList,
             List<CharacterData> characterDataList,
             List<FashionList> fashionList,
-            List<EquipData> equipDataList
+            List<EquipData> equipDataList,
+            List<WeaponFashionData> weaponFashionDataList
         ) {
             switch (reward.Type)
             {
@@ -268,6 +342,7 @@ namespace AscNet.GameServer.Handlers
                 case RewardType.ChatEmoji:
                     break;
                 case RewardType.WeaponFashion:
+                    UnlockWeaponFashionReward(reward.Id, session, weaponFashionDataList);
                     break;
                 case RewardType.Collection:
                     break;

@@ -46,6 +46,8 @@ namespace AscNet.Common.Database
                 changed = true;
             if (character.NormalizeCharactersForCurrentTables())
                 changed = true;
+            if (character.NormalizeWeaponFashionsForCurrentTables())
+                changed = true;
             if (changed)
                 character.Save();
 
@@ -558,6 +560,44 @@ namespace AscNet.Common.Database
 
             return changed;
         }
+        public bool NormalizeWeaponFashionsForCurrentTables()
+        {
+            if (WeaponFashions is null)
+            {
+                WeaponFashions = new();
+                return true;
+            }
+
+
+            bool changed = false;
+            HashSet<int> seenIds = new();
+            List<WeaponFashionData> normalized = new();
+            foreach (WeaponFashionData? fashion in WeaponFashions)
+            {
+                if (fashion is null || fashion.Id <= 0 || !seenIds.Add(fashion.Id))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                List<int> useCharacterList = (fashion.UseCharacterList ?? [])
+                    .Distinct()
+                    .ToList();
+                if (fashion.UseCharacterList is null || !fashion.UseCharacterList.SequenceEqual(useCharacterList))
+                {
+                    fashion.UseCharacterList = useCharacterList;
+                    changed = true;
+                }
+                normalized.Add(fashion);
+            }
+
+            List<WeaponFashionData> ordered = normalized.OrderBy(fashion => fashion.Id).ToList();
+            if (!normalized.Select(fashion => fashion.Id).SequenceEqual(ordered.Select(fashion => fashion.Id)))
+                changed = true;
+            WeaponFashions = ordered;
+            return changed;
+        }
+
 
         private static int InitialPartnerActiveSkillId(int templateId)
         {
@@ -636,6 +676,7 @@ namespace AscNet.Common.Database
                 Characters = new(),
                 Equips = new(),
                 Fashions = new(),
+                WeaponFashions = new(),
                 Partners = new()
             };
             // Lucia havers by default
@@ -975,6 +1016,9 @@ namespace AscNet.Common.Database
         [BsonElement("fashions")]
         [BsonRequired]
         public List<FashionList> Fashions { get; set; }
+
+        [BsonElement("weaponFashions")]
+        public List<WeaponFashionData> WeaponFashions { get; set; } = new();
 
         [BsonElement("partners")]
         public List<PartnerData> Partners { get; set; } = new();

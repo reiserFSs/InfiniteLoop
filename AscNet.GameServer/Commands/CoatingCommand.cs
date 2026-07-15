@@ -1,7 +1,9 @@
-﻿using AscNet.Common.MsgPack;
+﻿using AscNet.Common;
+using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.GameServer.Handlers;
 using AscNet.Table.V2.share.fashion;
+using AscNet.Table.V2.share.item;
 
 namespace AscNet.GameServer.Commands
 {
@@ -10,12 +12,12 @@ namespace AscNet.GameServer.Commands
     {
         public CoatingCommand(Session session, string[] args, bool validate = true) : base(session, args, validate) { }
 
-        public override string Help => "Command to unlock all coatings of characters.";
+        public override string Help => "Unlock character coatings for one character, or all owned character coatings and weapon coatings with 'all'.";
 
         [Argument(0, @"^unlock$", "The operation selected (unlock)")]
         string Op { get; set; } = string.Empty;
 
-        [Argument(1, @"^[0-9]+$|^all$", "The target character, value is character id or 'all' for all owned character")]
+        [Argument(1, @"^[0-9]+$|^all$", "Character id, or 'all' for all owned character coatings and catalog weapon coatings")]
         string Target { get; set; } = string.Empty;
 
         public override void Execute()
@@ -25,35 +27,55 @@ namespace AscNet.GameServer.Commands
             switch (Op)
             {
                 case "unlock":
+                    List<FashionList> changedFashions = new();
+                    bool changed = false;
+                    HashSet<int>? ownedCharacterIds = Target == "all"
+                        ? session.character.Characters.Select(character => (int)character.Id).ToHashSet()
+                        : null;
+
+                    IEnumerable<int> fashionIds = Target == "all"
+                        ? TableReaderV2.Parse<FashionTable>()
+                            .Where(fashion => ownedCharacterIds!.Contains(fashion.CharacterId))
+                            .Select(fashion => fashion.Id)
+                            .Distinct()
+                        : TableReaderV2.Parse<FashionTable>()
+                            .Where(fashion => fashion.CharacterId == characterId)
+                            .Select(fashion => fashion.Id)
+                            .Distinct();
+
+                    foreach (int fashionId in fashionIds)
+                        changed |= RewardHandler.UnlockFashionReward(fashionId, session, changedFashions);
+
+                    List<WeaponFashionData> changedWeaponFashions = new();
                     if (Target == "all")
                     {
-                        List<FashionList> newFashions = new();
-                        foreach (var fashion in TableReaderV2.Parse<FashionTable>().Where(x => session.character.Characters.Any(y => y.Id == x.CharacterId)))
-                        {
-                            if (session.character.Fashions.Any(x => x.Id == fashion.Id))
-                                continue;
+                        IEnumerable<int> weaponFashionIds = TableReaderV2.Parse<ItemTable>()
+                            .Where(item => item.ItemType == (int)ItemType.WeaponFashion)
+                            .Select(item => item.SubTypeParams.FirstOrDefault())
+                            .Where(id => id > 0)
+                            .Distinct();
 
-                            newFashions.Add(new() { Id = fashion.Id });
-                        }
-
-                        session.SendPush(new FashionSyncNotify() { FashionList = newFashions });
-                        session.character.Fashions.AddRange(newFashions);
+                        foreach (int weaponFashionId in weaponFashionIds)
+                            changed |= RewardHandler.UnlockWeaponFashionReward(
+                                weaponFashionId,
+                                session,
+                                changedWeaponFashions
+                            );
                     }
-                    else
+
+                    if (changedFashions.Count > 0)
+                        session.SendPush(new FashionSyncNotify { FashionList = changedFashions });
+
+                    if (changedWeaponFashions.Count > 0)
                     {
-                        List<FashionList> newFashions = new();
-                        foreach (var fashion in TableReaderV2.Parse<FashionTable>().Where(x => x.CharacterId == characterId))
+                        session.SendPush(new NotifyWeaponFashionInfo
                         {
-                            if (session.character.Fashions.Any(x => x.Id == fashion.Id))
-                                continue;
-
-                            newFashions.Add(new() { Id = fashion.Id });
-                        }
-
-                        session.SendPush(new FashionSyncNotify() { FashionList = newFashions });
-                        session.character.Fashions.AddRange(newFashions);
+                            WeaponFashionDataList = changedWeaponFashions
+                        });
                     }
 
+                    if (changed)
+                        session.character.Save();
                     break;
                 default:
                     throw new InvalidOperationException("Invalid operation!");

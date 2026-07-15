@@ -133,6 +133,22 @@ namespace AscNet.Common.MsgPack
     }
 
     [MessagePackObject(true)]
+    public class WeaponFashionData
+    {
+        public int Id { get; set; }
+        public long ExpireTime { get; set; }
+        public List<int> UseCharacterList { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
+    public class NotifyWeaponFashionInfo
+    {
+        public List<WeaponFashionData> WeaponFashionDataList { get; set; } = new();
+        public List<int> ExpireList { get; set; } = new();
+    }
+
+
+    [MessagePackObject(true)]
     public partial class FubenLoginData
     {
         public List<object> TreasureData { get; set; } = new();
@@ -531,7 +547,7 @@ namespace AscNet.Common.MsgPack
         public dynamic TeamPrefabData { get; set; }
         public List<SignInfo> SignInfos { get; set; } = new();
         public List<dynamic> AssignChapterRecord { get; set; } = new();
-        public List<dynamic> WeaponFashionList { get; set; } = new();
+        public List<WeaponFashionData> WeaponFashionList { get; set; } = new();
         public List<PartnerData> PartnerList { get; set; } = new();
         public List<dynamic> ShieldedProtocolList { get; set; } = new();
         public object LimitedLoginData { get; set; }

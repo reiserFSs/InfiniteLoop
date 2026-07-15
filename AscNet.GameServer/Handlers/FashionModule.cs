@@ -33,6 +33,19 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class WeaponFashionUseRequest
+    {
+        public int Id { get; set; }
+        public uint CharacterId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class WeaponFashionUseResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class FashionRandomActiveRequest
     {
         public uint CharacterId { get; set; }
@@ -188,6 +201,73 @@ namespace AscNet.GameServer.Handlers
             }
 
             session.SendResponse(new FashionUseResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("WeaponFashionUseRequest")]
+        public static void HandleWeaponFashionUseRequest(Session session, Packet.Request packet)
+        {
+            const int invalidRequestCode = 20012001;
+            WeaponFashionUseRequest request = packet.Deserialize<WeaponFashionUseRequest>();
+
+            if (!session.character.Characters.Any(character => character.Id == request.CharacterId))
+            {
+                session.SendResponse(new WeaponFashionUseResponse { Code = 20009001 }, packet.Id);
+                return;
+            }
+
+            WeaponFashionData? target = null;
+            if (request.Id != 0)
+            {
+                target = session.character.WeaponFashions.Find(fashion => fashion.Id == request.Id);
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                if (target is null || (target.ExpireTime != 0 && target.ExpireTime <= now))
+                {
+                    session.SendResponse(new WeaponFashionUseResponse { Code = invalidRequestCode }, packet.Id);
+                    return;
+                }
+            }
+
+            int characterId = (int)request.CharacterId;
+            List<WeaponFashionData>? changedWeaponFashions = null;
+            foreach (WeaponFashionData fashion in session.character.WeaponFashions)
+            {
+                bool changed = false;
+                bool isTarget = ReferenceEquals(fashion, target);
+                int retainedIndex = isTarget
+                    ? fashion.UseCharacterList.IndexOf(characterId)
+                    : -1;
+                for (int index = fashion.UseCharacterList.Count - 1; index >= 0; index--)
+                {
+                    if (fashion.UseCharacterList[index] == characterId && index != retainedIndex)
+                    {
+                        fashion.UseCharacterList.RemoveAt(index);
+                        changed = true;
+                    }
+                }
+
+                if (isTarget && retainedIndex < 0)
+                {
+                    fashion.UseCharacterList.Add(characterId);
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    changedWeaponFashions ??= new();
+                    changedWeaponFashions.Add(fashion);
+                }
+            }
+
+            if (changedWeaponFashions is not null)
+            {
+                session.character.Save();
+                session.SendPush(new NotifyWeaponFashionInfo
+                {
+                    WeaponFashionDataList = changedWeaponFashions
+                });
+            }
+
+            session.SendResponse(new WeaponFashionUseResponse(), packet.Id);
         }
 
         [RequestPacketHandler("FashionSwitchColorRequest")]

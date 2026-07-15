@@ -440,6 +440,14 @@ namespace AscNet.GameServer.Handlers
                 CharacterList = session.character.Characters.Select(ToLoginCharacter).ToList(),
                 EquipList = session.character.Equips,
                 FashionList = session.character.Fashions,
+                WeaponFashionList = session.character.WeaponFashions
+                    .Select(fashion => new WeaponFashionData
+                    {
+                        Id = fashion.Id,
+                        ExpireTime = fashion.ExpireTime,
+                        UseCharacterList = fashion.UseCharacterList.ToList()
+                    })
+                    .ToList(),
                 PartnerList = session.character.Partners,
                 FashionSuitList = [],
                 FashionColors = BuildOwnedFashionColors(session.character.Fashions),

@@ -854,60 +854,100 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            AscNet.Common.Database.Character.NormalizeEquipResonances(equip);
 
             int slot = request.Slots.FirstOrDefault();
-            EquipTable? equipTable = TableReaderV2.Parse<EquipTable>().Find(x => x.Id == equip.TemplateId);
-            EquipResonanceTable? equipResonance = TableReaderV2.Parse<EquipResonanceTable>().Find(x => x.Id == equip.TemplateId);
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            List<EquipResonanceTable> resonanceTables = TableReaderV2.Parse<EquipResonanceTable>();
+            List<EquipResonanceUseItemTable> useItemTables =
+                TableReaderV2.Parse<EquipResonanceUseItemTable>();
+            EquipTable? equipTable = equipTables.Find(x => x.Id == equip.TemplateId);
+            EquipResonanceTable? equipResonance = resonanceTables.Find(x => x.Id == equip.TemplateId);
+            EquipResonanceUseItemTable? configuredUseItem =
+                useItemTables.Find(x => x.Id == equip.TemplateId);
             if (slot <= 0 || equipTable is null)
             {
                 session.SendResponse(new EquipResonanceResponse() { Code = 20021038 }, packet.Id);
                 return;
             }
-            bool isMemoryAttributeRequest = equipTable.Site > 0
-                && (request.SelectType ?? EquipResonanceType.Attrib) == EquipResonanceType.Attrib;
-            if (isMemoryAttributeRequest
-                && (request.CharacterId is not int attributeCharacterId
-                    || attributeCharacterId <= 0
-                    || !session.character.Characters.Any(character => character.Id == attributeCharacterId)))
+
+            bool isMemory = equipTable.Site > 0;
+            bool hasSelectionFields = request.SelectSkillIds is not null;
+            bool usesSelectMaterial = configuredUseItem?.SelectSkillItemId == request.UseItemId;
+            bool isSelectedMemoryRequest = isMemory && usesSelectMaterial;
+            if (isMemory
+                && (request.Slots.Count != 1
+                    || slot is not (1 or 2)
+                    || (usesSelectMaterial
+                        && (request.SelectSkillIds is not { Count: 1 }
+                            || request.SelectSkillIds[0] <= 0
+                            || request.SelectType is not (EquipResonanceType.Attrib
+                                or EquipResonanceType.CharacterSkill)))
+                    || (!usesSelectMaterial && hasSelectionFields)
+                    || (request.CharacterId is not int memoryCharacterId
+                        || memoryCharacterId <= 0
+                        || !session.character.Characters.Any(character =>
+                            character.Id == memoryCharacterId))))
             {
                 session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
                 return;
             }
 
-
+            List<AttribPoolTable> attribPools = TableReaderV2.Parse<AttribPoolTable>();
+            List<CharacterSkillPoolTable> characterSkillPools =
+                TableReaderV2.Parse<CharacterSkillPoolTable>();
+            List<CharacterSkillTable> characterSkills = TableReaderV2.Parse<CharacterSkillTable>();
+            List<CharacterSkillGroupTable> characterSkillGroups =
+                TableReaderV2.Parse<CharacterSkillGroupTable>();
             List<ResonanceInfo> resonancePool = new();
-            IEnumerable<int> attribPoolIds = equipResonance?.AttribPoolId ?? [];
-            if (!attribPoolIds.Any() && equipTable.Site == 0 && equipTable.Quality == 5)
-                attribPoolIds = [5, 8, 9];
-
-            foreach (int attribPoolId in attribPoolIds)
-            {
-                foreach (var attrib in TableReaderV2.Parse<AttribPoolTable>().Where(x => x.PoolId == attribPoolId))
-                {
-                    resonancePool.Add(new()
-                    {
-                        Slot = slot,
-                        Type = EquipResonanceType.Attrib,
-                        CharacterId = request.CharacterId ?? 0,
-                        TemplateId = attrib.Id,
-                        UseItemId = request.UseItemId
-                    });
-                }
-            }
-
             bool usesWeaponSkillResonance = (equipResonance?.WeaponSkillPoolId.Count ?? 0) > 0
                 || (equipTable.Site == 0 && equipTable.Quality >= 6);
-            bool usesCharacterSkillResonance = (equipResonance?.CharacterSkillPoolId.Count ?? 0) > 0;
+            bool usesCharacterSkillResonance =
+                (equipResonance?.CharacterSkillPoolId.Count ?? 0) > 0;
             bool isSelectedWeaponSkillRequest = usesWeaponSkillResonance
                 && request.SelectSkillIds is { Count: > 0 };
-            if (isSelectedWeaponSkillRequest)
+
+            if (isSelectedMemoryRequest)
+            {
+                int selectedId = request.SelectSkillIds![0];
+                bool selectionIsValid;
+                if (request.SelectType == EquipResonanceType.Attrib)
+                {
+                    int poolId = equipResonance?.AttribPoolId.ElementAtOrDefault(slot - 1) ?? 0;
+                    selectionIsValid = poolId > 0
+                        && attribPools.Any(row => row.PoolId == poolId && row.Id == selectedId);
+                }
+                else
+                {
+                    int poolId =
+                        equipResonance?.CharacterSkillPoolId.ElementAtOrDefault(slot - 1) ?? 0;
+                    CharacterSkillTable? ownedSkills =
+                        characterSkills.Find(row => row.CharacterId == request.CharacterId);
+                    selectionIsValid = poolId > 0
+                        && CharacterOwnsResonanceSkill(
+                            ownedSkills, poolId, selectedId, characterSkillPools,
+                            characterSkillGroups);
+                }
+
+                if (!selectionIsValid)
+                {
+                    session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
+                    return;
+                }
+                resonancePool.Add(new ResonanceInfo
+                {
+                    Slot = slot,
+                    Type = request.SelectType!.Value,
+                    CharacterId = request.CharacterId!.Value,
+                    TemplateId = selectedId,
+                    UseItemId = request.UseItemId
+                });
+            }
+            else if (isSelectedWeaponSkillRequest)
             {
                 int selectedSkillId = request.SelectSkillIds!.FirstOrDefault(skillId => skillId > 0);
-                resonancePool.Clear();
                 if (selectedSkillId > 0)
                 {
-                    resonancePool.Add(new()
+                    resonancePool.Add(new ResonanceInfo
                     {
                         Slot = slot,
                         Type = request.SelectType ?? EquipResonanceType.WeaponSkill,
@@ -917,41 +957,78 @@ namespace AscNet.GameServer.Handlers
                     });
                 }
             }
-            else if (usesCharacterSkillResonance && request.CharacterId is int characterId)
+            else if (isMemory)
             {
-                CharacterSkillTable? characterSkills = TableReaderV2.Parse<CharacterSkillTable>()
-                    .Find(x => x.CharacterId == characterId);
-                int skillPoolId = equipResonance!.CharacterSkillPoolId.ElementAtOrDefault(slot - 1);
-                int skillEntryCount = Math.Min(
-                    characterSkills?.SkillGroupId.Count ?? 0,
-                    characterSkills?.Pos.Count ?? 0);
-                for (int index = 0; index < skillEntryCount; index++)
+                int characterId = request.CharacterId!.Value;
+                if (request.SelectType is null or EquipResonanceType.Attrib)
                 {
-                    if (characterSkills!.Pos[index] != skillPoolId)
-                        continue;
-
-                    CharacterSkillGroupTable? skillGroup = TableReaderV2.Parse<CharacterSkillGroupTable>()
-                        .Find(group => group.Id == characterSkills.SkillGroupId[index]);
-                    foreach (int skillId in skillGroup?.SkillId ?? [])
+                    int poolId = equipResonance?.AttribPoolId.ElementAtOrDefault(slot - 1) ?? 0;
+                    foreach (AttribPoolTable attrib in attribPools.Where(row => row.PoolId == poolId))
                     {
-                        resonancePool.Add(new()
+                        resonancePool.Add(new ResonanceInfo
+                        {
+                            Slot = slot,
+                            Type = EquipResonanceType.Attrib,
+                            CharacterId = characterId,
+                            TemplateId = attrib.Id,
+                            UseItemId = request.UseItemId
+                        });
+                    }
+                }
+                if ((request.SelectType is null or EquipResonanceType.CharacterSkill)
+                    && usesCharacterSkillResonance)
+                {
+                    int poolId =
+                        equipResonance!.CharacterSkillPoolId.ElementAtOrDefault(slot - 1);
+                    CharacterSkillTable? ownedSkills =
+                        characterSkills.Find(row => row.CharacterId == characterId);
+                    foreach (CharacterSkillPoolTable skill in characterSkillPools.Where(row =>
+                        row.PoolId == poolId
+                        && CharacterOwnsResonanceSkill(
+                            ownedSkills, poolId, row.SkillId, characterSkillPools,
+                            characterSkillGroups)))
+                    {
+                        resonancePool.Add(new ResonanceInfo
                         {
                             Slot = slot,
                             Type = EquipResonanceType.CharacterSkill,
                             CharacterId = characterId,
-                            TemplateId = skillId,
+                            TemplateId = skill.SkillId,
+                            UseItemId = request.UseItemId
+                        });
+                    }
+                }
+            }
+            else
+            {
+                IEnumerable<int> attribPoolIds = equipResonance?.AttribPoolId ?? [];
+                if (!attribPoolIds.Any() && equipTable.Site == 0 && equipTable.Quality == 5)
+                    attribPoolIds = [5, 8, 9];
+                foreach (int attribPoolId in attribPoolIds)
+                {
+                    foreach (AttribPoolTable attrib in attribPools.Where(x => x.PoolId == attribPoolId))
+                    {
+                        resonancePool.Add(new ResonanceInfo
+                        {
+                            Slot = slot,
+                            Type = EquipResonanceType.Attrib,
+                            CharacterId = request.CharacterId ?? 0,
+                            TemplateId = attrib.Id,
                             UseItemId = request.UseItemId
                         });
                     }
                 }
             }
 
-            int materialCost = GetResonanceMaterialCost(equipTable, request.UseItemId);
+            int materialCost = configuredUseItem is null
+                ? 0
+                : GetConfiguredResonanceMaterialCost(configuredUseItem, request.UseItemId);
             bool hasMaterial = materialCost > 0
-                && session.inventory.Items.Any(item => item.Id == request.UseItemId && item.Count >= materialCost);
-            bool hasActiveResonance = equip.ResonanceInfo.Any(candidate => candidate.Slot == slot);
-            bool isSkillSwap = isSelectedWeaponSkillRequest
-                && hasActiveResonance;
+                && session.inventory.Items.Any(item =>
+                    item.Id == request.UseItemId && item.Count >= materialCost);
+            bool hasActiveResonance = equip.ResonanceInfo?.Any(candidate =>
+                candidate.Slot == slot) == true;
+            bool isSkillSwap = isSelectedWeaponSkillRequest && hasActiveResonance;
             if (resonancePool.Count == 0)
             {
                 session.log.Warn(
@@ -981,6 +1058,8 @@ namespace AscNet.GameServer.Handlers
                 notifyItemData.ItemDataList.Add(session.inventory.Do(request.UseItemId, -materialCost));
                 session.SendPush(notifyItemData);
             }
+            AscNet.Common.Database.Character.NormalizeEquipResonances(equip);
+            equip.ResonanceInfo ??= [];
             bool commitsImmediately = isSelectedWeaponSkillRequest || !hasActiveResonance;
             if (commitsImmediately)
             {
@@ -1045,6 +1124,14 @@ namespace AscNet.GameServer.Handlers
             List<AttribPoolTable> attribPoolTables = TableReaderV2.Parse<AttribPoolTable>();
             List<EquipResonanceUseItemTable> resonanceUseItemTables =
                 TableReaderV2.Parse<EquipResonanceUseItemTable>();
+            List<CharacterSkillPoolTable> characterSkillPoolTables =
+                isCharacterSkillSelection
+                    ? TableReaderV2.Parse<CharacterSkillPoolTable>()
+                    : [];
+            List<CharacterSkillGroupTable> characterSkillGroupTables =
+                isCharacterSkillSelection
+                    ? TableReaderV2.Parse<CharacterSkillGroupTable>()
+                    : [];
             List<EquipData> equips = new(request.EquipIds.Count);
             int totalMaterialCost = 0;
 
@@ -1088,19 +1175,22 @@ namespace AscNet.GameServer.Handlers
                         return;
                     }
                     if (!CharacterOwnsResonanceSkill(
-                        characterSkills, resonancePoolId, request.SelectSkillId))
+                        characterSkills, resonancePoolId, request.SelectSkillId,
+                        characterSkillPoolTables, characterSkillGroupTables))
                     {
                         RejectParameter("selected skill is not in the resolved character skill pool",
                             equip.Id, equip.TemplateId, resonancePoolId);
                         return;
                     }
                 }
-
-                int equipMaterialCost = ResolveResonanceMaterialCost(
-                    equipTable, request.UseItemId, resonanceUseItemTables);
+                EquipResonanceUseItemTable? configuredMaterial =
+                    resonanceUseItemTables.Find(row => row.Id == equipTable.Id);
+                int equipMaterialCost = configuredMaterial?.SelectSkillItemId == request.UseItemId
+                    ? configuredMaterial.SelectSkillItemCount ?? 0
+                    : 0;
                 if (equipMaterialCost <= 0)
                 {
-                    RejectParameter("resonance material recipe not resolved",
+                    RejectParameter("select resonance material recipe not resolved",
                         equip.Id, equip.TemplateId, resonancePoolId, equipMaterialCost);
                     return;
                 }
@@ -1186,21 +1276,17 @@ namespace AscNet.GameServer.Handlers
         private static bool CharacterOwnsResonanceSkill(
             CharacterSkillTable? characterSkills,
             int skillPoolId,
-            int selectedSkillId)
+            int selectedSkillId,
+            List<CharacterSkillPoolTable> skillPools,
+            List<CharacterSkillGroupTable> skillGroups)
         {
-            int skillEntryCount = Math.Min(
-                characterSkills?.SkillGroupId.Count ?? 0,
-                characterSkills?.Pos.Count ?? 0);
-            for (int index = 0; index < skillEntryCount; index++)
-            {
-                if (characterSkills!.Pos[index] != skillPoolId)
-                    continue;
-                CharacterSkillGroupTable? group = TableReaderV2.Parse<CharacterSkillGroupTable>()
-                    .Find(row => row.Id == characterSkills.SkillGroupId[index]);
-                if (group?.SkillId.Contains(selectedSkillId) == true)
-                    return true;
-            }
-            return false;
+            if (!skillPools.Any(row =>
+                row.PoolId == skillPoolId && row.SkillId == selectedSkillId))
+                return false;
+
+            return characterSkills?.SkillGroupId.Any(groupId =>
+                skillGroups.Find(group => group.Id == groupId)?
+                    .SkillId.Contains(selectedSkillId) == true) == true;
         }
 
         private static int ResolveResonanceMaterialCost(
