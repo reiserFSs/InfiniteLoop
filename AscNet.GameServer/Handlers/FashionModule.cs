@@ -33,6 +33,19 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class FashionRandomActiveRequest
+    {
+        public uint CharacterId { get; set; }
+        public bool Enable { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class FashionRandomActiveResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class FashionSwitchColorRequest
     {
         public uint FashionId { get; set; }
@@ -44,11 +57,121 @@ namespace AscNet.GameServer.Handlers
     {
         public int Code { get; set; }
     }
+    [MessagePackObject(true)]
+    public class FashionSuitPoolSaveRequest
+    {
+        public uint CharacterId { get; set; }
+        public Dictionary<int, int> FashionSuits { get; set; }
+        public List<int> ActiveIds { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class FashionSuitPoolSaveResponse
+    {
+        public int Code { get; set; }
+    }
+
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
     internal class FashionModule
     {
+        [RequestPacketHandler("FashionRandomActiveRequest")]
+        public static void HandleFashionRandomActiveRequest(Session session, Packet.Request packet)
+        {
+            FashionRandomActiveRequest request = packet.Deserialize<FashionRandomActiveRequest>();
+            CharacterData? character = session.character.Characters.Find(candidate => candidate.Id == request.CharacterId);
+
+            if (character is null)
+            {
+                session.SendResponse(new FashionRandomActiveResponse { Code = 20009001 }, packet.Id);
+                return;
+            }
+
+            if (character.RandomFashion != request.Enable)
+            {
+                character.RandomFashion = request.Enable;
+                session.character.Save();
+            }
+
+            NotifyCharacterDataList notifyCharacterData = new();
+            notifyCharacterData.CharacterDataList.Add(character);
+            session.SendPush(notifyCharacterData);
+            session.SendResponse(new FashionRandomActiveResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("FashionSuitPoolSaveRequest")]
+        public static void HandleFashionSuitPoolSaveRequest(Session session, Packet.Request packet)
+        {
+            const int invalidRequestCode = 20012001;
+            FashionSuitPoolSaveRequest request = packet.Deserialize<FashionSuitPoolSaveRequest>();
+
+            if (!session.character.Characters.Any(candidate => candidate.Id == request.CharacterId))
+            {
+                session.SendResponse(new FashionSuitPoolSaveResponse { Code = 20009001 }, packet.Id);
+                return;
+            }
+
+            if (request.FashionSuits is null || request.FashionSuits.Count == 0
+                || request.ActiveIds is null || request.ActiveIds.Count == 0)
+            {
+                session.SendResponse(new FashionSuitPoolSaveResponse { Code = invalidRequestCode }, packet.Id);
+                return;
+            }
+
+            HashSet<int> activeIds = new(request.ActiveIds.Count);
+            foreach (int fashionId in request.ActiveIds)
+            {
+                if (!activeIds.Add(fashionId) || !request.FashionSuits.ContainsKey(fashionId))
+                {
+                    session.SendResponse(new FashionSuitPoolSaveResponse { Code = invalidRequestCode }, packet.Id);
+                    return;
+                }
+            }
+
+            var fashionRows = TableReaderV2.Parse<FashionTable>();
+            List<FashionList> submittedFashions = new(request.FashionSuits.Count);
+            foreach ((int fashionId, int weaponFashionId) in request.FashionSuits)
+            {
+                FashionList? fashion = fashionId > 0
+                    ? session.character.Fashions.Find(candidate =>
+                        candidate.Id == fashionId && !candidate.IsLock)
+                    : null;
+                FashionTable? fashionRow = fashionId > 0
+                    ? fashionRows.Find(candidate => candidate.Id == fashionId)
+                    : null;
+
+                if (weaponFashionId < 0 || fashion is null || fashionRow is null
+                    || fashionRow.CharacterId != request.CharacterId)
+                {
+                    session.SendResponse(new FashionSuitPoolSaveResponse { Code = invalidRequestCode }, packet.Id);
+                    return;
+                }
+
+                submittedFashions.Add(fashion);
+            }
+
+            submittedFashions.Sort((left, right) => left.Id.CompareTo(right.Id));
+            bool changed = false;
+            foreach (FashionList fashion in submittedFashions)
+            {
+                bool isRandom = activeIds.Contains((int)fashion.Id);
+                int weaponFashionId = request.FashionSuits[(int)fashion.Id];
+                if (fashion.IsRandom != isRandom || fashion.WeaponFashionId != weaponFashionId)
+                {
+                    fashion.IsRandom = isRandom;
+                    fashion.WeaponFashionId = weaponFashionId;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+                session.character.Save();
+
+            session.SendPush(new FashionSyncNotify { FashionList = submittedFashions });
+            session.SendResponse(new FashionSuitPoolSaveResponse(), packet.Id);
+        }
+
         [RequestPacketHandler("FashionUseRequest")]
         public static void HandleFashionUseRequestHandler(Session session, Packet.Request packet)
         {

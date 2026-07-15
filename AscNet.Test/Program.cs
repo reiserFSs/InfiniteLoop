@@ -331,6 +331,17 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--fashion-random-active-compat-only"))
+                {
+                    ValidateFashionRandomActiveCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--fashion-suit-pool-save-compat-only"))
+                {
+                    ValidateFashionSuitPoolSaveCompatibility();
+                    return;
+                }
                 if (args.Contains("--fashion-color-compat-only"))
                 {
                     ValidateFashionColorCompatibility();
@@ -13046,6 +13057,648 @@ namespace AscNet.Test
             AssertEqual(selections.Length, characterCollection.ReplaceOneCalls, "Missing character does not save");
             if (missingHarness.TryReadAvailablePacket("missing character unexpected push", out Packet missingUnexpectedPacket))
                 throw new InvalidDataException($"Missing character emitted unexpected {missingUnexpectedPacket.Type} packet.");
+        }
+
+        private static void ValidateFashionRandomActiveCompatibility()
+        {
+            const string requestName = nameof(FashionRandomActiveRequest);
+            const string responseName = nameof(FashionRandomActiveResponse);
+            const int packetId = 19_451;
+            const long playerId = 99_451;
+
+            PropertyInfo characterIdProperty = typeof(FashionRandomActiveRequest).GetProperty(
+                nameof(FashionRandomActiveRequest.CharacterId),
+                BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingMemberException(typeof(FashionRandomActiveRequest).FullName, nameof(FashionRandomActiveRequest.CharacterId));
+            PropertyInfo enableProperty = typeof(FashionRandomActiveRequest).GetProperty(
+                nameof(FashionRandomActiveRequest.Enable),
+                BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingMemberException(typeof(FashionRandomActiveRequest).FullName, nameof(FashionRandomActiveRequest.Enable));
+            AssertEqual(typeof(uint), characterIdProperty.PropertyType, $"{requestName} CharacterId CLR type");
+            AssertEqual(typeof(bool), enableProperty.PropertyType, $"{requestName} Enable CLR type");
+            AssertEqual(
+                true,
+                typeof(FashionRandomActiveRequest).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .SequenceEqual(["CharacterId", "Enable"]),
+                $"{requestName} exact public property set");
+
+            List<CharacterTable> characterRows = TableReaderV2.Parse<CharacterTable>();
+            List<FashionTable> fashionRows = TableReaderV2.Parse<FashionTable>();
+            CharacterTable ownedRow = characterRows.First(row =>
+                row.DefaultNpcFashtionId > 0
+                && fashionRows.Count(fashion => fashion.CharacterId == row.Id) >= 2);
+            FashionTable[] ownedFashionRows = fashionRows
+                .Where(fashion => fashion.CharacterId == ownedRow.Id)
+                .OrderBy(fashion => fashion.Id)
+                .Take(2)
+                .ToArray();
+            CharacterTable unownedRow = characterRows.First(row =>
+                row.Id != ownedRow.Id
+                && row.DefaultNpcFashtionId > 0
+                && fashionRows.Any(fashion => fashion.Id == row.DefaultNpcFashtionId));
+            FashionColorTable colorRow = TableReaderV2.Parse<FashionColorTable>().First();
+
+            FashionRandomActiveRequest request = new()
+            {
+                CharacterId = (uint)ownedRow.Id,
+                Enable = true
+            };
+            byte[] requestBytes = MessagePackSerializer.Serialize(request);
+            JObject requestJson = JObject.Parse(MessagePackSerializer.ConvertToJson(requestBytes));
+            AssertEqual(
+                true,
+                requestJson.Properties().Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .SequenceEqual(["CharacterId", "Enable"]),
+                $"{requestName} exact MessagePack fields");
+            AssertEqual(JTokenType.Integer, requestJson[nameof(FashionRandomActiveRequest.CharacterId)]!.Type,
+                $"{requestName} CharacterId MessagePack type");
+            AssertEqual(JTokenType.Boolean, requestJson[nameof(FashionRandomActiveRequest.Enable)]!.Type,
+                $"{requestName} Enable MessagePack type");
+            FashionRandomActiveRequest requestRoundTrip =
+                MessagePackSerializer.Deserialize<FashionRandomActiveRequest>(requestBytes);
+            AssertEqual((uint)ownedRow.Id, requestRoundTrip.CharacterId, $"{requestName} CharacterId round-trip");
+            AssertEqual(true, requestRoundTrip.Enable, $"{requestName} Enable round-trip");
+
+            MethodInfo handlerMethod = GetRegisteredRequestHandlerMethod(requestName);
+            AssertEqual("HandleFashionRandomActiveRequest", handlerMethod.Name, $"{requestName} registered handler method");
+
+            CharacterData ownedCharacter = CreateLoginAccountCompatibilityCharacter(
+                (uint)ownedRow.Id,
+                (uint)ownedRow.DefaultNpcFashtionId);
+            ownedCharacter.RandomFashion = false;
+            FashionList firstFashion = new()
+            {
+                Id = ownedFashionRows[0].Id,
+                IsLock = false,
+                IsRandom = true,
+                WeaponFashionId = ownedFashionRows[1].Id,
+                ColorId = colorRow.Id
+            };
+            FashionList secondFashion = new()
+            {
+                Id = ownedFashionRows[1].Id,
+                IsLock = false,
+                IsRandom = false,
+                WeaponFashionId = ownedFashionRows[0].Id,
+                ColorId = 0
+            };
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters = [ownedCharacter];
+            character.Fashions = [firstFashion, secondFashion];
+
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                sessionId: "fashion-random-active-compat");
+
+            static void AssertIndependentFashionState(
+                CharacterData actualCharacter,
+                IReadOnlyList<FashionList> actualFashions,
+                uint expectedFashionId,
+                IReadOnlyList<(long Id, bool IsRandom, long WeaponFashionId, int ColorId)> expected,
+                string name)
+            {
+                AssertEqual(expectedFashionId, actualCharacter.FashionId, $"{name} CharacterData.FashionId");
+                AssertEqual(expected.Count, actualFashions.Count, $"{name} fashion pool count");
+                foreach ((long id, bool isRandom, long weaponFashionId, int colorId) in expected)
+                {
+                    FashionList fashion = actualFashions.Single(entry => entry.Id == id);
+                    AssertEqual(isRandom, fashion.IsRandom, $"{name} fashion {id} IsRandom");
+                    AssertEqual(weaponFashionId, fashion.WeaponFashionId, $"{name} fashion {id} WeaponFashionId");
+                    AssertEqual(colorId, fashion.ColorId, $"{name} fashion {id} ColorId");
+                }
+            }
+
+            (long Id, bool IsRandom, long WeaponFashionId, int ColorId)[] independentFashionState =
+                character.Fashions.Select(fashion =>
+                    (fashion.Id, fashion.IsRandom, fashion.WeaponFashionId, fashion.ColorId)).ToArray();
+
+            InvokeRequestHandler(harness, requestName, packetId, requestRoundTrip);
+            NotifyCharacterDataList enablePush = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{requestName} enable first packet");
+            CharacterData enabledPushCharacter = enablePush.CharacterDataList.Single();
+            AssertEqual((uint)ownedRow.Id, enabledPushCharacter.Id, $"{requestName} enable pushed character");
+            AssertEqual(true, enabledPushCharacter.RandomFashion, $"{requestName} enable pushed RandomFashion");
+            FashionRandomActiveResponse enableResponse = ReadResponsePayload<FashionRandomActiveResponse>(
+                harness.ReadPacket($"{responseName} enable second packet"),
+                responseName);
+            AssertEqual(0, enableResponse.Code, $"{responseName} enable Code");
+            AssertEqual(
+                true,
+                JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerializer.Serialize(enableResponse)))
+                    .Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                $"{responseName} exact MessagePack field set");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, $"{requestName} enable save count");
+            AssertEqual(true, characterCollection.LastReplacement!.Characters.Single().RandomFashion,
+                $"{requestName} persisted enabled RandomFashion");
+            AssertIndependentFashionState(
+                character.Characters.Single(),
+                character.Fashions,
+                (uint)ownedRow.DefaultNpcFashtionId,
+                independentFashionState,
+                $"{requestName} enable independent state");
+
+            InvokeRequestHandler(harness, requestName, packetId + 1, requestRoundTrip);
+            NotifyCharacterDataList idempotentPush = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{requestName} idempotent enable first packet");
+            AssertEqual(true, idempotentPush.CharacterDataList.Single().RandomFashion,
+                $"{requestName} idempotent enable authoritative push");
+            FashionRandomActiveResponse idempotentResponse = ReadResponsePayload<FashionRandomActiveResponse>(
+                harness.ReadPacket($"{responseName} idempotent enable second packet"),
+                responseName);
+            AssertEqual(0, idempotentResponse.Code, $"{responseName} idempotent enable Code");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, $"{requestName} idempotent enable does not save");
+
+            InvokeRequestHandler(
+                harness,
+                requestName,
+                packetId + 2,
+                new FashionRandomActiveRequest { CharacterId = (uint)ownedRow.Id, Enable = false });
+            NotifyCharacterDataList disablePush = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{requestName} disable first packet");
+            AssertEqual(false, disablePush.CharacterDataList.Single().RandomFashion,
+                $"{requestName} disable pushed RandomFashion");
+            FashionRandomActiveResponse disableResponse = ReadResponsePayload<FashionRandomActiveResponse>(
+                harness.ReadPacket($"{responseName} disable second packet"),
+                responseName);
+            AssertEqual(0, disableResponse.Code, $"{responseName} disable Code");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, $"{requestName} disable save count");
+            AssertEqual(false, characterCollection.LastReplacement!.Characters.Single().RandomFashion,
+                $"{requestName} persisted disabled RandomFashion");
+            AssertIndependentFashionState(
+                character.Characters.Single(),
+                character.Fashions,
+                (uint)ownedRow.DefaultNpcFashtionId,
+                independentFashionState,
+                $"{requestName} disable independent state");
+
+            InvokeRequestHandler(harness, requestName, packetId + 3, requestRoundTrip);
+            ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{requestName} relog enable first packet");
+            FashionRandomActiveResponse relogEnableResponse = ReadResponsePayload<FashionRandomActiveResponse>(
+                harness.ReadPacket($"{responseName} relog enable second packet"),
+                responseName);
+            AssertEqual(0, relogEnableResponse.Code, $"{responseName} relog enable Code");
+            AssertEqual(3, characterCollection.ReplaceOneCalls, $"{requestName} relog enable save count");
+
+            AscNet.Common.Database.Character reloaded =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    characterCollection.LastReplacement!.ToBson());
+            CharacterData reloadedCharacter = reloaded.Characters.Single();
+            AssertEqual(true, reloadedCharacter.RandomFashion, $"{requestName} BSON round-trip RandomFashion");
+            AssertIndependentFashionState(
+                reloadedCharacter,
+                reloaded.Fashions,
+                (uint)ownedRow.DefaultNpcFashtionId,
+                independentFashionState,
+                $"{requestName} BSON round-trip independent state");
+            harness.Session.character = reloaded;
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin login = (NotifyLogin)(buildNotifyLogin.Invoke(null, [harness.Session])
+                ?? throw new InvalidDataException("BuildNotifyLogin returned null."));
+            NotifyLogin loginRoundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
+                MessagePackSerializer.Serialize(login));
+            AssertEqual(true, loginRoundTrip.CharacterList.Single().RandomFashion,
+                $"{requestName} BuildNotifyLogin RandomFashion");
+            AssertEqual(
+                independentFashionState[0].IsRandom,
+                loginRoundTrip.FashionList.Single(fashion => fashion.Id == independentFashionState[0].Id).IsRandom,
+                $"{requestName} BuildNotifyLogin independent FashionList.IsRandom");
+
+            AscNet.Common.Database.Character emptyPoolCharacter = CreateDrawCompatibilityCharacter(playerId + 1);
+            CharacterData emptyPoolOwned = CreateLoginAccountCompatibilityCharacter(
+                (uint)ownedRow.Id,
+                (uint)ownedRow.DefaultNpcFashtionId);
+            emptyPoolOwned.RandomFashion = false;
+            emptyPoolCharacter.Characters = [emptyPoolOwned];
+            emptyPoolCharacter.Fashions = [];
+            using (LoopbackSessionHarness emptyPoolHarness = new(
+                emptyPoolCharacter,
+                CreateDrawCompatibilityPlayer(playerId + 1),
+                CreateDrawCompatibilityInventory(playerId + 1, []),
+                sessionId: "fashion-random-active-empty-pool"))
+            {
+                InvokeRequestHandler(emptyPoolHarness, requestName, packetId + 4, requestRoundTrip);
+                NotifyCharacterDataList emptyPoolPush = ReadPushPayload<NotifyCharacterDataList>(
+                    emptyPoolHarness,
+                    nameof(NotifyCharacterDataList),
+                    $"{requestName} empty pool first packet");
+                AssertEqual(true, emptyPoolPush.CharacterDataList.Single().RandomFashion,
+                    $"{requestName} empty pool enables master");
+                AssertEqual(0, emptyPoolCharacter.Fashions.Count, $"{requestName} empty pool remains empty");
+                FashionRandomActiveResponse emptyPoolResponse = ReadResponsePayload<FashionRandomActiveResponse>(
+                    emptyPoolHarness.ReadPacket($"{responseName} empty pool second packet"),
+                    responseName);
+                AssertEqual(0, emptyPoolResponse.Code, $"{responseName} empty pool Code");
+                AssertEqual(4, characterCollection.ReplaceOneCalls, $"{requestName} empty pool save count");
+            }
+
+            AscNet.Common.Database.Character unownedCharacter = CreateDrawCompatibilityCharacter(playerId + 2);
+            unownedCharacter.Characters = [CreateLoginAccountCompatibilityCharacter(
+                (uint)ownedRow.Id,
+                (uint)ownedRow.DefaultNpcFashtionId)];
+            unownedCharacter.Characters.Single().RandomFashion = false;
+            bool ownedStateBeforeRejection = unownedCharacter.Characters.Single().RandomFashion;
+            using (LoopbackSessionHarness unownedHarness = new(
+                unownedCharacter,
+                CreateDrawCompatibilityPlayer(playerId + 2),
+                CreateDrawCompatibilityInventory(playerId + 2, []),
+                sessionId: "fashion-random-active-unowned"))
+            {
+                InvokeRequestHandler(
+                    unownedHarness,
+                    requestName,
+                    packetId + 5,
+                    new FashionRandomActiveRequest { CharacterId = (uint)unownedRow.Id, Enable = true });
+                FashionRandomActiveResponse unownedResponse = ReadResponsePayload<FashionRandomActiveResponse>(
+                    unownedHarness.ReadPacket($"{responseName} unowned response-only packet"),
+                    responseName);
+                AssertEqual(20009001, unownedResponse.Code, $"{responseName} unowned table-valid character Code");
+                AssertEqual(ownedStateBeforeRejection, unownedCharacter.Characters.Single().RandomFashion,
+                    $"{requestName} unowned character does not mutate owned state");
+                AssertEqual(4, characterCollection.ReplaceOneCalls, $"{requestName} unowned character does not save");
+                if (unownedHarness.TryReadAvailablePacket(
+                    $"{requestName} unowned character unexpected packet",
+                    out Packet unexpectedPacket))
+                {
+                    throw new InvalidDataException(
+                        $"{requestName} unowned character emitted unexpected {unexpectedPacket.Type} packet.");
+                }
+            }
+        }
+
+        private static void ValidateFashionSuitPoolSaveCompatibility()
+        {
+            const string requestName = nameof(FashionSuitPoolSaveRequest);
+            const string responseName = nameof(FashionSuitPoolSaveResponse);
+            const int packetId = 19_461;
+            const long playerId = 99_461;
+
+            List<FashionTable> fashionRows = TableReaderV2.Parse<FashionTable>();
+            IGrouping<int, FashionTable> ownedGroup = fashionRows
+                .GroupBy(row => row.CharacterId)
+                .Where(group => group.Count() >= 2)
+                .OrderBy(group => group.Key)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException("FashionTable has no character with two table-backed fashions for suit-pool coverage.");
+            FashionTable[] submittedRows = ownedGroup.OrderBy(row => row.Id).Take(2).ToArray();
+            FashionTable crossCharacterRow = fashionRows
+                .Where(row => row.CharacterId != ownedGroup.Key)
+                .OrderBy(row => row.Id)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException("FashionTable has no cross-character row for suit-pool coverage.");
+            int opaqueWeaponFashionId = checked(fashionRows.Max(row => row.Id) + 1);
+            int unknownFashionId = checked(fashionRows.Max(row => row.Id) + 2);
+            int missingCharacterId = checked(TableReaderV2.Parse<CharacterTable>().Max(row => row.Id) + 1);
+
+            FashionSuitPoolSaveRequest wireRequest = new()
+            {
+                CharacterId = (uint)ownedGroup.Key,
+                FashionSuits = new Dictionary<int, int>
+                {
+                    [submittedRows[1].Id] = 0,
+                    [submittedRows[0].Id] = opaqueWeaponFashionId
+                },
+                ActiveIds = [submittedRows[0].Id]
+            };
+            AssertEqual(
+                true,
+                typeof(FashionSuitPoolSaveRequest).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .SequenceEqual(["ActiveIds", "CharacterId", "FashionSuits"]),
+                $"{requestName} exact public property set");
+            byte[] requestBytes = MessagePackSerializer.Serialize(wireRequest);
+            JObject requestJson = JObject.Parse(MessagePackSerializer.ConvertToJson(requestBytes));
+            AssertEqual(
+                true,
+                requestJson.Properties().Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .SequenceEqual(["ActiveIds", "CharacterId", "FashionSuits"]),
+                $"{requestName} exact name-keyed MessagePack fields");
+            AssertEqual(JTokenType.Object, requestJson[nameof(FashionSuitPoolSaveRequest.FashionSuits)]!.Type,
+                $"{requestName} FashionSuits MessagePack map");
+            AssertEqual(JTokenType.Array, requestJson[nameof(FashionSuitPoolSaveRequest.ActiveIds)]!.Type,
+                $"{requestName} ActiveIds MessagePack list");
+            FashionSuitPoolSaveRequest request =
+                MessagePackSerializer.Deserialize<FashionSuitPoolSaveRequest>(requestBytes);
+            AssertEqual((uint)ownedGroup.Key, request.CharacterId, $"{requestName} CharacterId round-trip");
+            AssertEqual(2, request.FashionSuits.Count, $"{requestName} FashionSuits round-trip count");
+            AssertEqual(opaqueWeaponFashionId, request.FashionSuits[submittedRows[0].Id],
+                $"{requestName} opaque nonzero weapon id round-trip");
+            AssertEqual(0, request.FashionSuits[submittedRows[1].Id],
+                $"{requestName} zero weapon id round-trip");
+            AssertIntegerList([submittedRows[0].Id], request.ActiveIds.Select(id => (long)id).ToArray(),
+                $"{requestName} ActiveIds round-trip");
+            AssertEqual("HandleFashionSuitPoolSaveRequest", GetRegisteredRequestHandlerMethod(requestName).Name,
+                $"{requestName} registered handler");
+
+            CharacterData ownedCharacter = CreateLoginAccountCompatibilityCharacter(
+                (uint)ownedGroup.Key,
+                (uint)submittedRows[0].Id);
+            ownedCharacter.RandomFashion = true;
+            FashionList firstFashion = new()
+            {
+                Id = submittedRows[0].Id,
+                IsLock = false,
+                IsRandom = false,
+                WeaponFashionId = 0,
+                ColorId = 71
+            };
+            FashionList secondFashion = new()
+            {
+                Id = submittedRows[1].Id,
+                IsLock = false,
+                IsRandom = true,
+                WeaponFashionId = opaqueWeaponFashionId,
+                ColorId = 72
+            };
+            FashionList crossFashion = new()
+            {
+                Id = crossCharacterRow.Id,
+                IsLock = false,
+                IsRandom = true,
+                WeaponFashionId = 0,
+                ColorId = 73
+            };
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters = [ownedCharacter];
+            character.Fashions = [firstFashion, secondFashion, crossFashion];
+
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                sessionId: "fashion-suit-pool-save-compat");
+
+            static void AssertFashion(
+                FashionList fashion,
+                long id,
+                bool isLock,
+                bool isRandom,
+                long weaponFashionId,
+                int colorId,
+                string name)
+            {
+                AssertEqual(id, fashion.Id, $"{name} Id");
+                AssertEqual(isLock, fashion.IsLock, $"{name} IsLock");
+                AssertEqual(isRandom, fashion.IsRandom, $"{name} IsRandom");
+                AssertEqual(weaponFashionId, fashion.WeaponFashionId, $"{name} WeaponFashionId");
+                AssertEqual(colorId, fashion.ColorId, $"{name} ColorId");
+            }
+
+            InvokeRequestHandler(harness, requestName, packetId, request);
+            FashionSyncNotify push = ReadPushPayload<FashionSyncNotify>(
+                harness,
+                nameof(FashionSyncNotify),
+                $"{requestName} success first packet");
+            AssertIntegerList(
+                submittedRows.Select(row => (long)row.Id).ToArray(),
+                push.FashionList.Select(fashion => fashion.Id).ToArray(),
+                $"{requestName} push deterministic submitted id order");
+            AssertEqual(0, push.FashionColors.Count, $"{requestName} push empty FashionColors");
+            JObject pushJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(push)));
+            AssertEqual(
+                true,
+                pushJson.Properties().Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .SequenceEqual(["FashionColors", "FashionList"]),
+                $"{nameof(FashionSyncNotify)} exact full MessagePack field set");
+            foreach (JObject pushedRecordJson in ((JArray)pushJson[nameof(FashionSyncNotify.FashionList)]!)
+                         .OfType<JObject>())
+            {
+                AssertEqual(
+                    true,
+                    pushedRecordJson.Properties().Select(property => property.Name)
+                        .OrderBy(name => name, StringComparer.Ordinal)
+                        .SequenceEqual(["ColorId", "Id", "IsLock", "IsRandom", "WeaponFashionId"]),
+                    $"{nameof(FashionSyncNotify)} full FashionList record shape");
+            }
+            AssertFashion(push.FashionList[0], submittedRows[0].Id, false, true, opaqueWeaponFashionId, 71,
+                $"{requestName} first full authoritative push record");
+            AssertFashion(push.FashionList[1], submittedRows[1].Id, false, false, 0, 72,
+                $"{requestName} second full authoritative push record");
+            FashionSuitPoolSaveResponse response = ReadResponsePayload<FashionSuitPoolSaveResponse>(
+                harness.ReadPacket($"{responseName} success second packet"),
+                responseName);
+            AssertEqual(0, response.Code, $"{responseName} success Code");
+            AssertEqual(
+                true,
+                JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerializer.Serialize(response)))
+                    .Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                $"{responseName} exact MessagePack field set");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, $"{requestName} changed request saves once");
+            AssertEqual(true, ownedCharacter.RandomFashion, $"{requestName} master RandomFashion unchanged");
+            AssertFashion(firstFashion, submittedRows[0].Id, false, true, opaqueWeaponFashionId, 71,
+                $"{requestName} first in-memory state");
+            AssertFashion(secondFashion, submittedRows[1].Id, false, false, 0, 72,
+                $"{requestName} second in-memory state");
+            AssertFashion(crossFashion, crossCharacterRow.Id, false, true, 0, 73,
+                $"{requestName} unsubmitted fashion preserved");
+
+            AscNet.Common.Database.Character reloaded =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    characterCollection.LastReplacement!.ToBson());
+            FashionList[] reloadedSubmitted = reloaded.Fashions
+                .Where(fashion => request.FashionSuits.ContainsKey((int)fashion.Id))
+                .OrderBy(fashion => fashion.Id)
+                .ToArray();
+            AssertFashion(reloadedSubmitted[0], submittedRows[0].Id, false, true, opaqueWeaponFashionId, 71,
+                $"{requestName} BSON first fashion");
+            AssertFashion(reloadedSubmitted[1], submittedRows[1].Id, false, false, 0, 72,
+                $"{requestName} BSON second fashion");
+            AssertEqual(true, reloaded.Characters.Single().RandomFashion,
+                $"{requestName} BSON master RandomFashion unchanged");
+            harness.Session.character = reloaded;
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin login = (NotifyLogin)(buildNotifyLogin.Invoke(null, [harness.Session])
+                ?? throw new InvalidDataException("BuildNotifyLogin returned null."));
+            NotifyLogin loginRoundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
+                MessagePackSerializer.Serialize(login));
+            AssertFashion(
+                loginRoundTrip.FashionList.Single(fashion => fashion.Id == submittedRows[0].Id),
+                submittedRows[0].Id, false, true, opaqueWeaponFashionId, 71,
+                $"{requestName} NotifyLogin first fashion");
+            AssertFashion(
+                loginRoundTrip.FashionList.Single(fashion => fashion.Id == submittedRows[1].Id),
+                submittedRows[1].Id, false, false, 0, 72,
+                $"{requestName} NotifyLogin second fashion");
+            AssertEqual(true, loginRoundTrip.CharacterList.Single().RandomFashion,
+                $"{requestName} NotifyLogin master RandomFashion unchanged");
+
+            InvokeRequestHandler(harness, requestName, packetId + 1, request);
+            FashionSyncNotify idempotentPush = ReadPushPayload<FashionSyncNotify>(
+                harness,
+                nameof(FashionSyncNotify),
+                $"{requestName} idempotent first packet");
+            AssertIntegerList(
+                submittedRows.Select(row => (long)row.Id).ToArray(),
+                idempotentPush.FashionList.Select(fashion => fashion.Id).ToArray(),
+                $"{requestName} idempotent authoritative push order");
+            FashionSuitPoolSaveResponse idempotentResponse =
+                ReadResponsePayload<FashionSuitPoolSaveResponse>(
+                    harness.ReadPacket($"{responseName} idempotent second packet"),
+                    responseName);
+            AssertEqual(0, idempotentResponse.Code, $"{responseName} idempotent Code");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, $"{requestName} idempotent request does not save");
+
+            int rejectionPacketId = packetId + 2;
+            void AssertRejected(
+                string name,
+                FashionSuitPoolSaveRequest invalidRequest,
+                int expectedCode = 20012001,
+                Action? prepare = null,
+                Action? restore = null)
+            {
+                prepare?.Invoke();
+                byte[] before = harness.Session.character.ToBson();
+                int savesBefore = characterCollection.ReplaceOneCalls;
+                InvokeRequestHandler(harness, requestName, rejectionPacketId++, invalidRequest);
+                FashionSuitPoolSaveResponse invalidResponse =
+                    ReadResponsePayload<FashionSuitPoolSaveResponse>(
+                        harness.ReadPacket($"{name} response-only packet"),
+                        responseName);
+                AssertEqual(expectedCode, invalidResponse.Code, $"{name} Code");
+                AssertEqual(savesBefore, characterCollection.ReplaceOneCalls, $"{name} does not save");
+                AssertEqual(
+                    Convert.ToHexString(before),
+                    Convert.ToHexString(harness.Session.character.ToBson()),
+                    $"{name} atomic no mutation");
+                if (harness.TryReadAvailablePacket($"{name} unexpected packet", out Packet unexpectedPacket))
+                    throw new InvalidDataException($"{name} emitted unexpected {unexpectedPacket.Type} packet.");
+                restore?.Invoke();
+            }
+
+            Dictionary<int, int> validSingleSuit = new() { [submittedRows[0].Id] = opaqueWeaponFashionId };
+            AssertRejected(
+                $"{requestName} missing character",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)missingCharacterId,
+                    FashionSuits = new(validSingleSuit),
+                    ActiveIds = [submittedRows[0].Id]
+                },
+                20009001);
+            AssertRejected(
+                $"{requestName} null map",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = null!,
+                    ActiveIds = [submittedRows[0].Id]
+                });
+            AssertRejected(
+                $"{requestName} null active",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new(validSingleSuit),
+                    ActiveIds = null!
+                });
+            AssertRejected(
+                $"{requestName} empty map",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = [],
+                    ActiveIds = [submittedRows[0].Id]
+                });
+            AssertRejected(
+                $"{requestName} empty active",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new(validSingleSuit),
+                    ActiveIds = []
+                });
+            AssertRejected(
+                $"{requestName} active outside keys",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new(validSingleSuit),
+                    ActiveIds = [submittedRows[1].Id]
+                });
+            AssertRejected(
+                $"{requestName} duplicate active",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new(validSingleSuit),
+                    ActiveIds = [submittedRows[0].Id, submittedRows[0].Id]
+                });
+            AssertRejected(
+                $"{requestName} unknown fashion",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new() { [unknownFashionId] = 0 },
+                    ActiveIds = [unknownFashionId]
+                });
+            AssertRejected(
+                $"{requestName} locked fashion",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new(validSingleSuit),
+                    ActiveIds = [submittedRows[0].Id]
+                },
+                prepare: () => harness.Session.character.Fashions
+                    .Single(fashion => fashion.Id == submittedRows[0].Id).IsLock = true,
+                restore: () => harness.Session.character.Fashions
+                    .Single(fashion => fashion.Id == submittedRows[0].Id).IsLock = false);
+            AssertRejected(
+                $"{requestName} cross-character fashion",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new() { [crossCharacterRow.Id] = 0 },
+                    ActiveIds = [crossCharacterRow.Id]
+                });
+            AssertRejected(
+                $"{requestName} negative weapon fashion",
+                new FashionSuitPoolSaveRequest
+                {
+                    CharacterId = (uint)ownedGroup.Key,
+                    FashionSuits = new() { [submittedRows[0].Id] = -1 },
+                    ActiveIds = [submittedRows[0].Id]
+                });
+
+            Console.WriteLine(
+                $"{nameof(FashionSyncNotify)} -> {nameof(FashionSuitPoolSaveResponse)}; " +
+                "validated success, BSON/NotifyLogin, idempotence, missing character, empty map/active, " +
+                "active subset/uniqueness, unknown/locked/cross-character fashion, negative weapon binding, and rejection atomicity.");
         }
 
         private static void ValidateFashionColorCompatibility()

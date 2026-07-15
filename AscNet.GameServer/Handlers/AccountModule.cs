@@ -1220,6 +1220,7 @@ Sorry for the inconvenience.
                 EnhanceSkillList = character.EnhanceSkillList.Cast<dynamic>().ToList(),
                 MagicList = character.MagicList,
                 FashionId = character.FashionId,
+                RandomFashion = character.RandomFashion,
                 CreateTime = character.CreateTime,
                 TrustLv = character.TrustLv,
                 TrustExp = character.TrustExp,

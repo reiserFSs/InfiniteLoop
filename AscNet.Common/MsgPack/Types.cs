@@ -81,6 +81,7 @@ namespace AscNet.Common.MsgPack
         public List<dynamic> EnhanceSkillList { get; set; } = new();
         public List<CharacterSkill> MagicList { get; set; } = new();
         public long FashionId { get; set; }
+        public bool RandomFashion { get; set; }
         public long CreateTime { get; set; }
         public long TrustLv { get; set; }
         public long TrustExp { get; set; }
