@@ -105,6 +105,46 @@ namespace AscNet.Common.Database
         public long WeeklyResetWeek { get; set; } = -1;
     }
 
+    public class BossSingleHistoryRecordState
+    {
+        [BsonElement("stage_id")]
+        public int StageId { get; set; }
+
+        [BsonElement("score")]
+        public int Score { get; set; }
+
+        [BsonElement("characters")]
+        public List<int> Characters { get; set; } = new();
+
+        [BsonElement("partners")]
+        public List<int> Partners { get; set; } = new();
+    }
+
+    public class BossSingleStageRecordState
+    {
+        [BsonElement("stage_id")]
+        public int StageId { get; set; }
+
+        [BsonElement("score")]
+        public int Score { get; set; }
+
+        [BsonElement("characters")]
+        public List<int> Characters { get; set; } = new();
+
+        [BsonElement("is_use_auto_fight")]
+        public bool IsUseAutoFight { get; set; }
+
+        [BsonElement("max_score")]
+        public int MaxScore { get; set; }
+
+        [BsonElement("max_characters")]
+        public List<int> MaxCharacters { get; set; } = new();
+
+        [BsonElement("max_partners")]
+        public List<int> MaxPartners { get; set; } = new();
+    }
+
+    [BsonIgnoreExtraElements]
     public class SimulatedBattlefieldState
     {
         [BsonElement("arena_joined")]
@@ -146,11 +186,70 @@ namespace AscNet.Common.Database
         [BsonElement("arena_protected_score")]
         public int ArenaProtectedScore { get; set; }
 
+        [BsonElement("boss_activity_no")]
+        public int BossActivityNo { get; set; }
+
+        [BsonElement("boss_rank_platform")]
+        public int BossRankPlatform { get; set; }
+
+        [BsonElement("boss_old_level_type")]
+        public int BossOldLevelType { get; set; }
+
         [BsonElement("boss_level_type")]
         public int BossLevelType { get; set; }
 
-        [BsonElement("boss_cleared_stage_ids")]
-        public List<int> BossClearedStageIds { get; set; } = new();
+        [BsonElement("boss_list_options")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, List<int>> BossListOptions { get; set; } = new();
+
+        [BsonElement("boss_list")]
+        public List<int> BossList { get; set; } = new();
+
+        [BsonElement("boss_max_score")]
+        public int BossMaxScore { get; set; }
+
+        [BsonElement("boss_total_score")]
+        public int BossTotalScore { get; set; }
+
+        [BsonElement("boss_current_total_score")]
+        public int BossCurrentTotalScore { get; set; }
+
+        [BsonElement("boss_challenge_count")]
+        public int BossChallengeCount { get; set; }
+
+        [BsonElement("boss_challenge_reset_day")]
+        public long BossChallengeResetDay { get; set; } = -1;
+
+        [BsonElement("boss_auto_fight_count")]
+        public int BossAutoFightCount { get; set; }
+
+        [BsonElement("boss_character_points")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> BossCharacterPoints { get; set; } = new();
+
+        [BsonElement("boss_history")]
+        public List<BossSingleHistoryRecordState> BossHistory { get; set; } = new();
+
+        [BsonElement("boss_stage_records")]
+        public List<BossSingleStageRecordState> BossStageRecords { get; set; } = new();
+
+        [BsonElement("boss_reset_stage_ids")]
+        public List<int> BossResetStageIds { get; set; } = new();
+
+        [BsonElement("boss_normal_stage_teams")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, List<int>> BossNormalStageTeams { get; set; } = new();
+
+        [BsonElement("boss_trial_scores")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> BossTrialScores { get; set; } = new();
+
+        [BsonElement("boss_bestiary_scores")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> BossBestiaryScores { get; set; } = new();
+
+        [BsonElement("boss_last_score_time")]
+        public long BossLastScoreTime { get; set; }
 
         [BsonElement("boss_claimed_reward_ids")]
         public List<int> BossClaimedRewardIds { get; set; } = new();

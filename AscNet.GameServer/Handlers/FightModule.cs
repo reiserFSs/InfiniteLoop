@@ -309,6 +309,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("LeaveFightRequest")]
         public static void LeaveFightRequestHandler(Session session, Packet.Request packet)
         {
+            BossModule.CancelFight(session);
             session.fight = null;
             session.SendResponse(new LeaveFightResponse(), packet.Id);
         }
@@ -320,6 +321,7 @@ namespace AscNet.GameServer.Handlers
 
             StageTable? stageTable = ResolveStageTable(req.PreFightData.StageId, out bool isCurrentStudyStage);
             if (stageTable is null
+                && !BossModule.IsStage(req.PreFightData.StageId)
                 && !(ArenaModule.IsArenaStage(req.PreFightData.StageId) && req.PreFightData.SelectAreaId > 0)
                 && !RepeatChallengeModule.IsStage(req.PreFightData.StageId)
                 && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.PreFightData.StageId))
@@ -543,6 +545,14 @@ namespace AscNet.GameServer.Handlers
             if (isTheatreFight)
                 BiancaTheatreModule.ApplyTheatreFightStageData(session, req.PreFightData.StageId, rsp);
 
+            if (BossModule.IsStage(req.PreFightData.StageId)
+                && !BossModule.ApplyPreFight(session, req.PreFightData, rsp))
+            {
+                rsp.Code = 1;
+                session.SendResponse(rsp, packet.Id);
+                return;
+            }
+
             session.fight = new(req);
             session.SendResponse(rsp, packet.Id);
         }
@@ -611,6 +621,7 @@ namespace AscNet.GameServer.Handlers
             FightSettleRequest req = MessagePackSerializer.Deserialize<FightSettleRequest>(packet.Content);
             StageTable? stageTable = ResolveStageTable(req.Result.StageId, out _);
             if (stageTable is null
+                && !BossModule.IsStage(req.Result.StageId)
                 && !(ArenaModule.IsArenaStage(req.Result.StageId)
                     && session.fight?.PreFight.PreFightData.SelectAreaId > 0)
                 && !RepeatChallengeModule.IsStage(req.Result.StageId)
@@ -631,10 +642,31 @@ namespace AscNet.GameServer.Handlers
             if (!isSuccessfulSettle)
             {
                 BiancaTheatreModule.TrySendTheatreRetreatSettle(session, req.Result.StageId);
+                BossModule.CancelFight(session);
                 session.fight = null;
                 session.SendResponse(BuildFailedFightSettleResponse(responseStageId, req), packet.Id);
                 return;
             }
+            if (BossModule.TryBuildFightSettle(session, req.Result, out BossSingleFightResult? bossSingleResult))
+            {
+                FightSettleResponse response = new()
+                {
+                    Code = 0,
+                    Settle = new()
+                    {
+                        IsWin = true,
+                        StageId = req.Result.StageId,
+                        LeftTime = checked((int)req.Result.LeftTime),
+                        NpcHpInfo = req.Result.NpcHpInfo,
+                        ChallengeCount = challengeCount,
+                        BossSingleFightResult = bossSingleResult
+                    }
+                };
+                session.fight = null;
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
             int teamExp = stageTable is null ? 0 : GetStageTeamExp(stageTable, isFirstClear) * challengeCount;
             int cardExp = stageTable is null ? 0 : GetStageCardExp(stageTable, isFirstClear) * challengeCount;
 
@@ -766,7 +798,6 @@ namespace AscNet.GameServer.Handlers
                 TaskModule.RecordArenaResult(session, arenaResult.Point);
             }
 
-            bool updatedBossSingle = BossModule.RecordStageClear(session.player, (int)req.Result.StageId);
             bool updatedRepeatChallenge = RepeatChallengeModule.RecordStageClear(session.player, req.Result.StageId, challengeCount);
             session.player.Save();
             session.inventory.Save();
@@ -799,8 +830,6 @@ namespace AscNet.GameServer.Handlers
             {
                 SendMainLineLuosaitaSectionInfoIfCaptured(session, (int)req.Result.StageId);
             }
-            if (updatedBossSingle)
-                session.SendPush(BossModule.BuildLoginData(session.player));
             if (updatedRepeatChallenge)
                 session.SendPush(RepeatChallengeModule.BuildLoginData(session.player));
             TaskModule.RecordStageClear(session, (int)req.Result.StageId, challengeCount);

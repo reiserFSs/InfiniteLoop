@@ -241,6 +241,13 @@ namespace AscNet.GameServer.Handlers
                 goto start;
             }
 
+            player.SimulatedBattlefield ??= new();
+            if (player.SimulatedBattlefield.BossRankPlatform != request.LoginPlatform)
+            {
+                player.SimulatedBattlefield.BossRankPlatform = request.LoginPlatform;
+                player.Save();
+            }
+
             session.player = player;
             session.character = Character.FromUid(player.PlayerData.Id);
             session.stage = Stage.FromUid(player.PlayerData.Id);
@@ -432,6 +439,7 @@ namespace AscNet.GameServer.Handlers
 
         private static NotifyLogin BuildNotifyLogin(Session session)
         {
+            BossModule.PrepareLogin(session);
             NotifyLogin notifyLogin = new()
             {
                 PlayerData = session.player.PlayerData,

@@ -21,6 +21,7 @@ namespace AscNet.GameServer
         public Character character = default!;
         public Stage stage = default!;
         public Fight? fight;
+        public BossSinglePendingScore? PendingBossSingleScore;
         public Inventory inventory = default!;
         public int? PendingEnterWorldChatRequestId;
         public int? PendingGetWorldChannelInfoRequestId;

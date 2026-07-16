@@ -1502,7 +1502,7 @@ namespace AscNet.Common.MsgPack
         }
 
         public NotifyFubenBossSingleDataFubenBossSingleData FubenBossSingleData { get; set; }
-        public Dictionary<Int32, List<Int32>> BossListDict { get; set; } = new();
+        public Dictionary<Int32, List<Int32>>? BossListDict { get; set; }
     }
 
 
@@ -2677,6 +2677,8 @@ namespace AscNet.Common.MsgPack
             public Int32 EnterCgIndex { get; set; }
             public Int32 CvType { get; set; }
             public Int32 GeneralSkill { get; set; }
+            public Int32 BossSingleStageType { get; set; }
+            public dynamic? BossSingleChallengeBuffGroup { get; set; }
         }
 
         public PreFightRequestPreFightData PreFightData { get; set; }
@@ -2691,6 +2693,7 @@ namespace AscNet.Common.MsgPack
         public class PreFightResponseFightData
         {
             public Boolean Online { get; set; }
+            public String Uuid { get; set; } = String.Empty;
             public UInt32 FightId { get; set; }
             public dynamic? RoomId { get; set; }
             public Int32 OnlineMode { get; set; }
@@ -2761,6 +2764,23 @@ namespace AscNet.Common.MsgPack
         public Int32 NpcGroupPoint { get; set; }
         public Int32 OldArenaMaxPoint { get; set; }
         public Int32 ArenaMaxPoint { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class BossSingleFightResult
+    {
+        public Int32 FightTime { get; set; }
+        public Int32 BossDamagePer { get; set; }
+        public Int32 BossDamageScore { get; set; }
+        public Int32 MaxBossDamageScore { get; set; }
+        public Int32 TimeLeft { get; set; }
+        public Int32 TimeScore { get; set; }
+        public Int32 MaxTimeScore { get; set; }
+        public Int32 HpLeftPer { get; set; }
+        public Int32 HpScore { get; set; }
+        public Int32 MaxHpScore { get; set; }
+        public Int32 TotalScore { get; set; }
+        public Int32 StageStatus { get; set; }
     }
 
 

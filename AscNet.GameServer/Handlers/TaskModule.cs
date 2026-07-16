@@ -1011,11 +1011,30 @@ namespace AscNet.GameServer.Handlers
             session.player.MissionProgress.ConditionCounters[conditionId] = checked(current + Math.Max(0, increment));
         }
 
+        internal static long CurrentDailyResetPeriod(long timestamp) => timestamp / 86_400;
+
+        internal static long CurrentWeeklyResetPeriod(long timestamp) =>
+            (CurrentDailyResetPeriod(timestamp) + 3) / 7;
+
+        internal static int WeeklyResetDayIndex(long timestamp)
+        {
+            long day = CurrentDailyResetPeriod(timestamp);
+            long weekStartDay = checked(CurrentWeeklyResetPeriod(timestamp) * 7 - 3);
+            return checked((int)(day - weekStartDay));
+        }
+
+        internal static long RemainingSecondsInWeeklyResetPeriod(long timestamp)
+        {
+            long nextWeekStartDay = checked((CurrentWeeklyResetPeriod(timestamp) + 1) * 7 - 3);
+            return checked(nextWeekStartDay * 86_400 - timestamp);
+        }
+
         private static void EnsureMissionResets(Session session)
         {
             session.player.MissionProgress ??= new MissionProgressState();
-            long day = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 86_400;
-            long week = (day + 3) / 7;
+            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long day = CurrentDailyResetPeriod(timestamp);
+            long week = CurrentWeeklyResetPeriod(timestamp);
             bool changed = false;
             bool inventoryChanged = false;
 
