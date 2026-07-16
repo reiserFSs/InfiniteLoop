@@ -31,7 +31,6 @@ namespace AscNet.GameServer.Handlers
 
         private static readonly int[] CurrentEventTaskBatchTheatre5 = [140107, 140108, 140109, 140110];
         private static readonly int[] CurrentEventTaskBatchBounty = [15001, 15002];
-        private static readonly int[] CurrentEventTaskBatchArena = [3863, 3864, 3865, 3866, 3900, 3901, 3902, 3903];
         private static readonly int[] RetroArcadeTaskBatchEntry = [78020, 78021, 78022, 78023, 78024, 78025, 78026, 78027, 78028, 78029, 78030, 97625, 97626, 97627, 97628, 97629, 97630, 97631, 97632, 97633, 97634, 97635, 97645, 97646, 90933, 99928, 99929, 99930];
         private static readonly int[] RetroArcadeTaskBatchPostTaikoA = [86513, 86514, 86515, 86516];
         private static readonly int[] RetroArcadeTaskBatchPostTaikoB = [85951, 85965, 86023, 86024, 86025, 86026, 86027, 86028, 86029, 86030, 86031, 86032, 86033, 86034, 86035, 86036, 86037, 86038, 86052, 86053, 86054, 86055, 86056, 86057, 86058, 86059, 86060, 86061, 86062, 86063, 86064, 86065, 86066, 86078, 86079, 86080, 86092, 86093, 86094, 86214, 86228, 86326, 86340];

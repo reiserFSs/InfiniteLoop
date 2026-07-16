@@ -1,41 +1,17 @@
 {
   "CycleSeconds": 604800,
   "ArenaActivity": {
-    "ActivityNo": 448,
-    "ChallengeId": 14,
+    "BaseActivityNo": 450,
+    "ActivityStep": 2,
+    "InitialArenaLevelName": "Elite",
+    "HeroArenaLevel": 6,
+    "MaxContributeScore": 100,
+    "MaxProtectedScore": 2,
     "Status": 2,
-    "NextStatusTime": 1783274400,
-    "ArenaLevel": 5,
-    "UnlockCount": 2,
-    "TeamTime": 1782709200,
-    "FightTime": 1782709200,
-    "ResultTime": 1783274400,
-    "ContributeScore": 100,
-    "ProtectedScore": 2,
-    "ArenaIndex": 1,
-    "WaveRate": 320.2
+    "BaseTeamTime": 1783918800,
+    "FightDurationSeconds": 565200,
+    "ArenaIndex": 1
   },
-  "ArenaAreas": [
-    {
-      "AreaId": 8,
-      "Lock": 1
-    },
-    {
-      "AreaId": 22,
-      "Lock": 1
-    }
-  ],
-  "AreaDistributeMaxPointDict": {
-    "1": 5666122,
-    "2": 7311701,
-    "3": 3307157,
-    "4": 4327148,
-    "5": 5719924
-  },
-  "GroupFightEvents": [
-    4191,
-    4192
-  ],
   "BossSingle": {
     "ActivityNo": 260,
     "LevelType": 8,

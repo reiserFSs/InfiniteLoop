@@ -8,6 +8,9 @@ using AscNet.SDKServer.Models;
 using AscNet.Table.V2.share.guide;
 using AscNet.Table.V2.share.partner;
 using AscNet.Table.V2.share.fuben;
+using AscNet.Table.V2.client.fuben.arena;
+using AscNet.Table.V2.share.fuben.arena;
+using AscNet.Table.V2.share.chat;
 using AscNet.Table.V2.share.fuben.mainline;
 using AscNet.Table.V2.share.fuben.mainline2;
 using AscNet.Table.V2.share.task;
@@ -6222,7 +6225,7 @@ namespace AscNet.Test
                 .ToDictionary(group => group.Key, group => group.OrderBy(grade => grade.Grade).ToList());
             Dictionary<int, string> expectedCurrentClientShardNames = new()
             {
-                [562] = "Inver-Shard - Feral Scent",
+                [562] = "Inver-Shard - Feral",
                 [563] = "Inver-Shard - Indomitus",
                 [564] = "Inver-Shard - Echo",
                 [565] = "Inver-Shard - Lost Lullaby",
@@ -6249,7 +6252,7 @@ namespace AscNet.Test
                 [586] = "Inver-Shard - Aegis",
                 [587] = "Inver-Shard - Limpidity",
                 [588] = "Inver-Shard - Spectre",
-                [589] = "Inver-Shard - Rête",
+                [589] = "Inver-Shard - Arete",
                 [590] = "Inver-Shard - Dirge",
                 [591] = "Inver-Shard - Aeternion",
                 [592] = "Inver-Shard - Inverse Crown"
@@ -6490,7 +6493,8 @@ namespace AscNet.Test
             if (!shardItem.Name.StartsWith("Inver-Shard -", StringComparison.Ordinal))
                 throw new InvalidDataException($"{name}: expected Inver-Shard item name, got '{shardItem.Name}'.");
             AssertEqual(8, shardItem.ItemType, $"{name} ItemType");
-            AssertEqual(4, shardItem.Quality, $"{name} Quality");
+            if (shardItem.Quality is not (4 or 5))
+                throw new InvalidDataException($"{name} Quality: expected current-client A/S-rank shard quality 4 or 5, got '{shardItem.Quality}'.");
             AssertEqual(999, shardItem.MaxCount, $"{name} MaxCount");
             AssertEqual(999, shardItem.GridCount, $"{name} GridCount");
         }
@@ -7675,7 +7679,7 @@ namespace AscNet.Test
                 duplicateShardItemId,
                 targetCharacterId,
                 expectedSourceCharacterShowQuality: 3,
-                expectedShardItemQuality: 4,
+                expectedShardItemQuality: 5,
                 expectedRewardQuality: 0,
                 expectedRewardConvertFrom: targetCharacterId,
                 expectedRewardShowQuality: 0,
@@ -7698,7 +7702,8 @@ namespace AscNet.Test
             const int lowRankDuplicateCharacterId = 1211002;
             const int lowRankDuplicateShardItemId = 543;
             const int lowRankDuplicateCharacterShowQuality = 2;
-            const int duplicateShardItemQuality = 4;
+            const int lowRankDuplicateShardItemQuality = 4;
+            const int targetDuplicateShardItemQuality = 5;
             const string name = "Draw 1488 RewardGoods ShowQuality hydration";
 
             Type drawModuleType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.DrawModule");
@@ -7763,7 +7768,7 @@ namespace AscNet.Test
                 lowRankDuplicateShardItemId,
                 lowRankDuplicateCharacterId,
                 expectedSourceCharacterShowQuality: lowRankDuplicateCharacterShowQuality,
-                expectedShardItemQuality: duplicateShardItemQuality,
+                expectedShardItemQuality: lowRankDuplicateShardItemQuality,
                 expectedRewardQuality: 0,
                 expectedRewardConvertFrom: lowRankDuplicateCharacterId,
                 expectedRewardShowQuality: 0,
@@ -7784,7 +7789,7 @@ namespace AscNet.Test
                 duplicateShardItemId,
                 targetCharacterId,
                 expectedSourceCharacterShowQuality: targetCharacterShowQuality,
-                expectedShardItemQuality: duplicateShardItemQuality,
+                expectedShardItemQuality: targetDuplicateShardItemQuality,
                 expectedRewardQuality: 0,
                 expectedRewardConvertFrom: targetCharacterId,
                 expectedRewardShowQuality: 0,
@@ -9300,8 +9305,8 @@ namespace AscNet.Test
             ItemTable moneyWithoutTemplateMaximum = itemRows[Inventory.Coin];
             ItemTable gift = itemRows.Values.First(item => item.ItemType == (int)ItemType.Gift);
 
-            AssertEqual(99_999, basicWeaponTicket.MaxCount, "Basic Weapon R&D Ticket template MaxCount");
-            AssertEqual(99_999L, Inventory.GetMaxCount(basicWeaponTicket), "Basic Weapon R&D Ticket effective MaxCount");
+            AssertEqual(999_999, basicWeaponTicket.MaxCount, "Basic Weapon R&D Ticket template MaxCount");
+            AssertEqual(999_999L, Inventory.GetMaxCount(basicWeaponTicket), "Basic Weapon R&D Ticket effective MaxCount");
             AssertEqual(9_999L, Inventory.GetMaxCount(assessmentShardChoice), "Assessment Manual Shard Choice effective MaxCount");
             AssertEqual(999L, Inventory.GetMaxCount(constructShard), "Construct shard effective MaxCount");
             AssertEqual(21L, Inventory.GetMaxCount(scavengerTicket), "Scavenger MK-II effective MaxCount");
@@ -9323,8 +9328,8 @@ namespace AscNet.Test
             AssertEqual(21L, cappedScavengerTicket.Count, "Scavenger MK-II configured maximum saturation");
             AssertEqual(21L, inventory.Items.Single(item => item.Id == scavengerTicket.Id).Count, "Scavenger MK-II stored configured maximum");
 
-            inventory.Do(basicWeaponTicket.Id, 100_000);
-            AssertEqual(99_999L, grantedTicket.Count, "Basic Weapon R&D Ticket template maximum saturation");
+            inventory.Do(basicWeaponTicket.Id, 1_000_000);
+            AssertEqual(999_999L, grantedTicket.Count, "Basic Weapon R&D Ticket template maximum saturation");
             inventory.Do(basicWeaponTicket.Id, int.MinValue);
             AssertEqual(0L, grantedTicket.Count, "Basic Weapon R&D Ticket zero floor");
 
@@ -21380,31 +21385,168 @@ namespace AscNet.Test
         private static void ValidateSimulatedBattlefieldCompatibility()
         {
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const long capturedBaseTime = 1_783_918_800;
             const long playerId = 99_401;
             AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
             player.PlayerData.Name = "Battlefield Tester";
-            player.SimulatedBattlefield = new AscNet.Common.Database.SimulatedBattlefieldState
+            player.SimulatedBattlefield = new()
             {
-                ArenaPoint = 321,
-                ArenaContributeScore = 321,
                 BossLevelType = 8,
                 BossClearedStageIds = [30_300_803]
             };
 
+            List<ArenaLevelTable> arenaLevels = TableReaderV2.Parse<ArenaLevelTable>();
+            List<ChallengeAreaTable> challenges = TableReaderV2.Parse<ChallengeAreaTable>();
+            Dictionary<int, AreaStageTable> areaStages = TableReaderV2.Parse<AreaStageTable>().ToDictionary(row => row.Id);
+            Dictionary<int, ArenaGroupFightEventTable> arenaGroupFightEvents = TableReaderV2.Parse<ArenaGroupFightEventTable>().ToDictionary(row => row.Id);
+            Dictionary<int, MarkTable> marks = TableReaderV2.Parse<MarkTable>().ToDictionary(row => row.MarkId);
+            JObject battlefieldConfig = JObject.Parse(File.ReadAllText(ResourcePath("Configs", "simulated_battlefield.json")));
+            int heroArenaLevel = battlefieldConfig["ArenaActivity"]?.Value<int>("HeroArenaLevel") ?? 0;
+            int maxArenaMerit = battlefieldConfig["ArenaActivity"]?.Value<int>("MaxContributeScore") ?? 0;
+            int maxArenaReputation = battlefieldConfig["ArenaActivity"]?.Value<int>("MaxProtectedScore") ?? 0;
+            AssertEqual(100, maxArenaMerit, "War Zone retail Merit cap");
+            AssertEqual(2, maxArenaReputation, "War Zone retail Reputation cap");
+            AssertEqual(6, heroArenaLevel, "War Zone configured Hero arena level");
+            ArenaLevelTable eliteLevel = arenaLevels.Single(row => row.Name == "Elite");
+            ChallengeAreaTable eliteChallenge = challenges
+                .Where(row => row.ArenaLv == eliteLevel.Id && player.PlayerData.Level >= row.MinLv && player.PlayerData.Level <= row.MaxLv)
+                .OrderBy(row => row.ChallengeId).First();
+            ChallengeAreaTable capturedTaskChallenge = challenges.Single(row => row.ChallengeId == 14);
+            CurrentTaskTable arenaResetProbeTask = TableReaderV2.Parse<CurrentTaskTable>()
+                .First(task => task.Type == 10);
+
             Type arenaModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.ArenaModule");
-            MethodInfo buildArenaLoginData = RequiredMethod(
-                arenaModule,
-                "BuildLoginData",
+            MethodInfo reconcileArenaLogin = RequiredMethod(arenaModule, "ReconcileLogin", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session), typeof(long?)]);
+            MethodInfo recordArenaFight = RequiredMethod(arenaModule, "RecordFightResult", BindingFlags.Static | BindingFlags.Public, [typeof(Session), typeof(FightSettleResult)]);
+            MethodInfo currentArenaTaskIds = RequiredMethod(arenaModule, "CurrentTaskIds",
+                BindingFlags.Static | BindingFlags.NonPublic, [typeof(AscNet.Common.Database.Player)]);
+            Type arenaStageDataset = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.ArenaStageDataset");
+            MethodInfo hydrateArenaStage = RequiredMethod(arenaStageDataset, "TryHydrate",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                [typeof(int), typeof(uint), typeof(int), typeof(string), typeof(PreFightResponse.PreFightResponseFightData)]);
+            MethodInfo selectArenaAreas = RequiredMethod(arenaModule, "SelectedAreas", BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(int), typeof(long), typeof(ChallengeAreaTable)]);
+            foreach (ArenaLevelTable rank in arenaLevels)
+            {
+                ChallengeAreaTable rankChallenge = challenges
+                    .Where(row => row.ArenaLv == rank.Id && player.PlayerData.Level >= row.MinLv && player.PlayerData.Level <= row.MaxLv)
+                    .OrderBy(row => row.ChallengeId)
+                    .First();
+                List<int> rankAreas = (List<int>?)selectArenaAreas.Invoke(null, [1, playerId, rankChallenge])
+                    ?? throw new InvalidDataException($"War Zone {rank.Name} selection returned nil.");
+                int expectedCount = rank.Id >= heroArenaLevel ? rankChallenge.DayUnlockNum + 1 : rankChallenge.DayUnlockNum;
+                AssertEqual(expectedCount, rankAreas.Count, $"War Zone {rank.Name} selected area count");
+                AssertEqual(rankChallenge.DayUnlockNum, rankAreas.Take(rankChallenge.DayUnlockNum).Distinct().Count(),
+                    $"War Zone {rank.Name} distinct initial zones");
+                List<HashSet<int>> rankGroups = rankChallenge.AreaIdGroup
+                    .Where(group => !string.IsNullOrWhiteSpace(group))
+                    .Select(group => group.Split('|', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToHashSet())
+                    .ToList();
+                int[] ungroupedRankAreaIds = rankChallenge.AreaId
+                    .Where(areaId => areaId > 0 && rankGroups.All(group => !group.Contains(areaId)))
+                    .Distinct()
+                    .ToArray();
+                foreach (int initialAreaId in rankAreas.Take(rankChallenge.DayUnlockNum))
+                    AssertEqual(1, rankGroups.Count(group => group.Contains(initialAreaId)),
+                        $"War Zone {rank.Name} initial area {initialAreaId} group membership");
+                int[] initialGroupIndexes = rankAreas.Take(rankChallenge.DayUnlockNum)
+                    .Select(areaId => rankGroups.FindIndex(group => group.Contains(areaId)))
+                    .ToArray();
+                AssertEqual(rankChallenge.DayUnlockNum, initialGroupIndexes.Distinct().Count(),
+                    $"War Zone {rank.Name} initial areas use distinct groups");
+                foreach (int areaId in rankAreas)
+                {
+                    AreaStageTable stage = areaStages[areaId];
+                    int configuredStageId = stage.StageId[0];
+                    PreFightResponse.PreFightResponseFightData firstHydration = new();
+                    PreFightResponse.PreFightResponseFightData secondHydration = new();
+                    AssertEqual(true, (bool)hydrateArenaStage.Invoke(null,
+                        [areaId, checked((uint)configuredStageId), stage.MarkId, stage.Desc, firstHydration])!,
+                        $"War Zone {rank.Name} area {areaId} first hydration");
+                    AssertEqual(true, (bool)hydrateArenaStage.Invoke(null,
+                        [areaId, checked((uint)configuredStageId), stage.MarkId, stage.Desc, secondHydration])!,
+                        $"War Zone {rank.Name} area {areaId} second hydration");
+                    JArray firstGraph = JArray.FromObject(firstHydration.NpcGroupList);
+                    JArray secondGraph = JArray.FromObject(secondHydration.NpcGroupList);
+                    AssertEqual(99, firstGraph.Count, $"War Zone {rank.Name} area {areaId} ordered group count");
+                    AssertEqual(true, firstGraph.All(group => (group["NpcList"]?.Count() ?? 0) > 0),
+                        $"War Zone {rank.Name} area {areaId} nonempty groups");
+                    ((JObject)firstGraph[0]!["NpcList"]![0]!)["NpcId"] = -1;
+                    if (secondGraph[0]!["NpcList"]![0]!.Value<int>("NpcId") == -1)
+                        throw new InvalidDataException($"War Zone {rank.Name} area {areaId} hydration graph was shared.");
+                }
+                if (rank.Id >= heroArenaLevel)
+                {
+                    AssertEqual(1, ungroupedRankAreaIds.Length, $"War Zone {rank.Name} special-area candidate count");
+                    AssertEqual(ungroupedRankAreaIds[0], rankAreas[^1], $"War Zone {rank.Name} special area last");
+                }
+                else if (rankAreas.Any(ungroupedRankAreaIds.Contains))
+                {
+                    throw new InvalidDataException($"War Zone {rank.Name} unexpectedly selected an ungrouped special area.");
+                }
+            }
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo buildMedalLoginData = RequiredMethod(
+                accountModule,
+                "BuildMedalLoginData",
                 BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(AscNet.Common.Database.Player), typeof(long?)]);
-            NotifyArenaActivity arenaLogin = buildArenaLoginData.Invoke(null, [player, (long?)1_783_000_000]) as NotifyArenaActivity
-                ?? throw new InvalidDataException("ArenaModule.BuildLoginData returned nil.");
-            AssertEqual(448, arenaLogin.ActivityNo, "Simulated Battlefield arena ActivityNo");
-            AssertEqual(14, arenaLogin.ChallengeId, "Simulated Battlefield arena ChallengeId");
-            AssertEqual(2, arenaLogin.Status, "Simulated Battlefield arena Status");
-            AssertEqual(1_783_274_400U, arenaLogin.ResultTime, "Simulated Battlefield arena ResultTime");
-            AssertEqual(2, arenaLogin.ProtectedScore, "Simulated Battlefield arena ProtectedScore");
-            AssertEqual(1, arenaLogin.ArenaIndex, "Simulated Battlefield arena ArenaIndex");
+                [typeof(AscNet.Common.Database.Player)]);
+            MethodInfo buildChatBoardLoginData = RequiredMethod(
+                accountModule,
+                "BuildChatBoardLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(AscNet.Common.Database.Player)]);
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(playerId), player, inventory, "simulated-battlefield-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+            player.MissionProgress.ConditionCounters[arenaResetProbeTask.Condition] = 7;
+            player.MissionProgress.ClaimedTaskIds.Add(arenaResetProbeTask.Id);
+            (ActivityResultNotify? initialResult, NotifyArenaActivity arenaLogin) =
+                ((ActivityResultNotify?, NotifyArenaActivity))(reconcileArenaLogin.Invoke(null, [harness.Session, (long?)capturedBaseTime])
+                    ?? throw new InvalidDataException("ArenaModule.ReconcileLogin returned nil."));
+            AssertEqual(null, initialResult, "War Zone initial ReconcileLogin ActivityResult");
+            AssertEqual(eliteLevel.Id, arenaLogin.ArenaLevel, "War Zone initial table Elite tier");
+            AssertEqual(eliteChallenge.ChallengeId, arenaLogin.ChallengeId, "War Zone initial level bracket");
+            AssertEqual(2, arenaLogin.UnlockCount, "War Zone dataset-backed unlock count");
+            AssertEqual(player.SimulatedBattlefield.ArenaActivityNo, arenaLogin.ActivityNo, "War Zone initial activity persistence");
+            AssertEqual(1, arenaLogin.ArenaIndex, "War Zone retail ArenaIndex");
+            if (arenaLogin.TeamTime > capturedBaseTime || arenaLogin.ResultTime <= capturedBaseTime)
+                throw new InvalidDataException("War Zone initial schedule: captured base time must fall within the current activity window.");
+            AssertEqual(false, player.MissionProgress.ConditionCounters.ContainsKey(arenaResetProbeTask.Condition),
+                "War Zone initial activity resets stale Arena mission progress");
+            AssertEqual(false, player.MissionProgress.ClaimedTaskIds.Contains(arenaResetProbeTask.Id),
+                "War Zone initial activity resets stale Arena mission claim");
+            int savedTaskArenaLevel = player.SimulatedBattlefield.ArenaLevel;
+            int savedTaskChallengeId = player.SimulatedBattlefield.ArenaChallengeId;
+            foreach (ArenaLevelTable taskTier in arenaLevels)
+            {
+                ChallengeAreaTable taskChallenge = challenges
+                    .Where(row => row.ArenaLv == taskTier.Id
+                        && player.PlayerData.Level >= row.MinLv
+                        && player.PlayerData.Level <= row.MaxLv)
+                    .OrderBy(row => row.ChallengeId)
+                    .First();
+                player.SimulatedBattlefield.ArenaLevel = taskTier.Id;
+                player.SimulatedBattlefield.ArenaChallengeId = taskChallenge.ChallengeId;
+                int[] actualTaskIds = (int[])(currentArenaTaskIds.Invoke(null, [player])
+                    ?? throw new InvalidDataException($"War Zone {taskTier.Name} current task IDs returned nil."));
+                int[] expectedTaskIds = taskChallenge.TaskId.Where(taskId => taskId > 0).ToArray();
+                if (!actualTaskIds.SequenceEqual(expectedTaskIds))
+                    throw new InvalidDataException(
+                        $"War Zone {taskTier.Name} task IDs: expected {string.Join(",", expectedTaskIds)}, got {string.Join(",", actualTaskIds)}.");
+            }
+            player.SimulatedBattlefield.ArenaLevel = savedTaskArenaLevel;
+            player.SimulatedBattlefield.ArenaChallengeId = savedTaskChallengeId;
+            player.SimulatedBattlefield.ArenaLevel = capturedTaskChallenge.ArenaLv;
+            player.SimulatedBattlefield.ArenaChallengeId = capturedTaskChallenge.ChallengeId;
+
+            const int unjoinedAreaPacketId = 81_000;
+            InvokeRegisteredRequestHandler("AreaDataRequest", harness.Session, unjoinedAreaPacketId, new Dictionary<string, object>());
+            AreaDataResponse unjoinedAreaResponse = ReadResponsePayload<AreaDataResponse>(harness, unjoinedAreaPacketId, nameof(AreaDataResponse), "War Zone unjoined AreaDataResponse");
+            AssertEqual(20044029, unjoinedAreaResponse.Code, "War Zone unjoined AreaDataResponse Code");
+            AssertEqual(null, unjoinedAreaResponse.AreaList, "War Zone unjoined AreaList");
+            AssertEqual(null, unjoinedAreaResponse.AreaDistributeMaxPointDict, "War Zone unjoined distribution maxima");
+            AssertEqual(null, unjoinedAreaResponse.GroupFightEvents, "War Zone unjoined group events");
 
             Type bossModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule");
             MethodInfo buildBossLoginData = RequiredMethod(
@@ -21437,65 +21579,673 @@ namespace AscNet.Test
             JObject repeatChallengeChapter = JObject.FromObject(repeatChallengeLogin.RcChapters.Single());
             AssertEqual(136_001, repeatChallengeChapter.Value<int>("Id"), "Simulated Battlefield repeat challenge ChapterId");
 
-            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
-            using LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(playerId),
-                player,
-                inventory,
-                "simulated-battlefield-compat-test");
-            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
-
             const int joinPacketId = 81_001;
-            InvokeRegisteredRequestHandler(
-                "JoinActivityRequest",
-                harness.Session,
-                joinPacketId,
-                new Dictionary<string, object>());
+            InvokeRegisteredRequestHandler("JoinActivityRequest", harness.Session, joinPacketId, new Dictionary<string, object>());
             JoinActivityResponse joinResponse = ReadResponsePayload<JoinActivityResponse>(
-                harness,
-                joinPacketId,
-                nameof(JoinActivityResponse),
-                "Simulated Battlefield JoinActivityResponse");
-            AssertEqual(0, joinResponse.Code, "Simulated Battlefield JoinActivityResponse Code");
-            AssertEqual(14, joinResponse.ChallengeId, "Simulated Battlefield JoinActivityResponse ChallengeId");
-            AssertEqual(true, player.SimulatedBattlefield.ArenaJoined, "Simulated Battlefield joined persistence");
+                harness, joinPacketId, nameof(JoinActivityResponse), "War Zone JoinActivityResponse");
+            AssertEqual(0, joinResponse.Code, "War Zone JoinActivityResponse Code");
+            AssertEqual(capturedTaskChallenge.ChallengeId, joinResponse.ChallengeId, "War Zone JoinActivityResponse table ChallengeId");
+            AssertEqual(true, player.SimulatedBattlefield.ArenaJoined, "War Zone joined persistence");
+            AssertEqual(player.SimulatedBattlefield.ArenaActivityNo, player.SimulatedBattlefield.ArenaJoinActivity, "War Zone joined activity persistence");
 
-            const int scorePacketId = 81_002;
-            InvokeRegisteredRequestHandler(
-                "ScoreQueryRequest",
-                harness.Session,
-                scorePacketId,
-                new Dictionary<string, object>());
-            AscNet.GameServer.Handlers.ScoreQueryResponse scoreResponse =
-                ReadResponsePayload<AscNet.GameServer.Handlers.ScoreQueryResponse>(
-                    harness,
-                    scorePacketId,
-                    nameof(AscNet.GameServer.Handlers.ScoreQueryResponse),
-                    "Simulated Battlefield ScoreQueryResponse");
-            AssertEqual(0, scoreResponse.Code, "Simulated Battlefield ScoreQueryResponse Code");
-            AssertEqual(321, scoreResponse.ContributeScore, "Simulated Battlefield ScoreQueryResponse ContributeScore");
-            AssertEqual(14, scoreResponse.ChallengeId, "Simulated Battlefield ScoreQueryResponse ChallengeId");
-
-            const int areaPacketId = 81_003;
-            InvokeRegisteredRequestHandler(
-                "AreaDataRequest",
-                harness.Session,
-                areaPacketId,
-                new Dictionary<string, object>());
+            const int areaPacketId = 81_002;
+            InvokeRegisteredRequestHandler("AreaDataRequest", harness.Session, areaPacketId, new Dictionary<string, object>());
             AreaDataResponse areaResponse = ReadResponsePayload<AreaDataResponse>(
+                harness, areaPacketId, nameof(AreaDataResponse), "War Zone joined AreaDataResponse");
+            AssertEqual(0, areaResponse.Code, "War Zone joined AreaDataResponse Code");
+            List<JObject> selectedAreas = JArray.FromObject(areaResponse.AreaList
+                ?? throw new InvalidDataException("War Zone joined AreaDataResponse AreaList is nil.")).OfType<JObject>().ToList();
+            AssertEqual(arenaLogin.UnlockCount, selectedAreas.Count, "War Zone dataset-backed selected area count");
+            AssertEqual(selectedAreas.Count, areaResponse.GroupFightEvents?.Count ?? 0, "War Zone one table group event per selected area");
+            int[] selectedGroupIds = areaResponse.GroupFightEvents?.ToArray()
+                ?? throw new InvalidDataException("War Zone joined GroupFightEvents is nil.");
+            if (selectedGroupIds.Any(groupId => !arenaGroupFightEvents.ContainsKey(groupId)))
+                throw new InvalidDataException("War Zone joined GroupFightEvents contains an ID absent from ArenaGroupFightEvent.tsv.");
+            int[] selectedAreaIds = selectedAreas.Select(area => area.Value<int>("AreaId")).ToArray();
+            List<(string Key, int[] Areas)> availableAreaGroups = capturedTaskChallenge.AreaIdGroup
+                .Where(group => !string.IsNullOrWhiteSpace(group))
+                .Select(group => (Key: group, Areas: group.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(value => int.TryParse(value, out int areaId) ? areaId : 0)
+                    .Where(areaId => areaId > 0 && areaStages.ContainsKey(areaId)).Distinct().ToArray()))
+                .Where(group => group.Areas.Length > 0).ToList();
+            if (selectedAreaIds.Distinct().Count() != selectedAreaIds.Length
+                || selectedAreaIds.Any(id => !areaStages.ContainsKey(id)))
+                throw new InvalidDataException("War Zone selected areas must be distinct valid table AreaStage IDs.");
+            if (availableAreaGroups.Count > 0 && selectedAreaIds.Any(id => availableAreaGroups.Count(group => group.Areas.Contains(id)) != 1))
+                throw new InvalidDataException("War Zone selected areas must each originate from one distinct ChallengeArea.AreaIdGroup.");
+            foreach (JObject area in selectedAreas)
+            {
+                AssertEqual(1, area["LordList"]?.Count() ?? 0, $"War Zone area {area.Value<int>("AreaId")} has no fake peers");
+                AssertEqual(playerId, area["LordList"]?[0]?.Value<long>("Id") ?? 0, $"War Zone area {area.Value<int>("AreaId")} leader is current player");
+            }
+            Dictionary<int, int> expectedDistributionMaxima = areaStages.Values
+                .Where(candidate => candidate.IsAbandoned == 0)
+                .SelectMany(candidate => candidate.DistributeTypes)
+                .Where(type => type > 0)
+                .Distinct()
+                .ToDictionary(type => type, _ => 0);
+            if (!expectedDistributionMaxima.OrderBy(entry => entry.Key)
+                .SequenceEqual((areaResponse.AreaDistributeMaxPointDict ?? []).OrderBy(entry => entry.Key)))
+                throw new InvalidDataException("War Zone AreaDataResponse distribution maxima do not match configured AreaStage Mark rows.");
+            AssertEqual(capturedTaskChallenge.DayUnlockNum, selectedAreaIds.Length,
+                "War Zone all initial table groups are offered");
+
+            int selectedAreaId = selectedAreaIds[0];
+            AreaStageTable selectedAreaStage = areaStages[selectedAreaId];
+            int selectedStageId = selectedAreaStage.StageId[0];
+            MarkTable selectedMark = marks[selectedAreaStage.MarkId];
+            const int arenaSelectIndex = 0;
+            ArenaGroupFightEventTable selectedGroup = arenaGroupFightEvents[selectedGroupIds[0]];
+            int selectedFightEvent = selectedGroup.FightEvents[arenaSelectIndex];
+            const int arenaPreFightPacketId = 81_003;
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, arenaPreFightPacketId, new PreFightRequest
+            {
+                PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                {
+                    ChallengeCount = 1, StageId = checked((uint)selectedStageId), SelectAreaId = selectedAreaId,
+                    ArenaSelectIndex = arenaSelectIndex, CardIds = [], RobotIds = []
+                }
+            });
+            PreFightResponse arenaPreFight = ReadResponsePayload<PreFightResponse>(
+                harness, arenaPreFightPacketId, nameof(PreFightResponse), "War Zone table-selected PreFightResponse");
+            AssertEqual(selectedAreaId, harness.Session.fight?.PreFight.PreFightData.SelectAreaId ?? 0, "War Zone preflight carries SelectAreaId");
+            AssertEqual(checked((uint)selectedStageId), arenaPreFight.FightData.StageId, "War Zone preflight StageId matches retail AreaStage.StageId[1] selector");
+            const int repeatedArenaPreFightPacketId = 81_004;
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, repeatedArenaPreFightPacketId, new PreFightRequest
+            {
+                PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                {
+                    ChallengeCount = 1, StageId = checked((uint)selectedStageId), SelectAreaId = selectedAreaId,
+                    ArenaSelectIndex = arenaSelectIndex, CardIds = [], RobotIds = []
+                }
+            });
+            PreFightResponse repeatedArenaPreFight = ReadResponsePayload<PreFightResponse>(
+                harness, repeatedArenaPreFightPacketId, nameof(PreFightResponse), "War Zone repeated PreFightResponse");
+            PreFightResponse.PreFightResponseFightData capturedStageFirst = arenaPreFight.FightData;
+            PreFightResponse.PreFightResponseFightData capturedStageSecond = repeatedArenaPreFight.FightData;
+            PreFightResponse.PreFightResponseFightData directFirst = new();
+            PreFightResponse.PreFightResponseFightData directSecond = new();
+            AssertEqual(true, (bool)hydrateArenaStage.Invoke(null, [14, 30_080_425u, 4, areaStages[14].Desc, directFirst])!, "War Zone direct first hydration");
+            AssertEqual(true, (bool)hydrateArenaStage.Invoke(null, [14, 30_080_425u, 4, areaStages[14].Desc, directSecond])!, "War Zone direct second hydration");
+            List<Dictionary<string, object>> directGroups = (List<Dictionary<string, object>>)directFirst.NpcGroupList;
+            List<object?> directNpcs = (List<object?>)directGroups[0]["NpcList"];
+            ((Dictionary<string, object?>)directNpcs[0]!)["NpcId"] = -1L;
+            ((Dictionary<string, object?>)directFirst.Records)["69"] = 1L;
+            ((Dictionary<string, object?>)directFirst.StageParams)["WaveCostTimes"] = "mutated";
+            JObject directSecondJson = JObject.FromObject(directSecond);
+            AssertEqual(90_340, directSecondJson["NpcGroupList"]![0]!["NpcList"]![0]!.Value<int>("NpcId"), "War Zone direct NPC freshness");
+            AssertEqual(-7000, directSecondJson["Records"]!.Value<int>("69"), "War Zone direct Records freshness");
+            AssertEqual("[]", directSecondJson["StageParams"]!.Value<string>("WaveCostTimes"), "War Zone direct StageParams freshness");
+            JArray firstGroups = JArray.FromObject(capturedStageFirst.NpcGroupList
+                ?? throw new InvalidDataException("War Zone captured stage NpcGroupList is nil."));
+            JArray secondGroups = JArray.FromObject(capturedStageSecond.NpcGroupList
+                ?? throw new InvalidDataException("War Zone repeated captured stage NpcGroupList is nil."));
+            AssertEqual(99, firstGroups.Count, "War Zone captured ordered group count");
+            AssertEqual(true, firstGroups.All(group => group["NpcList"]?.Count() == 2), "War Zone every captured group has two NPCs");
+            AssertIntegerList([90_340, 90_340], firstGroups[0]!["NpcList"]!.Select(npc => npc.Value<long>("NpcId")).ToArray(), "War Zone first normalized group NPC order");
+            AssertIntegerList([90_420, 90_340], firstGroups[firstGroups.Count - 1]!["NpcList"]!.Select(npc => npc.Value<long>("NpcId")).ToArray(), "War Zone last normalized group NPC order");
+            AssertIntegerList([760_261], firstGroups[0]!["NpcList"]![0]!["BufferIds"]!.Values<long>().ToArray(), "War Zone first normalized NPC buffers");
+            AssertIntegerList([760_261], firstGroups[firstGroups.Count - 1]!["NpcList"]![0]!["BufferIds"]!.Values<long>().ToArray(), "War Zone last normalized NPC buffers");
+            AssertEqual(520, firstGroups[0]!["NpcList"]![0]!.Value<int>("Level"), "War Zone first normalized NPC level");
+            AssertEqual(509, firstGroups[firstGroups.Count - 1]!["NpcList"]![0]!.Value<int>("Level"), "War Zone last normalized NPC level");
+            AssertEqual(0, firstGroups[0]!["NpcList"]![0]!["MagicInfos"]?.Count() ?? -1, "War Zone normalized NPC empty magic info");
+            AssertEqual(0, firstGroups[0]!["NpcList"]![0]!["AttrTable"]?.Count() ?? -1, "War Zone normalized NPC empty attributes");
+            AssertEqual(0, firstGroups[0]!["NpcList"]![1]!["BufferIds"]?.Count() ?? -1, "War Zone normalized second NPC unbuffed");
+            AssertEqual(300, capturedStageFirst.PassTimeLimit, "War Zone retail time limit");
+            AssertEqual(209, capturedStageFirst.ReviseId, "War Zone retail revise id");
+            AssertEqual(true, capturedStageFirst.Restartable, "War Zone retail restart behavior");
+            AssertEqual(1, capturedStageFirst.FightCheckType, "War Zone retail fight check type");
+            AssertEqual(60, capturedStageFirst.SegmentFightCheckSecond, "War Zone retail segmented check seconds");
+            JObject firstRecords = JObject.FromObject(capturedStageFirst.Records);
+            JObject secondRecords = JObject.FromObject(capturedStageSecond.Records);
+            AssertEqual(21, firstRecords.Count, "War Zone retail record count");
+            AssertEqual(-7000, firstRecords.Value<int>("69"), "War Zone representative negative record");
+            AssertEqual(0, firstRecords.Value<int>("33"), "War Zone representative zero record");
+            JObject firstStageParams = JObject.FromObject(capturedStageFirst.StageParams);
+            JObject secondStageParams = JObject.FromObject(capturedStageSecond.StageParams);
+            AssertEqual("[]", firstStageParams.Value<string>("WaveCostTimes"), "War Zone initial wave timings");
+            AssertEqual("[]", firstStageParams.Value<string>("TimePointScore"), "War Zone initial time scores");
+            AssertEqual(selectedAreaStage.MarkId.ToString(), firstStageParams.Value<string>("MarkId"), "War Zone dynamic MarkId");
+            int expectedStageDistributionMaximum = (areaResponse.AreaDistributeMaxPointDict ?? [])
+                .GetValueOrDefault(selectedAreaStage.DistributeTypes.First());
+            AssertEqual(expectedStageDistributionMaximum.ToString(), firstStageParams.Value<string>("DistributeMaxScore"),
+                "War Zone dynamic distribution maximum");
+            ((Dictionary<object, object>)capturedStageFirst.Records)["69"] = 1;
+            ((Dictionary<object, object>)capturedStageFirst.StageParams)["WaveCostTimes"] = "mutated";
+            AssertEqual(-7000, secondRecords.Value<int>("69"), "War Zone repeated Records independent materialization");
+            AssertEqual("[]", secondStageParams.Value<string>("WaveCostTimes"), "War Zone repeated StageParams independent materialization");
+            AssertEqual(firstGroups.ToString(Formatting.None), secondGroups.ToString(Formatting.None), "War Zone repeated payload equivalence");
+            ((JObject)firstGroups[0]!["NpcList"]![0]!)["NpcId"] = -1;
+            AssertEqual(90_340L, secondGroups[0]!["NpcList"]![0]!.Value<long>("NpcId"), "War Zone repeated payload independent materialization");
+            string arenaDatasetPath = ResourcePath("Configs", "arena_stage_data.json");
+            string arenaDatasetJson = File.ReadAllText(arenaDatasetPath);
+            if (arenaDatasetJson.Contains("\"FightData\"", StringComparison.Ordinal)
+                || Directory.EnumerateFiles(Path.GetDirectoryName(arenaDatasetPath)!, "*PreFightResponse*", SearchOption.AllDirectories).Any())
+                throw new InvalidDataException("War Zone resources must not contain a copied PreFightResponse snapshot.");
+            AssertIntegerList(
+                selectedAreaStage.BuffIds.Select(Convert.ToInt64).Append(selectedFightEvent).ToList(),
+                arenaPreFight.FightData.EventIds.Select(Convert.ToInt64).ToList(),
+                "War Zone preflight AreaStage buffs and selected group event");
+
+            FightSettleResult arenaSettle = new()
+            {
+                IsWin = true, IsForceExit = false, StageId = checked((uint)selectedStageId), FightId = arenaPreFight.FightData.FightId,
+                StartFrame = 1, SettleFrame = 3825, PauseFrame = 1423, ExSkillPauseFrame = 1298,
+                LeftTime = 179, DeathTotalEnemy = 58, TotalDamage = 112_965_896,
+                StringToIntRecord = new Dictionary<object, object> { ["NpcGroup"] = 30 },
+                NpcHpInfo = new()
+                {
+                    [1] = new NpcHp { Type = 1, AttrTable = new() { [1] = new Dictionary<object, object> { ["Value"] = 100, ["MaxValue"] = 100 } }, BuffIds = [] },
+                    [2] = new NpcHp { Type = 3, AttrTable = new(), BuffIds = [] },
+                    [3] = new NpcHp { Type = 3, AttrTable = new(), BuffIds = [] }
+                }
+            };
+            const int arenaSettlePacketId = 81_005;
+            InvokeRegisteredRequestHandler(nameof(FightSettleRequest), harness.Session, arenaSettlePacketId,
+                new FightSettleRequest { Result = arenaSettle });
+            bool arenaTaskPushBeforeResponse = false;
+            List<NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask> arenaTaskEntries = [];
+            FightSettleResponse? arenaSettleResponse = null;
+            for (int packetIndex = 0; packetIndex < 16 && arenaSettleResponse is null; packetIndex++)
+            {
+                Packet settlePacket = harness.ReadPacket($"War Zone FightSettle packet {packetIndex + 1}");
+                if (settlePacket.Type == Packet.ContentType.Push)
+                {
+                    Packet.Push settlePush = MessagePackSerializer.Deserialize<Packet.Push>(settlePacket.Content);
+                    if (settlePush.Name == nameof(NotifyTask))
+                    {
+                        arenaTaskPushBeforeResponse = true;
+                        arenaTaskEntries.AddRange(MessagePackSerializer.Deserialize<NotifyTask>(settlePush.Content).Tasks.Tasks);
+                    }
+                    continue;
+                }
+                Packet.Response settlePacketResponse = MessagePackSerializer.Deserialize<Packet.Response>(settlePacket.Content);
+                AssertEqual(arenaSettlePacketId, settlePacketResponse.Id, "War Zone FightSettleResponse packet id");
+                AssertEqual(nameof(FightSettleResponse), settlePacketResponse.Name, "War Zone FightSettleResponse packet name");
+                arenaSettleResponse = MessagePackSerializer.Deserialize<FightSettleResponse>(settlePacketResponse.Content);
+            }
+            if (arenaSettleResponse is null)
+                throw new InvalidDataException("War Zone captured FightSettleResponse missing.");
+            AssertEqual(true, arenaTaskPushBeforeResponse, "War Zone task push precedes FightSettleResponse");
+            HashSet<int> currentArenaTaskIdsForCapture = capturedTaskChallenge.TaskId.Where(taskId => taskId > 0).ToHashSet();
+            HashSet<int> currentArenaConditionIdsForCapture = TableReaderV2.Parse<CurrentTaskTable>()
+                .Where(task => currentArenaTaskIdsForCapture.Contains(task.Id))
+                .Select(task => task.Condition)
+                .ToHashSet();
+            Dictionary<int, CurrentConditionTable> arenaTaskConditions = TableReaderV2.Parse<CurrentConditionTable>()
+                .Where(condition => condition.Type is 28005 or 28006
+                    || (condition.Type is 28001 or 28003 && currentArenaConditionIdsForCapture.Contains(condition.Id)))
+                .ToDictionary(condition => condition.Id);
+            foreach (CurrentConditionTable countCondition in arenaTaskConditions.Values.Where(condition => condition.Type is 28001 or 28005))
+                AssertEqual(1, player.MissionProgress.ConditionCounters.GetValueOrDefault(countCondition.Id),
+                    $"War Zone accepted settle condition {countCondition.Id} count");
+            NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask firstCountTask = arenaTaskEntries.Last(task => task.Id == 3865);
+            NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask secondCountTask = arenaTaskEntries.Last(task => task.Id == 3866);
+            AssertEqual(3, firstCountTask.State, "War Zone task 3865 achieved after first accepted settle");
+            AssertEqual(1, secondCountTask.State, "War Zone task 3866 active after first accepted settle");
+            AssertEqual(1, secondCountTask.Schedule.Single().Value, "War Zone task 3866 first settle progress");
+            ArenaResult scored = arenaSettleResponse.Settle?.ArenaResult
+                ?? throw new InvalidDataException("War Zone captured FightSettleResponse ArenaResult is nil.");
+            Dictionary<string, double> scoreMetrics = new()
+            {
+                ["KillNum"] = arenaSettle.DeathTotalEnemy, ["TotalNum"] = 2, ["Hp"] = 100,
+                ["LeftTime"] = 180, ["EnemyHp"] = arenaSettle.TotalDamage, ["NpcGroup"] = 30
+            };
+            int EvaluateMark(string? expression, int maximum)
+            {
+                if (string.IsNullOrWhiteSpace(expression)) return 0;
+                string[] tokens = expression.Replace("+", " + ").Replace("-", " - ").Replace("*", " * ").Replace("/", " / ")
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                double Term(string token) => scoreMetrics.TryGetValue(token, out double found) ? found : double.TryParse(token, out double number) ? number : 0;
+                double value = Term(tokens[0]);
+                for (int i = 1; i + 1 < tokens.Length; i += 2)
+                {
+                    double rhs = Term(tokens[i + 1]);
+                    value = tokens[i] switch { "+" => value + rhs, "-" => value - rhs, "*" => value * rhs, "/" => rhs == 0 ? 0 : value / rhs, _ => value };
+                }
+                int evaluated = value >= int.MaxValue ? int.MaxValue : (int)Math.Floor(value);
+                return maximum > 0 ? Math.Clamp(evaluated, 0, maximum) : Math.Max(0, evaluated);
+            }
+            int expectedEnemyPoint = EvaluateMark(selectedMark.EnemyHpPoint, selectedMark.MaxEnemyHpPoint);
+            int expectedMyHpPoint = EvaluateMark(selectedMark.MyHpPoint, selectedMark.MaxMyHpPoint);
+            int expectedTimePoint = EvaluateMark(selectedMark.TimePoint, selectedMark.MaxTimePoint);
+            int expectedNpcPoint = EvaluateMark(selectedMark.NpcGroupPoint, selectedMark.MaxNpcGroupPoint);
+            int expectedPoint = Math.Clamp(expectedEnemyPoint + expectedMyHpPoint + expectedTimePoint + expectedNpcPoint, selectedMark.MinPoint, selectedMark.MaxPoint);
+            AssertEqual(3_779_317, scored.Point, "War Zone captured Point");
+            AssertEqual(2_259_317, scored.EnemyPoint, "War Zone captured EnemyPoint");
+            AssertEqual(20_000, scored.MyHpPoint, "War Zone captured MyHpPoint");
+            AssertEqual(0, scored.TimePoint, "War Zone captured TimePoint");
+            AssertEqual(1_500_000, scored.NpcGroupPoint, "War Zone captured NpcGroupPoint");
+            AssertEqual(100, scored.MyHpLeft, "War Zone captured HP");
+            AssertEqual(58, scored.KillEnemy, "War Zone captured killed enemies");
+            AssertEqual(30, scored.NpcGroup, "War Zone captured NPC group");
+            AssertEqual(120, scored.FightTime, "War Zone frame-derived FightTime");
+            AssertEqual(180, scored.TimeLeft, "War Zone stage-limit-derived TimeLeft");
+            AssertEqual(0, scored.OldPoint, "War Zone captured OldPoint");
+            AssertEqual(0, scored.OldArenaMaxPoint, "War Zone captured OldArenaMaxPoint");
+            AssertEqual(3_779_317, scored.ArenaMaxPoint, "War Zone captured ArenaMaxPoint");
+            foreach (CurrentConditionTable scoreCondition in arenaTaskConditions.Values.Where(condition => condition.Type is 28003 or 28006))
+            {
+                AssertEqual(scored.Point, player.MissionProgress.ConditionCounters.GetValueOrDefault(scoreCondition.Id),
+                    $"War Zone score condition {scoreCondition.Id} raw best Point");
+                CurrentTaskTable scoreTask = TableReaderV2.Parse<CurrentTaskTable>().First(task => task.Condition == scoreCondition.Id);
+                NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask pushedScoreTask = arenaTaskEntries.Last(task => task.Id == (uint)scoreTask.Id);
+                AssertEqual(scored.Point, pushedScoreTask.Schedule.Single().Value,
+                    $"War Zone score task {scoreTask.Id} raw wire Point");
+            }
+            Type taskModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule");
+            MethodInfo recordArenaResult = RequiredMethod(
+                taskModule,
+                "RecordArenaResult",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(Session), typeof(int)]);
+            HashSet<int> leaderOnlyArenaTaskIds = currentArenaTaskIdsForCapture
+                .Except(eliteChallenge.TaskId.Where(taskId => taskId > 0))
+                .ToHashSet();
+            HashSet<int> leaderOnlyArenaConditionIds = TableReaderV2.Parse<CurrentTaskTable>()
+                .Where(task => leaderOnlyArenaTaskIds.Contains(task.Id))
+                .Select(task => task.Condition)
+                .ToHashSet();
+            long offChallengePlayerId = playerId + 50_000;
+            AscNet.Common.Database.Player offChallengePlayer = CreateDrawCompatibilityPlayer(offChallengePlayerId);
+            offChallengePlayer.SimulatedBattlefield = new();
+            AscNet.Common.Database.Inventory offChallengeInventory = CreateDrawCompatibilityInventory(offChallengePlayerId, []);
+            using (LoopbackSessionHarness offChallengeHarness = new(
+                CreateDrawCompatibilityCharacter(offChallengePlayerId),
+                offChallengePlayer,
+                offChallengeInventory,
+                "war-zone-off-challenge-task-test"))
+            {
+                offChallengeHarness.Session.stage = CreateLoginAccountCompatibilityStage(offChallengePlayerId);
+                _ = reconcileArenaLogin.Invoke(null, [offChallengeHarness.Session, (long?)capturedBaseTime]);
+                AssertEqual(eliteChallenge.ChallengeId, offChallengePlayer.SimulatedBattlefield.ArenaChallengeId,
+                    "War Zone off-challenge task probe starts in Elite");
+                _ = recordArenaResult.Invoke(null, [offChallengeHarness.Session, scored.Point]);
+                Packet offChallengePacket = offChallengeHarness.ReadPacket("War Zone off-challenge NotifyTask");
+                Packet.Push offChallengePush = MessagePackSerializer.Deserialize<Packet.Push>(offChallengePacket.Content);
+                AssertEqual(nameof(NotifyTask), offChallengePush.Name, "War Zone off-challenge task push name");
+                NotifyTask offChallengeTasks = MessagePackSerializer.Deserialize<NotifyTask>(offChallengePush.Content);
+                if (offChallengeTasks.Tasks.Tasks.Any(task => leaderOnlyArenaTaskIds.Contains((int)task.Id)))
+                    throw new InvalidDataException("War Zone Elite settle advanced Leader-only Arena tasks.");
+                foreach (int conditionId in leaderOnlyArenaConditionIds)
+                    AssertEqual(0, offChallengePlayer.MissionProgress.ConditionCounters.GetValueOrDefault(conditionId),
+                        $"War Zone off-challenge condition {conditionId} remains zero");
+            }
+            _ = recordArenaResult.Invoke(null, [harness.Session, scored.Point]);
+            _ = harness.ReadPacket("War Zone second accepted result NotifyTask");
+            foreach (CurrentConditionTable countCondition in arenaTaskConditions.Values.Where(condition => condition.Type is 28001 or 28005))
+                AssertEqual(2, player.MissionProgress.ConditionCounters.GetValueOrDefault(countCondition.Id),
+                    $"War Zone second accepted result condition {countCondition.Id} count");
+            _ = recordArenaResult.Invoke(null, [harness.Session, scored.Point - 1]);
+            _ = harness.ReadPacket("War Zone lower accepted repeat NotifyTask");
+            foreach (CurrentConditionTable scoreCondition in arenaTaskConditions.Values.Where(condition => condition.Type is 28003 or 28006))
+                AssertEqual(scored.Point, player.MissionProgress.ConditionCounters.GetValueOrDefault(scoreCondition.Id),
+                    $"War Zone lower accepted repeat preserves score condition {scoreCondition.Id}");
+            AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaStageMaxPoints[checked((uint)selectedStageId)], "War Zone stage best persistence");
+            AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaAreaMaxPoints[selectedAreaId], "War Zone area best persistence");
+            AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaPoint, "War Zone total best persistence");
+            const int scoredAreaPacketId = 81_008;
+            InvokeRegisteredRequestHandler("AreaDataRequest", harness.Session, scoredAreaPacketId, new Dictionary<string, object>());
+            AreaDataResponse scoredAreaResponse = ReadResponsePayload<AreaDataResponse>(
+                harness, scoredAreaPacketId, nameof(AreaDataResponse), "War Zone scored AreaDataResponse");
+            JObject scoredArea = JArray.FromObject(scoredAreaResponse.AreaList
+                ?? throw new InvalidDataException("War Zone scored AreaDataResponse AreaList is nil.")).OfType<JObject>()
+                .Single(area => area.Value<int>("AreaId") == selectedAreaId);
+            int[] persistedAreaStages = scoredArea["StageInfos"]?.Values<JObject>().OfType<JObject>()
+                .Select(stage => stage.Value<int>("StageId")).ToArray() ?? [];
+            if (!persistedAreaStages.SequenceEqual([selectedStageId]))
+                throw new InvalidDataException("War Zone scored AreaDataResponse must persist only the configured AreaStage.StageId[1].");
+            AssertEqual(expectedPoint, scoredArea.Value<int>("Point"), "War Zone scored AreaDataResponse area best");
+            AssertEqual(expectedPoint, scoredAreaResponse.TotalPoint, "War Zone scored AreaDataResponse total best");
+            int scoredDistributionType = selectedAreaStage.DistributeTypes.First();
+            AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaDistributeMaxPoints.GetValueOrDefault(scoredDistributionType),
+                "War Zone persisted distribution maximum");
+            AssertEqual(expectedPoint, scoredAreaResponse.AreaDistributeMaxPointDict?.GetValueOrDefault(scoredDistributionType) ?? -1,
+                "War Zone scored AreaData distribution maximum");
+            AssertEqual(true, (scoredAreaResponse.AreaDistributeMaxPointDict ?? [])
+                .Where(entry => entry.Key != scoredDistributionType).All(entry => entry.Value == 0),
+                "War Zone unscored distribution types remain zero");
+            const int retryPreFightPacketId = 81_009;
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, retryPreFightPacketId, new PreFightRequest
+            {
+                PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                {
+                    ChallengeCount = 1, StageId = checked((uint)selectedStageId), SelectAreaId = selectedAreaId,
+                    ArenaSelectIndex = arenaSelectIndex, CardIds = [], RobotIds = []
+                }
+            });
+            PreFightResponse retryPreFight = ReadResponsePayload<PreFightResponse>(
+                harness, retryPreFightPacketId, nameof(PreFightResponse), "War Zone lower-retry PreFightResponse");
+            JObject retryStageParams = JObject.FromObject(retryPreFight.FightData.StageParams);
+            AssertEqual(expectedPoint.ToString(), retryStageParams.Value<string>("DistributeMaxScore"),
+                "War Zone retry PreFight persisted distribution maximum");
+            arenaSettle.LeftTime = 0; arenaSettle.DeathTotalEnemy = 0; arenaSettle.TotalDamage = 0;
+            arenaSettle.StringToIntRecord = new Dictionary<object, object> { ["NpcGroup"] = 0 };
+            _ = recordArenaFight.Invoke(null, [harness.Session, arenaSettle]);
+            AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaPoint, "War Zone lower retry preserves best");
+            harness.Session.fight!.PreFight.PreFightData.SelectAreaId = 0;
+            AssertEqual(null, recordArenaFight.Invoke(null, [harness.Session, arenaSettle]), "War Zone SelectAreaId zero does not score");
+            harness.Session.fight.PreFight.PreFightData.SelectAreaId = int.MaxValue;
+            AssertEqual(null, recordArenaFight.Invoke(null, [harness.Session, arenaSettle]), "War Zone nonselected area does not score");
+
+            int currentRankChallengeId = player.SimulatedBattlefield.ArenaChallengeId;
+            const int currentRankPacketId = 81_100;
+            InvokeRegisteredRequestHandler(
+                nameof(ArenaChallengeGetRankRequest),
+                harness.Session,
+                currentRankPacketId,
+                new ArenaChallengeGetRankRequest { ChallengeId = currentRankChallengeId });
+            ArenaChallengeGetRankResponse currentRankResponse = ReadResponsePayload<ArenaChallengeGetRankResponse>(
                 harness,
-                areaPacketId,
-                nameof(AreaDataResponse),
-                "Simulated Battlefield AreaDataResponse");
-            AssertEqual(0, areaResponse.Code, "Simulated Battlefield AreaDataResponse Code");
-            AssertEqual(321, areaResponse.TotalPoint, "Simulated Battlefield AreaDataResponse TotalPoint");
-            JObject arenaArea = JArray.FromObject(areaResponse.AreaList)
-                .OfType<JObject>()
-                .Single(area => area.Value<int>("AreaId") == 8);
-            AssertEqual(
-                JTokenType.Null,
-                arenaArea["StageInfos"]?.Type ?? JTokenType.None,
-                "Simulated Battlefield AreaDataResponse area 8 StageInfos");
+                currentRankPacketId,
+                nameof(ArenaChallengeGetRankResponse),
+                "War Zone current personal rank response");
+            AssertEqual(0, currentRankResponse.Code, "War Zone current personal rank Code");
+            AssertEqual(currentRankChallengeId, currentRankResponse.ChallengeId, "War Zone current personal rank ChallengeId");
+            AssertEqual(1, currentRankResponse.Ranking, "War Zone current personal ranking");
+            AssertEqual(1, currentRankResponse.MemberCount, "War Zone current personal rank member count");
+            AssertEqual(player.SimulatedBattlefield.ArenaActivityNo, currentRankResponse.Rank.ActivityId,
+                "War Zone current personal rank activity");
+            AssertEqual(currentRankChallengeId, currentRankResponse.Rank.ChallengeId,
+                "War Zone current personal rank nested ChallengeId");
+            AssertEqual(checked(player.SimulatedBattlefield.ArenaActivityNo * 10_000 + currentRankChallengeId),
+                currentRankResponse.Rank.Id, "War Zone current personal rank group Id");
+            ArenaChallengeRankPlayer currentRankPlayer = currentRankResponse.Rank.RankPlayer.Single();
+            AssertEqual(player.PlayerData.Id, currentRankPlayer.PlayerId, "War Zone current personal rank PlayerId");
+            AssertEqual(player.PlayerData.Name, currentRankPlayer.Name, "War Zone current personal rank Name");
+            AssertEqual(expectedPoint, currentRankPlayer.Score, "War Zone current personal rank Score");
+            AssertEqual(0, currentRankPlayer.CharacterRecords.Count, "War Zone current personal rank character records");
+            AssertEqual(0L, currentRankResponse.CacheGetRankResponseTime, "War Zone current rank uncached response time");
+            AssertEqual(battlefieldConfig.Value<long>("CycleSeconds"),
+                currentRankResponse.EndTime - currentRankResponse.BeginTime, "War Zone current rank cycle window");
+
+            int alternateRankChallengeId = challenges.Select(challenge => challenge.ChallengeId)
+                .First(challengeId => challengeId != currentRankChallengeId);
+            const int alternateRankPacketId = 81_101;
+            InvokeRegisteredRequestHandler(
+                nameof(ArenaChallengeGetRankRequest),
+                harness.Session,
+                alternateRankPacketId,
+                new ArenaChallengeGetRankRequest { ChallengeId = alternateRankChallengeId });
+            ArenaChallengeGetRankResponse alternateRankResponse = ReadResponsePayload<ArenaChallengeGetRankResponse>(
+                harness,
+                alternateRankPacketId,
+                nameof(ArenaChallengeGetRankResponse),
+                "War Zone alternate-tier personal rank response");
+            AssertEqual(0, alternateRankResponse.Code, "War Zone alternate-tier rank Code");
+            AssertEqual(alternateRankChallengeId, alternateRankResponse.ChallengeId, "War Zone alternate-tier rank ChallengeId");
+            AssertEqual(0, alternateRankResponse.Ranking, "War Zone alternate-tier personal ranking");
+            AssertEqual(0, alternateRankResponse.MemberCount, "War Zone alternate-tier member count");
+            AssertEqual(0, alternateRankResponse.Rank.RankPlayer.Count, "War Zone alternate-tier player list");
+
+            const int invalidRankPacketId = 81_102;
+            InvokeRegisteredRequestHandler(
+                nameof(ArenaChallengeGetRankRequest),
+                harness.Session,
+                invalidRankPacketId,
+                new ArenaChallengeGetRankRequest { ChallengeId = int.MaxValue });
+            ArenaChallengeGetRankResponse invalidRankResponse = ReadResponsePayload<ArenaChallengeGetRankResponse>(
+                harness,
+                invalidRankPacketId,
+                nameof(ArenaChallengeGetRankResponse),
+                "War Zone invalid personal rank response");
+            AssertEqual(20044036, invalidRankResponse.Code, "War Zone invalid rank error");
+            AssertEqual(0, invalidRankResponse.Rank.Id, "War Zone invalid rank group Id");
+            AssertEqual(0, invalidRankResponse.Rank.RankPlayer.Count, "War Zone invalid rank player list");
+
+            int savedRankPoint = player.SimulatedBattlefield.ArenaPoint;
+            int savedRankMerit = player.SimulatedBattlefield.ArenaContributeScore;
+            player.SimulatedBattlefield.ArenaPoint = 0;
+            player.SimulatedBattlefield.ArenaContributeScore = maxArenaMerit;
+            const int meritOnlyRankPacketId = 81_103;
+            InvokeRegisteredRequestHandler(
+                nameof(ArenaChallengeGetRankRequest),
+                harness.Session,
+                meritOnlyRankPacketId,
+                new ArenaChallengeGetRankRequest { ChallengeId = currentRankChallengeId });
+            ArenaChallengeGetRankResponse meritOnlyRankResponse = ReadResponsePayload<ArenaChallengeGetRankResponse>(
+                harness,
+                meritOnlyRankPacketId,
+                nameof(ArenaChallengeGetRankResponse),
+                "War Zone Merit-only personal rank response");
+            AssertEqual(0, meritOnlyRankResponse.Ranking, "War Zone Merit does not create personal ranking");
+            AssertEqual(0, meritOnlyRankResponse.MemberCount, "War Zone Merit does not create rank member");
+            AssertEqual(0, meritOnlyRankResponse.Rank.RankPlayer.Count, "War Zone Merit-only rank player list");
+            player.SimulatedBattlefield.ArenaPoint = savedRankPoint;
+            player.SimulatedBattlefield.ArenaContributeScore = savedRankMerit;
+
+            void AssertRollover(
+                string tierName,
+                int point,
+                int contribute,
+                int protection,
+                bool allowPromotion,
+                string caseName,
+                int? activityPlayerLevel = null,
+                int? settlementPlayerLevel = null)
+            {
+                ArenaLevelTable tier = arenaLevels.Single(row => row.Name == tierName);
+                long rolloverPlayerId = playerId + 100 + tier.Id + point + protection;
+                AscNet.Common.Database.Player rolloverPlayer = CreateDrawCompatibilityPlayer(rolloverPlayerId);
+                if (activityPlayerLevel is int initialPlayerLevel)
+                    rolloverPlayer.PlayerData.Level = initialPlayerLevel;
+                rolloverPlayer.SimulatedBattlefield = new();
+                AscNet.Common.Database.Inventory rolloverInventory = CreateDrawCompatibilityInventory(rolloverPlayerId, []);
+                using LoopbackSessionHarness rolloverHarness = new(
+                    CreateDrawCompatibilityCharacter(rolloverPlayerId), rolloverPlayer, rolloverInventory, $"war-zone-{caseName}");
+                rolloverHarness.Session.stage = CreateLoginAccountCompatibilityStage(rolloverPlayerId);
+                _ = reconcileArenaLogin.Invoke(null, [rolloverHarness.Session, (long?)capturedBaseTime]);
+                ChallengeAreaTable oldChallenge = challenges
+                    .Where(row => row.ArenaLv == tier.Id && rolloverPlayer.PlayerData.Level >= row.MinLv && rolloverPlayer.PlayerData.Level <= row.MaxLv)
+                    .OrderBy(row => row.ChallengeId).First();
+                if (settlementPlayerLevel is int currentPlayerLevel)
+                    rolloverPlayer.PlayerData.Level = currentPlayerLevel;
+                rolloverPlayer.MissionProgress.ConditionCounters[arenaResetProbeTask.Condition] = 7;
+                rolloverPlayer.MissionProgress.ClaimedTaskIds.Add(arenaResetProbeTask.Id);
+                rolloverPlayer.SimulatedBattlefield.ArenaLevel = tier.Id;
+                rolloverPlayer.SimulatedBattlefield.ArenaChallengeId = oldChallenge.ChallengeId;
+                rolloverPlayer.SimulatedBattlefield.ArenaJoined = true;
+                rolloverPlayer.SimulatedBattlefield.ArenaJoinActivity = rolloverPlayer.SimulatedBattlefield.ArenaActivityNo;
+                rolloverPlayer.SimulatedBattlefield.ArenaPoint = point;
+                rolloverPlayer.SimulatedBattlefield.ArenaContributeScore = contribute;
+                rolloverPlayer.SimulatedBattlefield.ArenaProtectedScore = protection;
+                rolloverPlayer.SimulatedBattlefield.ArenaDistributeMaxPoints[4] = 123;
+                List<int> orderedLevels = arenaLevels.Select(row => row.Id).Distinct().OrderBy(id => id).ToList();
+                bool hasScore = point > 0;
+                int rank = hasScore ? 1 : oldChallenge.JoinNum;
+                int oldMerit = Math.Clamp(contribute, 0, maxArenaMerit);
+                int availableReputation = Math.Clamp(protection, 0, maxArenaReputation);
+                if (hasScore)
+                    availableReputation = Math.Min(maxArenaReputation, availableReputation + oldChallenge.ProtectScore);
+                bool promote = hasScore && oldChallenge.DanUpRank > 0 && rank <= oldChallenge.DanUpRank
+                    && oldMerit >= oldChallenge.DanUpRankCostContributeScore && allowPromotion;
+                bool canDemote = orderedLevels.IndexOf(tier.Id) > 0 && oldChallenge.DownRewardId > 0;
+                bool keep = (hasScore && rank <= oldChallenge.DanKeepRank) || !canDemote;
+                bool demotionPending = !promote && !keep;
+                bool protectedKeep = demotionPending && tier.Id != orderedLevels[^1]
+                    && availableReputation >= maxArenaReputation;
+                bool demote = demotionPending && !protectedKeep;
+                int expectedLevel = orderedLevels[Math.Clamp(
+                    orderedLevels.IndexOf(tier.Id) + (promote ? 1 : demote ? -1 : 0), 0, orderedLevels.Count - 1)];
+                int expectedRewardId = promote ? oldChallenge.UpRewardId : (demote ? oldChallenge.DownRewardId : oldChallenge.KeepRewardId);
+                ChallengeAreaTable expectedNextChallenge = challenges
+                    .Where(row => row.ArenaLv == expectedLevel
+                        && rolloverPlayer.PlayerData.Level >= row.MinLv
+                        && rolloverPlayer.PlayerData.Level <= row.MaxLv)
+                    .OrderBy(row => row.ChallengeId)
+                    .First();
+                int expectedMerit = hasScore && rank <= oldChallenge.ContributeScore.Count
+                    ? oldChallenge.ContributeScore[rank - 1]
+                    : 0;
+                int expectedContribute = Math.Min(maxArenaMerit,
+                    oldMerit - (promote ? oldChallenge.DanUpRankCostContributeScore : 0) + expectedMerit);
+                int expectedReputation = protectedKeep
+                    ? availableReputation - maxArenaReputation
+                    : availableReputation;
+                long rolloverTime = arenaLogin.ResultTime + 1L;
+                (ActivityResultNotify? result, NotifyArenaActivity nextActivity) =
+                    ((ActivityResultNotify?, NotifyArenaActivity))(reconcileArenaLogin.Invoke(null, [rolloverHarness.Session, (long?)rolloverTime])
+                        ?? throw new InvalidDataException($"War Zone {caseName} ReconcileLogin returned nil."));
+                ActivityResultNotify settled = result ?? throw new InvalidDataException($"War Zone {caseName} did not emit ActivityResultNotify.");
+                AssertEqual(oldChallenge.ChallengeId, settled.ChallengeId, $"War Zone {caseName} result ChallengeId");
+                AssertEqual(rank, settled.GroupRank, $"War Zone {caseName} result GroupRank");
+                AssertEqual(point, settled.Point, $"War Zone {caseName} result Point");
+                AssertEqual(tier.Id, settled.OldArenaLevel, $"War Zone {caseName} result old tier");
+                AssertEqual(expectedLevel, settled.NewArenaLevel, $"War Zone {caseName} result new tier");
+                AssertEqual(expectedNextChallenge.ChallengeId, nextActivity.ChallengeId,
+                    $"War Zone {caseName} next level-bracket ChallengeId");
+                AssertEqual(protectedKeep, settled.IsProtected, $"War Zone {caseName} protection result");
+                AssertEqual(expectedContribute, settled.ContributeScore, $"War Zone {caseName} merit result");
+                AssertEqual(expectedReputation, rolloverPlayer.SimulatedBattlefield.ArenaProtectedScore,
+                    $"War Zone {caseName} persisted Reputation");
+                AssertEqual(expectedReputation, nextActivity.ProtectedScore,
+                    $"War Zone {caseName} next activity Reputation");
+                AssertEqual(expectedContribute, rolloverPlayer.SimulatedBattlefield.ArenaContributeScore,
+                    $"War Zone {caseName} persisted Merit");
+                AssertEqual(expectedContribute, nextActivity.ContributeScore,
+                    $"War Zone {caseName} next activity Merit");
+                AssertEqual(false, rolloverPlayer.MissionProgress.ConditionCounters.ContainsKey(arenaResetProbeTask.Condition),
+                    $"War Zone {caseName} rollover resets Arena mission progress");
+                AssertEqual(false, rolloverPlayer.MissionProgress.ClaimedTaskIds.Contains(arenaResetProbeTask.Id),
+                    $"War Zone {caseName} rollover resets Arena mission claim");
+                List<RewardGoodsTable> expectedRewardGoods =
+                    TableReaderV2.Parse<RewardTable>().Any(reward => reward.Id == expectedRewardId)
+                    ? ResolveRewardGoods(
+                        expectedRewardId,
+                        TableReaderV2.Parse<RewardGoodsTable>(),
+                        $"War Zone {caseName} RewardId")
+                    : [];
+                AssertEqual(expectedRewardGoods.Count, settled.RewardGoodsList.Count, $"War Zone {caseName} reward count");
+                for (int rewardIndex = 0; rewardIndex < expectedRewardGoods.Count; rewardIndex++)
+                {
+                    RewardGoodsTable expectedGoods = expectedRewardGoods[rewardIndex];
+                    ActivityResultNotify.ActivityResultNotifyRewardGoods actualGoods = settled.RewardGoodsList[rewardIndex];
+                    AssertEqual((uint)expectedGoods.Id, actualGoods.Id, $"War Zone {caseName} reward[{rewardIndex}] Id");
+                    RewardType expectedRewardType = (RewardType)(expectedGoods.TemplateId / 1_000_000 + 1);
+                    AssertEqual((int)expectedRewardType, actualGoods.RewardType, $"War Zone {caseName} reward[{rewardIndex}] RewardType");
+                    int expectedTemplateId = expectedRewardType == RewardType.Medal
+                        ? expectedGoods.Params.Single()
+                        : expectedGoods.TemplateId;
+                    AssertEqual(expectedTemplateId, actualGoods.TemplateId, $"War Zone {caseName} reward[{rewardIndex}] TemplateId");
+                    AssertEqual(expectedGoods.Count, actualGoods.Count, $"War Zone {caseName} reward[{rewardIndex}] Count");
+                    if (expectedRewardType == RewardType.Item)
+                    {
+                        AssertEqual((long)actualGoods.Count, rolloverInventory.Items.Single(item => item.Id == actualGoods.TemplateId).Count, $"War Zone {caseName} reward inventory mutation");
+                    }
+                    else if (expectedRewardType == RewardType.Medal)
+                    {
+                        var medal = rolloverPlayer.UnlockedMedals.Single(entry => entry.Id == expectedTemplateId);
+                        AssertEqual(0L, medal.KeepTime, $"War Zone {caseName} medal permanence");
+                        NotifyMedalData medalLogin = buildMedalLoginData.Invoke(null, [rolloverPlayer]) as NotifyMedalData
+                            ?? throw new InvalidDataException($"War Zone {caseName} medal login payload missing.");
+                        NotifyMedalData.NotifyMedalDataMedalInfo loginMedal = medalLogin.MedalInfos.Single(entry => entry.Id == expectedTemplateId);
+                        AssertEqual(medal.Time, loginMedal.Time, $"War Zone {caseName} medal login persistence");
+                    }
+                    else if (expectedRewardType == RewardType.ChatBoard)
+                    {
+                        ChatBoardTable chatBoard = TableReaderV2.Parse<ChatBoardTable>().Single(row => row.Id == expectedTemplateId);
+                        var unlock = rolloverPlayer.UnlockedChatBoards.Single(entry => entry.Id == expectedTemplateId);
+                        AssertEqual((long)chatBoard.Duration, unlock.EndTime - unlock.GetTime, $"War Zone {caseName} chat board duration");
+                        NotifyChatBoardLoginData chatBoardLogin = buildChatBoardLoginData.Invoke(null, [rolloverPlayer]) as NotifyChatBoardLoginData
+                            ?? throw new InvalidDataException($"War Zone {caseName} chat board login payload missing.");
+                        NotifyChatBoardLoginData.NotifyChatBoardLoginDataChatBoard loginBoard =
+                            chatBoardLogin.ChatBoards.Single(entry => entry.Id == expectedTemplateId);
+                        AssertEqual(unlock.EndTime, loginBoard.EndTime, $"War Zone {caseName} chat board login persistence");
+                    }
+                }
+                AssertEqual(0, nextActivity.JoinActivity, $"War Zone {caseName} next activity unjoined");
+                AssertEqual(0, rolloverPlayer.SimulatedBattlefield.ArenaPoint, $"War Zone {caseName} next activity point reset");
+                AssertEqual(0, rolloverPlayer.SimulatedBattlefield.ArenaAreaMaxPoints.Count, $"War Zone {caseName} next activity area reset");
+                AssertEqual(0, rolloverPlayer.SimulatedBattlefield.ArenaStageMaxPoints.Count, $"War Zone {caseName} next activity stage reset");
+                AssertEqual(0, rolloverPlayer.SimulatedBattlefield.ArenaDistributeMaxPoints.Count, $"War Zone {caseName} next activity distribution reset");
+                rolloverPlayer.MissionProgress.ConditionCounters[arenaResetProbeTask.Condition] = 1;
+                (ActivityResultNotify? duplicate, NotifyArenaActivity duplicateActivity) =
+                    ((ActivityResultNotify?, NotifyArenaActivity))(reconcileArenaLogin.Invoke(null, [rolloverHarness.Session, (long?)rolloverTime])
+                        ?? throw new InvalidDataException($"War Zone {caseName} repeated ReconcileLogin returned nil."));
+                AssertEqual(null, duplicate, $"War Zone {caseName} repeated login idempotence");
+                AssertEqual(nextActivity.ActivityNo, duplicateActivity.ActivityNo, $"War Zone {caseName} repeated login activity stability");
+                AssertEqual(1, rolloverPlayer.MissionProgress.ConditionCounters.GetValueOrDefault(arenaResetProbeTask.Condition),
+                    $"War Zone {caseName} same-activity login preserves Arena mission progress");
+            }
+
+            AssertRollover("Elite", point: 1, contribute: int.MaxValue / 2, protection: 0, allowPromotion: true, "Elite promotion and Merit cap");
+            AssertRollover("Leader", point: 0, contribute: 0, protection: 0, allowPromotion: false, "Leader zero-point demotion");
+            AssertRollover("Leader", point: 0, contribute: 0, protection: 1, allowPromotion: false, "Leader insufficient Reputation");
+            AssertRollover("Leader", point: 0, contribute: maxArenaMerit, protection: maxArenaReputation, allowPromotion: false,
+                "Leader protected keep with retained Merit");
+            ChallengeAreaTable heroChallenge = challenges.Where(row => row.ArenaLv == arenaLevels.Single(level => level.Name == "Hero").Id
+                && player.PlayerData.Level >= row.MinLv && player.PlayerData.Level <= row.MaxLv).OrderBy(row => row.ChallengeId).First();
+            AssertRollover("Hero", point: 1, contribute: heroChallenge.DanUpRankCostContributeScore, protection: 0, allowPromotion: true,
+                "Hero Merit-gated promotion spend before award");
+            AssertRollover("Legend", point: 1, contribute: int.MaxValue / 2, protection: 0, allowPromotion: true, "Legend retention");
+            AssertRollover("Legend", point: 0, contribute: 0, protection: maxArenaReputation, allowPromotion: false,
+                "Legend zero-point demotion without Merit or protection");
+            AssertRollover("Elite", point: 0, contribute: 0, protection: 0, allowPromotion: false,
+                "Elite level-bracket transition", activityPlayerLevel: 54, settlementPlayerLevel: 55);
+
+            long liveRolloverPlayerId = playerId + 70_000;
+            AscNet.Common.Database.Player liveRolloverPlayer = CreateDrawCompatibilityPlayer(liveRolloverPlayerId);
+            liveRolloverPlayer.SimulatedBattlefield = new();
+            AscNet.Common.Database.Inventory liveRolloverInventory = CreateDrawCompatibilityInventory(liveRolloverPlayerId, []);
+            using (LoopbackSessionHarness liveRolloverHarness = new(
+                CreateDrawCompatibilityCharacter(liveRolloverPlayerId),
+                liveRolloverPlayer,
+                liveRolloverInventory,
+                "war-zone-live-rollover-test"))
+            {
+                liveRolloverHarness.Session.stage = CreateLoginAccountCompatibilityStage(liveRolloverPlayerId);
+                (ActivityResultNotify? liveInitialResult, NotifyArenaActivity liveInitialActivity) =
+                    ((ActivityResultNotify?, NotifyArenaActivity))(reconcileArenaLogin.Invoke(
+                        null,
+                        [liveRolloverHarness.Session, null])
+                        ?? throw new InvalidDataException("War Zone live rollover initialization returned nil."));
+                AssertEqual(null, liveInitialResult, "War Zone live rollover initial result");
+                int activityStep = battlefieldConfig["ArenaActivity"]!.Value<int>("ActivityStep");
+                liveRolloverPlayer.SimulatedBattlefield.ArenaActivityNo = liveInitialActivity.ActivityNo - activityStep;
+                liveRolloverPlayer.SimulatedBattlefield.ArenaLevel = capturedTaskChallenge.ArenaLv;
+                liveRolloverPlayer.SimulatedBattlefield.ArenaChallengeId = capturedTaskChallenge.ChallengeId;
+                liveRolloverPlayer.SimulatedBattlefield.ArenaJoined = true;
+                liveRolloverPlayer.SimulatedBattlefield.ArenaJoinActivity =
+                    liveRolloverPlayer.SimulatedBattlefield.ArenaActivityNo;
+                liveRolloverPlayer.SimulatedBattlefield.ArenaPoint = 0;
+                liveRolloverPlayer.SimulatedBattlefield.ArenaContributeScore = maxArenaMerit;
+                liveRolloverPlayer.SimulatedBattlefield.ArenaProtectedScore = maxArenaReputation;
+                liveRolloverPlayer.MissionProgress.ConditionCounters[arenaResetProbeTask.Condition] = 1;
+                liveRolloverPlayer.MissionProgress.ClaimedTaskIds.Add(arenaResetProbeTask.Id);
+
+                const int liveRolloverPacketId = 81_104;
+                InvokeRegisteredRequestHandler(
+                    "ScoreQueryRequest",
+                    liveRolloverHarness.Session,
+                    liveRolloverPacketId,
+                    new Dictionary<string, object>());
+                string[] expectedLiveRolloverPushes =
+                    [nameof(ActivityResultNotify), nameof(NotifyArenaActivity), nameof(NotifyTask)];
+                for (int pushIndex = 0; pushIndex < expectedLiveRolloverPushes.Length; pushIndex++)
+                {
+                    Packet livePacket = liveRolloverHarness.ReadPacket(
+                        $"War Zone live rollover push {pushIndex + 1}");
+                    AssertEqual(Packet.ContentType.Push, livePacket.Type,
+                        $"War Zone live rollover packet {pushIndex + 1} type");
+                    Packet.Push livePush = MessagePackSerializer.Deserialize<Packet.Push>(livePacket.Content);
+                    AssertEqual(expectedLiveRolloverPushes[pushIndex], livePush.Name,
+                        $"War Zone live rollover push {pushIndex + 1} name");
+                }
+                AscNet.GameServer.Handlers.ScoreQueryResponse liveRolloverResponse =
+                    ReadResponsePayload<AscNet.GameServer.Handlers.ScoreQueryResponse>(
+                        liveRolloverHarness,
+                        liveRolloverPacketId,
+                        nameof(AscNet.GameServer.Handlers.ScoreQueryResponse),
+                    "War Zone live rollover ScoreQueryResponse");
+                AssertEqual(liveInitialActivity.ActivityNo, liveRolloverResponse.ActivityNo,
+                    "War Zone live request advances current activity");
+                AssertEqual(0, liveRolloverPlayer.SimulatedBattlefield.ArenaJoinActivity,
+                    "War Zone live rollover invalidates old join");
+                AssertEqual(false, liveRolloverPlayer.MissionProgress.ConditionCounters.ContainsKey(arenaResetProbeTask.Condition),
+                    "War Zone live rollover resets Arena mission progress");
+                AssertEqual(false, liveRolloverPlayer.MissionProgress.ClaimedTaskIds.Contains(arenaResetProbeTask.Id),
+                    "War Zone live rollover resets Arena mission claim");
+            }
 
             const int repeatChallengePreFightPacketId = 81_004;
             InvokeRegisteredRequestHandler(

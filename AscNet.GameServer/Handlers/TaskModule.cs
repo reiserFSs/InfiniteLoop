@@ -110,7 +110,15 @@ namespace AscNet.GameServer.Handlers
         public static void FinishTaskRequestHandler(Session session, Packet.Request packet)
         {
             FinishTaskRequest request = MessagePackSerializer.Deserialize<FinishTaskRequest>(packet.Content);
-            FinishTaskResponse response = ClaimTaskReward(session, request.TaskId, pushSync: true);
+            FinishTaskResponse response = ClaimTaskReward(session, request.TaskId, pushSync: false);
+            if (TableReaderV2.Parse<CurrentTaskTable>().Any(task => task.Id == request.TaskId))
+            {
+                SendCurrentTaskBatch(session, [request.TaskId]);
+            }
+            else
+            {
+                SendTaskSync(session);
+            }
             session.SendResponse(response, packet.Id);
         }
 
@@ -137,7 +145,17 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            SendTaskSync(session);
+            int[] requestedTaskIds = request.TaskIds.Distinct().ToArray();
+            HashSet<int> currentTaskIds = TableReaderV2.Parse<CurrentTaskTable>().Select(task => task.Id).ToHashSet();
+            int[] requestedCurrentTaskIds = requestedTaskIds.Where(currentTaskIds.Contains).ToArray();
+            if (requestedCurrentTaskIds.Length > 0)
+            {
+                SendCurrentTaskBatch(session, requestedCurrentTaskIds);
+            }
+            if (requestedTaskIds.Any(taskId => !currentTaskIds.Contains(taskId)))
+            {
+                SendTaskSync(session);
+            }
             session.SendResponse(response, packet.Id);
         }
 
@@ -548,6 +566,12 @@ namespace AscNet.GameServer.Handlers
             });
         }
 
+        public static void ResetArenaTasks(Session session)
+        {
+            session.player.MissionProgress ??= new MissionProgressState();
+            ResetMissionType(session, 10);
+        }
+
         public static void RecordStageClear(Session session, int stageId, int count = 1, int actionPointCost = 0)
         {
             EnsureMissionResets(session);
@@ -561,7 +585,6 @@ namespace AscNet.GameServer.Handlers
                     15202 => condition.Params.Count <= 1
                         || condition.Params[1] == 1 && stageId is >= 10_000_000 and < 20_000_000,
                     25005 => stageId is >= 30_300_000 and < 30_310_000,
-                    28005 => stageId is >= 30_080_000 and < 30_090_000,
                     _ => false
                 };
                 if (!matches)
@@ -580,6 +603,47 @@ namespace AscNet.GameServer.Handlers
             session.player.Save();
             SendTaskSync(session);
         }
+        public static void RecordArenaResult(Session session, int point)
+        {
+            EnsureMissionResets(session);
+            HashSet<int> currentArenaTaskIds = ArenaModule.CurrentTaskIds(session.player).ToHashSet();
+            List<CurrentTaskTable> currentTasks = TableReaderV2.Parse<CurrentTaskTable>();
+            HashSet<int> currentArenaConditionIds = currentTasks
+                .Where(task => currentArenaTaskIds.Contains(task.Id))
+                .Select(task => task.Condition)
+                .ToHashSet();
+            HashSet<int> countTypes = [28001, 28005];
+            List<CurrentConditionTable> conditions = TableReaderV2.Parse<CurrentConditionTable>()
+                .Where(condition =>
+                    condition.Type is 28005 or 28006
+                    || (condition.Type is 28001 or 28003 && currentArenaConditionIds.Contains(condition.Id)))
+                .ToList();
+            foreach (CurrentConditionTable condition in conditions)
+            {
+                if (countTypes.Contains(condition.Type))
+                {
+                    AddConditionProgress(session, condition.Id, 1);
+                }
+                else
+                {
+                    int current = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(condition.Id);
+                    session.player.MissionProgress.ConditionCounters[condition.Id] = Math.Max(current, point);
+                }
+            }
+            if (conditions.Count == 0)
+            {
+                return;
+            }
+
+            HashSet<int> affectedConditionIds = conditions.Select(condition => condition.Id).ToHashSet();
+            int[] affectedTaskIds = currentTasks
+                .Where(task => affectedConditionIds.Contains(task.Condition))
+                .Select(task => task.Id)
+                .ToArray();
+            session.player.Save();
+            SendCurrentTaskBatch(session, affectedTaskIds);
+        }
+
 
         public static void RecordConditionType(Session session, int conditionType, int amount = 1)
         {
@@ -607,15 +671,21 @@ namespace AscNet.GameServer.Handlers
         }
         private static void SendConditionTypeSync(Session session, int conditionType)
         {
-            HashSet<int> conditionIds = TableReaderV2.Parse<CurrentConditionTable>()
-                .Where(x => x.Type == conditionType)
-                .Select(x => x.Id)
-                .ToHashSet();
+            SendConditionTypesSync(session, [conditionType]);
+        }
+        private static void SendConditionTypesSync(Session session, IEnumerable<int> conditionTypes)
+        {
+            HashSet<int> selectedTypes = conditionTypes.ToHashSet();
+            Dictionary<int, CurrentConditionTable> conditions = TableReaderV2.Parse<CurrentConditionTable>()
+                .Where(condition => selectedTypes.Contains(condition.Type))
+                .ToDictionary(condition => condition.Id);
             List<MissionTaskProgress> progress = TableReaderV2.Parse<CurrentTaskTable>()
-                .Where(x => conditionIds.Contains(x.Condition))
+                .Where(task => conditions.ContainsKey(task.Condition))
                 .Select(task =>
                 {
-                    int value = Math.Min(session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition), task.Result);
+                    CurrentConditionTable condition = conditions[task.Condition];
+                    int stored = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition);
+                    int value = condition.Type is 28003 or 28006 ? stored : Math.Min(stored, task.Result);
                     int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
                         ? TaskStateFinish
                         : value >= task.Result ? TaskStateAchieved : TaskStateActive;
@@ -817,7 +887,10 @@ namespace AscNet.GameServer.Handlers
                     CurrentConditionTable? condition = conditions.GetValueOrDefault(task.Condition);
                     int conditionId = condition?.Id ?? task.Id;
                     int value = condition is null ? 0 : EvaluateCurrentCondition(session, condition);
-                    value = Math.Min(value, task.Result);
+                    if (condition?.Type is not (28003 or 28006))
+                    {
+                        value = Math.Min(value, task.Result);
+                    }
                     bool prerequisiteSatisfied = task.PreTaskId == 0
                         || session.player.MissionProgress.ClaimedTaskIds.Contains(task.PreTaskId)
                         || allTasks.All(candidate => candidate.Id != task.PreTaskId);

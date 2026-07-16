@@ -612,33 +612,69 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
+        private static NotifyMedalData BuildMedalLoginData(Player player)
+        {
+            return new NotifyMedalData
+            {
+                MedalInfos = (player.UnlockedMedals ?? [])
+                    .Select(medal => new NotifyMedalData.NotifyMedalDataMedalInfo
+                    {
+                        Id = medal.Id,
+                        Time = medal.Time,
+                        KeepTime = medal.KeepTime
+                    })
+                    .ToList()
+            };
+        }
+
         private static NotifyChatBoardLoginData BuildChatBoardLoginData(Player player)
         {
+            long now = DateTimeOffset.Now.ToUnixTimeSeconds();
+            long defaultGetTime = player.PlayerData.CreateTime > 0 ? player.PlayerData.CreateTime : now;
+            Dictionary<long, NotifyChatBoardLoginData.NotifyChatBoardLoginDataChatBoard> chatBoards =
+                DefaultChatBoardIds.ToDictionary(
+                    id => id,
+                    id => new NotifyChatBoardLoginData.NotifyChatBoardLoginDataChatBoard
+                    {
+                        Id = id,
+                        GetTime = defaultGetTime,
+                        EndTime = 0
+                    });
+            foreach (ChatBoardUnlockState unlock in player.UnlockedChatBoards ?? [])
+            {
+                if (unlock.EndTime == 0 || unlock.EndTime > now)
+                {
+                    chatBoards[unlock.Id] = new NotifyChatBoardLoginData.NotifyChatBoardLoginDataChatBoard
+                    {
+                        Id = unlock.Id,
+                        GetTime = unlock.GetTime,
+                        EndTime = unlock.EndTime
+                    };
+                }
+            }
+
             long currentChatBoardId = player.PlayerData.CurrentChatBoardId;
-            if (currentChatBoardId <= 0)
+            if (currentChatBoardId > 0
+                && !chatBoards.ContainsKey(currentChatBoardId)
+                && !(player.UnlockedChatBoards ?? []).Any(unlock => unlock.Id == currentChatBoardId))
+            {
+                chatBoards[currentChatBoardId] = new NotifyChatBoardLoginData.NotifyChatBoardLoginDataChatBoard
+                {
+                    Id = currentChatBoardId,
+                    GetTime = defaultGetTime,
+                    EndTime = 0
+                };
+            }
+            if (!chatBoards.ContainsKey(currentChatBoardId))
             {
                 currentChatBoardId = DefaultChatBoardId;
                 player.PlayerData.CurrentChatBoardId = currentChatBoardId;
             }
 
-            long getTime = player.PlayerData.CreateTime > 0
-                ? player.PlayerData.CreateTime
-                : DateTimeOffset.Now.ToUnixTimeSeconds();
-            HashSet<long> chatBoardIds = DefaultChatBoardIds.ToHashSet();
-            chatBoardIds.Add(currentChatBoardId);
-
             return new()
             {
                 CurrentChatBoardId = currentChatBoardId,
-                ChatBoards = chatBoardIds
-                    .Order()
-                    .Select(chatBoardId => new NotifyChatBoardLoginData.NotifyChatBoardLoginDataChatBoard
-                    {
-                        Id = chatBoardId,
-                        GetTime = getTime,
-                        EndTime = 0
-                    })
-                    .ToList()
+                ChatBoards = chatBoards.Values.OrderBy(chatBoard => chatBoard.Id).ToList()
             };
         }
 
@@ -986,6 +1022,8 @@ Sorry for the inconvenience.
             }
             RepairClaimedGatherFashionRewards(session);
 
+            (ActivityResultNotify? arenaResult, NotifyArenaActivity arenaActivity) = ArenaModule.ReconcileLogin(session);
+
             NotifyLogin notifyLogin = BuildNotifyLogin(session);
 
             NotifyAssistData notifyAssistData = new()
@@ -1072,7 +1110,7 @@ Sorry for the inconvenience.
             });
             session.SendPush(new NotifyDormitoryData());
             session.SendPush(BuildTrpgLoginData());
-            session.SendPush(new NotifyMedalData());
+            session.SendPush(BuildMedalLoginData(session.player));
             session.SendPush(new NotifyExploreData());
             session.SendPush(notifyGatherRewardList);
             session.SendPush(new NotifyGuildEvent());
@@ -1100,8 +1138,10 @@ Sorry for the inconvenience.
             session.SendPush(BuildExternalRequiredBigWorldPlayerData());
             session.SendPush(BuildCurrentAccumulatedPayData());
             SendEmptyStartupPush(session, "NotifyAccumulateExpendData");
-            session.SendPush(ArenaModule.BuildLoginData(session.player));
-            SendCurrentEventTaskBatch(session, CurrentEventTaskBatchArena);
+            if (arenaResult is not null)
+                session.SendPush(arenaResult);
+            session.SendPush(arenaActivity);
+            SendCurrentEventTaskBatch(session, ArenaModule.CurrentTaskIds(session.player));
             session.SendPush(new NotifyFubenPrequelData() { FubenPrequelData = new() { RewardedStages = session.stage.PrequelRewardedStages } });
             session.SendPush(new NotifyPrequelChallengeRefreshTime() { NextRefreshTime = NextDailyRefreshTime() });
             session.SendPush(new NotifyDailyFubenLoginData() { RefreshTime = NextDailyRefreshTime() });

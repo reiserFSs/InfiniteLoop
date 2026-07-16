@@ -1,0 +1,296 @@
+{
+  "SchemaVersion": 2,
+  "NpcDefinitions": [
+    {
+      "NpcId": 90340,
+      "BufferIds": [
+        760261
+      ],
+      "Level": 520,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90340,
+      "BufferIds": [],
+      "Level": 520,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90950,
+      "BufferIds": [
+        760261
+      ],
+      "Level": 454,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90950,
+      "BufferIds": [],
+      "Level": 454,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90420,
+      "BufferIds": [
+        760351
+      ],
+      "Level": 509,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90340,
+      "BufferIds": [
+        760351
+      ],
+      "Level": 520,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90950,
+      "BufferIds": [
+        760351
+      ],
+      "Level": 454,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90420,
+      "BufferIds": [
+        760261
+      ],
+      "Level": 509,
+      "MagicInfos": [],
+      "AttrTable": {}
+    },
+    {
+      "NpcId": 90420,
+      "BufferIds": [],
+      "Level": 509,
+      "MagicInfos": [],
+      "AttrTable": {}
+    }
+  ],
+  "GroupDefinitions": [
+    {
+      "NpcRefs": [
+        0,
+        1
+      ]
+    },
+    {
+      "NpcRefs": [
+        2,
+        3
+      ]
+    },
+    {
+      "NpcRefs": [
+        4,
+        3
+      ]
+    },
+    {
+      "NpcRefs": [
+        5,
+        3
+      ]
+    },
+    {
+      "NpcRefs": [
+        4,
+        1
+      ]
+    },
+    {
+      "NpcRefs": [
+        6,
+        3
+      ]
+    },
+    {
+      "NpcRefs": [
+        7,
+        3
+      ]
+    },
+    {
+      "NpcRefs": [
+        0,
+        3
+      ]
+    },
+    {
+      "NpcRefs": [
+        5,
+        1
+      ]
+    },
+    {
+      "NpcRefs": [
+        7,
+        1
+      ]
+    },
+    {
+      "NpcRefs": [
+        4,
+        8
+      ]
+    },
+    {
+      "NpcRefs": [
+        7,
+        8
+      ]
+    }
+  ],
+  "Stages": [
+    {
+      "StageId": 30080425,
+      "AreaId": 14,
+      "MarkId": 4,
+      "Archetype": "Duo Challenge: Refresh 2 Elite enemies per wave",
+      "ReusableArchetype": true,
+      "NpcGroupRefs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        1,
+        6,
+        7,
+        8,
+        1,
+        2,
+        3,
+        0,
+        5,
+        6,
+        3,
+        8,
+        5,
+        6,
+        3,
+        0,
+        1,
+        6,
+        3,
+        0,
+        5,
+        6,
+        3,
+        8,
+        5,
+        2,
+        7,
+        0,
+        5,
+        6,
+        3,
+        4,
+        1,
+        2,
+        7,
+        9,
+        5,
+        6,
+        3,
+        10,
+        5,
+        6,
+        7,
+        9,
+        1,
+        10,
+        5,
+        2,
+        3,
+        11,
+        5,
+        6,
+        3,
+        9,
+        1,
+        6,
+        3,
+        10,
+        5,
+        6,
+        3,
+        10,
+        5,
+        2,
+        7,
+        0,
+        1,
+        2,
+        3,
+        10,
+        5,
+        2,
+        3,
+        0,
+        5,
+        6,
+        7,
+        8,
+        1,
+        6,
+        3,
+        9,
+        5,
+        2,
+        3,
+        10,
+        1,
+        6,
+        7,
+        9
+      ],
+      "PassTimeLimit": 300,
+      "ReviseId": 209,
+      "Restartable": true,
+      "FightCheckType": 1,
+      "SegmentFightCheckSecond": 60,
+      "Records": {
+        "69": -7000,
+        "70": -7000,
+        "71": -7000,
+        "72": -7000,
+        "73": -7000,
+        "33": 0,
+        "34": 0,
+        "35": 0,
+        "36": 0,
+        "37": 0,
+        "38": 0,
+        "98": -7000,
+        "110": -7000,
+        "111": -7000,
+        "116": -7000,
+        "121": -7000,
+        "109": 0,
+        "115": 0,
+        "120": 0,
+        "128": 0,
+        "129": -7000
+      },
+      "StageParams": {
+        "WaveCostTimes": "[]",
+        "TimePointScore": "[]"
+      }
+    }
+  ]
+}

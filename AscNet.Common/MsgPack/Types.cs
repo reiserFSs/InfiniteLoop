@@ -1221,7 +1221,15 @@ namespace AscNet.Common.MsgPack
     [global::MessagePack.MessagePackObject(true)]
     public class NotifyMedalData
     {
-        public List<dynamic> MedalInfos { get; set; } = new();
+        public List<NotifyMedalDataMedalInfo> MedalInfos { get; set; } = new();
+
+        [global::MessagePack.MessagePackObject(true)]
+        public class NotifyMedalDataMedalInfo
+        {
+            public Int32 Id { get; set; }
+            public Int64 Time { get; set; }
+            public Int64 KeepTime { get; set; }
+        }
     }
 
 
@@ -2045,6 +2053,7 @@ namespace AscNet.Common.MsgPack
     {
         public Int32 ChallengeId { get; set; }
         public Int32 GroupRank { get; set; }
+        public Int32 Point { get; set; }
         public Int32 OldArenaLevel { get; set; }
         public Int32 NewArenaLevel { get; set; }
         public Boolean IsProtected { get; set; }
@@ -2060,6 +2069,8 @@ namespace AscNet.Common.MsgPack
             public Int32 Grade { get; set; }
             public Int32 Breakthrough { get; set; }
             public Int32 ConvertFrom { get; set; }
+            public Boolean IsGift { get; set; }
+            public Int32 RewardMulti { get; set; }
             public UInt32 Id { get; set; }
         }
 
@@ -2654,6 +2665,8 @@ namespace AscNet.Common.MsgPack
         {
             public Int32 ChallengeCount { get; set; }
             public UInt32 StageId { get; set; }
+            public Int32 ArenaSelectIndex { get; set; }
+            public Int32 SelectAreaId { get; set; }
             public List<UInt32>? CardIds { get; set; } = new();
             public List<Int32>? RobotIds { get; set; } = new();
             public Int32 FirstFightPos { get; set; }
@@ -2685,6 +2698,8 @@ namespace AscNet.Common.MsgPack
             public UInt32 StageId { get; set; }
             public Int32 RebootId { get; set; }
             public Int32 PassTimeLimit { get; set; }
+            public Int32 FightCheckType { get; set; }
+            public Int32 SegmentFightCheckSecond { get; set; }
             public Int32 StarsMark { get; set; }
             public List<Int32> MonsterLevel { get; set; } = new();
             public List<dynamic> EventIds { get; set; } = new();
@@ -2730,6 +2745,26 @@ namespace AscNet.Common.MsgPack
 
 
     [global::MessagePack.MessagePackObject(true)]
+    public class ArenaResult
+    {
+        public Int32 FightTime { get; set; }
+        public Int32 TimeLeft { get; set; }
+        public Int32 KillEnemy { get; set; }
+        public Int32 TimePoint { get; set; }
+        public Int32 Point { get; set; }
+        public Int32 OldPoint { get; set; }
+        public Int32 EnemyHurt { get; set; }
+        public Int32 EnemyPoint { get; set; }
+        public Int32 MyHpLeft { get; set; }
+        public Int32 MyHpPoint { get; set; }
+        public Int32 NpcGroup { get; set; }
+        public Int32 NpcGroupPoint { get; set; }
+        public Int32 OldArenaMaxPoint { get; set; }
+        public Int32 ArenaMaxPoint { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
     public class FightSettleResponse
     {
         public Int32 Code { get; set; }
@@ -2746,7 +2781,7 @@ namespace AscNet.Common.MsgPack
             public Int32 UrgentEnventId { get; set; }
             public dynamic? ClientAssistInfo { get; set; }
             public List<dynamic> FlopRewardList { get; set; } = new();
-            public dynamic? ArenaResult { get; set; }
+            public ArenaResult? ArenaResult { get; set; }
             public List<List<RewardGoods>> MultiRewardGoodsList { get; set; } = new();
             public Int32 ChallengeCount { get; set; }
             public dynamic? UnionKillResult { get; set; }

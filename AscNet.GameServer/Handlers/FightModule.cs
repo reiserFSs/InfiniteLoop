@@ -34,7 +34,8 @@ namespace AscNet.GameServer.Handlers
         Nameplate = 18,
         RankScore = 20,
         Medal = 21,
-        DrawTicket = 22
+        DrawTicket = 22,
+        ChatBoard = 26
     }
 
     [MessagePackObject(true)]
@@ -319,6 +320,7 @@ namespace AscNet.GameServer.Handlers
 
             StageTable? stageTable = ResolveStageTable(req.PreFightData.StageId, out bool isCurrentStudyStage);
             if (stageTable is null
+                && !(ArenaModule.IsArenaStage(req.PreFightData.StageId) && req.PreFightData.SelectAreaId > 0)
                 && !RepeatChallengeModule.IsStage(req.PreFightData.StageId)
                 && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.PreFightData.StageId))
             {
@@ -350,6 +352,13 @@ namespace AscNet.GameServer.Handlers
             };
 
             RepeatChallengeModule.ApplyPreFight(session.player, rsp.FightData);
+            if (req.PreFightData.SelectAreaId > 0 && !ArenaModule.ApplyPreFight(session, req.PreFightData, rsp))
+            {
+                rsp.Code = 20044029;
+                session.SendResponse(rsp, packet.Id);
+                return;
+            }
+
 
             rsp.FightData.RoleData.Add(new()
             {
@@ -595,6 +604,8 @@ namespace AscNet.GameServer.Handlers
             FightSettleRequest req = MessagePackSerializer.Deserialize<FightSettleRequest>(packet.Content);
             StageTable? stageTable = ResolveStageTable(req.Result.StageId, out _);
             if (stageTable is null
+                && !(ArenaModule.IsArenaStage(req.Result.StageId)
+                    && session.fight?.PreFight.PreFightData.SelectAreaId > 0)
                 && !RepeatChallengeModule.IsStage(req.Result.StageId)
                 && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.Result.StageId))
             {
@@ -739,6 +750,15 @@ namespace AscNet.GameServer.Handlers
                 session.stage.AddStage(luosaitaProgressStageData);
             }
 
+            ArenaResult? arenaResult = ArenaModule.IsArenaStage(req.Result.StageId)
+                && session.fight?.PreFight.PreFightData.SelectAreaId > 0
+                    ? ArenaModule.RecordFightResult(session, req.Result)
+                    : null;
+            if (arenaResult is not null)
+            {
+                TaskModule.RecordArenaResult(session, arenaResult.Point);
+            }
+
             bool updatedBossSingle = BossModule.RecordStageClear(session.player, (int)req.Result.StageId);
             bool updatedRepeatChallenge = RepeatChallengeModule.RecordStageClear(session.player, req.Result.StageId, challengeCount);
             session.player.Save();
@@ -759,7 +779,8 @@ namespace AscNet.GameServer.Handlers
                     LeftTime = (int)req.Result.LeftTime,
                     NpcHpInfo = req.Result.NpcHpInfo,
                     MultiRewardGoodsList = multiRewards,
-                    ChallengeCount = isQuickClear ? 0 : challengeCount
+                    ChallengeCount = isQuickClear ? 0 : challengeCount,
+                    ArenaResult = arenaResult,
                 }
             };
 

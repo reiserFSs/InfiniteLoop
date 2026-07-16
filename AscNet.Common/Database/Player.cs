@@ -110,11 +110,41 @@ namespace AscNet.Common.Database
         [BsonElement("arena_joined")]
         public bool ArenaJoined { get; set; }
 
+        [BsonElement("arena_activity_no")]
+        public int ArenaActivityNo { get; set; }
+
+        [BsonElement("arena_challenge_id")]
+        public int ArenaChallengeId { get; set; }
+
+        [BsonElement("arena_level")]
+        public int ArenaLevel { get; set; }
+
+        [BsonElement("arena_join_activity")]
+        public int ArenaJoinActivity { get; set; }
+
         [BsonElement("arena_point")]
         public int ArenaPoint { get; set; }
 
+        [BsonElement("arena_last_point_time")]
+        public long ArenaLastPointTime { get; set; }
+
+        [BsonElement("arena_area_max_points")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> ArenaAreaMaxPoints { get; set; } = new();
+
+        [BsonElement("arena_stage_max_points")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<uint, int> ArenaStageMaxPoints { get; set; } = new();
+
+        [BsonElement("arena_distribute_max_points")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> ArenaDistributeMaxPoints { get; set; } = new();
+
         [BsonElement("arena_contribute_score")]
         public int ArenaContributeScore { get; set; }
+
+        [BsonElement("arena_protected_score")]
+        public int ArenaProtectedScore { get; set; }
 
         [BsonElement("boss_level_type")]
         public int BossLevelType { get; set; }
@@ -133,6 +163,30 @@ namespace AscNet.Common.Database
 
         [BsonElement("repeat_challenge_cleared")]
         public bool RepeatChallengeCleared { get; set; }
+    }
+
+    public class MedalUnlockState
+    {
+        [BsonElement("id")]
+        public int Id { get; set; }
+
+        [BsonElement("time")]
+        public long Time { get; set; }
+
+        [BsonElement("keep_time")]
+        public long KeepTime { get; set; }
+    }
+
+    public class ChatBoardUnlockState
+    {
+        [BsonElement("id")]
+        public long Id { get; set; }
+
+        [BsonElement("get_time")]
+        public long GetTime { get; set; }
+
+        [BsonElement("end_time")]
+        public long EndTime { get; set; }
     }
 
     public class Player
@@ -326,6 +380,12 @@ namespace AscNet.Common.Database
 
         [BsonElement("life_tree_data")]
         public NotifyLifeTreeData LifeTreeData { get; set; } = new();
+
+        [BsonElement("unlocked_medals")]
+        public List<MedalUnlockState> UnlockedMedals { get; set; } = new();
+
+        [BsonElement("unlocked_chat_boards")]
+        public List<ChatBoardUnlockState> UnlockedChatBoards { get; set; } = new();
 
         [BsonElement("purchase_buy_times")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
