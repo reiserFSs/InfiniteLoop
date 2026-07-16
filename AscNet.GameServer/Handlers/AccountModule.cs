@@ -461,7 +461,10 @@ namespace AscNet.GameServer.Handlers
                 FashionColors = BuildOwnedFashionColors(session.character.Fashions),
                 HeadPortraitList = session.player.HeadPortraits,
                 TeamGroupData = session.player.TeamGroups,
-                TeamPrefabData = new Dictionary<int, dynamic>(),
+                TeamPrefabData = (session.player.TeamPrefabs ?? [])
+                    .OfType<TeamPrefabData>()
+                    .Select((teamPrefab, index) => new { Key = index + 1, Value = teamPrefab })
+                    .ToDictionary(entry => entry.Key, entry => entry.Value),
                 BaseEquipLoginData = new(),
                 FubenData = new()
                 {
@@ -1029,6 +1032,7 @@ Sorry for the inconvenience.
                 session.player.AddGatherReward(5);
             }
             RepairClaimedGatherFashionRewards(session);
+            session.player.NormalizeTeamPrefabs();
 
             (ActivityResultNotify? arenaResult, NotifyArenaActivity arenaActivity) = ArenaModule.ReconcileLogin(session);
 

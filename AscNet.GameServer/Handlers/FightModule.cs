@@ -3,6 +3,10 @@ using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.GameServer.Handlers.Drops;
+using AscNet.Table.V2.share.config;
+using AscNet.Table.V2.share.equip;
+using AscNet.Table.V2.share.partner;
+using AscNet.Table.V2.share.team;
 using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.share.fuben.mainline2;
@@ -254,9 +258,75 @@ namespace AscNet.GameServer.Handlers
 
     internal class FightModule
     {
+        private const int TeamManagerSetTeamParaError = 20004003;
+        private enum TeamPrefabValidationFailure
+        {
+            None,
+            MissingPayload,
+            InvalidTeamId,
+            InvalidTeamName,
+            InvalidTeamShape,
+            InvalidMetadata,
+            InvalidPositions,
+            UnknownCharacter,
+            DuplicateCharacter,
+            InvalidGeneralSkill,
+            InvalidNestedPosition,
+            UnknownEquip,
+            InvalidEquip,
+            DuplicateEquip,
+            UnknownPartner,
+            DuplicatePartner,
+            MissingPartnerSkillData,
+            InvalidPartnerSkillTypes,
+            InvalidPartnerMainSkillCount,
+            UnknownPartnerSkillConfig,
+            UnknownPartnerQuality,
+            LockedPartnerMainSkill,
+            InvalidPartnerPassiveLimit,
+            TooManyPartnerPassiveSkills,
+            DuplicatePartnerPassiveSkills,
+            InvalidPartnerPassiveSkill,
+            InvalidTags,
+            InvalidSwitchSkill
+        }
+
         private static readonly Lazy<HashSet<uint>> MainLine2AchievementStageIds = new(() => TableReaderV2.Parse<MainLine2StageTable>()
             .Select(stage => (uint)stage.Id)
             .ToHashSet());
+
+        private static readonly Lazy<IReadOnlyDictionary<string, int>> TeamConfigValues = new(() =>
+            TableReaderV2.Parse<TeamConfigTable>().ToDictionary(row => row.Key, row => row.Value));
+        private static readonly Lazy<HashSet<int>> TeamPrefabTagIds = new(() =>
+            TableReaderV2.Parse<TeamPrefabTagTable>().Select(row => row.Id).ToHashSet());
+        private static readonly Lazy<IReadOnlyDictionary<uint, EquipTable>> EquipRowsById = new(() =>
+            TableReaderV2.Parse<EquipTable>().ToDictionary(row => (uint)row.Id));
+        private static readonly Lazy<IReadOnlyDictionary<int, EquipResonanceTable>> EquipResonanceRowsById = new(() =>
+            TableReaderV2.Parse<EquipResonanceTable>().ToDictionary(row => row.Id));
+        private static readonly Lazy<IReadOnlyDictionary<(int PoolId, int CharacterId), HashSet<int>>> WeaponSkillIdsByPoolAndCharacter = new(() =>
+            TableReaderV2.Parse<WeaponSkillPoolTable>()
+                .GroupBy(row => (row.PoolId, row.CharacterId))
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.SelectMany(row => row.SkillId).Where(skillId => skillId > 0).ToHashSet()));
+        private static readonly Lazy<IReadOnlyDictionary<int, CharacterSkillTable>> CharacterSkillRowsById = new(() =>
+            TableReaderV2.Parse<CharacterSkillTable>().ToDictionary(row => row.CharacterId));
+        private static readonly Lazy<IReadOnlyDictionary<int, CharacterSkillGroupTable>> CharacterSkillGroupRowsById = new(() =>
+            TableReaderV2.Parse<CharacterSkillGroupTable>().ToDictionary(row => row.Id));
+        private static readonly Lazy<IReadOnlyDictionary<int, CharacterGeneralSkillTable>> CharacterGeneralSkillRowsById = new(() =>
+            TableReaderV2.Parse<CharacterGeneralSkillTable>().ToDictionary(row => row.Id));
+        private static readonly Lazy<IReadOnlyDictionary<int, PartnerSkillTable>> PartnerSkillRowsById = new(() =>
+            TableReaderV2.Parse<PartnerSkillTable>().ToDictionary(row => row.PartnerId));
+        private static readonly Lazy<IReadOnlyDictionary<int, PartnerMainSkillGroupTable>> PartnerMainSkillGroupRowsById = new(() =>
+            TableReaderV2.Parse<PartnerMainSkillGroupTable>().ToDictionary(row => row.Id));
+        private static readonly Lazy<IReadOnlyDictionary<int, PartnerPassiveSkillGroupTable>> PartnerPassiveSkillGroupRowsById = new(() =>
+            TableReaderV2.Parse<PartnerPassiveSkillGroupTable>().ToDictionary(row => row.Id));
+        private static readonly Lazy<IReadOnlyDictionary<(int PartnerId, int Quality), PartnerQualityTable>> PartnerQualityRowsByIdAndQuality = new(() =>
+            TableReaderV2.Parse<PartnerQualityTable>()
+                .ToDictionary(row => (row.PartnerId, row.Quality)));
+
+        private static int TeamMaxPosition => TeamConfigValues.Value["TeamMaxPos"];
+        private static int TeamPrefabLimit => TeamConfigValues.Value["MaxTeamPrefab"];
 
         [RequestPacketHandler("KcpConfirmRequest")]
         public static void KcpConfirmRequestHandler(Session session, Packet.Request packet)
@@ -607,6 +677,911 @@ namespace AscNet.GameServer.Handlers
             };
 
             session.SendResponse(new TeamSetTeamResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("TeamPrefabSetTeamRequest")]
+        public static void TeamPrefabSetTeamRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabSetTeamRequest? request = packet.Deserialize<TeamPrefabSetTeamRequest>();
+            if (!TryNormalizeTeamPrefab(
+                    session,
+                    request?.TeamPrefabData,
+                    out TeamPrefabData teamPrefab,
+                    out TeamPrefabValidationFailure failure))
+            {
+                string detail = IsPartnerSkillValidationFailure(failure)
+                    ? DescribePartnerSkillData(session, request?.TeamPrefabData)
+                    : string.Empty;
+                session.log.Warn(
+                    $"TeamPrefabSetTeam rejected TeamId={request?.TeamPrefabData?.TeamId}: {failure}{detail}");
+                SendInvalidTeamPrefabResponse(session, packet.Id);
+                return;
+            }
+
+            session.player.NormalizeTeamPrefabs();
+            List<TeamPrefabData> teamPrefabs = session.player.TeamPrefabs;
+            int existingIndex = teamPrefabs.FindIndex(value => value.TeamId == teamPrefab.TeamId);
+            if (existingIndex < 0 && teamPrefabs.Count >= TeamPrefabLimit)
+            {
+                SendInvalidTeamPrefabResponse(session, packet.Id);
+                return;
+            }
+
+            if (existingIndex < 0)
+                teamPrefabs.Add(teamPrefab);
+            else
+                teamPrefabs[existingIndex] = teamPrefab;
+
+            session.player.TeamPrefabs = teamPrefabs;
+            session.player.Save();
+            session.SendResponse(new TeamPrefabSetTeamResponse(), packet.Id);
+        }
+
+        private static bool IsPartnerSkillValidationFailure(TeamPrefabValidationFailure failure)
+        {
+            return failure is TeamPrefabValidationFailure.MissingPartnerSkillData
+                or TeamPrefabValidationFailure.InvalidPartnerSkillTypes
+                or TeamPrefabValidationFailure.InvalidPartnerMainSkillCount
+                or TeamPrefabValidationFailure.UnknownPartnerSkillConfig
+                or TeamPrefabValidationFailure.UnknownPartnerQuality
+                or TeamPrefabValidationFailure.LockedPartnerMainSkill
+                or TeamPrefabValidationFailure.InvalidPartnerPassiveLimit
+                or TeamPrefabValidationFailure.TooManyPartnerPassiveSkills
+                or TeamPrefabValidationFailure.DuplicatePartnerPassiveSkills
+                or TeamPrefabValidationFailure.InvalidPartnerPassiveSkill;
+        }
+
+        private static string DescribePartnerSkillData(Session session, TeamPrefabData? source)
+        {
+            if (source?.PartnerData is null)
+                return "; PartnerData=null";
+
+            List<string> entries = new();
+            foreach ((int position, TeamPrefabPartnerData? presetPartner) in source.PartnerData.OrderBy(pair => pair.Key))
+            {
+                if (presetPartner is null)
+                {
+                    entries.Add($"pos={position},value=null");
+                    continue;
+                }
+
+                PartnerData? ownedPartner = session.character.Partners
+                    .FirstOrDefault(partner => partner.Id == presetPartner.PartnerId);
+                int? passiveLimit = null;
+                if (ownedPartner is not null
+                    && PartnerQualityRowsByIdAndQuality.Value.TryGetValue(
+                        (ownedPartner.TemplateId, ownedPartner.Quality),
+                        out PartnerQualityTable? qualityRow))
+                {
+                    passiveLimit = qualityRow.SkillColumnCount;
+                }
+
+                string mainSkills = presetPartner.SkillData?.TryGetValue(1, out List<int>? main) == true
+                    ? main is null ? "null" : $"[{string.Join(',', main)}]"
+                    : "missing";
+                string passiveSkills = presetPartner.SkillData?.TryGetValue(2, out List<int>? passive) == true
+                    ? passive is null ? "null" : $"[{string.Join(',', passive)}]"
+                    : "missing";
+                entries.Add(
+                    $"pos={position},partner={presetPartner.PartnerId},template={ownedPartner?.TemplateId},"
+                    + $"quality={ownedPartner?.Quality},passiveLimit={passiveLimit},"
+                    + $"main={mainSkills},passive={passiveSkills}");
+            }
+
+            return $"; PartnerData={string.Join(" | ", entries)}";
+        }
+
+        [RequestPacketHandler("TeamPrefabUpdateMetadataRequest")]
+        public static void TeamPrefabUpdateMetadataRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabUpdateMetadataRequest? request = packet.Deserialize<TeamPrefabUpdateMetadataRequest>();
+            TeamPrefabMetadata? metadata = request?.PrefabTeamInfo;
+            List<TeamPrefabData> teamPrefabs = session.player.TeamPrefabs ?? [];
+            int teamPrefabIndex = request is null
+                ? -1
+                : teamPrefabs.FindIndex(value => value?.TeamId == request.TeamId);
+            if (metadata is null || teamPrefabIndex < 0)
+            {
+                SendInvalidTeamPrefabMetadataResponse(session, packet.Id);
+                return;
+            }
+
+            TeamPrefabData teamPrefab = teamPrefabs[teamPrefabIndex];
+            TeamPrefabData metadataCandidate = new()
+            {
+                TeamId = teamPrefab.TeamId,
+                TeamData = teamPrefab.TeamData,
+                TeamName = metadata.TeamName,
+                CaptainPos = metadata.CaptainPos,
+                FirstFightPos = metadata.FirstFightPos,
+                EnterCgIndex = metadata.EnterCgIndex,
+                SettleCgIndex = metadata.SettleCgIndex,
+                SelectedGeneralSkill = metadata.SelectedGeneralSkill
+            };
+            if (!TryValidateTeamPrefabMetadata(
+                    session,
+                    metadataCandidate,
+                    validateGeneralSkillRequirements: false,
+                    out _,
+                    out _,
+                    out _,
+                    out TeamPrefabValidationFailure failure))
+            {
+                session.log.Warn(
+                    $"TeamPrefabUpdateMetadata rejected TeamId={request!.TeamId}: {failure}");
+                SendInvalidTeamPrefabMetadataResponse(session, packet.Id);
+                return;
+            }
+
+            teamPrefab.TeamName = metadata.TeamName;
+            teamPrefab.CaptainPos = metadata.CaptainPos;
+            teamPrefab.FirstFightPos = metadata.FirstFightPos;
+            teamPrefab.EnterCgIndex = metadata.EnterCgIndex;
+            teamPrefab.SettleCgIndex = metadata.SettleCgIndex;
+            teamPrefab.SelectedGeneralSkill = metadata.SelectedGeneralSkill;
+            session.player.Save();
+            session.SendResponse(new TeamPrefabUpdateMetadataResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("TeamPrefabApplyRequest")]
+        public static void TeamPrefabApplyRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabApplyRequest? request = packet.Deserialize<TeamPrefabApplyRequest>();
+            TeamPrefabData? source = request is null
+                ? null
+                : (session.player.TeamPrefabs ?? [])
+                    .FirstOrDefault(value => value?.TeamId == request.TeamId);
+            if (!TryNormalizeTeamPrefab(
+                    session,
+                    source,
+                    out TeamPrefabData teamPrefab,
+                    out TeamPrefabValidationFailure failure))
+            {
+                session.log.Warn($"TeamPrefabApply rejected TeamId={request?.TeamId}: {failure}");
+                SendInvalidTeamPrefabApplyResponse(session, packet.Id);
+                return;
+            }
+
+            Dictionary<uint, EquipData> ownedEquipsById = session.character.Equips
+                .GroupBy(equip => equip.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            Dictionary<int, PartnerData> ownedPartnersById = session.character.Partners
+                .GroupBy(partner => partner.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            Dictionary<int, CharacterData> ownedCharactersById = session.character.Characters
+                .GroupBy(character => (int)character.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            List<(int CharacterId, EquipData Equip)> equipPlan = new();
+            List<(int CharacterId, PartnerData Partner, TeamPrefabPartnerData Preset)> partnerPlan = new();
+
+            foreach ((int position, int characterId) in teamPrefab.TeamData.OrderBy(pair => pair.Key))
+            {
+                if (characterId <= 0)
+                    continue;
+
+                if (teamPrefab.EquipData.TryGetValue(position, out TeamPrefabEquipData? equipData)
+                    && equipData is not null)
+                {
+                    foreach (TeamPrefabEquipEntry presetEquip in equipData.EquipDataDict
+                                 .OrderBy(pair => pair.Key)
+                                 .Select(pair => pair.Value))
+                    {
+                        if (!ownedEquipsById.TryGetValue(presetEquip.EquipId, out EquipData? equip))
+                        {
+                            session.log.Warn(
+                                $"TeamPrefabApply rejected stale equip TeamId={teamPrefab.TeamId} " +
+                                $"EquipId={presetEquip.EquipId}");
+                            SendInvalidTeamPrefabApplyResponse(session, packet.Id);
+                            return;
+                        }
+                        equipPlan.Add((characterId, equip));
+                    }
+                }
+
+                if (teamPrefab.PartnerData.TryGetValue(position, out TeamPrefabPartnerData? presetPartner)
+                    && presetPartner is { PartnerId: > 0 })
+                {
+                    if (!ownedPartnersById.TryGetValue(presetPartner.PartnerId, out PartnerData? partner))
+                    {
+                        session.log.Warn(
+                            $"TeamPrefabApply rejected stale partner TeamId={teamPrefab.TeamId} " +
+                            $"PartnerId={presetPartner.PartnerId}");
+                        SendInvalidTeamPrefabApplyResponse(session, packet.Id);
+                        return;
+                    }
+                    partnerPlan.Add((characterId, partner, presetPartner));
+                }
+            }
+
+            foreach ((int characterId, EquipData equip) in equipPlan)
+                ApplyTeamPrefabEquip(session.character, characterId, equip);
+
+            HashSet<int> targetCharacterIds = teamPrefab.TeamData.Values
+                .Where(characterId => characterId > 0)
+                .ToHashSet();
+            Dictionary<int, int> desiredPartnerByCharacter = partnerPlan
+                .ToDictionary(entry => entry.CharacterId, entry => entry.Partner.Id);
+            HashSet<int> affectedPartnerIds = new();
+            bool carryChanged = false;
+            foreach (PartnerData partner in session.character.Partners)
+            {
+                if (partner.CharacterId <= 0
+                    || !targetCharacterIds.Contains(partner.CharacterId)
+                    || (desiredPartnerByCharacter.TryGetValue(
+                            partner.CharacterId,
+                            out int desiredPartnerId)
+                        && desiredPartnerId == partner.Id))
+                {
+                    continue;
+                }
+
+                partner.CharacterId = 0;
+                session.character.NormalizePartnerMainSkillForCarrier(partner);
+                affectedPartnerIds.Add(partner.Id);
+                carryChanged = true;
+            }
+
+            foreach ((int characterId, PartnerData partner, TeamPrefabPartnerData preset) in partnerPlan)
+            {
+                if (partner.CharacterId != characterId)
+                {
+                    partner.CharacterId = characterId;
+                    carryChanged = true;
+                }
+                ApplyTeamPrefabPartnerSkills(session.character, partner, preset.SkillData);
+                affectedPartnerIds.Add(partner.Id);
+            }
+
+            foreach ((int position, int skillId) in teamPrefab.SwitchSkills)
+            {
+                if (teamPrefab.TeamData.TryGetValue(position, out int characterId)
+                    && characterId > 0
+                    && ownedCharactersById.TryGetValue(characterId, out CharacterData? character))
+                {
+                    ApplyTeamPrefabCharacterSwitchSkill(character, skillId);
+                }
+            }
+
+            session.character.Save();
+            session.SendPush(new NotifyPartnerDataList
+            {
+                PartnerDataList = session.character.Partners
+                    .Where(partner => affectedPartnerIds.Contains(partner.Id))
+                    .OrderBy(partner => partner.Id)
+                    .ToList(),
+                OperateTypes = carryChanged ? [2, 3] : [2]
+            });
+            session.SendResponse(new TeamPrefabApplyRequestResponse(), packet.Id);
+        }
+
+        private static void SendInvalidTeamPrefabApplyResponse(Session session, int packetId)
+        {
+            session.SendResponse(
+                new TeamPrefabApplyRequestResponse { Code = TeamManagerSetTeamParaError },
+                packetId);
+        }
+
+        private static void ApplyTeamPrefabEquip(
+            AscNet.Common.Database.Character character,
+            int characterId,
+            EquipData selectedEquip)
+        {
+            EquipTable selectedRow = EquipRowsById.Value[selectedEquip.TemplateId];
+            int previousCharacterId = selectedEquip.CharacterId;
+            EquipData? previousEquip = character.Equips.FirstOrDefault(candidate =>
+                candidate.Id != selectedEquip.Id
+                && candidate.CharacterId == characterId
+                && EquipRowsById.Value.TryGetValue(candidate.TemplateId, out EquipTable? candidateRow)
+                && candidateRow.Site == selectedRow.Site);
+            if (previousEquip is not null)
+                previousEquip.CharacterId = selectedRow.Site == 0 ? previousCharacterId : 0;
+
+            selectedEquip.CharacterId = characterId;
+        }
+
+        private static void ApplyTeamPrefabPartnerSkills(
+            AscNet.Common.Database.Character character,
+            PartnerData partner,
+            IReadOnlyDictionary<int, List<int>>? skillData)
+        {
+            if (skillData?.TryGetValue(1, out List<int>? selectedMainSkills) == true
+                && selectedMainSkills is { Count: 1 }
+                && partner.SkillList.FirstOrDefault(skill => skill.Type == 1) is PartnerSkillData mainSkill)
+            {
+                mainSkill.Id = selectedMainSkills[0];
+                mainSkill.IsWear = true;
+            }
+
+            HashSet<int> selectedPassiveSkills = skillData?.TryGetValue(
+                    2,
+                    out List<int>? passiveSkills) == true
+                ? (passiveSkills ?? []).ToHashSet()
+                : [];
+            foreach (PartnerSkillData passiveSkill in partner.SkillList.Where(skill => skill.Type == 2))
+                passiveSkill.IsWear = selectedPassiveSkills.Contains(passiveSkill.Id);
+
+            character.NormalizePartnerMainSkillForCarrier(partner);
+        }
+
+        private static void ApplyTeamPrefabCharacterSwitchSkill(
+            CharacterData character,
+            int skillId)
+        {
+            if (!CharacterSkillRowsById.Value.TryGetValue(
+                    (int)character.Id,
+                    out CharacterSkillTable? characterSkill))
+            {
+                return;
+            }
+
+            CharacterSkillGroupTable? selectedGroup = characterSkill.SkillGroupId
+                .Where(CharacterSkillGroupRowsById.Value.ContainsKey)
+                .Select(groupId => CharacterSkillGroupRowsById.Value[groupId])
+                .FirstOrDefault(group => group.SkillId.Count > 1 && group.SkillId.Contains(skillId));
+            if (selectedGroup is null)
+                return;
+
+            HashSet<uint> groupSkillIds = selectedGroup.SkillId
+                .Where(value => value > 0)
+                .Select(value => (uint)value)
+                .ToHashSet();
+            List<CharacterSkill>? currentSkills = character.SkillList;
+            CharacterSkill? current = currentSkills?
+                .LastOrDefault(skill => groupSkillIds.Contains(skill.Id));
+            if (current is null || current.Id == (uint)skillId)
+                return;
+
+            List<CharacterSkill> updatedSkills = new();
+            bool inserted = false;
+            foreach (CharacterSkill skill in currentSkills!)
+            {
+                if (!groupSkillIds.Contains(skill.Id))
+                {
+                    updatedSkills.Add(skill);
+                }
+                else if (!inserted)
+                {
+                    updatedSkills.Add(new CharacterSkill
+                    {
+                        Id = (uint)skillId,
+                        Level = current.Level
+                    });
+                    inserted = true;
+                }
+            }
+            character.SkillList = updatedSkills;
+        }
+
+        private static void SendInvalidTeamPrefabMetadataResponse(Session session, int packetId)
+        {
+            session.SendResponse(
+                new TeamPrefabUpdateMetadataResponse { Code = TeamManagerSetTeamParaError },
+                packetId);
+        }
+
+        private static bool TryValidateTeamPrefabMetadata(
+            Session session,
+            TeamPrefabData source,
+            bool validateGeneralSkillRequirements,
+            out int[] positions,
+            out Dictionary<int, CharacterData> ownedCharactersById,
+            out int[] memberIds,
+            out TeamPrefabValidationFailure failure)
+        {
+            positions = [];
+            ownedCharactersById = [];
+            memberIds = [];
+            failure = TeamPrefabValidationFailure.None;
+            if (source.TeamId <= 0)
+            {
+                failure = TeamPrefabValidationFailure.InvalidTeamId;
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(source.TeamName) || source.TeamName.Any(char.IsControl))
+            {
+                failure = TeamPrefabValidationFailure.InvalidTeamName;
+                return false;
+            }
+            if (source.TeamData is null || source.TeamData.Count != TeamMaxPosition)
+            {
+                failure = TeamPrefabValidationFailure.InvalidTeamShape;
+                return false;
+            }
+            if (source.EnterCgIndex < 0
+                || source.EnterCgIndex > TeamMaxPosition
+                || source.SettleCgIndex < 0
+                || source.SettleCgIndex > TeamMaxPosition
+                || source.SelectedGeneralSkill < 0)
+            {
+                failure = TeamPrefabValidationFailure.InvalidMetadata;
+                return false;
+            }
+
+            positions = source.TeamData.Keys.Order().ToArray();
+            if (!positions.SequenceEqual(Enumerable.Range(1, TeamMaxPosition))
+                || source.CaptainPos < 1 || source.CaptainPos > TeamMaxPosition
+                || source.FirstFightPos < 1 || source.FirstFightPos > TeamMaxPosition)
+            {
+                failure = TeamPrefabValidationFailure.InvalidPositions;
+                return false;
+            }
+
+            Dictionary<int, CharacterData> ownedCharacters = session.character.Characters
+                .GroupBy(character => (int)character.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            int[] members = source.TeamData.Values.Where(characterId => characterId > 0).ToArray();
+            ownedCharactersById = ownedCharacters;
+            memberIds = members;
+            if (source.TeamData.Values.Any(characterId => characterId < 0)
+                || members.Any(characterId => !ownedCharacters.ContainsKey(characterId)))
+            {
+                failure = TeamPrefabValidationFailure.UnknownCharacter;
+                return false;
+            }
+            if (members.Length != members.Distinct().Count())
+            {
+                failure = TeamPrefabValidationFailure.DuplicateCharacter;
+                return false;
+            }
+            if (source.SelectedGeneralSkill != 0
+                && !CharacterGeneralSkillRowsById.Value.ContainsKey(source.SelectedGeneralSkill))
+            {
+                failure = TeamPrefabValidationFailure.InvalidGeneralSkill;
+                return false;
+            }
+            if (validateGeneralSkillRequirements
+                && !IsValidGeneralSkill(
+                    source.SelectedGeneralSkill,
+                    members.Select(characterId => ownedCharacters[characterId])))
+            {
+                failure = TeamPrefabValidationFailure.InvalidGeneralSkill;
+                return false;
+            }
+            return true;
+        }
+
+        private static bool TryNormalizeTeamPrefab(
+            Session session,
+            TeamPrefabData? source,
+            out TeamPrefabData normalized,
+            out TeamPrefabValidationFailure failure)
+        {
+            normalized = null!;
+            failure = TeamPrefabValidationFailure.None;
+            if (source is null)
+            {
+                failure = TeamPrefabValidationFailure.MissingPayload;
+                return false;
+            }
+            if (!TryValidateTeamPrefabMetadata(
+                    session,
+                    source,
+                    validateGeneralSkillRequirements: true,
+                    out int[] positions,
+                    out Dictionary<int, CharacterData> ownedCharactersById,
+                    out int[] memberIds,
+                    out failure))
+            {
+                return false;
+            }
+
+            HashSet<int> validPositions = positions.ToHashSet();
+            if ((source.PartnerData?.Keys.Any(position => !validPositions.Contains(position)) ?? false)
+                || (source.EquipData?.Keys.Any(position => !validPositions.Contains(position)) ?? false)
+                || (source.SwitchSkills?.Keys.Any(position => !validPositions.Contains(position)) ?? false))
+            {
+                failure = TeamPrefabValidationFailure.InvalidNestedPosition;
+                return false;
+            }
+
+            Dictionary<uint, EquipData> ownedEquipsById = session.character.Equips
+                .GroupBy(equip => equip.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            HashSet<uint> presetEquipIds = new();
+            foreach ((int position, TeamPrefabEquipData? equipData) in source.EquipData ?? [])
+            {
+                foreach ((int slot, TeamPrefabEquipEntry equip) in equipData?.EquipDataDict
+                             ?? Enumerable.Empty<KeyValuePair<int, TeamPrefabEquipEntry>>())
+                {
+                    if (equip is null)
+                    {
+                        failure = TeamPrefabValidationFailure.InvalidEquip;
+                        return false;
+                    }
+                    if (equip.EquipId == 0)
+                        continue;
+                    if (source.TeamData[position] == 0
+                        || !ownedEquipsById.TryGetValue(equip.EquipId, out EquipData? ownedEquip))
+                    {
+                        failure = TeamPrefabValidationFailure.UnknownEquip;
+                        return false;
+                    }
+                    if (!EquipRowsById.Value.TryGetValue(ownedEquip.TemplateId, out EquipTable? equipRow)
+                        || !IsValidTeamPrefabEquipEntry(
+                            source.TeamData[position],
+                            slot,
+                            ownedEquip,
+                            equipRow,
+                            equip))
+                    {
+                        failure = TeamPrefabValidationFailure.InvalidEquip;
+                        return false;
+                    }
+                    if (!presetEquipIds.Add(equip.EquipId))
+                    {
+                        failure = TeamPrefabValidationFailure.DuplicateEquip;
+                        return false;
+                    }
+                }
+            }
+
+            Dictionary<int, PartnerData> ownedPartnersById = session.character.Partners
+                .GroupBy(partner => partner.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            HashSet<int> presetPartnerIds = new();
+            foreach ((int position, TeamPrefabPartnerData? partnerData) in source.PartnerData ?? [])
+            {
+                int partnerId = partnerData?.PartnerId ?? 0;
+                if (partnerId == 0)
+                    continue;
+                if (partnerId < 0
+                    || source.TeamData[position] == 0
+                    || !ownedPartnersById.TryGetValue(partnerId, out PartnerData? ownedPartner))
+                {
+                    failure = TeamPrefabValidationFailure.UnknownPartner;
+                    return false;
+                }
+                if (!presetPartnerIds.Add(partnerId))
+                {
+                    failure = TeamPrefabValidationFailure.DuplicatePartner;
+                    return false;
+                }
+                if (!IsValidPartnerSkillData(
+                        ownedPartner,
+                        partnerData!.SkillData,
+                        out TeamPrefabValidationFailure partnerFailure))
+                {
+                    failure = partnerFailure;
+                    return false;
+                }
+            }
+
+            List<int> tags = source.TagsSet?.ToList() ?? [];
+            if (tags.Any(tagId => !TeamPrefabTagIds.Value.Contains(tagId))
+                || tags.Count != tags.Distinct().Count())
+            {
+                failure = TeamPrefabValidationFailure.InvalidTags;
+                return false;
+            }
+
+            Dictionary<int, int> switchSkills = source.SwitchSkills?
+                .OrderBy(pair => pair.Key)
+                .ToDictionary(pair => pair.Key, pair => pair.Value)
+                ?? [];
+            foreach ((int position, int skillId) in switchSkills)
+            {
+                int characterId = source.TeamData[position];
+                if (skillId <= 0
+                    || !ownedCharactersById.TryGetValue(characterId, out CharacterData? character)
+                    || !IsValidCharacterSwitchSkill(character, skillId))
+                {
+                    failure = TeamPrefabValidationFailure.InvalidSwitchSkill;
+                    return false;
+                }
+            }
+
+            Dictionary<int, int> teamDataByPosition = new();
+            Dictionary<int, TeamPrefabPartnerData?> partnerDataByPosition = new();
+            Dictionary<int, TeamPrefabEquipData?> equipDataByPosition = new();
+            foreach (int position in positions)
+            {
+                int characterId = source.TeamData[position];
+                teamDataByPosition[position] = characterId;
+                if (characterId == 0)
+                {
+                    partnerDataByPosition[position] = null;
+                    equipDataByPosition[position] = null;
+                    continue;
+                }
+
+                TeamPrefabPartnerData? sourcePartner = null;
+                source.PartnerData?.TryGetValue(position, out sourcePartner);
+                partnerDataByPosition[position] = sourcePartner is null || sourcePartner.PartnerId == 0
+                    ? new TeamPrefabPartnerData()
+                    : new TeamPrefabPartnerData
+                    {
+                        PartnerId = sourcePartner.PartnerId,
+                        SkillData = sourcePartner.SkillData?
+                            .OrderBy(pair => pair.Key)
+                            .ToDictionary(pair => pair.Key, pair => pair.Value?.ToList() ?? [])
+                    };
+
+                TeamPrefabEquipData? sourceEquip = null;
+                source.EquipData?.TryGetValue(position, out sourceEquip);
+                equipDataByPosition[position] = sourceEquip is null
+                    ? null
+                    : new TeamPrefabEquipData
+                    {
+                        EquipDataDict = sourceEquip.EquipDataDict?
+                            .Where(pair => pair.Value is not null && pair.Value.EquipId > 0)
+                            .OrderBy(pair => pair.Key)
+                            .ToDictionary(
+                                pair => pair.Key,
+                                pair => new TeamPrefabEquipEntry
+                                {
+                                    EquipId = pair.Value.EquipId,
+                                    ResonanceDict = pair.Value.ResonanceDict?
+                                        .OrderBy(resonance => resonance.Key)
+                                        .ToDictionary(resonance => resonance.Key, resonance => resonance.Value),
+                                    WeaponOverrunSuitId = pair.Value.WeaponOverrunSuitId
+                                })
+                            ?? []
+                    };
+            }
+
+            normalized = new TeamPrefabData
+            {
+                TeamType = TeamKind.Prefab,
+                TeamId = source.TeamId,
+                CaptainPos = source.CaptainPos,
+                FirstFightPos = source.FirstFightPos,
+                EnterCgIndex = source.EnterCgIndex,
+                SettleCgIndex = source.SettleCgIndex,
+                TeamData = teamDataByPosition,
+                TeamName = source.TeamName,
+                SelectedGeneralSkill = source.SelectedGeneralSkill,
+                PartnerData = partnerDataByPosition,
+                EquipData = equipDataByPosition,
+                TagsSet = tags,
+                SwitchSkills = switchSkills
+            };
+            return true;
+        }
+
+        private static bool IsValidCharacterSwitchSkill(CharacterData character, int skillId)
+        {
+            if (!CharacterSkillRowsById.Value.TryGetValue((int)character.Id, out CharacterSkillTable? skillRow))
+                return false;
+
+            return skillRow.SkillGroupId
+                .Where(CharacterSkillGroupRowsById.Value.ContainsKey)
+                .Select(groupId => CharacterSkillGroupRowsById.Value[groupId])
+                .Any(group => group.SkillId.Count > 1 && group.SkillId.Contains(skillId));
+        }
+
+        private static bool IsValidGeneralSkill(
+            int generalSkillId,
+            IEnumerable<CharacterData> characters)
+        {
+            if (generalSkillId == 0)
+                return true;
+            if (!CharacterGeneralSkillRowsById.Value.TryGetValue(
+                    generalSkillId,
+                    out CharacterGeneralSkillTable? generalSkill))
+            {
+                return false;
+            }
+            if (generalSkill.IsSkipSkillCheck > 0)
+                return true;
+
+            foreach (CharacterData character in characters)
+            {
+                if (MeetsGeneralSkillRequirement(
+                        character.SkillList,
+                        generalSkill.SkillId,
+                        generalSkill.SkillLevel)
+                    || MeetsGeneralSkillRequirement(
+                        character.EnhanceSkillList,
+                        generalSkill.EnhanceSkillId,
+                        generalSkill.EnhanceSkillLevel))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool MeetsGeneralSkillRequirement(
+            IReadOnlyList<CharacterSkill>? characterSkills,
+            IReadOnlyList<int> requiredSkillIds,
+            IReadOnlyList<int> requiredLevels)
+        {
+            if (characterSkills is null)
+                return false;
+
+            for (int index = 0; index < requiredSkillIds.Count; index++)
+            {
+                int requiredSkillId = requiredSkillIds[index];
+                int requiredLevel = requiredLevels.ElementAtOrDefault(index);
+                if (characterSkills.Any(skill =>
+                        skill.Id == (uint)requiredSkillId && skill.Level >= requiredLevel))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsValidTeamPrefabEquipEntry(
+            int characterId,
+            int slot,
+            EquipData ownedEquip,
+            EquipTable equipRow,
+            TeamPrefabEquipEntry presetEquip)
+        {
+            if (equipRow.Site != slot)
+                return false;
+
+            if (slot != 0)
+            {
+                return (presetEquip.ResonanceDict is null || presetEquip.ResonanceDict.Count == 0)
+                    && presetEquip.WeaponOverrunSuitId == 0;
+            }
+
+            if (presetEquip.WeaponOverrunSuitId < 0
+                || (presetEquip.WeaponOverrunSuitId > 0
+                    && !(ownedEquip.WeaponOverrunData?.ActiveSuits?.Contains(
+                        presetEquip.WeaponOverrunSuitId) ?? false)))
+            {
+                return false;
+            }
+
+            IReadOnlyDictionary<int, int>? resonanceSkills = presetEquip.ResonanceDict;
+            if (resonanceSkills is null || resonanceSkills.Count == 0)
+                return true;
+            if (resonanceSkills.Values.Any(skillId => skillId <= 0)
+                || !EquipResonanceRowsById.Value.TryGetValue(
+                    (int)ownedEquip.TemplateId,
+                    out EquipResonanceTable? resonanceRow))
+            {
+                return false;
+            }
+
+            HashSet<(int CharacterId, int SkillId)> selectedSkillsByCharacter = [];
+            foreach ((int resonanceSlot, int skillId) in resonanceSkills)
+            {
+                int poolId = resonanceSlot > 0
+                    ? resonanceRow.WeaponSkillPoolId.ElementAtOrDefault(resonanceSlot - 1)
+                    : 0;
+                ResonanceInfo? ownedResonance = (ownedEquip.ResonanceInfo ?? [])
+                    .Concat(ownedEquip.UnconfirmedResonanceInfo ?? [])
+                    .LastOrDefault(value => value.Slot == resonanceSlot);
+                int resonanceCharacterId = ownedResonance?.CharacterId > 0
+                    ? ownedResonance.CharacterId
+                    : characterId;
+                bool isConfiguredSkill = poolId > 0
+                    && WeaponSkillIdsByPoolAndCharacter.Value.TryGetValue(
+                        (poolId, resonanceCharacterId),
+                        out HashSet<int>? allowedSkillIds)
+                    && allowedSkillIds.Contains(skillId);
+                if (ownedResonance is null
+                    || !selectedSkillsByCharacter.Add((resonanceCharacterId, skillId))
+                    || (ownedResonance.TemplateId != skillId && !isConfiguredSkill))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsValidPartnerSkillData(
+            PartnerData partner,
+            IReadOnlyDictionary<int, List<int>>? skillData,
+            out TeamPrefabValidationFailure failure)
+        {
+            failure = TeamPrefabValidationFailure.None;
+            if (skillData is null)
+            {
+                failure = TeamPrefabValidationFailure.MissingPartnerSkillData;
+                return false;
+            }
+            if (skillData.Keys.Any(type => type is not (1 or 2)))
+            {
+                failure = TeamPrefabValidationFailure.InvalidPartnerSkillTypes;
+                return false;
+            }
+            if (!skillData.TryGetValue(1, out List<int>? mainSkills)
+                || mainSkills is null
+                || mainSkills.Count != 1
+                || mainSkills[0] <= 0)
+            {
+                failure = TeamPrefabValidationFailure.InvalidPartnerMainSkillCount;
+                return false;
+            }
+            if (partner.SkillList is null
+                || !partner.SkillList.Any(skill => skill.Type == 1)
+                || !PartnerSkillRowsById.Value.TryGetValue(
+                    partner.TemplateId,
+                    out PartnerSkillTable? skillRow))
+            {
+                failure = TeamPrefabValidationFailure.UnknownPartnerSkillConfig;
+                return false;
+            }
+            if (!PartnerQualityRowsByIdAndQuality.Value.TryGetValue(
+                    (partner.TemplateId, partner.Quality),
+                    out PartnerQualityTable? qualityRow))
+            {
+                failure = TeamPrefabValidationFailure.UnknownPartnerQuality;
+                return false;
+            }
+
+            HashSet<int> unlockedGroups = (partner.UnlockSkillGroup ?? []).ToHashSet();
+            HashSet<int> availableMainSkillIds = new();
+            foreach (int groupId in skillRow.MainSkillGroupId.Where(unlockedGroups.Contains))
+            {
+                if (!PartnerMainSkillGroupRowsById.Value.TryGetValue(
+                        groupId,
+                        out PartnerMainSkillGroupTable? group))
+                {
+                    continue;
+                }
+
+                int defaultMainSkillId = group.SkillId.FirstOrDefault();
+                if (defaultMainSkillId > 0)
+                    availableMainSkillIds.Add(defaultMainSkillId);
+            }
+            if (!availableMainSkillIds.Contains(mainSkills[0]))
+            {
+                failure = TeamPrefabValidationFailure.LockedPartnerMainSkill;
+                return false;
+            }
+
+            List<int> passiveSkills = [];
+            if (skillData.TryGetValue(2, out List<int>? requestedPassiveSkills)
+                && requestedPassiveSkills is not null)
+            {
+                passiveSkills = requestedPassiveSkills;
+            }
+            if (qualityRow.SkillColumnCount < 0)
+            {
+                failure = TeamPrefabValidationFailure.InvalidPartnerPassiveLimit;
+                return false;
+            }
+            if (passiveSkills.Count > qualityRow.SkillColumnCount)
+            {
+                failure = TeamPrefabValidationFailure.TooManyPartnerPassiveSkills;
+                return false;
+            }
+            if (passiveSkills.Count != passiveSkills.Distinct().Count())
+            {
+                failure = TeamPrefabValidationFailure.DuplicatePartnerPassiveSkills;
+                return false;
+            }
+
+            HashSet<int> configuredPassiveSkillIds = new();
+            foreach (int groupId in skillRow.PassiveSkillGroupId)
+            {
+                if (PartnerPassiveSkillGroupRowsById.Value.TryGetValue(
+                        groupId,
+                        out PartnerPassiveSkillGroupTable? group)
+                    && group.SkillId > 0)
+                {
+                    configuredPassiveSkillIds.Add(group.SkillId);
+                }
+            }
+            HashSet<int> ownedPassiveSkillIds = partner.SkillList
+                .Where(skill => skill.Type == 2)
+                .Select(skill => skill.Id)
+                .ToHashSet();
+            if (passiveSkills.Any(skillId =>
+                    !configuredPassiveSkillIds.Contains(skillId)
+                    || !ownedPassiveSkillIds.Contains(skillId)))
+            {
+                failure = TeamPrefabValidationFailure.InvalidPartnerPassiveSkill;
+                return false;
+            }
+
+            return true;
+        }
+
+        private static void SendInvalidTeamPrefabResponse(Session session, int packetId)
+        {
+            session.SendResponse(
+                new TeamPrefabSetTeamResponse { Code = TeamManagerSetTeamParaError },
+                packetId);
         }
 
         [RequestPacketHandler("EnterChallengeRequest")]

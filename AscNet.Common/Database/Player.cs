@@ -436,6 +436,37 @@ namespace AscNet.Common.Database
             return true;
         }
 
+        public bool NormalizeTeamPrefabs()
+        {
+            List<TeamPrefabData> normalized = (TeamPrefabs ?? [])
+                .OfType<TeamPrefabData>()
+                .ToList();
+            bool changed = TeamPrefabs is null || normalized.Count != TeamPrefabs.Count;
+            if (changed)
+                TeamPrefabs = normalized;
+            return changed;
+        }
+
+        public bool IsEquipInTeamPrefab(uint equipId)
+        {
+            if (equipId == 0)
+                return false;
+
+            foreach (TeamPrefabData? teamPrefab in TeamPrefabs ?? [])
+            {
+                if (teamPrefab?.EquipData is null)
+                    continue;
+
+                foreach (TeamPrefabEquipData? equipData in teamPrefab.EquipData.Values)
+                {
+                    if (equipData?.EquipDataDict?.Values.Any(equip => equip?.EquipId == equipId) == true)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         public void Save()
         {
             collection.ReplaceOne(Builders<Player>.Filter.Eq(x => x.Id, Id), this);
@@ -498,6 +529,9 @@ namespace AscNet.Common.Database
         [BsonRequired]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<int, TeamGroupDatum> TeamGroups { get; set; }
+
+        [BsonElement("team_prefabs")]
+        public List<TeamPrefabData> TeamPrefabs { get; set; } = new();
 
         [BsonElement("fuben_main_line_data")]
         public FubenMainLineData FubenMainLineData { get; set; } = new();

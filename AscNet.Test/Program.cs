@@ -23,6 +23,8 @@ using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.character.enhanceskill;
 using AscNet.Table.V2.share.equip;
+using AscNet.Table.V2.share.config;
+using AscNet.Table.V2.share.team;
 using AscNet.Table.V2.share.attrib;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.fashion;
@@ -72,6 +74,12 @@ namespace AscNet.Test
                 if (args.Contains("--notify-login-compat-only"))
                 {
                     ValidateNotifyLoginCurrentClientCompatibilityShape();
+                    return;
+                }
+
+                if (args.Contains("--team-prefab-compat-only"))
+                {
+                    ValidateTeamPrefabCompatibility();
                     return;
                 }
 
@@ -477,6 +485,7 @@ namespace AscNet.Test
                 ValidatePlayerGenderCompatibility();
                 ValidateCharacterSwitchLiberateMagicCompatibility();
                 ValidateCharacterSwitchSkillCompatibility();
+                ValidateTeamPrefabCompatibility();
                 ValidateCharacterProgressionPersistenceCompatibility();
                 ValidateCharacterSkillGroupTableBackedCompatibility();
                 ValidateCharacterEnhanceSkillTableBackedCompatibility();
@@ -13614,6 +13623,922 @@ namespace AscNet.Test
             AssertEqual(20_000, rewardGoods.Count, "ItemUseResponse RewardGoodsList[0] Count");
         }
 
+        private static void ValidateTeamPrefabCompatibility()
+        {
+            const string requestName = nameof(TeamPrefabSetTeamRequest);
+            const string responseName = nameof(TeamPrefabSetTeamResponse);
+            const string metadataRequestName = nameof(TeamPrefabUpdateMetadataRequest);
+            const string metadataResponseName = nameof(TeamPrefabUpdateMetadataResponse);
+            const long playerId = 88_061;
+
+            Dictionary<string, int> teamConfig = TableReaderV2.Parse<TeamConfigTable>()
+                .ToDictionary(row => row.Key, row => row.Value);
+            int teamMaxPos = teamConfig["TeamMaxPos"];
+            int maxTeamPrefab = teamConfig["MaxTeamPrefab"];
+            if (teamMaxPos < 2)
+                throw new InvalidDataException("Team prefab compatibility requires at least two team positions.");
+
+            Dictionary<int, CharacterSkillGroupTable> characterSkillGroups =
+                TableReaderV2.Parse<CharacterSkillGroupTable>()
+                    .GroupBy(row => row.Id).ToDictionary(group => group.Key, group => group.First());
+            Dictionary<int, CharacterSkillTable> characterSkills =
+                TableReaderV2.Parse<CharacterSkillTable>()
+                    .GroupBy(row => row.CharacterId).ToDictionary(group => group.Key, group => group.First());
+            (CharacterTable Character, int SwitchSkill)[] characterFixtures =
+                TableReaderV2.Parse<CharacterTable>()
+                    .Where(row => row.Type == 1 && characterSkills.ContainsKey(row.Id))
+                    .Select(row => (
+                        Character: row,
+                        Group: characterSkills[row.Id].SkillGroupId
+                            .Where(characterSkillGroups.ContainsKey)
+                            .Select(groupId => characterSkillGroups[groupId])
+                            .FirstOrDefault(group => group.SkillId.Count > 1)))
+                    .Where(value => value.Group is not null)
+                    .OrderBy(value => value.Character.Id)
+                    .Take(2)
+                    .Select(value => (value.Character, value.Group!.SkillId.Last(skillId => skillId > 0)))
+                    .ToArray();
+            if (characterFixtures.Length != 2)
+                throw new InvalidDataException("Team prefab compatibility requires two table-backed switch-skill characters.");
+            int selectedGeneralSkill = TableReaderV2.Parse<CharacterGeneralSkillTable>()
+                .Where(row => row.IsSkipSkillCheck > 0)
+                .Select(row => row.Id)
+                .FirstOrDefault();
+            if (selectedGeneralSkill <= 0)
+                throw new InvalidDataException("Team prefab compatibility requires a table-backed unrestricted general skill.");
+
+
+            List<WeaponSkillPoolTable> weaponSkillPools = TableReaderV2.Parse<WeaponSkillPoolTable>();
+            Dictionary<int, EquipResonanceTable> equipResonanceRows =
+                TableReaderV2.Parse<EquipResonanceTable>().ToDictionary(row => row.Id);
+            EquipTable weaponRow = TableReaderV2.Parse<EquipTable>()
+                .Where(AscNet.Common.Database.Character.IsOwnableEquipTemplate)
+                .Where(row => row.Site == 0 && equipResonanceRows.ContainsKey(row.Id))
+                .Where(row => equipResonanceRows[row.Id].WeaponSkillPoolId.Any(poolId =>
+                    weaponSkillPools.Any(pool =>
+                        pool.PoolId == poolId
+                        && pool.CharacterId == characterFixtures[0].Character.Id
+                        && pool.SkillId.Count(skillId => skillId > 0) >= 2)))
+                .OrderBy(row => row.Id)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException(
+                    "Team prefab compatibility requires an ownable weapon with a character-specific resonance pool.");
+            EquipTable awarenessRow = TableReaderV2.Parse<EquipTable>()
+                .Where(AscNet.Common.Database.Character.IsOwnableEquipTemplate)
+                .Where(row => row.Site == 1 && row.SuitId > 0)
+                .OrderBy(row => row.Id)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException(
+                    "Team prefab compatibility requires an ownable awareness with a table-backed suit.");
+            EquipTable[] equipRows = [weaponRow, awarenessRow];
+            int resonancePoolId = equipResonanceRows[weaponRow.Id].WeaponSkillPoolId
+                .First(poolId => weaponSkillPools.Any(pool =>
+                    pool.PoolId == poolId && pool.CharacterId == characterFixtures[0].Character.Id));
+            int sharedResonanceSkill = weaponSkillPools
+                .Where(pool =>
+                    pool.PoolId == resonancePoolId
+                    && pool.CharacterId == characterFixtures[0].Character.Id)
+                .SelectMany(pool => pool.SkillId)
+                .Where(skillId => skillId > 0)
+                .Distinct()
+                .Intersect(weaponSkillPools
+                    .Where(pool =>
+                        pool.PoolId == resonancePoolId
+                        && pool.CharacterId == characterFixtures[1].Character.Id)
+                    .SelectMany(pool => pool.SkillId)
+                    .Where(skillId => skillId > 0))
+                .FirstOrDefault();
+            if (sharedResonanceSkill <= 0)
+            {
+                throw new InvalidDataException(
+                    "Team prefab compatibility requires a weapon skill shared by two character-specific pools.");
+            }
+            int[] resonanceSkills = [sharedResonanceSkill, sharedResonanceSkill];
+            int overrunSuitId = awarenessRow.SuitId;
+            int[] presetTagIds = TableReaderV2.Parse<TeamPrefabTagTable>()
+                .OrderBy(row => row.Id)
+                .Take(2)
+                .Select(row => row.Id)
+                .ToArray();
+            if (presetTagIds.Length != 2)
+                throw new InvalidDataException("Team prefab compatibility requires two authoritative preset tags.");
+
+            Dictionary<int, PartnerMainSkillGroupTable> mainGroups =
+                TableReaderV2.Parse<PartnerMainSkillGroupTable>()
+                    .GroupBy(row => row.Id).ToDictionary(group => group.Key, group => group.First());
+            Dictionary<int, PartnerPassiveSkillGroupTable> passiveGroups =
+                TableReaderV2.Parse<PartnerPassiveSkillGroupTable>()
+                    .GroupBy(row => row.Id).ToDictionary(group => group.Key, group => group.First());
+            (PartnerSkillTable Skill, int MainSkill, int PassiveSkill)[] partnerFixtures =
+                TableReaderV2.Parse<PartnerSkillTable>()
+                    .Select(row => (
+                        Skill: row,
+                        MainSkill: row.MainSkillGroupId
+                            .Where(mainGroups.ContainsKey)
+                            .Select(groupId => mainGroups[groupId].SkillId.FirstOrDefault())
+                            .FirstOrDefault(skillId => skillId > 0),
+                        PassiveSkill: row.PassiveSkillGroupId
+                            .Where(passiveGroups.ContainsKey)
+                            .Select(groupId => passiveGroups[groupId].SkillId)
+                            .FirstOrDefault(skillId => skillId > 0)))
+                    .Where(value => value.MainSkill > 0 && value.PassiveSkill > 0)
+                    .OrderBy(value => value.Skill.PartnerId)
+                    .Take(2)
+                    .ToArray();
+            if (partnerFixtures.Length != 2)
+                throw new InvalidDataException("Team prefab compatibility requires two table-backed partner skill fixtures.");
+            HashSet<int> partnerDefaultMainSkillIds = partnerFixtures[0].Skill.MainSkillGroupId
+                .Where(mainGroups.ContainsKey)
+                .Select(groupId => mainGroups[groupId].SkillId.FirstOrDefault())
+                .Where(skillId => skillId > 0)
+                .ToHashSet();
+            int nonDefaultPartnerMainSkill = partnerFixtures[0].Skill.MainSkillGroupId
+                .Where(mainGroups.ContainsKey)
+                .SelectMany(groupId => mainGroups[groupId].SkillId.Where(skillId => skillId > 0).Skip(1))
+                .FirstOrDefault(skillId => !partnerDefaultMainSkillIds.Contains(skillId));
+            if (nonDefaultPartnerMainSkill <= 0)
+                throw new InvalidDataException(
+                    "Team prefab compatibility requires a non-default partner main skill.");
+
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters = characterFixtures
+                .Select(value => CreateLoginAccountCompatibilityCharacter(
+                    (uint)value.Character.Id, (uint)value.Character.DefaultNpcFashtionId))
+                .ToList();
+            foreach ((CharacterTable fixture, int switchSkill) in characterFixtures)
+            {
+                CharacterSkillGroupTable switchGroup = characterSkills[fixture.Id].SkillGroupId
+                    .Where(characterSkillGroups.ContainsKey)
+                    .Select(groupId => characterSkillGroups[groupId])
+                    .First(group => group.SkillId.Contains(switchSkill));
+                character.Characters.Single(value => value.Id == fixture.Id).SkillList =
+                [
+                    new CharacterSkill
+                    {
+                        Id = (uint)switchGroup.SkillId.First(skillId => skillId > 0),
+                        Level = 1
+                    }
+                ];
+            }
+            EquipData weaponEquip = NewEquip(7_001, equipRows[0]);
+            weaponEquip.ResonanceInfo = resonanceSkills
+                .Select((skillId, index) => new ResonanceInfo
+                {
+                    Slot = index + 1,
+                    Type = EquipResonanceType.WeaponSkill,
+                    CharacterId = characterFixtures[index].Character.Id,
+                    TemplateId = skillId
+                })
+                .ToList();
+            weaponEquip.WeaponOverrunData = new WeaponOverrunData
+            {
+                ActiveSuits = [overrunSuitId],
+                ChoseSuit = overrunSuitId
+            };
+            character.Equips =
+            [
+                weaponEquip,
+                NewEquip(7_002, equipRows[1])
+            ];
+            character.Partners =
+            [
+                NewPartner(801, partnerFixtures[0]),
+                NewPartner(802, partnerFixtures[1])
+            ];
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "team-prefab-compat");
+
+            TeamPrefabData capturedEmpty = new()
+            {
+                TeamType = TeamKind.Normal,
+                TeamId = 17,
+                CaptainPos = 1,
+                FirstFightPos = 1,
+                TeamData = Enumerable.Range(1, teamMaxPos).ToDictionary(position => position, _ => 0),
+                TeamName = "Captured Empty",
+                PartnerData = Enumerable.Range(1, teamMaxPos).ToDictionary(position => position, _ => (TeamPrefabPartnerData?)null),
+                EquipData = Enumerable.Range(1, teamMaxPos).ToDictionary(position => position, _ => (TeamPrefabEquipData?)null),
+                TagsSet = null!,
+                SwitchSkills = null!
+            };
+            DispatchAndAssert(capturedEmpty, 71_001, "captured empty preset");
+            TeamPrefabData storedEmpty = player.TeamPrefabs.Single();
+            AssertEqual(TeamKind.Prefab, storedEmpty.TeamType, "captured empty normalized TeamType");
+            AssertEqual(teamMaxPos, storedEmpty.TeamData.Count, "captured empty member slots");
+            AssertEqual(true, storedEmpty.TeamData.Values.All(value => value == 0), "captured empty zero members");
+            AssertEqual(0, storedEmpty.TagsSet.Count, "captured empty absent tags default");
+            AssertEqual(0, storedEmpty.SwitchSkills.Count, "captured empty absent switches default");
+
+            TeamPrefabData nonEmpty = new()
+            {
+                TeamType = TeamKind.Normal,
+                TeamId = 3,
+                CaptainPos = 2,
+                FirstFightPos = 1,
+                EnterCgIndex = teamMaxPos,
+                SettleCgIndex = teamMaxPos - 1,
+                TeamData = Enumerable.Range(1, teamMaxPos).ToDictionary(position => position, _ => 0),
+                TeamName = "Nested Preset",
+                SelectedGeneralSkill = selectedGeneralSkill,
+                EquipData = Enumerable.Range(1, teamMaxPos)
+                    .ToDictionary(position => position, _ => (TeamPrefabEquipData?)null),
+                PartnerData = Enumerable.Range(1, teamMaxPos)
+                    .ToDictionary(position => position, _ => (TeamPrefabPartnerData?)null),
+                TagsSet = presetTagIds.ToList(),
+                SwitchSkills = new()
+                {
+                    [1] = characterFixtures[0].SwitchSkill,
+                    [2] = characterFixtures[1].SwitchSkill
+                }
+            };
+            nonEmpty.TeamData[1] = characterFixtures[0].Character.Id;
+            nonEmpty.TeamData[2] = characterFixtures[1].Character.Id;
+            nonEmpty.EquipData[1] = new TeamPrefabEquipData
+            {
+                EquipDataDict = new()
+                {
+                    [equipRows[0].Site] = new TeamPrefabEquipEntry
+                    {
+                        EquipId = 7_001,
+                        ResonanceDict = new() { [1] = resonanceSkills[0], [2] = resonanceSkills[1] },
+                        WeaponOverrunSuitId = overrunSuitId
+                    },
+                    [equipRows[1].Site] = new TeamPrefabEquipEntry { EquipId = 7_002 },
+                    [int.MaxValue] = new TeamPrefabEquipEntry { EquipId = 0 }
+                }
+            };
+            nonEmpty.PartnerData[1] = new TeamPrefabPartnerData
+            {
+                PartnerId = 801,
+                SkillData = new()
+                {
+                    [1] = [partnerFixtures[0].MainSkill],
+                    [2] = [partnerFixtures[0].PassiveSkill]
+                }
+            };
+            nonEmpty.PartnerData[2] = new TeamPrefabPartnerData
+            {
+                PartnerId = 802,
+                SkillData = new()
+                {
+                    [1] = [partnerFixtures[1].MainSkill],
+                    [2] = [partnerFixtures[1].PassiveSkill]
+                }
+            };
+            DispatchAndAssert(nonEmpty, 71_002, "nested preset");
+            AssertIntegerList([17, 3], player.TeamPrefabs.Select(value => (long)value.TeamId).ToArray(),
+                "new TeamId appends in order");
+            AssertNested(player.TeamPrefabs[1], "nested in-memory round-trip");
+
+            TeamPrefabData nullPassiveSkills = Clone(nonEmpty, data =>
+            {
+                data.PartnerData[1]!.SkillData![2] = null!;
+            });
+            DispatchAndAssert(
+                nullPassiveSkills,
+                71_032,
+                "nil passive partner skills normalize to empty");
+            AssertEqual(
+                0,
+                player.TeamPrefabs[1].PartnerData[1]!.SkillData![2].Count,
+                "nil passive partner skills stored empty");
+            DispatchAndAssert(nonEmpty, 71_033, "restore populated partner skills");
+
+            TeamPrefabMetadata firstMetadata = new()
+            {
+                TeamName = "Metadata Variant A",
+                CaptainPos = 1,
+                FirstFightPos = 2,
+                EnterCgIndex = 0,
+                SettleCgIndex = teamMaxPos,
+                SelectedGeneralSkill = selectedGeneralSkill
+            };
+            DispatchMetadataAndAssert(3, firstMetadata, 71_025, "first metadata update");
+            TeamPrefabData firstMetadataStored = player.TeamPrefabs[1];
+            AssertEqual(firstMetadata.TeamName, firstMetadataStored.TeamName, "first metadata name");
+            AssertEqual(firstMetadata.CaptainPos, firstMetadataStored.CaptainPos, "first metadata captain");
+            AssertEqual(firstMetadata.FirstFightPos, firstMetadataStored.FirstFightPos, "first metadata first fight");
+            AssertEqual(firstMetadata.EnterCgIndex, firstMetadataStored.EnterCgIndex, "first metadata enter CG");
+            AssertEqual(firstMetadata.SettleCgIndex, firstMetadataStored.SettleCgIndex, "first metadata settle CG");
+            AssertEqual(firstMetadata.SelectedGeneralSkill, firstMetadataStored.SelectedGeneralSkill,
+                "first metadata general skill");
+            AssertNested(firstMetadataStored, "first metadata preserves nested preset");
+
+            TeamPrefabMetadata emptyTeamMetadata = new()
+            {
+                TeamName = "Empty Team Metadata",
+                CaptainPos = 1,
+                FirstFightPos = 1,
+                EnterCgIndex = 0,
+                SettleCgIndex = 0,
+                SelectedGeneralSkill = selectedGeneralSkill
+            };
+            DispatchMetadataAndAssert(
+                17,
+                emptyTeamMetadata,
+                71_031,
+                "metadata update preceding populated overwrite");
+            AssertEqual(
+                selectedGeneralSkill,
+                player.TeamPrefabs[0].SelectedGeneralSkill,
+                "empty team stores known general skill before full overwrite");
+
+            TeamPrefabMetadata secondMetadata = new()
+            {
+                TeamName = "Metadata Variant B",
+                CaptainPos = 2,
+                FirstFightPos = 1,
+                EnterCgIndex = teamMaxPos,
+                SettleCgIndex = 0,
+                SelectedGeneralSkill = 0
+            };
+            DispatchMetadataAndAssert(3, secondMetadata, 71_026, "second metadata update");
+            TeamPrefabData secondMetadataStored = player.TeamPrefabs[1];
+            AssertEqual(secondMetadata.TeamName, secondMetadataStored.TeamName, "second metadata name");
+            AssertEqual(secondMetadata.CaptainPos, secondMetadataStored.CaptainPos, "second metadata captain");
+            AssertEqual(secondMetadata.FirstFightPos, secondMetadataStored.FirstFightPos,
+                "second metadata first fight");
+            AssertEqual(secondMetadata.EnterCgIndex, secondMetadataStored.EnterCgIndex, "second metadata enter CG");
+            AssertEqual(secondMetadata.SettleCgIndex, secondMetadataStored.SettleCgIndex,
+                "second metadata settle CG");
+            AssertEqual(secondMetadata.SelectedGeneralSkill, secondMetadataStored.SelectedGeneralSkill,
+                "second metadata general skill");
+            AssertNested(secondMetadataStored, "second metadata preserves nested preset");
+
+            RejectMetadata(int.MaxValue, firstMetadata, 71_027, "unknown metadata TeamId");
+            firstMetadata.TeamName = " ";
+            RejectMetadata(3, firstMetadata, 71_028, "blank metadata name");
+            secondMetadata.SelectedGeneralSkill = int.MaxValue;
+            RejectMetadata(3, secondMetadata, 71_029, "unknown metadata general skill");
+            RejectMetadata(3, null, 71_030, "missing metadata payload");
+
+            TeamPrefabData zeroPartner = Clone(nonEmpty, data =>
+            {
+                data.PartnerData[2] = new TeamPrefabPartnerData
+                {
+                    PartnerId = 0,
+                    SkillData = new() { [1] = [int.MaxValue], [2] = [int.MaxValue] }
+                };
+            });
+            DispatchAndAssert(zeroPartner, 71_011, "zero partner normalization");
+            AssertEqual(0, player.TeamPrefabs[1].PartnerData[2]!.PartnerId,
+                "zero partner normalized PartnerId");
+            AssertEqual(0, player.TeamPrefabs[1].PartnerData[2]!.SkillData?.Count ?? 0,
+                "zero partner nested skills removed");
+            DispatchAndAssert(nonEmpty, 71_012, "restore nested preset");
+
+            capturedEmpty.TeamName = "Captured Empty Updated";
+            capturedEmpty.EnterCgIndex = teamMaxPos;
+            DispatchAndAssert(capturedEmpty, 71_003, "existing preset replacement");
+            AssertIntegerList([17, 3], player.TeamPrefabs.Select(value => (long)value.TeamId).ToArray(),
+                "replacement preserves order without duplicate");
+
+            Reject(Clone(nonEmpty, data => data.TeamData[1] = int.MaxValue), 71_004, "unowned character");
+            Reject(Clone(nonEmpty, data => data.TeamData[teamMaxPos + 1] = 0), 71_005, "fourth team slot");
+            Reject(Clone(nonEmpty, data =>
+            {
+                data.EquipData[1]!.EquipDataDict.Clear();
+                data.EquipData[1]!.EquipDataDict[equipRows[0].Site == 0 ? 1 : 0] =
+                    new TeamPrefabEquipEntry { EquipId = 7_001 };
+            }), 71_006, "mismatched equip slot");
+            Reject(Clone(nonEmpty, data => data.SwitchSkills[1] = int.MaxValue), 71_007, "unknown switch skill");
+            Reject(Clone(nonEmpty, data => data.PartnerData[1]!.SkillData![1] = [int.MaxValue]),
+                71_008, "unknown partner skill");
+            Reject(Clone(nonEmpty, data =>
+            {
+                data.PartnerData[1]!.SkillData![1] = [nonDefaultPartnerMainSkill];
+            }), 71_024, "non-default partner main skill");
+            Reject(Clone(nonEmpty, data => data.TagsSet = [int.MaxValue]),
+                71_013, "unknown preset tag");
+            Reject(Clone(nonEmpty, data => data.SelectedGeneralSkill = int.MaxValue),
+                71_014, "unknown general skill");
+            Reject(Clone(nonEmpty, data => data.PartnerData[1]!.SkillData = null),
+                71_015, "missing partner skill data");
+            PartnerData firstPartner = character.Partners.Single(partner => partner.Id == 801);
+            List<int> unlockedPartnerGroups = firstPartner.UnlockSkillGroup;
+            firstPartner.UnlockSkillGroup = [];
+            Reject(Clone(nonEmpty, _ => { }), 71_020, "locked partner main skill");
+            firstPartner.UnlockSkillGroup = unlockedPartnerGroups;
+            PartnerSkillData ownedPassiveSkill = firstPartner.SkillList.Single(skill =>
+                skill.Type == 2 && skill.Id == partnerFixtures[0].PassiveSkill);
+            firstPartner.SkillList.Remove(ownedPassiveSkill);
+            Reject(Clone(nonEmpty, _ => { }), 71_021, "unowned partner passive skill");
+            firstPartner.SkillList.Add(ownedPassiveSkill);
+            Reject(Clone(nonEmpty, data =>
+            {
+                data.PartnerData[1]!.SkillData![1] =
+                    [partnerFixtures[0].MainSkill, partnerFixtures[0].MainSkill];
+            }), 71_022, "multiple partner main skills");
+            Reject(Clone(nonEmpty, data =>
+            {
+                data.EquipData[1]!.EquipDataDict[equipRows[0].Site].ResonanceDict![1] = int.MaxValue;
+            }), 71_016, "unknown resonance skill");
+            ResonanceInfo secondResonance = weaponEquip.ResonanceInfo.Single(value => value.Slot == 2);
+            int secondResonanceCharacterId = secondResonance.CharacterId;
+            secondResonance.CharacterId = characterFixtures[0].Character.Id;
+            Reject(Clone(nonEmpty, _ => { }), 71_023,
+                "duplicate resonance skill for one bound character");
+            secondResonance.CharacterId = secondResonanceCharacterId;
+            Reject(Clone(nonEmpty, data =>
+            {
+                data.EquipData[1]!.EquipDataDict[equipRows[0].Site].WeaponOverrunSuitId = int.MaxValue;
+            }), 71_017, "inactive overrun suit");
+            Reject(Clone(nonEmpty, data => data.CaptainPos = teamMaxPos + 1),
+                71_018, "captain position above configured maximum");
+            Reject(Clone(nonEmpty, data => data.EnterCgIndex = teamMaxPos + 1),
+                71_019, "enter CG position above configured maximum");
+
+            RejectApply(int.MaxValue, 71_034, "unknown apply TeamId");
+
+            EquipTable untouchedAwarenessRow = TableReaderV2.Parse<EquipTable>()
+                .Where(AscNet.Common.Database.Character.IsOwnableEquipTemplate)
+                .Where(row => row.Site > 0 && row.Site != awarenessRow.Site)
+                .OrderBy(row => row.Id)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException(
+                    "Team prefab apply compatibility requires a second awareness slot.");
+            EquipData previousWeapon = NewEquip(7_003, weaponRow);
+            EquipData previousAwareness = NewEquip(7_004, awarenessRow);
+            EquipData untouchedAwareness = NewEquip(7_005, untouchedAwarenessRow);
+            int firstCharacterId = characterFixtures[0].Character.Id;
+            int secondCharacterId = characterFixtures[1].Character.Id;
+            weaponEquip.CharacterId = secondCharacterId;
+            character.Equips.Single(equip => equip.Id == 7_002).CharacterId = secondCharacterId;
+            previousWeapon.CharacterId = firstCharacterId;
+            previousAwareness.CharacterId = firstCharacterId;
+            untouchedAwareness.CharacterId = firstCharacterId;
+            character.Equips.AddRange([previousWeapon, previousAwareness, untouchedAwareness]);
+
+            PartnerData secondPartner = character.Partners.Single(partner => partner.Id == 802);
+            PartnerData displacedPartner = NewPartner(803, partnerFixtures[0]);
+            firstPartner.CharacterId = secondCharacterId;
+            displacedPartner.CharacterId = firstCharacterId;
+            character.Partners.Add(displacedPartner);
+
+            DispatchApplyAndAssert(
+                3,
+                71_035,
+                [801, 802, 803],
+                [2, 3],
+                "apply with equipment and partner conflicts");
+            AssertAppliedState(character, "first apply");
+            AssertEqual(0, displacedPartner.CharacterId, "first apply clears displaced partner");
+            AssertEqual(secondCharacterId, previousWeapon.CharacterId, "first apply swaps previous weapon");
+            AssertEqual(0, previousAwareness.CharacterId, "first apply removes previous awareness");
+            AssertEqual(firstCharacterId, untouchedAwareness.CharacterId,
+                "first apply preserves absent awareness slot");
+
+            firstPartner.SkillList.Single(skill => skill.Id == partnerFixtures[0].PassiveSkill).IsWear = false;
+            secondPartner.SkillList.Single(skill => skill.Id == partnerFixtures[1].PassiveSkill).IsWear = false;
+            DispatchApplyAndAssert(
+                3,
+                71_036,
+                [801, 802],
+                [2],
+                "repeat apply with stable partner carriers");
+            AssertAppliedState(character, "repeat apply");
+
+            AscNet.Common.Database.Character persistedAppliedCharacter =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    (characterCollection.LastReplacement
+                        ?? throw new InvalidDataException("Team prefab apply did not persist Character.")).ToBson());
+            AssertAppliedState(persistedAppliedCharacter, "persisted apply");
+
+            void DispatchApplyAndAssert(
+                int teamId,
+                int packetId,
+                IReadOnlyList<long> expectedPartnerIds,
+                IReadOnlyList<long> expectedOperateTypes,
+                string name)
+            {
+                int characterSaveCountBefore = characterCollection.ReplaceOneCalls;
+                int playerSaveCountBefore = playerCollection.ReplaceOneCalls;
+                byte[] playerStateBefore = harness.Session.player.ToBson();
+                byte[] inventoryStateBefore = harness.Session.inventory.ToBson();
+                InvokeRegisteredRequestHandler(
+                    nameof(TeamPrefabApplyRequest),
+                    harness.Session,
+                    packetId,
+                    new TeamPrefabApplyRequest { TeamId = teamId });
+
+                NotifyPartnerDataList partnerPush = ReadPushPayload<NotifyPartnerDataList>(
+                    harness,
+                    nameof(NotifyPartnerDataList),
+                    $"{name} partner push");
+                AssertIntegerList(
+                    expectedPartnerIds,
+                    partnerPush.PartnerDataList.Select(partner => (long)partner.Id).ToArray(),
+                    $"{name} partner push order");
+                AssertIntegerList(
+                    expectedOperateTypes,
+                    partnerPush.OperateTypes.Select(value => (long)value).ToArray(),
+                    $"{name} operation types");
+
+                JObject response = ReadResponseMapPayload(
+                    harness,
+                    packetId,
+                    nameof(TeamPrefabApplyRequestResponse),
+                    $"{name} response");
+                AssertEqual(0, RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response"),
+                    $"{name} Code");
+                AssertEqual(
+                    true,
+                    response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(
+                    characterSaveCountBefore + 1,
+                    characterCollection.ReplaceOneCalls,
+                    $"{name} Character.Save count");
+                AssertEqual(playerSaveCountBefore, playerCollection.ReplaceOneCalls, $"{name} does not save Player");
+                AssertEqual(
+                    Convert.ToHexString(playerStateBefore),
+                    Convert.ToHexString(harness.Session.player.ToBson()),
+                    $"{name} does not mutate Player");
+                AssertEqual(
+                    Convert.ToHexString(inventoryStateBefore),
+                    Convert.ToHexString(harness.Session.inventory.ToBson()),
+                    $"{name} does not mutate Inventory");
+                AssertNoExtraPacket(name);
+            }
+
+            void RejectApply(int teamId, int packetId, string name)
+            {
+                int characterSaveCountBefore = characterCollection.ReplaceOneCalls;
+                int playerSaveCountBefore = playerCollection.ReplaceOneCalls;
+                byte[] playerStateBefore = harness.Session.player.ToBson();
+                byte[] characterStateBefore = harness.Session.character.ToBson();
+                byte[] inventoryStateBefore = harness.Session.inventory.ToBson();
+                InvokeRegisteredRequestHandler(
+                    nameof(TeamPrefabApplyRequest),
+                    harness.Session,
+                    packetId,
+                    new TeamPrefabApplyRequest { TeamId = teamId });
+                JObject response = ReadResponseMapPayload(
+                    harness,
+                    packetId,
+                    nameof(TeamPrefabApplyRequestResponse),
+                    $"{name} response");
+                if (RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response") == 0)
+                    throw new InvalidDataException($"{name} unexpectedly succeeded.");
+                AssertEqual(
+                    true,
+                    response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(characterSaveCountBefore, characterCollection.ReplaceOneCalls,
+                    $"{name} does not save Character");
+                AssertEqual(playerSaveCountBefore, playerCollection.ReplaceOneCalls,
+                    $"{name} does not save Player");
+                AssertEqual(
+                    Convert.ToHexString(playerStateBefore),
+                    Convert.ToHexString(harness.Session.player.ToBson()),
+                    $"{name} does not mutate Player");
+                AssertEqual(
+                    Convert.ToHexString(characterStateBefore),
+                    Convert.ToHexString(harness.Session.character.ToBson()),
+                    $"{name} does not mutate Character");
+                AssertEqual(
+                    Convert.ToHexString(inventoryStateBefore),
+                    Convert.ToHexString(harness.Session.inventory.ToBson()),
+                    $"{name} does not mutate Inventory");
+                AssertNoExtraPacket(name);
+            }
+
+            void AssertAppliedState(AscNet.Common.Database.Character actual, string name)
+            {
+                AssertEqual(firstCharacterId,
+                    actual.Equips.Single(equip => equip.Id == 7_001).CharacterId,
+                    $"{name} desired weapon carrier");
+                AssertEqual(firstCharacterId,
+                    actual.Equips.Single(equip => equip.Id == 7_002).CharacterId,
+                    $"{name} desired awareness carrier");
+                AssertEqual(secondCharacterId,
+                    actual.Equips.Single(equip => equip.Id == 7_003).CharacterId,
+                    $"{name} swapped weapon carrier");
+                AssertEqual(0,
+                    actual.Equips.Single(equip => equip.Id == 7_004).CharacterId,
+                    $"{name} removed awareness carrier");
+                AssertEqual(firstCharacterId,
+                    actual.Equips.Single(equip => equip.Id == 7_005).CharacterId,
+                    $"{name} untouched awareness carrier");
+
+                PartnerData appliedFirstPartner = actual.Partners.Single(partner => partner.Id == 801);
+                PartnerData appliedSecondPartner = actual.Partners.Single(partner => partner.Id == 802);
+                AssertEqual(firstCharacterId, appliedFirstPartner.CharacterId, $"{name} first partner carrier");
+                AssertEqual(secondCharacterId, appliedSecondPartner.CharacterId, $"{name} second partner carrier");
+                AssertEqual(
+                    ExpectedPartnerMainSkill(
+                        appliedFirstPartner,
+                        firstCharacterId,
+                        partnerFixtures[0].MainSkill),
+                    appliedFirstPartner.SkillList.Single(skill => skill.Type == 1).Id,
+                    $"{name} first partner element main skill");
+                AssertEqual(
+                    ExpectedPartnerMainSkill(
+                        appliedSecondPartner,
+                        secondCharacterId,
+                        partnerFixtures[1].MainSkill),
+                    appliedSecondPartner.SkillList.Single(skill => skill.Type == 1).Id,
+                    $"{name} second partner element main skill");
+                AssertEqual(
+                    true,
+                    appliedFirstPartner.SkillList.Single(
+                        skill => skill.Id == partnerFixtures[0].PassiveSkill).IsWear,
+                    $"{name} first partner passive selection");
+                AssertEqual(
+                    true,
+                    appliedSecondPartner.SkillList.Single(
+                        skill => skill.Id == partnerFixtures[1].PassiveSkill).IsWear,
+                    $"{name} second partner passive selection");
+                foreach ((CharacterTable fixture, int switchSkill) in characterFixtures)
+                {
+                    AssertEqual(
+                        true,
+                        actual.Characters.Single(characterData => characterData.Id == fixture.Id)
+                            .SkillList.Any(skill => skill.Id == (uint)switchSkill),
+                        $"{name} character {fixture.Id} switch skill");
+                }
+            }
+
+            int ExpectedPartnerMainSkill(
+                PartnerData partner,
+                int carrierCharacterId,
+                int selectedMainSkill)
+            {
+                PartnerMainSkillGroupTable group = mainGroups.Values.Single(value =>
+                    value.SkillId.Contains(selectedMainSkill));
+                int carrierElement = characterFixtures
+                    .Single(value => value.Character.Id == carrierCharacterId)
+                    .Character.Element;
+                int elementIndex = group.Element.IndexOf(carrierElement);
+                if (elementIndex < 0 || elementIndex >= group.SkillId.Count)
+                {
+                    throw new InvalidDataException(
+                        $"No partner main skill element mapping for partner {partner.Id}.");
+                }
+                return group.SkillId[elementIndex];
+            }
+
+            player.TeamPrefabs.Insert(1, null!);
+            InvokeSendLoginState(harness.Session);
+            NotifyLogin loginWithNull = ReadPushPayload<NotifyLogin>(
+                harness, nameof(NotifyLogin), "null-filtered TeamPrefab NotifyLogin");
+            AssertLogin(loginWithNull, "null-filtered login");
+            AssertNoExtraPacket("null-filtered login");
+
+            DispatchAndAssert(capturedEmpty, 71_009, "save filters persisted null");
+            AssertEqual(false, player.TeamPrefabs.Any(value => value is null), "valid save removes persisted null entries");
+
+            AscNet.Common.Database.Player persisted =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                    (playerCollection.LastReplacement
+                        ?? throw new InvalidDataException("Team prefab request did not persist Player.")).ToBson());
+            AssertIntegerList([17, 3], persisted.TeamPrefabs.Select(value => (long)value.TeamId).ToArray(),
+                "BSON round-trip preset order");
+            AssertNested(persisted.TeamPrefabs[1], "BSON nested round-trip");
+
+            harness.Session.player = persisted;
+            InvokeSendLoginState(harness.Session);
+            AssertLogin(ReadPushPayload<NotifyLogin>(harness, nameof(NotifyLogin), "persisted TeamPrefab NotifyLogin"),
+                "persisted login");
+            AscNet.Common.Database.Player relogged =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(persisted.ToBson());
+            harness.Session.player = relogged;
+            InvokeSendLoginState(harness.Session);
+            AssertLogin(ReadPushPayload<NotifyLogin>(harness, nameof(NotifyLogin), "relogged TeamPrefab NotifyLogin"),
+                "simulated relog");
+            AssertNoExtraPacket("simulated relog");
+
+            relogged.TeamPrefabs = Enumerable.Range(1, maxTeamPrefab)
+                .Select(index => Clone(capturedEmpty, data => data.TeamId = 10_000 + index))
+                .ToList();
+            Reject(Clone(nonEmpty, data => data.TeamId = 20_000), 71_010, "authoritative prefab limit");
+
+            EquipData NewEquip(uint instanceId, EquipTable row)
+            {
+                return new EquipData
+                {
+                    Id = instanceId,
+                    TemplateId = (uint)row.Id,
+                    Level = 1,
+                    ResonanceInfo = [],
+                    UnconfirmedResonanceInfo = [],
+                    AwakeSlotList = []
+                };
+            }
+
+            static PartnerData NewPartner(
+                int instanceId,
+                (PartnerSkillTable Skill, int MainSkill, int PassiveSkill) fixture)
+            {
+                PartnerQualityTable quality = TableReaderV2.Parse<PartnerQualityTable>()
+                    .Where(row => row.PartnerId == fixture.Skill.PartnerId && row.SkillColumnCount >= 1)
+                    .OrderBy(row => row.Quality)
+                    .FirstOrDefault()
+                    ?? throw new InvalidDataException(
+                        $"Team prefab compatibility requires a usable quality row for partner {fixture.Skill.PartnerId}.");
+                return new PartnerData
+                {
+                    Id = instanceId,
+                    TemplateId = fixture.Skill.PartnerId,
+                    Quality = quality.Quality,
+                    UnlockSkillGroup = fixture.Skill.MainSkillGroupId.Distinct().ToList(),
+                    SkillList =
+                    [
+                        new PartnerSkillData { Id = fixture.MainSkill, Level = 1, IsWear = true, Type = 1 },
+                        new PartnerSkillData { Id = fixture.PassiveSkill, Level = 1, IsWear = false, Type = 2 }
+                    ]
+                };
+            }
+
+            static TeamPrefabData Clone(TeamPrefabData source, Action<TeamPrefabData> mutate)
+            {
+                TeamPrefabData clone = MessagePackSerializer.Deserialize<TeamPrefabData>(
+                    MessagePackSerializer.Serialize(source));
+                mutate(clone);
+                return clone;
+            }
+
+            void DispatchMetadataAndAssert(
+                int teamId,
+                TeamPrefabMetadata metadata,
+                int packetId,
+                string name)
+            {
+                int saveCountBefore = playerCollection.ReplaceOneCalls;
+                InvokeRegisteredRequestHandler(metadataRequestName, harness.Session, packetId,
+                    new TeamPrefabUpdateMetadataRequest
+                    {
+                        TeamId = teamId,
+                        PrefabTeamInfo = metadata
+                    });
+                JObject response = ReadResponseMapPayload(
+                    harness,
+                    packetId,
+                    metadataResponseName,
+                    $"{name} response");
+                AssertEqual(0, RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response"),
+                    $"{name} Code");
+                AssertEqual(true, response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(saveCountBefore + 1, playerCollection.ReplaceOneCalls, $"{name} Player.Save count");
+                AssertNoExtraPacket(name);
+            }
+
+            void RejectMetadata(
+                int teamId,
+                TeamPrefabMetadata? metadata,
+                int packetId,
+                string name)
+            {
+                int saveCountBefore = playerCollection.ReplaceOneCalls;
+                byte[] playerStateBefore = harness.Session.player.ToBson();
+                byte[] characterStateBefore = harness.Session.character.ToBson();
+                byte[] inventoryStateBefore = harness.Session.inventory.ToBson();
+                InvokeRegisteredRequestHandler(metadataRequestName, harness.Session, packetId,
+                    new TeamPrefabUpdateMetadataRequest
+                    {
+                        TeamId = teamId,
+                        PrefabTeamInfo = metadata!
+                    });
+                JObject response = ReadResponseMapPayload(
+                    harness,
+                    packetId,
+                    metadataResponseName,
+                    $"{name} response");
+                if (RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response") == 0)
+                    throw new InvalidDataException($"{name} unexpectedly succeeded.");
+                AssertEqual(true, response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(saveCountBefore, playerCollection.ReplaceOneCalls, $"{name} does not save");
+                AssertEqual(
+                    Convert.ToHexString(playerStateBefore),
+                    Convert.ToHexString(harness.Session.player.ToBson()),
+                    $"{name} does not mutate Player");
+                AssertEqual(
+                    Convert.ToHexString(characterStateBefore),
+                    Convert.ToHexString(harness.Session.character.ToBson()),
+                    $"{name} does not mutate Character");
+                AssertEqual(
+                    Convert.ToHexString(inventoryStateBefore),
+                    Convert.ToHexString(harness.Session.inventory.ToBson()),
+                    $"{name} does not mutate Inventory");
+                AssertNoExtraPacket(name);
+            }
+
+            void DispatchAndAssert(TeamPrefabData data, int packetId, string name)
+            {
+                int saveCountBefore = playerCollection.ReplaceOneCalls;
+                InvokeRegisteredRequestHandler(requestName, harness.Session, packetId,
+                    new TeamPrefabSetTeamRequest { TeamPrefabData = data });
+                JObject response = ReadResponseMapPayload(harness, packetId, responseName, $"{name} response");
+                AssertEqual(0, RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response"),
+                    $"{name} Code");
+                AssertEqual(true, response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(saveCountBefore + 1, playerCollection.ReplaceOneCalls, $"{name} Player.Save count");
+                AssertNoExtraPacket(name);
+            }
+
+            void Reject(TeamPrefabData data, int packetId, string name)
+            {
+                int saveCountBefore = playerCollection.ReplaceOneCalls;
+                byte[] playerStateBefore = harness.Session.player.ToBson();
+                byte[] characterStateBefore = harness.Session.character.ToBson();
+                byte[] inventoryStateBefore = harness.Session.inventory.ToBson();
+                InvokeRegisteredRequestHandler(requestName, harness.Session, packetId,
+                    new TeamPrefabSetTeamRequest { TeamPrefabData = data });
+                JObject response = ReadResponseMapPayload(harness, packetId, responseName, $"{name} response");
+                if (RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response") == 0)
+                    throw new InvalidDataException($"{name} unexpectedly succeeded.");
+                AssertEqual(true, response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(saveCountBefore, playerCollection.ReplaceOneCalls, $"{name} does not save");
+                AssertEqual(
+                    Convert.ToHexString(playerStateBefore),
+                    Convert.ToHexString(harness.Session.player.ToBson()),
+                    $"{name} does not mutate Player");
+                AssertEqual(
+                    Convert.ToHexString(characterStateBefore),
+                    Convert.ToHexString(harness.Session.character.ToBson()),
+                    $"{name} does not mutate Character");
+                AssertEqual(
+                    Convert.ToHexString(inventoryStateBefore),
+                    Convert.ToHexString(harness.Session.inventory.ToBson()),
+                    $"{name} does not mutate Inventory");
+                AssertNoExtraPacket(name);
+            }
+
+            void AssertNoExtraPacket(string name)
+            {
+                if (harness.TryReadAvailablePacket($"{name} unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"{name} emitted unexpected {extra.Type} packet.");
+            }
+
+            static void InvokeSendLoginState(Session session)
+            {
+                RequiredMethod(
+                    RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                    "SendLoginState",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    [typeof(Session)]).Invoke(null, [session]);
+            }
+
+            void AssertNested(TeamPrefabData actual, string name)
+            {
+                AssertEqual(TeamKind.Prefab, actual.TeamType, $"{name} TeamType");
+                AssertEqual(3, actual.TeamId, $"{name} TeamId");
+                AssertEqual(characterFixtures[0].SwitchSkill, actual.SwitchSkills[1], $"{name} first switch");
+                AssertEqual(characterFixtures[1].SwitchSkill, actual.SwitchSkills[2], $"{name} second switch");
+                TeamPrefabEquipEntry firstEquip = actual.EquipData[1]!.EquipDataDict[equipRows[0].Site];
+                AssertEqual(characterFixtures[0].Character.Id, actual.TeamData[1], $"{name} first character");
+                AssertEqual(characterFixtures[1].Character.Id, actual.TeamData[2], $"{name} second character");
+                AssertEqual((uint)7_001, firstEquip.EquipId, $"{name} first equip");
+                AssertIntegerList(presetTagIds.Select(value => (long)value).ToArray(),
+                    actual.TagsSet.Select(value => (long)value).ToArray(),
+                    $"{name} preset tags");
+                AssertEqual(resonanceSkills[1], firstEquip.ResonanceDict![2], $"{name} resonance");
+                AssertEqual(overrunSuitId, firstEquip.WeaponOverrunSuitId, $"{name} overrun suit");
+                AssertEqual((uint)7_002, actual.EquipData[1]!.EquipDataDict[equipRows[1].Site].EquipId,
+                    $"{name} second equip");
+                AssertEqual(false, actual.EquipData[1]!.EquipDataDict.ContainsKey(int.MaxValue),
+                    $"{name} zero equip omitted");
+                AssertIntegerList([partnerFixtures[0].MainSkill],
+                    actual.PartnerData[1]!.SkillData![1].Select(value => (long)value).ToArray(),
+                    $"{name} first partner main skill");
+                AssertIntegerList([partnerFixtures[0].PassiveSkill],
+                    actual.PartnerData[1]!.SkillData![2].Select(value => (long)value).ToArray(),
+                    $"{name} first partner passive skill");
+                AssertEqual(801, actual.PartnerData[1]!.PartnerId, $"{name} first partner");
+                AssertEqual(802, actual.PartnerData[2]!.PartnerId, $"{name} second partner");
+                AssertIntegerList([partnerFixtures[1].MainSkill],
+                    actual.PartnerData[2]!.SkillData![1].Select(value => (long)value).ToArray(),
+                    $"{name} second partner main skill");
+                AssertIntegerList([partnerFixtures[1].PassiveSkill],
+                    actual.PartnerData[2]!.SkillData![2].Select(value => (long)value).ToArray(),
+                    $"{name} second partner passive skill");
+            }
+
+            void AssertLogin(NotifyLogin login, string name)
+            {
+                AssertIntegerList([1, 2], login.TeamPrefabData.Keys.Select(value => (long)value).ToArray(),
+                    $"{name} contiguous presentation keys");
+                AssertIntegerList([17, 3], login.TeamPrefabData.Values.Select(value => (long)value.TeamId).ToArray(),
+                    $"{name} independent stored TeamIds");
+                AssertNested(login.TeamPrefabData[2], $"{name} nested preset");
+            }
+        }
+
         private static void ValidateCharacterSwitchLiberateMagicCompatibility()
         {
             const string requestName = nameof(CharacterSwitchLiberateMagicIdRequest);
@@ -15988,12 +16913,71 @@ namespace AscNet.Test
             });
             AssertEqual(sourceEquipId, character.Equips.Max(equip => equip.Id), "EquipDecompose source UID is current maximum");
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.TeamPrefabs =
+            [
+                new TeamPrefabData
+                {
+                    EquipData = new()
+                    {
+                        [1] = new TeamPrefabEquipData
+                        {
+                            EquipDataDict = new()
+                            {
+                                [sourceTemplate.Site] = new TeamPrefabEquipEntry
+                                {
+                                    EquipId = sourceEquipId
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
 
             using LoopbackSessionHarness harness = new(
                 character,
-                CreateDrawCompatibilityPlayer(playerId),
+                player,
                 inventory,
                 "equip-decompose-compat-test");
+            const int protectedPacketId = 14_300;
+            byte[] protectedCharacterState = character.ToBson();
+            byte[] protectedInventoryState = inventory.ToBson();
+            InvokeRegisteredRequestHandler(
+                nameof(EquipDecomposeRequest),
+                harness.Session,
+                protectedPacketId,
+                new EquipDecomposeRequest { EquipIds = [(int)sourceEquipId] });
+            EquipDecomposeResponse protectedResponse = ReadResponsePayload<EquipDecomposeResponse>(
+                harness,
+                protectedPacketId,
+                nameof(EquipDecomposeResponse),
+                "EquipDecomposeRequest preset-protected response");
+            AssertEqual(1, protectedResponse.Code, "EquipDecomposeResponse preset-protected Code");
+            AssertEmptyList(
+                protectedResponse.RewardGoodsList,
+                "EquipDecomposeResponse preset-protected rewards");
+            AssertEqual(
+                Convert.ToHexString(protectedCharacterState),
+                Convert.ToHexString(character.ToBson()),
+                "EquipDecompose preset-protected Character state");
+            AssertEqual(
+                Convert.ToHexString(protectedInventoryState),
+                Convert.ToHexString(inventory.ToBson()),
+                "EquipDecompose preset-protected Inventory state");
+            AssertEqual(0, characterCollection.ReplaceOneCalls, "EquipDecompose preset-protected character saves");
+            AssertEqual(0, inventoryCollection.ReplaceOneCalls, "EquipDecompose preset-protected inventory saves");
+            AssertEqual(0, playerCollection.ReplaceOneCalls, "EquipDecompose preset-protected player saves");
+            if (harness.TryReadAvailablePacket(
+                    "EquipDecomposeRequest preset-protected unexpected push",
+                    out Packet protectedUnexpectedPacket))
+            {
+                throw new InvalidDataException(
+                    $"EquipDecompose preset-protected request emitted unexpected {protectedUnexpectedPacket.Type} packet.");
+            }
+
+            player.TeamPrefabs = [];
+
 
             const int packetId = 14_301;
             InvokeRegisteredRequestHandler(
@@ -24393,6 +25377,61 @@ namespace AscNet.Test
             directCharacter.AddEquipExp(directTargetEquipId, directFeedExp);
             if (directTargetEquip.Level <= 1 && directTargetEquip.Exp == 0)
                 throw new InvalidDataException("EquipLevelUpRequest weapon fodder did not increase target progress.");
+            EquipData presetTarget = NewEquip(7_171, highRarityTargetEquipTable);
+            EquipData presetFodder = NewEquip(7_172, normalWeaponFodderEquipTable);
+            AscNet.Common.Database.Character presetCharacter =
+                NewCharacter(9_053, presetTarget, presetFodder);
+            Session presetSession = NewSession(
+                presetCharacter,
+                NewInventory(presetCharacter.Uid));
+            presetSession.player.TeamPrefabs =
+            [
+                new TeamPrefabData
+                {
+                    EquipData = new()
+                    {
+                        [1] = new TeamPrefabEquipData
+                        {
+                            EquipDataDict = new()
+                            {
+                                [normalWeaponFodderEquipTable.Site] = new TeamPrefabEquipEntry
+                                {
+                                    EquipId = presetFodder.Id
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+            Dictionary<int, int> presetDeltas = [];
+            NotifyEquipDataList presetNotify = new();
+            object[] presetArguments =
+            [
+                presetSession,
+                presetTarget,
+                highRarityTargetEquipTable,
+                new List<int> { (int)presetFodder.Id },
+                equipTables,
+                equipBreakThroughTables,
+                presetDeltas,
+                presetNotify,
+                0
+            ];
+            AssertEqual(
+                false,
+                (bool)(tryConsumeValidatedFeedEquips.Invoke(null, presetArguments)
+                    ?? throw new InvalidDataException(
+                        "EquipLevelUpRequest preset-protected fodder validation returned nil.")),
+                "EquipLevelUpRequest rejects preset-protected fodder");
+            AssertEqual(
+                true,
+                presetCharacter.Equips.Any(equip => equip.Id == presetFodder.Id),
+                "EquipLevelUpRequest preserves preset-protected fodder");
+            AssertEqual(0, presetNotify.DeletedEquipIdList.Count,
+                "EquipLevelUpRequest preset-protected fodder emits no deletion");
+            AssertEqual(0, presetDeltas.Count,
+                "EquipLevelUpRequest preset-protected fodder charges nothing");
+
 
             EquipData atomicTarget = NewEquip(7161, highRarityTargetEquipTable);
             EquipData atomicFodder = NewEquip(7162, normalWeaponFodderEquipTable);
@@ -24917,6 +25956,7 @@ namespace AscNet.Test
                 Session session = (Session)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Session));
                 session.character = character;
                 session.inventory = inventory;
+                session.player = CreateDrawCompatibilityPlayer(character.Uid);
                 return session;
             }
 

@@ -1,0 +1,17 @@
+Id	TagType	Text	Icon	Order
+1	1	Phantom Pain Cage		1
+2	1	War Zone		2
+3	1	Other		3
+4	2	Physical	Assets/Product/Texture/Image/IconType/IconTypeYsWuliWhite.png	1
+5	2	Fire	Assets/Product/Texture/Image/IconType/IconTypeYsHuoWhite.png	2
+6	2	Ice	Assets/Product/Texture/Image/IconType/IconTypeYsBingWhite.png	3
+7	2	Lightning	Assets/Product/Texture/Image/IconType/IconTypeYsLeiWhite.png	4
+8	2	Dark	Assets/Product/Texture/Image/IconType/IconTypeYsAnWhite.png	5
+9	2	Nihil	Assets/Product/Texture/Image/IconType/IconTypeYsNihilityWhite.png	6
+10	2	Ultima Slash	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPracticeEffectSwordPower.png	7
+11	2	Ignition	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPracticeEffectBurn.png	8
+12	2	Glaciation	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPracticeEffectFreeze.png	9
+13	2	Plasma Beam	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPracticeEffectThunderShield.png	10
+14	2	Darkflow	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPracticeEffectRadiate.png	11
+15	2	Disruption	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPracticeEffectGeneral.png	13
+16	2	Raydiance	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPracticeEffectLightNoise.png	12

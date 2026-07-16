@@ -585,7 +585,8 @@ namespace AscNet.GameServer.Handlers
             feedExp = 0;
             if (resolvedEquip is null
                 || resolvedEquip.IsLock
-                || resolvedEquip.CharacterId != 0)
+                || resolvedEquip.CharacterId != 0
+                || session.player.IsEquipInTeamPrefab(resolvedEquip.Id))
             {
                 feedEquip = null!;
                 return false;
@@ -1782,7 +1783,8 @@ namespace AscNet.GameServer.Handlers
                 if (!equipsById.TryGetValue((uint)requestedId, out EquipData? equip)
                     || equip.IsLock
                     || equip.CharacterId != 0
-                    || equip.IsRecycle)
+                    || equip.IsRecycle
+                    || session.player.IsEquipInTeamPrefab(equip.Id))
                 {
                     return false;
                 }

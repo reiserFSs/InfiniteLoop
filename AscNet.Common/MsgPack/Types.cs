@@ -544,7 +544,7 @@ namespace AscNet.Common.MsgPack
         public FubenUrgentEventData FubenUrgentEventData { get; set; }
         public List<dynamic> AutoFightRecords { get; set; } = new();
         public Dictionary<int, TeamGroupDatum> TeamGroupData { get; set; }
-        public dynamic TeamPrefabData { get; set; }
+        public Dictionary<int, TeamPrefabData> TeamPrefabData { get; set; } = new();
         public List<SignInfo> SignInfos { get; set; } = new();
         public List<dynamic> AssignChapterRecord { get; set; } = new();
         public List<WeaponFashionData> WeaponFashionList { get; set; } = new();
@@ -2623,6 +2623,131 @@ namespace AscNet.Common.MsgPack
     public class Pong
     {
         public UInt64 UtcTime { get; set; }
+    }
+
+
+    public enum TeamKind
+    {
+        Normal = 1,
+        Prefab = 2
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    [BsonIgnoreExtraElements]
+    public class TeamPrefabEquipEntry
+    {
+        public UInt32 EquipId { get; set; }
+
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, Int32>? ResonanceDict { get; set; }
+
+        public Int32 WeaponOverrunSuitId { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    [BsonIgnoreExtraElements]
+    public class TeamPrefabEquipData
+    {
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, TeamPrefabEquipEntry> EquipDataDict { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    [BsonIgnoreExtraElements]
+    public class TeamPrefabPartnerData
+    {
+        public Int32 PartnerId { get; set; }
+
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, List<Int32>>? SkillData { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    [BsonIgnoreExtraElements]
+    public class TeamPrefabData
+    {
+        public TeamKind TeamType { get; set; }
+        public Int32 TeamId { get; set; }
+        public Int32 CaptainPos { get; set; }
+        public Int32 FirstFightPos { get; set; }
+        public Int32 EnterCgIndex { get; set; }
+        public Int32 SettleCgIndex { get; set; }
+
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, Int32> TeamData { get; set; } = new();
+
+        public String TeamName { get; set; }
+        public Int32 SelectedGeneralSkill { get; set; }
+
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, TeamPrefabPartnerData?> PartnerData { get; set; } = new();
+
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, TeamPrefabEquipData?> EquipData { get; set; } = new();
+
+        public List<Int32> TagsSet { get; set; } = new();
+
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, Int32> SwitchSkills { get; set; } = new();
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabSetTeamRequest
+    {
+        public TeamPrefabData TeamPrefabData { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabSetTeamResponse
+    {
+        public Int32 Code { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabApplyRequest
+    {
+        public Int32 TeamId { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabApplyRequestResponse
+    {
+        public Int32 Code { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabMetadata
+    {
+        public String TeamName { get; set; }
+        public Int32 CaptainPos { get; set; }
+        public Int32 FirstFightPos { get; set; }
+        public Int32 EnterCgIndex { get; set; }
+        public Int32 SettleCgIndex { get; set; }
+        public Int32 SelectedGeneralSkill { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabUpdateMetadataRequest
+    {
+        public Int32 TeamId { get; set; }
+        public TeamPrefabMetadata PrefabTeamInfo { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabUpdateMetadataResponse
+    {
+        public Int32 Code { get; set; }
     }
 
 
