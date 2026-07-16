@@ -390,6 +390,8 @@ namespace AscNet.Common.Database
                 .ToDictionary(equip => equip.Id);
             Dictionary<int, FashionTable> fashionRowsById = TableReaderV2.Parse<FashionTable>()
                 .ToDictionary(fashion => fashion.Id);
+            Dictionary<int, IReadOnlyList<uint>> skillIdsByGroupId = BuildCharacterSkillIdsByGroupId(
+                TableReaderV2.Parse<CharacterSkillGroupTable>());
 
             HashSet<int> seenFashionIds = new();
             List<FashionList> normalizedFashions = new();
@@ -466,17 +468,11 @@ namespace AscNet.Common.Database
 
                 if (skillRowsByCharacterId.TryGetValue((int)character.Id, out CharacterSkillTable? skillRow))
                 {
-                    Dictionary<uint, CharacterSkill> existingSkillsById = character.SkillList?
-                        .Where(skill => skill.Id > 0)
-                        .GroupBy(skill => skill.Id)
-                        .ToDictionary(group => group.Key, group => group.First()) ?? new();
-                    List<CharacterSkill> normalizedSkills = BuildInitialCharacterSkills(skillRow)
-                        .Select(expectedSkill => existingSkillsById.TryGetValue(expectedSkill.Id, out CharacterSkill? existingSkill)
-                            ? existingSkill
-                            : expectedSkill)
-                        .OrderBy(skill => skill.Id)
-                        .ToList();
-                    if (character.SkillList is null || character.SkillList.Count != normalizedSkills.Count || !character.SkillList.Select(skill => skill.Id).OrderBy(id => id).SequenceEqual(normalizedSkills.Select(skill => skill.Id)))
+                    List<CharacterSkill> normalizedSkills = NormalizeCharacterSkills(
+                        character.SkillList,
+                        skillRow,
+                        skillIdsByGroupId);
+                    if (character.SkillList is null || !character.SkillList.SequenceEqual(normalizedSkills))
                     {
                         character.SkillList = normalizedSkills;
                         changed = true;
@@ -636,22 +632,121 @@ namespace AscNet.Common.Database
 
         private static List<CharacterSkill> BuildInitialCharacterSkills(CharacterSkillTable characterSkill)
         {
-            return characterSkill.SkillGroupId
-                .Where(skillGroupId => skillGroupId > 0)
-                .Select(CharacterSkillIdFromGroupId)
-                .Distinct()
-                .Select(skillId => new CharacterSkill
-                {
-                    Id = skillId,
-                    Level = 1
-                })
-                .ToList();
+            Dictionary<int, IReadOnlyList<uint>> skillIdsByGroupId = BuildCharacterSkillIdsByGroupId(
+                TableReaderV2.Parse<CharacterSkillGroupTable>());
+            return NormalizeCharacterSkills(null, characterSkill, skillIdsByGroupId);
         }
 
-        private static uint CharacterSkillIdFromGroupId(int skillGroupId)
+        private static Dictionary<int, IReadOnlyList<uint>> BuildCharacterSkillIdsByGroupId(
+            IEnumerable<CharacterSkillGroupTable> skillGroups)
         {
-            string skillGroupIdText = skillGroupId.ToString();
-            return uint.Parse(skillGroupIdText[..Math.Min(6, skillGroupIdText.Length)]);
+            return skillGroups
+                .GroupBy(skillGroup => skillGroup.Id)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<uint>)group
+                        .SelectMany(skillGroup => skillGroup.SkillId)
+                        .Where(skillId => skillId > 0)
+                        .Distinct()
+                        .Select(skillId => (uint)skillId)
+                        .ToArray());
+        }
+
+        private static List<CharacterSkill> NormalizeCharacterSkills(
+            IReadOnlyList<CharacterSkill>? existingSkills,
+            CharacterSkillTable characterSkill,
+            IReadOnlyDictionary<int, IReadOnlyList<uint>> skillIdsByGroupId)
+        {
+            List<CharacterSkill> normalizedSkills = new();
+            foreach (int skillGroupId in characterSkill.SkillGroupId.Where(skillGroupId => skillGroupId > 0).Distinct())
+            {
+                if (!skillIdsByGroupId.TryGetValue(skillGroupId, out IReadOnlyList<uint>? groupSkillIds))
+                    continue;
+
+                CharacterSkill? selectedSkill = existingSkills?
+                    .LastOrDefault(skill => groupSkillIds.Contains(skill.Id));
+                if (selectedSkill is not null)
+                {
+                    normalizedSkills.Add(selectedSkill);
+                    continue;
+                }
+
+                uint defaultSkillId = groupSkillIds.FirstOrDefault();
+                if (defaultSkillId > 0)
+                {
+                    normalizedSkills.Add(new CharacterSkill
+                    {
+                        Id = defaultSkillId,
+                        Level = 1
+                    });
+                }
+            }
+
+            return normalizedSkills;
+        }
+
+        public bool TrySwitchCharacterSkill(int skillId, out bool changed)
+        {
+            changed = false;
+            if (skillId <= 0 || Characters is null)
+                return false;
+
+            List<CharacterSkillGroupTable> skillGroupRows = TableReaderV2.Parse<CharacterSkillGroupTable>();
+            Dictionary<int, IReadOnlyList<uint>> skillIdsByGroupId = BuildCharacterSkillIdsByGroupId(skillGroupRows);
+            List<int> matchingGroupIds = skillIdsByGroupId
+                .Where(group => group.Value.Contains((uint)skillId))
+                .Select(group => group.Key)
+                .ToList();
+            if (matchingGroupIds.Count == 0)
+                return false;
+
+            Dictionary<int, CharacterData> ownedCharactersById = Characters
+                .GroupBy(character => (int)character.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            List<(CharacterData Character, IReadOnlyList<uint> GroupSkillIds)> ownedMatches =
+                TableReaderV2.Parse<CharacterSkillTable>()
+                    .Where(skillRow => ownedCharactersById.ContainsKey(skillRow.CharacterId))
+                    .SelectMany(skillRow => skillRow.SkillGroupId
+                        .Where(matchingGroupIds.Contains)
+                        .Distinct()
+                        .Select(groupId => (
+                            ownedCharactersById[skillRow.CharacterId],
+                            skillIdsByGroupId[groupId])))
+                    .ToList();
+            if (ownedMatches.Count != 1)
+                return false;
+
+            (CharacterData character, IReadOnlyList<uint> groupSkillIds) = ownedMatches[0];
+            if (groupSkillIds.Count <= 1)
+                return false;
+
+            CharacterSkill? selectedSkill = character.SkillList?
+                .LastOrDefault(skill => groupSkillIds.Contains(skill.Id));
+            if (selectedSkill is null || selectedSkill.Id == (uint)skillId)
+                return selectedSkill is not null;
+
+            List<CharacterSkill> normalizedSkills = new();
+            bool inserted = false;
+            foreach (CharacterSkill characterSkill in character.SkillList)
+            {
+                if (!groupSkillIds.Contains(characterSkill.Id))
+                {
+                    normalizedSkills.Add(characterSkill);
+                }
+                else if (!inserted)
+                {
+                    normalizedSkills.Add(new CharacterSkill
+                    {
+                        Id = (uint)skillId,
+                        Level = selectedSkill.Level
+                    });
+                    inserted = true;
+                }
+            }
+
+            character.SkillList = normalizedSkills;
+            changed = true;
+            return true;
         }
 
         public static IReadOnlyList<uint> ResolveCharacterSkillIdsForGroupId(int skillGroupId)

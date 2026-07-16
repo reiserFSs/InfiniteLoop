@@ -79,6 +79,18 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class CharacterSwitchSkillRequest
+    {
+        public int SkillId;
+    }
+
+    [MessagePackObject(true)]
+    public class CharacterSwitchSkillResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
     public class CharacterPromoteQualityRequest
     {
         public int TemplateId;
@@ -525,6 +537,24 @@ namespace AscNet.GameServer.Handlers
             SaveCharacterProgress(session);
 
             session.SendResponse(new CharacterUnlockSkillGroupResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("CharacterSwitchSkillRequest")]
+        public static void CharacterSwitchSkillRequestHandler(Session session, Packet.Request packet)
+        {
+            CharacterSwitchSkillRequest request = packet.Deserialize<CharacterSwitchSkillRequest>();
+
+            if (!session.character.TrySwitchCharacterSkill(request.SkillId, out bool changed))
+            {
+                // CharacterSkillIsNotFoundOrLock
+                session.SendResponse(new CharacterSwitchSkillResponse() { Code = 20009048 }, packet.Id);
+                return;
+            }
+
+            if (changed)
+                session.character.Save();
+
+            session.SendResponse(new CharacterSwitchSkillResponse(), packet.Id);
         }
 
         [RequestPacketHandler("CharacterUpgradeSkillGroupRequest")]

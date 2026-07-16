@@ -231,6 +231,12 @@ namespace AscNet.Test
                     ValidateCharacterSwitchLiberateMagicCompatibility();
                     return;
                 }
+                if (args.Contains("--character-switch-skill-compat-only"))
+                {
+                    ValidateCharacterSwitchSkillCompatibility();
+                    return;
+                }
+
 
                 if (args.Contains("--character-progression-persistence-compat-only"))
                 {
@@ -470,6 +476,7 @@ namespace AscNet.Test
                 ValidateBoardMutualClientPushCompatibility();
                 ValidatePlayerGenderCompatibility();
                 ValidateCharacterSwitchLiberateMagicCompatibility();
+                ValidateCharacterSwitchSkillCompatibility();
                 ValidateCharacterProgressionPersistenceCompatibility();
                 ValidateCharacterSkillGroupTableBackedCompatibility();
                 ValidateCharacterEnhanceSkillTableBackedCompatibility();
@@ -9066,7 +9073,7 @@ namespace AscNet.Test
                 if (repairedCharacter.EnhanceSkillList is null)
                     throw new InvalidDataException($"Current draw target character {characterId}: expected repaired EnhanceSkillList.");
                 AssertIntegerList(
-                    expectedSkillIds.Order().Select(skillId => (long)skillId).ToArray(),
+                    expectedSkillIds.Select(skillId => (long)skillId).ToArray(),
                     repairedCharacter.SkillList.Select(skill => (long)skill.Id).ToArray(),
                     $"Current draw target character {characterId} repaired all positive skill ids");
 
@@ -9208,11 +9215,23 @@ namespace AscNet.Test
             if (skillGroupId <= 0)
                 throw new InvalidDataException($"Current draw target character {characterId}: expected positive AddCharacter skill group id, got {skillGroupId}.");
 
-            string skillGroupIdText = skillGroupId.ToString();
-            uint skillId = uint.Parse(skillGroupIdText[..Math.Min(6, skillGroupIdText.Length)]);
-            if (skillId == 0)
-                throw new InvalidDataException($"Current draw target character {characterId}: expected nonzero AddCharacter active skill id from group {skillGroupId}.");
-            return skillId;
+            List<CharacterSkillGroupTable> matchingRows = TableReaderV2.Parse<CharacterSkillGroupTable>()
+                .Where(group => group.Id == skillGroupId)
+                .ToList();
+            if (matchingRows.Count != 1)
+            {
+                throw new InvalidDataException(
+                    $"Current draw target character {characterId}: expected exactly one CharacterSkillGroupTable row for group {skillGroupId}, got {matchingRows.Count}.");
+            }
+
+            int skillId = matchingRows[0].SkillId.FirstOrDefault(candidate => candidate > 0);
+            if (skillId <= 0)
+            {
+                throw new InvalidDataException(
+                    $"Current draw target character {characterId}: CharacterSkillGroupTable group {skillGroupId} has no positive AddCharacter skill member.");
+            }
+
+            return (uint)skillId;
         }
 
         private static void AssertTargetCharacterPityDraw(long playerId, DrawInfo drawInfo, int? expectedTargetCharacterId = null, string? targetName = null)
@@ -18313,6 +18332,191 @@ namespace AscNet.Test
             MethodInfo fightSettleHandler = GetRegisteredRequestHandlerMethod("FightSettleRequest");
             AssertEqual("FightSettleRequestHandler", fightSettleHandler.Name, "FightSettleRequest registered handler method");
             AssertMethodTransitivelyCalls(fightSettleHandler, characterSave, "FightSettleRequestHandler character card-exp persistence");
+        }
+
+        private static void ValidateCharacterSwitchSkillCompatibility()
+        {
+            const string requestName = nameof(CharacterSwitchSkillRequest);
+            const string responseName = nameof(CharacterSwitchSkillResponse);
+            const int firstPacketId = 19_530;
+            const long playerId = 99_530;
+            const int inverseCrownCharacterId = 1021007;
+            const int inverseCrownGroupId = 1027180;
+            const int reversedGroupCharacterId = 1031005;
+            const int reversedGroupId = 1035180;
+
+            MethodInfo handlerMethod = GetRegisteredRequestHandlerMethod(requestName);
+            AssertEqual("CharacterSwitchSkillRequestHandler", handlerMethod.Name,
+                $"{requestName} registered handler method");
+
+            Dictionary<int, CharacterTable> charactersById = TableReaderV2.Parse<CharacterTable>()
+                .ToDictionary(row => row.Id);
+            Dictionary<int, CharacterSkillTable> skillsByCharacterId =
+                TableReaderV2.Parse<CharacterSkillTable>().ToDictionary(row => row.CharacterId);
+            Dictionary<int, CharacterSkillGroupTable> groupsById =
+                TableReaderV2.Parse<CharacterSkillGroupTable>().ToDictionary(row => row.Id);
+
+            (CharacterTable Character, CharacterSkillTable Skill, CharacterSkillGroupTable Group)
+                Fixture(int characterId, int groupId, string name)
+            {
+                CharacterTable characterRow = charactersById.TryGetValue(characterId, out CharacterTable? character)
+                    ? character
+                    : throw new InvalidDataException($"{name}: Character.tsv is missing {characterId}.");
+                CharacterSkillTable skillRow =
+                    skillsByCharacterId.TryGetValue(characterId, out CharacterSkillTable? skill)
+                        ? skill
+                        : throw new InvalidDataException($"{name}: CharacterSkill.tsv is missing {characterId}.");
+                if (!skillRow.SkillGroupId.Contains(groupId))
+                    throw new InvalidDataException($"{name}: character {characterId} does not reference group {groupId}.");
+                CharacterSkillGroupTable groupRow =
+                    groupsById.TryGetValue(groupId, out CharacterSkillGroupTable? group)
+                        ? group
+                        : throw new InvalidDataException($"{name}: CharacterSkillGroup.tsv is missing {groupId}.");
+                AssertEqual(2, groupRow.SkillId.Count, $"{name} current two-member group");
+                return (characterRow, skillRow, groupRow);
+            }
+
+            var inverse = Fixture(inverseCrownCharacterId, inverseCrownGroupId, "Inverse Crown switch fixture");
+            AssertEqual("Inverse Crown", inverse.Character.TradeName, "Inverse Crown Character.tsv identity");
+            AssertIntegerList([102718, 102729], inverse.Group.SkillId.Select(Convert.ToInt64).ToArray(),
+                "Inverse Crown current switch group members");
+            var reversed = Fixture(reversedGroupCharacterId, reversedGroupId, "1035180 reversed-order fixture");
+            AssertIntegerList([103528, 103518], reversed.Group.SkillId.Select(Convert.ToInt64).ToArray(),
+                "1035180 configured skill order");
+
+            CharacterSwitchSkillRequest request = new() { SkillId = inverse.Group.SkillId[1] };
+            byte[] requestBytes = MessagePackSerializer.Serialize(request);
+            JObject requestJson = JObject.Parse(MessagePackSerializer.ConvertToJson(requestBytes));
+            AssertEqual(true, requestJson.Properties().Select(property => property.Name)
+                .SequenceEqual(["SkillId"]), $"{requestName} exact MessagePack field set");
+            CharacterSwitchSkillRequest requestRoundTrip =
+                MessagePackSerializer.Deserialize<CharacterSwitchSkillRequest>(requestBytes);
+            AssertEqual(request.SkillId, requestRoundTrip.SkillId, $"{requestName} SkillId round-trip");
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            CharacterData inverseData = CreateLoginAccountCompatibilityCharacter(
+                (uint)inverseCrownCharacterId, (uint)inverse.Character.DefaultNpcFashtionId);
+            inverseData.SkillList =
+            [
+                new CharacterSkill { Id = (uint)inverse.Group.SkillId[0], Level = 2 },
+                new CharacterSkill { Id = (uint)inverse.Group.SkillId[0], Level = 7 }
+            ];
+            CharacterData reversedData = CreateLoginAccountCompatibilityCharacter(
+                (uint)reversedGroupCharacterId, (uint)reversed.Character.DefaultNpcFashtionId);
+            reversedData.SkillList =
+            [
+                new CharacterSkill { Id = (uint)reversed.Group.SkillId[1], Level = 11 }
+            ];
+            character.Characters = [inverseData, reversedData];
+
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                sessionId: "character-switch-skill-compat");
+
+            CharacterSwitchSkillResponse InvokeAndRead(int packetId, int skillId, string name)
+            {
+                InvokeRequestHandler(harness, requestName, packetId,
+                    new CharacterSwitchSkillRequest { SkillId = skillId });
+                Packet packet = harness.ReadPacket($"{name} response");
+                AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} packet type");
+                Packet.Response envelope = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                AssertEqual(packetId, envelope.Id, $"{name} correlated packet id");
+                AssertEqual(responseName, envelope.Name, $"{name} response packet name");
+                CharacterSwitchSkillResponse response =
+                    MessagePackSerializer.Deserialize<CharacterSwitchSkillResponse>(envelope.Content);
+                if (harness.TryReadAvailablePacket($"{name} unexpected packet", out Packet unexpected))
+                    throw new InvalidDataException($"{name}: response-only contract emitted unexpected {unexpected.Type} packet.");
+                return response;
+            }
+
+            CharacterSwitchSkillResponse inverseResponse =
+                InvokeAndRead(firstPacketId, requestRoundTrip.SkillId, "Inverse Crown alternate selection");
+            AssertEqual(0, inverseResponse.Code, $"{responseName} Inverse Crown Code");
+            JObject responseJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(inverseResponse)));
+            AssertEqual(true, responseJson.Properties().Select(property => property.Name)
+                .SequenceEqual(["Code"]), $"{responseName} exact MessagePack field set");
+            CharacterSwitchSkillResponse responseRoundTrip =
+                MessagePackSerializer.Deserialize<CharacterSwitchSkillResponse>(
+                    MessagePackSerializer.Serialize(inverseResponse));
+            AssertEqual(0, responseRoundTrip.Code, $"{responseName} Code round-trip");
+            AssertEqual(1, inverseData.SkillList.Count(skill =>
+                inverse.Group.SkillId.Contains((int)skill.Id)), "Inverse Crown legacy duplicate collapse");
+            CharacterSkill selectedInverse = inverseData.SkillList.Single(skill =>
+                inverse.Group.SkillId.Contains((int)skill.Id));
+            AssertEqual((uint)inverse.Group.SkillId[1], selectedInverse.Id, "Inverse Crown selected alternate");
+            AssertEqual(7, selectedInverse.Level, "Inverse Crown selected alternate level preservation");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, "Inverse Crown switch saves once");
+
+            CharacterSwitchSkillResponse reversedResponse =
+                InvokeAndRead(firstPacketId + 1, reversed.Group.SkillId[0], "1035180 first configured selection");
+            AssertEqual(0, reversedResponse.Code, $"{responseName} 1035180 Code");
+            CharacterSkill selectedReversed = reversedData.SkillList.Single(skill =>
+                reversed.Group.SkillId.Contains((int)skill.Id));
+            AssertEqual((uint)reversed.Group.SkillId[0], selectedReversed.Id, "1035180 selected first configured id");
+            AssertEqual(11, selectedReversed.Level, "1035180 selected alternate level preservation");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, "1035180 switch saves once");
+
+            CharacterSwitchSkillResponse idempotentResponse =
+                InvokeAndRead(firstPacketId + 2, reversed.Group.SkillId[0], "idempotent valid selection");
+            AssertEqual(0, idempotentResponse.Code, $"{responseName} idempotent Code");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, "idempotent valid selection does not save");
+
+            AscNet.Common.Database.Character persisted = characterCollection.LastReplacement
+                ?? throw new InvalidDataException($"{requestName}: expected persisted Character replacement.");
+            AscNet.Common.Database.Character reloaded =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    persisted.ToBson());
+            CharacterSkill bsonInverse = reloaded.Characters.Single(data => data.Id == inverseData.Id)
+                .SkillList.Single(skill => inverse.Group.SkillId.Contains((int)skill.Id));
+            AssertEqual((uint)inverse.Group.SkillId[1], bsonInverse.Id, "BSON round-trip preserves selected alternate");
+            AssertEqual(7, bsonInverse.Level, "BSON round-trip preserves alternate level");
+            reloaded.NormalizeCharactersForCurrentTables();
+            CharacterSkill normalizedInverse = reloaded.Characters.Single(data => data.Id == inverseData.Id)
+                .SkillList.Single(skill => inverse.Group.SkillId.Contains((int)skill.Id));
+            AssertEqual((uint)inverse.Group.SkillId[1], normalizedInverse.Id,
+                "post-round-trip normalization preserves selected alternate");
+            AssertEqual(7, normalizedInverse.Level, "post-round-trip normalization preserves selected level");
+
+            int packetId = firstPacketId + 3;
+            void AssertRejected(int skillId, string name)
+            {
+                byte[] before = harness.Session.character.ToBson();
+                int savesBefore = characterCollection.ReplaceOneCalls;
+                CharacterSwitchSkillResponse response = InvokeAndRead(packetId++, skillId, name);
+                AssertEqual(20009048, response.Code, $"{name} Code");
+                AssertEqual(savesBefore, characterCollection.ReplaceOneCalls, $"{name} does not save");
+                AssertEqual(Convert.ToHexString(before), Convert.ToHexString(harness.Session.character.ToBson()),
+                    $"{name} does not mutate character state");
+            }
+
+            int unknownSkillId = checked(groupsById.Values.SelectMany(group => group.SkillId).Max() + 1);
+            AssertRejected(unknownSkillId, "unknown skill");
+
+            (CharacterSkillTable Skill, CharacterSkillGroupTable Group) unowned = skillsByCharacterId.Values
+                .Where(skill => !character.Characters.Any(data => data.Id == (uint)skill.CharacterId))
+                .SelectMany(skill => skill.SkillGroupId.Select(groupId => (Skill: skill, GroupId: groupId)))
+                .Where(value => groupsById.TryGetValue(value.GroupId, out CharacterSkillGroupTable? group)
+                    && group.SkillId.Count > 1)
+                .Select(value => (value.Skill, groupsById[value.GroupId]))
+                .First();
+            AssertEqual(true, charactersById.ContainsKey(unowned.Skill.CharacterId),
+                "unowned alternate joins CharacterTable");
+            AssertRejected(unowned.Group.SkillId.Last(), "table-valid alternate for unowned character");
+
+            CharacterSkillGroupTable singleMemberGroup = skillsByCharacterId.Values
+                .Where(skill => character.Characters.Any(data => data.Id == (uint)skill.CharacterId))
+                .SelectMany(skill => skill.SkillGroupId)
+                .Select(groupId => groupsById[groupId])
+                .First(group => group.SkillId.Count == 1);
+            AssertRejected(singleMemberGroup.SkillId.Single(), "single-member locked selection");
         }
 
         private static void ValidateCharacterSkillGroupTableBackedCompatibility()
