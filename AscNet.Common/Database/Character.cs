@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson.Serialization.Options;
 using MongoDB.Driver;
 using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.character.skill;
@@ -10,6 +11,7 @@ using Newtonsoft.Json;
 using AscNet.Logging;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.character.quality;
+using AscNet.Table.V2.share.character.grade;
 using AscNet.Table.V2.share.attrib;
 using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.partner;
@@ -22,6 +24,20 @@ namespace AscNet.Common.Database
         public static readonly List<CharacterLevelUpTemplate> characterLevelUpTemplates;
         public static readonly List<EquipLevelUpTemplate> equipLevelUpTemplates;
         public static readonly IMongoCollection<Character> collection = Common.db.GetCollection<Character>("characters");
+        private static readonly Lazy<HashSet<int>> ownableCharacterIds = new(() =>
+        {
+            HashSet<int> ids = TableReaderV2.Parse<CharacterTable>()
+                .Select(row => row.Id)
+                .ToHashSet();
+            ids.IntersectWith(TableReaderV2.Parse<CharacterSkillTable>()
+                .Select(row => row.CharacterId));
+            ids.IntersectWith(TableReaderV2.Parse<CharacterQualityTable>()
+                .Select(row => row.CharacterId));
+            ids.IntersectWith(TableReaderV2.Parse<CharacterGradeTable>()
+                .Where(row => row.Grade == 1)
+                .Select(row => row.CharacterId));
+            return ids;
+        });
 
         static Character()
         {
@@ -794,6 +810,11 @@ namespace AscNet.Common.Database
                 .FirstOrDefault(x => x.Quality == characterMinQuality);
         }
 
+        public static bool IsOwnableCharacter(uint id)
+        {
+            return id <= int.MaxValue && ownableCharacterIds.Value.Contains((int)id);
+        }
+
         /// <summary>
         /// Don't forget to send Equip, Fashion, and the Character notify after using this!
         /// </summary>
@@ -806,7 +827,7 @@ namespace AscNet.Common.Database
             CharacterSkillTable? characterSkill = TableReaderV2.Parse<CharacterSkillTable>().Find(x => x.CharacterId == id);
             CharacterQualityTable? characterQuality = TableReaderV2.Parse<CharacterQualityTable>().OrderBy(x => x.Quality).FirstOrDefault(x => x.CharacterId == id);
             
-            if (character is null || characterSkill is null || characterQuality is null)
+            if (!IsOwnableCharacter(id) || character is null || characterSkill is null || characterQuality is null)
             {
                 // CharacterManagerGetCharacterDataNotFound
                 throw new ServerCodeException("Invalid character id!", 20009021);
@@ -1093,6 +1114,18 @@ namespace AscNet.Common.Database
             collection.ReplaceOne(Builders<Character>.Filter.Eq(x => x.Id, Id), this);
         }
 
+        public void SaveChecked()
+        {
+            ReplaceOneResult result = collection.ReplaceOne(
+                Builders<Character>.Filter.Eq(x => x.Id, Id),
+                this);
+            if (!result.IsAcknowledged || result.MatchedCount != 1)
+            {
+                string matchCount = result.IsAcknowledged ? result.MatchedCount.ToString() : "unacknowledged";
+                throw new MongoException($"Character save for uid {Uid} matched {matchCount} documents.");
+            }
+        }
+
         [BsonId]
         public ObjectId Id { get; set; }
 
@@ -1103,6 +1136,9 @@ namespace AscNet.Common.Database
         [BsonElement("characters")]
         [BsonRequired]
         public List<CharacterData> Characters { get; set; }
+
+        [BsonElement("applied_reward_claims")]
+        public List<string> AppliedRewardClaims { get; set; } = new();
         
         [BsonElement("equips")]
         [BsonRequired]
@@ -1111,6 +1147,10 @@ namespace AscNet.Common.Database
         [BsonElement("fashions")]
         [BsonRequired]
         public List<FashionList> Fashions { get; set; }
+
+        [BsonElement("fashion_colors")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, List<int>> FashionColors { get; set; } = new();
 
         [BsonElement("weaponFashions")]
         public List<WeaponFashionData> WeaponFashions { get; set; } = new();

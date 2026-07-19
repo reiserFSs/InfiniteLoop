@@ -1,0 +1,10 @@
+Id	CharacterId	Name	Info	Priority	FashionIds[1]	TagBuffIds[1]	TagBuffIds[2]	TagBuffIds[3]	BuffConditionIds[1]	BuffConditionIds[2]	BuffConditionIds[3]	PlayDiffGroupIds[1]	BaseSkill[1]	BaseSkill[2]	BaseSkill[3]	BaseSkill[4]	AttrValue[1]	AttrValue[2]	AttrValue[3]	AttrValue[4]	AttrValue[5]	BuildTags[1]	DlcAttrGroup	TemplateId	ConditionId	FilterSort
+2	1211003	Alpha	Known as the "Crimson Countess," she keeps secrets and an unspoken past hidden behind her eyes.	4	2	1	2	3		1021004	1021005	2	10265121	10265131	10265141	10265151	150	1200	100	200	200	19	1025	1026	1021001	1
+3	1381003	Veronica	She walks through the mist alone, distant and proud. But behind the name "Bloodthirsty Siren," there seems to be another side no one knows.	3	1	4	5	6		1021002	1021003	1	10255121	10255131	10255141	10255151	100	1200	100	200	200	12	1025	1025	1021001	2
+4	6	Kamui	Behind the renown of the "Revenant Hunter" lies an old secret best left unspoken.	2	6	7	8	9		1021029	1021030	3	10275121	10275131	10275141	10275151	100	1200	100	200	200	28	1025	1027	1021001	3
+10	8226	Prisoner			100																		1025	8226		
+11	1	Phantom Veronica			101																		1025	1025		
+12	2	Candlestick			102																		1025	8225		
+13	3	Cradle			103																		1025	8227		
+14	5	Phantom Alpha			104																		1025	1026		
+100	4	Holy Maiden Mia			102																		1025	8225		

@@ -385,3 +385,6 @@ proxylog
 
 # ignore test scripts
 test_proxy.py
+ 
+# ignore internal scripts
+/scripts

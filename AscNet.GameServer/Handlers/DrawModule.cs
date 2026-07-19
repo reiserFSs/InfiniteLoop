@@ -5,13 +5,27 @@ using AscNet.GameServer.Game;
 using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.item;
+using AscNet.Table.V2.share.draw;
 using MessagePack;
-using Newtonsoft.Json.Linq;
 
 namespace AscNet.GameServer.Handlers
 {
     #region MsgPackScheme
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+    [MessagePackObject(true)]
+    public sealed class NotifyDrawCanLiverData
+    {
+        public DrawCanLiverData DrawCanLiverData { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
+    public sealed class DrawCanLiverData
+    {
+        public int ActivityId { get; set; }
+        public int DrawCount { get; set; }
+        public List<int> RewardIndex { get; set; } = new();
+    }
+
     [MessagePackObject(true)]
     public class DrawDrawCardRequest
     {
@@ -231,8 +245,6 @@ namespace AscNet.GameServer.Handlers
 
     internal class DrawModule
     {
-        private const string LottoSnapshotPath = "Configs/lotto_infos.json";
-        private static readonly Lazy<LottoInfoResponse> RetailLottoInfo = new(LoadLottoInfoResponse);
         private static readonly Lazy<Dictionary<int, int>> CharacterMinQualityById = new(() => TableReaderV2.Parse<CharacterQualityTable>()
             .GroupBy(x => x.CharacterId)
             .ToDictionary(group => group.Key, group => group.Min(x => x.Quality)));
@@ -240,6 +252,30 @@ namespace AscNet.GameServer.Handlers
             .ToDictionary(x => x.Id, x => x.Quality));
         private static readonly Lazy<Dictionary<int, int>> ItemQualityById = new(() => TableReaderV2.Parse<ItemTable>()
             .ToDictionary(x => x.Id, x => x.Quality));
+        internal static NotifyDrawCanLiverData BuildNotifyDrawCanLiverData(Player player) =>
+            BuildNotifyDrawCanLiverData(player, DateTimeOffset.UtcNow);
+
+        internal static NotifyDrawCanLiverData BuildNotifyDrawCanLiverData(Player player, DateTimeOffset now)
+        {
+            DrawCanLiverActivityTable? activity = TableReaderV2.Parse<DrawCanLiverActivityTable>()
+                .Where(row => ActivityScheduleService.IsOpen(row.TimeId, now))
+                .OrderByDescending(row => row.Id)
+                .FirstOrDefault();
+
+            // The Lua consumer dereferences DrawCanLiverData, so inactive windows retain
+            // the nested zero/empty state rather than emitting a null payload.
+            return new()
+            {
+                DrawCanLiverData = new()
+                {
+                    ActivityId = activity?.Id ?? 0,
+                    DrawCount = activity is null ? 0 : DrawManager.GetProgressForDrawIds(player, activity.DrawIds),
+                    // Claimed milestone state has no durable model yet.
+                    RewardIndex = []
+                }
+            };
+        }
+
 
 
         [RequestPacketHandler("DrawGetDrawGroupListRequest")]
@@ -247,7 +283,7 @@ namespace AscNet.GameServer.Handlers
         {
             DrawGetDrawGroupListResponse rsp = new()
             {
-                DrawGroupInfoList = DrawManager.GetDrawGroupInfos(session.player.PlayerData.Id),
+                DrawGroupInfoList = DrawManager.GetDrawGroupInfos(session.player),
                 DrawAdjustActivityInfoList = DrawManager.GetDrawAdjustActivityInfos()
             };
 
@@ -276,14 +312,14 @@ namespace AscNet.GameServer.Handlers
         {
             DrawGroupGetHistoryRequest request = packet.Deserialize<DrawGroupGetHistoryRequest>();
             (int bottomTimes, int maxBottomTimes) = DrawManager.GetDrawHistoryStatus(
-                session.player.PlayerData.Id,
+                session.player,
                 request.GroupId,
                 request.GroupSubType
             );
 
             session.SendResponse(new DrawGroupGetHistoryResponse
             {
-                HistoryRewardList = DrawManager.GetDrawHistory(session.player.PlayerData.Id, request.GroupId, request.GroupSubType)
+                HistoryRewardList = DrawManager.GetDrawHistory(session.player, request.GroupId, request.GroupSubType)
                     .Select(entry => new DrawHistoryReward
                     {
                         RewardGoods = entry.RewardGoods,
@@ -301,7 +337,7 @@ namespace AscNet.GameServer.Handlers
             DrawGetDrawInfoListRequest request = packet.Deserialize<DrawGetDrawInfoListRequest>();
 
             DrawGetDrawInfoListResponse rsp = new();
-            rsp.DrawInfoList.AddRange(DrawManager.GetDrawInfosByGroup(request.GroupId, session.player.PlayerData.Id));
+            rsp.DrawInfoList.AddRange(DrawManager.GetDrawInfosByGroup(request.GroupId, session.player));
 
             session.SendResponse(rsp, packet.Id);
         }
@@ -310,10 +346,14 @@ namespace AscNet.GameServer.Handlers
         public static void DrawSetUseDrawIdRequestHandler(Session session, Packet.Request packet)
         {
             DrawSetUseDrawIdRequest request = packet.Deserialize<DrawSetUseDrawIdRequest>();
+            int switchCount = DrawManager.SetUseDrawId(session.player, request.DrawId);
+            if (switchCount > 0)
+                session.player.Save();
 
             session.SendResponse(new DrawSetUseDrawIdResponse
             {
-                SwitchDrawIdCount = DrawManager.SetUseDrawId(session.player.PlayerData.Id, request.DrawId)
+                Code = switchCount > 0 ? 0 : 1,
+                SwitchDrawIdCount = switchCount
             }, packet.Id);
         }
 
@@ -323,7 +363,7 @@ namespace AscNet.GameServer.Handlers
             DrawDrawCardRequest request = packet.Deserialize<DrawDrawCardRequest>();
             long playerId = session.player.PlayerData.Id;
             int drawCount = request.Count <= 0 ? 1 : Math.Min(request.Count, 10);
-            DrawInfo? initialDrawInfo = DrawManager.GetDrawInfoById(request.DrawId, playerId);
+            DrawInfo? initialDrawInfo = DrawManager.GetDrawInfoById(request.DrawId, session.player);
             if (initialDrawInfo is null)
             {
                 session.SendResponse(new DrawDrawCardResponse { Code = 1 }, packet.Id);
@@ -335,7 +375,8 @@ namespace AscNet.GameServer.Handlers
             long availableCost = requiredCost > 0
                 ? (session.inventory.Items.FirstOrDefault(item => item.Id == costItemId)?.Count ?? 0)
                 : 0;
-            if (requiredCost < 0
+            if ((request.UseDrawTicketId != 0 && request.UseDrawTicketId != initialDrawInfo.UseItemId)
+                || requiredCost < 0
                 || requiredCost > int.MaxValue
                 || (requiredCost > 0 && (!Inventory.IsValidClientItemId(costItemId) || availableCost < requiredCost)))
             {
@@ -346,7 +387,7 @@ namespace AscNet.GameServer.Handlers
             DrawDrawCardResponse rsp = new() { Code = 0 };
             for (int i = 0; i < drawCount; i++)
             {
-                rsp.RewardGoodsList.AddRange(DrawManager.DrawDraw(session.player.PlayerData.Id, request.DrawId, i));
+                rsp.RewardGoodsList.AddRange(DrawManager.DrawDraw(session.player, request.DrawId, i));
             }
             if (rsp.RewardGoodsList.Count < drawCount)
             {
@@ -366,7 +407,7 @@ namespace AscNet.GameServer.Handlers
             List<Reward> rewards = RewardHandler.ResolveRewards(drawRewards, session);
             rsp.RewardGoodsList = rewards.Select(ToDrawRewardGoods).ToList();
 
-            DrawInfo? drawInfo = DrawManager.ApplyDrawProgress(playerId, request.DrawId, drawCount);
+            DrawInfo? drawInfo = DrawManager.ApplyDrawProgress(session.player, request.DrawId, drawCount);
             if (drawInfo is not null)
             {
                 rsp.ClientDrawInfo = drawInfo;
@@ -408,18 +449,30 @@ namespace AscNet.GameServer.Handlers
                     $"breakthrough={reward.Breakthrough}");
             }
 
-            DrawManager.RecordDrawHistory(session.player.PlayerData.Id, request.DrawId, rsp.RewardGoodsList);
+            DrawManager.RecordDrawHistory(session.player, request.DrawId, rsp.RewardGoodsList);
 
             RewardHandler.GiveRewards(rewards, session);
             session.inventory.Save();
             session.character.Save();
+            session.player.Save();
             session.SendResponse(rsp, packet.Id);
         }
 
         [RequestPacketHandler("LottoInfoRequest")]
         public static void LottoInfoRequestHandler(Session session, Packet.Request packet)
         {
-            session.SendResponse(RetailLottoInfo.Value, packet.Id);
+            LottoInfoResponse response = new();
+            if (LottoManager.TryBuildInfo(session.player, out LottoInfoResponse.LottoInfo info))
+            {
+                response.Code = 0;
+                response.LottoInfos.Add(info);
+            }
+            else
+            {
+                response.Code = DrawManager.CatalogUnavailableCode;
+            }
+
+            session.SendResponse(response, packet.Id);
         }
 
         [RequestPacketHandler("GetGachaInfoRequest")]
@@ -493,15 +546,6 @@ namespace AscNet.GameServer.Handlers
             return CharacterMinQualityById.Value.ContainsKey(characterId);
         }
 
-        private static LottoInfoResponse LoadLottoInfoResponse()
-        {
-            JObject snapshot = JsonSnapshot.LoadObject(LottoSnapshotPath);
-            return new LottoInfoResponse
-            {
-                Code = JsonSnapshot.ReadInt(snapshot, "Code"),
-                LottoInfos = JsonSnapshot.ReadDynamicList(snapshot["LottoInfos"])
-            };
-        }
 
     }
 }

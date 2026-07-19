@@ -1,0 +1,90 @@
+Id	WeaponId	Level	LevelName	ConsumeItemIds[1]	ConsumeItemCounts[1]	OverrunType	ChipBindType	ActiveSuitItemId	ActiveSuitItemCount	Desc	Ability	ShowOverrunEffect	Name	UiNodePosX[1]	UiNodePosX[2]	UiNodePosX[3]	UiNodePosX[4]	UiNodePosX[5]	UiNodePosX[6]	UiNodePosX[7]	UiNodePosY[1]	UiNodePosY[2]	UiNodePosY[3]	UiNodePosY[4]	UiNodePosY[5]	UiNodePosY[6]	UiNodePosY[7]	UiLinePointList[1]	UiLinePointList[2]	UiLinePointList[3]	UiLinePointList[4]	UiLinePointList[5]	UiLinePointList[6]	UiLinePointList[7]	SelectedCameraPosX	SelectedCameraPosY	SelectedCameraPosZ	SelectedCameraRotX	MagicIds[1]	ShowOverrunSkillId	CharacterId	SelectedCameraRotY	SelectedCameraRotZ	UpSkillGroupId	UpSkillGroupLevel
+1	2016001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+2	2016002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+3	2016003	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+4	2026001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+5	2026002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+6	2026003	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+7	2026004	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+8	2026005	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+9	2026006	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+10	2036001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+11	2036002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+12	2036003	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+13	2046001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+14	2046002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+15	2056001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+16	2056002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+17	2066001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+18	2066002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+19	2076001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+20	2076002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+21	2086001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+22	2086002	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+23	2096001	1	1	34000	25	1		47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+24	2096002	1	1	34000	25	1		47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+25	2096003	1	1	34000	25	1		47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+26	2106001	1	1	34000	25	1	2	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+27	2116001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+28	2126001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+29	2136001	1	1	34000	25	1	2	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+30	2146001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+31	2156001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+32	2166001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+33	2176001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+34	2186001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+35	2196001	1	1	34000	25	1	2	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+36	2206001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+37	2216001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+38	2226001	1	1	34000	25	1	2	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+39	2236001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+40	2246001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+41	2256001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+42	2266001	1	1	34000	25	1	2	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+43	2276001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+44	2286001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+45	2296001	1	1	34000	25	1	2	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+46	2306001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+47	2316001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+48	2326001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+49	2336001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+50	2346001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+51	2356001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+52	2366001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+53	2376001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+54	2046003	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+55	2386001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+56	2396001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+57	2406001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+58	2416001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+59	2426001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+60	2436001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+61	2446001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+62	2456001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+63	2466001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+64	2476001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+65	2486001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+66	2496001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+67	2506001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+68	2516001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+69	2526001	1	1	34000	25	1	1	47	1200	Piece count for Memory Set effects +2	90	1	Harmony Absorption	-668.0	-631.2999						107.3	249.0						494.8,151|243.36,7.78|188,7.78	520.21,115.8|243.36,7.78|188,7.78						0.3689	0.4	-24.1	2.25							
+70	2536001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+71	2546001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+72	2556001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+73	2566001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+74	2576001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+75	2586001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+76	2596001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+77	2606001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+78	2616001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+79	2626001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+80	2636001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+81	2646001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+82	2656001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		
+83	2526001	2	2	34001	25	2				Obtain Harmony Skill — Frostbound Finale	90	1	Harmony Awakening	234.3	235.8	218.1999					247.8	99.4	215.3999					-462.21,-125.4|-234.6,0|-196.27,0	-301,0|-196.27,0	-569.5,-66.5|-232.7,0|-196.27,0					-0.3808	-0.7911	-21.5736	-25.0774	117538	1	1531005	18.5643	0.6338		
+84	2526001	3	2_1	34001	5	3				Core Passive: Classical Romanticism +1			Core Harmony — 1	97.3	130.3	208.8999	244.0				-215.5	-272.2	-178.1999	257.6				-496.94,127.6|-194.3,2.3|-149.31,2.3	-819.2,270.7|-225.1,2.3|-149.31,2.3	-733.74,144.7|-214.1,2.3|-149.31,2.3	-715.12,-401.3|-232.2,2.3|-149.31,2.3				0.1266	0.1826	-22.3013	2.3903			1531005	2.0265	-3.9964	1535210	1
+85	2526001	4	2_2	34001	5	3				Core Passive: Classical Romanticism +1			Core Harmony — 2			-608.89	-674.0999	-541.0999					157.0	-288.2999	-323.7999					225.43,-553.9|172,15.8|139,15.8	545.6,-217.1|197,15.8|139,15.8	553.6,-201.9|197,15.8|139,15.8			0.8113	-0.7896	-21.4414	-19.9232			1531005	-20.2796	-44.8978	1535210	1
+86	2526001	5	2_3	34001	5	3				Core Passive: Classical Romanticism +1			Core Harmony — 3				-737.0	-743.9	-564.2999	-321.5				130.0	71.3	206.6	262.1				262.94,357.8|189,18.5|140.9,18.5	215,278.1|191,18.5|140.9,18.5	256.79,295|194.5,18.5|140.9,18.5	846.66,403.1|219.2,18.5|140.9,18.5	-0.3009	1.4071	-21.5305	31.8264			1531005	14.9245	-62.7462	1535210	1
+87	2526001	6	2_4	34001	5	3				Signature: Fugal Sonata +1			Signature Harmony — 1					142.3	276.0	240.5					248.3	72.4	-188.6					-511.1,125.4|-206.3,3.2|-148.12,3.2	-490.4,129.6|-206.3,3.2|-148.12,3.2	-239.39,216.8|-206.3,3.2|-148.12,3.2	-0.8112	-0.5552	-21.3847	-23.2469			1531005	32.8851	-32.4511	1535170	1
+88	2526001	7	2_5	34001	5	3				Signature: Fugal Sonata +1			Signature Harmony — 2						-644.9	-615.0999						-213.8	-40.5999						679.9,-196.4|194.5,18.5|140.9,18.5	286.52,-461.7|195.8,18.5|140.9,18.5	-0.6251	0.4575	-21.4584	-4.6015			1531005	26.7199	24.891	1535170	1
+89	2666001	1	1	34000	25	1	1	47	1200	Harmony Absorption: Piece count for Memory Set effects +2	90																																		

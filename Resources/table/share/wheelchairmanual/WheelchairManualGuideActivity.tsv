@@ -1,0 +1,13 @@
+Id	Name	Sort	TimeId	ConditionId	IsHideTime	KindId	SkipId	PeriodIds[1]	MainTemplateIds[1]	MainTemplateIds[2]	MainTemplateIds[3]	MainTemplateCounts[1]	MainTemplateCounts[2]	MainTemplateCounts[3]	ActivityIcon	EventCause[1]	EventCause[2]	EventCause[3]	EventCause[4]	EventCause[5]	EventCause[6]	TaskSourceGroupId	ShopId[1]	ShopId[2]
+10001	F.O.S. Rating Center	10	24	770424	1	4	7106	10001	50000	94041	94042	3000	1	1	Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter16.png	112000								
+10002	Member Battle	9	24	774501	1	1	89084	10002	3			0			Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter06.png									
+10003	Simulated Trial	8	24	862862	1	1	89085	10003	3			0			Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter23.png									
+10004	Memory Rescue	96	24	770423	1	1	7204	10004	3			500			Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter04.png	20001	20002							
+10005	Stronghold	98	24	771500	1	1	89086	10005	3	102		4850	1250		Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter13.png	16016	16017	16018				3001		
+10006	Golden Vortex	97	24	774300	1	1	89082	10006	3			1800			Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter05.png	21001	21002							
+10007	Lightning and Thunder	77	24	774800	1	4	89087	10007	50005	102	6003204	750	2000	1	Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter21.png	180001							4008	4009
+10008	Recitativo Di Fantasia	76	24	1002036	1	4	80040	10008	550	50005	6910106	50	500	1	Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter12.png	92004	92008						1193	1194
+10009	Cursed Waves	79	24	1005045	1	2	89088	10009	50005	102	6001506	3500	7500	1	Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter17.png	113000	113001	113002	113004	113005				
+10010	Derived from Matrix	80	24	1020005	1	2	89089	10010	50005	102	40917	3500	7500	1	Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter20.png	191001	191002	191003	191009	191011	191013			
+10011	Awakening Tundra	78	24	1020681	1	4	89090	10011	50005	102	32	3500	7250	49	Assets/Product/Texture/Image/UiFubenChallengeBanner/UiFubenChallengeChapter22.png	202002	202003	202004						
+10012	Circuit Connect	75	24	774800	1	4	82010	10012	50005			350			Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner130.png							3002		

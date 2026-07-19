@@ -4,6 +4,8 @@ using MongoDB.Driver;
 using AscNet.Logging;
 using AscNet.Common.MsgPack;
 using MongoDB.Bson.Serialization.Options;
+using AscNet.Common.Util;
+using AscNet.Table.V2.share.headportrait;
 
 namespace AscNet.Common.Database
 {
@@ -288,10 +290,27 @@ namespace AscNet.Common.Database
         public long EndTime { get; set; }
     }
 
-    public class Player
+    public partial class Player
     {
         public static readonly IMongoCollection<Player> collection = Common.db.GetCollection<Player>("players");
         private static readonly Logger log = new(typeof(Player), LogLevel.WARN, LogLevel.WARN);
+
+        public static void EnsureLeaderboardIndexes()
+        {
+            collection.Indexes.CreateOne(
+                new CreateIndexModel<Player>(
+                    Builders<Player>.IndexKeys
+                        .Ascending(player => player.Theatre6.Pvp.AuthorizedSeasonId)
+                        .Ascending(player => player.Theatre6.Pvp.InitializedSeasonId)
+                        .Descending(player => player.Theatre6.Pvp.Score)
+                        .Ascending(player => player.PlayerData.Id),
+                    new CreateIndexOptions
+                    {
+                        Name = "theatre6_pvp_season_score_player",
+                        Sparse = true
+                    }));
+            BossInshotRankEntry.EnsureIndexes();
+        }
 
         public static Player FromPlayerId(long id)
         {
@@ -318,6 +337,12 @@ namespace AscNet.Common.Database
 
         private static Player Create(long id)
         {
+            List<HeadPortraitTable> initialHeads = TableReaderV2.Parse<HeadPortraitTable>()
+                .Where(head => head.IsInit == 1)
+                .ToList();
+            int initialPortraitId = initialHeads
+                .Where(head => head.Type == 1)
+                .MaxBy(head => head.Priority)?.Id ?? 0;
             Player player = new()
             {
                 Token = Guid.NewGuid().ToString(),
@@ -334,7 +359,7 @@ namespace AscNet.Common.Database
                     HonorLevel = 1,
                     ServerId = "1",
                     CurrTeamId = 1,
-                    CurrHeadPortraitId = 9000003,
+                    CurrHeadPortraitId = initialPortraitId,
                     CurrHeadFrameId = 0,
                     CurrMedalId = 0,
                     CurrentChatBoardId = 25000001,
@@ -372,9 +397,8 @@ namespace AscNet.Common.Database
                 },
                 FubenMainLineData = new(),
             };
-            player.AddHead(9000001);
-            player.AddHead(9000002);
-            player.AddHead(9000003);
+            foreach (HeadPortraitTable head in initialHeads)
+                player.AddHead(head.Id);
             
             collection.InsertOne(player);
 
@@ -383,6 +407,9 @@ namespace AscNet.Common.Database
 
         public void AddHead(int id)
         {
+            if (HeadPortraits.Any(head => head.Id == id))
+                return;
+
             HeadPortraits.Add(new()
             {
                 Id = id,
@@ -470,6 +497,18 @@ namespace AscNet.Common.Database
         public void Save()
         {
             collection.ReplaceOne(Builders<Player>.Filter.Eq(x => x.Id, Id), this);
+        }
+
+        public void SaveChecked()
+        {
+            ReplaceOneResult result = collection.ReplaceOne(
+                Builders<Player>.Filter.Eq(x => x.Id, Id),
+                this);
+            if (!result.IsAcknowledged || result.MatchedCount != 1)
+            {
+                string matchCount = result.IsAcknowledged ? result.MatchedCount.ToString() : "unacknowledged";
+                throw new MongoException($"Player save for id {PlayerData.Id} matched {matchCount} documents.");
+            }
         }
 
         [BsonId]

@@ -1,0 +1,80 @@
+Id	Name	Desc	Icon	BuffTriggerType	BuffEffectType	BuffEffectParams[1]	BuffEffectParams[2]	BuffEffectParams[3]	BuffEffectParams[4]	DurationType	DeathType	DebuffType	Limit	BuffTriggerParams[1]	BuffTriggerParams[2]	BuffTriggerParams[3]	IsCount	DescParams[1]	DescParams[2]	IsNotShow	DurationValues[1]
+1	Steeled Resolve	Starts with 1 <Icon=IconAnger|45|45|0.5/>Rage Skill.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon23.png	7	5	1				5	1	1	1								
+2	Etched Edge	Increases <Icon=IconAttr01|45|45|0.5/>Attack by 1 for every 60 <Icon=IconGood01|45|45|0.5/>Sealed Omens obtained.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon09.png	2	7	1	1			1	2	1	99	1	60		1				
+3	Manifest Will	Increases <Icon=IconAttr02|45|45|0.5/>HP by 500 for every mission completed.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon25.png	11	7	2	500			1	2	1	3				1				
+4	Tempered Edge	Starts with 1 <Icon=IconBurning|45|45|0.5/>Ignite Skill.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon23.png	7	5	2				5	1	1	1								
+5	Essence Harvest	Increases <Icon=IconAttr02|45|45|0.5/>HP by 100 for every 25 <Icon=IconGood02|45|45|0.5/>Abyssal Secrets obtained.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon11.png	2	7	2	100			1	2	1	99	2	25		1				
+6	Rending Breath	Increase <Icon=IconAttr02|45|45|0.5/>HP by 65\nwhen swiping left in the Labyrinth.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon25.png	1	7	2	65			1	2	1	1	1	1		1				
+7	Radiant Awakening	Start with 1 <Icon=IconSun|45|45|0.5/>Dawnbreak Skill	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon23.png	7	5	6				5	1	1	1								
+8	Crimson Forge	Each time {0} <Icon=IconGood03|45|45|0.5/>Scarlet Visions are obtained, <Icon=IconAttr02|45|45|0.5/>HP +{1}	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon13.png	2	7	2	100			1	2	1	99	3	25		1	25	100		
+9	Quenched Edge	Each time a Relic is obtained, <Icon=IconAttr01|45|45|0.5/>ATK +{0}	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon23.png	10	7	1	3			1	2	1	1				1	3			
+53	Star Up	Gains 1 skill star-up chance.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon27.png	7	12	1	1			9	1	1	1								
+1001	Whispers I	Reduces <Icon=IconAttr02|45|45|0.5/>HP by 15% upon entering battle.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon2601.png	7	8	1025195				8	1	2	1								
+1002	Whispers II	Reduces <Icon=IconAttr02|45|45|0.5/>HP by 30% upon entering battle.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon2602.png	7	8	1025196				8	1	2	1								
+1003	Whispers III	Reduces <Icon=IconAttr02|45|45|0.5/>HP by 45% upon entering battle.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon2603.png	7	8	1025197				8	1	2	1								
+1004	Whispers IV	Reduces <Icon=IconAttr02|45|45|0.5/>HP by 60% upon entering battle.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon2604.png	7	8	1025198				8	1	2	1								
+1005	Whispers V	Reduces <Icon=IconAttr02|45|45|0.5/>HP by 75% upon entering battle.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon2605.png	7	8	1025199				8	1	2	1								
+1006	Maddening Whispers	Reduces Vitality by 1. Increases <Icon=IconSan|45|45|0.5/>Sanity by 70.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon26.png	7	6	-1				8	1	2	1							1	
+1007	Maddening Whispers	Reduces Vitality by 1. Increases <Icon=IconSan|45|45|0.5/>Sanity by 70.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon26.png	7	2	1	70			8	1	2	1							1	
+1008	Sanity Normal	Everything looks perfectly normal, doesn't it?	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon25.png	7	2	1	0			8	1	2	1							1	
+1010				7	11	1				8	1	2	1							1	
+1011				7	11	2				8	1	2	1							1	
+1012				7	11	3				8	1	2	1							1	
+2000			Assets/Product/Texture/Image/UiCollection/Iconcollection024.png	1	7	1	2	2	24	1	2	1	1	3	1					1	
+3000	Corrupt I	Loses an additional 2 <Icon=IconSan|45|45|0.5/>Sanity whenever Sanity decreases.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon2801.png	3	2	1	-2			8	1	2	1	4	0	2	1				
+3001	Corrupt II	Loses an additional 4 <Icon=IconSan|45|45|0.5/>Sanity whenever Sanity decreases.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon2802.png	3	2	1	-4			8	1	2	1	4	0	2	1				
+3500	Echo: Material	Materials obtained increased by 20%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon27.png	7	4	3600	3601	3602	3603	8	1	1	1								
+3501	Echo: Sealed Omen I	<Icon=IconGood01|45|45|0.5/>Sealed Omens obtained on this floor increased by 50%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon09.png	3	9	500				6	1	1	1	2	1	1	1				1
+3502	Echo: Abyssal Secret I	<Icon=IconGood02|45|45|0.5/>Abyssal Secrets obtained on this floor increased by 50%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon11.png	3	9	500				6	1	1	1	2	2	1	1				1
+3503	Echo: Scarlet Vision I	<Icon=IconGood03|45|45|0.5/>Scarlet Visions obtained on this floor increased by 50%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon13.png	3	9	500				6	1	1	1	2	3	1	1				1
+3504	Echo: Spectral Artifact I	<Icon=IconGood04|45|45|0.5/>Spectral Artifacts obtained on this floor increased by 50%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon15.png	3	9	500				6	1	1	1	2	4	1	1				1
+3505	Echo: Sealed Omen II	<Icon=IconGood01|45|45|0.5/>Sealed Omens obtained on this floor increased by 80%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon09.png	3	9	800				6	1	1	1	2	1	1	1				1
+3506	Echo: Abyssal Secret II	<Icon=IconGood02|45|45|0.5/>Abyssal Secrets obtained on this floor increased by 80%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon11.png	3	9	800				6	1	1	1	2	2	1	1				1
+3507	Echo: Scarlet Vision II	<Icon=IconGood03|45|45|0.5/>Scarlet Visions obtained on this floor increased by 80%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon13.png	3	9	800				6	1	1	1	2	3	1	1				1
+3508	Echo: Spectral Artifact II	<Icon=IconGood04|45|45|0.5/>Spectral Artifacts obtained on this floor increased by 80%.	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon15.png	3	9	800				6	1	1	1	2	4	1	1				1
+3600				3	9	200				8	1	1	1	2	1	1				1	
+3601				3	9	200				8	1	1	1	2	2	1				1	
+3602				3	9	200				8	1	1	1	2	3	1				1	
+3603				3	9	200				8	1	1	1	2	4	1				1	
+4000	Gain Sanity	Gain 30 Sanity	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon27.png	7	2	1	30			5	1	2	1							1	
+4001	Lose Sanity	Lose 30 Sanity	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6Icon28.png	7	2	1	-30			5	1	2	1							1	
+10001										3	1		1							1	1
+10002										3	1		1							1	1
+10003										3	1		1							1	1
+10004										3	1		1							1	1
+1025201				7	8	1025201				1	1		1							1	
+1025203				7	8	1025203				1	1		1							1	
+1025205				7	8	1025205				1	1		1							1	
+1025207				7	8	1025207				1	1		1							1	
+1025209				7	8	1025209				1	1		1							1	
+1025211				7	8	1025211				1	1		1							1	
+1025213				7	8	1025213				1	1		1							1	
+1025215				7	8	1025215				1	1		1							1	
+1025217				7	8	1025217				1	1		1							1	
+1025219				7	8	1025219				1	1		1							1	
+1025221				7	8	1025221				1	1		1							1	
+1025223				7	8	1025223				1	1		1							1	
+1025225				7	8	1025225				1	1		1							1	
+1025227				7	8	1025227				1	1		1							1	
+1025301				7	8	1025301				1	1		1							1	
+1025303				7	8	1025303				1	1		1							1	
+1025305				7	8	1025305				1	1		1							1	
+1025307				7	8	1025307				1	1		1							1	
+1025309				7	8	1025309				1	1		1							1	
+1025311				7	8	1025311				1	1		1							1	
+1025313				7	8	1025313				1	1		1							1	
+1025315				7	8	1025315				1	1		1							1	
+1025401				7	8	1025401				1	1		1							1	
+1025403				7	8	1025403				1	1		1							1	
+1025405				7	8	1025405				1	1		1							1	
+1025407				7	8	1025407				1	1		1							1	
+1025409				7	8	1025409				1	1		1							1	
+1025411				7	8	1025411				1	1		1							1	
+1025413				7	8	1025413				1	1		1							1	
+1025501				7	8	1025501				1	1		1							1	
+1025503				7	8	1025503				1	1		1							1	
+1025505				7	8	1025505				1	1		1							1	
+1025507				7	8	1025507				1	1		1							1	
+1025509				7	8	1025509				1	1		1							1	
+1025511				7	8	1025511				1	1		1							1	
+1025513				7	8	1025513				1	1		1							1	

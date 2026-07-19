@@ -30,16 +30,16 @@ LOCAL_KRSDK_OAUTH_CODE = "ascnet-local-oauth-code"
 CONFIG_SMOKE_TARGETS = [
     (
         "global-client",
-        "/prod/client/config/1PULT16iP8RkFUfd/com.kurogame.punishing.grayraven.en/4.5.0/standalone/config.tab",
+        "/prod/client/config/9jY3H6OqsppPLu31/com.kurogame.punishing.grayraven.en/4.6.0/standalone/config.tab",
         "Channel\tint\t5",
     ),
     (
         "steam-pc-package",
-        "/prod/client/config/1PULT16iP8RkFUfd/com.kurogame.pc.punishing.grayraven.en/4.5.0/standalone/config.tab",
+        "/prod/client/config/9jY3H6OqsppPLu31/com.kurogame.pc.punishing.grayraven.en/4.6.0/standalone/config.tab",
         "Channel\tint\t205",
     ),
 ]
-CURRENT_DOCUMENT_VERSION = "4.5.12"
+CURRENT_DOCUMENT_VERSION = "4.6.7"
 
 
 def parse_args() -> argparse.Namespace:
@@ -246,7 +246,7 @@ def smoke_config_target(sdk_url: str, timeout: float, label: str, path: str, cha
             with urllib.request.urlopen(url, timeout=2.0) as response:
                 body = response.read().decode("utf-8", errors="replace")
             required = [
-                "ApplicationVersion\tstring\t4.5.0",
+                "ApplicationVersion\tstring\t4.6.0",
                 f"DocumentVersion\tstring\t{CURRENT_DOCUMENT_VERSION}",
                 f"LaunchModuleVersion\tstring\t{CURRENT_DOCUMENT_VERSION}",
                 channel_assertion,
@@ -531,6 +531,7 @@ def main() -> int:
             mongod = resolve_mongod(args.mongod)
             dbpath = (ROOT / args.mongo_dbpath).resolve()
             dbpath.mkdir(parents=True, exist_ok=True)
+            logpath = dbpath.parent / "mongod.log"
             mongo = popen([
                 mongod,
                 "--dbpath",
@@ -539,6 +540,9 @@ def main() -> int:
                 args.mongo_host,
                 "--port",
                 str(args.mongo_port),
+                "--logpath",
+                str(logpath),
+                "--logappend",
                 "--quiet",
             ], env=env)
             processes.append(mongo)

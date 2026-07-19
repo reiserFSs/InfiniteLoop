@@ -1,0 +1,65 @@
+Id	Score	Desc	Order	Type	TipsDesc	TipsScore
+10011	1	Percentage of Rating S time (Detected and Calculated Every Second)	64			
+10012	1	Percentage of Rating S time (Detected and Calculated Every Second)	63			
+10013	1	Percentage of Rating S time (Detected and Calculated Every Second)	62			
+10021	1	Percentage of Rating SS time	61			
+10022	1	Percentage of Rating SS time	60			
+10023	1	Percentage of Rating SS time	59			
+10031	2	Percentage of Rating SSS time	58			
+10032	2	Percentage of Rating SSS time	57			
+10033	2	Percentage of Rating SSS time	56			
+10041	2	Percentage of Rating SSS+ time	55			
+10042	2	Percentage of Rating SSS+ time	54			
+10043	2	Percentage of Rating SSS+ time	53			
+10091	3	Launch a Basic Attack to counterattack Xs after a successful dodge	52			
+10101	3	Perform Signature to counterattack Xs after a successful dodge	51			
+10111	7	Ping to counterattack Xs after a successful dodge	50			
+10051	42000	Reach Rating A in Combat	49	1	Reach Rating A in Combat	4200
+10061	63000	Reach Rating S in Combat	48	1	Reach Rating S in Combat	6300
+10071	84000	Reach Rating SS in Combat	47	1	Reach Rating SS in Combat	8400
+10081	126000	Reach Rating SSS in Combat	46	1	Reach Rating SSS in Combat	12600
+10121		Use only Basic Attacks	45			
+10151	1	Use Signature only	44			
+10181	1	Only pings	43			
+10122	1	No use of Basic Attacks	42			
+10155	1	No use of Signature	41			
+10188	1	No pings	40			
+10131	1	Launch more than X attacks	39			
+10132	1	Launch more than X attacks	38			
+10133	1	Launch more than X attacks	37			
+10161	1	Perform Signature more than X times	36			
+10162	1	Perform Signature more than X times	35			
+10163	1	Perform Signature more than X times	34			
+10191	1	Cast X Ping Skills	33			
+10192	1	Cast X Ping Skills	32			
+10193	1	Cast X Ping Skills	31			
+10171	2500	Perform Signature less than 9 times	30	2	Perform Signature less than 9 times	Total Points +25%
+10172	2000	Less than 6 Signature Moves	29	2	Less than 6 Signature Moves	Total Points +20%
+10173	1000	Less than 4 Signature Moves	28	2	Less than 4 Signature Moves	Total points increase by 10%.
+10201	1	Only performed 3-Pings in battle	27			
+10202	1	Use X 3-Ping(s) in battle	26			
+10203	1	Use X 3-Ping(s) in battle	25			
+10204	1	Use X 3-Ping(s) in battle	24			
+20201	1	Only used orbs of one color	23			
+20202	1	Use orbs of two colors	22			
+20203	1	Use orbs of all colors	21			
+10221	2500	Take less than 30 hits	20	2	Take less than 30 hits	Total Points +25%
+10222	2000	Take less than 15 hits	19	2	Take less than 15 hits	Total points increase by 20%.
+10223	2000	Take less than 5 hits	18	2	Take less than 5 hits	Total Points +20%
+10224	1	Take less than 3 hits	17			
+10211	1500	Take no damage	16	2	Take no damage	Total Points +15%
+10231	1	Avoid getting hit for Xs	15			
+10241	84000	Deal more than 400 combos	14	1	Deal more than 400 combos	8400
+10242	63000	Deal more than 300 combos	13	1	Deal more than 300 combos	6300
+10243	63000	Deal more than 200 combos	12	1	Deal more than 200 combos	6300
+10251	2500	Combos cannot be interrupted after passing 100	11	2	Combos cannot be interrupted after passing 100	Total Points +25%
+10261	1	Stay more than Xm away from the enemy for Ys	10			
+10271	1	Dodges	9			
+10281	1	Parries	8			
+10291	1	{0} damage dealt at Rating C	7			Earn 0.1 for every point of damage
+10301	2	{0} damage dealt at Rating C	6	1	Deal damage at Rating C	Earn 0.2 for every point of damage
+10311	3	{0} damage dealt at Rating B	5	1	Deal damage at Rating B	Earn 0.3 for every point of damage
+10321	4	{0} damage dealt at Rating A	4	1	Deal damage at Rating A	Earn 0.4 for every point of damage
+10331	5	{0} damage dealt at Rating S	3	1	Deal damage at Rating S	Earn 0.5 for every point of damage
+10341	6	{0} damage dealt at Rating SS	2	1	Deal damage at Rating SS	Earn 0.6 for every point of damage
+10351	7	{0} damage dealt at Rating SSS	1	1	Deal damage at Rating SSS	Earn 0.7 for every point of damage

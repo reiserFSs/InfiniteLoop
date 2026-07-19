@@ -11,7 +11,7 @@ namespace AscNet.GameServer.Commands
 
         public BlackCardCommand(Session session, string[] args, bool validate = true) : base(session, args, validate) { }
 
-        public override string Help => "Grant Black Cards to the current online player. Usage: bc [amount|max]; default is 30000.";
+        public override string Help => "Grant Black Cards to the current online player. Defaults to 30000.";
 
         [Argument(0, @"^[1-9][0-9]*$|^max$", "Black Card amount to grant, or max", ArgumentFlags.Optional | ArgumentFlags.IgnoreCase)]
         string Amount { get; set; } = string.Empty;

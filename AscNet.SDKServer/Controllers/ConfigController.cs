@@ -79,18 +79,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "LoginNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            LoginNotice notice = new()
-            {
-                BeginTime = 0,
-                EndTime = 0,
-                HtmlUrl = "/",
-                Id = "1",
-                ModifyTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
-                Title = "NOTICE",
-                LoginPlatformList = DefaultLoginPlatforms()
-            };
-
-            return SerializeAndLog(notice);
+            return SerializeAndLog(null);
         }
 
         private static string HandleScrollTextNoticeRequest(HttpContext ctx)
@@ -98,21 +87,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "ScrollTextNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            ScrollTextNotice notice = new()
-            {
-                Id = "1",
-                ModifyTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
-                BeginTime = 0,
-                EndTime = 0,
-                Content = "[ANNOUNCEMENT] There is no announcement.",
-                ScrollInterval = 300,
-                ScrollTimes = 15,
-                ShowInFight = 1,
-                ShowInPhotograph = 1,
-                LoginPlatformList = DefaultLoginPlatforms()
-            };
-
-            return SerializeAndLog(notice);
+            return SerializeAndLog(null);
         }
 
         private static string HandleScrollPicNoticeRequest(HttpContext ctx)
@@ -120,32 +95,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "ScrollPicNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            ScrollPicNotice notice = new()
-            {
-                Id = "1",
-                ModifyTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
-                Content =
-                [
-                    new ScrollPicNotice.NoticeContent()
-                    {
-                        Id = 0,
-                        PicAddr = "0",
-                        JumpType = "0",
-                        JumpAddr = "0",
-                        PicType = "0",
-                        Interval = 5,
-                        BeginTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
-                        EndTime = DateTimeOffset.Now.ToUnixTimeSeconds() + 3600 * 24,
-                        AppearanceCondition = Array.Empty<dynamic>(),
-                        AppearanceDay = Array.Empty<dynamic>(),
-                        AppearanceTime = Array.Empty<dynamic>(),
-                        DisappearanceCondition = Array.Empty<dynamic>(),
-                    }
-                ],
-                LoginPlatformList = DefaultLoginPlatforms()
-            };
-
-            return SerializeAndLog(notice);
+            return SerializeAndLog(null);
         }
 
         private static string HandleGameNoticeRequest(HttpContext ctx)
@@ -162,13 +112,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "SecondMenuNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            return SerializeAndLog(new
-            {
-                Id = "ascnet-empty-second-menu",
-                ModifyTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
-                Content = Array.Empty<object>(),
-                LoginPlatformList = DefaultLoginPlatforms()
-            });
+            return SerializeAndLog(null);
         }
 
         private static string HandlePopUpPicNoticeRequest(HttpContext ctx)
@@ -176,13 +120,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "PopUpPicNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            return SerializeAndLog(new
-            {
-                Id = "ascnet-empty-popup-pic",
-                ModifyTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
-                Content = Array.Empty<object>(),
-                LoginPlatformList = DefaultLoginPlatforms()
-            });
+            return SerializeAndLog(null);
         }
 
         private static IResult HandleNoticePicRequest(HttpContext ctx)
@@ -193,10 +131,38 @@ namespace AscNet.SDKServer.Controllers
             {
                 string path = Path.Combine(versionDirectory, "client", "notice", "pic", fileName);
                 if (File.Exists(path))
-                    return Results.File(File.ReadAllBytes(path), "image/png");
+                {
+                    byte[] image = File.ReadAllBytes(path);
+                    return Results.File(image, NoticeImageMediaType(image));
+                }
             }
 
             return Results.NotFound();
+        }
+
+        private static string NoticeImageMediaType(ReadOnlySpan<byte> image)
+        {
+            if (image.Length >= 8
+                && image[0] == 0x89
+                && image[1] == 0x50
+                && image[2] == 0x4E
+                && image[3] == 0x47
+                && image[4] == 0x0D
+                && image[5] == 0x0A
+                && image[6] == 0x1A
+                && image[7] == 0x0A)
+            {
+                return "image/png";
+            }
+
+            if (image.Length >= 12
+                && image[..4].SequenceEqual("RIFF"u8)
+                && image.Slice(8, 4).SequenceEqual("WEBP"u8))
+            {
+                return "image/webp";
+            }
+
+            return "application/octet-stream";
         }
 
         private static IResult HandleNoticeHtmlRequest(HttpContext ctx)
@@ -514,12 +480,8 @@ namespace AscNet.SDKServer.Controllers
             return true;
         }
 
-        private static int[] DefaultLoginPlatforms()
-        {
-            return [0, 1, 2];
-        }
 
-        private static string SerializeAndLog(object value)
+        private static string SerializeAndLog(object? value)
         {
             string serializedObject = JsonConvert.SerializeObject(value);
             SDKServer.log.Info(serializedObject);

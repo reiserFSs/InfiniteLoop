@@ -7,13 +7,20 @@ namespace AscNet.GameServer.Handlers;
 
 internal static class CurrentClientStudyTables
 {
-    internal const string ClientVersion = "4.5.0";
+    internal const string ClientVersion = "4.6.0";
     internal const int PracticeChapterCount = 8;
-    internal const int StudyStageCount = 461;
+    internal const int PracticeGroupCount = 88;
+    internal const int PracticeActivityCount = 250;
+    internal const int TeachingActivityCount = 49;
+    internal const int TeachingRobotCount = 142;
+    internal const int StudyStageCount = 467;
     internal const int StageLevelControlCount = 141;
-    internal const int RobotCount = 167;
+    internal const int RobotCount = 170;
+    private const int ProgressionEdgeCount = 255;
+    private const int ProgressionChainCount = 212;
 
-    private const string ResourcePath = "Configs/study_compatibility_4.5.0.json";
+    private const string SourceRevision = "bb3c34765c9d9c1c542079d536a17e82b27f3245";
+    private const string ResourcePath = "Configs/study_compatibility_4.6.0.json";
     private static readonly Lazy<Catalog> Data = new(Load, LazyThreadSafetyMode.ExecutionAndPublication);
     internal static bool TryGetStage(long stageId, out StageTable stage)
     {
@@ -98,29 +105,38 @@ internal static class CurrentClientStudyTables
         if (!string.Equals(clientVersion, ClientVersion, StringComparison.Ordinal))
             throw new InvalidDataException($"{ResourcePath}: expected client version {ClientVersion}, got {clientVersion}.");
 
+        string sourceRevision = root.Value<string>("SourceRevision")
+            ?? throw new InvalidDataException($"{ResourcePath}: SourceRevision is required.");
+        if (!string.Equals(sourceRevision, SourceRevision, StringComparison.Ordinal))
+            throw new InvalidDataException($"{ResourcePath}: expected source revision {SourceRevision}, got {sourceRevision}.");
+
+        JObject sourcePaths = RequireObject(root, "SourcePaths");
         JObject sourceHashes = RequireObject(root, "SourceHashes");
         foreach (string source in new[] { "Stage", "StageLevelControl", "Robot", "PracticeChapter", "PracticeGroup", "PracticeActivity", "TeachingActivity", "TeachingRobot" })
         {
+            string? path = sourcePaths.Value<string>(source);
+            if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("en/bytes/", StringComparison.Ordinal) || !path.EndsWith(".json", StringComparison.Ordinal))
+                throw new InvalidDataException($"{ResourcePath}: SourcePaths.{source} must identify an EN JSON source.");
             string? hash = sourceHashes.Value<string>(source);
-            if (hash is null || hash.Length != 40)
+            if (hash is null || hash.Length != 40 || hash.Any(character => !Uri.IsHexDigit(character)))
                 throw new InvalidDataException($"{ResourcePath}: SourceHashes.{source} must be a SHA-1 hash.");
         }
 
         JObject expectedCounts = RequireObject(root, "ExpectedCounts");
         ValidateDeclaredCount(expectedCounts, "PracticeChapters", PracticeChapterCount);
-        ValidateDeclaredCount(expectedCounts, "PracticeGroups", 88);
-        ValidateDeclaredCount(expectedCounts, "PracticeActivities", 250);
-        ValidateDeclaredCount(expectedCounts, "TeachingActivities", 48);
-        ValidateDeclaredCount(expectedCounts, "TeachingRobots", 139);
+        ValidateDeclaredCount(expectedCounts, "PracticeGroups", PracticeGroupCount);
+        ValidateDeclaredCount(expectedCounts, "PracticeActivities", PracticeActivityCount);
+        ValidateDeclaredCount(expectedCounts, "TeachingActivities", TeachingActivityCount);
+        ValidateDeclaredCount(expectedCounts, "TeachingRobots", TeachingRobotCount);
         ValidateDeclaredCount(expectedCounts, "StudyStages", StudyStageCount);
         ValidateDeclaredCount(expectedCounts, "StageLevelControls", StageLevelControlCount);
         ValidateDeclaredCount(expectedCounts, "Robots", RobotCount);
 
         JArray practiceChapters = RequireArray(root, "PracticeChapters", PracticeChapterCount);
-        JArray practiceGroups = RequireArray(root, "PracticeGroups", 88);
-        JArray practiceActivities = RequireArray(root, "PracticeActivities", 250);
-        JArray teachingActivities = RequireArray(root, "TeachingActivities", 48);
-        JArray teachingRobots = RequireArray(root, "TeachingRobots", 139);
+        JArray practiceGroups = RequireArray(root, "PracticeGroups", PracticeGroupCount);
+        JArray practiceActivities = RequireArray(root, "PracticeActivities", PracticeActivityCount);
+        JArray teachingActivities = RequireArray(root, "TeachingActivities", TeachingActivityCount);
+        JArray teachingRobots = RequireArray(root, "TeachingRobots", TeachingRobotCount);
         JArray stageRows = RequireArray(root, "Stages", StudyStageCount);
         JArray stageLevelControlRows = RequireArray(root, "StageLevelControls", StageLevelControlCount);
         JArray robotRows = RequireArray(root, "Robots", RobotCount);
@@ -271,8 +287,8 @@ internal static class CurrentClientStudyTables
             }
         }
 
-        if (preEdges.Count != 251 || !preEdges.SetEquals(nextEdges))
-            throw new InvalidDataException($"{ResourcePath}: Study PreStageId/NextStageId graph must contain exactly 251 reciprocal edges.");
+        if (preEdges.Count != ProgressionEdgeCount || !preEdges.SetEquals(nextEdges))
+            throw new InvalidDataException($"{ResourcePath}: Study PreStageId/NextStageId graph must contain exactly {ProgressionEdgeCount} reciprocal edges.");
         Dictionary<int, int> inDegree = studyStageIds.ToDictionary(stageId => stageId, _ => 0);
         Dictionary<int, int> outDegree = studyStageIds.ToDictionary(stageId => stageId, _ => 0);
         foreach ((int from, int to) in preEdges)
@@ -280,8 +296,8 @@ internal static class CurrentClientStudyTables
             if (++outDegree[from] > 1 || ++inDegree[to] > 1)
                 throw new InvalidDataException($"{ResourcePath}: Study progression graph must be a collection of linear chains.");
         }
-        if (inDegree.Values.Count(degree => degree == 0) != 210 || outDegree.Values.Count(degree => degree == 0) != 210)
-            throw new InvalidDataException($"{ResourcePath}: Study progression graph must contain 210 roots and terminals.");
+        if (inDegree.Values.Count(degree => degree == 0) != ProgressionChainCount || outDegree.Values.Count(degree => degree == 0) != ProgressionChainCount)
+            throw new InvalidDataException($"{ResourcePath}: Study progression graph must contain {ProgressionChainCount} roots and terminals.");
         Dictionary<int, int> successorByStageId = preEdges.ToDictionary(edge => edge.From, edge => edge.To);
         HashSet<int> traversedStageIds = new();
         foreach (int rootStageId in inDegree.Where(pair => pair.Value == 0).Select(pair => pair.Key))

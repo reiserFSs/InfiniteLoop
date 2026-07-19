@@ -181,6 +181,8 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyItems);
 
             session.character.Partners.AddRange(partners);
+            session.inventory.Save();
+            session.character.Save();
             session.SendPush(new NotifyPartnerDataList
             {
                 PartnerDataList = partners,

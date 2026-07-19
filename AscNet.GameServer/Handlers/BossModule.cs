@@ -5,6 +5,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.GameServer.Game;
 using AscNet.Table.V2.share.fuben.bosssingle;
+using AscNet.Table.V2.share.fuben.bossactivity;
 using AscNet.Table.V2.share.reward;
 using MessagePack;
 using MongoDB.Driver;
@@ -208,6 +209,12 @@ namespace AscNet.GameServer.Handlers
             TableReaderV2.Parse<BossSingleRewardGoodsTable>());
         private static readonly Lazy<BossSingleConfigTable> RuntimeConfig = new(() =>
             TableReaderV2.Parse<BossSingleConfigTable>().Single(row => row.Id == 1));
+        private static readonly Lazy<List<BossActivityTable>> ActivityBossActivities = new(() =>
+            TableReaderV2.Parse<BossActivityTable>());
+        private static readonly Lazy<List<BossSectionTable>> ActivityBossSections = new(() =>
+            TableReaderV2.Parse<BossSectionTable>());
+        private static readonly Lazy<Dictionary<int, BossChallengeTable>> ActivityBossChallenges = new(() =>
+            TableReaderV2.Parse<BossChallengeTable>().ToDictionary(row => row.Id));
 
         [RequestPacketHandler("BossSingleRankInfoRequest")]
         public static void BossSingleRankInfoRequestHandler(Session session, Packet.Request packet)
@@ -403,8 +410,14 @@ namespace AscNet.GameServer.Handlers
         }
 
         [RequestPacketHandler("GetActivityBossDataRequest")]
-        public static void GetActivityBossDataRequestHandler(Session session, Packet.Request packet) =>
-            session.SendResponse(new GetActivityBossDataResponse { Code = 1 }, packet.Id);
+        public static void GetActivityBossDataRequestHandler(Session session, Packet.Request packet)
+        {
+            NotifyBossActivityData? data = BuildActivityLoginData(session);
+            if (data is not null)
+                session.SendPush(data);
+
+            session.SendResponse(new GetActivityBossDataResponse { Code = data is null ? 1 : 0 }, packet.Id);
+        }
 
         internal static bool IsStage(uint stageId) => Stages.Value.ContainsKey(checked((int)stageId));
 
@@ -506,11 +519,7 @@ namespace AscNet.GameServer.Handlers
             return true;
         }
 
-        internal static void CancelFight(Session session)
-        {
-            if (session.fight is not null && IsStage(session.fight.PreFight.PreFightData.StageId))
-                session.PendingBossSingleScore = null;
-        }
+        internal static void CancelFight(Session session) => session.PendingBossSingleScore = null;
 
         internal static NotifyFubenBossSingleData BuildLoginData(Player player, long? now = null)
         {
@@ -582,6 +591,68 @@ namespace AscNet.GameServer.Handlers
                 BossListDict = state.BossLevelType == 0
                     ? state.BossListOptions.ToDictionary(entry => entry.Key, entry => entry.Value.ToList())
                     : null
+            };
+        }
+
+        internal static NotifyBossActivityData? BuildActivityLoginData(Session session, DateTimeOffset? now = null)
+        {
+            DateTimeOffset effectiveNow = now ?? DateTimeOffset.UtcNow;
+            BossActivityTable? activity = ActivityBossActivities.Value
+                .Where(candidate => candidate.ActivityTimeId is > 0
+                    && ActivityScheduleService.IsOpen(candidate.ActivityTimeId.Value, effectiveNow))
+                .OrderByDescending(candidate => candidate.Id)
+                .FirstOrDefault();
+            if (activity is null)
+                return null;
+
+            long playerLevel = session.player.PlayerData.Level;
+            BossSectionTable? section = ActivityBossSections.Value
+                .Where(candidate => candidate.ActivityId == activity.Id
+                    && candidate.MinLevel <= playerLevel
+                    && candidate.MaxLevel >= playerLevel)
+                .OrderBy(candidate => candidate.OrderId)
+                .ThenBy(candidate => candidate.Id)
+                .FirstOrDefault();
+            if (section is null)
+                return null;
+
+            List<int> stageIds = new();
+            foreach (int challengeId in section.ChallengeId.Where(id => id > 0))
+            {
+                if (!ActivityBossChallenges.Value.TryGetValue(challengeId, out BossChallengeTable? challenge)
+                    || challenge.StageId <= 0)
+                    return null;
+
+                stageIds.Add(challenge.StageId);
+            }
+
+            Dictionary<long, StageDatum> persistedStages = session.stage.Stages;
+            int schedule = 0;
+            foreach (int stageId in stageIds)
+            {
+                if (!persistedStages.TryGetValue(stageId, out StageDatum? stage) || !stage.Passed)
+                    break;
+
+                schedule++;
+            }
+
+            return new NotifyBossActivityData
+            {
+                ActivityId = activity.Id,
+                SectionId = section.Id,
+                Schedule = schedule,
+                StageStarInfos = stageIds.Select(stageId =>
+                {
+                    persistedStages.TryGetValue(stageId, out StageDatum? stage);
+                    return (dynamic)new Dictionary<string, object>
+                    {
+                        ["StageId"] = stageId,
+                        ["StarsMark"] = checked((int)(stage?.StarsMark ?? 0))
+                    };
+                }).ToList(),
+                DifficultyScoreRecord = stageIds
+                    .Where(stageId => persistedStages.TryGetValue(stageId, out _))
+                    .ToDictionary(stageId => stageId, stageId => checked((int)persistedStages[stageId].Score))
             };
         }
 

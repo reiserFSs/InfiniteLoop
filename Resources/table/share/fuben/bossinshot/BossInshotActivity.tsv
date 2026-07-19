@@ -1,0 +1,6 @@
+Id	Name	BossIds[1]	BossIds[2]	BossIds[3]	CharacterIds[1]	CharacterIds[2]	CharacterIds[3]	TeachStageId	TaskGroupIds[1]	TaskGroupIds[2]	TaskGroupIds[3]	PreviewTaskRewardId	PositionNum	IsRank	TimeId	IsTowerRank	TowerMaxScoreLimit	TowerBossIds[1]	TowerBossIds[2]	TowerBossIds[3]	TowerBossIds[4]	TowerBossIds[5]	TowerConditions[1]
+1	Trial of Simulacrums	1	2	3	1	6	7	30163088	335	336	337	64124	1										
+2	Trial of Simulacrums	1	2	4	1	6	7	30163088	438	439	440	64124	1	1									
+3	Trial of Simulacrums	1	4	2	1	6	7	30163088	438	439	440	64124	1	1									
+4	Trial of Simulacrums	5	6	2	8	9	10	30163088	482	478	483	66392	1	1									
+5	Trial of Simulacrums	7			1	11	12	30163088	719	720	718	69185	1	1	48501	1	999999	1	2	4	6	7	862893

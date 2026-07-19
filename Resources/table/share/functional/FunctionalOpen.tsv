@@ -1,0 +1,293 @@
+Id	Name	Priority	Hint	Condition[1]	Condition[2]	Type	FunctionType
+1	Target	1	1	770417		1	1
+2	Reserve	2				1	1
+3	Recharge	3				1	1
+4	Settings	4				1	1
+5	Sign-in	4		770200		1	1
+6	Feedback	6				1	1
+7	Reward	5				1	1
+8	Gift Code	6				1	1
+9	File ID	6				1	1
+10	Main Interface Right Side Event Button	6				1	1
+11	Main Interface Left Side Event Button	6				1	1
+12	Close-up Image	6				1	1
+13	CV Entry Detection	6				1	1
+14	Main Interface Music Player	6				1	1
+101	Construct	7				1	1
+102	Member-Promote	8				1	1
+103	Construct - Evolve	9	1			1	1
+104	Member-Skills	10				1	1
+105	Member - Transcendant	55		770400		1	1
+106	Member - Transcendant	10	1	8005		1	1
+107	Members - Skill Leap	11	1			1	1
+108	Members - Uniframe Leap	11				1	1
+109	Member - Awaken	11		8001		1	1
+201	Equip	11				1	1
+202	Equipment - Enhance	12				1	1
+203	Equipment - Resonance	13				1	1
+204	Gear - Quick Enhance	14		770400		1	1
+206	Equipment - Quick Train	14				1	1
+207	Equipment Goal - Recommended	14		770400		1	1
+208	Equipment Goal - Settings	14		770400		1	1
+209	Equipment - Harmony	14	1	770405		1	1
+301	Warehouse	15				1	1
+401	Research	16	1	770402		1	1
+402	Research - Equipment	17				1	1
+403	Research - Limited/Festival Event	17		770402		1	1
+501	Mission	18		770427		1	1
+502	Mission - Story	19				1	1
+503	Mission - Daily	20		770425		1	1
+504	Mission - Event	21				1	1
+505	Mission - Weekly	22	1	770411		1	1
+601	Team	23				1	1
+602	Squad - Brand (Not found, likely discontinued)	24		862836		1	1
+603	Team - Achievement	25				1	1
+604	Team - Review	26				1	1
+701	Mail	27				1	1
+801	Friends	28		770409		1	1
+802	Chat Channel	29		770409		1	1
+803	Chat Channel - World Chat	29		770409		1	1
+901	Foundations - Floor Equipment	30		770800		1	1
+902	Dormitory	31	1	862838		1	1
+903	Dormitory Commission	32		862838		1	1
+1001	Regular Shop	32	1	770400		1	1
+1002	Event Shop	33		770400		1	1
+1003	Voucher Shop - Voucher Exchange	34		5001		1	1
+1004	Accumulated Top-up Shop	102				1	1
+1201	Dispatch	35		771200		1	1
+1301	Bounty Mission (Old event, predecessor to Operation Guardians)	47		771400		1	1
+1302	Operation Guardians	47	1	770408		1	1
+1303	Guide	110	1	870003		1	1
+1304	Fake Ascension	111		770400		1	1
+1305	Nier Mission	112		5001		1	1
+1306	Micawberism Cloisters	115		601000		1	1
+1307	Chestlefield	59		5001		1	1
+1308	Festival Mission Event	59		770410		1	1
+1309	White Day Dating Event	118		774800		1	1
+1310	Eden Festival	59		84601200		1	1
+1400	Affection	48		773500		1	1
+1401	Affection - File	49		773600		1	1
+1402	Affection - Story	50		773700		1	1
+1403	Affection - Gift	51		773800		1	1
+1404	Affection - Encounter	52		773900		1	1
+1501	Customize Control	46		774000		1	1
+1601	Memory Rescue	53		770423		1	1
+1701	Interlude/Construct Shard	35		770400		1	1
+1800	Celica's Class	79		774501		1	1
+1801	CUB Tutorial	80	1	8006		1	1
+1802	F.O.S. Rating Committee	79	1	770424		1	1
+1803	Simulated Trial Tutorial	79				1	1
+1901	Guild	38	1	862840		1	1
+1902	Guild - Create	38				1	1
+1903	Guild - Join	38				1	1
+1904	Simulated Siege	38	1	772310		1	1
+1905	Guild Music Player	38				1	1
+2001	Support	39	1	862842		1	1
+2100	Collection	99				1	1
+2101	Medal List	100	1	862844		1	1
+2102	Chatting Nameplate System	100		862861		1	1
+2200	Codex System	101	1	774700		1	1
+2300	Lv.2 Menu	113				1	1
+2400	Photo System	114				1	1
+2500	Preload	125				1	1
+3000	Total Recharge	102				1	1
+4000	Eden II	103		774800		1	1
+4001	Voting	104	1			1	1
+5001	CUB	117	1	8006		1	1
+6000	Calendar System [This needs to be hidden. Unlock requirement changed into 120000. Unlocking changed into 5004]	123		120000		1	1
+8001	Share Invite Code	105				1	1
+10101	Normal Story	40				1	1
+10102	Hidden Story	41		770400		1	1
+10103	Stronghold	35	1	771500		1	1
+10104	Main Story Mission	35				1	1
+10201	Challenge Stage	35				1	1
+10202	Challenge - Lemegeton	35		771600		1	1
+10203	Challenge - Phantom Pain Cage	35	1	862846		1	1
+10204	Challenge - War Zone	43	1	862848		1	1
+10205	Norman Revival Plan	116		870006		1	1
+10206	Norman Revival Plan Power Station	119		870006		1	1
+10300	Event Info	44				1	1
+10301	Event Quest	44				1	1
+10302	Co-op	44		772000		1	1
+10303	Event [Mass Deterioration]	44		772100		1	1
+10304	Brutal Level	44		772200		1	1
+10305	Test Area	45		770400		1	1
+10306	Festival Stage	46		770400		1	1
+10307	Babel Tower	47		772280		1	1
+10308	Main Story	48		772260		1	1
+10309	Simulated Battlefield	49		770422		1	1
+10310	Tower-Climbing Event	50		772290		1	1
+10311	Challenge - Border Pact	44	1	774900		1	1
+10312	Joint Warfare	51		8004		1	1
+10313	Phalanx	50		775000		1	1
+10314	Extra Story	50		770400		1	1
+10315	Autopoiesis Maze	50		84700201		1	1
+10316	Special Training	51		775600		1	1
+10317	Special Training Minigame	51		774800		1	1
+10318	Virtual Horizon	52		775100		1	1
+10319	Ghost Festival Minigame	53		774800		1	1
+10320	World Boss	107		5001		1	1
+10321	RPG Mode	108		5001		1	1
+10322	Honor Rank	109	1	844001	844002	1	1
+10323	Ghost Festival Mission	54		774800		1	1
+10324	Mini Puzzle	55		774800		1	1
+10325	Character Tutorial Stage	56		774501		1	1
+10326	Christmas Minigame	57		774800		1	1
+10327	New Year Minigame	58		774800		1	1
+10328	Couplets Mini-game	59				1	1
+10329	Ro-sham-bo Mini-game	60		774800		1	1
+10330	Simulated Battle	61		775100		1	1
+10331	Flip Mini-game	62		774800		1	1
+10333	Poker Guessing	64		774800		1	1
+10334	Story launch - Venus Skit	65		774800		1	1
+10335	MineSweeper	66		774800		1	1
+10336	Hacking Mode	67		5001		1	1
+10337	Modify Mode	68		775600		1	1
+10338	May Day Scratch-off	63		775400		1	1
+10339	Get Carter	69		774800		1	1
+10340	Deep Blue Warzone	59		84601500		1	1
+10341	Series Coating Event	120		774800		1	1
+10342	Battle Pass	70		775500		1	1
+10343	Co-op	70		8005		1	1
+10345	2021-Dragon Boat Festival Games	121		30406		1	1
+10346	2021 - Photo Mode	122		774800		1	1
+10347	Liv: Empyrea Match Game	71		774800		1	1
+10348	Audio Puzzle	72		774800		1	1
+10349	Server Final Battle	73		84601200		1	1
+10350	Ultimate Brawl	59		84601800		1	1
+10351	Memory Rescue - Gameplay	53		774800		1	1
+10352	Floating Record	124		770400		1	1
+10353	Mini Modification	68		774800		1	1
+10354	Simulated Trial	57		774800		1	1
+10401	Resource Mission	33		772800		1	1
+10402	Resource - N/A 1	34		772500		1	1
+10403	Resource - N/A 2	36		772600		1	1
+10404	Resource - N/A 3	37		772700		1	1
+10405	Golden Vortex	54	1	774300		1	1
+10406	Resources-Special Training	38		772800		1	1
+10407	Resource - Combat Supply	39		772800		1	1
+10408	Resource - Military Hardware	40		772800		1	1
+10409	Resource - Logistics Maintenance	41		772800		1	1
+10410	Resource - Cogs Galore	42		772800		1	1
+10411	Resource - Battle Exercise	46		772800		1	1
+10412	Resource - Combat Unit Booster Add-on	47		8006		1	1
+10413	3-Ping	47		774800		1	1
+10414	Racing Minigame	74		774800		1	1
+10415	Dice Minigame	75		774800		1	1
+10416	Corrupted Battlefront	76		774800		1	1
+10417	Lottery Minigame	77		774800		1	1
+10418	Warm-Up Whac-a-Mole Minigame	78		774800		1	1
+10419	Warm-Up Guess-Who-I-AM Puzzle	79		774800		1	1
+10450	Resource Shop	106		771000		1	1
+10499	愚人节活动	131				1	1
+109001	Special Training RS-2	81		9501		2	1
+109002	Special Training RS-3	82		9502		2	1
+109003	Special Training RS-4	83		9503		2	1
+109101	Combat Supply AE-2	84		9501		2	1
+109102	Combat Supply AE-3	85		9502		2	1
+109103	Combat Supply AE-4	86		9503		2	1
+109201	Military Hardware AB-2	87		9501		2	1
+109202	Military Hardware AB-3	88		9502		2	1
+109203	Military Hardware AB-4	89		9503		2	1
+109301	Logistics Maintenance LM-2	90		9501		2	1
+109302	Logistics Maintenance LM-3	91		9502		2	1
+109303	Logistics Maintenance LM-4	92		9503		2	1
+109401	Cogs Galore NF-2	93		9501		2	1
+109402	Cogs Galore NF-3	94		9502		2	1
+109403	Cogs Galore NF-4	95		9503		2	1
+109501	Battle Exercise BE-2	96		9501		2	1
+109502	Battle Exercise BE-3	97		9502		2	1
+109503	Battle Exercise BE-4	98		9503		2	1
+10420	Recitativo Di Fantasia	70	1	1002036		1	1
+10421	Doomsday Mode	71		30406		1	1
+10422	SP Central Area Battle	72		84601800		1	1
+10423	Battle Royale	73		30406		1	1
+10424	Tower Defense	66		30406		1	1
+10425	Guild Expedition	74				1	1
+10426	Gold Miner	80		774800		1	1
+10428	Weekly Challenge Mission	81		774800		1	1
+10430	Taiko Drum Master	81		774800		1	1
+10427	Extremis Collaboration	73		30406		1	1
+10431	Inner World (Yin-Yang Tower)	70		30406		1	1
+10432	Event Research	16		770402		1	1
+10433	Alternative Interpretation - Cursed Waves	70	1	1005045		1	1
+10434	Summer Thoughts	123		30404		1	1
+10435	For Beginning Player	1		770417		1	1
+10436	Arcade Anima	1	1	10436000		1	1
+10437	Simulacrum Submersion	1		84601800		1	1
+10439	Blazing Trails	1		774800		1	1
+10438	Palette Clash	47		860742		1	1
+10440	Sequence Pact	124	1	841207		1	1
+10441	Anchor Realm	125		30406		1	1
+10442	Coating Name Voting Event	1		774800		1	1
+10443	Cooking Lulu	1		774800		1	1
+10444	Corrupted Battlefront	1		774800		1	1
+10445	Skylark Nightsong	1		775600		1	1
+10446	Space Odyssey	1		774800		1	1
+10447	Punishing: Gray Raven BVB	1		774800		1	1
+10448	Cerberus Mode	1		774800		1	1
+10449	Operation Energy Recycling	1		30406		1	1
+10451	Clash Reflection	1		412		1	1
+10452	Schedule Assistant	123	1	30402		1	1
+10453	Derived from Matrix	70	1	1020005		1	1
+10454	Summer Lucky Star	70		774800		1	1
+10455	Chessboard Realms	1		774800		1	1
+10456	Connection Minigame	70		774800		1	1
+10457	Roguelike Merchant Simulation	70		774800		1	1
+10458	Magic Square Funfair DLC	125		774800		1	1
+10459	Kotodama Mode	1		774800		1	1
+10460	Anniversary Event Main Interface	1		30404		1	1
+10461	Remove Space	1		774800		1	1
+10462	Anniversary Recap	1		862417		1	1
+10463	Spring Gala	1		774800		1	1
+10464	Multiplayer	1		774800		1	1
+10465	Nexus Trek	1		774800		1	1
+10466	Paint of Dunhuang	1		774800		1	1
+10467	Boss Leap	1		774800		1	1
+10468	Wanshi Connect	1		774800		1	1
+10469	Mechanism	1		774800		1	1
+10470	Awakening Tundra	70	1	1020681		1	1
+10471	High-Difficulty Boss Inheritance	2		772280		1	1
+10472	Temple Fair (NEW)	1		774800		1	1
+10473	Inventory Sorting	1		30406		1	1
+10474	Co-op Combat	1		6000		1	1
+10475	2048 Relax	1		30406		1	1
+10476	Dusk's Shade Preview Stage	70		774800		1	1
+10477	Chief FPS	70		774800		1	1
+10478	Wheelchair Manual	1		770303		1	1
+10479	Homeward-Bound Voyage	1		774800		1	1
+10480	Designer's Pick Stage	70		774800		1	1
+10481	Lucky Tenant	130		774800		1	1
+10482	Music Theme Preview Stage	70		774800		1	1
+10483	Lone Gunner	70		774800		1	1
+10484	Random Scene	70				1	1
+10485	Card Game	1		774800		1	1
+10486	New Poker Guessing	99		774800		1	1
+10487	Combined Version Event	70		870003		1	1
+10488	New Mine	70		774800		1	1
+10489	Choice Pool Gacha	1		1050115		1	1
+10490	Pac-Man Mode	70		774800		1	1
+10491	The Godfall Revelation	70		774800		1	1
+10492	Bounty Challenge	1		774700		1	1
+10493	The Godfall Revelation	40		30406		1	1
+10494	Character Story	55		770400		1	1
+10495	Quick Clear	55		30406		1	1
+10496	Coating Set	55		863122		1	1
+10497	空花预热签到	70		774800		1	1
+10498	累消商店活动	70				1	1
+20000	空花本体	70		1050141		1	1
+200001	空花商店街	70		50001002		1	2
+200002	空花咖啡厅	70		50001001		1	2
+200003	Babylonia Dormitory	70		50001003		1	2
+200004	空花历程	70		50001004		1	2
+200005	空花短信	70		50001005		1	2
+200006	空花拍照	70		50001006		1	2
+200007	Babylonia POV Switch	70		50001551		1	2
+200008	空花无人机	70		50002004		1	2
+200009	空花邀约	70		50003211		1	2
+200010	空花新闻	70		50001511		1	2
+400000	CombPassport (已废弃)	70		775500		1	1
+10500	Placeholder_战双兄弟	1		774800		1	1
+10501	Shrouded Requiem	70		774800		1	1
+10502	Phylotree Dossier	70		770431		1	1
+10503	Minigame Collection	70		774800		1	1

@@ -1,0 +1,2540 @@
+{
+  "format": 1,
+  "sourceCommit": "bb3c34765c9d9c1c542079d536a17e82b27f3245",
+  "tables": [
+    {
+      "columns": 0,
+      "contentSha256": null,
+      "filter": "empty-source/no-schema/not-imported",
+      "naturalKey": null,
+      "path": "share/item/ItemCombine.tsv",
+      "rows": 0,
+      "source": [
+        "share/item/ItemCombine.json"
+      ]
+    },
+    {
+      "columns": 29,
+      "contentSha256": "527af7dbca940bfde55def3eb047cd751025956da3300fc4914cee7b1133d3e1",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/activitybrief/ActivityBrief.tsv",
+      "rows": 1,
+      "source": [
+        "client/activitybrief/ActivityBrief.json"
+      ]
+    },
+    {
+      "columns": 16,
+      "contentSha256": "62ead771da94cdd1c52c32df94c8af247ca8138344632cc045b6c864ed8f0f8b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/activitybrief/ActivityBriefGroup.tsv",
+      "rows": 146,
+      "source": [
+        "client/activitybrief/ActivityBriefGroup.json"
+      ]
+    },
+    {
+      "columns": 87,
+      "contentSha256": "0b6153b6001837fcd3f4c78a1aec6316bf977bb56615847aa45d63579a037067",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/draw/DrawPreview.tsv",
+      "rows": 2593,
+      "source": [
+        "client/draw/DrawPreview.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "a8b9169574fc2ab8ee0b466b642f77fe7b03dc9b3dda1fb761fb84d5634ae1cb",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/draw/DrawScene.tsv",
+      "rows": 2135,
+      "source": [
+        "client/draw/DrawScene.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "09dfd992b3a4ebf9206aae98848faaaae9977fde5067d88a398de9a24cab0466",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/draw/DrawWaferShow.tsv",
+      "rows": 54,
+      "source": [
+        "client/draw/DrawWaferShow.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "47241ed3f901db0a2d153fa77538daef0e945f78faf199024bf2bfc3eebadb2b",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "client/fuben/arena/ArenaStage.tsv",
+      "rows": 87,
+      "source": [
+        "client/fuben/arena/ArenaStage.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "c53ca9c20d3fcb7a6904be191443c83267895c378af4da8194dcb93f1b488061",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "client/fuben/fashionstory/FashionStoryTrialEntry.tsv",
+      "rows": 4,
+      "source": [
+        "client/fuben/fashionstory/FashionStoryTrialEntry.json"
+      ]
+    },
+    {
+      "columns": 20,
+      "contentSha256": "d5d3046130e9f9b23eb91594574dbe71d3015c0ead65f0d560ba7cb4d99d514d",
+      "filter": "all",
+      "naturalKey": "SkipId",
+      "path": "client/functional/SkipFunctional.tsv",
+      "rows": 3333,
+      "source": [
+        "client/functional/SkipFunctional.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "c9e6683caa39c8fd3e41fde916e6e4eb3e04bacfad26faf4ac1083b1dcafa212",
+      "filter": "all",
+      "naturalKey": "Key",
+      "path": "client/lifetree/LifeTreeClientConfig.tsv",
+      "rows": 12,
+      "source": [
+        "client/lifetree/LifeTreeClientConfig.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "03db5ab421be9489c5c92fe850861fba68f5f12f3c419be80f366476482cc19d",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/mail/MailReward.tsv",
+      "rows": 977,
+      "source": [
+        "client/mail/MailReward.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "b2deda95bae1c22b559bc9deeb3c2cb819ac0ccd7f5168c50608a2ff6a7b94e6",
+      "filter": "all",
+      "naturalKey": "PartnerId",
+      "path": "client/partner/PartnerItemSkipId.tsv",
+      "rows": 40,
+      "source": [
+        "client/partner/PartnerItemSkipId.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "6f6fdedb4ded6ddbd17d5c5cb83be0b17a5806f3d0ecc30e0b28a6c9cc52c0a9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/partner/PartnerModel.tsv",
+      "rows": 40,
+      "source": [
+        "client/partner/PartnerModel.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "9ba40e0b6ab71718f4d27001d73c00954810ed81f31cece756bdd2add4d2b8c4",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/partner/PartnerModelControl.tsv",
+      "rows": 0,
+      "source": [
+        "client/partner/PartnerModelControl.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "b408c20e29f3c166448ca9b3722854d420fa9c9e9cbaece9f4bf9de92839aa83",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/partner/PartnerSkillInfo.tsv",
+      "rows": 3400,
+      "source": [
+        "client/partner/PartnerSkillInfo.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "dd6a1da5d1dc92113d2688392813632952972b76f25a3ea3abe54d7931ca446f",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/partner/PartnerUiEffect.tsv",
+      "rows": 127,
+      "source": [
+        "client/partner/PartnerUiEffect.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "ab41f72211d1e502059658a325b6500f27c1bf86d810f174208d0d35479e0643",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/purchase/PurchasePackageYKUiConfig.tsv",
+      "rows": 4,
+      "source": [
+        "client/purchase/PurchasePackageYKUiConfig.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "3a7220870823d1d4c1bdd8503276e70b36d4a0208353e5fb06830f93233e6dfc",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/signin/SignCard.tsv",
+      "rows": 4,
+      "source": [
+        "client/signin/SignCard.json"
+      ]
+    },
+    {
+      "columns": 16,
+      "contentSha256": "5fd8d736fbd1c178e24628115fd78bdfbc5618af681880feab108d5fdc28b779",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/uimain/ActivityBtn.tsv",
+      "rows": 22,
+      "source": [
+        "client/uimain/ActivityBtn.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "3646cf5bc8f07e61fb538d1933663a8bb78cc6ca12de3933384c4de0aa103c12",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/attrib/AttribPool.tsv",
+      "rows": 41,
+      "source": [
+        "share/attrib/AttribPool.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "53aafad84dbcaf8c19bcffd29d73f3b68ac6c771fa19f79d14b6b5c3e688f367",
+      "filter": "all",
+      "naturalKey": "VersionId",
+      "path": "share/bigworld/common/course/BigWorldCourseVersion.tsv",
+      "rows": 3,
+      "source": [
+        "share/bigworld/common/course/BigWorldCourseVersion.json"
+      ]
+    },
+    {
+      "columns": 24,
+      "contentSha256": "eb27db234d775489249c4d9efca408b7e8e2fc3885ddd3cb267c0d5ecadc3cd7",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/character/Character.tsv",
+      "rows": 82,
+      "source": [
+        "share/character/Character.json"
+      ]
+    },
+    {
+      "columns": 33,
+      "contentSha256": "2148cfebf3c7f239a69efa9c6e2d9f4a0303479d23d7291d3a681c267f0d0215",
+      "filter": "all",
+      "naturalKey": "CharacterId",
+      "path": "share/character/enhanceskill/EnhanceSkill.tsv",
+      "rows": 82,
+      "source": [
+        "share/character/enhanceskill/EnhanceSkill.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "7fb0a9f8216f00c3c115745dfec6bdf67e66b3d1fcc413e4c060687bc0a6d828",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/character/enhanceskill/EnhanceSkillGroup.tsv",
+      "rows": 92,
+      "source": [
+        "share/character/enhanceskill/EnhanceSkillGroup.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "586d295156de19e2978cfa79a15b33afc61a70f402b4f000d9908c5f89cf70da",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/character/enhanceskill/EnhanceSkillUpgrade.tsv",
+      "rows": 1410,
+      "source": [
+        "share/character/enhanceskill/EnhanceSkillUpgrade.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "adc332704e763676886aac59ec69ad5a25f628c8454c5820e8b973682bb743af",
+      "filter": "all+cn-live-4.6.1-allowlist-character:1401003",
+      "naturalKey": "CharacterId,Grade",
+      "path": "share/character/grade/CharacterGrade.tsv",
+      "rows": 1148,
+      "source": [
+        "share/character/grade/CharacterGrade.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/character/grade/CharacterGrade.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "d1fe0fc1a7002e1a6e7f65f884068ebed9da43e93619c3b4ebd5a3d48552de17",
+      "filter": "all+cn-live-4.6.1-allowlist-character:1401003",
+      "naturalKey": "CharacterId,Quality",
+      "path": "share/character/quality/CharacterQuality.tsv",
+      "rows": 358,
+      "source": [
+        "share/character/quality/CharacterQuality.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/character/quality/CharacterQuality.json"
+      ]
+    },
+    {
+      "columns": 17,
+      "contentSha256": "e55d6f16f7409ee9dbaf995c5799e6bd656643f6a165bd17a773125dca6b56ea",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/character/quality/CharacterQualityFragment.tsv",
+      "rows": 12,
+      "source": [
+        "share/character/quality/CharacterQualityFragment.json"
+      ]
+    },
+    {
+      "columns": 36,
+      "contentSha256": "197f893569569e22eadb547e0b7f464f98413684273423b9956ffad5b84c0319",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/character/skill/CharacterGeneralSkill.tsv",
+      "rows": 8,
+      "source": [
+        "share/character/CharacterGeneralSkill.json"
+      ]
+    },
+    {
+      "columns": 33,
+      "contentSha256": "79057c484eb11f3029724f3204d4252519661e04c2f5bffc69a2dd66c4769408",
+      "filter": "all",
+      "naturalKey": "CharacterId",
+      "path": "share/character/skill/CharacterSkill.tsv",
+      "rows": 82,
+      "source": [
+        "share/character/skill/CharacterSkill.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "3a2eff03c893c4df395b2bb520f2d0bb12453e2b6d15ad347af31d8224411184",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/character/skill/CharacterSkillGroup.tsv",
+      "rows": 1066,
+      "source": [
+        "share/character/skill/CharacterSkillGroup.json"
+      ]
+    },
+    {
+      "columns": 189,
+      "contentSha256": "27804edc1a6676df7893684e81b6a375193366f2a4e247860bd7b7ffa47061cb",
+      "filter": "split-SkillLevelId",
+      "naturalKey": "Id",
+      "path": "share/character/skill/CharacterSkillLevelEffect.tsv",
+      "rows": 23916,
+      "source": [
+        "share/character/skill/CharacterSkillLevelEffect.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "4dcedb66338403125f4a9eb45c29aedf55aefea2b146caf4fdc2c3ddedfa1a55",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/character/skill/CharacterSkillPool.tsv",
+      "rows": 656,
+      "source": [
+        "share/character/skill/CharacterSkillPool.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "87933cc00936567d34e96aae16c96dbc855e00911917a2c1aedb7bb1ea11b419",
+      "filter": "split-SkillLevelId",
+      "naturalKey": "Id",
+      "path": "share/character/skill/CharacterSkillUpgrade.tsv",
+      "rows": 12988,
+      "source": [
+        "client/character/skill/CharacterSkillUpgradeIdOptimize.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "bf615ebe42ca0e3370dbb35fdac4634ff5a8b0ecfd11373972e234d39384a874",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/chat/ChatBoard.tsv",
+      "rows": 14,
+      "source": [
+        "share/chat/ChatBoard.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "c3821c1c58563b7b0cb9684676b983643cd620d83c4d4d095d3109d7733291cd",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/chat/Emoji.tsv",
+      "rows": 337,
+      "source": [
+        "share/chat/Emoji.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "219ac30e098f47d051156b1c8eea01126b8d1148a18b3aca861596a472bda0de",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/chat/EmojiPack.tsv",
+      "rows": 5,
+      "source": [
+        "share/chat/EmojiPack.json"
+      ]
+    },
+    {
+      "columns": 36,
+      "contentSha256": "28a3272a1b2d82e4765fe3666a875a30c4beb266eb78806bce3b50332f870477",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/condition/Condition.tsv",
+      "rows": 9979,
+      "source": [
+        "share/condition/Condition.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "0b6f60538e77bbb78728a9d31db2ba29b6ecf2b0bf1694c26a9dad553548522d",
+      "filter": "config-keys:TeamMaxPos,MaxTeamPrefab",
+      "naturalKey": "Key",
+      "path": "share/config/TeamConfig.tsv",
+      "rows": 2,
+      "source": [
+        "share/config/Config.json"
+      ]
+    },
+    {
+      "columns": 95,
+      "contentSha256": "e3cca0778fbf81962d9bd3974363f0458e487a838a2abdfed069b8a32dfa63b1",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/draw/DrawCanLiverActivity.tsv",
+      "rows": 2,
+      "source": [
+        "share/draw/DrawCanLiverActivity.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "6fe5740f480bae0095a1e0205fa76f3dd6e504533a514d91d223d748188931e5",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/equip/Equip.tsv",
+      "rows": 913,
+      "source": [
+        "share/equip/Equip.json"
+      ]
+    },
+    {
+      "columns": 25,
+      "contentSha256": "b45d625edecf19461c6ae2f317a3f25428cc9256bf250e87221945257ad2b29c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/equip/EquipAwake.tsv",
+      "rows": 378,
+      "source": [
+        "share/equip/EquipAwake.json"
+      ]
+    },
+    {
+      "columns": 20,
+      "contentSha256": "fb6334a58ceb58e721bc4f37c07c0c2d250d2852a040b1182c1e2222a5d79b00",
+      "filter": "all",
+      "naturalKey": "EquipId,Times",
+      "path": "share/equip/EquipBreakThrough.tsv",
+      "rows": 4293,
+      "source": [
+        "share/equip/EquipBreakThrough.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "2cf4eca7b0fdfd6c828c93454e482146194de8b46c1a3dba762f0885928649e4",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/equip/EquipDecompose.tsv",
+      "rows": 245,
+      "source": [
+        "share/equip/EquipDecompose.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "0642b315a1824981e979e729c8b5b34edcca82ac85652e9ab73f1270dbcbbefc",
+      "filter": "config-key:EquipDecomposeReturnRate",
+      "naturalKey": "Key",
+      "path": "share/equip/EquipDecomposeConfig.tsv",
+      "rows": 1,
+      "source": [
+        "share/config/Config.json"
+      ]
+    },
+    {
+      "columns": 17,
+      "contentSha256": "550cc9ad90de8176b64ed9a4ba5898e613ccc8908b505704f86e1ae8a79362f9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/equip/EquipResonance.tsv",
+      "rows": 734,
+      "source": [
+        "share/equip/EquipResonance.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "a614ef9add4913d94127a693da24e689c1b8a490f2c60cb046f3459816724b3e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/equip/EquipResonanceUseItem.tsv",
+      "rows": 734,
+      "source": [
+        "share/equip/EquipResonanceUseItem.json"
+      ]
+    },
+    {
+      "columns": 46,
+      "contentSha256": "865ccbc7d16e49296e4cde15a618e8a15cf14ca0ce9809d3ddaf655ae537a31d",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/equip/WeaponOverrun.tsv",
+      "rows": 89,
+      "source": [
+        "share/equip/WeaponOverrun.json"
+      ]
+    },
+    {
+      "columns": 20,
+      "contentSha256": "9f1f5a42d7dbb5b517ddfb215baaf7a4d429340f346e660d426e7e05bae4aae5",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/equip/WeaponSkillPool.tsv",
+      "rows": 246,
+      "source": [
+        "share/equip/WeaponSkillPool.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "b3d8fce4b60783e0a155fc8ae6cbd2c8b95f18bc20f6f58c0991787b728f1621",
+      "filter": "all+cn-live-4.6.1-allowlist-character:1401003-natural-key:CharacterId,LevelId",
+      "naturalKey": "CharacterId,LevelId",
+      "path": "share/exhibition/ExhibitionReward.tsv",
+      "rows": 410,
+      "source": [
+        "share/exhibition/ExhibitionReward.json",
+        "share/character/Character.json",
+        "share/character/skill/CharacterSkill.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/exhibition/ExhibitionReward.json"
+      ]
+    },
+    {
+      "columns": 41,
+      "contentSha256": "a3fddde3eb092141454aafd111f9b56df1044369a920cf18432b524ed2500580",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fashion/Fashion.tsv",
+      "rows": 443,
+      "source": [
+        "share/fashion/Fashion.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "e508b03e0aafdb29aa18508eee012c8af3528cd95fcc7d5c11e61bcf7bd71fae",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fashion/FashionColor.tsv",
+      "rows": 2,
+      "source": [
+        "share/fashion/FashionColor.json"
+      ]
+    },
+    {
+      "columns": 106,
+      "contentSha256": "6bbb8d4d4f143842fab96091203dffa4e48ed57aaeed8e5e27ec3fc83e46bf27",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "share/fuben/Stage.tsv",
+      "rows": 11019,
+      "source": [
+        "share/fuben/Stage.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "7046d6d24628a510ffd17f3e99332a75d6bfb81beb93c57d6eed10ce8d5a1c9b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/StageLevelControl.tsv",
+      "rows": 10508,
+      "source": [
+        "share/fuben/StageLevelControl.json"
+      ]
+    },
+    {
+      "columns": 16,
+      "contentSha256": "508027745188cc3d5230c3dae13a24f0a5d9320a6c60c60a10a269933f0998a5",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/arena/AreaStage.tsv",
+      "rows": 259,
+      "source": [
+        "share/fuben/arena/AreaStage.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "df9b8a4d4fbbf4961f4597c458fc6ffc9adcda1e4c72dac24ce893d621c3f130",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/arena/ArenaGroupFightEvent.tsv",
+      "rows": 189,
+      "source": [
+        "share/fuben/arena/ArenaGroupFightEvent.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "749bc75d32d3128c3660047e04ee82af7acdeafa12681637ccdc7dbfe05c45b6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/arena/ArenaLevel.tsv",
+      "rows": 7,
+      "source": [
+        "share/fuben/arena/ArenaLevel.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "28410e5802e22a47ff82cf47e35c3e57032460d49fac530737781deff174b131",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/arena/ArenaLevelChallenge.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/arena/ArenaLevelChallenge.json"
+      ]
+    },
+    {
+      "columns": 89,
+      "contentSha256": "b87cedf64de26fbec214ea577580439ce04e5d235607bd52b6ae3c0c80c94001",
+      "filter": "all",
+      "naturalKey": "ChallengeId",
+      "path": "share/fuben/arena/ChallengeArea.tsv",
+      "rows": 16,
+      "source": [
+        "share/fuben/arena/ChallengeArea.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "26b7e9a376d2a48432ac2292a9e7c98a2bf3108dcf95ce814f98d7edeb6c9021",
+      "filter": "all",
+      "naturalKey": "MarkId",
+      "path": "share/fuben/arena/Mark.tsv",
+      "rows": 5,
+      "source": [
+        "share/fuben/arena/Mark.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "567e48654c5547eede5e5528193f8c8550b294c2a753931ec1359eabc8bf2007",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossActivity.tsv",
+      "rows": 45,
+      "source": [
+        "share/fuben/bossactivity/BossActivity.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "7fcd39d0a7315571b6ecb6155f9d2767a8b5db7afd23d8c7bc809b7ebae5cc04",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossActivityStory.tsv",
+      "rows": 3,
+      "source": [
+        "share/fuben/bossactivity/BossActivityStory.json"
+      ]
+    },
+    {
+      "columns": 27,
+      "contentSha256": "dc3d013964ac4b7a1598d821daa1555e556e454b58976d5e8686adb6f77cd7b7",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossChallenge.tsv",
+      "rows": 5,
+      "source": [
+        "share/fuben/bossactivity/BossChallenge.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "a468c0954c6a1e72614b38c1e5bbfb29cd71ce632b733735dddc5dd60e8f510b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossRobotGroup.tsv",
+      "rows": 45,
+      "source": [
+        "share/fuben/bossactivity/BossRobotGroup.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "06ce8abc0ce3c0398e6ac6b6fc24022f23729c171711e799349fc296a917aa74",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossScoreLevel.tsv",
+      "rows": 3,
+      "source": [
+        "share/fuben/bossactivity/BossScoreLevel.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "da5dcb191dc1ca64804907997ff6c4354f86beb2260af91af4a1f78dc98a79b3",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossScoreTime.tsv",
+      "rows": 4,
+      "source": [
+        "share/fuben/bossactivity/BossScoreTime.json"
+      ]
+    },
+    {
+      "columns": 24,
+      "contentSha256": "53caafcccfc42068c1e3b3d10adbf9b8584713d176f8ffcb1e36aa32aae99bf3",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossSection.tsv",
+      "rows": 1,
+      "source": [
+        "share/fuben/bossactivity/BossSection.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "e0d28b47936760eadb3c02d1f31396f42a73af4fe61561aa3358edca135a4e7e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossactivity/BossStarReward.tsv",
+      "rows": 5,
+      "source": [
+        "share/fuben/bossactivity/BossStarReward.json"
+      ]
+    },
+    {
+      "columns": 24,
+      "contentSha256": "bbdd56b09f2624d0a717344eb5526bbc0278d96000c5fe07fce978633b784420",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotActivity.tsv",
+      "rows": 5,
+      "source": [
+        "share/fuben/bossinshot/BossInshotActivity.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "ef44099e0a6881bce00465ca5baf90330881ee90923a5e8953e7d102c8459129",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotBoss.tsv",
+      "rows": 7,
+      "source": [
+        "share/fuben/bossinshot/BossInshotBoss.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "a56061c220bab06b0e8e89ea20acdf27a4d9701831b056e11364cee778751a2c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotCharacter.tsv",
+      "rows": 12,
+      "source": [
+        "share/fuben/bossinshot/BossInshotCharacter.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "d448e6549854ab333485819e19d3a3bcbdf0744d9fc47788ab43137ffe464475",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotScore.tsv",
+      "rows": 64,
+      "source": [
+        "share/fuben/bossinshot/BossInshotScore.json"
+      ]
+    },
+    {
+      "columns": 31,
+      "contentSha256": "58b858a1398b4b911075c21c7cf1246b82c266f9eecba1dcdaeb51924426ffde",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotScoreLevel.tsv",
+      "rows": 7,
+      "source": [
+        "share/fuben/bossinshot/BossInshotScoreLevel.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "de7565e9857badc7071e7d2718fbf8c33d12cfc408f9cf788b6f6d1407545e70",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotSkill.tsv",
+      "rows": 54,
+      "source": [
+        "share/fuben/bossinshot/BossInshotSkill.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "00645463241565fe925b139ea5ca55da5a0f5614d62bd44660477a6955e8790a",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotStage.tsv",
+      "rows": 29,
+      "source": [
+        "share/fuben/bossinshot/BossInshotStage.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "7811aeb1def8378b775ba2c9b83acd98cbde2fca99627d3666c2e6d01cefcb7c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotTalent.tsv",
+      "rows": 45,
+      "source": [
+        "share/fuben/bossinshot/BossInshotTalent.json"
+      ]
+    },
+    {
+      "columns": 22,
+      "contentSha256": "dec7c598b905e2eb45fb475cd31e9482defbc975165a70a8bad140f7f2ca5c64",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/bossinshot/BossInshotTower.tsv",
+      "rows": 9,
+      "source": [
+        "share/fuben/bossinshot/BossInshotTower.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "b5ba95fe132fcadb1d0324f59b87350d57753656dc16397b7fd478ea6c15b162",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "share/fuben/bossinshot/BossInshotTowerStage.tsv",
+      "rows": 5,
+      "source": [
+        "share/fuben/bossinshot/BossInshotTowerStage.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "3c33848736d191a127248c7b171e36dff5a2e28fea55911f7fd8dda8229c80b0",
+      "filter": "boss-single-derived",
+      "naturalKey": "Id",
+      "path": "share/fuben/bosssingle/BossSingleConfig.tsv",
+      "rows": 1,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "7158aeff8704f3f520ff4f3d030ef7335f28fe4d89062a40096a3ade15485101",
+      "filter": "boss-single-derived",
+      "naturalKey": "LevelType,GradeType",
+      "path": "share/fuben/bosssingle/BossSingleGrade.tsv",
+      "rows": 8,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "7301229c7ec85e7f803e36b8eaa78052950071af32dc8fbf4266b425dd0bc219",
+      "filter": "boss-single-derived",
+      "naturalKey": "Id",
+      "path": "share/fuben/bosssingle/BossSingleGroup.tsv",
+      "rows": 12,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "1e8068c165c1401d19ba064a22e84ddc464db283580903039f86f495a13bd8f1",
+      "filter": "boss-single-derived",
+      "naturalKey": "ScoreRewardId,GoodsId",
+      "path": "share/fuben/bosssingle/BossSingleRewardGoods.tsv",
+      "rows": 1295,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "34d2df130306b92f272cbf41f224d20d73268c10eb336c75901f278bdee09448",
+      "filter": "boss-single-derived",
+      "naturalKey": "Id",
+      "path": "share/fuben/bosssingle/BossSingleScoreReward.tsv",
+      "rows": 349,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 56,
+      "contentSha256": "bf288403e054bfcdff912d63dec37466370430d7d67157f77fc7d2546021b265",
+      "filter": "boss-single-derived",
+      "naturalKey": "Id",
+      "path": "share/fuben/bosssingle/BossSingleScoreRule.tsv",
+      "rows": 301,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "7b2ad2e73b71a3fdaaf1ab84e587d4b4e52f7ce58a599cefa5ab54f6df2f13a7",
+      "filter": "boss-single-derived",
+      "naturalKey": "Id",
+      "path": "share/fuben/bosssingle/BossSingleSection.tsv",
+      "rows": 108,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "48b667904c499108bbf6a2bd98c136ab9c507211b0c2d9517e287bc6c09ad49d",
+      "filter": "boss-single-derived",
+      "naturalKey": "StageId",
+      "path": "share/fuben/bosssingle/BossSingleStage.tsv",
+      "rows": 301,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 27,
+      "contentSha256": "976a779c8763719068fd15ffce09a67200d20d10617a95ac40db8eaf795df5fc",
+      "filter": "boss-single-derived",
+      "naturalKey": "LevelType",
+      "path": "share/fuben/bosssingle/BossSingleTrialGrade.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/bosssingle/*.json",
+        "share/fuben/Stage.json",
+        "share/config/Config.json",
+        "share/reward/{Reward,RewardGoods}.json"
+      ]
+    },
+    {
+      "columns": 17,
+      "contentSha256": "2171ce3c1a9d9fd779dc955daaea696d897b5040f9fa10ae70c8de5f24e285f7",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/fashionstory/FashionStory.tsv",
+      "rows": 6,
+      "source": [
+        "share/fuben/fashionstory/FashionStory.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "001d7611aa1d6da224f61bd0609ef3f00cbcbe31789d942c02424445bd21e1c6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/fashionstory/FashionStorySingleLine.tsv",
+      "rows": 18,
+      "source": [
+        "share/fuben/fashionstory/FashionStorySingleLine.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "4044f2e6896eb880179b1efa23d3c0d6aa726b95cac193c443496bf341c5e4cc",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "share/fuben/fashionstory/FashionStoryStage.tsv",
+      "rows": 44,
+      "source": [
+        "share/fuben/fashionstory/FashionStoryStage.json"
+      ]
+    },
+    {
+      "columns": 44,
+      "contentSha256": "22890d007b9cc1f904bebe5709a4b2d0fb5c6f3f89c16fe5b38e1c3ef1308d35",
+      "filter": "all",
+      "naturalKey": "ChapterId",
+      "path": "share/fuben/mainline/Chapter.tsv",
+      "rows": 49,
+      "source": [
+        "share/fuben/mainline/Chapter.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "b6d81fee1ea99628b181bdb7bc024baa5d92496f0e00e3ba983d2be555e36b29",
+      "filter": "all",
+      "naturalKey": "TreasureId",
+      "path": "share/fuben/mainline/Treasure.tsv",
+      "rows": 132,
+      "source": [
+        "share/fuben/mainline/Treasure.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "590595cd93c17f45f84b2235a0f490886939a1512c75effed689c2231496e3b0",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2Achievement.tsv",
+      "rows": 23,
+      "source": [
+        "share/fuben/mainline2/MainLine2Achievement.json"
+      ]
+    },
+    {
+      "columns": 84,
+      "contentSha256": "83203248bcb2fca38c2ae6f32b1e241ea7b7e69436cd37cb25a0247821434aa1",
+      "filter": "all",
+      "naturalKey": "ChapterId",
+      "path": "share/fuben/mainline2/MainLine2Chapter.tsv",
+      "rows": 27,
+      "source": [
+        "share/fuben/mainline2/MainLine2Chapter.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "0b33ea860a4de7df13b04886fb855cdbfdd6adbc2c6a18d9362ef2234b371975",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2EggsTreasure.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/mainline2/MainLine2EggsTreasure.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "e777ec309fa743e96f817e0d83aa9cebb3dcf342cad1e4f38afca18aad6974b6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2ExhibitionChapter.tsv",
+      "rows": 62,
+      "source": [
+        "share/fuben/mainline2/MainLine2ExhibitionChapter.json"
+      ]
+    },
+    {
+      "columns": 22,
+      "contentSha256": "92641480ef2f40e93f694cffb4f7e54e8e685ef9d2f5cd5a2eb2f04cb248ada0",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2Main.tsv",
+      "rows": 23,
+      "source": [
+        "share/fuben/mainline2/MainLine2Main.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "31b88c23a9c9c706239b441a81fafc83719433499e7ba8653f1b233a08a3fdba",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2MessagePosition.tsv",
+      "rows": 22,
+      "source": [
+        "share/fuben/mainline2/MainLine2MessagePosition.json"
+      ]
+    },
+    {
+      "columns": 37,
+      "contentSha256": "21fb2077d1d6f8db05d57a67141a7ca9c208f9a296146d7472dfdaebb5f582f9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2Stage.tsv",
+      "rows": 538,
+      "source": [
+        "share/fuben/mainline2/MainLine2Stage.json"
+      ]
+    },
+    {
+      "columns": 32,
+      "contentSha256": "3bd589818a79c96418cd2af60644806ecb005022de908bf3964b6d16aafd7147",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2StageGroup.tsv",
+      "rows": 62,
+      "source": [
+        "share/fuben/mainline2/MainLine2StageGroup.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "b88828cbb96f6e767e4e54e76e80265e2c8d9307449d92096ecec541fd7d0f6e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainline2/MainLine2Treasure.tsv",
+      "rows": 23,
+      "source": [
+        "share/fuben/mainline2/MainLine2Treasure.json"
+      ]
+    },
+    {
+      "columns": 39,
+      "contentSha256": "d3fea342a8c0c012be59ec31178ae8320164f5c4702e3de79fbe5ac4d351267f",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/teaching/TeachingActivity.tsv",
+      "rows": 49,
+      "source": [
+        "share/fuben/teaching/TeachingActivity.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "3e306efbc0dc5a888590d9c1440b969cf4cd6bdbfd01cb27315ec63e122b0098",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteAchievement.tsv",
+      "rows": 34,
+      "source": [
+        "share/fuben/transfinite/TransfiniteAchievement.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "1c0782573a55a003ef764fbfdf303ad69ca113bd5e08a936d4467d8db3d6eb8e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteActivity.tsv",
+      "rows": 7,
+      "source": [
+        "share/fuben/transfinite/TransfiniteActivity.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "bccc981bc96f4161936176c9f08dfb72b0c48c283b6b6b7335b1188a51896cfb",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteConfig.tsv",
+      "rows": 1,
+      "source": [
+        "share/fuben/transfinite/TransfiniteConfig.json"
+      ]
+    },
+    {
+      "columns": 29,
+      "contentSha256": "b9c77a56395af8fed29b101823e83794d7d6fef62b142dcc3aa97f8aaccf3cfe",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteIsland.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/transfinite/TransfiniteIsland.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "b9b7d99a27dab4214db79b15ff75721522d7f5b51d032e1073305cc7685c942f",
+      "filter": "all",
+      "naturalKey": "RegionId",
+      "path": "share/fuben/transfinite/TransfiniteRegion.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/transfinite/TransfiniteRegion.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "6c99f3ccd121e527b1de8bebbc3934f50ef70fab79492794cbdb2a1e510a8188",
+      "filter": "all",
+      "naturalKey": "RotateGroupId",
+      "path": "share/fuben/transfinite/TransfiniteRotateGroup.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/transfinite/TransfiniteRotateGroup.json"
+      ]
+    },
+    {
+      "columns": 33,
+      "contentSha256": "cbd245294aaa582c44ff2f828c52e938b248360fb111a7c6f4c2b42b1dc767f4",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteScoreRewardGroup.tsv",
+      "rows": 4,
+      "source": [
+        "share/fuben/transfinite/TransfiniteScoreRewardGroup.json"
+      ]
+    },
+    {
+      "columns": 33,
+      "contentSha256": "d26624f998126408f7adc7e278db3fb462315561b0f7065e3708e298206e864e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteScoreRewardGroupSpecialTreatment.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/transfinite/TransfiniteScoreRewardGroupSpecialTreatment.json"
+      ]
+    },
+    {
+      "columns": 44,
+      "contentSha256": "70cde8ee19e220c3f2506dd3a02dd2ff8a9fe28a3ce3c54040097ee4abf91bde",
+      "filter": "all",
+      "naturalKey": "StageGroupId",
+      "path": "share/fuben/transfinite/TransfiniteSpecialTreatment.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/transfinite/TransfiniteSpecialTreatment.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "8d564f97fc57ece820182f8379dc29ac7908476b43a6cfdb7c6048bf0cb16d8c",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "share/fuben/transfinite/TransfiniteStage.tsv",
+      "rows": 476,
+      "source": [
+        "share/fuben/transfinite/TransfiniteStage.json"
+      ]
+    },
+    {
+      "columns": 23,
+      "contentSha256": "3691fe60c018ccf430338d75c845bad9446d2b2c1840cc24eeb0cf4d356177e4",
+      "filter": "all",
+      "naturalKey": "StageGroupId",
+      "path": "share/fuben/transfinite/TransfiniteStageGroup.tsv",
+      "rows": 34,
+      "source": [
+        "share/fuben/transfinite/TransfiniteStageGroup.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "35ae075d6c7d81b1e28815bd9bba7654c0eba26e8392a44ed5c73046a5906669",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteStartStageProgress.tsv",
+      "rows": 6,
+      "source": [
+        "share/fuben/transfinite/TransfiniteStartStageProgress.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "a7d53fb34de677dc48ea6ba5964a3428b5dc5199f5180721090b317a8d5b228f",
+      "filter": "all",
+      "naturalKey": "StrengthenId",
+      "path": "share/fuben/transfinite/TransfiniteStrengthen.tsv",
+      "rows": 121,
+      "source": [
+        "share/fuben/transfinite/TransfiniteStrengthen.json"
+      ]
+    },
+    {
+      "columns": 16,
+      "contentSha256": "47366fcb3901dae10dc9319672e20180ed526aa157cdb8566f80383b48e701fe",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteTaskGroup.tsv",
+      "rows": 38,
+      "source": [
+        "share/fuben/transfinite/TransfiniteTaskGroup.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "f95a30113b8b11bbf1a1750555dd29665363d8d4856b37034567f6ff0b89c918",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/fuben/transfinite/TransfiniteTaskGroupSpecialTreatment.tsv",
+      "rows": 2,
+      "source": [
+        "share/fuben/transfinite/TransfiniteTaskGroupSpecialTreatment.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "501d22a30494e83724c2adaf72e9b7f7cba36d557564f26e7646d1a4c543c81f",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/functional/FunctionalOpen.tsv",
+      "rows": 292,
+      "source": [
+        "share/functional/FunctionalOpen.json"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "cdcd3c8c1e157aeeaa66186652b9e63694b89feee81ea0165e181561411f67a0",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/guide/GuideComplete.tsv",
+      "rows": 831,
+      "source": [
+        "share/guide/GuideComplete.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "133ec9203130c47d9e0986ebd5380a041ac61e8e0a49a9e81c6ec63c8f85b9cd",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/guide/GuideFight.tsv",
+      "rows": 4,
+      "source": [
+        "share/guide/GuideFight.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "1e93fca7ac8e96a34cef86c85ca99e88814548bc36d9c1d20a8c03a866f0c227",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/guide/GuideGroup.tsv",
+      "rows": 823,
+      "source": [
+        "share/guide/GuideGroup.json"
+      ]
+    },
+    {
+      "columns": 19,
+      "contentSha256": "21ab28c00ed6c8ab082375986af69a07c3fbe485003fca038a6d28bc46184825",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/headportrait/HeadPortrait.tsv",
+      "rows": 291,
+      "source": [
+        "share/headportrait/HeadPortrait.json"
+      ]
+    },
+    {
+      "columns": 37,
+      "contentSha256": "50f8eacc2d7e724da3f6ce3d8742d05288a78c1e91df38996fd6b827e39b0031",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/item/Item.tsv",
+      "rows": 2888,
+      "source": [
+        "share/item/Item.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "f35d0c961dbcc874f99b16230bedb2bc2b87247ed6720ae962ad3e4fe52f1b38",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/item/ItemExchange.tsv",
+      "rows": 6,
+      "source": [
+        "share/item/ItemExchange.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "86d37ffd63bd50714c8c2a1c0f2578f41739cb87464afcbb8babc93a54ea4d54",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/lifetree/LifeTreeChapter.tsv",
+      "rows": 6,
+      "source": [
+        "share/lifetree/LifeTreeChapter.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "b6186fcae58f577e795f283b9e62af6c8d797f5eed2dac4d02a5079ca5a6e83d",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/lifetree/LifeTreeCharacter.tsv",
+      "rows": 6,
+      "source": [
+        "share/lifetree/LifeTreeCharacter.json"
+      ]
+    },
+    {
+      "columns": 31,
+      "contentSha256": "36da08526c20895881dfaca1322470cb73e264ccce9dd84378fbebf68b01d0df",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/lotto/Lotto.tsv",
+      "rows": 24,
+      "source": [
+        "share/lotto/Lotto.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "ae0ad54bee45768400dff2633a0b8f365bb333574b1468b3bad0efe439c6f4b6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/lotto/LottoBuyTicketRule.tsv",
+      "rows": 190,
+      "source": [
+        "share/lotto/LottoBuyTicketRule.json"
+      ]
+    },
+    {
+      "columns": 21,
+      "contentSha256": "472c76f54dd43ca600097817c6f2dd86071e53cdc910a3b2e392370528567e24",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/lotto/LottoPrimary.tsv",
+      "rows": 4,
+      "source": [
+        "share/lotto/LottoPrimary.json"
+      ]
+    },
+    {
+      "columns": 16,
+      "contentSha256": "0dec8719a3fcfb6a8961a1061b0ba511b23570ef372dd385be1c87c13ca03b38",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/lotto/LottoReward.tsv",
+      "rows": 231,
+      "source": [
+        "share/lotto/LottoReward.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "a958ef923bdfc958fe6df48633eae3b19b4aed6cb70c3b8de487043b48435207",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/mail/MailRewardGoods.tsv",
+      "rows": 1244,
+      "source": [
+        "share/mail/MailRewardGoods.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "e98dbad565148d626e12c3573e14bc549eeaf56806eef32fd13551a76c40f3f8",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/dyemerge/DyeMergeActivity.tsv",
+      "rows": 1,
+      "source": [
+        "share/miniactivity/dyemerge/DyeMergeActivity.json"
+      ]
+    },
+    {
+      "columns": 16,
+      "contentSha256": "e0950ee12bd7e80bd77aa2ed03303a5502ec376ec5e91687d6e6dfd4356b95e5",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/dyemerge/DyeMergeChapter.tsv",
+      "rows": 4,
+      "source": [
+        "share/miniactivity/dyemerge/DyeMergeChapter.json"
+      ]
+    },
+    {
+      "columns": 17,
+      "contentSha256": "1263b0d4878db73680f5883eef61e2551c2acbef47b7794e2c211e49816b643d",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/dyemerge/DyeMergeStage.tsv",
+      "rows": 32,
+      "source": [
+        "share/miniactivity/dyemerge/DyeMergeStage.json"
+      ]
+    },
+    {
+      "columns": 16,
+      "contentSha256": "c6f6b699d5b40ca62795542cef4e6132897c0b6330e7765e896b2dff0e480292",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/hitmouse/HitMouseActivity.tsv",
+      "rows": 5,
+      "source": [
+        "share/miniactivity/hitmouse/HitMouseActivity.json"
+      ]
+    },
+    {
+      "columns": 17,
+      "contentSha256": "8e99145983fe39681c1ee16431ab2c0b6b7eecf2652449764875dab562b06831",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/hitmouse/HitMouseStage.tsv",
+      "rows": 4,
+      "source": [
+        "share/miniactivity/hitmouse/HitMouseStage.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "071799c4499708eb0855d07cd1a0af8dd9a97728b04607393f78dcd94f8f6ef4",
+      "filter": "all",
+      "naturalKey": "ActivityId",
+      "path": "share/newactivitycalendar/NewActivityCalendarActivity.tsv",
+      "rows": 11,
+      "source": [
+        "share/newactivitycalendar/NewActivityCalendarActivity.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "508c9a76f8f3628713154f4450a0cd18eb04cd2d425b55d160d7908cbcc379c3",
+      "filter": "all",
+      "naturalKey": "PeriodId",
+      "path": "share/newactivitycalendar/NewActivityCalendarPeriod.tsv",
+      "rows": 11,
+      "source": [
+        "share/newactivitycalendar/NewActivityCalendarPeriod.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "07e5fee7e053fab62fb358ccb87f9f2585a0af7006c50fd8963357876a34b5cf",
+      "filter": "all",
+      "naturalKey": "MainId",
+      "path": "share/newactivitycalendar/NewActivityCalendarWeekActivity.tsv",
+      "rows": 5,
+      "source": [
+        "share/newactivitycalendar/NewActivityCalendarWeekActivity.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "6ac03040a3c65fc6256fa1eb3197b540222490eeec30319c91fb74b7d4f812c0",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/newactivitycalendar/NewActivityCalendarWeekReward.tsv",
+      "rows": 16,
+      "source": [
+        "share/newactivitycalendar/NewActivityCalendarWeekReward.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "7734468082132a83ce234d8b6f323cd00fff8517c29349ff5873b160373a6efa",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/newactivitycalendar/NewActivityCalendarWeekRewardSpecialDeal.tsv",
+      "rows": 14,
+      "source": [
+        "share/newactivitycalendar/NewActivityCalendarWeekRewardSpecialDeal.json"
+      ]
+    },
+    {
+      "columns": 21,
+      "contentSha256": "d747ffc03c315c1e10c15cce2be6d58577c91a2c5b97a42b85a831fcbb0a179a",
+      "filter": "all+cn-live-4.6.1-allowlist-partner:16400000-natural-key-validated",
+      "naturalKey": "Id",
+      "path": "share/partner/Partner.tsv",
+      "rows": 40,
+      "source": [
+        "share/partner/Partner.json",
+        "share/item/Item.json",
+        "client/partner/PartnerSkillInfo.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/partner/Partner.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "4f2c733271e050282e4f7028db0a4432435a5adac59a11028b9475fbe3b80ee6",
+      "filter": "all+cn-live-4.6.1-allowlist-partner:16400000-natural-key-validated",
+      "naturalKey": "Id",
+      "path": "share/partner/PartnerBreakThrough.tsv",
+      "rows": 160,
+      "source": [
+        "share/partner/PartnerBreakThrough.json",
+        "share/item/Item.json",
+        "client/partner/PartnerSkillInfo.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/partner/PartnerBreakThrough.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "c5b08b7077a1882096852e428b16a89eade4610444c414fa6930d676bfbc33d0",
+      "filter": "all+cn-live-4.6.1-allowlist-partner:16400000-natural-key-validated",
+      "naturalKey": "Id",
+      "path": "share/partner/PartnerMainSkillGroup.tsv",
+      "rows": 80,
+      "source": [
+        "share/partner/PartnerMainSkillGroup.json",
+        "share/item/Item.json",
+        "client/partner/PartnerSkillInfo.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/partner/PartnerMainSkillGroup.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "70da166d09ed4a80e5494c459d8b26124c7def472ce2da7fec927025cb51e98f",
+      "filter": "all+cn-live-4.6.1-allowlist-partner:16400000-natural-key-validated",
+      "naturalKey": "Id",
+      "path": "share/partner/PartnerPassiveSkillGroup.tsv",
+      "rows": 200,
+      "source": [
+        "share/partner/PartnerPassiveSkillGroup.json",
+        "share/item/Item.json",
+        "client/partner/PartnerSkillInfo.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/partner/PartnerPassiveSkillGroup.json"
+      ]
+    },
+    {
+      "columns": 17,
+      "contentSha256": "f8bf09a026c7ebff713ca3e8a87470a1001aee41d8a8b351393da25f5c321f58",
+      "filter": "all+cn-live-4.6.1-allowlist-partner:16400000-natural-key-validated",
+      "naturalKey": "Id",
+      "path": "share/partner/PartnerQuality.tsv",
+      "rows": 165,
+      "source": [
+        "share/partner/PartnerQuality.json",
+        "share/item/Item.json",
+        "client/partner/PartnerSkillInfo.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/partner/PartnerQuality.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "2e34113871395f3b9e50e8b9220f6f05b6e309a492c8c3b75478f39fa0cab2ba",
+      "filter": "all+cn-live-4.6.1-allowlist-partner:16400000-natural-key-validated",
+      "naturalKey": "PartnerId",
+      "path": "share/partner/PartnerSkill.tsv",
+      "rows": 40,
+      "source": [
+        "share/partner/PartnerSkill.json",
+        "share/item/Item.json",
+        "client/partner/PartnerSkillInfo.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/partner/PartnerSkill.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "0ded37fbaef4bdd65a79c82549ffbb2c121394e3aad877b4782381fb2e4fe65f",
+      "filter": "all+cn-live-4.6.1-allowlist-partner:16400000-natural-key-validated",
+      "naturalKey": "Id",
+      "path": "share/partner/PartnerSkillEffect.tsv",
+      "rows": 3400,
+      "source": [
+        "share/partner/PartnerSkillEffect.json",
+        "share/item/Item.json",
+        "client/partner/PartnerSkillInfo.json",
+        "CN-LIVE:4.6.1@fb4019249cabc9915e82a78a83c4c58b94039d10:cn/bytes/share/partner/PartnerSkillEffect.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "8dd489f9f78409132b6fc36502ab248525b7c7d9d600811ca31161b702b36b85",
+      "filter": "preserved-unresolved",
+      "naturalKey": "Level",
+      "path": "share/partner/leveluptemplate/PartnerLevelUpTemplate501.tsv",
+      "rows": 10,
+      "source": []
+    },
+    {
+      "columns": 3,
+      "contentSha256": "130f2fc49ff7056ed21b908d4a6d48c2324709db3fd997b6894adebee2cd60c4",
+      "filter": "preserved-unresolved",
+      "naturalKey": "Level",
+      "path": "share/partner/leveluptemplate/PartnerLevelUpTemplate502.tsv",
+      "rows": 15,
+      "source": []
+    },
+    {
+      "columns": 3,
+      "contentSha256": "0be2d93efa3a61659d0ac4d7ebbf20bfd8742e7fddb2d2a3cf2987813bd16d14",
+      "filter": "preserved-unresolved",
+      "naturalKey": "Level",
+      "path": "share/partner/leveluptemplate/PartnerLevelUpTemplate503.tsv",
+      "rows": 25,
+      "source": []
+    },
+    {
+      "columns": 3,
+      "contentSha256": "66495bd83038c27d3cc0a01f2c4cf09d1d3098da82a18caadfb29ed81803dcfb",
+      "filter": "preserved-unresolved",
+      "naturalKey": "Level",
+      "path": "share/partner/leveluptemplate/PartnerLevelUpTemplate504.tsv",
+      "rows": 30,
+      "source": []
+    },
+    {
+      "columns": 33,
+      "contentSha256": "c97c86dd922dda5f908816419d6513d5fd60aee3f8dcda6abc798232a82b5743",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/passport/PassportActivity.tsv",
+      "rows": 44,
+      "source": [
+        "share/passport/PassportActivity.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "a690669910d55341c1f19d7fc472cd382b2ac42ad6fc913c5d9dd6cf8dcdb077",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/passport/PassportLevel.tsv",
+      "rows": 3460,
+      "source": [
+        "share/passport/PassportLevel.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "2aa5e6b3c497f4f850da964abc1eb09ce6036ed72df8df7d68d759aa02b257f4",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/passport/PassportReward.tsv",
+      "rows": 10380,
+      "source": [
+        "share/passport/PassportReward.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "f7f003e4890ff992ca6d7827e0338b55c6d6bb1dbcfafabf26e3fbd44f02167b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/passport/PassportTaskGroup.tsv",
+      "rows": 340,
+      "source": [
+        "share/passport/PassportTaskGroup.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "08f4f0d7d5e4e057c953ed1a64b521377e8cd03d94987a8b37454aa1b42a57f3",
+      "filter": "all",
+      "naturalKey": "TaskId",
+      "path": "share/passport/PassportTimeLimitTaskReward.tsv",
+      "rows": 17,
+      "source": [
+        "share/passport/PassportTimeLimitTaskReward.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "37f91cc3036fc14f2c4248e30da0b7a35355daa50f9a555f4189391a1984bd33",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/passport/PassportTypeInfo.tsv",
+      "rows": 132,
+      "source": [
+        "share/passport/PassportTypeInfo.json"
+      ]
+    },
+    {
+      "columns": 21,
+      "contentSha256": "eb2ac4d2c565a38984209a0fc8dde1e3158a8856e41e49714ced42d3c2876fa0",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/photomode/Background.tsv",
+      "rows": 16,
+      "source": [
+        "share/photomode/Background.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "cd7b52d36030470c59d411fd56043d8777b30c3bdba46a91326d1f122d016860",
+      "filter": "preserved-unresolved",
+      "naturalKey": "Level",
+      "path": "share/player/Player.tsv",
+      "rows": 120,
+      "source": []
+    },
+    {
+      "columns": 76,
+      "contentSha256": "86eb3e72fe4b11266f907f59707322a344737ce22b850bdeda1f3091aec6acef",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/reward/Reward.tsv",
+      "rows": 22782,
+      "source": [
+        "share/reward/Reward.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "a7bc8c351b8ac96fb87807ca46e72bf1b0b6bbaed8074e8987347e5b702667e8",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/reward/RewardGoods.tsv",
+      "rows": 45638,
+      "source": [
+        "share/reward/RewardGoods.json"
+      ]
+    },
+    {
+      "columns": 66,
+      "contentSha256": "0976c1aaaa4ba3ec9eb4e5386011fe97236216409f4dece6d2c15fde637354a3",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/robot/Robot.tsv",
+      "rows": 5042,
+      "source": [
+        "share/robot/Robot.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "251031fbeb459a4fbb6ca64a80427d402a5cd5de358bbff370bc6819718910c6",
+      "filter": "daily-sign-in:Id=1",
+      "naturalKey": "Id",
+      "path": "share/signin/SignIn.tsv",
+      "rows": 1,
+      "source": [
+        "share/signin/SignIn.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "31679552e6237a46fb5b38550024d120a6ba65cf8e423eb13e95b1622229eded",
+      "filter": "daily-sign-in:SignId=1",
+      "naturalKey": "Id",
+      "path": "share/signin/SignInReward.tsv",
+      "rows": 28,
+      "source": [
+        "share/signin/SignInReward.json"
+      ]
+    },
+    {
+      "columns": 63,
+      "contentSha256": "787fc516ec21807cb893842c9a2c5d00df9f6685e24b9bf154720fd5e14461f4",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/task/Condition.tsv",
+      "rows": 11858,
+      "source": [
+        "share/task/Condition.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "87ffe6db2d4c1a074afbb958a58041ed404c7c000132c06999a59d4ffa1f1fd4",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "share/task/Course.tsv",
+      "rows": 491,
+      "source": [
+        "share/task/Course.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "706c64a16517af34d8c2e9bb51a81babe5d10dbdfab36de85fe90435ec8cd798",
+      "filter": "preserved-alias-keys",
+      "naturalKey": "Id",
+      "path": "share/task/CurrentCondition.tsv",
+      "rows": 2063,
+      "source": [
+        "share/task/Condition.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "f379079e448f75dbfa1f8c43c6f82683a0d0331afc7a62fb30034a063a280469",
+      "filter": "preserved-alias-keys",
+      "naturalKey": "Id",
+      "path": "share/task/CurrentReward.tsv",
+      "rows": 1365,
+      "source": [
+        "share/reward/Reward.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "23dd7d10d2dbbdd4ce50906f79b9d9300d9211c36c594e22d4b61dc0358fd8c7",
+      "filter": "preserved-alias-keys",
+      "naturalKey": "Id",
+      "path": "share/task/CurrentRewardGoods.tsv",
+      "rows": 3226,
+      "source": [
+        "share/reward/RewardGoods.json"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "4b35389819b16183cfbeb4e4fc0a7f64c9f1a6f0f9cd90b7de01b045f2b324b0",
+      "filter": "preserved-alias-keys",
+      "naturalKey": "Id",
+      "path": "share/task/CurrentTask.tsv",
+      "rows": 2334,
+      "source": [
+        "share/task/Task.json"
+      ]
+    },
+    {
+      "columns": 18,
+      "contentSha256": "32a08d9e02add0d427e21e88d80a2863a8461a4c566d90d644b0a14d7ea41cb8",
+      "filter": "all",
+      "naturalKey": "Type",
+      "path": "share/task/CurrentTaskActiveness.tsv",
+      "rows": 5,
+      "source": [
+        "share/task/TaskActiveness.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "6306ae901341457546d0095a29d808b6431df3ef3bb526e7a74f8f75c1e62eb4",
+      "filter": "preserved-alias-keys",
+      "naturalKey": "Id",
+      "path": "share/task/StoryTask.tsv",
+      "rows": 470,
+      "source": [
+        "share/task/Task.json"
+      ]
+    },
+    {
+      "columns": 22,
+      "contentSha256": "766c712df51e7be49f75088026fade511d723db08cea52b3748ff1d46130caaa",
+      "filter": "preserved-alias-keys",
+      "naturalKey": "Id",
+      "path": "share/task/StoryTaskCondition.tsv",
+      "rows": 470,
+      "source": [
+        "share/task/Condition.json"
+      ]
+    },
+    {
+      "columns": 24,
+      "contentSha256": "1f1b083e9ca62fc2c718255ff9fff0d0fcf543bf2902a3d0b46e517f6f76e2b2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/task/Task.tsv",
+      "rows": 13416,
+      "source": [
+        "share/task/Task.json"
+      ]
+    },
+    {
+      "columns": 73,
+      "contentSha256": "497cd78b2371d73563d4047bb28aa04ec6de04ddb88aeefd5be2b8b05ced7431",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/task/TaskTimeLimit.tsv",
+      "rows": 730,
+      "source": [
+        "share/task/TaskTimeLimit.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "093eef1ef5c330605973aad832a0e2c3b466dee157721c6c8dd4be44194a88a7",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/team/TeamPrefabTag.tsv",
+      "rows": 16,
+      "source": [
+        "share/team/TeamPrefabTag.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "e14873737ed33c1f386cb87bad12eb0dfa41c809569d58172b800692669c215f",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Activity.tsv",
+      "rows": 1,
+      "source": [
+        "share/theatre6/Theatre6Activity.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "4ff01c1e1d160c45cd76a801d26e79ec75a2a56ab211def44d5bc894ac9e35d7",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Attr.tsv",
+      "rows": 6,
+      "source": [
+        "share/theatre6/Theatre6Attr.json"
+      ]
+    },
+    {
+      "columns": 28,
+      "contentSha256": "c7b0ab12ad4b5d620888813fd1c1c973647d40288ab19ae8a3de67ea670b28d2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6AttrPack.tsv",
+      "rows": 90,
+      "source": [
+        "share/theatre6/Theatre6AttrPack.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "c6211340d5467be743dfdc8df1d332d27809ef59202307cfb6aeab704ff2c1cc",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6BuildTag.tsv",
+      "rows": 20,
+      "source": [
+        "share/theatre6/Theatre6BuildTag.json"
+      ]
+    },
+    {
+      "columns": 27,
+      "contentSha256": "9ce839cfd64adbb0f73074a682de822993bf660fe0793826be2ff34e692ea359",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Character.tsv",
+      "rows": 9,
+      "source": [
+        "share/theatre6/Theatre6Character.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "e94ef2b46e280007ff09dd0f7085af26d7b095d82375b6962b18b8b5c91886a2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6CharacterFashion.tsv",
+      "rows": 8,
+      "source": [
+        "share/theatre6/Theatre6CharacterFashion.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "b55dc700009ae2781a38f40098af49c1710f18b14c0955f79d78901df6450d56",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Condition.tsv",
+      "rows": 5,
+      "source": [
+        "share/theatre6/Theatre6Condition.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "3bc4d30cded011360e487b3101f6aa2b70cb9715fb9a0a3cb16cb52634073f6e",
+      "filter": "all",
+      "naturalKey": "Key",
+      "path": "share/theatre6/Theatre6Config.tsv",
+      "rows": 24,
+      "source": [
+        "share/theatre6/Theatre6Config.json"
+      ]
+    },
+    {
+      "columns": 37,
+      "contentSha256": "87542025478b428c8732ac7911f657ef87a48c36741886baa55bc046501989d1",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Monster.tsv",
+      "rows": 256,
+      "source": [
+        "share/theatre6/Theatre6Monster.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "a147144eefc67488d117bff309fdb1555f013fbc2d55da0ef942b3f22cbecf9b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6RandomPool.tsv",
+      "rows": 81,
+      "source": [
+        "share/theatre6/Theatre6RandomPool.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "0b4015213066ef4edec1a1740f9f12d12414452a40a22f4e8334f7ccaab25034",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Reward.tsv",
+      "rows": 6,
+      "source": [
+        "share/theatre6/Theatre6Reward.json"
+      ]
+    },
+    {
+      "columns": 33,
+      "contentSha256": "8076e5718e1dfcd27458dc6edad30dddbc1e5c5c1c3804ae505528e4f0844538",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Skill.tsv",
+      "rows": 418,
+      "source": [
+        "share/theatre6/Theatre6Skill.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "0fc03bf54e97a46fb55266007020821c6bc56e4be11ef894b5c185f9ee57c009",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6SkillExtend.tsv",
+      "rows": 343,
+      "source": [
+        "share/theatre6/Theatre6SkillExtend.json"
+      ]
+    },
+    {
+      "columns": 25,
+      "contentSha256": "53daed5fc3d000d66b66026f5fcc679acb6362cfe10caf11686e235df8bab9d9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Stage.tsv",
+      "rows": 31,
+      "source": [
+        "share/theatre6/Theatre6Stage.json"
+      ]
+    },
+    {
+      "columns": 22,
+      "contentSha256": "9119c53f3d64817e7366b422ac39955b79a8f432a496bb98880adbcab05b7f27",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageBuff.tsv",
+      "rows": 79,
+      "source": [
+        "share/theatre6/Theatre6StageBuff.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "3f715e6ee6061e8e21bc32f73fc36709b14429d6a19bb36559b4bdca5b5a29fd",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageBuffPool.tsv",
+      "rows": 26,
+      "source": [
+        "share/theatre6/Theatre6StageBuffPool.json"
+      ]
+    },
+    {
+      "columns": 42,
+      "contentSha256": "f8c1523cd32def0fa7f18f04383564998efda9deb2eaec8214d9013a7439a26b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageChoose.tsv",
+      "rows": 480,
+      "source": [
+        "share/theatre6/Theatre6StageChoose.json"
+      ]
+    },
+    {
+      "columns": 25,
+      "contentSha256": "208bd4d85ff293268186095123bfe8ff4a58b12b6406d872801cc4fc91c7b8f3",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageChooseGroup.tsv",
+      "rows": 41,
+      "source": [
+        "share/theatre6/Theatre6StageChooseGroup.json"
+      ]
+    },
+    {
+      "columns": 26,
+      "contentSha256": "5c9a510623a271e7cf4fd11827568365a0cf6799edd2f3543f0c9fc7e29588ee",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageChoosePool.tsv",
+      "rows": 114,
+      "source": [
+        "share/theatre6/Theatre6StageChoosePool.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "fd2e8afffc39885d819030933213a23c9a9a98149a922227367b5b8111371df6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageDifficulty.tsv",
+      "rows": 15,
+      "source": [
+        "share/theatre6/Theatre6StageDifficulty.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "71a4c03396479c5f0d68a84bec2dda20211cb867e1446b0aba3850248c66bc1c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageDifficultyGroup.tsv",
+      "rows": 3,
+      "source": [
+        "share/theatre6/Theatre6StageDifficultyGroup.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "630b84062a6e208ddafb30c49f0471a0087d878b5ef29ca153fde10f6b3556d2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageEffect.tsv",
+      "rows": 3,
+      "source": [
+        "share/theatre6/Theatre6StageEffect.json"
+      ]
+    },
+    {
+      "columns": 17,
+      "contentSha256": "59643e5d58ed9e0ea92941e4d4efaa1cc9ac0239ff395f9ad75f0d72235e45d4",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageFight.tsv",
+      "rows": 133,
+      "source": [
+        "share/theatre6/Theatre6StageFight.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "0d7711959dc630b6ad5264910999def987609e3ddb16b920d677f9b0a9a3ffb2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageFightGroup.tsv",
+      "rows": 83,
+      "source": [
+        "share/theatre6/Theatre6StageFightGroup.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "1635d3af4a51e6b60b82e69b8b4bf8fa20cded858a1f8eeea20cf1f8f2f64cee",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageFloor.tsv",
+      "rows": 42,
+      "source": [
+        "share/theatre6/Theatre6StageFloor.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "3dcc3bcf3dd61d0623a665d9a402de5931c4c2b5bd77c9991eb68eefd10fd412",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageGoods.tsv",
+      "rows": 4,
+      "source": [
+        "share/theatre6/Theatre6StageGoods.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "d7e5284476cc94efa06ed609febf041d6086a56bcb84702dbbbbf7bbede92884",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageRoom.tsv",
+      "rows": 191,
+      "source": [
+        "share/theatre6/Theatre6StageRoom.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "0aaed7203d4d0f6998a807973e6fc85122d26e78ecb064255de5b5559660f494",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageSan.tsv",
+      "rows": 10,
+      "source": [
+        "share/theatre6/Theatre6StageSan.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "4b2529dff8acb42ed9348672c5c3fc406230a8b7fa209c5d11afaea0b1f9be80",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageShop.tsv",
+      "rows": 32,
+      "source": [
+        "share/theatre6/Theatre6StageShop.json"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "dd3032c5abaadde8859ee3a1c3ce60c29c9854a5f61395a3b6dac5a687e3807b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageTask.tsv",
+      "rows": 135,
+      "source": [
+        "share/theatre6/Theatre6StageTask.json"
+      ]
+    },
+    {
+      "columns": 32,
+      "contentSha256": "dd751f235ba2dd19f00a9f9950f8824048a4d3153a5c8f9575003a4cc3f4ab1a",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageTaskGroup.tsv",
+      "rows": 63,
+      "source": [
+        "share/theatre6/Theatre6StageTaskGroup.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "f396dfd1a7c5506d11d227ab2f3a91d73b69f497b53dcb16043f48876899ffad",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StageTaskQuality.tsv",
+      "rows": 5,
+      "source": [
+        "share/theatre6/Theatre6StageTaskQuality.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "4d292f5c71e8b60ebc3417ad99a7552fcb41fbf6a02106b190db8a40ae8ab0db",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StoryDetail.tsv",
+      "rows": 35,
+      "source": [
+        "share/theatre6/Theatre6StoryDetail.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "6a7889c39936ee40fb9c60a95677bb5da3b34b79d018a11bcb47b6a4707eef99",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6StoryLine.tsv",
+      "rows": 4,
+      "source": [
+        "share/theatre6/Theatre6StoryLine.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "c03013eb61ec7bbea74f935ad98fa364770d0d75463dda1eb879436ae73e5bb2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6/Theatre6Talent.tsv",
+      "rows": 20,
+      "source": [
+        "share/theatre6/Theatre6Talent.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "227947114f00fcd31c8ee59cb4eed66ada3969cdec08dc566f96384941bb29c9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6pvp/Theatre6PvpActivity.tsv",
+      "rows": 1,
+      "source": [
+        "share/theatre6pvp/Theatre6PvpActivity.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "69306c21b78f62cfd13cef5edf6b65d0400cc5665447fb8d366c69d97c8b3971",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6pvp/Theatre6PvpBuff.tsv",
+      "rows": 10,
+      "source": [
+        "share/theatre6pvp/Theatre6PvpBuff.json"
+      ]
+    },
+    {
+      "columns": 21,
+      "contentSha256": "77d55ed52510d79fa89f7afd51889b1d004b3de8d79b20cedbba8ea55b635a13",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6pvp/Theatre6PvpBuffGroup.tsv",
+      "rows": 1,
+      "source": [
+        "share/theatre6pvp/Theatre6PvpBuffGroup.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "83dd370d502605f4e39a8e70652846b236bbb4d4c8eab16110cb700269a6c422",
+      "filter": "all",
+      "naturalKey": "Key",
+      "path": "share/theatre6pvp/Theatre6PvpConfig.tsv",
+      "rows": 16,
+      "source": [
+        "share/theatre6pvp/Theatre6PvpConfig.json"
+      ]
+    },
+    {
+      "columns": 21,
+      "contentSha256": "19bbfc098886eef4047e565e15abd1e347db391cf81ec7df8138c7219ba0790c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6pvp/Theatre6PvpRank.tsv",
+      "rows": 5,
+      "source": [
+        "share/theatre6pvp/Theatre6PvpRank.json"
+      ]
+    },
+    {
+      "columns": 18,
+      "contentSha256": "46534748f6e06411ebf683bd5fcd2df5fca2a49cc7dd16dca71fa2ffdf8c5d5c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6pvp/Theatre6PvpRankFight.tsv",
+      "rows": 5,
+      "source": [
+        "share/theatre6pvp/Theatre6PvpRankFight.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "51ef0306c3a2dcde27d9f469584c50ccb549475f7a869d32cda37d2007e11bbc",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre6pvp/Theatre6PvpRobot.tsv",
+      "rows": 173,
+      "source": [
+        "share/theatre6pvp/Theatre6PvpRobot.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "978c0b3301e5daff11a994429439531ff4e18c1de02e69022c3bf695d2f487ff",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGFunction.tsv",
+      "rows": 34,
+      "source": [
+        "share/trpg/TRPGFunction.json"
+      ]
+    },
+    {
+      "columns": 30,
+      "contentSha256": "ef1b7c2243e907769cfac8450dd5d38aab7d07b91081e0f17ec3d65e3c3f8336",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/wheelchairmanual/WheelchairManualActivity.tsv",
+      "rows": 1,
+      "source": [
+        "share/wheelchairmanual/WheelchairManualActivity.json"
+      ]
+    },
+    {
+      "columns": 25,
+      "contentSha256": "665c129b3cb401b1967f0d802176b85dfccbd485e91575898f021c58ceed9bf0",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/wheelchairmanual/WheelchairManualGuideActivity.tsv",
+      "rows": 12,
+      "source": [
+        "share/wheelchairmanual/WheelchairManualGuideActivity.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "1d94a7f13a6995ccb8242ec96925edb1b1a60b25d0ff24828e72fff74ecc147e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/wheelchairmanual/WheelchairManualGuideActivityPeriod.tsv",
+      "rows": 12,
+      "source": [
+        "share/wheelchairmanual/WheelchairManualGuideActivityPeriod.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "4cc3dbfe675e0107de3be89314ecfde5052cfdf7a97e8200204d5d353aebf4fc",
+      "filter": "event-catalog-derived",
+      "naturalKey": "Id,TimeId,SkipId,Source",
+      "path": "share/activity/EventCatalog.tsv",
+      "rows": 314,
+      "source": [
+        "client/activity/Activity.json",
+        "share/fuben/FubenActivity.json",
+        "client/activitybrief/{ActivityBrief,ActivityBriefGroup,SpecialActivity}.json",
+        "share/newactivitycalendar/NewActivityCalendarActivity.json",
+        "share/fuben/mainline2/{MainLine2Main,MainLine2Chapter}.json",
+        "share/fuben/transfinite/TransfiniteActivity.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "0e4703d3190a0ccbfc267b940679001637f0b5a182c62f0eab594221eb6ee271",
+      "filter": "official-notice-feature-window-version-history-and-regional-client-entry-derived",
+      "naturalKey": "Id",
+      "path": "share/activity/ActivitySchedule.tsv",
+      "rows": 35,
+      "source": [
+        "share/activity/EventCatalog.tsv",
+        "Resources/Configs/Notices/4.6.0/{GameNotice,LoginNotice}.json",
+        "EN LIVE release history:{TransfiniteActivity,DrawCanLiverActivity}",
+        "client/activitybrief/SpecialActivity.json",
+        "regional-current-minor:{en,cn}/bytes/client/fuben/{FubenClientConfig,FubenActivityTimeTips}.json",
+        "regional-current-minor:cn/bytes/share/fuben/FubenActivity.json",
+        "share/theatre6pvp/Theatre6PvpActivity.json",
+        "client/theatre6/Theatre6ClientConfig.json",
+        "share/item/Item.json"
+      ]
+    }
+  ],
+  "validationNotes": [
+    "SkillLevelId source values ending 00 are valid Level=0; require 0<=Level<=99 and exact recomposition."
+  ]
+}

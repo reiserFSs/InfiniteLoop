@@ -1,16 +1,18 @@
 ﻿using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
+using AscNet.Common.Util;
+using AscNet.Table.V2.share.signin;
 using MessagePack;
 
 namespace AscNet.GameServer.Handlers
 {
     internal class SignInModule
     {
-        private const int CurrentSignInId = 1;
-        private const int FirstSignInRewardId = 5000;
-        private const int SignInDaysPerRound = 28;
-        // The active schedule expiry is configuration-owned; no local source provides it.
-        private const int UnspecifiedSignInFinishDay = 0;
+        private static readonly Lazy<SignInTable> DailySignIn = new(() => TableReaderV2.Parse<SignInTable>()
+            .Single(row => row.Type == 1));
+        private static readonly Lazy<Dictionary<int, SignInRewardTable>> DailyRewardsByDay = new(() => TableReaderV2.Parse<SignInRewardTable>()
+            .Where(row => row.SignId == DailySignIn.Value.Id)
+            .ToDictionary(row => row.Day, row => row));
 
 
         [RequestPacketHandler("SignInRequest")]
@@ -19,11 +21,12 @@ namespace AscNet.GameServer.Handlers
             SignInRequest request = MessagePackSerializer.Deserialize<SignInRequest>(packet.Content);
             SignInResponse signInResponse = new();
 
-            if (request.Id == CurrentSignInId && !HasSignedInToday(session.player))
+            if (request.Id == DailySignIn.Value.Id && !HasSignedInToday(session.player))
             {
-                List<RewardGoods> rewardGoods = RewardHandler.GiveRewards(
-                    RewardHandler.GetRewardGoods(GetCurrentSignInRewardId(session.player)),
-                    session);
+                SignInRewardTable? reward = GetCurrentSignInReward(session.player);
+                List<RewardGoods> rewardGoods = reward is null
+                    ? []
+                    : RewardHandler.GiveRewards(RewardHandler.GetRewardGoods(reward.RewardId), session);
                 if (rewardGoods.Count > 0)
                 {
                     signInResponse.RewardGoodsList.AddRange(rewardGoods);
@@ -35,7 +38,7 @@ namespace AscNet.GameServer.Handlers
                 }
                 else
                 {
-                    session.log.Error($"No rewards configured for daily sign-in day {GetCurrentSignInDay(session.player, signedToday: false)}.");
+                    session.log.Error($"No reward is configured for daily sign-in day {GetCurrentSignInDay(session.player, signedToday: false)}.");
                 }
             }
 
@@ -47,23 +50,14 @@ namespace AscNet.GameServer.Handlers
             bool signedToday = HasSignedInToday(player);
             return
             [
-                new() { Id = 2, Round = 2, Day = 7, Got = true, FinishDay = 1002 },
-                new() { Id = 42, Round = 1, Day = 7, Got = true, FinishDay = 996 },
                 new()
                 {
-                    Id = CurrentSignInId,
+                    Id = DailySignIn.Value.Id,
                     Round = GetCurrentSignInRound(player, signedToday),
                     Day = GetCurrentSignInDay(player, signedToday),
                     Got = signedToday,
-                    FinishDay = UnspecifiedSignInFinishDay
+                    FinishDay = 0
                 },
-                new() { Id = 76, Round = 1, Day = 1, Got = false, FinishDay = 0 },
-                new() { Id = 87, Round = 1, Day = 1, Got = false, FinishDay = 0 },
-                new() { Id = 93, Round = 1, Day = 1, Got = false, FinishDay = 0 },
-                new() { Id = 98, Round = 1, Day = 1, Got = false, FinishDay = 0 },
-                new() { Id = 106, Round = 1, Day = 1, Got = false, FinishDay = 0 },
-                new() { Id = 113, Round = 1, Day = 1, Got = false, FinishDay = 0 },
-                new() { Id = 111, Round = 1, Day = 7, Got = true, FinishDay = 1792 }
             ];
         }
 
@@ -76,19 +70,20 @@ namespace AscNet.GameServer.Handlers
             return lastSignInDate == DateTimeOffset.UtcNow.UtcDateTime.Date;
         }
 
-        private static int GetCurrentSignInRewardId(Player player)
+        private static SignInRewardTable? GetCurrentSignInReward(Player player)
         {
-            return FirstSignInRewardId + (int)GetCurrentSignInDay(player, signedToday: false) - 1;
+            DailyRewardsByDay.Value.TryGetValue((int)GetCurrentSignInDay(player, signedToday: false), out SignInRewardTable? reward);
+            return reward;
         }
 
         private static long GetCurrentSignInRound(Player player, bool signedToday)
         {
-            return GetDisplayedSignInClaimCount(player, signedToday) / SignInDaysPerRound + 1;
+            return GetDisplayedSignInClaimCount(player, signedToday) / DailySignIn.Value.RoundDays + 1;
         }
 
         private static long GetCurrentSignInDay(Player player, bool signedToday)
         {
-            return GetDisplayedSignInClaimCount(player, signedToday) % SignInDaysPerRound + 1;
+            return GetDisplayedSignInClaimCount(player, signedToday) % DailySignIn.Value.RoundDays + 1;
         }
 
         private static long GetDisplayedSignInClaimCount(Player player, bool signedToday)

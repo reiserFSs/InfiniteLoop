@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Collections.Concurrent;
+using System.Net.Sockets;
 using System.Net;
 using AscNet.Logging;
 
@@ -7,7 +8,7 @@ namespace AscNet.GameServer
     public class Server
     {
         public static Logger log;
-        public readonly Dictionary<string, Session> Sessions = new();
+        public readonly ConcurrentDictionary<string, Session> Sessions = new();
         private static Server? _instance;
         private readonly TcpListener listener;
 
@@ -47,7 +48,8 @@ namespace AscNet.GameServer
                         string id = tcpClient.Client.RemoteEndPoint!.ToString()!;
 
                         log.Warn($"{id} connected");
-                        Sessions.Add(id, new Session(id, tcpClient));
+                        if (!Sessions.TryAdd(id, new Session(id, tcpClient)))
+                            tcpClient.Close();
                     }
                 }
                 catch (Exception ex)

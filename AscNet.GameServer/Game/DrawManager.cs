@@ -2,715 +2,5087 @@ using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.GameServer.Handlers;
-using AscNet.Logging;
 using AscNet.Table.V2.client.draw;
 using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.item;
 
-namespace AscNet.GameServer.Game
+namespace AscNet.GameServer.Game;
+
+internal static class DrawManager
 {
-    internal partial class DrawManager
+    internal const int CatalogUnavailableCode = 1;
+    private const int MinDrawItemShowQuality = 3;
+    private static readonly List<DrawSceneTable> DrawScenes = TableReaderV2.Parse<DrawSceneTable>();
+    private static readonly List<DrawPreviewTable> DrawPreviews = TableReaderV2.Parse<DrawPreviewTable>();
+    private static readonly List<CharacterTable> Characters = TableReaderV2.Parse<CharacterTable>();
+    private static readonly List<CharacterQualityTable> CharacterQualities = TableReaderV2.Parse<CharacterQualityTable>();
+    private static readonly List<EquipTable> Equips = TableReaderV2.Parse<EquipTable>();
+    private static readonly List<ItemTable> Items = TableReaderV2.Parse<ItemTable>();
+    private static readonly HashSet<int> DrawWaferShowIds = TableReaderV2.Parse<DrawWaferShowTable>().Select(x => x.Id).ToHashSet();
+
+    // 4.6 retail 0801 catalog. Presentation and scheduling are server-pushed fields;
+    // reward pools remain derived from the installed client tables below.
+    private static readonly DrawGroupInfo[] GroupTemplates =
+    [
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1632470400,
+            BannerEndTime = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            UseItemId = 50000,
+            SwitchDrawIdCount = 14,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 101 },
+            Id = 1,
+            Priority = 9000,
+            ResetTime = 0.0,
+            StartTime = 0,
+            EndTime = 0,
+            Order = 1,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 4,
+            OptionalDrawIdList = [101, 3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3010, 3012, 3014, 3016, 3018, 3020, 3022, 3024, 3026, 3028, 3030, 3032, 3034, 3036],
+            TransformSuitList = [],
+            Type = 1,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 0,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [],
+            ConditionId = 0,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 0,
+            BannerEndTime = 0,
+            BottomTimes = 17,
+            MaxBottomTimes = 30,
+            UseItemId = 50001,
+            SwitchDrawIdCount = 0,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 201 },
+            Id = 2,
+            Priority = 1000,
+            ResetTime = 0.0,
+            StartTime = 0,
+            EndTime = 0,
+            Order = 1,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaboration07.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 4,
+            OptionalDrawIdList = [201],
+            TransformSuitList = [],
+            Type = 0,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 0,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [],
+            ConditionId = 0,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1784246400,
+            BannerEndTime = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            UseItemId = 50003,
+            SwitchDrawIdCount = 32,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 380, [3] = 0 },
+            Id = 4,
+            Priority = 500,
+            ResetTime = 0.0,
+            StartTime = 0,
+            EndTime = 0,
+            Order = 1,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 1,
+            OptionalDrawIdList = [301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 370, 371, 372, 374, 375, 376, 377, 380],
+            TransformSuitList = [],
+            Type = 0,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 0,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [378, 379],
+            ConditionId = 0,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1783580400,
+            BannerEndTime = 1784789940,
+            BottomTimes = 47,
+            MaxBottomTimes = 60,
+            UseItemId = 50005,
+            SwitchDrawIdCount = 36,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 1496 },
+            Id = 12,
+            Priority = 14000,
+            ResetTime = 0.0,
+            StartTime = 1575540000,
+            EndTime = 1788418740,
+            Order = 1002,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 3,
+            OptionalDrawIdList = [1495, 1496, 1497],
+            TransformSuitList = [],
+            Type = 8,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 1,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [],
+            ConditionId = 0,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1783580400,
+            BannerEndTime = 1784789940,
+            BottomTimes = 100,
+            MaxBottomTimes = 100,
+            UseItemId = 50005,
+            SwitchDrawIdCount = 10,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 0 },
+            Id = 13,
+            Priority = 13000,
+            ResetTime = 0.0,
+            StartTime = 1575540000,
+            EndTime = 1788418740,
+            Order = 1001,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 3,
+            OptionalDrawIdList = [2489, 2490, 2491],
+            TransformSuitList = [],
+            Type = 8,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 1,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [],
+            ConditionId = 0,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1649923200,
+            BannerEndTime = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            UseItemId = 50005,
+            SwitchDrawIdCount = 4,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 4003 },
+            Id = 16,
+            Priority = 100,
+            ResetTime = 0.0,
+            StartTime = 0,
+            EndTime = 0,
+            Order = 1,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 4,
+            OptionalDrawIdList = [4001, 4003, 4005, 4007, 4009, 4011, 4013],
+            TransformSuitList = [],
+            Type = 2,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 0,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [],
+            ConditionId = 8005,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1784246400,
+            BannerEndTime = 1787094000,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            UseItemId = 50009,
+            SwitchDrawIdCount = 31,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 7066, [4] = 0 },
+            Id = 22,
+            Priority = 8000,
+            ResetTime = 0.0,
+            StartTime = 0,
+            EndTime = 0,
+            Order = 1,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 7,
+            OptionalDrawIdList = [7002, 7004, 7006, 7008, 7010, 7012, 7014, 7016, 7018, 7020, 7022, 7024, 7026, 7028, 7030, 7032, 7034, 7036, 7038, 7040, 7042, 7044, 7046, 7048, 7052, 7054, 7057, 7059, 7061, 7063, 7066],
+            TransformSuitList = [],
+            Type = 8,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 0,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [7064, 7065],
+            ConditionId = 8006,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1784246400,
+            BannerEndTime = 1787094000,
+            BottomTimes = 59,
+            MaxBottomTimes = 60,
+            UseItemId = 50005,
+            SwitchDrawIdCount = 0,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() { [0] = 1499 },
+            Id = 35,
+            Priority = 19000,
+            ResetTime = 0.0,
+            StartTime = 1784246400,
+            EndTime = 1787094000,
+            Order = 5004,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 9,
+            OptionalDrawIdList = [1499],
+            TransformSuitList = [],
+            Type = 2,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 0,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [],
+            ConditionId = 0,
+        },
+        new DrawGroupInfo
+        {
+            BannerBeginTime = 1784246400,
+            BannerEndTime = 1787094000,
+            BottomTimes = 100,
+            MaxBottomTimes = 100,
+            UseItemId = 50005,
+            SwitchDrawIdCount = 0,
+            UseTenDrawOnSaleTimes = 0,
+            UseDrawIdDict = new() {  },
+            Id = 36,
+            Priority = 18000,
+            ResetTime = 0.0,
+            StartTime = 1784246400,
+            EndTime = 1787094000,
+            Order = 5003,
+            SwitchDrawIdActivityId = 0,
+            MaxSwitchDrawIdCount = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
+            UiPrefab = "UiDraw",
+            UiBackGround = "Assets/Product/Ui/ComponentPrefab/DrawBackGround/DrawBackGround01.prefab",
+            Tag = 9,
+            OptionalDrawIdList = [2493],
+            TransformSuitList = [],
+            Type = 2,
+            ExtraRewardId = 0,
+            ExtraRewardCycleTimes = 0,
+            ShowPredictType = 0,
+            TenDrawOnSales = new() {  },
+            TagBlackListDrawIds = [],
+            ConditionId = 0,
+        }
+    ];
+
+    private static readonly DrawInfo[] DrawTemplates =
+    [
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 71,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 101,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() {  },
+            ResourceIds = new() {  },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 13,
+            BottomTimes = 17,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 201,
+            GroupId = 2,
+            DrawType = 1,
+            UseItemId = 50001,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaboration07.prefab",
+            Resources = new() {  },
+            ResourceIds = new() {  },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 301,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponShilangqiang.png" },
+            ResourceIds = new() { [1] = 2016001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 302,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHongliankuangshi.png" },
+            ResourceIds = new() { [1] = 2026001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 303,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponYingda.png" },
+            ResourceIds = new() { [1] = 2026002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 9,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 304,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponLingshi.png" },
+            ResourceIds = new() { [1] = 2036001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 305,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponShencizhe.png" },
+            ResourceIds = new() { [1] = 2036002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 306,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponTianlongzhifeng.png" },
+            ResourceIds = new() { [1] = 2036003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 307,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponLeimier.png" },
+            ResourceIds = new() { [1] = 2046001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 308,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponQimeila.png" },
+            ResourceIds = new() { [1] = 2056001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 309,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1628064000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponDashenwei.png" },
+            ResourceIds = new() { [1] = 2066001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 310,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponQihei.png" },
+            ResourceIds = new() { [1] = 2066002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 311,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponKuangluanronghepao.png" },
+            ResourceIds = new() { [1] = 2076001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 312,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponZhanhunzhe.png" },
+            ResourceIds = new() { [1] = 2086001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 313,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponLingdudingbiao.png" },
+            ResourceIds = new() { [1] = 2016002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 314,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHejihonglong.png" },
+            ResourceIds = new() { [1] = 2076002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 315,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponJiyun.png" },
+            ResourceIds = new() { [1] = 2056002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 10,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 316,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1628064000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHongying.png" },
+            ResourceIds = new() { [1] = 2026004 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 317,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1631260800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponZhenmingzhe.png" },
+            ResourceIds = new() { [1] = 2086002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 318,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1632470400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponWeizi.png" },
+            ResourceIds = new() { [1] = 2096001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 319,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1634112000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponLaitening.png" },
+            ResourceIds = new() { [1] = 2046002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 320,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1634716800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponSaiyin.png" },
+            ResourceIds = new() { [1] = 2016003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 321,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1637222400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponShengaiermo.png" },
+            ResourceIds = new() { [1] = 2096002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 322,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1640246400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponZhuhua.png" },
+            ResourceIds = new() { [1] = 2026005 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 323,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1643270400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponTanatuosi.png" },
+            ResourceIds = new() { [1] = 2106001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 324,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1644220800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponShaliye.png" },
+            ResourceIds = new() { [1] = 2026006 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 325,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1646294400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponGanggenier.png" },
+            ResourceIds = new() { [1] = 2116001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 326,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1649923200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponQinghe.png" },
+            ResourceIds = new() { [1] = 2136001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 327,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1650873600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponBaji.png" },
+            ResourceIds = new() { [1] = 2146001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 328,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1652947200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponAozima.png" },
+            ResourceIds = new() { [1] = 2176001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 329,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1660723200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponLinzhongzhuren.png" },
+            ResourceIds = new() { [1] = 2196001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 330,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1661587200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponTianping.png" },
+            ResourceIds = new() { [1] = 2186001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 331,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1663401600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponAboluo.png" },
+            ResourceIds = new() { [1] = 2206001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 332,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1666166400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHulu.png" },
+            ResourceIds = new() { [1] = 2216001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 10,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 333,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1668758400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponBusiniao.png" },
+            ResourceIds = new() { [1] = 2236001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 334,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1671782400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponDulandeer.png" },
+            ResourceIds = new() { [1] = 2226001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 335,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1674201600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHesitiya.png" },
+            ResourceIds = new() { [1] = 2246001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 336,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1677744000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponSalasiteluo.png" },
+            ResourceIds = new() { [1] = 2256001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 337,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1680940800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponWuyu.png" },
+            ResourceIds = new() { [1] = 2266001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 338,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1683878400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponJubao.png" },
+            ResourceIds = new() { [1] = 2276001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 339,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1686902400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponJialateya.png" },
+            ResourceIds = new() { [1] = 2096003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 340,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1689321600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponAnJiShanGuang.png" },
+            ResourceIds = new() { [1] = 2286001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 341,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1692777600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponPuluomixiusi.png" },
+            ResourceIds = new() { [1] = 2296001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 1,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 342,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1695801600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHeKaTe.png" },
+            ResourceIds = new() { [1] = 2306001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 343,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1699495200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponJingmirenxingzhisheng.png" },
+            ResourceIds = new() { [1] = 2316001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 344,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1702346400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponSituokesi.png" },
+            ResourceIds = new() { [1] = 2326001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 345,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1705543200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponXinghaimanyouzhe.png" },
+            ResourceIds = new() { [1] = 2336001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 66,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 346,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1708653600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponYehuang.png" },
+            ResourceIds = new() { [1] = 2346001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 347,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1712541600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponGujin.png" },
+            ResourceIds = new() { [1] = 2356001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 348,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1715220000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponManajiaermu.png" },
+            ResourceIds = new() { [1] = 2366001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 349,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1718330400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponChihongpaoxiao.png" },
+            ResourceIds = new() { [1] = 2376001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 350,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1721008800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponAstraia.png" },
+            ResourceIds = new() { [1] = 2046003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 3,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 351,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1724205600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponMotisi.png" },
+            ResourceIds = new() { [1] = 2386001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 353,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1730340000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponAnyeliesun.png" },
+            ResourceIds = new() { [1] = 2406001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 1,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 354,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1733277600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponMingyaoqueying.png" },
+            ResourceIds = new() { [1] = 2416001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [90694, 90695, 90696, 90697, 90700, 90701, 90702, 90705, 90706, 90292],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 355,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1737100800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHaikeruiyin.png" },
+            ResourceIds = new() { [1] = 2426001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90717, 90718, 90723, 90726, 90727, 90741, 90743],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 29,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 356,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1736474400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponLvtiaochongsu.png" },
+            ResourceIds = new() { [1] = 2436001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90717, 90718, 90723, 90726, 90727, 90741, 90743],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 357,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1737705600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponSaisitusi.png" },
+            ResourceIds = new() { [1] = 2446001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90717, 90718, 90723, 90726, 90727, 90741, 90743],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 1,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 358,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1740016800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponPengyoudiemeng.png" },
+            ResourceIds = new() { [1] = 2456001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90750, 90751, 90756, 90759, 90760, 90772, 90774],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 24,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 359,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1740643200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponMingtongxuzhou.png" },
+            ResourceIds = new() { [1] = 2466001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90750, 90751, 90756, 90759, 90760, 90772, 90774],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 10,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 360,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1743559200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponFuxiaoyanling.png" },
+            ResourceIds = new() { [1] = 2476001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90778, 90779, 90785, 90786, 90790, 90808, 90810],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 361,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1743840000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponBaZhi.png" },
+            ResourceIds = new() { [1] = 2486001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90778, 90779, 90785, 90786, 90790, 90808, 90810],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 27,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 362,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1744185600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponHeersheer.png" },
+            ResourceIds = new() { [1] = 2496001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90778, 90779, 90785, 90786, 90790, 90808, 90810],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 30,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 363,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1747188000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponYishiZhongyan.png" },
+            ResourceIds = new() { [1] = 2506001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90815, 90821, 90822, 90825, 90826, 90828, 90830],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 364,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1747814400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponFanXiao.png" },
+            ResourceIds = new() { [1] = 2516001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90815, 90821, 90822, 90825, 90826, 90828, 90830],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 10,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 365,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1750816800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponYaoLan.png" },
+            ResourceIds = new() { [1] = 2526001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90852, 90861, 90862, 90865, 90866, 90856, 90858],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 366,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1751097600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponJietawei.png" },
+            ResourceIds = new() { [1] = 2536001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90852, 90861, 90862, 90865, 90866, 90856, 90858],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 30,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 367,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1751443200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawWeaponJinjieguixu.png" },
+            ResourceIds = new() { [1] = 2546001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90852, 90861, 90862, 90865, 90866, 90856, 90858],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 20,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 370,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1758247200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2576001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90918, 90925, 90921, 90922, 90926],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 371,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1758870000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2586001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90918, 90925, 90921, 90922, 90926],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 21,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 372,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1760079600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2596001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 2],
+            PurchaseId = [90918, 90925, 90921, 90922, 90926],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 374,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1766466000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2616001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6],
+            PurchaseId = [1972, 1973, 1978, 1979, 1983, 1984],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 375,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1770076800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2626001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6],
+            PurchaseId = [1996, 1997, 2002, 2003, 2007, 2008],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 376,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1773705600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2636001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6],
+            PurchaseId = [202, 2017, 2018, 2023, 204, 2028, 2029],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 377,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1776729600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2646001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6],
+            PurchaseId = [202, 2036, 2042, 2037, 2043, 204, 2047, 2048],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 26,
+            MaxBottomTimes = 30,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = true,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 380,
+            GroupId = 4,
+            DrawType = 2,
+            UseItemId = 50003,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1784246400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Weapon.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 2666001 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6],
+            PurchaseId = [202, 2082, 2088, 2083, 2089, 2093, 2094],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 47,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 1495,
+            GroupId = 12,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1783580400,
+            EndTime = 1784789940,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1141004 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2063, 2064, 2059, 2060, 2061, 2062, 2065, 2066, 2067, 2068, 2069, 2070, 2072],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 47,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 1496,
+            GroupId = 12,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1783580400,
+            EndTime = 1784789940,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1021006 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2063, 2064, 2059, 2060, 2061, 2062, 2065, 2066, 2067, 2068, 2069, 2070, 2072],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 47,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 1497,
+            GroupId = 12,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1783580400,
+            EndTime = 1784789940,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1241003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2063, 2064, 2059, 2060, 2061, 2062, 2065, 2066, 2067, 2068, 2069, 2070, 2072],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = true,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 1499,
+            GroupId = 35,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1784246400,
+            EndTime = 1787094000,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1401003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2085, 2086, 2081, 2087, 2090, 2084, 2091, 2082, 2088, 2092, 2083, 2089, 2094],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 100,
+            MaxBottomTimes = 100,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 2489,
+            GroupId = 13,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1783580400,
+            EndTime = 1784789940,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1141004 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2063, 2064, 2059, 2060, 2061, 2062, 2065, 2066, 2067, 2068, 2069, 2070, 2072],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 100,
+            MaxBottomTimes = 100,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 2490,
+            GroupId = 13,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1783580400,
+            EndTime = 1784789940,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1021006 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2063, 2064, 2059, 2060, 2061, 2062, 2065, 2066, 2067, 2068, 2069, 2070, 2072],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 100,
+            MaxBottomTimes = 100,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 2491,
+            GroupId = 13,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1783580400,
+            EndTime = 1784789940,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1241003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2063, 2064, 2059, 2060, 2061, 2062, 2065, 2066, 2067, 2068, 2069, 2070, 2072],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 100,
+            MaxBottomTimes = 100,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = true,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 2493,
+            GroupId = 36,
+            DrawType = 3,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1784246400,
+            EndTime = 1787094000,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 1401003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6, 2],
+            PurchaseId = [1969, 2085, 2086, 2081, 2087, 2090, 2084, 2091, 2082, 2088, 2092, 2083, 2089, 2094],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3000,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterLee.png" },
+            ResourceIds = new() { [1] = 1011002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 15,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3001,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterLucia.png" },
+            ResourceIds = new() { [1] = 1021002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 20,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3002,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterLiv.png" },
+            ResourceIds = new() { [1] = 1031002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3003,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterBianca.png" },
+            ResourceIds = new() { [1] = 1041002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3004,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterKamui.png" },
+            ResourceIds = new() { [1] = 1061002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3005,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterKarenina.png" },
+            ResourceIds = new() { [1] = 1071002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3006,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 0,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterWatanabe.png" },
+            ResourceIds = new() { [1] = 1081002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3007,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1632470400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterWatanabe2.png" },
+            ResourceIds = new() { [1] = 1081003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3008,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1633680000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterAyla.png" },
+            ResourceIds = new() { [1] = 1091002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3010,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1637049600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterSophia.png" },
+            ResourceIds = new() { [1] = 1111002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3012,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1639641600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterChrome.png" },
+            ResourceIds = new() { [1] = 1121002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 38,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3014,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1646035200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterVera.png" },
+            ResourceIds = new() { [1] = 1131002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3016,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1652688000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterChangyu.png" },
+            ResourceIds = new() { [1] = 1161002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3018,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1663142400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterWanshi.png" },
+            ResourceIds = new() { [1] = 1211002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3020,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1668585600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterNo21.png" },
+            ResourceIds = new() { [1] = 1221002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3022,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1702022400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterBangbinata.png" },
+            ResourceIds = new() { [1] = 1231002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3024,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1714982400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterHanying.png" },
+            ResourceIds = new() { [1] = 1241002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3026,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1720857600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNameNoctis.png" },
+            ResourceIds = new() { [1] = 1251002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 12,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3028,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1739952000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterDollbear.png" },
+            ResourceIds = new() { [1] = 1291002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3030,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1739952000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterBridget.png" },
+            ResourceIds = new() { [1] = 1301002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3032,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1747188000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterBaZhi.png" },
+            ResourceIds = new() { [1] = 1311002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3034,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1754445600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterJietawei.png" },
+            ResourceIds = new() { [1] = 1341002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 60,
+            MaxBottomTimes = 60,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 3036,
+            GroupId = 1,
+            DrawType = 1,
+            UseItemId = 50000,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1762981200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationBenchmarkRole.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/DrawCharacterJietawei.png" },
+            ResourceIds = new() { [1] = 1371002 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 4001,
+            GroupId = 16,
+            DrawType = 1,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1649923200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNameKamu1.png" },
+            ResourceIds = new() { [1] = 1511003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [6],
+            PurchaseId = [90289, 90291],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 4003,
+            GroupId = 16,
+            DrawType = 1,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1652688000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNameQu1.png" },
+            ResourceIds = new() { [1] = 1521003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [6],
+            PurchaseId = [90289, 90291],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 4005,
+            GroupId = 16,
+            DrawType = 1,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1663142400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNameSailinna1.png" },
+            ResourceIds = new() { [1] = 1531003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [6],
+            PurchaseId = [90289, 90291],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 4007,
+            GroupId = 16,
+            DrawType = 1,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1674086400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNameLuolan1.png" },
+            ResourceIds = new() { [1] = 1541003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [6],
+            PurchaseId = [90289, 90291],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 4009,
+            GroupId = 16,
+            DrawType = 1,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1683360000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNamePulao1.png" },
+            ResourceIds = new() { [1] = 1551003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [6],
+            PurchaseId = [90289, 90291],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 4011,
+            GroupId = 16,
+            DrawType = 1,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1689148800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNameHakama1.png" },
+            ResourceIds = new() { [1] = 1561003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [6],
+            PurchaseId = [90289, 90291],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 10,
+            MaxBottomTimes = 10,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 4013,
+            GroupId = 16,
+            DrawType = 1,
+            UseItemId = 50005,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1695196800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Frame.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationNameNuoan1.png" },
+            ResourceIds = new() { [1] = 1571003 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [6],
+            PurchaseId = [90289, 90291],
+            ExPurchaseIds = [],
+            CapacityCheckType = 0,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7002,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1666058400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationTingHong.png" },
+            ResourceIds = new() { [1] = 16030000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7004,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1668585600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationShuangShi.png" },
+            ResourceIds = new() { [1] = 16040000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7006,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1674086400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationXiaoHuang.png" },
+            ResourceIds = new() { [1] = 16060000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7008,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1680163200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationCang.png" },
+            ResourceIds = new() { [1] = 16080000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7010,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1686297600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationXiaoYue.png" },
+            ResourceIds = new() { [1] = 16100000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7012,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1691740800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationMingYue.png" },
+            ResourceIds = new() { [1] = 16110000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7014,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1698220800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationFeiLin.png" },
+            ResourceIds = new() { [1] = 16120000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7016,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1704873600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationCheJu.png" },
+            ResourceIds = new() { [1] = 16130000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7018,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1708070400,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationHongJi.png" },
+            ResourceIds = new() { [1] = 16140000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 20,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7020,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1711180800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationCheTing.png" },
+            ResourceIds = new() { [1] = 16150000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 5,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7022,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1717747200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationMingYa.png" },
+            ResourceIds = new() { [1] = 16160000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7024,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1723536000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationZhouYi.png" },
+            ResourceIds = new() { [1] = 16170000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7026,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1726732800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationQianZe.png" },
+            ResourceIds = new() { [1] = 16180000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7028,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1732867200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationYeFu.png" },
+            ResourceIds = new() { [1] = 16190000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 20,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7030,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1735804800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationHuiYu.png" },
+            ResourceIds = new() { [1] = 16200000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 10,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7032,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1739952000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationSuE.png" },
+            ResourceIds = new() { [1] = 16210000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7034,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1743559200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationMeiWu.png" },
+            ResourceIds = new() { [1] = 16220000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7036,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1743559200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationRuiXue.png" },
+            ResourceIds = new() { [1] = 16230000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7038,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1747188000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationYiKong.png" },
+            ResourceIds = new() { [1] = 16240000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7040,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1747188000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationAnji.png" },
+            ResourceIds = new() { [1] = 16250000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7042,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1750816800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationZhuling.png" },
+            ResourceIds = new() { [1] = 16260000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7044,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1750816800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationBili.png" },
+            ResourceIds = new() { [1] = 16270000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7046,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1754445600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationXuege.png" },
+            ResourceIds = new() { [1] = 16280000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7048,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1754445600,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [3] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationXiaolong.png" },
+            ResourceIds = new() { [1] = 16290000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7052,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1762981200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 16320000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7054,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1762981200,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 16330000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7057,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1770094800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 16350000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7059,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1773702000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 16360000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7061,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1776726000,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 16370000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = false,
+            IsShowBubble = false,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7063,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1780354800,
+            EndTime = 0,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() {  },
+            ResourceIds = new() { [1] = 16380000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [],
+            PurchaseId = [],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        },
+        new DrawInfo
+        {
+            TodayCount = 0,
+            TotalCount = 0,
+            BottomTimes = 20,
+            MaxBottomTimes = 20,
+            IsTriggerSpecified = false,
+            IsShowShop = true,
+            IsShowBubble = true,
+            UseTenDrawOnSaleTimes = 0,
+            Id = 7066,
+            GroupId = 22,
+            DrawType = 3,
+            UseItemId = 50009,
+            UseItemCount = 250,
+            DailyLimitTimes = 0,
+            ActivityLimitTimes = 0,
+            StartTime = 1784246400,
+            EndTime = 1787094000,
+            Banner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1Cub.prefab",
+            Resources = new() { [4] = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationV1/UiDrawCollaborationV1CUB3.png" },
+            ResourceIds = new() { [1] = 16400000 },
+            BtnDrawCount = [1, 10],
+            ShowPriority = 0,
+            PurchaseUiType = [5, 6],
+            PurchaseId = [2083, 2089, 2094],
+            ExPurchaseIds = [],
+            CapacityCheckType = 1,
+            UpGoodsId = 0,
+            GroupSubType = 0,
+        }
+    ];
+
+    private static readonly DrawAdjustActivityInfo[] DrawAdjustTemplates =
+    [
+        new DrawAdjustActivityInfo
+        {
+            TargetTimes = 1,
+            TargetId = 1241003,
+            ActivityStatus = 0,
+            ActivityId = 3,
+            StartTime = 1763006400,
+            EndTime = 0,
+            AdjustTimes = 1,
+            DrawGroupId = 1,
+            TargetTemplateIds = [],
+            SourceTemplateIds = [],
+            EffectTargetTemplateIds = [1011003, 1031003, 1061003, 1071003, 1051003, 1021003, 1041003, 1021004, 1141003, 1171003, 1121003, 1131003, 1031004, 1531004, 1051004, 1071004, 1041004, 1011004, 1091003, 1021005, 1221003, 1261003, 1271003, 1081004, 1521004, 1171004, 1241003, 1211003, 1021006, 1051005, 1321003, 1331003, 1531005, 1131004, 1041005, 1381003, 1291003, 1141004, 1391003, 1061004],
+        }
+    ];
+
+    private static readonly Dictionary<int, DrawGroupInfo> GroupsById = GroupTemplates.ToDictionary(x => x.Id);
+    private static readonly Dictionary<int, DrawInfo> DrawsById = DrawTemplates.ToDictionary(x => x.Id);
+    private static readonly Dictionary<int, List<DrawInfo>> DrawsByGroup = DrawTemplates.GroupBy(x => x.GroupId).ToDictionary(x => x.Key, x => x.OrderBy(y => y.Id).ToList());
+
+    static DrawManager()
     {
-        public static readonly List<DrawSceneTable> drawSceneTables = TableReaderV2.Parse<DrawSceneTable>();
-        public static readonly List<DrawPreviewTable> drawPreviewTables = TableReaderV2.Parse<DrawPreviewTable>();
-        public static readonly List<CharacterTable> charactersTables = TableReaderV2.Parse<CharacterTable>();
-        public static readonly List<CharacterQualityTable> characterQualitiesTables = TableReaderV2.Parse<CharacterQualityTable>();
-        private static readonly List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
-        private static readonly List<ItemTable> itemTables = TableReaderV2.Parse<ItemTable>();
-        private static readonly HashSet<int> drawPreviewIds = drawPreviewTables.Select(x => x.Id).ToHashSet();
-        private static readonly HashSet<int> drawWaferShowIds = TableReaderV2.Parse<DrawWaferShowTable>().Select(x => x.Id).ToHashSet();
-        private static readonly Logger log = new(typeof(DrawManager), LogLevel.DEBUG, LogLevel.DEBUG);
-        private const int MinDrawItemShowQuality = 3;
-        private static readonly object stateLock = new();
-        private static readonly Dictionary<long, Dictionary<int, DrawProgress>> drawProgressByPlayer = new();
-        private static readonly Dictionary<long, Dictionary<int, Dictionary<int, int>>> selectedDrawByPlayerGroup = new();
-        private static readonly Dictionary<long, Dictionary<int, int>> switchCountByPlayerGroup = new();
-        private static readonly Dictionary<(long PlayerId, int GroupId, int GroupSubType), List<DrawHistoryEntry>> drawHistoryByPlayerGroup = new();
-
-        #region DrawTags
-        public const int TagBase = 1;
-        public const int TagEvent = 2;
-        public const int TagSpecialEvent = 3;
-        public const int TagTargetUniframe = 4;
-        public const int TagCollab = 5;
-        public const int TagEndlessSummerBlue = 6;
-        public const int TagCUB = 7;
-        #endregion
-
-        #region Groups
-        public const int GroupMemberTarget = 1;
-        public const int GroupWeaponResearch = 2;
-        public const int GroupTargetWeaponResearch = 4;
-        public const int GroupDormitoryResearch = 6;
-        public const int GroupThemedTargetWeapon = 10;
-        public const int GroupThemedEventConstruct = 11;
-        public const int GroupArrivalConstruct = 12;
-        public const int GroupFateArrivalConstruct = 13;
-        public const int GroupArrivalEventConstruct = 14;
-        public const int GroupFateThemedConstruct = 15;
-        public const int GroupTargetUniframe = 16;
-        public const int GroupAnniversary = 17;
-        public const int GroupFateAnniversaryLimited = 18;
-        public const int GroupCollabTarget = 19;
-        public const int GroupFateCollabTarget = 20;
-        public const int GroupCollabWeaponTarget = 21;
-        public const int GroupCUBTarget = 22;
-        public const int GroupWishingTarget = 23;
-        public const int GroupFateWishingTarget = 24;
-        #endregion
-
-        private sealed record DrawProgress(int TodayCount, int TotalCount);
-        private sealed record DrawHistoryEntry(RewardGoods RewardGoods, long DrawTime);
-
-        private sealed record DrawGroupDefinition(
-            int Id,
-            int Tag,
-            int Order,
-            int Priority,
-            int UseItemId,
-            int MaxBottomTimes,
-            int Type,
-            string Banner,
-            Dictionary<int, int> DefaultUseDrawIdDict,
-            List<int> OptionalDrawIdList,
-            List<int> TagBlackListDrawIds,
-            long BannerBeginTime,
-            long BannerEndTime,
-            int ConditionId,
-            int ShowPredictType,
-            long StartTime,
-            long EndTime);
-
-        private sealed record DrawInfoTemplate(
-            int Id,
-            int GroupId,
-            int DrawType,
-            int UseItemId,
-            int UseItemCount,
-            int BaseTodayCount,
-            int BaseTotalCount,
-            int BottomTimes,
-            int MaxBottomTimes,
-            long StartTime,
-            long EndTime,
-            string Banner,
-            Dictionary<int, string> Resources,
-            Dictionary<int, int> ResourceIds,
-            List<int> BtnDrawCount,
-            List<int> PurchaseUiType,
-            List<int> PurchaseId,
-            List<int> ExPurchaseIds,
-            int CapacityCheckType,
-            int GroupSubType,
-            bool IsTriggerSpecified,
-            bool IsShowShop,
-            bool IsShowBubble,
-            int UseTenDrawOnSaleTimes,
-            int DailyLimitTimes,
-            int ActivityLimitTimes,
-            int ShowPriority,
-            int UpGoodsId);
-
-        private static readonly DrawGroupDefinition[] GroupDefinitions = BuildGeneratedDrawGroupDefinitions();
-        private static readonly DrawInfoTemplate[] RetailDrawInfoTemplates = BuildGeneratedRetailDrawInfoTemplates();
-
-        private static readonly Dictionary<int, DrawInfoTemplate> RetailDrawInfoById = RetailDrawInfoTemplates.ToDictionary(x => x.Id);
-        private static readonly Dictionary<int, List<DrawInfoTemplate>> RetailDrawInfosByGroup = RetailDrawInfoTemplates
-            .GroupBy(x => x.GroupId)
-            .ToDictionary(x => x.Key, x => x.OrderBy(info => info.Id).ToList());
-
-        public static List<DrawGroupInfo> GetDrawGroupInfos(long playerId = 0)
+        foreach (DrawGroupInfo group in GroupTemplates)
         {
-            List<DrawGroupInfo> groups = new();
-            foreach (DrawGroupDefinition definition in GroupDefinitions)
-            {
-                if (!RetailDrawInfosByGroup.TryGetValue(definition.Id, out List<DrawInfoTemplate>? infos) || infos.Count == 0)
-                    continue;
-
-                Dictionary<int, int> useDrawIdDict = GetUseDrawIdDict(playerId, definition);
-                DrawInfo selectedInfo = BuildDrawInfo(GetSelectedTemplate(definition.Id, useDrawIdDict) ?? infos[0], playerId);
-                groups.Add(new DrawGroupInfo
-                {
-                    Id = definition.Id,
-                    Tag = definition.Tag,
-                    Type = definition.Type,
-                    Order = definition.Order,
-                    Priority = definition.Priority,
-                    UseItemId = definition.UseItemId,
-                    BottomTimes = selectedInfo.BottomTimes,
-                    MaxBottomTimes = definition.MaxBottomTimes,
-                    SwitchDrawIdCount = GetSwitchDrawIdCount(playerId, definition.Id),
-                    UseDrawIdDict = useDrawIdDict,
-                    OptionalDrawIdList = [.. definition.OptionalDrawIdList],
-                    TagBlackListDrawIds = [.. definition.TagBlackListDrawIds],
-                    Banner = definition.Banner,
-                    StartTime = definition.StartTime,
-                    EndTime = definition.EndTime,
-                    BannerBeginTime = definition.BannerBeginTime,
-                    BannerEndTime = definition.BannerEndTime,
-                    ConditionId = definition.ConditionId,
-                    ShowPredictType = definition.ShowPredictType,
-                });
-            }
-
-            return groups;
+            group.BottomTimes = 0;
+            group.SwitchDrawIdCount = 0;
         }
 
-        public static List<(int DrawGroupId, int Priority)> GetDrawHistoryGroups()
+        foreach (DrawInfo draw in DrawTemplates)
         {
-            return GroupDefinitions
-                .Where(definition => RetailDrawInfosByGroup.TryGetValue(definition.Id, out List<DrawInfoTemplate>? infos) && infos.Count > 0)
-                .Select(definition => (definition.Id, definition.Priority))
-                .ToList();
-        }
-
-        public static (int BottomTimes, int MaxBottomTimes) GetDrawHistoryStatus(long playerId, int groupId, int groupSubType)
-        {
-            if (!RetailDrawInfosByGroup.TryGetValue(groupId, out List<DrawInfoTemplate>? infos) || infos.Count == 0)
-                return (0, 0);
-
-            DrawInfoTemplate template = infos.FirstOrDefault(info => info.GroupSubType == groupSubType)
-                ?? GetSelectedTemplate(groupId, GetUseDrawIdDict(playerId, GroupDefinitions.First(definition => definition.Id == groupId)))
-                ?? infos[0];
-            DrawInfo drawInfo = BuildDrawInfo(template, playerId);
-            return (drawInfo.BottomTimes, drawInfo.MaxBottomTimes);
-        }
-
-        public static void RecordDrawHistory(long playerId, int drawId, IEnumerable<RewardGoods> rewards)
-        {
-            if (!RetailDrawInfoById.TryGetValue(drawId, out DrawInfoTemplate? template))
-                return;
-
-            long drawTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            (long PlayerId, int GroupId, int GroupSubType) key = (playerId, template.GroupId, template.GroupSubType);
-
-            lock (stateLock)
-            {
-                if (!drawHistoryByPlayerGroup.TryGetValue(key, out List<DrawHistoryEntry>? history))
-                {
-                    history = [];
-                    drawHistoryByPlayerGroup[key] = history;
-                }
-
-                history.AddRange(rewards.Select(reward => new DrawHistoryEntry(CloneRewardGoods(reward), drawTime)));
-                if (history.Count > 100)
-                    history.RemoveRange(0, history.Count - 100);
-            }
-        }
-
-        public static List<(RewardGoods RewardGoods, long DrawTime)> GetDrawHistory(long playerId, int groupId, int groupSubType)
-        {
-            lock (stateLock)
-            {
-                return drawHistoryByPlayerGroup.TryGetValue((playerId, groupId, groupSubType), out List<DrawHistoryEntry>? history)
-                    ? history.Select(entry => (CloneRewardGoods(entry.RewardGoods), entry.DrawTime)).ToList()
-                    : [];
-            }
-        }
-
-        private static RewardGoods CloneRewardGoods(RewardGoods reward)
-        {
-            return new RewardGoods
-            {
-                RewardType = reward.RewardType,
-                TemplateId = reward.TemplateId,
-                Count = reward.Count,
-                Level = reward.Level,
-                Quality = reward.Quality,
-                Grade = reward.Grade,
-                Breakthrough = reward.Breakthrough,
-                ConvertFrom = reward.ConvertFrom,
-                ShowQuality = reward.ShowQuality,
-                Id = reward.Id,
-                IsGift = reward.IsGift,
-                RewardMulti = reward.RewardMulti
-            };
-        }
-
-        public static List<DrawAdjustActivityInfo> GetDrawAdjustActivityInfos()
-        {
-            return BuildGeneratedDrawAdjustActivityInfos();
-        }
-
-        public static List<DrawInfo> GetDrawInfosByGroup(int groupId, long playerId = 0)
-        {
-            return RetailDrawInfosByGroup.TryGetValue(groupId, out List<DrawInfoTemplate>? infos)
-                ? infos.Select(info => BuildDrawInfo(info, playerId)).ToList()
-                : [];
-        }
-
-        public static DrawInfo? GetDrawInfoById(int drawId, long playerId = 0)
-        {
-            return RetailDrawInfoById.TryGetValue(drawId, out DrawInfoTemplate? template)
-                ? BuildDrawInfo(template, playerId)
-                : null;
-        }
-
-        public static int SetUseDrawId(long playerId, int drawId)
-        {
-            if (!RetailDrawInfoById.TryGetValue(drawId, out DrawInfoTemplate? template))
-                return 0;
-
-            int selectionSlot = GetSelectionSlot(template);
-            lock (stateLock)
-            {
-                if (!selectedDrawByPlayerGroup.TryGetValue(playerId, out Dictionary<int, Dictionary<int, int>>? selectedByGroup))
-                {
-                    selectedByGroup = new();
-                    selectedDrawByPlayerGroup[playerId] = selectedByGroup;
-                }
-
-                if (!selectedByGroup.TryGetValue(template.GroupId, out Dictionary<int, int>? selectedSlots))
-                {
-                    DrawGroupDefinition definition = GroupDefinitions.First(x => x.Id == template.GroupId);
-                    selectedSlots = new(definition.DefaultUseDrawIdDict);
-                    selectedByGroup[template.GroupId] = selectedSlots;
-                }
-
-                selectedSlots[selectionSlot] = drawId;
-
-                if (!switchCountByPlayerGroup.TryGetValue(playerId, out Dictionary<int, int>? switchCountByGroup))
-                {
-                    switchCountByGroup = new();
-                    switchCountByPlayerGroup[playerId] = switchCountByGroup;
-                }
-                switchCountByGroup[template.GroupId] = switchCountByGroup.GetValueOrDefault(template.GroupId) + 1;
-                return switchCountByGroup[template.GroupId];
-            }
-        }
-
-        public static DrawInfo? ApplyDrawProgress(long playerId, int drawId, int count)
-        {
-            if (!RetailDrawInfoById.ContainsKey(drawId))
-                return null;
-
-            lock (stateLock)
-            {
-                if (!drawProgressByPlayer.TryGetValue(playerId, out Dictionary<int, DrawProgress>? playerProgress))
-                {
-                    playerProgress = new();
-                    drawProgressByPlayer[playerId] = playerProgress;
-                }
-
-                DrawProgress current = playerProgress.GetValueOrDefault(drawId, new DrawProgress(0, 0));
-                playerProgress[drawId] = current with
-                {
-                    TodayCount = current.TodayCount + count,
-                    TotalCount = current.TotalCount + count
-                };
-            }
-
-            return GetDrawInfoById(drawId, playerId);
-        }
-
-        public static int GetGroupByDrawId(int drawId)
-        {
-            return RetailDrawInfoById.TryGetValue(drawId, out DrawInfoTemplate? template) ? template.GroupId : 0;
-        }
-
-        public static List<RewardGoods> DrawDraw(long playerId, int drawId, int pullOffset = 0)
-        {
-            List<RewardGoods> rewards = new();
-            if (!RetailDrawInfoById.TryGetValue(drawId, out DrawInfoTemplate? template))
-            {
-                log.Error($"Invalid draw id {drawId}");
-                return rewards;
-            }
-
-            DrawProgress progress = GetDrawProgress(playerId, drawId);
-            int bottomTimesBeforePull = GetBottomTimes(template.MaxBottomTimes, template.BottomTimes, progress.TotalCount + pullOffset);
-            bool forceRare = template.MaxBottomTimes > 0 && bottomTimesBeforePull == 1;
-
-            RewardGoods? reward = DrawRetailReward(template, forceRare);
-            if (reward is not null)
-                rewards.Add(reward);
-
-            return rewards;
-        }
-
-        private static RewardGoods? DrawRetailReward(DrawInfoTemplate template, bool forceRare)
-        {
-            return template.GroupId switch
-            {
-                GroupWeaponResearch or GroupTargetWeaponResearch => DrawEquipReward(template, forceRare),
-                GroupFateArrivalConstruct or GroupFateThemedConstruct or GroupFateAnniversaryLimited or GroupFateCollabTarget or GroupFateWishingTarget => DrawLegacyCharacterReward(template, forceRare),
-                GroupCUBTarget => DrawFallbackItemReward(),
-                _ => DrawCharacterReward(template, forceRare)
-            };
-        }
-
-        private static DrawInfo BuildDrawInfo(DrawInfoTemplate template, long playerId)
-        {
-            DrawProgress progress = GetDrawProgress(playerId, template.Id);
-            return new DrawInfo
-            {
-                Id = template.Id,
-                GroupId = template.GroupId,
-                DrawType = template.DrawType,
-                UseItemId = template.UseItemId,
-                UseItemCount = template.UseItemCount,
-                TodayCount = template.BaseTodayCount + progress.TodayCount,
-                TotalCount = template.BaseTotalCount + progress.TotalCount,
-                BottomTimes = GetBottomTimes(template.MaxBottomTimes, template.BottomTimes, progress.TotalCount),
-                MaxBottomTimes = template.MaxBottomTimes,
-                StartTime = template.StartTime,
-                EndTime = template.EndTime,
-                Banner = template.Banner,
-                Resources = new(template.Resources),
-                ResourceIds = new(template.ResourceIds),
-                BtnDrawCount = [.. template.BtnDrawCount],
-                PurchaseUiType = [.. template.PurchaseUiType],
-                PurchaseId = [.. template.PurchaseId],
-                ExPurchaseIds = [.. template.ExPurchaseIds],
-                CapacityCheckType = template.CapacityCheckType,
-                UpGoodsId = template.UpGoodsId,
-                IsTriggerSpecified = template.IsTriggerSpecified,
-                IsShowShop = template.IsShowShop,
-                IsShowBubble = template.IsShowBubble,
-                UseTenDrawOnSaleTimes = template.UseTenDrawOnSaleTimes,
-                DailyLimitTimes = template.DailyLimitTimes,
-                ActivityLimitTimes = template.ActivityLimitTimes,
-                GroupSubType = template.GroupSubType,
-                ShowPriority = template.ShowPriority
-            };
-        }
-
-        private static DrawProgress GetDrawProgress(long playerId, int drawId)
-        {
-            lock (stateLock)
-            {
-                if (drawProgressByPlayer.TryGetValue(playerId, out Dictionary<int, DrawProgress>? playerProgress)
-                    && playerProgress.TryGetValue(drawId, out DrawProgress? progress)
-                    && progress is not null)
-                    return progress;
-            }
-
-            return new DrawProgress(0, 0);
-        }
-
-        private static int GetBottomTimes(int maxBottomTimes, int templateBottomTimes, int progressCount)
-        {
-            if (maxBottomTimes <= 0)
-                return 0;
-
-            int consumed = maxBottomTimes - templateBottomTimes;
-            consumed = (consumed + progressCount) % maxBottomTimes;
-            return consumed == 0 ? maxBottomTimes : maxBottomTimes - consumed;
-        }
-
-        private static Dictionary<int, int> GetUseDrawIdDict(long playerId, DrawGroupDefinition definition)
-        {
-            lock (stateLock)
-            {
-                if (selectedDrawByPlayerGroup.TryGetValue(playerId, out Dictionary<int, Dictionary<int, int>>? selectedByGroup)
-                    && selectedByGroup.TryGetValue(definition.Id, out Dictionary<int, int>? selectedSlots))
-                    return new(selectedSlots);
-            }
-
-            return new(definition.DefaultUseDrawIdDict);
-        }
-
-        private static DrawInfoTemplate? GetSelectedTemplate(int groupId, Dictionary<int, int> useDrawIdDict)
-        {
-            foreach (int drawId in useDrawIdDict.OrderByDescending(x => x.Key).Select(x => x.Value))
-            {
-                if (drawId > 0 && RetailDrawInfoById.TryGetValue(drawId, out DrawInfoTemplate? template))
-                    return template;
-            }
-
-            return RetailDrawInfosByGroup.TryGetValue(groupId, out List<DrawInfoTemplate>? infos) ? infos.FirstOrDefault() : null;
-        }
-
-        private static int GetSelectionSlot(DrawInfoTemplate template)
-        {
-            DrawGroupDefinition? definition = GroupDefinitions.FirstOrDefault(x => x.Id == template.GroupId);
-            if (definition is null)
-                return 0;
-
-            foreach ((int slot, int drawId) in definition.DefaultUseDrawIdDict)
-            {
-                if (drawId == template.Id)
-                    return slot;
-            }
-
-            if (definition.TagBlackListDrawIds.Contains(template.Id))
-                return template.GroupId switch
-                {
-                    GroupTargetWeaponResearch => 3,
-                    GroupCUBTarget => 4,
-                    GroupThemedEventConstruct or GroupFateThemedConstruct => 5,
-                    _ => 0
-                };
-
-            return 0;
-        }
-
-        private static int GetSwitchDrawIdCount(long playerId, int groupId)
-        {
-            lock (stateLock)
-            {
-                return switchCountByPlayerGroup.TryGetValue(playerId, out Dictionary<int, int>? switchCountByGroup)
-                    ? switchCountByGroup.GetValueOrDefault(groupId)
-                    : 0;
-            }
-        }
-        private static RewardGoods? DrawCharacterReward(DrawInfoTemplate template, bool forceRare)
-        {
-            if (forceRare && TryCreateTargetCharacterReward(template, out RewardGoods? targetReward))
-                return targetReward;
-
-            int roll = Random.Shared.Next(9860);
-            if (roll < 50 && TryCreateTargetCharacterReward(template, out targetReward))
-                return targetReward;
-
-            if (roll < 1445)
-                return DrawCharacterShardReward(template);
-
-            if (roll < 3656)
-                return DrawCharacterShardReward(template);
-
-            if (roll < 6495)
-                return DrawMemoryReward();
-
-            if (roll < 7937)
-                return DrawOverclockMaterialReward();
-
-            if (roll < 8418)
-                return DrawExpMaterialReward();
-
-            return DrawCogBoxReward();
-        }
-
-        private static RewardGoods? DrawLegacyCharacterReward(DrawInfoTemplate template, bool forceRare)
-        {
-            if (forceRare && TryCreateTargetCharacterReward(template, out RewardGoods? targetReward))
-                return targetReward;
-
-            double roll = Random.Shared.NextDouble();
-            if (roll < 0.015 && TryCreateTargetCharacterReward(template, out targetReward))
-                return targetReward;
-
-            if (roll < 0.25)
-                return DrawCharacterShardReward(template);
-
-            if (roll < 0.58)
-                return DrawMemoryReward();
-
-            return DrawFallbackItemReward();
-        }
-
-        private static RewardGoods? DrawEquipReward(DrawInfoTemplate template, bool forceRare)
-        {
-            if (forceRare && TryCreateTargetEquipReward(template, out RewardGoods? targetReward))
-                return targetReward;
-
-            int roll = Random.Shared.Next(10000);
-            if (roll < 400 && TryCreateTargetEquipReward(template, out targetReward))
-                return targetReward;
-
-            if (roll < 450)
-                return DrawRandomWeaponReward(quality: 6, excludeEquipId: template.ResourceIds.GetValueOrDefault(1));
-
-            if (roll < 600)
-                return DrawPreviewEquipReward(template) ?? DrawRandomWeaponReward(quality: 5);
-
-            if (roll < 750)
-                return DrawRandomWeaponReward(quality: 5, excludeEquipId: template.ResourceIds.GetValueOrDefault(1));
-
-            if (roll < 4090)
-                return DrawRandomWeaponReward(quality: 4);
-
-            if (roll < 6880)
-                return DrawRandomWeaponReward(quality: 3);
-            if (roll < 7815)
-                return DrawCogBoxReward();
-
-            if (roll < 8750)
-                return DrawOverclockMaterialReward();
-
-            return DrawExpMaterialReward();
-        }
-
-        private static bool TryCreateTargetCharacterReward(DrawInfoTemplate template, out RewardGoods? reward)
-        {
-            reward = null;
-            int characterId = template.ResourceIds.GetValueOrDefault(1);
-            if (characterId <= 0 || !IsCharacterId(characterId))
-                return false;
-
-            reward = CreateRewardGoods(RewardType.Character, characterId, 1, level: 1);
-            return true;
-        }
-
-        private static bool TryCreateTargetEquipReward(DrawInfoTemplate template, out RewardGoods? reward)
-        {
-            reward = null;
-            int equipId = template.ResourceIds.GetValueOrDefault(1);
-            if (equipId <= 0 || !IsEquipId(equipId))
-                return false;
-
-            reward = CreateRewardGoods(RewardType.Equip, equipId, 1, level: 1);
-            return true;
-        }
-
-        private static RewardGoods? DrawCharacterShardReward(DrawInfoTemplate template)
-        {
-            List<int> shardIds = drawPreviewTables
-                .FirstOrDefault(x => x.Id == template.Id)
-                ?.GoodsId
-                .Select(characterId => charactersTables.FirstOrDefault(character => character.Id == characterId)?.ItemId ?? 0)
-                .Where(Inventory.IsValidClientItemId)
-                .Distinct()
-                .ToList() ?? [];
-
-            if (shardIds.Count == 0)
-            {
-                int characterId = template.ResourceIds.GetValueOrDefault(1);
-                CharacterTable? targetCharacter = charactersTables.FirstOrDefault(x => x.Id == characterId);
-                if (targetCharacter is not null && Inventory.IsValidClientItemId(targetCharacter.ItemId))
-                    shardIds.Add(targetCharacter.ItemId);
-            }
-
-            int shardId = PickRandomId(shardIds);
-            if (shardId <= 0)
-                return DrawFallbackItemReward();
-
-            int count = Random.Shared.Next(100) switch
-            {
-                < 10 => 18,
-                < 35 => 6,
-                _ => 2
-            };
-            return CreateRewardGoods(RewardType.Item, shardId, count);
-        }
-
-        private static RewardGoods? DrawMemoryReward()
-        {
-            List<EquipTable> memories = equipTables
-                .Where(equip => equip.Type == 0
-                    && equip.Quality == 4
-                    && Character.IsOwnableEquipTemplate(equip)
-                    && drawWaferShowIds.Contains(equip.Id))
-                .ToList();
-            if (memories.Count == 0)
-                return DrawFallbackItemReward();
-
-            EquipTable memory = memories[Random.Shared.Next(memories.Count)];
-            return CreateRewardGoods(RewardType.Equip, memory.Id, 1, level: 1);
-        }
-
-        private static RewardGoods? DrawPreviewEquipReward(DrawInfoTemplate template)
-        {
-            DrawPreviewTable? preview = drawPreviewTables.FirstOrDefault(x => x.Id == template.Id);
-            List<int> previewEquipIds = preview?.GoodsId
-                .Where(IsEquipId)
-                .ToList() ?? [];
-            if (previewEquipIds.Count == 0)
-                return null;
-
-            int equipId = previewEquipIds[Random.Shared.Next(previewEquipIds.Count)];
-            return CreateRewardGoods(RewardType.Equip, equipId, 1, level: 1);
-        }
-
-        private static RewardGoods? DrawRandomWeaponReward(int quality, int excludeEquipId = 0)
-        {
-            List<EquipTable> weapons = equipTables
-                .Where(equip => equip.Type > 0
-                    && equip.Quality == quality
-                    && equip.Id != excludeEquipId
-                    && Character.IsOwnableEquipTemplate(equip))
-                .ToList();
-            if (weapons.Count == 0)
-                return DrawFallbackItemReward();
-
-            EquipTable weapon = weapons[Random.Shared.Next(weapons.Count)];
-            return CreateRewardGoods(RewardType.Equip, weapon.Id, 1, level: 1);
-        }
-
-
-        // Retail draw 1488 grants the overclock materials directly (captured 40110/40113, Count=1);
-        // the unopened 60001/60002 boxes never appear in retail DrawDrawCardResponse payloads.
-        private static RewardGoods? DrawOverclockMaterialReward()
-        {
-            return DrawItemRewardByIds([40110, 40111, 40112, 40113, 40114], fallbackCount: 1);
-        }
-
-        private static RewardGoods? DrawExpMaterialReward()
-        {
-            return DrawItemRewardByIds([30011, 30012, 30013, 30014, 31101, 31102, 31103, 31104, 31201, 31202, 31203, 31204], fallbackCount: 3);
-        }
-
-        private static RewardGoods? DrawCogBoxReward()
-        {
-            return DrawItemReward(item => item.Name.StartsWith("Cog Pack") && item.Quality >= MinDrawItemShowQuality, fallbackCount: 1);
-        }
-
-        private static RewardGoods? DrawFallbackItemReward()
-        {
-            return DrawOverclockMaterialReward() ?? DrawCogBoxReward();
-        }
-
-        private static RewardGoods? DrawItemRewardByIds(int[] ids, int fallbackCount)
-        {
-            HashSet<int> allowedIds = [.. ids];
-            return DrawItemReward(item => allowedIds.Contains(item.Id) && item.Quality >= MinDrawItemShowQuality, fallbackCount);
-        }
-
-        private static RewardGoods? DrawItemReward(Func<ItemTable, bool> predicate, int fallbackCount)
-        {
-            List<ItemTable> pool = itemTables
-                .Where(predicate)
-                .ToList();
-            if (pool.Count == 0)
-                return null;
-
-            ItemTable item = pool[Random.Shared.Next(pool.Count)];
-            int count = item.Id switch
-            {
-                90014 or 90015 => 1,
-                _ => fallbackCount
-            };
-            return CreateRewardGoods(RewardType.Item, item.Id, count);
-        }
-
-        private static int PickRandomId(List<int> ids)
-        {
-            return ids.Count == 0 ? 0 : ids[Random.Shared.Next(ids.Count)];
-        }
-
-        private static int GetFirstQuality(int characterId)
-        {
-            return characterQualitiesTables
-                .Where(x => x.CharacterId == characterId)
-                .OrderBy(x => x.Quality)
-                .FirstOrDefault()?.Quality ?? 0;
-        }
-
-        private static RewardGoods CreateRewardGoods(RewardType type, int templateId, int count, int level = 0, int quality = 0)
-        {
-            return new RewardGoods
-            {
-                RewardType = (int)type,
-                TemplateId = templateId,
-                Count = count,
-                Level = level,
-                Quality = quality,
-                IsGift = false,
-                RewardMulti = 0
-            };
-        }
-
-
-        private static bool IsCharacterId(int templateId)
-        {
-            return charactersTables.Any(x => x.Id == templateId);
-        }
-
-        private static bool IsEquipId(int templateId)
-        {
-            return equipTables.Any(x => x.Id == templateId && Character.IsOwnableEquipTemplate(x));
+            draw.TodayCount = 0;
+            draw.TotalCount = 0;
+            draw.BottomTimes = 0;
         }
     }
+
+    private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    private static bool IsActive(DrawGroupInfo group) => (group.StartTime == 0 || group.StartTime <= Now()) && (group.EndTime == 0 || Now() < group.EndTime);
+    private static bool IsActive(DrawInfo draw) => GroupsById.TryGetValue(draw.GroupId, out DrawGroupInfo? group) && IsActive(group) && (draw.StartTime == 0 || draw.StartTime <= Now()) && (draw.EndTime == 0 || Now() < draw.EndTime);
+
+    public static List<DrawGroupInfo> GetDrawGroupInfos(Player player)
+    {
+        EnsureState(player);
+        return GroupTemplates.Where(IsActive).Where(group => DrawsByGroup.ContainsKey(group.Id)).Select(group =>
+        {
+            DrawGroupInfo value = Clone(group);
+            value.UseDrawIdDict = GetSelections(player, group);
+            value.SwitchDrawIdCount = player.DrawState.SwitchCountByGroup.GetValueOrDefault(group.Id);
+            DrawInfo selected = GetSelected(player, group);
+            value.BottomTimes = GetBottomTimes(selected, GetPityCount(player, group.Id));
+            value.MaxBottomTimes = selected.MaxBottomTimes;
+            return value;
+        }).ToList();
+    }
+
+    public static List<(int DrawGroupId, int Priority)> GetDrawHistoryGroups() => GroupTemplates.Where(IsActive).Where(x => DrawsByGroup.ContainsKey(x.Id)).Select(x => (x.Id, x.Priority)).ToList();
+
+    public static (int BottomTimes, int MaxBottomTimes) GetDrawHistoryStatus(Player player, int groupId, int groupSubType)
+    {
+        if (!GroupsById.TryGetValue(groupId, out DrawGroupInfo? group) || !IsActive(group)) return (0, 0);
+        DrawInfo draw = DrawsByGroup[groupId].FirstOrDefault(x => x.GroupSubType == groupSubType) ?? GetSelected(player, group);
+        return (GetBottomTimes(draw, GetPityCount(player, groupId)), draw.MaxBottomTimes);
+    }
+
+    public static List<(RewardGoods RewardGoods, long DrawTime)> GetDrawHistory(Player player, int groupId, int groupSubType)
+    {
+        EnsureState(player);
+        return player.DrawState.HistoryByGroup.TryGetValue(groupId, out PlayerDrawHistoryGroupState? history)
+            && history.HistoryBySubType.TryGetValue(groupSubType, out List<PlayerDrawHistoryRecord>? entries)
+            ? entries.Select(x => (Clone(x.RewardGoods), x.DrawTime)).ToList() : [];
+    }
+
+    public static void RecordDrawHistory(Player player, int drawId, IEnumerable<RewardGoods> rewards)
+    {
+        if (!DrawsById.TryGetValue(drawId, out DrawInfo? draw) || !IsActive(draw)) return;
+        EnsureState(player);
+        PlayerDrawHistoryGroupState group = player.DrawState.HistoryByGroup.GetValueOrDefault(draw.GroupId) ?? new();
+        player.DrawState.HistoryByGroup[draw.GroupId] = group;
+        List<PlayerDrawHistoryRecord> entries = group.HistoryBySubType.GetValueOrDefault(draw.GroupSubType) ?? [];
+        group.HistoryBySubType[draw.GroupSubType] = entries;
+        long now = Now();
+        entries.AddRange(rewards.Select(x => new PlayerDrawHistoryRecord { RewardGoods = Clone(x), DrawTime = now }));
+        if (entries.Count > 100) entries.RemoveRange(0, entries.Count - 100);
+    }
+
+    public static List<DrawAdjustActivityInfo> GetDrawAdjustActivityInfos() => DrawAdjustTemplates.Select(Clone).ToList();
+    public static List<DrawInfo> GetDrawInfosByGroup(int groupId, Player player) => DrawsByGroup.TryGetValue(groupId, out List<DrawInfo>? draws) && GroupsById.TryGetValue(groupId, out DrawGroupInfo? group) && IsActive(group) ? draws.Where(IsActive).Select(x => BuildDrawInfo(x, player)).ToList() : [];
+    public static DrawInfo? GetDrawInfoById(int drawId, Player player) => DrawsById.TryGetValue(drawId, out DrawInfo? draw) && IsActive(draw) ? BuildDrawInfo(draw, player) : null;
+    public static int GetProgressForDrawIds(Player player, IEnumerable<int> drawIds)
+    {
+        if (player.DrawState is null)
+            return 0;
+
+        return drawIds
+            .Select(drawId => DrawsById.GetValueOrDefault(drawId)?.GroupId)
+            .Where(groupId => groupId.HasValue)
+            .Select(groupId => groupId!.Value)
+            .Distinct()
+            .Sum(groupId => GetPersistedGroupProgress(player.DrawState, groupId));
+    }
+
+
+    public static int SetUseDrawId(Player player, int drawId)
+    {
+        if (!DrawsById.TryGetValue(drawId, out DrawInfo? draw) || !IsActive(draw)) return 0;
+        EnsureState(player);
+        PlayerDrawSelectionState selections = player.DrawState.SelectedDrawByGroup.GetValueOrDefault(draw.GroupId) ?? new();
+        player.DrawState.SelectedDrawByGroup[draw.GroupId] = selections;
+        selections.Slots[GetSelectionSlot(draw)] = drawId;
+        return player.DrawState.SwitchCountByGroup[draw.GroupId] = player.DrawState.SwitchCountByGroup.GetValueOrDefault(draw.GroupId) + 1;
+    }
+
+    public static DrawInfo? ApplyDrawProgress(Player player, int drawId, int count)
+    {
+        if (count <= 0 || !DrawsById.TryGetValue(drawId, out DrawInfo? draw) || !IsActive(draw)) return null;
+        EnsureState(player);
+        int pityCount = GetPityCount(player, draw.GroupId);
+        PlayerDrawProgress progress = GetProgress(player, drawId);
+        progress.TodayCount += count;
+        progress.TotalCount += count;
+        player.DrawState.PityCountByGroup[draw.GroupId] = pityCount + count;
+        return BuildDrawInfo(draw, player);
+    }
+
+    public static int GetGroupByDrawId(int drawId) => DrawsById.TryGetValue(drawId, out DrawInfo? draw) && IsActive(draw) ? draw.GroupId : 0;
+
+    public static List<RewardGoods> DrawDraw(Player player, int drawId, int pullOffset = 0)
+    {
+        if (!DrawsById.TryGetValue(drawId, out DrawInfo? draw) || !IsActive(draw)) return [];
+        bool forceRare = draw.MaxBottomTimes > 0 && GetBottomTimes(draw, GetPityCount(player, draw.GroupId) + pullOffset) == 1;
+        RewardGoods? reward = draw.GroupId switch
+        {
+            2 or 4 => DrawEquipReward(draw, forceRare),
+            13 => DrawLegacyCharacterReward(draw, forceRare),
+            22 => DrawFallbackItemReward(),
+            _ => DrawCharacterReward(draw, forceRare)
+        };
+        return reward is null ? [] : [reward];
+    }
+
+    private static void EnsureState(Player player) => player.DrawState ??= new();
+    private static PlayerDrawProgress GetProgress(Player player, int drawId)
+    {
+        EnsureState(player);
+        PlayerDrawProgress value = player.DrawState.ProgressByDrawId.GetValueOrDefault(drawId) ?? new();
+        player.DrawState.ProgressByDrawId[drawId] = value;
+        return value;
+    }
+
+    private static int GetPityCount(Player player, int groupId)
+    {
+        EnsureState(player);
+        if (player.DrawState.PityCountByGroup.TryGetValue(groupId, out int count))
+            return count;
+
+        count = DrawsByGroup.TryGetValue(groupId, out List<DrawInfo>? draws)
+            ? draws.Sum(draw => GetProgress(player, draw.Id).TotalCount)
+            : 0;
+        player.DrawState.PityCountByGroup[groupId] = count;
+
+        return count;
+    }
+    private static int GetPersistedGroupProgress(PlayerDrawState state, int groupId)
+    {
+        if (state.PityCountByGroup.TryGetValue(groupId, out int progress))
+            return progress;
+
+        return DrawsByGroup.TryGetValue(groupId, out List<DrawInfo>? draws)
+            ? draws.Sum(draw => state.ProgressByDrawId.GetValueOrDefault(draw.Id)?.TotalCount ?? 0)
+            : 0;
+    }
+
+
+    private static Dictionary<int, int> GetSelections(Player player, DrawGroupInfo group)
+    {
+        EnsureState(player);
+        Dictionary<int, int> defaults = new(group.UseDrawIdDict);
+        if (player.DrawState.SelectedDrawByGroup.TryGetValue(group.Id, out PlayerDrawSelectionState? selections))
+            foreach ((int slot, int drawId) in selections.Slots.Where(x => DrawsById.ContainsKey(x.Value))) defaults[slot] = drawId;
+        if (defaults.Count == 0 && group.OptionalDrawIdList.Count > 0) defaults[0] = group.OptionalDrawIdList[0];
+        return defaults;
+    }
+
+    private static DrawInfo GetSelected(Player player, DrawGroupInfo group)
+    {
+        foreach (int id in GetSelections(player, group).OrderByDescending(x => x.Key).Select(x => x.Value))
+            if (DrawsById.TryGetValue(id, out DrawInfo? draw) && draw.GroupId == group.Id) return draw;
+        return DrawsByGroup[group.Id].First();
+    }
+
+    private static int GetSelectionSlot(DrawInfo draw)
+    {
+        DrawGroupInfo group = GroupsById[draw.GroupId];
+        foreach ((int slot, int id) in group.UseDrawIdDict) if (id == draw.Id) return slot;
+        if (group.TagBlackListDrawIds.Contains(draw.Id)) return draw.GroupId switch { 4 => 3, 22 => 4, _ => 0 };
+        return 0;
+    }
+
+    private static DrawInfo BuildDrawInfo(DrawInfo template, Player player)
+    {
+        DrawInfo value = Clone(template);
+        PlayerDrawProgress progress = GetProgress(player, template.Id);
+        value.TodayCount = progress.TodayCount;
+        value.TotalCount = progress.TotalCount;
+        value.BottomTimes = GetBottomTimes(template, GetPityCount(player, template.GroupId));
+        return value;
+    }
+
+    private static int GetBottomTimes(DrawInfo draw, int totalCount)
+    {
+        if (draw.MaxBottomTimes <= 0) return 0;
+        int consumed = totalCount % draw.MaxBottomTimes;
+        return consumed == 0 ? draw.MaxBottomTimes : draw.MaxBottomTimes - consumed;
+    }
+
+    private static RewardGoods? DrawCharacterReward(DrawInfo draw, bool forceRare)
+    {
+        if ((forceRare || Random.Shared.Next(9860) < 50) && TryTargetCharacter(draw, out RewardGoods? target)) return target;
+        int roll = Random.Shared.Next(9860);
+        if (roll < 3656) return DrawCharacterShardReward(draw);
+        if (roll < 6495) return DrawMemoryReward();
+        if (roll < 7937) return DrawOverclockMaterialReward();
+        if (roll < 8418) return DrawExpMaterialReward();
+        return DrawCogBoxReward();
+    }
+
+    private static RewardGoods? DrawLegacyCharacterReward(DrawInfo draw, bool forceRare)
+    {
+        if ((forceRare || Random.Shared.NextDouble() < .015) && TryTargetCharacter(draw, out RewardGoods? target)) return target;
+        double roll = Random.Shared.NextDouble();
+        if (roll < .25) return DrawCharacterShardReward(draw);
+        return roll < .58 ? DrawMemoryReward() : DrawFallbackItemReward();
+    }
+
+    private static RewardGoods? DrawEquipReward(DrawInfo draw, bool forceRare)
+    {
+        if ((forceRare || Random.Shared.Next(10000) < 400) && TryTargetEquip(draw, out RewardGoods? target)) return target;
+        int roll = Random.Shared.Next(10000);
+        if (roll < 450) return DrawRandomWeaponReward(6, draw.ResourceIds.GetValueOrDefault(1));
+        if (roll < 600) return DrawPreviewEquipReward(draw) ?? DrawRandomWeaponReward(5);
+        if (roll < 750) return DrawRandomWeaponReward(5, draw.ResourceIds.GetValueOrDefault(1));
+        if (roll < 4090) return DrawRandomWeaponReward(4);
+        if (roll < 6880) return DrawRandomWeaponReward(3);
+        if (roll < 7815) return DrawCogBoxReward();
+        return roll < 8750 ? DrawOverclockMaterialReward() : DrawExpMaterialReward();
+    }
+
+    private static bool TryTargetCharacter(DrawInfo draw, out RewardGoods? reward) { int id = draw.ResourceIds.GetValueOrDefault(1); reward = Characters.Any(x => x.Id == id) ? Create(RewardType.Character, id, 1, 1) : null; return reward is not null; }
+    private static bool TryTargetEquip(DrawInfo draw, out RewardGoods? reward) { int id = draw.ResourceIds.GetValueOrDefault(1); reward = Equips.Any(x => x.Id == id && Character.IsOwnableEquipTemplate(x)) ? Create(RewardType.Equip, id, 1, 1) : null; return reward is not null; }
+    private static RewardGoods? DrawCharacterShardReward(DrawInfo draw)
+    {
+        List<int> ids = DrawPreviews.FirstOrDefault(x => x.Id == draw.Id)?.GoodsId.Select(id => Characters.FirstOrDefault(x => x.Id == id)?.ItemId ?? 0).Where(Inventory.IsValidClientItemId).Distinct().ToList() ?? [];
+        if (ids.Count == 0 && Characters.FirstOrDefault(x => x.Id == draw.ResourceIds.GetValueOrDefault(1)) is CharacterTable character && Inventory.IsValidClientItemId(character.ItemId)) ids.Add(character.ItemId);
+        return ids.Count == 0 ? DrawFallbackItemReward() : Create(RewardType.Item, ids[Random.Shared.Next(ids.Count)], Random.Shared.Next(100) switch { < 10 => 18, < 35 => 6, _ => 2 });
+    }
+    private static RewardGoods? DrawMemoryReward() { List<EquipTable> pool = Equips.Where(x => x.Type == 0 && x.Quality == 4 && Character.IsOwnableEquipTemplate(x) && DrawWaferShowIds.Contains(x.Id)).ToList(); return pool.Count == 0 ? DrawFallbackItemReward() : Create(RewardType.Equip, pool[Random.Shared.Next(pool.Count)].Id, 1, 1); }
+    private static RewardGoods? DrawPreviewEquipReward(DrawInfo draw) { List<int> ids = DrawPreviews.FirstOrDefault(x => x.Id == draw.Id)?.GoodsId.Where(id => Equips.Any(x => x.Id == id && Character.IsOwnableEquipTemplate(x))).ToList() ?? []; return ids.Count == 0 ? null : Create(RewardType.Equip, ids[Random.Shared.Next(ids.Count)], 1, 1); }
+    private static RewardGoods? DrawRandomWeaponReward(int quality, int exclude = 0) { List<EquipTable> pool = Equips.Where(x => x.Type > 0 && x.Quality == quality && x.Id != exclude && Character.IsOwnableEquipTemplate(x)).ToList(); return pool.Count == 0 ? DrawFallbackItemReward() : Create(RewardType.Equip, pool[Random.Shared.Next(pool.Count)].Id, 1, 1); }
+    private static RewardGoods? DrawOverclockMaterialReward() => DrawItemReward(x => x.Id is 40110 or 40111 or 40112 or 40113 or 40114 && x.Quality >= MinDrawItemShowQuality, 1);
+    private static RewardGoods? DrawExpMaterialReward() => DrawItemReward(x => x.Id is 30011 or 30012 or 30013 or 30014 or 31101 or 31102 or 31103 or 31104 or 31201 or 31202 or 31203 or 31204 && x.Quality >= MinDrawItemShowQuality, 3);
+    private static RewardGoods? DrawCogBoxReward() => DrawItemReward(x => x.Name.StartsWith("Cog Pack") && x.Quality >= MinDrawItemShowQuality, 1);
+    private static RewardGoods? DrawFallbackItemReward() => DrawOverclockMaterialReward() ?? DrawCogBoxReward();
+    private static RewardGoods? DrawItemReward(Func<ItemTable, bool> test, int count) { List<ItemTable> pool = Items.Where(test).ToList(); return pool.Count == 0 ? null : Create(RewardType.Item, pool[Random.Shared.Next(pool.Count)].Id, count); }
+    private static RewardGoods Create(RewardType type, int id, int count, int level = 0) => new() { RewardType = (int)type, TemplateId = id, Count = count, Level = level, IsGift = false, RewardMulti = 0 };
+    private static RewardGoods Clone(RewardGoods x) => new() { RewardType = x.RewardType, TemplateId = x.TemplateId, Count = x.Count, Level = x.Level, Quality = x.Quality, Grade = x.Grade, Breakthrough = x.Breakthrough, ConvertFrom = x.ConvertFrom, ShowQuality = x.ShowQuality, Id = x.Id, IsGift = x.IsGift, RewardMulti = x.RewardMulti };
+    private static DrawGroupInfo Clone(DrawGroupInfo x) => new() { BannerBeginTime=x.BannerBeginTime, BannerEndTime=x.BannerEndTime, BottomTimes=x.BottomTimes, MaxBottomTimes=x.MaxBottomTimes, UseItemId=x.UseItemId, UseTenDrawOnSaleTimes=x.UseTenDrawOnSaleTimes, Id=x.Id, Priority=x.Priority, ResetTime=x.ResetTime, StartTime=x.StartTime, EndTime=x.EndTime, Order=x.Order, SwitchDrawIdActivityId=x.SwitchDrawIdActivityId, MaxSwitchDrawIdCount=x.MaxSwitchDrawIdCount, Banner=x.Banner, UiPrefab=x.UiPrefab, UiBackGround=x.UiBackGround, Tag=x.Tag, OptionalDrawIdList=[..x.OptionalDrawIdList], TagBlackListDrawIds=[..x.TagBlackListDrawIds], TenDrawOnSales=new(x.TenDrawOnSales), TransformSuitList=[..x.TransformSuitList], ConditionId=x.ConditionId, Type=x.Type, ExtraRewardId=x.ExtraRewardId, ExtraRewardCycleTimes=x.ExtraRewardCycleTimes, ShowPredictType=x.ShowPredictType };
+    private static DrawInfo Clone(DrawInfo x) => new() { TodayCount=x.TodayCount, TotalCount=x.TotalCount, BottomTimes=x.BottomTimes, MaxBottomTimes=x.MaxBottomTimes, IsTriggerSpecified=x.IsTriggerSpecified, IsShowShop=x.IsShowShop, IsShowBubble=x.IsShowBubble, UseTenDrawOnSaleTimes=x.UseTenDrawOnSaleTimes, Id=x.Id, GroupId=x.GroupId, DrawType=x.DrawType, UseItemId=x.UseItemId, UseItemCount=x.UseItemCount, DailyLimitTimes=x.DailyLimitTimes, ActivityLimitTimes=x.ActivityLimitTimes, StartTime=x.StartTime, EndTime=x.EndTime, Banner=x.Banner, Resources=new(x.Resources), ResourceIds=new(x.ResourceIds), BtnDrawCount=[..x.BtnDrawCount], ShowPriority=x.ShowPriority, PurchaseUiType=[..x.PurchaseUiType], PurchaseId=[..x.PurchaseId], ExPurchaseIds=[..x.ExPurchaseIds], CapacityCheckType=x.CapacityCheckType, UpGoodsId=x.UpGoodsId, GroupSubType=x.GroupSubType };
+    private static DrawAdjustActivityInfo Clone(DrawAdjustActivityInfo x) => new() { TargetTimes=x.TargetTimes, TargetId=x.TargetId, ActivityStatus=x.ActivityStatus, ActivityId=x.ActivityId, StartTime=x.StartTime, EndTime=x.EndTime, AdjustTimes=x.AdjustTimes, DrawGroupId=x.DrawGroupId, TargetTemplateIds=[..x.TargetTemplateIds], SourceTemplateIds=[..x.SourceTemplateIds], EffectTargetTemplateIds=[..x.EffectTargetTemplateIds] };
 }

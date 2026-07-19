@@ -1,0 +1,6 @@
+Id	MaxScore	Icon	Name	SearchUp	SearchDown	SearchMid	RobotProp	SearchExpand	KWin	KLose	AllWinScore	BaseWinScore	DefKWin	DefKLose	MinScore	Desc[1]	MistNum	TimeId	RewardIds[1]	PvpBuffGroupId
+1	999	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RankIcon01.png	Phantom Detective	100	100	100	8000	100	180	60	20	25	80	20						
+2	1999	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RankIcon02.png	Night Hunter	100	100	100	6000	100	150	60	20	25	60	20	1000	· 1 Mist Hideout will appear in the defensive lineup.	1	48602		
+3	2999	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RankIcon03.png	Mist Walker	150	150	100	3000	100	120	80	15	20	60	30	2000	·The defense lineup gains 1 Mist Hideout.\n·Stealth Barrier is available.	1	48603	69188	1
+4	3999	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RankIcon04.png	Abyssal Guide	150	150	100	1500	100	120	100	10	15	60	40	3000	·The defense lineup gains 1 Mist Hideout.\n·Stealth Barrier is available.	1	48604	69189	1
+5	999999	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RankIcon05.png	Secret Keeper	200	200	100		100	100	120	10	10	40	40	4000	·The defense lineup gains 2 Mist Hideouts.\n·Stealth Barrier is available.	2	48605	69190	1

@@ -116,7 +116,15 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("MainLine2UpdateExhibitionChapterRequest")]
         public static void MainLine2UpdateExhibitionChapterRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<MainLine2UpdateExhibitionChapterRequest>(packet.Content);
+            MainLine2UpdateExhibitionChapterRequest request =
+                MessagePackSerializer.Deserialize<MainLine2UpdateExhibitionChapterRequest>(packet.Content);
+            FubenMainLine2Data data = session.player.FubenMainLine2Data ??= new();
+            NormalizeMainLine2Data(data);
+            if (IsExhibitionChapter(request.ChapterId) && data.LastExhibitionChapterId != request.ChapterId)
+            {
+                data.LastExhibitionChapterId = request.ChapterId;
+                session.player.SaveChecked();
+            }
 
             session.SendResponse(new MainLine2UpdateExhibitionChapterResponse
             {
@@ -197,6 +205,9 @@ namespace AscNet.GameServer.Handlers
         {
             FubenMainLine2Data persistedData = session.player.FubenMainLine2Data ??= new();
             NormalizeMainLine2Data(persistedData);
+            EnsureNavigableExhibitionChapter(persistedData);
+            LifeTreeModule.NormalizePersistedChapterAcknowledgements(session.player);
+
             FubenMainLine2Data data = CloneMainLine2Data(persistedData);
             if (session.stage is not null)
             {
@@ -214,6 +225,23 @@ namespace AscNet.GameServer.Handlers
             data.FirstPassTime ??= new();
             data.MessageState ??= new();
         }
+        private static bool EnsureNavigableExhibitionChapter(FubenMainLine2Data data)
+        {
+            if (IsExhibitionChapter(data.LastExhibitionChapterId))
+                return false;
+
+            int chapterId = LifeTreeModule.GetCurrentPopupChapterId()
+                ?? LifeTreeModule.GetNavigableChapterIds().Order().FirstOrDefault();
+            if (chapterId == 0)
+                return false;
+
+            data.LastExhibitionChapterId = chapterId;
+            return true;
+        }
+
+        private static bool IsExhibitionChapter(int chapterId)
+            => chapterId > 0 && TableReaderV2.Parse<MainLine2ExhibitionChapterTable>()
+                .Any(chapter => chapter.Id == chapterId);
 
         private static bool TryApplyMainLine2MessageStateUpdate(FubenMainLine2Data data, byte[] rawContent, string payloadJson)
         {

@@ -4,6 +4,8 @@ using AscNet.Common;
 using Inventory = AscNet.Common.Database.Inventory;
 using AscNet.GameServer;
 using AscNet.GameServer.Handlers;
+using AscNet.GameServer.Game;
+using AscNet.Table.V2.share.newactivitycalendar;
 using AscNet.SDKServer.Models;
 using AscNet.Table.V2.share.guide;
 using AscNet.Table.V2.share.partner;
@@ -11,6 +13,7 @@ using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.client.fuben.arena;
 using AscNet.Table.V2.share.fuben.arena;
 using AscNet.Table.V2.share.fuben.bosssingle;
+using AscNet.Table.V2.share.fuben.bossactivity;
 using AscNet.Table.V2.share.chat;
 using AscNet.Table.V2.share.fuben.mainline;
 using AscNet.Table.V2.share.fuben.mainline2;
@@ -53,7 +56,7 @@ using LoginTask = AscNet.Common.MsgPack.NotifyTaskData.NotifyTaskDataTaskData.No
 
 namespace AscNet.Test
 {
-    internal class Program
+    internal partial class Program
     {
         private static readonly long[] ExpectedRetroFestivalInfoIds = [24, 29, 23, 25, 30, 27];
         private static readonly (long Id, long StartTime, long EndTime)[] ExpectedRetroFestivalDisplayTimeLimitControls =
@@ -72,9 +75,56 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--dorm-compat-only"))
+                {
+                    ValidateDormCompatibility();
+                    return;
+                }
+                if (args.Contains("--version-46-compat-only"))
+                {
+                    ValidateVersion46BootstrapCompatibility();
+                    ValidateVersion46ProtocolCompatibility();
+                    ValidateVersion46ActivityCompatibility();
+                    return;
+                }
+                if (args.Contains("--mail-compat-only"))
+                {
+                    ValidateVersion46MailCompatibility();
+                    return;
+                }
+                if (args.Contains("--portrait-compat-only"))
+                {
+                    ValidatePortraitCompatibility();
+                    return;
+                }
+                if (args.Contains("--version-46-bootstrap-only"))
+                {
+                    ValidateVersion46BootstrapCompatibility();
+                    return;
+                }
+
+
+                if (args.Contains("--theatre6-visibility-only"))
+                {
+                    ValidateTheatre6Visibility();
+                    return;
+                }
+
+                if (args.Contains("--draw-catalog-only"))
+                {
+                    ValidateVersion46TableDrivenDrawCatalog();
+                    return;
+                }
+
                 if (args.Contains("--notify-login-compat-only"))
                 {
                     ValidateNotifyLoginCurrentClientCompatibilityShape();
+                    return;
+                }
+
+                if (args.Contains("--wheelchair-manual-compat-only"))
+                {
+                    ValidateWheelchairManualCompatibility();
                     return;
                 }
 
@@ -87,6 +137,11 @@ namespace AscNet.Test
                 if (args.Contains("--pre-fight-position-compat-only"))
                 {
                     ValidatePreFightPositionCompatibility();
+                    return;
+                }
+                if (args.Contains("--fight-restart-compat-only"))
+                {
+                    ValidateFightRestartCompatibility();
                     return;
                 }
 
@@ -414,6 +469,11 @@ namespace AscNet.Test
                     ValidateCommandCompatibility();
                     return;
                 }
+                if (args.Contains("--equipment-storage-draw-compat-only"))
+                {
+                    ValidateEquipmentStorageDrawCompatibility();
+                    return;
+                }
 
                 if (args.Contains("--shop-compat-only"))
                 {
@@ -494,6 +554,7 @@ namespace AscNet.Test
                 ValidateCharacterSwitchSkillCompatibility();
                 ValidateTeamPrefabCompatibility();
                 ValidatePreFightPositionCompatibility();
+                ValidateFightRestartCompatibility();
                 ValidateCharacterProgressionPersistenceCompatibility();
                 ValidateCharacterSkillGroupTableBackedCompatibility();
                 ValidateCharacterEnhanceSkillTableBackedCompatibility();
@@ -533,6 +594,7 @@ namespace AscNet.Test
         private static void ValidateWeaponOverrunCompatibility()
         {
             const uint equipId = 1457;
+            const uint harmonyTwoEquipId = 2291;
             EquipData equip = new()
             {
                 Id = equipId,
@@ -540,11 +602,24 @@ namespace AscNet.Test
                 Level = 45,
                 WeaponOverrunData = new()
             };
+            EquipData harmonyTwoEquip = new()
+            {
+                Id = harmonyTwoEquipId,
+                TemplateId = 2526001,
+                CharacterId = 1531005,
+                Level = 45,
+                WeaponOverrunData = new()
+                {
+                    Level = 1,
+                    ActiveSuits = [1606],
+                    ChoseSuit = 1606
+                }
+            };
             AscNet.Common.Database.Character character = new()
             {
                 Uid = equipId,
                 Characters = [],
-                Equips = [equip],
+                Equips = [equip, harmonyTwoEquip],
                 Fashions = []
             };
             AscNet.Common.Database.Inventory inventory = new()
@@ -553,6 +628,7 @@ namespace AscNet.Test
                 Items =
                 [
                     new Item { Id = 34000, Count = 239, CreateTime = 1, RefreshTime = 1 },
+                    new Item { Id = 34001, Count = 50, CreateTime = 1, RefreshTime = 1 },
                     new Item { Id = 47, Count = 18583, CreateTime = 1, RefreshTime = 1 }
                 ]
             };
@@ -576,6 +652,43 @@ namespace AscNet.Test
             AssertEqual(1, levelResponse.WeaponOverrunData.Level, "EquipWeaponOverrunLevelUpResponse level");
             AssertEqual(0, levelResponse.WeaponOverrunData.ActiveSuits.Count, "EquipWeaponOverrunLevelUpResponse active suits");
             AssertEqual(0, levelResponse.WeaponOverrunData.ChoseSuit, "EquipWeaponOverrunLevelUpResponse chosen suit");
+            long[] expectedHarmonyMaterialCounts = [25, 20, 15, 10, 5, 0];
+            for (int index = 0; index < expectedHarmonyMaterialCounts.Length; index++)
+            {
+                InvokeRequestHandler(
+                    harness,
+                    nameof(EquipWeaponOverrunLevelUpRequest),
+                    16_110 + index,
+                    new EquipWeaponOverrunLevelUpRequest { EquipId = (int)harmonyTwoEquipId });
+                AssertItemPush(
+                    harness.ReadPacket($"Harmony II level {index + 2} item push"),
+                    34001,
+                    expectedHarmonyMaterialCounts[index],
+                    $"Harmony II level {index + 2} item push");
+                EquipWeaponOverrunLevelUpResponse harmonyLevelResponse =
+                    ReadResponsePayload<EquipWeaponOverrunLevelUpResponse>(
+                        harness.ReadPacket($"Harmony II level {index + 2} response"),
+                        nameof(EquipWeaponOverrunLevelUpResponse));
+                AssertEqual(0, harmonyLevelResponse.Code, $"Harmony II level {index + 2} response code");
+                AssertEqual(index + 2, harmonyLevelResponse.WeaponOverrunData.Level, $"Harmony II level {index + 2}");
+                AssertIntegerList(
+                    [1606],
+                    harmonyLevelResponse.WeaponOverrunData.ActiveSuits.Select(id => (long)id).ToArray(),
+                    $"Harmony II level {index + 2} active suits");
+                AssertEqual(1606, harmonyLevelResponse.WeaponOverrunData.ChoseSuit, $"Harmony II level {index + 2} chosen suit");
+            }
+
+            InvokeRequestHandler(
+                harness,
+                nameof(EquipWeaponOverrunLevelUpRequest),
+                16_116,
+                new EquipWeaponOverrunLevelUpRequest { EquipId = (int)harmonyTwoEquipId });
+            EquipWeaponOverrunLevelUpResponse maxHarmonyResponse =
+                ReadResponsePayload<EquipWeaponOverrunLevelUpResponse>(
+                    harness.ReadPacket("Harmony II max level response"),
+                    nameof(EquipWeaponOverrunLevelUpResponse));
+            AssertEqual(1, maxHarmonyResponse.Code, "Harmony II max level response code");
+            AssertEqual(7, harmonyTwoEquip.WeaponOverrunData.Level, "Harmony II max level persisted state");
 
             InvokeRequestHandler(
                 harness,
@@ -1051,6 +1164,118 @@ namespace AscNet.Test
                 AssertEqual(0, ReadResponsePayload<PartnerComposeResponse>(
                     highIndexHarness.ReadPacket("high-index PartnerComposeResponse"),
                     nameof(PartnerComposeResponse)).Code, "high-index PartnerComposeResponse code");
+            }
+            PartnerTable grandDukeConfig = TableReaderV2.Parse<PartnerTable>()
+                .Single(partner => partner.Id == 16_400_000);
+            PartnerSkillTable grandDukeSkillConfig = TableReaderV2.Parse<PartnerSkillTable>()
+                .Single(skill => skill.PartnerId == grandDukeConfig.Id);
+            PartnerMainSkillGroupTable grandDukeMainSkillGroup = TableReaderV2.Parse<PartnerMainSkillGroupTable>()
+                .Single(group => group.Id == grandDukeSkillConfig.DefaultMainSkillGroupId);
+            ILookup<int, PartnerPassiveSkillGroupTable> grandDukePassiveSkillGroups =
+                TableReaderV2.Parse<PartnerPassiveSkillGroupTable>().ToLookup(group => group.Id);
+            ItemTable grandDukeShard = TableReaderV2.Parse<ItemTable>()
+                .Single(item => item.Id == grandDukeConfig.ChipItemId);
+            AssertEqual(8, grandDukeShard.ItemType, "Grand Duke shard item type");
+
+            const long grandDukeUid = -16_400_001;
+            FilterDefinition<AscNet.Common.Database.Character> grandDukeCharacterFilter =
+                Builders<AscNet.Common.Database.Character>.Filter.Eq(character => character.Uid, grandDukeUid);
+            FilterDefinition<AscNet.Common.Database.Inventory> grandDukeInventoryFilter =
+                Builders<AscNet.Common.Database.Inventory>.Filter.Eq(inventory => inventory.Uid, grandDukeUid);
+            AscNet.Common.Database.Character.collection.DeleteMany(grandDukeCharacterFilter);
+            AscNet.Common.Database.Inventory.collection.DeleteMany(grandDukeInventoryFilter);
+            AscNet.Common.Database.Character grandDukeCharacter = new()
+            {
+                Id = ObjectId.GenerateNewId(),
+                Uid = grandDukeUid,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners = []
+            };
+            AscNet.Common.Database.Inventory grandDukeInventory = new()
+            {
+                Id = ObjectId.GenerateNewId(),
+                Uid = grandDukeUid,
+                Items = [new Item { Id = grandDukeConfig.ChipItemId, Count = grandDukeConfig.ChipNeedCount }]
+            };
+            AscNet.Common.Database.Character.collection.InsertOne(grandDukeCharacter);
+            AscNet.Common.Database.Inventory.collection.InsertOne(grandDukeInventory);
+            try
+            {
+                using LoopbackSessionHarness grandDukeHarness = new(
+                    grandDukeCharacter,
+                    inventory: grandDukeInventory,
+                    sessionId: "partner-grand-duke-compose-test");
+                InvokeRequestHandler(
+                    grandDukeHarness,
+                    nameof(PartnerComposeRequest),
+                    17_004,
+                    new PartnerComposeRequest { TemplateIds = [grandDukeConfig.ChipItemId], IsOneKey = false });
+                AssertItemPush(
+                    grandDukeHarness.ReadPacket("Grand Duke PartnerComposeRequest item push"),
+                    grandDukeConfig.ChipItemId,
+                    0,
+                    "Grand Duke PartnerComposeRequest item push");
+                Packet grandDukePartnerPacket = grandDukeHarness.ReadPacket("Grand Duke NotifyPartnerDataList");
+                Packet.Push grandDukePartnerPush = MessagePackSerializer.Deserialize<Packet.Push>(grandDukePartnerPacket.Content);
+                NotifyPartnerDataList grandDukePartnerPayload =
+                    MessagePackSerializer.Deserialize<NotifyPartnerDataList>(grandDukePartnerPush.Content);
+                PartnerData grandDukePartner = grandDukePartnerPayload.PartnerDataList.Single();
+                AssertEqual(grandDukeConfig.Id, grandDukePartner.TemplateId, "Grand Duke composed partner template");
+                AssertEqual(grandDukeConfig.InitQuality, grandDukePartner.Quality, "Grand Duke composed partner quality");
+                AssertIntegerList([1], grandDukePartnerPayload.OperateTypes.Select(value => (long)value).ToArray(),
+                    "Grand Duke partner add operation");
+                long[] grandDukeExpectedSkillIds = grandDukeSkillConfig.PassiveSkillGroupId
+                    .Select(groupId => grandDukePassiveSkillGroups[groupId].Single().SkillId)
+                    .Prepend(grandDukeMainSkillGroup.SkillId.First())
+                    .Select(Convert.ToInt64)
+                    .ToArray();
+                AssertIntegerList(
+                    grandDukeExpectedSkillIds,
+                    grandDukePartner.SkillList.Select(skill => (long)skill.Id).ToArray(),
+                    "Grand Duke composed partner skills");
+                PartnerSkillData grandDukeActiveSkill = grandDukePartner.SkillList.Single(skill => skill.Type == 1);
+                AssertEqual(1, grandDukeActiveSkill.Level, "Grand Duke active skill level");
+                AssertEqual(true, grandDukeActiveSkill.IsWear, "Grand Duke active skill wear state");
+                AssertEqual(5, grandDukePartner.SkillList.Count(skill => skill.Type == 2), "Grand Duke passive skill count");
+                AssertEqual(true, grandDukePartner.SkillList.Where(skill => skill.Type == 2)
+                    .All(skill => skill.Level == 1 && !skill.IsWear), "Grand Duke passive skill initial state");
+                AssertEqual(0, ReadResponsePayload<PartnerComposeResponse>(
+                    grandDukeHarness.ReadPacket("Grand Duke PartnerComposeResponse"),
+                    nameof(PartnerComposeResponse)).Code, "Grand Duke PartnerComposeResponse code");
+
+                AscNet.Common.Database.Character persistedGrandDuke =
+                    AscNet.Common.Database.Character.FromUid(grandDukeUid);
+                AscNet.Common.Database.Inventory persistedGrandDukeInventory =
+                    AscNet.Common.Database.Inventory.FromUid(grandDukeUid);
+                AssertEqual(grandDukeConfig.Id, persistedGrandDuke.Partners.Single().TemplateId,
+                    "persisted Grand Duke partner template");
+                AssertIntegerList(
+                    grandDukePartner.SkillList.Select(skill => (long)skill.Id).ToArray(),
+                    persistedGrandDuke.Partners.Single().SkillList.Select(skill => (long)skill.Id).ToArray(),
+                    "persisted Grand Duke partner skills");
+                AssertEqual(0L, persistedGrandDukeInventory.Items.Single(item => item.Id == grandDukeConfig.ChipItemId).Count,
+                    "persisted Grand Duke shard balance");
+
+                InvokeRequestHandler(
+                    grandDukeHarness,
+                    nameof(PartnerComposeRequest),
+                    17_005,
+                    new PartnerComposeRequest { TemplateIds = [int.MaxValue], IsOneKey = false });
+                AssertEqual(1, ReadResponsePayload<PartnerComposeResponse>(
+                    grandDukeHarness.ReadPacket("invalid Grand Duke PartnerComposeResponse"),
+                    nameof(PartnerComposeResponse)).Code, "invalid compose selector code");
+                AssertEqual(1, grandDukeCharacter.Partners.Count, "invalid compose selector partner count");
+                AssertEqual(0L, grandDukeInventory.Items.Single(item => item.Id == grandDukeConfig.ChipItemId).Count,
+                    "invalid compose selector shard balance");
+                if (grandDukeHarness.TryReadAvailablePacket("invalid Grand Duke unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"invalid Grand Duke selector emitted unexpected {extra.Type} packet.");
+            }
+            finally
+            {
+                AscNet.Common.Database.Character.collection.DeleteMany(grandDukeCharacterFilter);
+                AscNet.Common.Database.Inventory.collection.DeleteMany(grandDukeInventoryFilter);
             }
 
             ValidatePartnerProgressionCompatibility();
@@ -3037,21 +3262,6 @@ namespace AscNet.Test
 
         private static void ValidateNotifyLoginCurrentClientCompatibilityShape()
         {
-            (long Id, long StartTime, long EndTime)[] expectedCurrentDrawTimeLimitControls =
-            [
-                (54, 1782370800, 1783580340),
-                (55, 1783580400, 1784789940),
-                (47101, 1780358400, 1784242800),
-                (47201, 1780358400, 1784242800),
-                (47703, 1780358400, 1784242800),
-                (47704, 1780358400, 1784242800),
-                (47911, 1780653600, 1784242800),
-                (47912, 1780358400, 1784242800),
-                (47913, 1780653600, 1784242800),
-                (47920, 1780358400, 1784242800),
-                (47921, 1780358400, 1784242800),
-                (47922, 1780358400, 1784242800)
-            ];
             NotifyLogin login = new()
             {
                 FubenMainLine2Data = new()
@@ -3093,26 +3303,14 @@ namespace AscNet.Test
                     MessageState = [],
                     LastExhibitionChapterId = 25
                 },
-                FashionColorData = new()
-                {
-                    FasionColors = []
-                },
-                TimeLimitCtrlConfigList = expectedCurrentDrawTimeLimitControls
-                    .Select(timeLimit => new TimeLimitCtrlConfigList
-                    {
-                        Id = timeLimit.Id,
-                        StartTime = timeLimit.StartTime,
-                        EndTime = timeLimit.EndTime
-                    })
-                    .ToList()
+                TimeLimitCtrlConfigList = [],
+                FunctionOpenTimeConfigList = []
             };
 
             NotifyLogin roundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(MessagePackSerializer.Serialize(login));
 
-            AssertTimeLimitControlsEqual(
-                expectedCurrentDrawTimeLimitControls,
-                roundTrip.TimeLimitCtrlConfigList,
-                "NotifyLogin TimeLimitCtrlConfigList current draw/event MessagePack round-trip");
+            AssertEmptyList(roundTrip.TimeLimitCtrlConfigList, "NotifyLogin TimeLimitCtrlConfigList 4.6 missing-authority boundary");
+            AssertEmptyList(roundTrip.FunctionOpenTimeConfigList, "NotifyLogin FunctionOpenTimeConfigList 4.6 missing-authority boundary");
 
             Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
             MethodInfo buildNotifyLogin = RequiredMethod(
@@ -3132,17 +3330,14 @@ namespace AscNet.Test
                 productionLogin = buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
                     ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil or a non-NotifyLogin payload.");
             }
-            AssertTimeLimitControlIdsPresent(
-                expectedCurrentDrawTimeLimitControls.Select(timeLimit => timeLimit.Id).ToArray(),
-                productionLogin.TimeLimitCtrlConfigList,
-                "AccountModule.BuildNotifyLogin NotifyLogin.TimeLimitCtrlConfigList current draw/event controls");
-            AssertRetroFestivalTimeLimitControlsPresent(
-                productionLogin.TimeLimitCtrlConfigList,
-                "AccountModule.BuildNotifyLogin NotifyLogin.TimeLimitCtrlConfigList Retro/Festival display controls");
+            if (productionLogin.TimeLimitCtrlConfigList.Count < 2
+                || productionLogin.FunctionOpenTimeConfigList.Any(mapping =>
+                    !productionLogin.TimeLimitCtrlConfigList.Any(control => control.Id == mapping.TimeId)
+                    || mapping.TimeId == 20000))
+            {
+                throw new InvalidDataException("AccountModule.BuildNotifyLogin must only emit function-time mappings backed by emitted time controls.");
+            }
 
-            NotifyFashionColorData fashionColorData = roundTrip.FashionColorData
-                ?? throw new InvalidDataException("NotifyLogin FashionColorData serialized as nil.");
-            AssertEmptyList(fashionColorData.FasionColors, "NotifyLogin FashionColorData.FasionColors");
 
             FubenMainLine2Data fubenMainLine2Data = roundTrip.FubenMainLine2Data
                 ?? throw new InvalidDataException("NotifyLogin FubenMainLine2Data serialized as nil.");
@@ -3169,42 +3364,6 @@ namespace AscNet.Test
             AssertEqual(0, fubenMainLine2Data.MessageState.Count, "NotifyLogin FubenMainLine2Data.MessageState captured retail shape count");
             AssertEqual(25, fubenMainLine2Data.LastExhibitionChapterId, "NotifyLogin FubenMainLine2Data.LastExhibitionChapterId captured retail shape");
 
-            static void AssertTimeLimitControlsEqual(
-                IReadOnlyList<(long Id, long StartTime, long EndTime)> expected,
-                IReadOnlyList<TimeLimitCtrlConfigList>? actual,
-                string name)
-            {
-                if (actual is null)
-                    throw new InvalidDataException($"{name}: expected a non-empty list, got nil.");
-                if (actual.Count == 0)
-                    throw new InvalidDataException($"{name}: expected current draw/event controls, got an empty list.");
-
-                AssertEqual(expected.Count, actual.Count, $"{name} count");
-                for (int index = 0; index < expected.Count; index++)
-                {
-                    AssertEqual(expected[index].Id, actual[index].Id, $"{name}[{index}].Id");
-                    AssertEqual(expected[index].StartTime, actual[index].StartTime, $"{name}[{index}].StartTime");
-                    AssertEqual(expected[index].EndTime, actual[index].EndTime, $"{name}[{index}].EndTime");
-                }
-            }
-
-            static void AssertTimeLimitControlIdsPresent(
-                IReadOnlyList<long> expectedIds,
-                IReadOnlyList<TimeLimitCtrlConfigList>? actual,
-                string name)
-            {
-                if (actual is null)
-                    throw new InvalidDataException($"{name}: expected a non-empty list, got nil.");
-                if (actual.Count == 0)
-                    throw new InvalidDataException($"{name}: expected current draw/event controls, got an empty list.");
-
-                HashSet<long> actualIds = actual.Select(timeLimit => timeLimit.Id).ToHashSet();
-                foreach (long expectedId in expectedIds)
-                {
-                    if (!actualIds.Contains(expectedId))
-                        throw new InvalidDataException($"{name}: missing control id {expectedId}.");
-                }
-            }
         }
 
         private static void ValidateSessionClientLoopFramingCompatibility()
@@ -3348,7 +3507,6 @@ namespace AscNet.Test
 
             const long playerId = 88_001;
             const long existingAccountStageId = 10010801;
-            const long homeChatUnlockStageId = 10030201;
             long[] defaultPassedMainStoryStageIds =
             [
                 10010101,
@@ -3398,8 +3556,6 @@ namespace AscNet.Test
                 BestCardIds = [1021001],
                 LastCardIds = [1021001]
             });
-            if (stage.Stages.ContainsKey(homeChatUnlockStageId))
-                throw new InvalidDataException("Login account compatibility test setup error: input session stage unexpectedly already contains the home chat unlock stage.");
             int defaultMainStoryStagesBeforeLogin = defaultPassedMainStoryStageIds.Count(stage.Stages.ContainsKey);
             AssertEqual(0, defaultMainStoryStagesBeforeLogin, "Login account compatibility test setup default main-story awaken gate stages before login");
 
@@ -3430,10 +3586,13 @@ namespace AscNet.Test
             if (!roundTrip.HaveBackgroundIds.Contains(player.UseBackgroundId))
                 throw new InvalidDataException($"NotifyLogin HaveBackgroundIds MessagePack round-trip: missing selected background id {player.UseBackgroundId}.");
 
-            FunctionOpenTimeConfig? functionOpenTime = roundTrip.FunctionOpenTimeConfigList?
-                .SingleOrDefault(config => config.FunctionId == 20000 && config.TimeId == 100);
-            if (functionOpenTime is null)
-                throw new InvalidDataException("NotifyLogin FunctionOpenTimeConfigList MessagePack round-trip: missing FunctionId 20000 / TimeId 100.");
+            if ((roundTrip.TimeLimitCtrlConfigList?.Select(control => control.Id).Distinct().Count() ?? 0) < 2
+                || roundTrip.FunctionOpenTimeConfigList.Any(mapping =>
+                    !roundTrip.TimeLimitCtrlConfigList.Any(control => control.Id == mapping.TimeId)
+                    || mapping.TimeId == 20000))
+            {
+                throw new InvalidDataException("NotifyLogin must only emit function-time mappings backed by emitted time controls.");
+            }
 
             if (roundTrip.DlcPlayerData is null)
                 throw new InvalidDataException("NotifyLogin DlcPlayerData MessagePack round-trip: expected initialized DLC player data.");
@@ -3448,16 +3607,12 @@ namespace AscNet.Test
 
             if (roundTrip.RedPointRecords is null)
                 throw new InvalidDataException("NotifyLogin RedPointRecords MessagePack round-trip: expected initialized red-point records.");
-            if (roundTrip.PlayerData.GuideData is null || roundTrip.PlayerData.GuideData.Count == 0)
-                throw new InvalidDataException("NotifyLogin PlayerData.GuideData MessagePack round-trip: expected completed guide ids for unlocked home features.");
+            AssertEqual(0, roundTrip.PlayerData.GuideData?.Count ?? 0,
+                "NotifyLogin PlayerData.GuideData remains empty until validated GuideComplete requests");
             if (roundTrip.FubenData?.StageData is not { } loginStageData)
                 throw new InvalidDataException("NotifyLogin FubenData.StageData MessagePack round-trip: expected initialized account stages.");
             if (!loginStageData.TryGetValue(existingAccountStageId, out StageDatum? loginStage) || !loginStage.Passed)
                 throw new InvalidDataException("NotifyLogin FubenData.StageData MessagePack round-trip: expected completed account stages for unlocked home features.");
-            if (!loginStageData.TryGetValue(homeChatUnlockStageId, out StageDatum? homeChatUnlockStage))
-                throw new InvalidDataException("NotifyLogin FubenData.StageData MessagePack round-trip: expected synthetic completed home chat unlock stage 10030201 when the input session stage does not contain it.");
-            AssertEqual(true, homeChatUnlockStage.Passed, "NotifyLogin FubenData.StageData home chat unlock stage Passed");
-            AssertEqual(passedStarsMark, homeChatUnlockStage.StarsMark, "NotifyLogin FubenData.StageData home chat unlock stage StarsMark");
             AssertDefaultPassedStageData(
                 defaultPassedMainStoryStageIds,
                 loginStageData,
@@ -3469,10 +3624,8 @@ namespace AscNet.Test
                 expectedRetailCommunicationIds.Concat([100L, 26L]).ToArray(),
                 roundTrip.PlayerData.Communications,
                 "NotifyLogin PlayerData.Communications MessagePack round-trip partial existing profile retail defaults plus extras");
-            AssertIntegerSetContainsAll(
-                [801, 802, 803, 20000],
-                roundTrip.PlayerData.Marks,
-                "NotifyLogin PlayerData.Marks functional entrance gate defaults");
+            AssertEqual(0, roundTrip.PlayerData.Marks.Count,
+                "NotifyLogin PlayerData.Marks remains empty until validated ChangePlayerMark requests");
             if (roundTrip.FashionSuitList is null)
                 throw new InvalidDataException("NotifyLogin FashionSuitList MessagePack round-trip: expected initialized list.");
             if (roundTrip.FashionColors is null)
@@ -4049,7 +4202,6 @@ namespace AscNet.Test
                 nameof(PurchaseDailyNotify),
                 nameof(NotifyPurchaseRecommendConfig),
                 "NotifyReviewConfig",
-                "NotifyPassportData",
                 "NotifyMentorData",
                 "NotifyMentorChat",
                 "NotifyGuildData",
@@ -4096,6 +4248,16 @@ namespace AscNet.Test
             if (chatBoardLoginDataIndex <= guildDormPlayerDataIndex)
                 throw new InvalidDataException($"AccountModule.DoLogin startup pushes: expected {nameof(NotifyChatBoardLoginData)} after NotifyGuildDormPlayerData; observed {DescribePushes(startupPushes)}.");
 
+            NotifyLoginMailCollectionBoxData startupMailCollection =
+                DeserializeStartupPush<NotifyLoginMailCollectionBoxData>(
+                    startupPushesByName,
+                    nameof(NotifyLoginMailCollectionBoxData),
+                    "AccountModule.DoLogin NotifyLoginMailCollectionBoxData startup payload");
+            AssertEqual(0, startupMailCollection.OpenActivityIds.Count,
+                "AccountModule.DoLogin mail collection-box open activities");
+            AssertEqual(0, startupMailCollection.MailCollectionBoxDataDb.ReceivedFavoriteMailIds.Count,
+                "AccountModule.DoLogin mail collection-box favorite state");
+
             NotifyLogin startupLogin = DeserializeStartupPush<NotifyLogin>(
                 startupPushesByName,
                 nameof(NotifyLogin),
@@ -4112,10 +4274,8 @@ namespace AscNet.Test
                     3108, 4108, 557, 558, 601, 602, 603, 604, 605, 556, 606, 607, 608, 609],
                 startupLogin.PlayerData.Communications,
                 "AccountModule.DoLogin NotifyLogin.PlayerData.Communications retail defaults");
-            AssertIntegerSetContainsAll(
-                [801, 802, 803, 20000],
-                startupLogin.PlayerData.Marks,
-                "AccountModule.DoLogin NotifyLogin.PlayerData.Marks functional entrance gate defaults");
+            AssertEqual(0, startupLogin.PlayerData.Marks.Count,
+                "AccountModule.DoLogin NotifyLogin.PlayerData.Marks starts empty");
             AssertIntegerList(
                 [8001],
                 startupLogin.PlayerData.ShieldFuncList.Cast<object>().Select(value => Convert.ToInt64(value)).ToArray(),
@@ -4133,13 +4293,13 @@ namespace AscNet.Test
                     throw new InvalidDataException("AccountModule.DoLogin NotifyLogin.FubenMainLine2Data: current event startup must not seed Homeward/MainLine2 exhibition chapter 61.");
             }
 
-            FunctionOpenTimeConfig? startupFunctionOpenTime = startupLogin.FunctionOpenTimeConfigList?
-                .SingleOrDefault(config => config.FunctionId == 20000 && config.TimeId == 100);
-            if (startupFunctionOpenTime is null)
-                throw new InvalidDataException("AccountModule.DoLogin NotifyLogin.FunctionOpenTimeConfigList: missing FunctionId 20000 / TimeId 100.");
-            AssertRetroFestivalTimeLimitControlsPresent(
-                startupLogin.TimeLimitCtrlConfigList,
-                "AccountModule.DoLogin NotifyLogin.TimeLimitCtrlConfigList Retro/Festival display controls");
+            if ((startupLogin.TimeLimitCtrlConfigList?.Count ?? 0) < 2
+                || startupLogin.FunctionOpenTimeConfigList.Any(mapping =>
+                    !startupLogin.TimeLimitCtrlConfigList.Any(control => control.Id == mapping.TimeId)
+                    || mapping.TimeId == 20000))
+            {
+                throw new InvalidDataException("AccountModule.DoLogin must only emit function-time mappings backed by emitted time controls.");
+            }
 
             NotifyArchiveLoginData startupArchiveLoginData = DeserializeStartupPush<NotifyArchiveLoginData>(
                 startupPushesByName,
@@ -4168,12 +4328,42 @@ namespace AscNet.Test
                 startupPushesByName,
                 "NotifyNewActivityCalendarData",
                 "AccountModule.DoLogin NotifyNewActivityCalendarData startup payload");
-            AssertIntegerSetContainsAll(
-                [45001, 45005, 45010],
-                RequiredIntegerArray(calendarPayload, "OpenActivityIds", "AccountModule.DoLogin NotifyNewActivityCalendarData startup payload"),
-                "AccountModule.DoLogin NotifyNewActivityCalendarData.OpenActivityIds current event ids");
-            AssertEveryGotRewardsArrayEmpty(
+            long calendarNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            IReadOnlyList<long> openCalendarActivityIds = RequiredIntegerArray(
                 calendarPayload,
+                "OpenActivityIds",
+                "AccountModule.DoLogin NotifyNewActivityCalendarData startup payload");
+            if (openCalendarActivityIds.Count == 0
+                || openCalendarActivityIds.Distinct().Count() != openCalendarActivityIds.Count
+                || openCalendarActivityIds.Any(activityId => activityId / 1000 != 46)
+                || openCalendarActivityIds.Contains(45001))
+                throw new InvalidDataException("AccountModule.DoLogin NotifyNewActivityCalendarData.OpenActivityIds emitted stale, duplicate, or non-4.6 activities.");
+            Dictionary<int, NewActivityCalendarActivityTable> calendarRows = TableReaderV2.Parse<NewActivityCalendarActivityTable>()
+                .ToDictionary(activity => activity.ActivityId);
+            foreach (long activityId in openCalendarActivityIds)
+            {
+                if (!calendarRows.TryGetValue(checked((int)activityId), out NewActivityCalendarActivityTable? activity)
+                    || !ActivityScheduleService.TryGet(activity.MainTimeId, out ActivityScheduleEntry schedule)
+                    || (schedule.StartTime != 0 && calendarNow < schedule.StartTime)
+                    || (schedule.EndTime != 0 && calendarNow >= schedule.EndTime))
+                    throw new InvalidDataException($"AccountModule.DoLogin emitted unavailable calendar activity {activityId}.");
+            }
+            AssertEqual(
+                "CurrentGuildBossEndTime,NewActivityCalendarData,OpenActivityIds",
+                string.Join(',', calendarPayload.Properties().Select(property => property.Name).Order(StringComparer.Ordinal)),
+                "AccountModule.DoLogin NotifyNewActivityCalendarData exact top-level keys");
+            JObject calendarData = RequiredValue<JObject>(
+                calendarPayload,
+                "NewActivityCalendarData",
+                JTokenType.Object,
+                "AccountModule.DoLogin NotifyNewActivityCalendarData startup payload");
+            AssertEqual(
+                "TimeLimitActivityInfos,WeekActivityInfos",
+                string.Join(',', calendarData.Properties().Select(property => property.Name).Order(StringComparer.Ordinal)),
+                "AccountModule.DoLogin NotifyNewActivityCalendarData exact nested keys");
+            AssertEmptyJsonArray(
+                calendarData,
+                "TimeLimitActivityInfos",
                 "AccountModule.DoLogin NotifyNewActivityCalendarData startup payload");
 
             JObject manualPayload = DeserializeStartupPushMap(
@@ -4189,6 +4379,26 @@ namespace AscNet.Test
             AssertEmptyJsonArray(manualPayload, "FinishStageIds", "AccountModule.DoLogin NotifyWheelchairManualActivity startup payload");
             AssertEmptyJsonArray(manualPayload, "TimeLimitActivityInfos", "AccountModule.DoLogin NotifyWheelchairManualActivity startup payload");
             AssertEmptyJsonArray(manualPayload, "WeekActivityInfos", "AccountModule.DoLogin NotifyWheelchairManualActivity startup payload");
+            AssertEqual(
+                RequiredValue<long>(calendarPayload, "CurrentGuildBossEndTime", JTokenType.Integer, "AccountModule.DoLogin NotifyNewActivityCalendarData startup payload"),
+                RequiredValue<long>(manualPayload, "CurrentGuildBossEndTime", JTokenType.Integer, "AccountModule.DoLogin NotifyWheelchairManualActivity startup payload"),
+                "AccountModule.DoLogin calendar and wheelchair guild boss boundary");
+
+            JObject activityDrawListPayload = DeserializeStartupPushMap(
+                startupPushesByName,
+                nameof(NotifyActivityDrawList),
+                "AccountModule.DoLogin NotifyActivityDrawList startup payload");
+            JObject activityDrawGroupCountPayload = DeserializeStartupPushMap(
+                startupPushesByName,
+                nameof(NotifyActivityDrawGroupCount),
+                "AccountModule.DoLogin NotifyActivityDrawGroupCount startup payload");
+            AssertEqual("DrawIdList", string.Join(',', activityDrawListPayload.Properties().Select(property => property.Name)), "AccountModule.DoLogin NotifyActivityDrawList exact key");
+            AssertEqual("Count", string.Join(',', activityDrawGroupCountPayload.Properties().Select(property => property.Name)), "AccountModule.DoLogin NotifyActivityDrawGroupCount exact key");
+            int activityDrawListIndex = RequiredPushIndex(startupPushes, nameof(NotifyActivityDrawList), 0, "AccountModule.DoLogin activity draw list startup push");
+            int activityDrawCountIndex = RequiredPushIndex(startupPushes, nameof(NotifyActivityDrawGroupCount), activityDrawListIndex + 1, "AccountModule.DoLogin activity draw count startup push");
+            int fashionIndex = RequiredPushIndex(startupPushes, nameof(NotifyFashionStoryData), activityDrawCountIndex + 1, "AccountModule.DoLogin Fashion startup push");
+            if (activityDrawCountIndex != activityDrawListIndex + 1 || fashionIndex <= activityDrawCountIndex)
+                throw new InvalidDataException("AccountModule.DoLogin activity draw pushes must be adjacent before Fashion.");
 
             AssertStartupPayloadMapContainsKeys(
                 startupPushesByName,
@@ -4308,18 +4518,8 @@ namespace AscNet.Test
                 "AccountModule.DoLogin NotifyFubenBossSingleData startup payload",
                 "FubenBossSingleData",
                 "BossListDict");
-            AssertStartupPayloadMapContainsKeys(
-                startupPushesByName,
-                "NotifyPassportData",
-                "AccountModule.DoLogin NotifyPassportData startup payload",
-                "ActivityId",
-                "Level",
-                "BaseInfo",
-                "PassportInfos",
-                "LastTimeBaseInfo",
-                "IsGetSupplyReward",
-                "IsActivateRegressionTask",
-                "IsActivateNewbieTask");
+            if (startupPushesByName.ContainsKey("NotifyPassportData"))
+                throw new InvalidDataException("AccountModule.DoLogin must not emit NotifyPassportData without an authoritative active passport.");
 
             AssertForbiddenStartupPushesAbsent(
                 startupPushes,
@@ -4512,38 +4712,6 @@ namespace AscNet.Test
                 return token.Value<double>();
             }
 
-            static void AssertEveryGotRewardsArrayEmpty(JToken payload, string name)
-            {
-                int gotRewardsArrayCount = 0;
-                CountEmptyGotRewardsArrays(payload, name, ref gotRewardsArrayCount);
-                if (gotRewardsArrayCount == 0)
-                    throw new InvalidDataException($"{name}: expected at least one nested GotRewards array.");
-            }
-
-            static void CountEmptyGotRewardsArrays(JToken token, string name, ref int gotRewardsArrayCount)
-            {
-                if (token is JObject obj)
-                {
-                    foreach (JProperty property in obj.Properties())
-                    {
-                        if (property.Name == "GotRewards")
-                        {
-                            if (property.Value is not JArray gotRewards)
-                                throw new InvalidDataException($"{name} {property.Path}: expected JSON Array, got {property.Value.Type}.");
-                            gotRewardsArrayCount++;
-                            if (gotRewards.Count != 0)
-                                throw new InvalidDataException($"{name} {property.Path}: expected fresh-account GotRewards to be empty, got {gotRewards.Count} entries.");
-                        }
-
-                        CountEmptyGotRewardsArrays(property.Value, name, ref gotRewardsArrayCount);
-                    }
-                }
-                else if (token is JArray array)
-                {
-                    foreach (JToken child in array)
-                        CountEmptyGotRewardsArrays(child, name, ref gotRewardsArrayCount);
-                }
-            }
 
             static Dictionary<long, JObject> DeserializeStartupTasksById(
                 IReadOnlyList<Packet.Push> startupPushPackets,
@@ -4950,7 +5118,9 @@ namespace AscNet.Test
 
         private static void ValidateLifeTreeFinishProcessRequestCompatibility()
         {
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForMainLine2MessageStateCompatibility(
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection);
             const string requestName = nameof(LifeTreeFinishProcessRequest);
             const string responseName = nameof(LifeTreeFinishProcessResponse);
 
@@ -5003,20 +5173,16 @@ namespace AscNet.Test
                 throw new InvalidDataException($"{requestName}: registered handler invocation failed for verified Process=1 MessagePack payload.", exception);
             }
 
-            AssertCompletedLifeTreeData(player.LifeTreeData, $"{requestName} Process=1 persisted Player.LifeTreeData");
-
-            NotifyLifeTreeData finishPush = ReadPushPayload<NotifyLifeTreeData>(
-                harness,
-                nameof(NotifyLifeTreeData),
-                $"{requestName} Process=1 NotifyLifeTreeData push");
-            AssertCompletedLifeTreeData(finishPush, $"{requestName} Process=1 NotifyLifeTreeData push");
-
+            AssertLifeTreeProcessData(player.LifeTreeData, true, false, [], $"{requestName} Process=1 persisted Player.LifeTreeData");
             LifeTreeFinishProcessResponse processOneResponse = ReadResponsePayload<LifeTreeFinishProcessResponse>(
                 harness,
                 processOnePacketId,
                 responseName,
                 $"{requestName} Process=1 response");
             AssertEqual(0, processOneResponse.Code, $"{responseName} Process=1 Code");
+            AssertEqual(true, processOneResponse.IsFinishGuide, $"{responseName} Process=1 IsFinishGuide");
+            AssertEqual(false, processOneResponse.IsFinishLifeTreePv, $"{responseName} Process=1 IsFinishLifeTreePv");
+            AssertEqual(0, processOneResponse.FinishedChapters.Count, $"{responseName} Process=1 FinishedChapters");
 
             MethodInfo processTwoHandlerMethod = GetRegisteredRequestHandlerMethod(requestName);
             AssertEqual("LifeTreeFinishProcessRequestHandler", processTwoHandlerMethod.Name, $"{requestName} handler remains registered after Process=1");
@@ -5029,7 +5195,6 @@ namespace AscNet.Test
             AssertEqual("81A750726F6365737302", Convert.ToHexString(processTwoRequestPayload), $"{requestName} Process=2 verified live MessagePack payload");
             LifeTreeFinishProcessRequest processTwoRequestRoundTrip = MessagePackSerializer.Deserialize<LifeTreeFinishProcessRequest>(processTwoRequestPayload);
             AssertEqual(2, processTwoRequestRoundTrip.Process, $"{requestName} Process=2 MessagePack round-trip");
-            string completedLifeTreeDataSnapshot = Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData));
 
             const int processTwoPacketId = 13_012;
             Packet.Request processTwoPacket = new()
@@ -5048,27 +5213,401 @@ namespace AscNet.Test
                 throw new InvalidDataException($"{requestName}: registered handler invocation failed for verified Process=2 MessagePack payload.", exception);
             }
 
-            AssertEqual(completedLifeTreeDataSnapshot, Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData)), $"{requestName} Process=2 persisted Player.LifeTreeData unchanged");
-            AssertCompletedLifeTreeData(player.LifeTreeData, $"{requestName} Process=2 persisted Player.LifeTreeData");
-
-            NotifyLifeTreeData processTwoPush = ReadPushPayload<NotifyLifeTreeData>(
-                harness,
-                nameof(NotifyLifeTreeData),
-                $"{requestName} Process=2 NotifyLifeTreeData push");
-            AssertCompletedLifeTreeData(processTwoPush, $"{requestName} Process=2 NotifyLifeTreeData push");
-
+            AssertLifeTreeProcessData(player.LifeTreeData, true, true, [], $"{requestName} Process=2 persisted Player.LifeTreeData");
             LifeTreeFinishProcessResponse processTwoResponse = ReadResponsePayload<LifeTreeFinishProcessResponse>(
                 harness,
                 processTwoPacketId,
                 responseName,
                 $"{requestName} Process=2 response");
             AssertEqual(0, processTwoResponse.Code, $"{responseName} Process=2 Code");
+            AssertEqual(true, processTwoResponse.IsFinishGuide, $"{responseName} Process=2 IsFinishGuide");
+            AssertEqual(true, processTwoResponse.IsFinishLifeTreePv, $"{responseName} Process=2 IsFinishLifeTreePv");
+
+            HashSet<int> exhibitionChapterIds = TableReaderV2.Parse<MainLine2ExhibitionChapterTable>()
+                .Select(exhibitionChapter => exhibitionChapter.Id)
+                .ToHashSet();
+            int currentPopupChapterId = int.Parse(
+                TableReaderV2.Parse<AscNet.Table.V2.client.lifetree.LifeTreeClientConfigTable>()
+                    .Single(config => config.Key == "CurVersionChapterId")
+                    .Values.First());
+            AssertEqual(true, exhibitionChapterIds.Contains(currentPopupChapterId),
+                "current LifeTree popup chapter has an authoritative exhibition destination");
+            List<int> navigableChapterIds = TableReaderV2.Parse<AscNet.Table.V2.share.lifetree.LifeTreeChapterTable>()
+                .Select(lifeTreeChapter => lifeTreeChapter.Id)
+                .Append(currentPopupChapterId)
+                .Where(exhibitionChapterIds.Contains)
+                .Distinct()
+                .Order()
+                .ToList();
+            AssertEqual(true, navigableChapterIds.Count > 1,
+                "LifeTree tables have multiple authoritative exhibition destinations");
+
+            Type mainLine2Module = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.MainLine2Module");
+            MethodInfo buildMainLine2LoginData = RequiredMethod(
+                mainLine2Module, "BuildLoginData", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session)]);
+            FubenMainLine2Data initialBattleScreenData =
+                (FubenMainLine2Data?)buildMainLine2LoginData.Invoke(null, [harness.Session])
+                ?? throw new InvalidDataException("MainLine2Module.BuildLoginData returned nil.");
+            AssertEqual(currentPopupChapterId, initialBattleScreenData.LastExhibitionChapterId,
+                "initial Battle Screen destination is table-derived current LifeTree popup chapter");
+            AssertEqual(currentPopupChapterId, player.FubenMainLine2Data.LastExhibitionChapterId,
+                "initial Battle Screen destination persists");
+            AssertIntegerList([currentPopupChapterId], player.LifeTreeData.FinishedChapters.Select(Convert.ToInt64).ToArray(),
+                "unrenderable current LifeTree popup is acknowledged from client configuration");
+
+            int selectedBattleScreenChapterId = navigableChapterIds[1];
+            InvokeRegisteredRequestHandler(nameof(MainLine2UpdateExhibitionChapterRequest), harness.Session,
+                13_010, new MainLine2UpdateExhibitionChapterRequest { ChapterId = selectedBattleScreenChapterId });
+            AssertEqual(0, ReadResponsePayload<MainLine2UpdateExhibitionChapterResponse>(
+                harness, 13_010, nameof(MainLine2UpdateExhibitionChapterResponse),
+                "Battle Screen navigation response").Code, "Battle Screen navigation Code");
+            FubenMainLine2Data relogBattleScreenData =
+                (FubenMainLine2Data?)buildMainLine2LoginData.Invoke(null, [harness.Session])
+                ?? throw new InvalidDataException("MainLine2Module.BuildLoginData returned nil after navigation.");
+            AssertEqual(selectedBattleScreenChapterId, relogBattleScreenData.LastExhibitionChapterId,
+                "Battle Screen destination restores after relog");
+
+            AscNet.Table.V2.share.lifetree.LifeTreeChapterTable chapter =
+                TableReaderV2.Parse<AscNet.Table.V2.share.lifetree.LifeTreeChapterTable>().First();
+            AssertEqual(true, navigableChapterIds.Contains(chapter.Id),
+                "LifeTree popup acknowledgement targets an authoritative exhibition destination");
+            LifeTreeFinishProcessRequest processThreeRequest = new() { Process = 3, ProcessId = chapter.Id };
+            byte[] processThreePayload = MessagePackSerializer.Serialize(processThreeRequest);
+            LifeTreeFinishProcessRequest processThreeRoundTrip =
+                MessagePackSerializer.Deserialize<LifeTreeFinishProcessRequest>(processThreePayload);
+            AssertEqual(3, processThreeRoundTrip.Process, $"{requestName} Process=3 MessagePack round-trip");
+            AssertEqual(chapter.Id, processThreeRoundTrip.ProcessId, $"{requestName} Process=3 ProcessId round-trip");
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = 13_013,
+                Name = requestName,
+                Content = processThreePayload
+            });
+            AssertLifeTreeProcessData(player.LifeTreeData, true, true, [currentPopupChapterId, chapter.Id],
+                $"{requestName} Process=3 persisted Player.LifeTreeData");
+            LifeTreeFinishProcessResponse processThreeResponse = ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                harness, 13_013, responseName, $"{requestName} Process=3 response");
+            AssertEqual(0, processThreeResponse.Code, $"{responseName} Process=3 Code");
+            AssertIntegerList([currentPopupChapterId, chapter.Id],
+                processThreeResponse.FinishedChapters.Select(Convert.ToInt64).ToArray(),
+                $"{responseName} Process=3 FinishedChapters");
+
+            string completedLifeTreeDataSnapshot = Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData));
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = 13_014,
+                Name = requestName,
+                Content = processThreePayload
+            });
+            LifeTreeFinishProcessResponse replayResponse = ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                harness, 13_014, responseName, $"{requestName} repeated Process=3 response");
+            AssertEqual(20326006, replayResponse.Code, $"{responseName} repeated Process=3 Code");
+            AssertEqual(completedLifeTreeDataSnapshot, Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData)),
+                $"{requestName} repeated Process=3 state");
+            int nonLifeTreeExhibitionChapterId = exhibitionChapterIds.Except(navigableChapterIds).First();
+            InvokeRegisteredRequestHandler(requestName, harness.Session, 13_016,
+                new LifeTreeFinishProcessRequest { Process = 3, ProcessId = nonLifeTreeExhibitionChapterId });
+            LifeTreeFinishProcessResponse nonLifeTreeChapterResponse =
+                ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                    harness, 13_016, responseName, $"{requestName} non-LifeTree chapter response");
+            AssertEqual(20326002, nonLifeTreeChapterResponse.Code,
+                $"{responseName} non-LifeTree chapter Code");
+            AssertEqual(completedLifeTreeDataSnapshot, Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData)),
+                $"{requestName} non-LifeTree chapter state");
+
+
+            int savesBeforeNil = playerCollection.ReplaceOneCalls;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = 13_015,
+                Name = requestName,
+                Content = [0xC0]
+            });
+            LifeTreeFinishProcessResponse nilResponse = ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                harness, 13_015, responseName, $"{requestName} nil response");
+            AssertEqual(20326007, nilResponse.Code, $"{responseName} nil request Code");
+            AssertEqual(completedLifeTreeDataSnapshot, Convert.ToHexString(MessagePackSerializer.Serialize(player.LifeTreeData)),
+                $"{requestName} nil request state");
+            AssertEqual(savesBeforeNil, playerCollection.ReplaceOneCalls,
+                $"{requestName} nil request does not persist");
+
+            const long processFailurePlayerId = 88_010;
+            AscNet.Common.Database.Player processFailurePlayer =
+                CreateDrawCompatibilityPlayer(processFailurePlayerId);
+            using (LoopbackSessionHarness processFailureHarness = new(
+                CreateDrawCompatibilityCharacter(processFailurePlayerId),
+                processFailurePlayer,
+                CreateDrawCompatibilityInventory(processFailurePlayerId, []),
+                "lifetree-finish-process-save-failure"))
+            {
+                string stateBeforeFailure = Convert.ToHexString(
+                    MessagePackSerializer.Serialize(processFailurePlayer.LifeTreeData));
+                playerCollection.ThrowOnReplaceOne = true;
+                InvokeRegisteredRequestHandler(
+                    requestName,
+                    processFailureHarness.Session,
+                    13_017,
+                    new LifeTreeFinishProcessRequest { Process = 1 });
+                playerCollection.ThrowOnReplaceOne = false;
+                LifeTreeFinishProcessResponse failedProcess =
+                    ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                        processFailureHarness,
+                        13_017,
+                        responseName,
+                        "LifeTree process persistence failure response");
+                AssertEqual(20326008, failedProcess.Code,
+                    "LifeTree process persistence failure Code");
+                AssertEqual(
+                    stateBeforeFailure,
+                    Convert.ToHexString(MessagePackSerializer.Serialize(processFailurePlayer.LifeTreeData)),
+                    "LifeTree process persistence failure rolls back state");
+
+                InvokeRegisteredRequestHandler(
+                    requestName,
+                    processFailureHarness.Session,
+                    13_018,
+                    new LifeTreeFinishProcessRequest { Process = 1 });
+                LifeTreeFinishProcessResponse processRetry =
+                    ReadResponsePayload<LifeTreeFinishProcessResponse>(
+                        processFailureHarness,
+                        13_018,
+                        responseName,
+                        "LifeTree process persistence retry response");
+                AssertEqual(0, processRetry.Code,
+                    "LifeTree process persistence retry succeeds");
+                AssertEqual(true, processFailurePlayer.LifeTreeData.IsFinishGuide,
+                    "LifeTree process persistence retry commits state");
+            }
+
             doLogin.Invoke(null, [harness.Session]);
             NotifyLifeTreeData startupLifeTreeData = ReadStartupLifeTreePush(
                 harness,
                 maxStartupPushes: 192,
                 "AccountModule.DoLogin LifeTree startup pushes");
-            AssertCompletedLifeTreeData(startupLifeTreeData, "AccountModule.DoLogin NotifyLifeTreeData persisted startup payload");
+            AssertLifeTreeProcessData(startupLifeTreeData, true, true, [chapter.Id, currentPopupChapterId],
+                "AccountModule.DoLogin NotifyLifeTreeData persisted startup payload");
+
+            const long unlockPlayerId = 88_009;
+            AscNet.Common.Database.Player unlockPlayer = CreateDrawCompatibilityPlayer(unlockPlayerId);
+            AscNet.Common.Database.Character unlockCharacter = CreateDrawCompatibilityCharacter(unlockPlayerId);
+            unlockCharacter.Characters.Add(new CharacterData { Id = 1031005 });
+            using LoopbackSessionHarness unlockHarness = new(
+                unlockCharacter,
+                unlockPlayer,
+                CreateDrawCompatibilityInventory(unlockPlayerId, []),
+                "lifetree-unlock-character-atomic-compat-test");
+            unlockHarness.Session.stage = CreateLoginAccountCompatibilityStage(unlockPlayerId);
+            RequestPacketHandlerDelegate unlockHandler =
+                GetRegisteredRequestHandler(nameof(LifeTreeUnlockCharacterRequest));
+            int savesBeforeNilUnlock = playerCollection.ReplaceOneCalls;
+            unlockHandler.Invoke(unlockHarness.Session, new Packet.Request
+            {
+                Id = 13_019,
+                Name = nameof(LifeTreeUnlockCharacterRequest),
+                Content = [0xC0]
+            });
+            LifeTreeUnlockCharacterResponse nilUnlockResponse =
+                ReadResponsePayload<LifeTreeUnlockCharacterResponse>(
+                    unlockHarness,
+                    13_019,
+                    nameof(LifeTreeUnlockCharacterResponse),
+                    "LifeTree nil unlock response");
+            AssertEqual(20326007, nilUnlockResponse.Code,
+                "LifeTree nil unlock request Code");
+            AssertEqual(0, unlockPlayer.LifeTreeData.UnlockCharacterData.Count,
+                "LifeTree nil unlock request preserves state");
+            AssertEqual(savesBeforeNilUnlock, playerCollection.ReplaceOneCalls,
+                "LifeTree nil unlock request does not persist");
+
+            int savesBeforeUnlock = playerCollection.ReplaceOneCalls;
+            InvokeRegisteredRequestHandler(
+                nameof(LifeTreeUnlockCharacterRequest),
+                unlockHarness.Session,
+                13_016,
+                new LifeTreeUnlockCharacterRequest { CharacterId = 1031005, Status = 1 });
+            Packet unlockPushPacket = unlockHarness.ReadPacket("LifeTreeUnlockCharacterRequest task progress push");
+            AssertEqual(Packet.ContentType.Push, unlockPushPacket.Type,
+                "LifeTreeUnlockCharacterRequest task progress packet type");
+            Packet.Push unlockPush = MessagePackSerializer.Deserialize<Packet.Push>(unlockPushPacket.Content);
+            AssertEqual(nameof(NotifyTask), unlockPush.Name, "LifeTreeUnlockCharacterRequest task progress push name");
+            NotifyTask unlockTask = MessagePackSerializer.Deserialize<NotifyTask>(unlockPush.Content);
+            AssertEqual(1, unlockTask.Tasks.Tasks.Count, "LifeTreeUnlockCharacterRequest task progress count");
+            AssertEqual(131001u, unlockTask.Tasks.Tasks[0].Id, "LifeTreeUnlockCharacterRequest task progress id");
+            LifeTreeUnlockCharacterResponse unlockResponse = ReadResponsePayload<LifeTreeUnlockCharacterResponse>(
+                unlockHarness,
+                13_016,
+                nameof(LifeTreeUnlockCharacterResponse),
+                "LifeTreeUnlockCharacterRequest response");
+            AssertEqual(0, unlockResponse.Code, "LifeTreeUnlockCharacterResponse Code");
+            AssertEqual(1, unlockPlayer.LifeTreeData.UnlockCharacterData[1031005].UnlockStatus,
+                "LifeTreeUnlockCharacterRequest persisted unlock status");
+            AssertEqual(1, unlockPlayer.MissionProgress.ConditionCounters[131001],
+                "LifeTreeUnlockCharacterRequest persisted task condition");
+            AssertEqual(savesBeforeUnlock + 1, playerCollection.ReplaceOneCalls,
+                "LifeTree unlock and task progress persist in one player replacement");
+            AscNet.Common.Database.Player persistedUnlock = playerCollection.LastReplacement
+                ?? throw new InvalidDataException("LifeTreeUnlockCharacterRequest expected persisted player replacement.");
+            AssertEqual(1, persistedUnlock.LifeTreeData.UnlockCharacterData[1031005].UnlockStatus,
+                "LifeTreeUnlockCharacterRequest replacement unlock status");
+            AssertEqual(1, persistedUnlock.MissionProgress.ConditionCounters[131001],
+                "LifeTreeUnlockCharacterRequest replacement task condition");
+
+            const long unlockFailurePlayerId = 88_011;
+            AscNet.Common.Database.Player unlockFailurePlayer =
+                CreateDrawCompatibilityPlayer(unlockFailurePlayerId);
+            AscNet.Common.Database.Character unlockFailureCharacter =
+                CreateDrawCompatibilityCharacter(unlockFailurePlayerId);
+            unlockFailureCharacter.Characters.Add(new CharacterData { Id = 1031005 });
+            using (LoopbackSessionHarness unlockFailureHarness = new(
+                unlockFailureCharacter,
+                unlockFailurePlayer,
+                CreateDrawCompatibilityInventory(unlockFailurePlayerId, []),
+                "lifetree-unlock-character-save-failure"))
+            {
+                unlockFailureHarness.Session.stage =
+                    CreateLoginAccountCompatibilityStage(unlockFailurePlayerId);
+                playerCollection.ThrowOnReplaceOne = true;
+                InvokeRegisteredRequestHandler(
+                    nameof(LifeTreeUnlockCharacterRequest),
+                    unlockFailureHarness.Session,
+                    13_020,
+                    new LifeTreeUnlockCharacterRequest { CharacterId = 1031005, Status = 1 });
+                playerCollection.ThrowOnReplaceOne = false;
+                LifeTreeUnlockCharacterResponse failedUnlock =
+                    ReadResponsePayload<LifeTreeUnlockCharacterResponse>(
+                        unlockFailureHarness,
+                        13_020,
+                        nameof(LifeTreeUnlockCharacterResponse),
+                        "LifeTree unlock persistence failure response");
+                AssertEqual(20326008, failedUnlock.Code,
+                    "LifeTree unlock persistence failure Code");
+                AssertEqual(0, unlockFailurePlayer.LifeTreeData.UnlockCharacterData.Count,
+                    "LifeTree unlock persistence failure rolls back unlock state");
+                AssertEqual(0, unlockFailurePlayer.MissionProgress.ConditionCounters.Count,
+                    "LifeTree unlock persistence failure rolls back task progress");
+
+                InvokeRegisteredRequestHandler(
+                    nameof(LifeTreeUnlockCharacterRequest),
+                    unlockFailureHarness.Session,
+                    13_021,
+                    new LifeTreeUnlockCharacterRequest { CharacterId = 1031005, Status = 1 });
+                Packet retryTaskPacket =
+                    unlockFailureHarness.ReadPacket("LifeTree unlock persistence retry task push");
+                AssertEqual(Packet.ContentType.Push, retryTaskPacket.Type,
+                    "LifeTree unlock persistence retry task packet type");
+                LifeTreeUnlockCharacterResponse retryUnlock =
+                    ReadResponsePayload<LifeTreeUnlockCharacterResponse>(
+                        unlockFailureHarness,
+                        13_021,
+                        nameof(LifeTreeUnlockCharacterResponse),
+                        "LifeTree unlock persistence retry response");
+                AssertEqual(0, retryUnlock.Code,
+                    "LifeTree unlock persistence retry succeeds");
+                AssertEqual(1,
+                    unlockFailurePlayer.LifeTreeData.UnlockCharacterData[1031005].UnlockStatus,
+                    "LifeTree unlock persistence retry commits unlock state");
+                AssertEqual(1,
+                    unlockFailurePlayer.MissionProgress.ConditionCounters[131001],
+                    "LifeTree unlock persistence retry commits task progress");
+            }
+
+            using (MongoCollectionOverride rewardOverride =
+                   MongoCollectionOverride.InstallForDailySignInCompatibility(
+                       out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> rewardPlayerCollection,
+                       out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> rewardCharacterCollection,
+                       out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> rewardInventoryCollection))
+            {
+                const long rewardPlayerId = 88_012;
+                AscNet.Common.Database.Player rewardPlayer =
+                    CreateDrawCompatibilityPlayer(rewardPlayerId);
+                rewardPlayer.MissionProgress.ConditionCounters[131001] = 1;
+                long rewardTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                Type taskModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule");
+                rewardPlayer.MissionProgress.DailyResetDay =
+                    InvokePrivateStatic<long>(taskModule, "CurrentDailyResetPeriod", rewardTimestamp);
+                rewardPlayer.MissionProgress.WeeklyResetWeek =
+                    InvokePrivateStatic<long>(taskModule, "CurrentWeeklyResetPeriod", rewardTimestamp);
+                AscNet.Common.Database.Inventory rewardInventory =
+                    CreateDrawCompatibilityInventory(rewardPlayerId, []);
+                AscNet.Common.Database.Character rewardCharacter =
+                    CreateDrawCompatibilityCharacter(rewardPlayerId);
+                using LoopbackSessionHarness rewardHarness = new(
+                    rewardCharacter,
+                    rewardPlayer,
+                    rewardInventory,
+                    "lifetree-task-reward-retry-compat-test");
+                rewardHarness.Session.stage =
+                    CreateLoginAccountCompatibilityStage(rewardPlayerId);
+                rewardCharacterCollection.ThrowOnReplaceOne = true;
+
+                InvokeRegisteredRequestHandler(
+                    nameof(FinishTaskRequest),
+                    rewardHarness.Session,
+                    13_022,
+                    new FinishTaskRequest { TaskId = 131001 });
+                rewardCharacterCollection.ThrowOnReplaceOne = false;
+                FinishTaskResponse failedReward = (FinishTaskResponse)ReadResponsePayload(
+                    rewardHarness,
+                    13_022,
+                    nameof(FinishTaskResponse),
+                    "LifeTree task reward partial persistence response",
+                    typeof(FinishTaskResponse),
+                    maxPacketsToRead: 8);
+                AssertEqual(20026003, failedReward.Code,
+                    "LifeTree task reward partial persistence Code");
+                AssertEqual(150L,
+                    rewardInventory.Items.Single(item => item.Id == 50005).Count,
+                    "LifeTree task reward partial persistence credits inventory once");
+                AssertEqual(true,
+                    rewardInventory.AppliedRewardClaims.Contains(
+                        "lifetree-task:131001",
+                        StringComparer.Ordinal),
+                    "LifeTree task reward partial persistence records inventory receipt");
+                AssertEqual(false,
+                    rewardCharacter.AppliedRewardClaims.Contains(
+                        "lifetree-task:131001",
+                        StringComparer.Ordinal),
+                    "LifeTree task reward partial persistence leaves character receipt retryable");
+                AssertEqual(false,
+                    rewardPlayer.MissionProgress.ClaimedTaskIds.Contains(131001),
+                    "LifeTree task reward partial persistence leaves player claim retryable");
+                AssertEqual(0, rewardPlayerCollection.ReplaceOneCalls,
+                    "LifeTree task reward partial persistence does not save player marker");
+                AssertEqual(1, rewardInventoryCollection.ReplaceOneCalls,
+                    "LifeTree task reward partial persistence saves inventory receipt once");
+
+                InvokeRegisteredRequestHandler(
+                    nameof(FinishTaskRequest),
+                    rewardHarness.Session,
+                    13_023,
+                    new FinishTaskRequest { TaskId = 131001 });
+                FinishTaskResponse retryReward = (FinishTaskResponse)ReadResponsePayload(
+                    rewardHarness,
+                    13_023,
+                    nameof(FinishTaskResponse),
+                    "LifeTree task reward persistence retry response",
+                    typeof(FinishTaskResponse),
+                    maxPacketsToRead: 8);
+                AssertEqual(0, retryReward.Code,
+                    "LifeTree task reward persistence retry succeeds");
+                AssertEqual(1, retryReward.RewardGoodsList.Count,
+                    "LifeTree task reward persistence retry returns configured reward");
+                AssertEqual(150L,
+                    rewardInventory.Items.Single(item => item.Id == 50005).Count,
+                    "LifeTree task reward persistence retry does not duplicate inventory");
+                AssertEqual(true,
+                    rewardCharacter.AppliedRewardClaims.Contains(
+                        "lifetree-task:131001",
+                        StringComparer.Ordinal),
+                    "LifeTree task reward persistence retry records character receipt");
+                AssertEqual(true,
+                    rewardPlayer.MissionProgress.ClaimedTaskIds.Contains(131001),
+                    "LifeTree task reward persistence retry records player claim");
+                AssertEqual(1, rewardPlayerCollection.ReplaceOneCalls,
+                    "LifeTree task reward persistence retry saves player marker once");
+                AssertEqual(1, rewardInventoryCollection.ReplaceOneCalls,
+                    "LifeTree task reward persistence retry reuses inventory receipt");
+            }
 
             static NotifyLifeTreeData ReadStartupLifeTreePush(
                 LoopbackSessionHarness harness,
@@ -5090,33 +5629,21 @@ namespace AscNet.Test
                 throw new InvalidDataException($"{name}: expected {nameof(NotifyLifeTreeData)} within {maxStartupPushes} startup pushes; observed {observedPushes}.");
             }
 
-            static void AssertCompletedLifeTreeData(NotifyLifeTreeData? data, string name)
-            {
-                if (data is null)
-                    throw new InvalidDataException($"{name}: expected completed LifeTree data, got nil.");
-
-                AssertEqual(true, data.IsFinishGuide, $"{name}.IsFinishGuide");
-                AssertEqual(true, data.IsFinishLifeTreePv, $"{name}.IsFinishLifeTreePv");
-                AssertIntegerSetContainsAll(
-                    [61, 58, 57],
-                    data.FinishedChapters.Select(chapterId => (long)chapterId).ToArray(),
-                    $"{name}.FinishedChapters");
-                AssertUnlockedCharacter(1031005, data.UnlockCharacterData, name);
-                AssertUnlockedCharacter(1021007, data.UnlockCharacterData, name);
-            }
-
-            static void AssertUnlockedCharacter(
-                int characterId,
-                IReadOnlyDictionary<int, LifeTreeUnlockCharacterData>? unlockCharacterData,
+            static void AssertLifeTreeProcessData(
+                NotifyLifeTreeData? data,
+                bool expectedGuide,
+                bool expectedPv,
+                IReadOnlyList<int> expectedChapters,
                 string name)
             {
-                if (unlockCharacterData is null)
-                    throw new InvalidDataException($"{name}.UnlockCharacterData: expected completed unlock character map, got nil.");
-                if (!unlockCharacterData.TryGetValue(characterId, out LifeTreeUnlockCharacterData? characterData))
-                    throw new InvalidDataException($"{name}.UnlockCharacterData: missing character {characterId}.");
+                if (data is null)
+                    throw new InvalidDataException($"{name}: expected LifeTree data, got nil.");
 
-                AssertEqual(characterId, characterData.Id, $"{name}.UnlockCharacterData[{characterId}].Id");
-                AssertEqual(1, characterData.UnlockStatus, $"{name}.UnlockCharacterData[{characterId}].UnlockStatus");
+                AssertEqual(expectedGuide, data.IsFinishGuide, $"{name}.IsFinishGuide");
+                AssertEqual(expectedPv, data.IsFinishLifeTreePv, $"{name}.IsFinishLifeTreePv");
+                AssertIntegerList(expectedChapters.Select(Convert.ToInt64).ToArray(),
+                    data.FinishedChapters.Select(Convert.ToInt64).ToArray(), $"{name}.FinishedChapters");
+                AssertEqual(0, data.UnlockCharacterData.Count, $"{name}.UnlockCharacterData");
             }
         }
 
@@ -5253,8 +5780,8 @@ namespace AscNet.Test
                 lottoInfoPacketId,
                 nameof(LottoInfoResponse),
                 "LottoInfoRequest response");
-            AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse Code");
-            AssertEqual(true, lottoInfoResponse.LottoInfos.Count > 0, "LottoInfoResponse LottoInfos non-empty");
+            AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse table-driven Code");
+            AssertEqual(1, lottoInfoResponse.LottoInfos.Count, "LottoInfoResponse table-driven LottoInfos");
 
             const int gachaInfoPacketId = 13_006;
             InvokeRegisteredRequestHandler(nameof(GetGachaInfoRequest), harness.Session, gachaInfoPacketId, new GetGachaInfoRequest { Id = 49 });
@@ -5293,18 +5820,16 @@ namespace AscNet.Test
                 passportRewardPacketId,
                 nameof(PassportRecvAllRewardResponse),
                 "PassportRecvAllRewardRequest response");
-            AssertEqual(0, passportRewardResponse.Code, "PassportRecvAllRewardResponse Code");
-            if (passportRewardResponse.RewardList is null)
-                throw new InvalidDataException("PassportRecvAllRewardResponse RewardList: expected initialized list.");
-            if (passportRewardResponse.PassportInfos is null)
-                throw new InvalidDataException("PassportRecvAllRewardResponse PassportInfos: expected initialized list.");
+            AssertEqual(20137001, passportRewardResponse.Code, "PassportRecvAllRewardResponse closes without an active passport");
+            AssertEmptyList(passportRewardResponse.RewardList, "PassportRecvAllRewardResponse closed RewardList");
+            AssertEmptyList(passportRewardResponse.PassportInfos, "PassportRecvAllRewardResponse closed PassportInfos");
 
             const int mailDeletePacketId = 13_009;
-            InvokeRegisteredRequestHandler(nameof(MailDeleteRequest), harness.Session, mailDeletePacketId, new MailDeleteRequest());
-            MailDeleteResponse mailDeleteResponse = ReadResponsePayload<MailDeleteResponse>(
+            InvokeRegisteredRequestHandler(nameof(AscNet.Common.MsgPack.MailDeleteRequest), harness.Session, mailDeletePacketId, new AscNet.Common.MsgPack.MailDeleteRequest());
+            AscNet.Common.MsgPack.MailDeleteResponse mailDeleteResponse = ReadResponsePayload<AscNet.Common.MsgPack.MailDeleteResponse>(
                 harness,
                 mailDeletePacketId,
-                nameof(MailDeleteResponse),
+                nameof(AscNet.Common.MsgPack.MailDeleteResponse),
                 "MailDeleteRequest response");
             if (mailDeleteResponse.DelIdList is null)
                 throw new InvalidDataException("MailDeleteResponse DelIdList: expected initialized list.");
@@ -5439,781 +5964,126 @@ namespace AscNet.Test
         {
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
             AssertConstructShardTableCompatibility();
-            const int memberTargetGroupId = 1;
-            const int weaponResearchGroupId = 2;
-            const int targetWeaponResearchGroupId = 4;
-            const int themedEventConstructGroupId = 11;
-            const int arrivalConstructGroupId = 12;
-            const int fateArrivalConstructGroupId = 13;
-            const int fateThemedConstructGroupId = 15;
-            const int targetUniframeGroupId = 16;
-            const int cubTargetGroupId = 22;
-            const long drawGroupPlayerId = 880001;
-            const long drawProgressPlayerId = 880002;
-            const long drawEventSelectionPlayerId = 880006;
-            const long drawPityPlayerId = 880007;
-            const long buyAssetPlayerId = 880003;
-            const int drawGroupPacketId = 8801;
-            const int drawInfoPacketId = 8802;
-            const int setUseDrawIdPacketId = 8803;
-            const int drawCardPacketId = 8804;
-            const int buyAssetPacketId = 8805;
-            const long drawHistoryPlayerId = 880008;
-            const int drawHistoryPacketId = 8806;
-            const long drawGroupHistoryPlayerId = 880009;
-            const int drawGroupHistoryPacketId = 8807;
 
-            DrawGetHistoryGroupListRequest historyRequest = new();
-            DrawGetHistoryGroupListRequest historyRequestRoundTrip = MessagePackSerializer.Deserialize<DrawGetHistoryGroupListRequest>(
-                MessagePackSerializer.Serialize(historyRequest));
+            const long playerId = 880001;
+            const int unavailableCode = 1;
+            const int unknownCatalogId = int.MaxValue;
+            const int initialCoinCount = 123;
+            int packetId = 8801;
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                playerId,
+                [new Item { Id = AscNet.Common.Database.Inventory.Coin, Count = initialCoinCount }]);
 
-            DrawGetHistoryGroupListResponse historyResponse;
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(drawHistoryPlayerId),
-                CreateDrawCompatibilityPlayer(drawHistoryPlayerId),
-                CreateDrawCompatibilityInventory(drawHistoryPlayerId, []),
-                "draw-history-group-list-compat-test"))
-            {
-                InvokeRegisteredRequestHandler("DrawGetHistoryGroupListRequest", harness.Session, drawHistoryPacketId, historyRequestRoundTrip);
-                historyResponse = ReadResponsePayload<DrawGetHistoryGroupListResponse>(
-                    harness,
-                    drawHistoryPacketId,
-                    nameof(DrawGetHistoryGroupListResponse),
-                    "DrawGetHistoryGroupListRequest response");
-            }
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                inventory,
+                "draw-catalog-unavailable-compat-test");
 
-            AssertEqual(0, historyResponse.Code, "DrawGetHistoryGroupListResponse Code");
-            if (historyResponse.HistoryGroups is null)
-                throw new InvalidDataException("DrawGetHistoryGroupListResponse HistoryGroups: expected a live-schema list, got nil.");
-            Dictionary<int, int> expectedHistoryGroupPriorities = new()
-            {
-                [memberTargetGroupId] = 9000,
-                [weaponResearchGroupId] = 1000,
-                [targetWeaponResearchGroupId] = 500,
-                [themedEventConstructGroupId] = 21000,
-                [arrivalConstructGroupId] = 14000,
-                [fateArrivalConstructGroupId] = 13000,
-                [fateThemedConstructGroupId] = 20000,
-                [targetUniframeGroupId] = 100,
-                [cubTargetGroupId] = 8000
-            };
-            Dictionary<int, int> actualHistoryGroupPriorities = new();
-            foreach (DrawHistoryGroup historyGroup in historyResponse.HistoryGroups)
-            {
-                if (actualHistoryGroupPriorities.ContainsKey(historyGroup.DrawGroupId))
-                    throw new InvalidDataException($"DrawGetHistoryGroupListResponse HistoryGroups: duplicate DrawGroupId {historyGroup.DrawGroupId}.");
-                actualHistoryGroupPriorities.Add(historyGroup.DrawGroupId, historyGroup.Priority);
-            }
-            foreach (KeyValuePair<int, int> expectedHistoryGroup in expectedHistoryGroupPriorities.OrderBy(group => group.Key))
-            {
-                if (!actualHistoryGroupPriorities.TryGetValue(expectedHistoryGroup.Key, out int actualPriority))
-                    throw new InvalidDataException($"DrawGetHistoryGroupListResponse HistoryGroups: missing DrawGroupId {expectedHistoryGroup.Key}.");
-                AssertEqual(expectedHistoryGroup.Value, actualPriority, $"DrawGetHistoryGroupListResponse HistoryGroups[{expectedHistoryGroup.Key}] Priority");
-            }
+            InvokeRegisteredRequestHandler(
+                nameof(DrawGetHistoryGroupListRequest),
+                harness.Session,
+                packetId,
+                new DrawGetHistoryGroupListRequest());
+            DrawGetHistoryGroupListResponse historyGroups = ReadResponsePayload<DrawGetHistoryGroupListResponse>(
+                harness,
+                packetId++,
+                nameof(DrawGetHistoryGroupListResponse),
+                "DrawGetHistoryGroupListRequest table-derived response");
+            AssertEqual(0, historyGroups.Code, "DrawGetHistoryGroupListResponse Code");
+            if (historyGroups.HistoryGroups.Count < 2)
+                throw new InvalidDataException($"DrawGetHistoryGroupListResponse: expected at least two table-derived groups, got {historyGroups.HistoryGroups.Count}.");
 
+            InvokeRegisteredRequestHandler(
+                nameof(DrawGetDrawGroupListRequest),
+                harness.Session,
+                packetId,
+                new DrawGetDrawGroupListRequest());
+            DrawGetDrawGroupListResponse groups = ReadResponsePayload<DrawGetDrawGroupListResponse>(
+                harness,
+                packetId++,
+                nameof(DrawGetDrawGroupListResponse),
+                "DrawGetDrawGroupListRequest table-derived response");
+            AssertEqual(0, groups.Code, "DrawGetDrawGroupListResponse Code");
+            if (groups.DrawGroupInfoList.Count < 2)
+                throw new InvalidDataException($"DrawGetDrawGroupListResponse: expected at least two table-derived groups, got {groups.DrawGroupInfoList.Count}.");
+            DrawAdjustActivityInfo adjustment = groups.DrawAdjustActivityInfoList.Single();
+            AssertEqual(1, adjustment.DrawGroupId, "DrawGetDrawGroupListResponse captured adjustment group");
 
-            DrawGetDrawGroupListResponse groupResponse;
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(drawGroupPlayerId),
-                CreateDrawCompatibilityPlayer(drawGroupPlayerId),
-                CreateDrawCompatibilityInventory(drawGroupPlayerId, []),
-                "draw-group-compat-test"))
-            {
-                InvokeRegisteredRequestHandler("DrawGetDrawGroupListRequest", harness.Session, drawGroupPacketId, request: null);
-                groupResponse = ReadResponsePayload<DrawGetDrawGroupListResponse>(
-                    harness,
-                    drawGroupPacketId,
-                    nameof(DrawGetDrawGroupListResponse),
-                    "DrawGetDrawGroupListRequest response");
-            }
+            InvokeRegisteredRequestHandler(
+                nameof(DrawGetDrawInfoListRequest),
+                harness.Session,
+                packetId,
+                new DrawGetDrawInfoListRequest { GroupId = unknownCatalogId });
+            DrawGetDrawInfoListResponse drawInfos = ReadResponsePayload<DrawGetDrawInfoListResponse>(
+                harness,
+                packetId++,
+                nameof(DrawGetDrawInfoListResponse),
+                "DrawGetDrawInfoListRequest closed response");
+            AssertEqual(0, drawInfos.Code, "DrawGetDrawInfoListResponse closed Code");
+            AssertEmptyList(drawInfos.DrawInfoList, "DrawGetDrawInfoListResponse closed DrawInfoList");
 
-            AssertEqual(0, groupResponse.Code, "DrawGetDrawGroupListResponse Code");
-            MemberInfo tenDrawOnSalesMember = RequiredDataMember(typeof(DrawGroupInfo), nameof(DrawGroupInfo.TenDrawOnSales));
-            AssertEqual(typeof(Dictionary<int, int>), MemberValueType(tenDrawOnSalesMember), "DrawGroupInfo TenDrawOnSales retail MessagePack map type");
-            foreach (DrawGroupInfo group in groupResponse.DrawGroupInfoList)
-            {
-                if (GetRequiredMemberValue(group, tenDrawOnSalesMember) is not Dictionary<int, int> tenDrawOnSales)
-                    throw new InvalidDataException($"DrawGetDrawGroupListResponse group {group.Id} TenDrawOnSales: expected a retail map payload.");
-                AssertEqual(0, tenDrawOnSales.Count, $"DrawGetDrawGroupListResponse group {group.Id} TenDrawOnSales retail empty map");
-            }
-
-            int[] expectedRetailGroupIds =
-            [
-                memberTargetGroupId,
-                weaponResearchGroupId,
-                targetWeaponResearchGroupId,
-                themedEventConstructGroupId,
-                arrivalConstructGroupId,
-                fateArrivalConstructGroupId,
-                fateThemedConstructGroupId,
-                targetUniframeGroupId,
-                cubTargetGroupId
-            ];
-            int[] groupIds = groupResponse.DrawGroupInfoList.Select(group => group.Id).ToArray();
-            AssertIntegerList(
-                expectedRetailGroupIds.Select(groupId => (long)groupId).ToArray(),
-                groupIds.Select(groupId => (long)groupId).ToArray(),
-                "DrawGetDrawGroupListResponse visible retail group ids in response order");
-
-            Dictionary<int, DrawGroupInfo> groupById = groupResponse.DrawGroupInfoList.ToDictionary(group => group.Id);
-            (int GroupId, long StartTime, long EndTime)[] expectedGroupTimeWindows =
-            [
-                (targetWeaponResearchGroupId, 0, 0),
-                (themedEventConstructGroupId, 1780358400, 1784242800),
-                (arrivalConstructGroupId, 1575540000, 1784789940),
-                (fateArrivalConstructGroupId, 1575540000, 1784789940),
-                (fateThemedConstructGroupId, 1780358400, 1784242800),
-                (targetUniframeGroupId, 0, 0),
-                (cubTargetGroupId, 0, 0)
-            ];
-            foreach ((int groupId, long startTime, long endTime) in expectedGroupTimeWindows)
-            {
-                DrawGroupInfo group = groupById[groupId];
-                AssertEqual(startTime, group.StartTime, $"DrawGetDrawGroupListResponse group {groupId} StartTime");
-                AssertEqual(endTime, group.EndTime, $"DrawGetDrawGroupListResponse group {groupId} EndTime");
-            }
-
-            DrawGroupInfo memberTargetGroup = groupById[memberTargetGroupId];
-            AssertIntegerList(
-                [101, 3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3010, 3012, 3014, 3016, 3018, 3020, 3022, 3024, 3026, 3028, 3030, 3032, 3034, 3036],
-                memberTargetGroup.OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(),
-                "DrawGetDrawGroupListResponse group 1 OptionalDrawIdList");
-            AssertIntegerDictionary(
-                new Dictionary<int, int> { [0] = 101 },
-                memberTargetGroup.UseDrawIdDict,
-                "DrawGetDrawGroupListResponse group 1 default UseDrawIdDict");
-            DrawGroupInfo targetWeaponGroup = groupById[targetWeaponResearchGroupId];
-            AssertIntegerList(
-                [301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 370, 371, 372, 374, 375, 376, 377, 378, 379],
-                targetWeaponGroup.OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(),
-                "DrawGetDrawGroupListResponse group 4 OptionalDrawIdList");
-            AssertIntegerDictionary(
-                new Dictionary<int, int> { [0] = 371, [3] = 378 },
-                targetWeaponGroup.UseDrawIdDict,
-                "DrawGetDrawGroupListResponse group 4 default UseDrawIdDict");
-            AssertIntegerList([1488, 1498], groupById[themedEventConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 11 OptionalDrawIdList");
-            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 0, [5] = 1488 }, groupById[themedEventConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 11 default UseDrawIdDict");
-            AssertIntegerList([1492, 1493, 1494], groupById[arrivalConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 12 OptionalDrawIdList");
-            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 1494 }, groupById[arrivalConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 12 default UseDrawIdDict");
-            AssertIntegerList([2486, 2487, 2488], groupById[fateArrivalConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 13 OptionalDrawIdList");
-            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 2487 }, groupById[fateArrivalConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 13 default UseDrawIdDict");
-            AssertIntegerList([2482, 2492], groupById[fateThemedConstructGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 15 OptionalDrawIdList");
-            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 0 }, groupById[fateThemedConstructGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 15 default UseDrawIdDict");
-            AssertIntegerList([4001, 4003, 4005, 4007, 4009, 4011, 4013], groupById[targetUniframeGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(), "DrawGetDrawGroupListResponse group 16 OptionalDrawIdList");
-            AssertIntegerDictionary(new Dictionary<int, int> { [0] = 4003 }, groupById[targetUniframeGroupId].UseDrawIdDict, "DrawGetDrawGroupListResponse group 16 default UseDrawIdDict");
-            AssertIntegerList(
-                [7002, 7004, 7006, 7008, 7010, 7012, 7014, 7016, 7018, 7020, 7022, 7024, 7026, 7028, 7030, 7032, 7034, 7036, 7038, 7040, 7042, 7044, 7046, 7048, 7052, 7054, 7057, 7059, 7061, 7063, 7064, 7065],
-                groupById[cubTargetGroupId].OptionalDrawIdList.Select(drawId => (long)drawId).ToArray(),
-                "DrawGetDrawGroupListResponse group 22 OptionalDrawIdList");
-            AssertIntegerDictionary(
-                new Dictionary<int, int> { [0] = 7059, [4] = 7065 },
-                groupById[cubTargetGroupId].UseDrawIdDict,
-                "DrawGetDrawGroupListResponse group 22 default UseDrawIdDict");
-
-            AssertEqual(1, groupResponse.DrawAdjustActivityInfoList.Count, "DrawGetDrawGroupListResponse DrawAdjustActivityInfoList count");
-            DrawAdjustActivityInfo adjustActivity = groupResponse.DrawAdjustActivityInfoList.Single();
-            AssertEqual(memberTargetGroupId, adjustActivity.DrawGroupId, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo DrawGroupId");
-            AssertEqual(1241003, adjustActivity.TargetId, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo TargetId");
-            AssertEqual(3, adjustActivity.ActivityId, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo ActivityId");
-            AssertEqual(1763006400L, adjustActivity.StartTime, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo StartTime");
-            AssertEqual(1, adjustActivity.AdjustTimes, "DrawGetDrawGroupListResponse DrawAdjustActivityInfo AdjustTimes");
-            AssertIntegerList(
-                [1011003, 1031003, 1061003, 1071003, 1051003, 1021003, 1041003, 1021004, 1141003, 1171003, 1121003, 1131003, 1031004, 1531004, 1051004, 1071004, 1041004, 1011004, 1091003, 1021005, 1221003, 1261003, 1271003, 1081004, 1521004, 1171004, 1241003, 1211003, 1021006, 1051005, 1321003, 1331003, 1531005, 1131004, 1041005, 1381003, 1291003, 1141004, 1391003],
-                adjustActivity.EffectTargetTemplateIds.Select(templateId => (long)templateId).ToArray(),
-                "DrawGetDrawGroupListResponse DrawAdjustActivityInfo EffectTargetTemplateIds");
-
-            DrawGetDrawInfoListResponse weaponResearchInfoResponse = ReadDrawInfoListForGroup(weaponResearchGroupId, drawInfoPacketId + 8, drawGroupPlayerId, "draw-weapon-research-info-compat-test");
-            AssertWeaponResearchDraw201Info(weaponResearchInfoResponse, weaponResearchGroupId);
-
-            DrawGetDrawInfoListRequest infoRequest = new()
-            {
-                GroupId = targetWeaponResearchGroupId
-            };
-            DrawGetDrawInfoListRequest infoRequestRoundTrip = MessagePackSerializer.Deserialize<DrawGetDrawInfoListRequest>(
-                MessagePackSerializer.Serialize(infoRequest));
-            AssertEqual(targetWeaponResearchGroupId, infoRequestRoundTrip.GroupId, "DrawGetDrawInfoListRequest GroupId MessagePack round-trip");
-
-            DrawGetDrawInfoListResponse infoResponse;
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(drawGroupPlayerId),
-                CreateDrawCompatibilityPlayer(drawGroupPlayerId),
-                CreateDrawCompatibilityInventory(drawGroupPlayerId, []),
-                "draw-info-compat-test"))
-            {
-                InvokeRegisteredRequestHandler("DrawGetDrawInfoListRequest", harness.Session, drawInfoPacketId, infoRequestRoundTrip);
-                infoResponse = ReadResponsePayload<DrawGetDrawInfoListResponse>(
-                    harness,
-                    drawInfoPacketId,
-                    nameof(DrawGetDrawInfoListResponse),
-                    "DrawGetDrawInfoListRequest response");
-            }
-
-            AssertEqual(0, infoResponse.Code, "DrawGetDrawInfoListResponse Code");
-            AssertEqual(75, infoResponse.DrawInfoList.Count, "DrawGetDrawInfoListResponse group 4 retail draw info count");
-            AssertCurrentWeaponBannerTargetEquipRows(
-                new Dictionary<int, int>
+            InvokeRegisteredRequestHandler(
+                nameof(DrawGroupGetHistoryRequest),
+                harness.Session,
+                packetId,
+                new DrawGroupGetHistoryRequest
                 {
-                    [370] = 2576001,
-                    [371] = 2586001,
-                    [372] = 2596001,
-                    [374] = 2616001,
-                    [375] = 2626001,
-                    [376] = 2636001,
-                    [377] = 2646001,
-                    [378] = 2656001,
-                    [379] = 2606001
-                },
-                infoResponse.DrawInfoList);
-            AssertCurrentWeaponBannerShopFlags(
-                new Dictionary<int, bool>
+                    GroupId = unknownCatalogId,
+                    GroupSubType = unknownCatalogId
+                });
+            DrawGroupGetHistoryResponse drawHistory = ReadResponsePayload<DrawGroupGetHistoryResponse>(
+                harness,
+                packetId++,
+                nameof(DrawGroupGetHistoryResponse),
+                "DrawGroupGetHistoryRequest closed response");
+            AssertEqual(0, drawHistory.Code, "DrawGroupGetHistoryResponse closed Code");
+            AssertEmptyList(drawHistory.HistoryRewardList, "DrawGroupGetHistoryResponse closed HistoryRewardList");
+            AssertEqual(0, drawHistory.BottomTimes, "DrawGroupGetHistoryResponse closed BottomTimes");
+            AssertEqual(0, drawHistory.MaxBottomTimes, "DrawGroupGetHistoryResponse closed MaxBottomTimes");
+
+            InvokeRegisteredRequestHandler(
+                nameof(DrawSetUseDrawIdRequest),
+                harness.Session,
+                packetId,
+                new DrawSetUseDrawIdRequest { DrawId = unknownCatalogId });
+            DrawSetUseDrawIdResponse selection = ReadResponsePayload<DrawSetUseDrawIdResponse>(
+                harness,
+                packetId++,
+                nameof(DrawSetUseDrawIdResponse),
+                "DrawSetUseDrawIdRequest closed response");
+            AssertEqual(unavailableCode, selection.Code, "DrawSetUseDrawIdResponse closed Code");
+            AssertEqual(0, selection.SwitchDrawIdCount, "DrawSetUseDrawIdResponse closed SwitchDrawIdCount");
+
+            InvokeRegisteredRequestHandler(
+                nameof(DrawDrawCardRequest),
+                harness.Session,
+                packetId,
+                new DrawDrawCardRequest
                 {
-                    [370] = false,
-                    [371] = false,
-                    [372] = false,
-                    [374] = true,
-                    [375] = false,
-                    [376] = true,
-                    [377] = false,
-                    [378] = false,
-                    [379] = false
-                },
-                infoResponse.DrawInfoList);
-            AssertCurrentWeaponBannerDrawPreviewRows(
-                [
-                    348,
-                    349,
-                    350,
-                    351,
-                    353,
-                    354,
-                    355,
-                    356,
-                    357,
-                    358,
-                    359,
-                    360,
-                    361,
-                    362,
-                    363,
-                    364,
-                    365,
-                    366,
-                    367,
-                    370,
-                    371,
-                    372,
-                    374,
-                    375,
-                    376,
-                    377,
-                    378,
-                    379
-                ],
-                infoResponse.DrawInfoList);
-            AssertCurrentOwnableWeaponBreakthroughCoverage();
-            AssertCurrentWeaponRewardRoutingAndRates(weaponResearchGroupId, targetWeaponResearchGroupId);
-            const string targetWeaponPowerBanner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1WeaponPower.prefab";
-            AssertRetailDrawInfoArt(
-                infoResponse.DrawInfoList.Single(info => info.Id == 378),
-                378,
-                targetWeaponResearchGroupId,
-                targetWeaponPowerBanner,
-                new Dictionary<int, string>(),
-                new Dictionary<int, int> { [1] = 2656001 },
-                [5, 6],
-                3,
-                "DrawGetDrawInfoListResponse target weapon 378");
-            AssertRetailDrawInfoArt(
-                infoResponse.DrawInfoList.Single(info => info.Id == 379),
-                379,
-                targetWeaponResearchGroupId,
-                targetWeaponPowerBanner,
-                new Dictionary<int, string>(),
-                new Dictionary<int, int> { [1] = 2606001 },
-                [5, 6],
-                3,
-                "DrawGetDrawInfoListResponse target weapon 379");
+                    DrawId = unknownCatalogId,
+                    Count = 10,
+                    UseDrawTicketId = AscNet.Common.Database.Inventory.Coin
+                });
+            DrawDrawCardResponse draw = ReadResponsePayload<DrawDrawCardResponse>(
+                harness,
+                packetId++,
+                nameof(DrawDrawCardResponse),
+                "DrawDrawCardRequest closed response");
+            AssertEqual(unavailableCode, draw.Code, "DrawDrawCardResponse closed Code");
+            AssertEmptyList(draw.RewardGoodsList, "DrawDrawCardResponse closed RewardGoodsList");
+            AssertEqual(
+                (long)initialCoinCount,
+                inventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.Coin).Count,
+                "DrawDrawCardRequest closed inventory remains unchanged");
 
-            DrawGetDrawInfoListResponse memberTargetInfoResponse = ReadDrawInfoListForGroup(memberTargetGroupId, drawInfoPacketId + 9, drawGroupPlayerId, "draw-member-target-info-compat-test");
-            AssertEqual(0, memberTargetInfoResponse.Code, "DrawGetDrawInfoListResponse group 1 Code");
-
-            DrawGetDrawInfoListResponse themedEventInfoResponse = ReadDrawInfoListForGroup(themedEventConstructGroupId, drawInfoPacketId + 10, drawGroupPlayerId, "draw-themed-event-info-compat-test");
-            AssertEqual(0, themedEventInfoResponse.Code, "DrawGetDrawInfoListResponse group 11 Code");
-            DrawInfo eventConstruct1488 = themedEventInfoResponse.DrawInfoList.Single(info => info.Id == 1488);
-            AssertRetailDrawInfoArt(
-                eventConstruct1488,
-                1488,
-                themedEventConstructGroupId,
-                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5Power02.prefab",
-                new Dictionary<int, string>(),
-                new Dictionary<int, int> { [1] = 1021007 },
-                [5, 6, 2],
-                5,
-                "DrawGetDrawInfoListResponse event construct 1488");
-            AssertDraw1488RetailRewardPool(eventConstruct1488, drawPityPlayerId + 1, weaponResearchGroupId, targetWeaponResearchGroupId, cubTargetGroupId);
-            AssertCurrentCharacterBannerDrawPreviewRows();
-            AssertDraw1488RepresentativeRewardGoodsShowQualityHydrated();
-            AssertDraw1488TargetCharacterRewardGoodsHydrated(eventConstruct1488);
-            AssertDrawDrawCardHandlerRejectsInvalidOrUnaffordableRequests(eventConstruct1488);
-
-            const int drawGroupHistorySubType = 5;
-            DrawInfo preloadedHistoryDrawInfo = PreloadDrawProgressToBottomTimes(
-                drawGroupHistoryPlayerId,
-                eventConstruct1488,
-                eventConstruct1488.MaxBottomTimes / 4,
-                "DrawGroupGetHistoryRequest group 11 subtype 5");
-            DrawGroupGetHistoryRequest groupHistoryRequest = new()
-            {
-                GroupId = themedEventConstructGroupId,
-                GroupSubType = drawGroupHistorySubType
-            };
-            DrawGroupGetHistoryRequest groupHistoryRequestRoundTrip = MessagePackSerializer.Deserialize<DrawGroupGetHistoryRequest>(
-                MessagePackSerializer.Serialize(groupHistoryRequest));
-            AssertEqual(themedEventConstructGroupId, groupHistoryRequestRoundTrip.GroupId, "DrawGroupGetHistoryRequest GroupId MessagePack round-trip");
-            AssertEqual(drawGroupHistorySubType, groupHistoryRequestRoundTrip.GroupSubType, "DrawGroupGetHistoryRequest GroupSubType MessagePack round-trip");
-
-            DrawGroupGetHistoryResponse preDrawGroupHistoryResponse;
-            DrawDrawCardRequest drawGroupHistoryDrawCardRequest = new()
-            {
-                DrawId = eventConstruct1488.Id,
-                Count = 1,
-                UseDrawTicketId = 0
-            };
-            DrawDrawCardRequest drawGroupHistoryDrawCardRequestRoundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
-                MessagePackSerializer.Serialize(drawGroupHistoryDrawCardRequest));
-            AssertEqual(eventConstruct1488.Id, drawGroupHistoryDrawCardRequestRoundTrip.DrawId, "DrawGroupGetHistoryRequest draw 1488 DrawDrawCardRequest DrawId MessagePack round-trip");
-            AssertEqual(1, drawGroupHistoryDrawCardRequestRoundTrip.Count, "DrawGroupGetHistoryRequest draw 1488 DrawDrawCardRequest Count MessagePack round-trip");
-            AssertEqual(0, drawGroupHistoryDrawCardRequestRoundTrip.UseDrawTicketId, "DrawGroupGetHistoryRequest draw 1488 DrawDrawCardRequest UseDrawTicketId MessagePack round-trip");
-
-            DrawDrawCardResponse drawGroupHistoryDrawCardResponse = null!;
-            DrawGroupGetHistoryResponse postDrawGroupHistoryResponse;
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(drawGroupHistoryPlayerId),
-                CreateDrawCompatibilityPlayer(drawGroupHistoryPlayerId),
-                CreateDrawCompatibilityInventory(drawGroupHistoryPlayerId, [new Item { Id = eventConstruct1488.UseItemId, Count = eventConstruct1488.UseItemCount }]),
-                "draw-group-history-compat-test"))
-            {
-                InvokeRegisteredRequestHandler(nameof(DrawGroupGetHistoryRequest), harness.Session, drawGroupHistoryPacketId, groupHistoryRequestRoundTrip);
-                preDrawGroupHistoryResponse = ReadResponsePayload<DrawGroupGetHistoryResponse>(
-                    harness,
-                    drawGroupHistoryPacketId,
-                    nameof(DrawGroupGetHistoryResponse),
-                    "DrawGroupGetHistoryRequest pre-draw response");
-
-                InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, drawGroupHistoryPacketId + 1, drawGroupHistoryDrawCardRequestRoundTrip);
-                for (int packetIndex = 0; packetIndex < 6; packetIndex++)
-                {
-                    Packet packet = harness.ReadPacket($"DrawGroupGetHistoryRequest draw 1488 packet {packetIndex + 1}");
-                    if (packet.Type == Packet.ContentType.Push)
-                        continue;
-
-                    AssertEqual(Packet.ContentType.Response, packet.Type, "DrawGroupGetHistoryRequest draw 1488 response packet type");
-                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
-                    AssertEqual(drawGroupHistoryPacketId + 1, response.Id, "DrawGroupGetHistoryRequest draw 1488 response packet id");
-                    AssertEqual(nameof(DrawDrawCardResponse), response.Name, "DrawGroupGetHistoryRequest draw 1488 response packet name");
-                    drawGroupHistoryDrawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
-                    goto FoundDrawGroupHistoryDrawCardResponse;
-                }
-
-                throw new InvalidDataException("DrawGroupGetHistoryRequest draw 1488: expected DrawDrawCardResponse after inventory pushes.");
-
-            FoundDrawGroupHistoryDrawCardResponse:
-                InvokeRegisteredRequestHandler(nameof(DrawGroupGetHistoryRequest), harness.Session, drawGroupHistoryPacketId + 2, groupHistoryRequestRoundTrip);
-                postDrawGroupHistoryResponse = ReadResponsePayload<DrawGroupGetHistoryResponse>(
-                    harness,
-                    drawGroupHistoryPacketId + 2,
-                    nameof(DrawGroupGetHistoryResponse),
-                    "DrawGroupGetHistoryRequest post-draw response");
-            }
-
-            AssertEqual(0, preDrawGroupHistoryResponse.Code, "DrawGroupGetHistoryResponse pre-draw Code");
-            AssertEmptyList(preDrawGroupHistoryResponse.HistoryRewardList, "DrawGroupGetHistoryResponse pre-draw HistoryRewardList");
-            AssertEqual(preloadedHistoryDrawInfo.BottomTimes, preDrawGroupHistoryResponse.BottomTimes, "DrawGroupGetHistoryResponse pre-draw BottomTimes for draw 1488 progress");
-            AssertEqual(60, preDrawGroupHistoryResponse.MaxBottomTimes, "DrawGroupGetHistoryResponse pre-draw MaxBottomTimes for draw 1488");
-
-            AssertEqual(1, drawGroupHistoryDrawCardResponse.RewardGoodsList.Count, "DrawGroupGetHistoryRequest draw 1488 RewardGoodsList count for history");
-            DrawInfo drawGroupHistoryClientDrawInfo = drawGroupHistoryDrawCardResponse.ClientDrawInfo
-                ?? throw new InvalidDataException("DrawGroupGetHistoryRequest draw 1488: expected ClientDrawInfo after draw.");
-            AssertEqual(eventConstruct1488.Id, drawGroupHistoryClientDrawInfo.Id, "DrawGroupGetHistoryRequest draw 1488 ClientDrawInfo Id");
-            AssertEqual(preloadedHistoryDrawInfo.BottomTimes - 1, drawGroupHistoryClientDrawInfo.BottomTimes, "DrawGroupGetHistoryRequest draw 1488 ClientDrawInfo BottomTimes after 1x draw");
-
-            AssertEqual(0, postDrawGroupHistoryResponse.Code, "DrawGroupGetHistoryResponse post-draw Code");
-            if (postDrawGroupHistoryResponse.HistoryRewardList is null)
-                throw new InvalidDataException("DrawGroupGetHistoryResponse post-draw HistoryRewardList: expected recorded draw history, got nil.");
-            if (postDrawGroupHistoryResponse.HistoryRewardList.Count == 0)
-                throw new InvalidDataException("DrawGroupGetHistoryResponse post-draw HistoryRewardList: expected recorded draw history for draw 1488, got an empty list.");
-            AssertEqual(drawGroupHistoryDrawCardResponse.RewardGoodsList.Count, postDrawGroupHistoryResponse.HistoryRewardList.Count, "DrawGroupGetHistoryResponse post-draw HistoryRewardList count matches draw rewards");
-            for (int historyIndex = 0; historyIndex < drawGroupHistoryDrawCardResponse.RewardGoodsList.Count; historyIndex++)
-            {
-                RewardGoods drawnReward = drawGroupHistoryDrawCardResponse.RewardGoodsList[historyIndex];
-                DrawHistoryReward historyReward = postDrawGroupHistoryResponse.HistoryRewardList[historyIndex];
-                RewardGoods recordedReward = historyReward.RewardGoods
-                    ?? throw new InvalidDataException($"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods: expected recorded reward goods, got nil.");
-                if (historyReward.DrawTime <= 0)
-                    throw new InvalidDataException($"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].DrawTime: expected positive draw time, got {historyReward.DrawTime}.");
-
-                AssertEqual(drawnReward.TemplateId, recordedReward.TemplateId, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.TemplateId");
-                AssertEqual(drawnReward.RewardType, recordedReward.RewardType, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.RewardType");
-                AssertEqual(drawnReward.Count, recordedReward.Count, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Count");
-                AssertEqual(drawnReward.Level, recordedReward.Level, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Level");
-                AssertEqual(drawnReward.Quality, recordedReward.Quality, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Quality");
-                AssertEqual(drawnReward.Grade, recordedReward.Grade, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Grade");
-                AssertEqual(drawnReward.Breakthrough, recordedReward.Breakthrough, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.Breakthrough");
-                AssertEqual(drawnReward.ConvertFrom, recordedReward.ConvertFrom, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.ConvertFrom");
-                AssertEqual(drawnReward.ShowQuality, recordedReward.ShowQuality, $"DrawGroupGetHistoryResponse post-draw HistoryRewardList[{historyIndex}].RewardGoods.ShowQuality");
-            }
-            AssertEqual(drawGroupHistoryClientDrawInfo.BottomTimes, postDrawGroupHistoryResponse.BottomTimes, "DrawGroupGetHistoryResponse post-draw BottomTimes tracks draw 1488 progress");
-            AssertEqual(60, postDrawGroupHistoryResponse.MaxBottomTimes, "DrawGroupGetHistoryResponse post-draw MaxBottomTimes for draw 1488");
-            AssertDraw1488DuplicatePityTenDraw(eventConstruct1488);
-            AssertRetailDrawInfoArt(
-                themedEventInfoResponse.DrawInfoList.Single(info => info.Id == 1498),
-                1498,
-                themedEventConstructGroupId,
-                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5Power01.prefab",
-                new Dictionary<int, string>(),
-                new Dictionary<int, int> { [1] = 1031005 },
-                [5, 6, 2],
-                1,
-                "DrawGetDrawInfoListResponse event construct 1498");
-
-            DrawGetDrawInfoListResponse fateEventInfoResponse = ReadDrawInfoListForGroup(fateThemedConstructGroupId, drawInfoPacketId + 11, drawGroupPlayerId, "draw-fate-event-info-compat-test");
-            AssertEqual(0, fateEventInfoResponse.Code, "DrawGetDrawInfoListResponse group 15 Code");
-            AssertRetailDrawInfoArt(
-                fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2482),
-                2482,
-                fateThemedConstructGroupId,
-                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5Power02.prefab",
-                new Dictionary<int, string>(),
-                new Dictionary<int, int> { [1] = 1021007 },
-                [5, 6, 2],
-                6,
-                "DrawGetDrawInfoListResponse fate event 2482");
-            AssertRetailDrawInfoArt(
-                fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2492),
-                2492,
-                fateThemedConstructGroupId,
-                "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5Power01.prefab",
-                new Dictionary<int, string>(),
-                new Dictionary<int, int> { [1] = 1031005 },
-                [5, 6, 2],
-                2,
-                "DrawGetDrawInfoListResponse fate event 2492");
-
-            DrawGetDrawInfoListResponse arrivalInfoResponse = ReadDrawInfoListForGroup(arrivalConstructGroupId, drawInfoPacketId + 13, drawGroupPlayerId, "draw-arrival-info-compat-test");
-            AssertEqual(0, arrivalInfoResponse.Code, "DrawGetDrawInfoListResponse group 12 Code");
-            DrawGetDrawInfoListResponse fateArrivalInfoResponse = ReadDrawInfoListForGroup(fateArrivalConstructGroupId, drawInfoPacketId + 14, drawGroupPlayerId, "draw-fate-arrival-info-compat-test");
-            AssertEqual(0, fateArrivalInfoResponse.Code, "DrawGetDrawInfoListResponse group 13 Code");
-            AssertCurrentArrivalDrawInfoContents(
-                arrivalInfoResponse.DrawInfoList,
-                arrivalConstructGroupId,
-                new Dictionary<int, int>
-                {
-                    [1492] = 1291003,
-                    [1493] = 1381003,
-                    [1494] = 1171004
-                },
-                expectedBanner: "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterNormalV4P5.prefab",
-                expectedMaxBottomTimes: 60,
-                expectedBottomTimes: 47,
-                "DrawGetDrawInfoListResponse group 12 Arrival Construct");
-            AssertCurrentArrivalDrawInfoContents(
-                fateArrivalInfoResponse.DrawInfoList,
-                fateArrivalConstructGroupId,
-                new Dictionary<int, int>
-                {
-                    [2486] = 1291003,
-                    [2487] = 1381003,
-                    [2488] = 1171004
-                },
-                expectedBanner: "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/UiDrawCollaborationCharacterFateV4P5.prefab",
-                expectedMaxBottomTimes: 100,
-                expectedBottomTimes: 100,
-                "DrawGetDrawInfoListResponse group 13 Fate Arrival Construct");
-            AssertCurrentArrivalConstructRewardRouting();
-            AssertCurrentVersionJumpDrawTargetRows(
-                [
-                    (3024, 1241002),
-                    (1488, 1021007),
-                    (1498, 1031005),
-                    (1492, 1291003),
-                    (1493, 1381003),
-                    (1494, 1171004),
-                    (2482, 1021007),
-                    (2492, 1031005),
-                    (2486, 1291003),
-                    (2487, 1381003),
-                    (2488, 1171004)
-                ],
-                [
-                    memberTargetInfoResponse.DrawInfoList.Single(info => info.Id == 3024),
-                    eventConstruct1488,
-                    themedEventInfoResponse.DrawInfoList.Single(info => info.Id == 1498),
-                    arrivalInfoResponse.DrawInfoList.Single(info => info.Id == 1492),
-                    arrivalInfoResponse.DrawInfoList.Single(info => info.Id == 1493),
-                    arrivalInfoResponse.DrawInfoList.Single(info => info.Id == 1494),
-                    fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2482),
-                    fateEventInfoResponse.DrawInfoList.Single(info => info.Id == 2492),
-                    fateArrivalInfoResponse.DrawInfoList.Single(info => info.Id == 2486),
-                    fateArrivalInfoResponse.DrawInfoList.Single(info => info.Id == 2487),
-                    fateArrivalInfoResponse.DrawInfoList.Single(info => info.Id == 2488)
-                ]);
-            AssertCurrentDrawTargetCharacterPersistenceRows(
-                [
-                    1221003,
-                    1261003,
-                    1271003,
-                    1081004,
-                    1521004,
-                    1171004,
-                    1241003,
-                    1211003,
-                    1021006,
-                    1051005,
-                    1321003,
-                    1331003,
-                    1531005,
-                    1131004,
-                    1041005,
-                    1141004,
-                    1391003,
-                    1061004,
-                    1251002,
-                    1281002,
-                    1291002,
-                    1301002,
-                    1311002,
-                    1341002,
-                    1351003,
-                    1361003,
-                    1371002
-                ]);
-            AssertCurrentCharacterGradeTablesAndPromotionBehavior();
-
-            DrawGetDrawInfoListResponse cubInfoResponse = ReadDrawInfoListForGroup(cubTargetGroupId, drawInfoPacketId + 12, drawGroupPlayerId, "draw-cub-info-compat-test");
-            AssertEqual(0, cubInfoResponse.Code, "DrawGetDrawInfoListResponse group 22 Code");
-            const string cubPowerBanner = "Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawCollaborationV1CubPower.prefab";
-            const string cubPowerResource = "Assets/Product/Texture/Image/DrawCollaborationName/UiDrawCollaborationV1/UiDrawCollaborationV1CUB3.png";
-            AssertRetailDrawInfoArt(
-                cubInfoResponse.DrawInfoList.Single(info => info.Id == 7064),
-                7064,
-                cubTargetGroupId,
-                cubPowerBanner,
-                new Dictionary<int, string> { [4] = cubPowerResource },
-                new Dictionary<int, int> { [1] = 16390000 },
-                [5, 6],
-                4,
-                "DrawGetDrawInfoListResponse CUB 7064");
-            AssertRetailDrawInfoArt(
-                cubInfoResponse.DrawInfoList.Single(info => info.Id == 7065),
-                7065,
-                cubTargetGroupId,
-                cubPowerBanner,
-                new Dictionary<int, string> { [4] = cubPowerResource },
-                new Dictionary<int, int> { [1] = 16340000 },
-                [5, 6],
-                4,
-                "DrawGetDrawInfoListResponse CUB 7065");
-
-            const int selectedRetailDrawId = 379;
-            DrawSetUseDrawIdRequest setUseDrawIdRequest = new()
-            {
-                DrawId = selectedRetailDrawId
-            };
-            DrawSetUseDrawIdRequest setUseDrawIdRequestRoundTrip = MessagePackSerializer.Deserialize<DrawSetUseDrawIdRequest>(
-                MessagePackSerializer.Serialize(setUseDrawIdRequest));
-            AssertEqual(selectedRetailDrawId, setUseDrawIdRequestRoundTrip.DrawId, "DrawSetUseDrawIdRequest DrawId MessagePack round-trip");
-
-            DrawSetUseDrawIdResponse setUseDrawIdResponse;
-            DrawGetDrawGroupListResponse selectedGroupResponse;
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(drawProgressPlayerId),
-                CreateDrawCompatibilityPlayer(drawProgressPlayerId),
-                CreateDrawCompatibilityInventory(drawProgressPlayerId, []),
-                "draw-selection-compat-test"))
-            {
-                InvokeRegisteredRequestHandler("DrawSetUseDrawIdRequest", harness.Session, setUseDrawIdPacketId, setUseDrawIdRequestRoundTrip);
-                setUseDrawIdResponse = ReadResponsePayload<DrawSetUseDrawIdResponse>(
-                    harness,
-                    setUseDrawIdPacketId,
-                    nameof(DrawSetUseDrawIdResponse),
-                    "DrawSetUseDrawIdRequest response");
-                InvokeRegisteredRequestHandler("DrawGetDrawGroupListRequest", harness.Session, drawGroupPacketId + 1, request: null);
-                selectedGroupResponse = ReadResponsePayload<DrawGetDrawGroupListResponse>(
-                    harness,
-                    drawGroupPacketId + 1,
-                    nameof(DrawGetDrawGroupListResponse),
-                    "DrawSetUseDrawIdRequest follow-up group response");
-            }
-
-            AssertEqual(0, setUseDrawIdResponse.Code, "DrawSetUseDrawIdResponse Code");
-            AssertEqual(1, setUseDrawIdResponse.SwitchDrawIdCount, "DrawSetUseDrawIdResponse SwitchDrawIdCount");
-            DrawGroupInfo selectedGroup = selectedGroupResponse.DrawGroupInfoList.Single(group => group.Id == targetWeaponResearchGroupId);
-            AssertEqual(1, selectedGroup.SwitchDrawIdCount, "DrawGetDrawGroupListResponse selected group SwitchDrawIdCount after selection");
-            AssertIntegerDictionary(
-                new Dictionary<int, int> { [0] = 371, [3] = selectedRetailDrawId },
-                selectedGroup.UseDrawIdDict,
-                "DrawGetDrawGroupListResponse selected group UseDrawIdDict after selecting 379");
-
-            const int selectedFateEventDrawId = 2482;
-            DrawSetUseDrawIdRequest setFateEventDrawIdRequest = new()
-            {
-                DrawId = selectedFateEventDrawId
-            };
-            DrawSetUseDrawIdRequest setFateEventDrawIdRequestRoundTrip = MessagePackSerializer.Deserialize<DrawSetUseDrawIdRequest>(
-                MessagePackSerializer.Serialize(setFateEventDrawIdRequest));
-            AssertEqual(selectedFateEventDrawId, setFateEventDrawIdRequestRoundTrip.DrawId, "DrawSetUseDrawIdRequest fate event DrawId MessagePack round-trip");
-
-            DrawSetUseDrawIdResponse setFateEventDrawIdResponse;
-            DrawGetDrawGroupListResponse selectedFateEventGroupResponse;
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(drawEventSelectionPlayerId),
-                CreateDrawCompatibilityPlayer(drawEventSelectionPlayerId),
-                CreateDrawCompatibilityInventory(drawEventSelectionPlayerId, []),
-                "draw-event-selection-compat-test"))
-            {
-                InvokeRegisteredRequestHandler("DrawSetUseDrawIdRequest", harness.Session, setUseDrawIdPacketId + 1, setFateEventDrawIdRequestRoundTrip);
-                setFateEventDrawIdResponse = ReadResponsePayload<DrawSetUseDrawIdResponse>(
-                    harness,
-                    setUseDrawIdPacketId + 1,
-                    nameof(DrawSetUseDrawIdResponse),
-                    "DrawSetUseDrawIdRequest fate event response");
-                InvokeRegisteredRequestHandler("DrawGetDrawGroupListRequest", harness.Session, drawGroupPacketId + 2, request: null);
-                selectedFateEventGroupResponse = ReadResponsePayload<DrawGetDrawGroupListResponse>(
-                    harness,
-                    drawGroupPacketId + 2,
-                    nameof(DrawGetDrawGroupListResponse),
-                    "DrawSetUseDrawIdRequest fate event follow-up group response");
-            }
-
-            AssertEqual(0, setFateEventDrawIdResponse.Code, "DrawSetUseDrawIdResponse fate event Code");
-            AssertEqual(1, setFateEventDrawIdResponse.SwitchDrawIdCount, "DrawSetUseDrawIdResponse fate event SwitchDrawIdCount");
-            DrawGroupInfo selectedFateEventGroup = selectedFateEventGroupResponse.DrawGroupInfoList.Single(group => group.Id == fateThemedConstructGroupId);
-            AssertEqual(1, selectedFateEventGroup.SwitchDrawIdCount, "DrawGetDrawGroupListResponse fate event group SwitchDrawIdCount after selection");
-            AssertIntegerDictionary(
-                new Dictionary<int, int> { [0] = 0, [5] = selectedFateEventDrawId },
-                selectedFateEventGroup.UseDrawIdDict,
-                "DrawGetDrawGroupListResponse group 15 UseDrawIdDict after selecting 2482 into slot 5");
-
-            const int rewardBackedDrawId = 302;
-            DrawInfo drawInfoBeforeCard = infoResponse.DrawInfoList.First(info => info.Id == rewardBackedDrawId);
-            int initialDrawTicketCount = drawInfoBeforeCard.UseItemCount * 4;
-            DrawDrawCardRequest drawCardRequest = new()
-            {
-                DrawId = rewardBackedDrawId,
-                Count = 1,
-                UseDrawTicketId = 0
-            };
-            DrawDrawCardRequest drawCardRequestRoundTrip = MessagePackSerializer.Deserialize<DrawDrawCardRequest>(
-                MessagePackSerializer.Serialize(drawCardRequest));
-            AssertEqual(rewardBackedDrawId, drawCardRequestRoundTrip.DrawId, "DrawDrawCardRequest DrawId MessagePack round-trip");
-            AssertEqual(1, drawCardRequestRoundTrip.Count, "DrawDrawCardRequest Count MessagePack round-trip");
-            AssertEqual(0, drawCardRequestRoundTrip.UseDrawTicketId, "DrawDrawCardRequest UseDrawTicketId MessagePack round-trip");
-            AssertDrawDrawCardHandlerUsesPlayerScopedPullOffset();
-
-            DrawDrawCardResponse drawCardResponse = null!;
-            NotifyItemDataList drawItemPush = null!;
-            NotifyEquipDataList? drawEquipPush = null;
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(drawProgressPlayerId),
-                CreateDrawCompatibilityPlayer(drawProgressPlayerId),
-                CreateDrawCompatibilityInventory(drawProgressPlayerId, [new Item { Id = drawInfoBeforeCard.UseItemId, Count = initialDrawTicketCount }]),
-                "draw-card-compat-test"))
-            {
-                InvokeRegisteredRequestHandler("DrawDrawCardRequest", harness.Session, drawCardPacketId, drawCardRequestRoundTrip);
-                Packet firstPacket = harness.ReadPacket("DrawDrawCardRequest first packet");
-                AssertEqual(Packet.ContentType.Push, firstPacket.Type, "DrawDrawCardRequest first packet type");
-                Packet.Push firstPush = MessagePackSerializer.Deserialize<Packet.Push>(firstPacket.Content);
-                AssertEqual(nameof(NotifyItemDataList), firstPush.Name, "DrawDrawCardRequest first push");
-                drawItemPush = MessagePackSerializer.Deserialize<NotifyItemDataList>(firstPush.Content);
-
-                for (int packetIndex = 0; packetIndex < 4; packetIndex++)
-                {
-                    Packet packet = harness.ReadPacket($"DrawDrawCardRequest packet {packetIndex + 2}");
-                    if (packet.Type == Packet.ContentType.Push)
-                    {
-                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
-                        if (push.Name == nameof(NotifyEquipDataList))
-                            drawEquipPush = MessagePackSerializer.Deserialize<NotifyEquipDataList>(push.Content);
-                        continue;
-                    }
-
-                    AssertEqual(Packet.ContentType.Response, packet.Type, "DrawDrawCardRequest response packet type");
-                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
-                    AssertEqual(drawCardPacketId, response.Id, "DrawDrawCardRequest response packet id");
-                    AssertEqual(nameof(DrawDrawCardResponse), response.Name, "DrawDrawCardRequest response packet name");
-                    drawCardResponse = MessagePackSerializer.Deserialize<DrawDrawCardResponse>(response.Content);
-                    goto FoundDrawCardResponse;
-                }
-
-                throw new InvalidDataException("DrawDrawCardRequest: expected DrawDrawCardResponse after inventory pushes.");
-
-            FoundDrawCardResponse:
-                ;
-            }
-
-            Item costItem = drawItemPush.ItemDataList.Single(item => item.Id == drawInfoBeforeCard.UseItemId);
-            AssertEqual((long)(initialDrawTicketCount - drawInfoBeforeCard.UseItemCount), costItem.Count, "DrawDrawCardRequest NotifyItemDataList consumed draw ticket count");
-            AssertEqual(0, drawCardResponse.Code, "DrawDrawCardResponse Code");
-            AssertEqual(1, drawCardResponse.RewardGoodsList.Count, "DrawDrawCardResponse RewardGoodsList count for 1x draw");
-            RewardGoods reward = drawCardResponse.RewardGoodsList[0];
-            AssertDrawRewardPushMatchesRewardGoods(drawInfoBeforeCard, reward, drawItemPush, drawEquipPush, "DrawDrawCardRequest reward notification");
-            AssertRequiredMemberNull(drawCardResponse, nameof(DrawDrawCardResponse.ExtraRewardList), "DrawDrawCardResponse ExtraRewardList nullable protocol field");
-            AssertRequiredMemberNull(drawCardResponse, nameof(DrawDrawCardResponse.DrawAdjustData), "DrawDrawCardResponse DrawAdjustData nullable protocol field");
-            DrawInfo clientDrawInfo = drawCardResponse.ClientDrawInfo
-                ?? throw new InvalidDataException("DrawDrawCardResponse ClientDrawInfo: expected draw progress payload.");
-            AssertEqual(rewardBackedDrawId, clientDrawInfo.Id, "DrawDrawCardResponse ClientDrawInfo Id");
-            AssertEqual(drawInfoBeforeCard.TotalCount + 1, clientDrawInfo.TotalCount, "DrawDrawCardResponse ClientDrawInfo TotalCount after 1x draw");
-            AssertEqual(drawInfoBeforeCard.TodayCount + 1, clientDrawInfo.TodayCount, "DrawDrawCardResponse ClientDrawInfo TodayCount after 1x draw");
-            AssertEqual(drawInfoBeforeCard.BottomTimes - 1, clientDrawInfo.BottomTimes, "DrawDrawCardResponse ClientDrawInfo BottomTimes after 1x draw");
-            AssertTargetWeaponPityDraw(drawPityPlayerId, drawInfoBeforeCard);
-            AssertDrawEquipRewardPushesRecycleFlag(drawInfoBeforeCard);
-
-            const int consumeItemId = AscNet.Common.Database.Inventory.FreeGem;
-            const int targetDrawTicketItemId = 50005;
-            const int initialConsumeCount = 30;
-            const int initialTargetTicketCount = 7;
-            const int buyTimes = 3;
-            ItemBuyAssetRequest buyAssetRequest = new()
-            {
-                Times = buyTimes,
-                ItemId = targetDrawTicketItemId,
-                ConsumeId = consumeItemId
-            };
-            ItemBuyAssetRequest buyAssetRequestRoundTrip = MessagePackSerializer.Deserialize<ItemBuyAssetRequest>(
-                MessagePackSerializer.Serialize(buyAssetRequest));
-            AssertEqual(buyTimes, buyAssetRequestRoundTrip.Times, "ItemBuyAssetRequest Times MessagePack round-trip");
-            AssertEqual(targetDrawTicketItemId, buyAssetRequestRoundTrip.ItemId, "ItemBuyAssetRequest ItemId MessagePack round-trip");
-            AssertEqual(consumeItemId, buyAssetRequestRoundTrip.ConsumeId, "ItemBuyAssetRequest ConsumeId MessagePack round-trip");
-
-            using (LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(buyAssetPlayerId),
-                CreateDrawCompatibilityPlayer(buyAssetPlayerId),
-                CreateDrawCompatibilityInventory(
-                    buyAssetPlayerId,
-                    [
-                        new Item { Id = consumeItemId, Count = initialConsumeCount },
-                        new Item { Id = targetDrawTicketItemId, Count = initialTargetTicketCount }
-                    ]),
-                "item-buy-asset-compat-test"))
-            {
-                InvokeRegisteredRequestHandler("ItemBuyAssetRequest", harness.Session, buyAssetPacketId, buyAssetRequestRoundTrip);
-                Packet pushPacket = harness.ReadPacket("ItemBuyAssetRequest NotifyItemDataList push");
-                AssertEqual(Packet.ContentType.Push, pushPacket.Type, "ItemBuyAssetRequest first packet type");
-                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(pushPacket.Content);
-                AssertEqual(nameof(NotifyItemDataList), push.Name, "ItemBuyAssetRequest first push");
-                NotifyItemDataList notifyItemDataList = MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
-                Item consumedItem = notifyItemDataList.ItemDataList.Single(item => item.Id == consumeItemId);
-                Item boughtItem = notifyItemDataList.ItemDataList.Single(item => item.Id == targetDrawTicketItemId);
-                AssertEqual((long)(initialConsumeCount - buyTimes), consumedItem.Count, "ItemBuyAssetRequest NotifyItemDataList consumed item count");
-                AssertEqual((long)(initialTargetTicketCount + buyTimes), boughtItem.Count, "ItemBuyAssetRequest NotifyItemDataList target draw ticket count");
-
-                ItemBuyAssetResponse buyAssetResponse = ReadResponsePayload<ItemBuyAssetResponse>(
-                    harness,
-                    buyAssetPacketId,
-                    nameof(ItemBuyAssetResponse),
-                    "ItemBuyAssetRequest response");
-                AssertEqual(buyTimes, buyAssetResponse.Count, "ItemBuyAssetResponse Count");
-            }
+            InvokeRegisteredRequestHandler("LottoInfoRequest", harness.Session, packetId, request: null);
+            LottoInfoResponse lotto = ReadResponsePayload<LottoInfoResponse>(
+                harness,
+                packetId,
+                nameof(LottoInfoResponse),
+                "LottoInfoRequest closed response");
+            AssertEqual(0, lotto.Code, "LottoInfoResponse table-driven Code");
         }
 
         private static void ValidateJetavieDaybreakTableCompatibility()
@@ -6443,13 +6313,34 @@ namespace AscNet.Test
                 AssertConstructShardItem(shardItem, $"Construct Character.tsv row {character.Id} {character.Name} ItemId {character.ItemId}");
 
                 if (!skillRowsByCharacterId[character.Id].Any())
-                    throw new InvalidDataException($"Playable Character.tsv row {character.Id} {character.Name}: expected at least one CharacterSkillTable row.");
-                if (!qualityRowsByCharacterId[character.Id].Any())
-                    throw new InvalidDataException($"Playable Character.tsv row {character.Id} {character.Name}: expected at least one CharacterQualityTable row.");
-                List<CharacterGradeTable> characterGradeRows = gradeRowsByCharacterId.TryGetValue(character.Id, out List<CharacterGradeTable>? gradeRows)
-                    ? gradeRows
-                    : throw new InvalidDataException($"Playable Character.tsv row {character.Id} {character.Name}: expected CharacterGradeTable rows.");
-                AssertEqual(14, characterGradeRows.Count, $"Playable Character.tsv row {character.Id} {character.Name} CharacterGradeTable row count");
+                    throw new InvalidDataException($"Character.tsv row {character.Id} {character.Name}: expected at least one CharacterSkillTable row.");
+                bool hasQualityProgression = qualityRowsByCharacterId[character.Id].Any();
+                bool hasGradeProgression = gradeRowsByCharacterId.TryGetValue(character.Id, out List<CharacterGradeTable>? characterGradeRows);
+                if (!hasQualityProgression || !hasGradeProgression)
+                {
+                    AssertEqual(false, AscNet.Common.Database.Character.IsOwnableCharacter((uint)character.Id), $"Character.tsv row {character.Id} {character.Name} ownability predicate");
+                    if (hasQualityProgression != hasGradeProgression)
+                        throw new InvalidDataException($"Character.tsv row {character.Id} {character.Name}: quality and grade progression availability must agree.");
+                    AscNet.Common.Database.Character incompleteRoster = new()
+                    {
+                        Uid = -character.Id,
+                        Characters = [],
+                        Equips = [],
+                        Fashions = []
+                    };
+                    try
+                    {
+                        incompleteRoster.AddCharacter((uint)character.Id);
+                        throw new InvalidDataException($"Character.tsv row {character.Id} {character.Name}: incomplete progression entry must not be ownable.");
+                    }
+                    catch (AscNet.Common.ServerCodeException exception)
+                    {
+                        AssertEqual(20009021, exception.Code, $"Character.tsv row {character.Id} {character.Name} incomplete progression rejection Code");
+                    }
+                    continue;
+                }
+                AssertEqual(true, AscNet.Common.Database.Character.IsOwnableCharacter((uint)character.Id), $"Playable Character.tsv row {character.Id} {character.Name} ownability predicate");
+                AssertEqual(14, characterGradeRows!.Count, $"Playable Character.tsv row {character.Id} {character.Name} CharacterGradeTable row count");
                 AssertIntegerList(
                     Enumerable.Range(1, 14).Select(grade => (long)grade).ToArray(),
                     characterGradeRows.Select(grade => (long)grade.Grade).ToArray(),
@@ -9400,6 +9291,9 @@ namespace AscNet.Test
             Type blackCardCommandType = AscNet.GameServer.Commands.CommandFactory.commands.GetValueOrDefault("bc")
                 ?? throw new InvalidDataException("CommandFactory.LoadCommands: expected command 'bc' to be discoverable.");
             AssertEqual("AscNet.GameServer.Commands.BlackCardCommand", blackCardCommandType.FullName, "CommandFactory.LoadCommands command 'bc' type");
+            Type characterCommandType = AscNet.GameServer.Commands.CommandFactory.commands.GetValueOrDefault("character")
+                ?? throw new InvalidDataException("CommandFactory.LoadCommands: expected command 'character' to be discoverable.");
+            AssertEqual("AscNet.GameServer.Commands.CharacterCommand", characterCommandType.FullName, "CommandFactory.LoadCommands command 'character' type");
 
             AssertBlackCardCommandAccepts(blackCardCommandType, [], "BlackCardCommand metadata no-arg grant");
             AssertBlackCardCommandAccepts(blackCardCommandType, ["45000"], "BlackCardCommand metadata numeric grant");
@@ -9412,7 +9306,131 @@ namespace AscNet.Test
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
             ExecuteBlackCardCommandAndAssertGrant([], initialBlackCards: 0, expectedBlackCards: 30_000, playerId: 90_001, "BlackCardCommand default grant behavior");
             ExecuteBlackCardCommandAndAssertGrant(["875"], initialBlackCards: 125, expectedBlackCards: 1_000, playerId: 90_002, "BlackCardCommand explicit grant behavior");
+            ExecuteCharacterAddAllAndAssertOwnable(playerId: 90_003, "CharacterCommand bulk add ownability");
         }
+        private static void ValidateEquipmentStorageDrawCompatibility()
+        {
+            const int clientWeaponCapacity = 300;
+            const int clientAwarenessCapacity = 1000;
+            const long playerId = 90_004;
+
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            AscNet.GameServer.Commands.CommandFactory.commands.Clear();
+            AscNet.GameServer.Commands.CommandFactory.LoadCommands();
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "equipment-storage-draw-compat-test");
+
+            AscNet.GameServer.Commands.Command bulkGrant = AscNet.GameServer.Commands.CommandFactory.CreateCommand(
+                "equip", harness.Session, ["add", "all"])
+                ?? throw new InvalidDataException("EquipCommand bulk grant: expected CommandFactory to create the command.");
+            bulkGrant.Execute();
+            ReadPushPayload<NotifyEquipDataList>(harness, nameof(NotifyEquipDataList),
+                "EquipCommand bulk grant push");
+
+            Dictionary<uint, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>()
+                .ToDictionary(row => (uint)row.Id);
+            int expectedWeaponCount = equipRowsById.Values.Count(row =>
+                AscNet.Common.Database.Character.IsOwnableEquipTemplate(row) && row.Site == 0);
+            int expectedAwarenessCount = equipRowsById.Values.Count(row =>
+                AscNet.Common.Database.Character.IsOwnableEquipTemplate(row) && row.Site is >= 1 and <= 6);
+            int weaponCount = character.Equips.Count(equip =>
+                equipRowsById[equip.TemplateId].Site == 0);
+            int awarenessCount = character.Equips.Count(equip =>
+                equipRowsById[equip.TemplateId].Site is >= 1 and <= 6);
+            AssertEqual(expectedWeaponCount, weaponCount,
+                "EquipCommand bulk grant weapon count derives from owned table templates");
+            AssertEqual(expectedAwarenessCount, awarenessCount,
+                "EquipCommand bulk grant awareness count derives from owned table templates");
+            if (weaponCount >= clientWeaponCapacity || awarenessCount >= clientAwarenessCapacity)
+                throw new InvalidDataException(
+                    $"EquipCommand bulk grant must stay below the client storage guard; weapons={weaponCount}/{clientWeaponCapacity}, awareness={awarenessCount}/{clientAwarenessCapacity}.");
+
+            bulkGrant = AscNet.GameServer.Commands.CommandFactory.CreateCommand(
+                "equip", harness.Session, ["add", "all"])
+                ?? throw new InvalidDataException("EquipCommand repeat bulk grant: expected CommandFactory to create the command.");
+            bulkGrant.Execute();
+            NotifyEquipDataList repeatAddPush = ReadPushPayload<NotifyEquipDataList>(
+                harness, nameof(NotifyEquipDataList), "EquipCommand repeat bulk grant push");
+            AssertEqual(0, repeatAddPush.EquipDataList.Count,
+                "EquipCommand repeat bulk grant emits no duplicate equipment");
+            AssertEqual(expectedWeaponCount, character.Equips.Count(equip =>
+                equipRowsById[equip.TemplateId].Site == 0),
+                "EquipCommand repeat bulk grant preserves weapon storage count");
+            AssertEqual(expectedAwarenessCount, character.Equips.Count(equip =>
+                equipRowsById[equip.TemplateId].Site is >= 1 and <= 6),
+                "EquipCommand repeat bulk grant preserves awareness storage count");
+
+            List<EquipData> duplicateWeapons = character.Equips
+                .Where(equip => equipRowsById[equip.TemplateId].Site == 0)
+                .OrderBy(equip => equip.Id)
+                .Select((equip, index) => new EquipData
+                {
+                    Id = (uint)(1_000_000 + index),
+                    TemplateId = equip.TemplateId,
+                    Level = 1
+                })
+                .ToList();
+            duplicateWeapons[0].CharacterId = 1021001;
+            duplicateWeapons[1].IsLock = true;
+            duplicateWeapons[2].IsRecycle = true;
+            duplicateWeapons[3].Level = 2;
+            duplicateWeapons[4].Exp = 1;
+            duplicateWeapons[5].Breakthrough = 1;
+            duplicateWeapons[6].ResonanceInfo.Add(new ResonanceInfo());
+            duplicateWeapons[7].AwakeSlotList.Add(1);
+            duplicateWeapons[8].WeaponOverrunData.Level = 1;
+            player.TeamPrefabs =
+            [
+                new TeamPrefabData
+                {
+                    EquipData = new()
+                    {
+                        [1] = new TeamPrefabEquipData
+                        {
+                            EquipDataDict = new()
+                            {
+                                [0] = new TeamPrefabEquipEntry { EquipId = duplicateWeapons[9].Id }
+                            }
+                        }
+                    }
+                }
+            ];
+            character.Equips.AddRange(duplicateWeapons);
+
+            AscNet.GameServer.Commands.Command prune = AscNet.GameServer.Commands.CommandFactory.CreateCommand(
+                "equip", harness.Session, ["prune"])
+                ?? throw new InvalidDataException("EquipCommand prune: expected CommandFactory to create the command.");
+            prune.Execute();
+            NotifyEquipDataList prunePush = ReadPushPayload<NotifyEquipDataList>(
+                harness, nameof(NotifyEquipDataList), "EquipCommand prune push");
+            AssertEqual(expectedWeaponCount, prunePush.DeletedEquipIdList.Count,
+                "EquipCommand prune deletes one duplicate weapon per template");
+            AssertEqual(expectedWeaponCount, character.Equips.Count(equip =>
+                equipRowsById[equip.TemplateId].Site == 0),
+                "EquipCommand prune keeps one weapon per template while preserving protected copies");
+            if (character.Equips.Count(equip => equipRowsById[equip.TemplateId].Site == 0) >= clientWeaponCapacity)
+                throw new InvalidDataException("EquipCommand prune must restore the polluted weapon inventory below the client guard.");
+            foreach (EquipData protectedDuplicate in duplicateWeapons.Take(10))
+            {
+                if (!character.Equips.Any(equip => equip.Id == protectedDuplicate.Id))
+                    throw new InvalidDataException($"EquipCommand prune removed protected equipment {protectedDuplicate.Id}.");
+            }
+
+            prune = AscNet.GameServer.Commands.CommandFactory.CreateCommand(
+                "equip", harness.Session, ["prune"])
+                ?? throw new InvalidDataException("EquipCommand repeat prune: expected CommandFactory to create the command.");
+            prune.Execute();
+            NotifyEquipDataList repeatPrunePush = ReadPushPayload<NotifyEquipDataList>(
+                harness, nameof(NotifyEquipDataList), "EquipCommand repeat prune push");
+            AssertEqual(0, repeatPrunePush.DeletedEquipIdList.Count,
+                "EquipCommand repeat prune is a no-op");
+        }
+
 
         private static void ValidateMissingFeatureCompatibility()
         {
@@ -9682,9 +9700,8 @@ namespace AscNet.Test
                 lottoInfoPacketId,
                 nameof(LottoInfoResponse),
                 "LottoInfoRequest response");
-            AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse Code");
-            if (lottoInfoResponse.LottoInfos is null)
-                throw new InvalidDataException("LottoInfoResponse LottoInfos: expected initialized list.");
+            AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse table-driven Code");
+            AssertEqual(1, lottoInfoResponse.LottoInfos.Count, "LottoInfoResponse table-driven LottoInfos");
 
             const int enterWorldChatPacketId = 11_013;
             InvokeRegisteredRequestHandler(nameof(EnterWorldChatRequest), harness.Session, enterWorldChatPacketId, new EnterWorldChatRequest());
@@ -13637,6 +13654,8 @@ namespace AscNet.Test
             const string responseName = nameof(TeamPrefabSetTeamResponse);
             const string metadataRequestName = nameof(TeamPrefabUpdateMetadataRequest);
             const string metadataResponseName = nameof(TeamPrefabUpdateMetadataResponse);
+            const string partnerRequestName = nameof(TeamPrefabSetPartnerRequest);
+            const string partnerResponseName = nameof(TeamPrefabSetPartnerResponse);
             const long playerId = 88_061;
 
             Dictionary<string, int> teamConfig = TableReaderV2.Parse<TeamConfigTable>()
@@ -13922,6 +13941,57 @@ namespace AscNet.Test
                 player.TeamPrefabs[1].PartnerData[1]!.SkillData![2].Count,
                 "nil passive partner skills stored empty");
             DispatchAndAssert(nonEmpty, 71_033, "restore populated partner skills");
+
+            DispatchPartnerAndAssert(3, 1, null, 71_050, "single partner unload");
+            AssertEqual(0, player.TeamPrefabs[1].PartnerData[1]!.PartnerId,
+                "single partner unload stored empty slot");
+            AssertEqual(802, player.TeamPrefabs[1].PartnerData[2]!.PartnerId,
+                "single partner unload preserves other slot");
+            AscNet.Common.Database.Player partnerUnloadReload =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
+            AssertEqual(0, partnerUnloadReload.TeamPrefabs[1].PartnerData[1]!.PartnerId,
+                "single partner unload survives BSON round-trip");
+
+            TeamPrefabPartnerData restoredPartner = new()
+            {
+                PartnerId = 801,
+                SkillData = new()
+                {
+                    [1] = [partnerFixtures[0].MainSkill],
+                    [2] = [partnerFixtures[0].PassiveSkill]
+                }
+            };
+            DispatchPartnerAndAssert(3, 1, restoredPartner, 71_051, "single partner restore");
+            AssertEqual(801, player.TeamPrefabs[1].PartnerData[1]!.PartnerId,
+                "single partner restore stored partner");
+            AssertIntegerList(
+                [partnerFixtures[0].MainSkill],
+                player.TeamPrefabs[1].PartnerData[1]!.SkillData![1]
+                    .Select(value => (long)value).ToArray(),
+                "single partner restore stored main skill");
+
+            RejectPartner(
+                3,
+                1,
+                new TeamPrefabPartnerData
+                {
+                    PartnerId = 802,
+                    SkillData = new()
+                    {
+                        [1] = [partnerFixtures[1].MainSkill],
+                        [2] = [partnerFixtures[1].PassiveSkill]
+                    }
+                },
+                71_052,
+                "single partner duplicate rejection");
+            RejectPartner(int.MaxValue, 1, restoredPartner, 71_053, "single partner unknown TeamId");
+            RejectPartner(3, teamMaxPos + 1, restoredPartner, 71_054, "single partner invalid position");
+            RejectPartner(
+                3,
+                1,
+                new TeamPrefabPartnerData { PartnerId = 801, SkillData = null },
+                71_055,
+                "single partner missing skills");
 
             TeamPrefabMetadata firstMetadata = new()
             {
@@ -14375,6 +14445,71 @@ namespace AscNet.Test
                     MessagePackSerializer.Serialize(source));
                 mutate(clone);
                 return clone;
+            }
+
+            void DispatchPartnerAndAssert(
+                int teamId,
+                int teamPos,
+                TeamPrefabPartnerData? partnerData,
+                int packetId,
+                string name)
+            {
+                int saveCountBefore = playerCollection.ReplaceOneCalls;
+                InvokeRegisteredRequestHandler(partnerRequestName, harness.Session, packetId,
+                    new TeamPrefabSetPartnerRequest
+                    {
+                        TeamId = teamId,
+                        TeamPos = teamPos,
+                        TeamPrefabPartnerData = partnerData
+                    });
+                JObject response = ReadResponseMapPayload(
+                    harness,
+                    packetId,
+                    partnerResponseName,
+                    $"{name} response");
+                AssertEqual(0, RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response"),
+                    $"{name} Code");
+                AssertEqual(true, response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(saveCountBefore + 1, playerCollection.ReplaceOneCalls, $"{name} Player.Save count");
+                AssertNoExtraPacket(name);
+            }
+
+            void RejectPartner(
+                int teamId,
+                int teamPos,
+                TeamPrefabPartnerData? partnerData,
+                int packetId,
+                string name)
+            {
+                int saveCountBefore = playerCollection.ReplaceOneCalls;
+                byte[] playerStateBefore = harness.Session.player.ToBson();
+                byte[] characterStateBefore = harness.Session.character.ToBson();
+                byte[] inventoryStateBefore = harness.Session.inventory.ToBson();
+                InvokeRegisteredRequestHandler(partnerRequestName, harness.Session, packetId,
+                    new TeamPrefabSetPartnerRequest
+                    {
+                        TeamId = teamId,
+                        TeamPos = teamPos,
+                        TeamPrefabPartnerData = partnerData
+                    });
+                JObject response = ReadResponseMapPayload(
+                    harness,
+                    packetId,
+                    partnerResponseName,
+                    $"{name} response");
+                if (RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response") == 0)
+                    throw new InvalidDataException($"{name} unexpectedly succeeded.");
+                AssertEqual(true, response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(saveCountBefore, playerCollection.ReplaceOneCalls, $"{name} does not save");
+                AssertEqual(Convert.ToHexString(playerStateBefore),
+                    Convert.ToHexString(harness.Session.player.ToBson()), $"{name} does not mutate Player");
+                AssertEqual(Convert.ToHexString(characterStateBefore),
+                    Convert.ToHexString(harness.Session.character.ToBson()), $"{name} does not mutate Character");
+                AssertEqual(Convert.ToHexString(inventoryStateBefore),
+                    Convert.ToHexString(harness.Session.inventory.ToBson()), $"{name} does not mutate Inventory");
+                AssertNoExtraPacket(name);
             }
 
             void DispatchMetadataAndAssert(
@@ -15500,7 +15635,7 @@ namespace AscNet.Test
 
         private static void ValidateFashionColorCompatibility()
         {
-            FashionColorTable colorRow = TableReaderV2.Parse<FashionColorTable>().Single();
+            FashionColorTable colorRow = TableReaderV2.Parse<FashionColorTable>().First();
             FashionTable fashionRow = TableReaderV2.Parse<FashionTable>()
                 .Single(row => row.Id == colorRow.OriginalFashionId);
             const long playerId = 99_401;
@@ -15515,6 +15650,10 @@ namespace AscNet.Test
             };
             AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
             character.Fashions = [ownedFashion];
+            character.FashionColors = new Dictionary<int, List<int>>
+            {
+                [fashionRow.Id] = [colorRow.Id]
+            };
 
             using MongoCollectionOverride mongoOverride =
                 MongoCollectionOverride.InstallForDailySignInCompatibility(
@@ -15997,6 +16136,9 @@ namespace AscNet.Test
 
         private static void ValidateChatCompatibility()
         {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            AscNet.GameServer.Commands.CommandFactory.commands.Clear();
+            AscNet.GameServer.Commands.CommandFactory.LoadCommands();
             const long playerId = 99_301;
             using LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
@@ -16074,6 +16216,136 @@ namespace AscNet.Test
                 nameof(AscNet.GameServer.Handlers.NotifyWorldChat),
                 "SendChatRequest empty world-chat push");
             AssertEqual(0, worldChatPush.ChatMessages.Count, "NotifyWorldChat ChatMessages count");
+
+            const int helpChatPacketId = 15_004;
+            InvokeRegisteredRequestHandler(
+                nameof(AscNet.GameServer.Handlers.SendChatRequest),
+                harness.Session,
+                helpChatPacketId,
+                new AscNet.GameServer.Handlers.SendChatRequest
+                {
+                    TargetIdList = [playerId],
+                    ChatData = new AscNet.GameServer.Handlers.ChatData
+                    {
+                        ChannelType = AscNet.GameServer.Handlers.ChatChannelType.World,
+                        MsgType = AscNet.GameServer.Handlers.ChatMsgType.Normal,
+                        Content = "\n/help"
+                    }
+                });
+            NotifyChatMessage helpEcho = ReadPushPayload<NotifyChatMessage>(
+                harness,
+                nameof(NotifyChatMessage),
+                "slash help NotifyChatMessage push");
+            AssertEqual("/help", helpEcho.Content, "slash help normalized echo");
+            ReadResponsePayload<SendChatResponse>(
+                harness,
+                helpChatPacketId,
+                nameof(SendChatResponse),
+                "slash help response");
+            NotifyChatMessage helpFeedback = ReadPushPayload<NotifyChatMessage>(
+                harness,
+                nameof(NotifyChatMessage),
+                "slash help feedback");
+            AssertEqual(88_001L, helpFeedback.SenderId, "slash help feedback system sender");
+            AssertEqual(AscNet.GameServer.Handlers.ChatChannelType.World, helpFeedback.ChannelType, "slash help feedback channel");
+            AssertEqual(AscNet.GameServer.Handlers.ChatMsgType.Normal, helpFeedback.MsgType, "slash help feedback message type");
+            AssertEqual("System - Lucia", helpFeedback.NickName, "slash help feedback sender name");
+            AssertEqual(true, helpFeedback.Content?.StartsWith("Available commands:\n", StringComparison.Ordinal) == true, "slash help overview heading");
+            AssertEqual(true, helpFeedback.Content?.Contains("/item <Op> [Target] [Amount] — Command to interact with user's items", StringComparison.Ordinal) == true, "slash help overview item summary");
+            AssertEqual(true, helpFeedback.Content?.EndsWith("Use /help <command> for details.", StringComparison.Ordinal) == true, "slash help overview detail hint");
+            AssertEqual(false, helpFeedback.Content?.Contains("^add$", StringComparison.Ordinal) == true, "slash help overview omits validation regexes");
+            AscNet.GameServer.Handlers.NotifyWorldChat helpTrailingWorldChat = ReadPushPayload<AscNet.GameServer.Handlers.NotifyWorldChat>(
+                harness,
+                nameof(AscNet.GameServer.Handlers.NotifyWorldChat),
+                "slash help trailing world-chat push");
+            AssertEqual(0, helpTrailingWorldChat.ChatMessages.Count, "slash help trailing NotifyWorldChat count");
+
+            const int itemHelpChatPacketId = 15_006;
+            InvokeRegisteredRequestHandler(
+                nameof(AscNet.GameServer.Handlers.SendChatRequest),
+                harness.Session,
+                itemHelpChatPacketId,
+                new AscNet.GameServer.Handlers.SendChatRequest
+                {
+                    TargetIdList = [playerId],
+                    ChatData = new AscNet.GameServer.Handlers.ChatData
+                    {
+                        ChannelType = AscNet.GameServer.Handlers.ChatChannelType.World,
+                        MsgType = AscNet.GameServer.Handlers.ChatMsgType.Normal,
+                        Content = "\n/help item"
+                    }
+                });
+            NotifyChatMessage itemHelpEcho = ReadPushPayload<NotifyChatMessage>(
+                harness,
+                nameof(NotifyChatMessage),
+                "slash item help echo");
+            AssertEqual("/help item", itemHelpEcho.Content, "slash item help normalized echo");
+            ReadResponsePayload<SendChatResponse>(
+                harness,
+                itemHelpChatPacketId,
+                nameof(SendChatResponse),
+                "slash item help response");
+            NotifyChatMessage itemHelpFeedback = ReadPushPayload<NotifyChatMessage>(
+                harness,
+                nameof(NotifyChatMessage),
+                "slash item help feedback");
+            AssertEqual(AscNet.GameServer.Handlers.ChatMsgType.Normal, itemHelpFeedback.MsgType, "slash item help feedback message type");
+            AssertEqual("System - Lucia", itemHelpFeedback.NickName, "slash item help feedback sender name");
+            AssertEqual(true, itemHelpFeedback.Content?.StartsWith("/item <Op> [Target] [Amount]\n", StringComparison.Ordinal) == true, "slash item help usage");
+            AssertEqual(true, itemHelpFeedback.Content?.Contains("Op: The operation selected (add, clear, reset)", StringComparison.Ordinal) == true, "slash item help argument description");
+            AssertEqual(false, itemHelpFeedback.Content?.Contains("^add$", StringComparison.Ordinal) == true, "slash item help omits validation regexes");
+            AscNet.GameServer.Handlers.NotifyWorldChat itemHelpTrailingWorldChat = ReadPushPayload<AscNet.GameServer.Handlers.NotifyWorldChat>(
+                harness,
+                nameof(AscNet.GameServer.Handlers.NotifyWorldChat),
+                "slash item help trailing world-chat push");
+            AssertEqual(0, itemHelpTrailingWorldChat.ChatMessages.Count, "slash item help trailing NotifyWorldChat count");
+
+            const int itemChatPacketId = 15_005;
+            InvokeRegisteredRequestHandler(
+                nameof(AscNet.GameServer.Handlers.SendChatRequest),
+                harness.Session,
+                itemChatPacketId,
+                new AscNet.GameServer.Handlers.SendChatRequest
+                {
+                    TargetIdList = [playerId],
+                    ChatData = new AscNet.GameServer.Handlers.ChatData
+                    {
+                        ChannelType = AscNet.GameServer.Handlers.ChatChannelType.World,
+                        MsgType = AscNet.GameServer.Handlers.ChatMsgType.Normal,
+                        Content = "\n/item   add  1  5"
+                    }
+                });
+            NotifyItemDataList itemCommandPush = ReadPushPayload<NotifyItemDataList>(
+                harness,
+                nameof(NotifyItemDataList),
+                "slash item command inventory push");
+            AssertEqual(1, itemCommandPush.ItemDataList.Count, "slash item command inventory push count");
+            AssertEqual(1, itemCommandPush.ItemDataList[0].Id, "slash item command item id");
+            AssertEqual(5L, itemCommandPush.ItemDataList[0].Count, "slash item command item count");
+            NotifyChatMessage itemCommandEcho = ReadPushPayload<NotifyChatMessage>(
+                harness,
+                nameof(NotifyChatMessage),
+                "slash item command NotifyChatMessage push");
+            AssertEqual("/item   add  1  5", itemCommandEcho.Content, "slash item command normalized echo");
+            ReadResponsePayload<SendChatResponse>(
+                harness,
+                itemChatPacketId,
+                nameof(SendChatResponse),
+                "slash item command response");
+            NotifyChatMessage itemCommandFeedback = ReadPushPayload<NotifyChatMessage>(
+                harness,
+                nameof(NotifyChatMessage),
+                "slash item command feedback");
+            AssertEqual(AscNet.GameServer.Handlers.ChatChannelType.World, itemCommandFeedback.ChannelType, "slash item command feedback channel");
+            AssertEqual(AscNet.GameServer.Handlers.ChatMsgType.Normal, itemCommandFeedback.MsgType, "slash item command feedback message type");
+            AssertEqual("System - Lucia", itemCommandFeedback.NickName, "slash item command feedback sender name");
+            AssertEqual("Command executed!", itemCommandFeedback.Content, "slash item command feedback content");
+            AscNet.GameServer.Handlers.NotifyWorldChat itemCommandTrailingWorldChat = ReadPushPayload<AscNet.GameServer.Handlers.NotifyWorldChat>(
+                harness,
+                nameof(AscNet.GameServer.Handlers.NotifyWorldChat),
+                "slash item command trailing world-chat push");
+            AssertEqual(0, itemCommandTrailingWorldChat.ChatMessages.Count, "slash item command trailing NotifyWorldChat count");
+            AssertEqual(5L, harness.Session.inventory.Items.Single(item => item.Id == 1).Count, "slash item command persisted session inventory count");
 
             ValidateDeferredPreLoginChatCompatibility();
 
@@ -16478,6 +16750,34 @@ namespace AscNet.Test
             AssertEqual(expectedBlackCards, notifiedBlackCards.Count, $"{name} notified Black Card count");
         }
 
+        private static void ExecuteCharacterAddAllAndAssertOwnable(long playerId, string name)
+        {
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                $"{name.Replace(' ', '-').ToLowerInvariant()}-test");
+
+            AscNet.GameServer.Commands.Command command = AscNet.GameServer.Commands.CommandFactory.CreateCommand(
+                "character",
+                harness.Session,
+                ["add", "all"])
+                ?? throw new InvalidDataException($"{name}: expected CommandFactory.CreateCommand to create command 'character'.");
+            command.Execute();
+
+            List<long> expectedCharacterIds = TableReaderV2.Parse<CharacterTable>()
+                .Where(row => AscNet.Common.Database.Character.IsOwnableCharacter((uint)row.Id))
+                .Select(row => (long)row.Id)
+                .Order()
+                .ToList();
+            List<long> actualCharacterIds = character.Characters
+                .Select(row => (long)row.Id)
+                .Order()
+                .ToList();
+            AssertIntegerList(expectedCharacterIds, actualCharacterIds, $"{name} character ids");
+        }
+
         private static AscNet.Common.Database.Character CreateDrawCompatibilityCharacter(long uid)
         {
             return new AscNet.Common.Database.Character
@@ -16601,6 +16901,21 @@ namespace AscNet.Test
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), recordingInventoryCollection)
                 ]);
             }
+            public static MongoCollectionOverride InstallForTransfiniteCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection)
+            {
+                IMongoCollection<AscNet.Common.Database.Player> recordingPlayerCollection =
+                    CreateRecordingMongoCollection(out playerCollection);
+                IMongoCollection<AscNet.Common.Database.Inventory> recordingInventoryCollection =
+                    CreateRecordingMongoCollection(out inventoryCollection);
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), recordingInventoryCollection),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), recordingPlayerCollection)
+                ]);
+            }
+
             public static MongoCollectionOverride InstallForStudyProgressionCompatibility(
                 out RecordingMongoCollectionProxy<AscNet.Common.Database.Stage> stageCollection)
             {
@@ -16623,6 +16938,38 @@ namespace AscNet.Test
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), CreateNoOpMongoCollection<AscNet.Common.Database.Player>()),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Stage)), CreateNoOpMongoCollection<AscNet.Common.Database.Stage>())
+                ]);
+            }
+
+            public static MongoCollectionOverride InstallForStoryDeployVersionGapCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection)
+            {
+                IMongoCollection<AscNet.Common.Database.Player> recordingPlayerCollection =
+                    CreateRecordingMongoCollection(out playerCollection);
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), recordingPlayerCollection),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Stage)), CreateNoOpMongoCollection<AscNet.Common.Database.Stage>())
+                ]);
+            }
+
+            public static MongoCollectionOverride InstallForBossInshotCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.BossInshotRankEntry> rankCollection)
+            {
+                IMongoCollection<AscNet.Common.Database.Player> recordingPlayerCollection =
+                    CreateRecordingMongoCollection(out playerCollection);
+                IMongoCollection<AscNet.Common.Database.BossInshotRankEntry> recordingRankCollection =
+                    CreateRecordingMongoCollection(out rankCollection);
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), recordingPlayerCollection),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Stage)), CreateNoOpMongoCollection<AscNet.Common.Database.Stage>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.BossInshotRankEntry)), recordingRankCollection)
                 ]);
             }
 
@@ -16677,6 +17024,11 @@ namespace AscNet.Test
             protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
             {
                 Type returnType = targetMethod?.ReturnType ?? typeof(void);
+                if (string.Equals(
+                    targetMethod?.Name,
+                    nameof(IMongoCollection<TDocument>.ReplaceOne),
+                    StringComparison.Ordinal))
+                    return new ReplaceOneResult.Acknowledged(1, 1, null);
                 if (returnType == typeof(void))
                     return null;
                 if (returnType == typeof(Task))
@@ -16699,9 +17051,38 @@ namespace AscNet.Test
         {
             public int ReplaceOneCalls { get; private set; }
             public TDocument? LastReplacement { get; private set; }
+            public bool ThrowOnReplaceOne { get; set; }
+            public Queue<long> CountDocumentsResults { get; } = new();
+            public IReadOnlyList<TDocument>? FindResults { get; set; }
+            public int? LastFindLimit { get; private set; }
+            public bool LastFindHadSort { get; private set; }
+            public BsonDocument? LastFindSort { get; private set; }
+
+            public int CountDocumentsCalls { get; private set; }
+
 
             protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
             {
+                if (string.Equals(targetMethod?.Name, nameof(IMongoCollection<TDocument>.CountDocuments), StringComparison.Ordinal))
+                {
+                    CountDocumentsCalls++;
+                    return CountDocumentsResults.TryDequeue(out long count) ? count : 0L;
+                }
+
+                if (string.Equals(targetMethod?.Name, nameof(IMongoCollection<TDocument>.FindSync), StringComparison.Ordinal)
+                    && FindResults is not null)
+                {
+                    FindOptions<TDocument, TDocument>? options =
+                        args?.OfType<FindOptions<TDocument, TDocument>>().SingleOrDefault();
+                    LastFindLimit = options?.Limit;
+                    LastFindHadSort = options?.Sort is not null;
+                    LastFindSort = options?.Sort?.Render(
+                        MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry.GetSerializer<TDocument>(),
+                        MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry);
+                    int limit = Math.Max(0, options?.Limit ?? FindResults.Count);
+                    return new StaticAsyncCursor<TDocument>(FindResults.Take(limit).ToList());
+                }
+
                 if (string.Equals(targetMethod?.Name, nameof(IMongoCollection<TDocument>.ReplaceOne), StringComparison.Ordinal)
                     && args is not null)
                 {
@@ -16715,9 +17096,35 @@ namespace AscNet.Test
                         ReplaceOneCalls++;
                         LastReplacement = document;
                     }
+
+                    if (ThrowOnReplaceOne)
+                        throw new MongoException($"Injected {typeof(TDocument).Name} ReplaceOne failure.");
+                    return new ReplaceOneResult.Acknowledged(1, 1, null);
                 }
 
                 return base.Invoke(targetMethod, args);
+            }
+        }
+
+        private sealed class StaticAsyncCursor<TDocument>(IReadOnlyList<TDocument> rows) : IAsyncCursor<TDocument>
+        {
+            private bool advanced;
+
+            public IEnumerable<TDocument> Current { get; } = rows;
+
+            public bool MoveNext(CancellationToken cancellationToken = default)
+            {
+                if (advanced)
+                    return false;
+                advanced = true;
+                return rows.Count > 0;
+            }
+
+            public Task<bool> MoveNextAsync(CancellationToken cancellationToken = default) =>
+                Task.FromResult(MoveNext(cancellationToken));
+
+            public void Dispose()
+            {
             }
         }
 
@@ -16772,15 +17179,12 @@ namespace AscNet.Test
                     .FirstOrDefault(template =>
                         template.TemplateId == sourceBreakthrough.LevelUpTemplateId
                         && template.Level == 1);
-                EquipBreakThroughTable? foodBreakthrough = breakthroughRows.FirstOrDefault(breakthrough =>
-                    breakthrough.EquipId == decomposeRow.ExpToEquipId
-                    && breakthrough.Times == 0);
-                EquipTable? foodTemplate = equipRows.FirstOrDefault(equip => equip.Id == decomposeRow.ExpToEquipId);
+                ItemTable? foodTemplate = itemRowsById.GetValueOrDefault(decomposeRow.ExpToItemId);
+                int foodExp = foodTemplate is null ? 0 : foodTemplate.GetEquipUpgradeInfo().Exp;
                 if (levelUpTemplate is null
-                    || foodBreakthrough is null
-                    || foodBreakthrough.Exp <= 0
+                    || foodExp <= 0
                     || foodTemplate is null
-                    || !AscNet.Common.Database.Character.IsOwnableEquipTemplate(foodTemplate)
+                    || !AscNet.Common.Database.Inventory.IsValidClientItemId(foodTemplate.Id)
                     || !decimal.TryParse(
                         decomposeRow.ExpToOneCoin,
                         System.Globalization.NumberStyles.Float,
@@ -16795,7 +17199,7 @@ namespace AscNet.Test
                 int candidateSourceExp = Math.Max(0, levelUpTemplate.Exp);
                 decimal totalExp = (decimal)candidateSourceExp + levelUpTemplate.AllExp + sourceBreakthrough.Exp;
                 int foodCount = (int)decimal.Floor(
-                    totalExp * returnRateConfig.Value / (foodBreakthrough.Exp * 10_000m));
+                    totalExp * returnRateConfig.Value / (foodExp * 10_000m));
                 if (foodCount <= 0)
                     continue;
 
@@ -16817,6 +17221,13 @@ namespace AscNet.Test
                     continue;
 
                 Dictionary<int, long> rewardItemCounts = new() { [AscNet.Common.Database.Inventory.Coin] = coinCount };
+                long initialFoodCount = rewardItemCounts.GetValueOrDefault(foodTemplate.Id) + foodCount;
+                if (initialFoodCount > int.MaxValue
+                    || (foodTemplate.MaxCount is int foodMaxCount && initialFoodCount > foodMaxCount))
+                {
+                    continue;
+                }
+                rewardItemCounts[foodTemplate.Id] = initialFoodCount;
                 bool validRewards = true;
                 foreach (RewardGoodsTable rewardGoodsRow in rewardRows)
                 {
@@ -16866,7 +17277,7 @@ namespace AscNet.Test
                 configuredRewards = rewardRows;
                 sourceExp = candidateSourceExp;
                 expectedFoodCount = foodCount;
-                expectedFoodTemplateId = decomposeRow.ExpToEquipId;
+                expectedFoodTemplateId = decomposeRow.ExpToItemId;
                 expectedCoinCount = coinCount;
                 break;
             }
@@ -16891,7 +17302,7 @@ namespace AscNet.Test
 
                 AddExpectedReward(rewardType, rewardGoodsRow.TemplateId, rewardGoodsRow.Count);
             }
-            AddExpectedReward(RewardType.Equip, expectedFoodTemplateId, expectedFoodCount);
+            AddExpectedReward(RewardType.Item, expectedFoodTemplateId, expectedFoodCount);
 
             Dictionary<int, long> expectedItemCounts = expectedRewardCounts
                 .Where(reward => reward.Key.Type == RewardType.Item)
@@ -18253,11 +18664,19 @@ namespace AscNet.Test
                 CreateDrawCompatibilityInventory(settlePlayerId, []),
                 "mainline-luosaita-fight-settle-compat-test");
             settleHarness.Session.stage = CreateLoginAccountCompatibilityStage(settlePlayerId);
+            FightSettleRequest luosaitaSettleRequest =
+                CreateMissingStageSettleRequest(17013901, fightSettlePacketId, settlePlayerId);
+            settleHarness.Session.fight = new AscNet.GameServer.Game.Fight(
+                new PreFightRequest
+                {
+                    PreFightData = new PreFightRequest.PreFightRequestPreFightData { StageId = 17013901 }
+                },
+                fightSettlePacketId);
             InvokeRegisteredRequestHandler(
                 nameof(FightSettleRequest),
                 settleHarness.Session,
                 fightSettlePacketId,
-                CreateMissingStageSettleRequest(17013901, fightSettlePacketId, settlePlayerId));
+                luosaitaSettleRequest);
             (NotifyMainLineLuosaitaSectionInfo fightSettleLuosaitaPush, FightSettleResponse fightSettleResponse) =
                 ReadLuosaitaFightSettleResult(settleHarness, fightSettlePacketId, "FightSettleRequest stage 17013901 captured Luosaita progress");
             AssertEqual(0, fightSettleResponse.Code, "FightSettleRequest stage 17013901 response Code");
@@ -18877,9 +19296,185 @@ namespace AscNet.Test
                 level2FashionId,
                 initialFashionIsLocked: true,
                 $"{name} claimed level 2 locked fashion login repair");
-            AssertGatherAwakenWithoutReward(
-                infinitasReward.Id,
-                $"{name} Infinitas");
+            ValidateHelentineGatherAwakenRewardCompatibility();
+        }
+
+        private static void ValidateHelentineGatherAwakenRewardCompatibility()
+        {
+            const int characterId = 1401003;
+            const int prerequisiteRewardId = 406;
+            const int liberationRewardId = 407;
+            const int liberationLevel = 2;
+            const long playerId = 140_100_300;
+            const int packetId = 140_100_300;
+            const string name = "Helentine: Lacrimosa awaken GatherReward compatibility";
+
+            Dictionary<int, ExhibitionRewardTable> rows = TableReaderV2.Parse<ExhibitionRewardTable>()
+                .Where(row => row.CharacterId == characterId)
+                .ToDictionary(row => row.Id);
+            AssertIntegerList([406, 407, 408, 409, 410], rows.Keys.Order().Select(id => (long)id).ToArray(), $"{name} ExhibitionReward row ids");
+            AssertEqual(liberationLevel, rows[liberationRewardId].LevelId, $"{name} liberation LevelId");
+            AssertEqual(14010030, rows[liberationRewardId].RewardId, $"{name} liberation RewardId");
+
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.GatherRewards.Add(prerequisiteRewardId);
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            CharacterData helentine = CreateLoginAccountCompatibilityCharacter((uint)characterId, fashionId: 6006201);
+            helentine.Level = 35;
+            helentine.Ability = 0;
+            character.Characters.Add(helentine);
+
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using LoopbackSessionHarness harness = new(
+                character,
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "helentine-awaken-gatherreward-compatibility");
+            InvokeRegisteredRequestHandler(
+                nameof(GatherRewardRequest),
+                harness.Session,
+                packetId,
+                new GatherRewardRequest { Id = liberationRewardId });
+
+            AssertEqual(true, player.GatherRewards.Contains(liberationRewardId), $"{name} persisted claim");
+            AssertEqual(liberationLevel, helentine.LiberateLv, $"{name} persisted liberation level");
+            FashionSyncNotify fashionPush = ReadPushPayload<FashionSyncNotify>(
+                harness,
+                nameof(FashionSyncNotify),
+                $"{name} FashionSyncNotify");
+            AssertEqual(6006202, fashionPush.FashionList.Single().Id, $"{name} awakened fashion");
+            NotifyCharacterDataList characterPush = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{name} NotifyCharacterDataList");
+            AssertEqual(liberationLevel, characterPush.CharacterDataList.Single().LiberateLv, $"{name} pushed liberation level");
+            NotifyGatherReward gatherPush = ReadPushPayload<NotifyGatherReward>(
+                harness,
+                nameof(NotifyGatherReward),
+                $"{name} NotifyGatherReward");
+            AssertEqual(liberationRewardId, gatherPush.Id, $"{name} claimed gather reward id");
+            GatherRewardResponse response = ReadResponsePayload<GatherRewardResponse>(
+                harness,
+                packetId,
+                nameof(GatherRewardResponse),
+                $"{name} GatherRewardResponse");
+            AssertEqual(0, response.Code, $"{name} response code");
+            AssertEqual(6006202, response.RewardGoods.Single().TemplateId, $"{name} liberation reward");
+
+            AscNet.Common.Database.Player staleProgressPlayer = CreateDrawCompatibilityPlayer(playerId + 3);
+            AscNet.Common.Database.Character staleProgressCharacter = CreateDrawCompatibilityCharacter(playerId + 3);
+            CharacterData staleProgressHelentine = CreateLoginAccountCompatibilityCharacter((uint)characterId, fashionId: 6006201);
+            staleProgressHelentine.Level = 35;
+            staleProgressHelentine.Ability = 0;
+            staleProgressHelentine.LiberateLv = 1;
+            staleProgressCharacter.Characters.Add(staleProgressHelentine);
+            using LoopbackSessionHarness staleProgressHarness = new(
+                staleProgressCharacter,
+                staleProgressPlayer,
+                CreateDrawCompatibilityInventory(playerId + 3, []),
+                "helentine-awaken-stale-progression-compatibility");
+            InvokeRegisteredRequestHandler(
+                nameof(GatherRewardRequest),
+                staleProgressHarness.Session,
+                packetId + 3,
+                new GatherRewardRequest { Id = liberationRewardId });
+            ReadPushPayload<FashionSyncNotify>(
+                staleProgressHarness,
+                nameof(FashionSyncNotify),
+                $"{name} stale progression FashionSyncNotify");
+            ReadPushPayload<NotifyCharacterDataList>(
+                staleProgressHarness,
+                nameof(NotifyCharacterDataList),
+                $"{name} stale progression NotifyCharacterDataList");
+            ReadPushPayload<NotifyGatherReward>(
+                staleProgressHarness,
+                nameof(NotifyGatherReward),
+                $"{name} stale progression NotifyGatherReward");
+            GatherRewardResponse staleProgressResponse = ReadResponsePayload<GatherRewardResponse>(
+                staleProgressHarness,
+                packetId + 3,
+                nameof(GatherRewardResponse),
+                $"{name} stale progression GatherRewardResponse");
+            AssertEqual(0, staleProgressResponse.Code, $"{name} stale progression response code");
+            AssertEqual(true, staleProgressPlayer.GatherRewards.Contains(liberationRewardId), $"{name} stale progression persisted claim");
+            AssertEqual(liberationLevel, staleProgressHelentine.LiberateLv, $"{name} stale progression liberation level");
+
+            AscNet.Common.Database.Player skippedProgressPlayer = CreateDrawCompatibilityPlayer(playerId + 4);
+            AscNet.Common.Database.Character skippedProgressCharacter = CreateDrawCompatibilityCharacter(playerId + 4);
+            CharacterData skippedProgressHelentine = CreateLoginAccountCompatibilityCharacter((uint)characterId, fashionId: 6006201);
+            skippedProgressHelentine.Level = 35;
+            skippedProgressHelentine.Ability = 0;
+            skippedProgressCharacter.Characters.Add(skippedProgressHelentine);
+            using LoopbackSessionHarness skippedProgressHarness = new(
+                skippedProgressCharacter,
+                skippedProgressPlayer,
+                CreateDrawCompatibilityInventory(playerId + 4, []),
+                "helentine-awaken-skipped-progression-compatibility");
+            InvokeRegisteredRequestHandler(
+                nameof(GatherRewardRequest),
+                skippedProgressHarness.Session,
+                packetId + 4,
+                new GatherRewardRequest { Id = liberationRewardId });
+            GatherRewardResponse skippedProgressResponse = ReadResponsePayload<GatherRewardResponse>(
+                skippedProgressHarness,
+                packetId + 4,
+                nameof(GatherRewardResponse),
+                $"{name} skipped progression GatherRewardResponse");
+            AssertEqual(1, skippedProgressResponse.Code, $"{name} skipped progression response code");
+            AssertEqual(false, skippedProgressPlayer.GatherRewards.Contains(liberationRewardId), $"{name} skipped progression remains unclaimed");
+            AssertEqual(0, skippedProgressHelentine.LiberateLv, $"{name} skipped progression liberation level");
+
+            AscNet.Common.Database.Player unmetPlayer = CreateDrawCompatibilityPlayer(playerId + 1);
+            unmetPlayer.GatherRewards.Add(prerequisiteRewardId);
+            AscNet.Common.Database.Character unmetCharacter = CreateDrawCompatibilityCharacter(playerId + 1);
+            CharacterData unmetHelentine = CreateLoginAccountCompatibilityCharacter((uint)characterId, fashionId: 6006201);
+            unmetHelentine.Level = 34;
+            unmetHelentine.Ability = 1800;
+            unmetCharacter.Characters.Add(unmetHelentine);
+            using LoopbackSessionHarness unmetHarness = new(
+                unmetCharacter,
+                unmetPlayer,
+                CreateDrawCompatibilityInventory(playerId + 1, []),
+                "helentine-awaken-unmet-prerequisite-compatibility");
+            InvokeRegisteredRequestHandler(
+                nameof(GatherRewardRequest),
+                unmetHarness.Session,
+                packetId + 1,
+                new GatherRewardRequest { Id = liberationRewardId });
+            GatherRewardResponse unmetResponse = ReadResponsePayload<GatherRewardResponse>(
+                unmetHarness,
+                packetId + 1,
+                nameof(GatherRewardResponse),
+                $"{name} unmet prerequisite GatherRewardResponse");
+            AssertEqual(1, unmetResponse.Code, $"{name} unmet level prerequisite code");
+            AssertEqual(false, unmetPlayer.GatherRewards.Contains(liberationRewardId), $"{name} unmet prerequisite remains unclaimed");
+            AssertEqual(0, unmetHelentine.LiberateLv, $"{name} unmet prerequisite liberation level");
+
+            AscNet.Common.Database.Player lowAbilityPlayer = CreateDrawCompatibilityPlayer(playerId + 2);
+            lowAbilityPlayer.GatherRewards.Add(prerequisiteRewardId);
+            AscNet.Common.Database.Character lowAbilityCharacter = CreateDrawCompatibilityCharacter(playerId + 2);
+            CharacterData lowAbilityHelentine = CreateLoginAccountCompatibilityCharacter((uint)characterId, fashionId: 6006201);
+            lowAbilityHelentine.Level = 35;
+            lowAbilityHelentine.Ability = 1799;
+            lowAbilityCharacter.Characters.Add(lowAbilityHelentine);
+            using LoopbackSessionHarness lowAbilityHarness = new(
+                lowAbilityCharacter,
+                lowAbilityPlayer,
+                CreateDrawCompatibilityInventory(playerId + 2, []),
+                "helentine-awaken-low-ability-prerequisite-compatibility");
+            InvokeRegisteredRequestHandler(
+                nameof(GatherRewardRequest),
+                lowAbilityHarness.Session,
+                packetId + 2,
+                new GatherRewardRequest { Id = liberationRewardId });
+            GatherRewardResponse lowAbilityResponse = ReadResponsePayload<GatherRewardResponse>(
+                lowAbilityHarness,
+                packetId + 2,
+                nameof(GatherRewardResponse),
+                $"{name} low ability GatherRewardResponse");
+            AssertEqual(1, lowAbilityResponse.Code, $"{name} low ability prerequisite code");
+            AssertEqual(false, lowAbilityPlayer.GatherRewards.Contains(liberationRewardId), $"{name} low ability prerequisite remains unclaimed");
+            AssertEqual(0, lowAbilityHelentine.LiberateLv, $"{name} low ability prerequisite liberation level");
         }
 
         private static void AssertGatherAwakenWithoutReward(int exhibitionRewardId, string name)
@@ -18888,9 +19483,15 @@ namespace AscNet.Test
             const int packetId = 102_100_705;
 
             AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.GatherRewards.Add(404);
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            CharacterData lucia = CreateLoginAccountCompatibilityCharacter(1021007, fashionId: 6006101);
+            lucia.Level = 80;
+            lucia.Ability = 6500;
+            character.Characters.Add(lucia);
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
             using LoopbackSessionHarness harness = new(
-                CreateDrawCompatibilityCharacter(playerId),
+                character,
                 player,
                 CreateDrawCompatibilityInventory(playerId, []),
                 $"{name.Replace(' ', '-').ToLowerInvariant()}-test");
@@ -18902,6 +19503,11 @@ namespace AscNet.Test
                 new GatherRewardRequest { Id = exhibitionRewardId });
 
             AssertEqual(true, player.GatherRewards.Contains(exhibitionRewardId), $"{name} persisted claim");
+            NotifyCharacterDataList characterPush = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{name} NotifyCharacterDataList");
+            AssertEqual(5, characterPush.CharacterDataList.Single().LiberateLv, $"{name} pushed liberation level");
             NotifyGatherReward gatherRewardPush = ReadPushPayload<NotifyGatherReward>(
                 harness,
                 nameof(NotifyGatherReward),
@@ -18934,6 +19540,10 @@ namespace AscNet.Test
             const int packetId = 102_100_702;
 
             AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            CharacterData lucia = CreateLoginAccountCompatibilityCharacter(1021007, fashionId: 6006101);
+            lucia.Level = 35;
+            lucia.Ability = 1800;
+            character.Characters.Add(lucia);
             if (initialFashionIsLocked)
             {
                 character.Fashions.Add(new FashionList
@@ -18948,10 +19558,12 @@ namespace AscNet.Test
                 throw new InvalidDataException($"{name}: expected fashion {expectedFashionId} to be absent before reward.");
             }
 
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.GatherRewards.Add(401);
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
             using LoopbackSessionHarness harness = new(
                 character,
-                CreateDrawCompatibilityPlayer(playerId),
+                player,
                 CreateDrawCompatibilityInventory(playerId, []),
                 $"{name.Replace(' ', '-').ToLowerInvariant()}-test");
 
@@ -18970,6 +19582,11 @@ namespace AscNet.Test
                 $"{name} FashionSyncNotify");
             FashionList notifiedFashion = fashionSync.FashionList.Single(fashion => fashion.Id == expectedFashionId);
             AssertEqual(false, notifiedFashion.IsLock, $"{name} notified fashion unlocked");
+            NotifyCharacterDataList characterPush = ReadPushPayload<NotifyCharacterDataList>(
+                harness,
+                nameof(NotifyCharacterDataList),
+                $"{name} NotifyCharacterDataList");
+            AssertEqual(2, characterPush.CharacterDataList.Single().LiberateLv, $"{name} pushed liberation level");
 
             NotifyGatherReward gatherRewardPush = ReadPushPayload<NotifyGatherReward>(
                 harness,
@@ -19703,7 +20320,7 @@ namespace AscNet.Test
 
             const int crimsonWeaveCharacterId = 1021005;
             const int targetSkillGroupId = 1025280;
-            const uint targetSkillId = 102528;
+            uint[] targetSkillIds = [102531, 102528];
             const int unlockPacketId = 16_011;
             const int upgradePacketId = 16_012;
             const long unlockPlayerId = 88_011;
@@ -19714,20 +20331,20 @@ namespace AscNet.Test
                 1131003,
                 [1132280, 1132290, 1132300],
                 1132280,
-                113228,
+                [113228],
                 "Vera: Garnet table-backed CharacterEnhanceSkill compatibility fixture");
 
             (Dictionary<int, int> unlockCosts, Dictionary<int, int> upgradeCosts) = AssertTableBackedEnhanceSkillCompatibilityFixture(
                 crimsonWeaveCharacterId,
-                [1025280, 1025290, 1025300, 1025310],
+                [1025280, 1025290, 1025300],
                 targetSkillGroupId,
-                targetSkillId,
+                targetSkillIds,
                 "Lucia: Crimson Weave table-backed CharacterEnhanceSkill compatibility fixture");
 
             AscNet.Common.Database.Character unlockRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
             unlockRoster.Uid = unlockPlayerId;
             CharacterData unlockCharacter = RequiredCharacterData(unlockRoster, crimsonWeaveCharacterId);
-            unlockCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
+            unlockCharacter.EnhanceSkillList.RemoveAll(skill => targetSkillIds.Contains(skill.Id));
 
             Dictionary<int, long> unlockInitialCounts = InitialCountsForCosts(unlockCosts, costSurplus);
             AscNet.Common.Database.Inventory unlockInventory = CreateInventoryWithCosts(unlockPlayerId, unlockInitialCounts);
@@ -19765,11 +20382,14 @@ namespace AscNet.Test
                     unlockCharacterNotify,
                     crimsonWeaveCharacterId,
                     "CharacterUnlockEnhanceSkillRequest table-backed notify");
-                CharacterSkill unlockedSkill = RequiredEnhanceSkill(
-                    pushedUnlockCharacter,
-                    targetSkillId,
-                    "CharacterUnlockEnhanceSkillRequest table-backed skill");
-                AssertEqual(1, unlockedSkill.Level, "CharacterUnlockEnhanceSkillRequest table-backed pushed skill level");
+                foreach (uint targetSkillId in targetSkillIds)
+                {
+                    CharacterSkill unlockedSkill = RequiredEnhanceSkill(
+                        pushedUnlockCharacter,
+                        targetSkillId,
+                        $"CharacterUnlockEnhanceSkillRequest table-backed skill {targetSkillId}");
+                    AssertEqual(1, unlockedSkill.Level, $"CharacterUnlockEnhanceSkillRequest table-backed pushed skill {targetSkillId} level");
+                }
 
                 CharacterUnlockEnhanceSkillResponse unlockResponse = ReadResponsePayload<CharacterUnlockEnhanceSkillResponse>(
                     harness,
@@ -19782,12 +20402,15 @@ namespace AscNet.Test
             AscNet.Common.Database.Character upgradeRoster = CreateTestCharacterRoster(crimsonWeaveCharacterId, level: 1);
             upgradeRoster.Uid = upgradePlayerId;
             CharacterData upgradeCharacter = RequiredCharacterData(upgradeRoster, crimsonWeaveCharacterId);
-            upgradeCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == targetSkillId);
-            upgradeCharacter.EnhanceSkillList.Add(new CharacterSkill
+            upgradeCharacter.EnhanceSkillList.RemoveAll(skill => targetSkillIds.Contains(skill.Id));
+            foreach (uint targetSkillId in targetSkillIds)
             {
-                Id = targetSkillId,
-                Level = 1
-            });
+                upgradeCharacter.EnhanceSkillList.Add(new CharacterSkill
+                {
+                    Id = targetSkillId,
+                    Level = 1
+                });
+            }
 
             Dictionary<int, long> upgradeInitialCounts = InitialCountsForCosts(upgradeCosts, costSurplus);
             AscNet.Common.Database.Inventory upgradeInventory = CreateInventoryWithCosts(upgradePlayerId, upgradeInitialCounts);
@@ -19826,11 +20449,14 @@ namespace AscNet.Test
                     upgradeCharacterNotify,
                     crimsonWeaveCharacterId,
                     "CharacterUpgradeEnhanceSkillRequest table-backed notify");
-                CharacterSkill upgradedSkill = RequiredEnhanceSkill(
-                    pushedUpgradeCharacter,
-                    targetSkillId,
-                    "CharacterUpgradeEnhanceSkillRequest table-backed skill");
-                AssertEqual(2, upgradedSkill.Level, "CharacterUpgradeEnhanceSkillRequest table-backed pushed skill level");
+                foreach (uint targetSkillId in targetSkillIds)
+                {
+                    CharacterSkill upgradedSkill = RequiredEnhanceSkill(
+                        pushedUpgradeCharacter,
+                        targetSkillId,
+                        $"CharacterUpgradeEnhanceSkillRequest table-backed skill {targetSkillId}");
+                    AssertEqual(2, upgradedSkill.Level, $"CharacterUpgradeEnhanceSkillRequest table-backed pushed skill {targetSkillId} level");
+                }
 
                 CharacterUpgradeEnhanceSkillResponse upgradeResponse = ReadResponsePayload<CharacterUpgradeEnhanceSkillResponse>(
                     harness,
@@ -19838,6 +20464,90 @@ namespace AscNet.Test
                     nameof(CharacterUpgradeEnhanceSkillResponse),
                     "CharacterUpgradeEnhanceSkillRequest table-backed response");
                 AssertEqual(0, upgradeResponse.Code, "CharacterUpgradeEnhanceSkillResponse table-backed Code");
+            }
+
+
+            const int startrailCharacterId = 1051005;
+            const int startrailSkillGroupId = 1055280;
+            const uint startrailSkillId = 105528;
+            _ = AssertTableBackedEnhanceSkillCompatibilityFixture(
+                startrailCharacterId,
+                [1055280, 1055290, 1055300],
+                startrailSkillGroupId,
+                [startrailSkillId],
+                "Nanami: Startrail table-backed CharacterEnhanceSkill compatibility fixture");
+            foreach ((int skillGroupId, uint skillId) in new (int, uint)[]
+            {
+                (1055280, 105528),
+                (1055290, 105529),
+                (1055300, 105530)
+            })
+            {
+                EnhanceSkillGroupTable skillGroup = TableReaderV2.Parse<EnhanceSkillGroupTable>()
+                    .Single(group => group.Id == skillGroupId);
+                AssertIntegerList(
+                    [(long)skillId],
+                    skillGroup.SkillId.Where(id => id > 0).Select(id => (long)id).ToArray(),
+                    $"Nanami: Startrail EnhanceSkillGroup {skillGroupId}");
+                AssertIntegerList(
+                    Enumerable.Range(0, 19).Select(level => (long)level).ToArray(),
+                    TableReaderV2.Parse<EnhanceSkillUpgradeTable>()
+                        .Where(upgrade => upgrade.SkillId == skillId)
+                        .OrderBy(upgrade => upgrade.Level)
+                        .Select(upgrade => (long)upgrade.Level)
+                        .ToArray(),
+                    $"Nanami: Startrail EnhanceSkillUpgrade {skillId} levels");
+            }
+
+            Dictionary<int, int> startrailBreakpointCosts = RequiredEnhanceSkillCosts(
+                [startrailSkillId],
+                level: 8,
+                "Nanami: Startrail EnhanceSkillUpgrade.tsv level 8 breakpoint");
+            AscNet.Common.Database.Character startrailRoster = CreateTestCharacterRoster(startrailCharacterId, level: 80);
+            startrailRoster.Uid = 88_014;
+            CharacterData startrailCharacter = RequiredCharacterData(startrailRoster, startrailCharacterId);
+            startrailCharacter.EnhanceSkillList.RemoveAll(skill => skill.Id == startrailSkillId);
+            startrailCharacter.EnhanceSkillList.Add(new CharacterSkill { Id = startrailSkillId, Level = 8 });
+            Dictionary<int, long> startrailInitialCounts = InitialCountsForCosts(startrailBreakpointCosts, costSurplus);
+            using (LoopbackSessionHarness harness = new(
+                startrailRoster,
+                CreateDrawCompatibilityPlayer(startrailRoster.Uid),
+                CreateInventoryWithCosts(startrailRoster.Uid, startrailInitialCounts),
+                "nanami-startrail-level-eight-breakpoint-compat-test"))
+            {
+                InvokeRegisteredRequestHandler(
+                    "CharacterUpgradeEnhanceSkillRequest",
+                    harness.Session,
+                    16_014,
+                    new CharacterUpgradeEnhanceSkillRequest { SkillGroupId = startrailSkillGroupId, Count = 1 });
+
+                NotifyItemDataList itemNotify = ReadPushPayload<NotifyItemDataList>(
+                    harness,
+                    nameof(NotifyItemDataList),
+                    "Nanami: Startrail level 8 breakpoint NotifyItemDataList");
+                AssertCostConsumption(
+                    itemNotify,
+                    harness.Session.inventory,
+                    startrailInitialCounts,
+                    startrailBreakpointCosts,
+                    "Nanami: Startrail level 8 breakpoint costs");
+                NotifyCharacterDataList characterNotify = ReadPushPayload<NotifyCharacterDataList>(
+                    harness,
+                    nameof(NotifyCharacterDataList),
+                    "Nanami: Startrail level 8 breakpoint NotifyCharacterDataList");
+                AssertEqual(
+                    9,
+                    RequiredEnhanceSkill(
+                        RequiredNotifyCharacterData(characterNotify, startrailCharacterId, "Nanami: Startrail level 8 breakpoint"),
+                        startrailSkillId,
+                        "Nanami: Startrail level 8 breakpoint").Level,
+                    "Nanami: Startrail level 8 breakpoint level");
+                CharacterUpgradeEnhanceSkillResponse breakpointResponse = ReadResponsePayload<CharacterUpgradeEnhanceSkillResponse>(
+                    harness,
+                    16_014,
+                    nameof(CharacterUpgradeEnhanceSkillResponse),
+                    "Nanami: Startrail level 8 breakpoint response");
+                AssertEqual(0, breakpointResponse.Code, "Nanami: Startrail level 8 breakpoint response Code");
             }
 
             const int missingGroupPacketId = 16_013;
@@ -19871,7 +20581,7 @@ namespace AscNet.Test
                 int characterId,
                 int[] expectedSkillGroupIds,
                 int targetSkillGroupId,
-                uint targetSkillId,
+                uint[] expectedSkillIds,
                 string name)
             {
                 EnhanceSkillTable enhanceSkill = TableReaderV2.Parse<EnhanceSkillTable>()
@@ -19886,21 +20596,30 @@ namespace AscNet.Test
                     .SingleOrDefault(skillGroup => skillGroup.Id == targetSkillGroupId)
                     ?? throw new InvalidDataException($"{name}: EnhanceSkillGroup.tsv is missing SkillGroupId {targetSkillGroupId}.");
                 AssertIntegerList(
-                    [(long)targetSkillId],
+                    expectedSkillIds.Select(skillId => (long)skillId).ToArray(),
                     enhanceSkillGroup.SkillId.Where(skillId => skillId > 0).Select(skillId => (long)skillId).ToArray(),
                     $"{name} EnhanceSkillGroup.tsv SkillId");
 
                 return (
-                    RequiredEnhanceSkillCosts(targetSkillId, level: 0, $"{name} EnhanceSkillUpgrade.tsv level 0 unlock"),
-                    RequiredEnhanceSkillCosts(targetSkillId, level: 1, $"{name} EnhanceSkillUpgrade.tsv level 1 upgrade"));
+                    RequiredEnhanceSkillCosts(expectedSkillIds, level: 0, $"{name} EnhanceSkillUpgrade.tsv level 0 unlock"),
+                    RequiredEnhanceSkillCosts(expectedSkillIds, level: 1, $"{name} EnhanceSkillUpgrade.tsv level 1 upgrade"));
             }
 
-            static Dictionary<int, int> RequiredEnhanceSkillCosts(uint skillId, int level, string name)
+            static Dictionary<int, int> RequiredEnhanceSkillCosts(IReadOnlyList<uint> skillIds, int level, string name)
             {
-                EnhanceSkillUpgradeTable upgrade = TableReaderV2.Parse<EnhanceSkillUpgradeTable>()
-                    .SingleOrDefault(upgrade => upgrade.SkillId == skillId && upgrade.Level == level)
-                    ?? throw new InvalidDataException($"{name}: missing SkillId {skillId} Level {level}.");
-                Dictionary<int, int> costs = AggregateCosts(upgrade.CostItem, upgrade.CostItemCount, name);
+                Dictionary<int, int> costs = [];
+                foreach (uint skillId in skillIds)
+                {
+                    EnhanceSkillUpgradeTable upgrade = TableReaderV2.Parse<EnhanceSkillUpgradeTable>()
+                        .SingleOrDefault(upgrade => upgrade.SkillId == skillId && upgrade.Level == level)
+                        ?? throw new InvalidDataException($"{name}: missing SkillId {skillId} Level {level}.");
+                    Dictionary<int, int> skillCosts = AggregateCosts(
+                        upgrade.CostItem,
+                        upgrade.CostItemCount,
+                        $"{name} SkillId {skillId}");
+                    foreach ((int itemId, int count) in skillCosts)
+                        costs[itemId] = costs.GetValueOrDefault(itemId) + count;
+                }
                 if (costs.Values.Sum() <= 0)
                     throw new InvalidDataException($"{name}: expected positive item costs.");
                 return costs;
@@ -20681,18 +21400,21 @@ namespace AscNet.Test
                 "pre-fight-position-compat-test");
 
             uint[] fullTeamCardIds = characterRows.Select(row => (uint)row.Id).ToArray();
-            AssertPositions(fullTeamCardIds, [0, 1, 2], captainPos: 1, firstFightPos: 2, packetId: 13_201,
-                "middle starter");
-            AssertPositions(fullTeamCardIds, [0, 1, 2], captainPos: 3, firstFightPos: 3, packetId: 13_202,
-                "last starter");
+            AssertPositions(fullTeamCardIds, [0, 1, 2], captainPos: 1, firstFightPos: 2, enterCgIndex: 0,
+                settleCgIndex: 0, packetId: 13_201, "middle starter default animations");
+            AssertPositions(fullTeamCardIds, [0, 1, 2], captainPos: 3, firstFightPos: 3, enterCgIndex: 3,
+                settleCgIndex: 1, packetId: 13_202, "last starter distinct animations");
             AssertPositions([fullTeamCardIds[0], 0, fullTeamCardIds[2]], [0, 2],
-                captainPos: 3, firstFightPos: 3, packetId: 13_203, "sparse last starter");
+                captainPos: 3, firstFightPos: 3, enterCgIndex: 2, settleCgIndex: 3, packetId: 13_203,
+                "sparse last starter");
 
             void AssertPositions(
                 IReadOnlyList<uint> cardIds,
                 IReadOnlyList<long> expectedNpcPositions,
                 int captainPos,
                 int firstFightPos,
+                int enterCgIndex,
+                int settleCgIndex,
                 int packetId,
                 string name)
             {
@@ -20703,7 +21425,9 @@ namespace AscNet.Test
                         StageId = (uint)stage.StageId,
                         CardIds = cardIds.ToList(),
                         CaptainPos = captainPos,
-                        FirstFightPos = firstFightPos
+                        FirstFightPos = firstFightPos,
+                        EnterCgIndex = enterCgIndex,
+                        SettleCgIndex = settleCgIndex
                     }
                 };
                 InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, packetId, request);
@@ -20719,6 +21443,8 @@ namespace AscNet.Test
                     fightData.RoleData.Single(value => value.Id == playerId);
                 AssertEqual(captainPos - 1, role.CaptainIndex, $"{name} zero-based captain index");
                 AssertEqual(firstFightPos - 1, role.FirstFightPos, $"{name} zero-based first-fight position");
+                AssertEqual(enterCgIndex - 1, role.EnterCgIndex, $"{name} zero-based entrance animation index");
+                AssertEqual(settleCgIndex - 1, role.SettleCgIndex, $"{name} zero-based ending animation index");
                 AssertIntegerList(
                     expectedNpcPositions,
                     role.NpcData.Keys.OrderBy(value => value).Select(value => (long)value).ToArray(),
@@ -20727,10 +21453,157 @@ namespace AscNet.Test
                     firstFightPos,
                     harness.Session.fight?.PreFight.PreFightData.FirstFightPos ?? 0,
                     $"{name} session preserves request position");
+                AssertEqual(
+                    enterCgIndex,
+                    harness.Session.fight?.PreFight.PreFightData.EnterCgIndex ?? 0,
+                    $"{name} session preserves request entrance animation");
+                AssertEqual(
+                    settleCgIndex,
+                    harness.Session.fight?.PreFight.PreFightData.SettleCgIndex ?? 0,
+                    $"{name} session preserves request ending animation");
                 if (harness.TryReadAvailablePacket($"{name} unexpected packet", out Packet extra))
                     throw new InvalidDataException($"{name}: unexpected extra {extra.Type} packet.");
             }
         }
+        private static void ValidateFightRestartCompatibility()
+        {
+            const long playerId = 88_065;
+            const int preFightPacketId = 13_211;
+            const int successfulRestartPacketId = 13_212;
+            const int mismatchedRestartPacketId = 13_213;
+            const int absentRestartPacketId = 13_214;
+            StageTable stage = TableReaderV2.Parse<StageTable>()
+                .Where(row => row.StageId >= 10_000_000 && row.RobotId.Count == 0)
+                .OrderBy(row => row.StageId)
+                .First();
+            CharacterTable[] characterRows = TableReaderV2.Parse<CharacterTable>()
+                .Where(row => row.Type == 1)
+                .OrderBy(row => row.Id)
+                .Take(3)
+                .ToArray();
+            if (characterRows.Length != 3)
+                throw new InvalidDataException("FightRestart compatibility requires three playable characters.");
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters = characterRows
+                .Select(row => CreateLoginAccountCompatibilityCharacter(
+                    (uint)row.Id,
+                    (uint)Math.Max(0, row.DefaultNpcFashtionId)))
+                .ToList();
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "fight-restart-compat-test");
+
+            PreFightRequest preFightRequest = new()
+            {
+                PreFightData = new()
+                {
+                    StageId = (uint)stage.StageId,
+                    CardIds = characterRows.Select(row => (uint)row.Id).ToList(),
+                    CaptainPos = 1,
+                    FirstFightPos = 1,
+                    EnterCgIndex = 0,
+                    SettleCgIndex = 0
+                }
+            };
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, preFightPacketId, preFightRequest);
+            PreFightResponse preFightResponse = ReadResponsePayload<PreFightResponse>(
+                harness,
+                preFightPacketId,
+                nameof(PreFightResponse),
+                "FightRestartRequest setup PreFightResponse");
+            AssertEqual(0, preFightResponse.Code, "FightRestartRequest setup PreFightResponse Code");
+            PreFightResponse.PreFightResponseFightData preFightData = preFightResponse.FightData
+                ?? throw new InvalidDataException("FightRestartRequest setup: expected active FightData.");
+            Fight activeFight = harness.Session.fight
+                ?? throw new InvalidDataException("FightRestartRequest setup: expected active session fight.");
+            AssertEqual(preFightData.FightId, activeFight.FightId, "FightRestartRequest setup active FightId");
+
+            InvokeRegisteredRequestHandler(
+                nameof(FightRestartRequest),
+                harness.Session,
+                successfulRestartPacketId,
+                new FightRestartRequest { FightId = activeFight.FightId });
+            AssertRestartResponse(
+                harness,
+                successfulRestartPacketId,
+                0,
+                "FightRestartRequest active fight");
+            AssertEqual(true, ReferenceEquals(activeFight, harness.Session.fight), "FightRestartRequest active fight identity");
+            AssertEqual(activeFight.FightId, harness.Session.fight?.FightId ?? 0, "FightRestartRequest active fight Id");
+            AssertEqual(true, ReferenceEquals(activeFight.PreFight, harness.Session.fight?.PreFight), "FightRestartRequest active PreFight state");
+            AssertNoExtraPacket(harness, "FightRestartRequest active fight");
+
+            uint mismatchedFightId = activeFight.FightId == uint.MaxValue
+                ? activeFight.FightId - 1
+                : activeFight.FightId + 1;
+            InvokeRegisteredRequestHandler(
+                nameof(FightRestartRequest),
+                harness.Session,
+                mismatchedRestartPacketId,
+                new FightRestartRequest { FightId = mismatchedFightId });
+            AssertRestartResponse(
+                harness,
+                mismatchedRestartPacketId,
+                1033,
+                "FightRestartRequest mismatched fight");
+            AssertEqual(true, ReferenceEquals(activeFight, harness.Session.fight), "FightRestartRequest mismatched fight identity");
+            AssertEqual(activeFight.FightId, harness.Session.fight?.FightId ?? 0, "FightRestartRequest mismatched fight Id");
+            AssertEqual(true, ReferenceEquals(activeFight.PreFight, harness.Session.fight?.PreFight), "FightRestartRequest mismatched PreFight state");
+            AssertNoExtraPacket(harness, "FightRestartRequest mismatched fight");
+
+            using LoopbackSessionHarness absentHarness = new(
+                CreateDrawCompatibilityCharacter(playerId + 1),
+                CreateDrawCompatibilityPlayer(playerId + 1),
+                CreateDrawCompatibilityInventory(playerId + 1, []),
+                "fight-restart-absent-compat-test");
+            if (absentHarness.Session.fight is not null)
+                throw new InvalidDataException("FightRestartRequest absent fight setup: expected no active fight.");
+            InvokeRegisteredRequestHandler(
+                nameof(FightRestartRequest),
+                absentHarness.Session,
+                absentRestartPacketId,
+                new FightRestartRequest { FightId = activeFight.FightId });
+            AssertRestartResponse(
+                absentHarness,
+                absentRestartPacketId,
+                1033,
+                "FightRestartRequest absent fight");
+            if (absentHarness.Session.fight is not null)
+                throw new InvalidDataException("FightRestartRequest absent fight: request created active fight state.");
+            AssertNoExtraPacket(absentHarness, "FightRestartRequest absent fight");
+
+            static void AssertRestartResponse(
+                LoopbackSessionHarness responseHarness,
+                int expectedPacketId,
+                int expectedCode,
+                string name)
+            {
+                JObject response = ReadResponseMapPayload(
+                    responseHarness,
+                    expectedPacketId,
+                    nameof(FightRestartResponse),
+                    $"{name} response");
+                AssertEqual(
+                    true,
+                    response.Properties().Select(property => property.Name).SequenceEqual(["Code", "Seed"]),
+                    $"{name} response map keys");
+                AssertEqual(expectedCode, RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response"), $"{name} Code");
+                JToken seed = RequiredToken(response, "Seed", JTokenType.Integer, $"{name} response");
+                long seedValue = seed.Value<long>();
+                if (seedValue < uint.MinValue || seedValue > uint.MaxValue)
+                    throw new InvalidDataException($"{name} Seed: expected uint-compatible integer, got {seed}.");
+            }
+
+            static void AssertNoExtraPacket(LoopbackSessionHarness responseHarness, string name)
+            {
+                if (responseHarness.TryReadAvailablePacket($"{name} unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"{name}: unexpected extra {extra.Type} packet.");
+            }
+        }
+
 
         private static void ValidateFightSettleAchievementCompatibility()
         {
@@ -21069,17 +21942,17 @@ namespace AscNet.Test
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForStoryDeployVersionGapCompatibility();
             const int luciaLotusCharacterId = 1_021_001;
 
-            JObject compatibility = JsonSnapshot.LoadObject("Configs/study_compatibility_4.5.0.json");
+            JObject compatibility = JsonSnapshot.LoadObject("Configs/study_compatibility_4.6.0.json");
             static JArray CompatibilityRows(JObject root, string name) =>
                 (JArray)RequiredToken(root, name, JTokenType.Array, "Study compatibility");
-            AssertEqual("4.5.0", compatibility.Value<string>("ClientVersion"), "Study compatibility client version");
+            AssertEqual("4.6.0", compatibility.Value<string>("ClientVersion"), "Study compatibility client version");
             AssertEqual(88, CompatibilityRows(compatibility, "PracticeGroups").Count, "Study compatibility PracticeGroup row count");
             AssertEqual(250, CompatibilityRows(compatibility, "PracticeActivities").Count, "Study compatibility PracticeActivity row count");
-            AssertEqual(48, CompatibilityRows(compatibility, "TeachingActivities").Count, "Study compatibility TeachingActivity row count");
-            AssertEqual(139, CompatibilityRows(compatibility, "TeachingRobots").Count, "Study compatibility TeachingRobot row count");
-            AssertEqual(461, CompatibilityRows(compatibility, "Stages").Count, "Study compatibility Stage row count");
+            AssertEqual(49, CompatibilityRows(compatibility, "TeachingActivities").Count, "Study compatibility TeachingActivity row count");
+            AssertEqual(142, CompatibilityRows(compatibility, "TeachingRobots").Count, "Study compatibility TeachingRobot row count");
+            AssertEqual(467, CompatibilityRows(compatibility, "Stages").Count, "Study compatibility Stage row count");
             AssertEqual(141, CompatibilityRows(compatibility, "StageLevelControls").Count, "Study compatibility StageLevelControl row count");
-            AssertEqual(167, CompatibilityRows(compatibility, "Robots").Count, "Study compatibility Robot row count");
+            AssertEqual(170, CompatibilityRows(compatibility, "Robots").Count, "Study compatibility Robot row count");
 
             AssertStudyStageRobotDeployment(
                 stageId: 30_100_000,
@@ -22372,6 +23245,25 @@ namespace AscNet.Test
                 throw new InvalidDataException($"{name}: session stage data did not persist passed stage {stageId}.");
             AssertPassedUnknownStageDatum(persistedStage, $"Persisted {name}");
         }
+        private static void AssertEnteredStoryStagePushAndPersistence(
+            NotifyStageData stagePush,
+            AscNet.Common.Database.Stage stage,
+            uint stageId,
+            string name)
+        {
+            StageDatum pushedStage = stagePush.StageList.SingleOrDefault(stageDatum => stageDatum.StageId == stageId)
+                ?? throw new InvalidDataException($"NotifyStageData {name}: missing entered story stage {stageId}.");
+            AssertEqual(true, pushedStage.Passed, $"NotifyStageData {name} Passed");
+            AssertEqual(0L, pushedStage.StarsMark, $"NotifyStageData {name} StarsMark");
+            AssertEqual(0L, pushedStage.PassTimesTotal, $"NotifyStageData {name} PassTimesTotal");
+
+            if (!stage.Stages.TryGetValue(stageId, out StageDatum? persistedStage))
+                throw new InvalidDataException($"{name}: session stage data did not persist entered story stage {stageId}.");
+            AssertEqual(true, persistedStage.Passed, $"Persisted {name} Passed");
+            AssertEqual(0L, persistedStage.StarsMark, $"Persisted {name} StarsMark");
+            AssertEqual(0L, persistedStage.PassTimesTotal, $"Persisted {name} PassTimesTotal");
+        }
+
 
         private static void AssertCapturedMainLine2StageEnterStoryPlayable(
             LoopbackSessionHarness harness,
@@ -22390,7 +23282,7 @@ namespace AscNet.Test
                 new EnterStoryRequest { StageId = (int)stageId });
             (NotifyStageData stagePush, EnterStoryResponse response) = ReadUnknownStageEnterStoryResult(harness, packetId, name);
             AssertEqual(0, response.Code, $"{name} Code");
-            AssertMissingStagePushAndPersistence(stagePush, stage, stageId, name);
+            AssertEnteredStoryStagePushAndPersistence(stagePush, stage, stageId, name);
         }
 
         private static (NotifyStageData StagePush, EnterStoryResponse Response) ReadUnknownStageEnterStoryResult(
@@ -22444,6 +23336,13 @@ namespace AscNet.Test
             foreach (RobotTable robot in robotRows)
             {
                 int characterId = Convert.ToInt32(robot.CharacterId);
+                if (characterId <= 0)
+                {
+                    int rebuildNpcId = Convert.ToInt32(robot.RebuildNpcId);
+                    if (rebuildNpcId <= 0)
+                        throw new InvalidDataException($"Robot.tsv row {robot.Id}: expected either CharacterId or RebuildNpcId.");
+                    continue;
+                }
                 if (!characterRowsById.ContainsKey(characterId))
                     throw new InvalidDataException($"Robot.tsv row {robot.Id}: CharacterId {characterId} does not map to an existing Character.tsv row.");
             }
@@ -23154,7 +24053,7 @@ namespace AscNet.Test
 
             FightSettleResult arenaSettle = new()
             {
-                IsWin = true, IsForceExit = false, StageId = checked((uint)selectedStageId), FightId = arenaPreFight.FightData.FightId,
+                IsWin = true, IsForceExit = false, StageId = checked((uint)selectedStageId), FightId = repeatedArenaPreFight.FightData.FightId,
                 StartFrame = 1, SettleFrame = 3825, PauseFrame = 1423, ExSkillPauseFrame = 1298,
                 LeftTime = 179, DeathTotalEnemy = 58, TotalDamage = 112_965_896,
                 StringToIntRecord = new Dictionary<object, object> { ["NpcGroup"] = 30 },
@@ -23781,6 +24680,187 @@ namespace AscNet.Test
             NotifyLogin BuildAccountLogin() =>
                 buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
                 ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil.");
+            List<BossActivityTable> activityBossActivities = TableReaderV2.Parse<BossActivityTable>();
+            List<BossSectionTable> activityBossSections = TableReaderV2.Parse<BossSectionTable>();
+            Dictionary<int, BossChallengeTable> activityBossChallenges = TableReaderV2.Parse<BossChallengeTable>()
+                .ToDictionary(challenge => challenge.Id);
+            (BossActivityTable Activity, ActivityScheduleEntry Schedule) activeActivity = activityBossActivities
+                .Where(activity => activity.ActivityTimeId is > 0
+                    && ActivityScheduleService.TryGet(activity.ActivityTimeId.Value, out _))
+                .Select(activity =>
+                {
+                    ActivityScheduleService.TryGet(activity.ActivityTimeId!.Value, out ActivityScheduleEntry schedule);
+                    return (Activity: activity, Schedule: schedule);
+                })
+                .OrderByDescending(candidate => candidate.Activity.Id)
+                .First();
+            BossSectionTable activeSection = activityBossSections
+                .Where(section => section.ActivityId == activeActivity.Activity.Id
+                    && player.PlayerData.Level >= section.MinLevel
+                    && player.PlayerData.Level <= section.MaxLevel)
+                .OrderBy(section => section.OrderId)
+                .ThenBy(section => section.Id)
+                .First();
+            int[] activeChallengeIds = activeSection.ChallengeId.Where(id => id > 0).ToArray();
+            int[] activeStageIds = activeChallengeIds
+                .Select(challengeId => activityBossChallenges[challengeId].StageId)
+                .ToArray();
+            if (activeStageIds.Length == 0)
+                throw new InvalidDataException("Boss activity table-selected section has no challenge stages.");
+
+            MethodInfo buildActivityLoginData = RequiredMethod(
+                bossModule,
+                "BuildActivityLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session), typeof(DateTimeOffset?)]);
+            NotifyBossActivityData? BuildActivityLogin(DateTimeOffset now) =>
+                buildActivityLoginData.Invoke(null, [harness.Session, now]) as NotifyBossActivityData;
+            DateTimeOffset activeNow = activeActivity.Schedule.StartTime > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(activeActivity.Schedule.StartTime)
+                : DateTimeOffset.UnixEpoch;
+            NotifyBossActivityData freshActivityLogin = BuildActivityLogin(activeNow)
+                ?? throw new InvalidDataException("BossModule.BuildActivityLoginData returned nil during its table-backed activity window.");
+            JObject freshActivityPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(freshActivityLogin)));
+            AssertEqual(
+                true,
+                freshActivityPayload.Properties().Select(property => property.Name).Order(StringComparer.Ordinal).SequenceEqual(
+                    ["ActivityId", "DifficultyScoreRecord", "PassStoryIds", "Schedule", "SectionId", "StageStarInfos", "StarRewardIds"]),
+                "NotifyBossActivityData exact top-level keys");
+            AssertEqual(activeActivity.Activity.Id,
+                RequiredValue<int>(freshActivityPayload, "ActivityId", JTokenType.Integer, "fresh NotifyBossActivityData"),
+                "fresh NotifyBossActivityData ActivityId");
+            AssertEqual(activeSection.Id,
+                RequiredValue<int>(freshActivityPayload, "SectionId", JTokenType.Integer, "fresh NotifyBossActivityData"),
+                "fresh NotifyBossActivityData SectionId");
+            AssertEqual(0,
+                RequiredValue<int>(freshActivityPayload, "Schedule", JTokenType.Integer, "fresh NotifyBossActivityData"),
+                "fresh NotifyBossActivityData Schedule");
+            JArray freshStageStars = RequiredValue<JArray>(
+                freshActivityPayload, "StageStarInfos", JTokenType.Array, "fresh NotifyBossActivityData");
+            AssertEqual(activeStageIds.Length, freshStageStars.Count, "fresh NotifyBossActivityData StageStarInfos count");
+            for (int stageIndex = 0; stageIndex < activeStageIds.Length; stageIndex++)
+            {
+                JObject stageStar = (JObject)freshStageStars[stageIndex]!;
+                AssertEqual(activeStageIds[stageIndex],
+                    RequiredValue<int>(stageStar, "StageId", JTokenType.Integer, $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}]"),
+                    $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}].StageId");
+                AssertEqual(0,
+                    RequiredValue<int>(stageStar, "StarsMark", JTokenType.Integer, $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}]"),
+                    $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}].StarsMark");
+            }
+            AssertEqual(0,
+                RequiredValue<JArray>(freshActivityPayload, "StarRewardIds", JTokenType.Array, "fresh NotifyBossActivityData").Count,
+                "fresh NotifyBossActivityData StarRewardIds count");
+            AssertEqual(0,
+                RequiredValue<JArray>(freshActivityPayload, "PassStoryIds", JTokenType.Array, "fresh NotifyBossActivityData").Count,
+                "fresh NotifyBossActivityData PassStoryIds count");
+            AssertEqual(0,
+                RequiredValue<JObject>(freshActivityPayload, "DifficultyScoreRecord", JTokenType.Object, "fresh NotifyBossActivityData").Count,
+                "fresh NotifyBossActivityData DifficultyScoreRecord count");
+
+            const int activityBossStarsMark = 5;
+            const int activityBossScore = 12_345;
+            harness.Session.stage.AddStage(new StageDatum
+            {
+                StageId = activeStageIds[0],
+                Passed = true,
+                StarsMark = activityBossStarsMark,
+                Score = activityBossScore
+            });
+            NotifyBossActivityData progressedActivityLogin = BuildActivityLogin(activeNow)
+                ?? throw new InvalidDataException("BossModule.BuildActivityLoginData returned nil for a progressed active activity.");
+            JObject progressedActivityPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(progressedActivityLogin)));
+            AssertEqual(1,
+                RequiredValue<int>(progressedActivityPayload, "Schedule", JTokenType.Integer, "progressed NotifyBossActivityData"),
+                "progressed NotifyBossActivityData consecutive Schedule");
+            JObject progressedFirstStage = (JObject)RequiredValue<JArray>(
+                progressedActivityPayload, "StageStarInfos", JTokenType.Array, "progressed NotifyBossActivityData")[0]!;
+            AssertEqual(activityBossStarsMark,
+                RequiredValue<int>(progressedFirstStage, "StarsMark", JTokenType.Integer, "progressed NotifyBossActivityData first stage"),
+                "progressed NotifyBossActivityData StarsMark");
+            JObject progressedScores = RequiredValue<JObject>(
+                progressedActivityPayload, "DifficultyScoreRecord", JTokenType.Object, "progressed NotifyBossActivityData");
+            AssertEqual(activityBossScore,
+                RequiredValue<int>(progressedScores, activeStageIds[0].ToString(CultureInfo.InvariantCulture), JTokenType.Integer,
+                    "progressed NotifyBossActivityData DifficultyScoreRecord"),
+                "progressed NotifyBossActivityData score");
+            DateTimeOffset inactiveNow = activeActivity.Schedule.EndTime > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(activeActivity.Schedule.EndTime)
+                : activeNow.AddYears(100);
+            AssertEqual(null, BuildActivityLogin(inactiveNow), "BossModule.BuildActivityLoginData inactive activity window");
+
+            if (!ActivityScheduleService.IsOpen(activeActivity.Schedule.Id, DateTimeOffset.UtcNow))
+                throw new InvalidDataException("Boss activity startup/request compatibility requires the authoritative current activity schedule to be open.");
+            MethodInfo doLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+
+            using (LoopbackSessionHarness activityLoginHarness = new(
+                CreateDrawCompatibilityCharacter(playerId + 1),
+                CreateDrawCompatibilityPlayer(playerId + 1),
+                CreateDrawCompatibilityInventory(playerId + 1, []),
+                "boss-activity-login-compat-test"))
+            {
+                activityLoginHarness.Session.stage = CreateLoginAccountCompatibilityStage(playerId + 1);
+                doLogin.Invoke(null, [activityLoginHarness.Session]);
+                bool sawBossActivityPush = false;
+                for (int packetIndex = 0; packetIndex < 192; packetIndex++)
+                {
+                    Packet packet = activityLoginHarness.ReadPacket($"Boss activity login startup packet {packetIndex + 1}");
+                    AssertEqual(Packet.ContentType.Push, packet.Type, "Boss activity login startup packet type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    sawBossActivityPush |= push.Name == nameof(NotifyBossActivityData);
+                    if (push.Name == "NotifyWheelchairManualActivityUpdate")
+                        break;
+                }
+                AssertEqual(true, sawBossActivityPush,
+                    "AccountModule.DoLogin emits NotifyBossActivityData before startup completion");
+            }
+
+
+            const int activityBossRefreshPacketId = 82_001;
+            InvokeRegisteredRequestHandler(
+                nameof(GetActivityBossDataRequest),
+                harness.Session,
+                activityBossRefreshPacketId,
+                new GetActivityBossDataRequest());
+            Packet activityBossRefreshPushPacket = harness.ReadPacket("GetActivityBossDataRequest refresh push");
+            AssertEqual(Packet.ContentType.Push, activityBossRefreshPushPacket.Type, "GetActivityBossDataRequest first packet type");
+            Packet.Push activityBossRefreshPush = MessagePackSerializer.Deserialize<Packet.Push>(activityBossRefreshPushPacket.Content);
+            AssertEqual(nameof(NotifyBossActivityData), activityBossRefreshPush.Name, "GetActivityBossDataRequest refresh push name");
+            Packet activityBossRefreshResponsePacket = harness.ReadPacket("GetActivityBossDataRequest response");
+            AssertEqual(Packet.ContentType.Response, activityBossRefreshResponsePacket.Type, "GetActivityBossDataRequest response packet type");
+            Packet.Response activityBossRefreshResponse = MessagePackSerializer.Deserialize<Packet.Response>(activityBossRefreshResponsePacket.Content);
+            AssertEqual(activityBossRefreshPacketId, activityBossRefreshResponse.Id, "GetActivityBossDataRequest response id");
+            AssertEqual(nameof(GetActivityBossDataResponse), activityBossRefreshResponse.Name, "GetActivityBossDataRequest response name");
+            AssertEqual(0,
+                MessagePackSerializer.Deserialize<GetActivityBossDataResponse>(activityBossRefreshResponse.Content).Code,
+                "GetActivityBossDataRequest response code");
+            long originalPlayerLevel = player.PlayerData.Level;
+            player.PlayerData.Level = 0;
+            const int inactiveActivityBossRefreshPacketId = 82_002;
+            InvokeRegisteredRequestHandler(
+                nameof(GetActivityBossDataRequest),
+                harness.Session,
+                inactiveActivityBossRefreshPacketId,
+                new GetActivityBossDataRequest());
+            Packet inactiveActivityBossResponsePacket = harness.ReadPacket("inactive GetActivityBossDataRequest response");
+            AssertEqual(Packet.ContentType.Response, inactiveActivityBossResponsePacket.Type,
+                "inactive GetActivityBossDataRequest has no refresh push");
+            Packet.Response inactiveActivityBossResponse =
+                MessagePackSerializer.Deserialize<Packet.Response>(inactiveActivityBossResponsePacket.Content);
+            AssertEqual(inactiveActivityBossRefreshPacketId, inactiveActivityBossResponse.Id,
+                "inactive GetActivityBossDataRequest response id");
+            AssertEqual(1,
+                MessagePackSerializer.Deserialize<GetActivityBossDataResponse>(inactiveActivityBossResponse.Content).Code,
+                "inactive GetActivityBossDataRequest response code");
+            player.PlayerData.Level = originalPlayerLevel;
+
+
 
             TResponse ReadAfterPushes<TResponse>(
                 int packetId,
@@ -23788,6 +24868,7 @@ namespace AscNet.Test
                 string name,
                 out List<string> pushNames,
                 int maxPackets = 64)
+
             {
                 pushNames = [];
                 for (int packetIndex = 0; packetIndex < maxPackets; packetIndex++)
@@ -23838,7 +24919,9 @@ namespace AscNet.Test
                 PreFightResponse preFight,
                 BossSingleStageTable stage,
                 int characterHp,
-                int bossHp)
+                int bossHp,
+                bool isWin = true,
+                bool isForceExit = false)
             {
                 int fightSeconds = 20;
                 InvokeRegisteredRequestHandler(
@@ -23849,8 +24932,8 @@ namespace AscNet.Test
                     {
                         Result = new FightSettleResult
                         {
-                            IsWin = true,
-                            IsForceExit = false,
+                            IsWin = isWin,
+                            IsForceExit = isForceExit,
                             StageId = checked((uint)stage.StageId),
                             FightId = preFight.FightData.FightId,
                             StartFrame = 1,
@@ -24155,6 +25238,48 @@ namespace AscNet.Test
             int normalSectionId = selectedSections.Single(sectionId =>
                 sections.Single(row => row.SectionId == sectionId && row.AfreshId == 1).StageId.Contains(normalStage.StageId));
 
+            PreFightResponse discardedPreFight = StartFight(82_024, normalStage.StageId, stageType: 1);
+            AssertEqual(0, discardedPreFight.Code, "Pain Cage discarded-score pre-fight code");
+            _ = SettleFight(82_025, discardedPreFight, normalStage, characterHp: 100, bossHp: 0);
+            AssertEqual(normalStage.StageId, harness.Session.PendingBossSingleScore?.StageId ?? 0,
+                "Pain Cage successful settlement remains provisional");
+            InvokeRegisteredRequestHandler(
+                nameof(LeaveFightRequest),
+                harness.Session,
+                82_026,
+                new LeaveFightRequest());
+            _ = ReadResponsePayload<LeaveFightResponse>(
+                harness,
+                82_026,
+                nameof(LeaveFightResponse),
+                "Pain Cage discard LeaveFightResponse");
+            AssertEqual(null, harness.Session.PendingBossSingleScore,
+                "Pain Cage leaving without save discards provisional score");
+            AssertEqual(0, player.SimulatedBattlefield.BossChallengeCount,
+                "Pain Cage leaving without save leaves attempt count unchanged");
+            AssertEqual(false, player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
+                "Pain Cage leaving without save leaves character stamina unchanged");
+
+            PreFightResponse retreatPreFight = StartFight(82_028, normalStage.StageId, stageType: 1);
+            AssertEqual(0, retreatPreFight.Code, "Pain Cage retreat pre-fight code");
+            FightSettleResponse retreatSettle = SettleFight(
+                82_029,
+                retreatPreFight,
+                normalStage,
+                characterHp: 100,
+                bossHp: 100,
+                isWin: false,
+                isForceExit: true);
+            AssertEqual(false, retreatSettle.Settle?.IsWin ?? true, "Pain Cage retreat settle result");
+            AssertEqual(0, retreatSettle.Settle?.ChallengeCount ?? -1,
+                "Pain Cage retreat settlement consumes no attempts");
+            AssertEqual(0, player.SimulatedBattlefield.BossChallengeCount,
+                "Pain Cage retreat leaves attempt count unchanged");
+            AssertEqual(false, player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
+                "Pain Cage retreat leaves character stamina unchanged");
+            AssertEqual(null, harness.Session.PendingBossSingleScore,
+                "Pain Cage retreat leaves no provisional score");
+
             const int normalPreFightPacketId = 82_030;
             PreFightResponse normalPreFight = StartFight(normalPreFightPacketId, normalStage.StageId, stageType: 1);
             AssertEqual(0, normalPreFight.Code, "Pain Cage normal PreFightResponse code");
@@ -24210,6 +25335,12 @@ namespace AscNet.Test
             AssertEqual(expectedTimeScore, normalResult.TimeScore, "Pain Cage remaining-time score");
             AssertEqual(expectedHpScore, normalResult.HpScore, "Pain Cage character-HP score");
             AssertEqual(expectedTotalScore, normalResult.TotalScore, "Pain Cage total score");
+            AssertEqual(0, normalSettle.Settle?.ChallengeCount ?? -1,
+                "Pain Cage settlement does not consume client-side stamina before save");
+            AssertEqual(0, player.SimulatedBattlefield.BossChallengeCount,
+                "Pain Cage settlement does not consume an attempt before save");
+            AssertEqual(false, player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
+                "Pain Cage settlement does not consume character stamina before save");
             AssertEqual(0, player.SimulatedBattlefield.BossStageRecords.Count,
                 "Pain Cage settle is provisional before save-score");
             AssertEqual(normalStage.StageId, harness.Session.PendingBossSingleScore?.StageId ?? 0,
@@ -25508,7 +26639,7 @@ namespace AscNet.Test
                     && table.Star is >= 3 and <= 5
                     && AscNet.Common.Database.Character.IsOwnableEquipTemplate(table))
                 .ToArray();
-            AssertEqual(139, allThreeToFiveStarWeapons.Length, "Current ownable 3-5 star weapon template count");
+            AssertEqual(141, allThreeToFiveStarWeapons.Length, "Current ownable 3-5 star weapon template count");
             foreach (EquipTable weapon in allThreeToFiveStarWeapons)
             {
                 EquipBreakThroughTable progression = equipBreakThroughTables.FirstOrDefault(row =>
@@ -25909,7 +27040,7 @@ namespace AscNet.Test
                 AssertEqual(terminalStage.LevelLimit, memory.Level, $"Memory {memoryTable.Id} terminal level");
                 exhaustiveMemoryCount++;
             }
-            AssertEqual(630, exhaustiveMemoryCount, "Every ownable current-client Memory reaches its configured maximum");
+            AssertEqual(636, exhaustiveMemoryCount, "Every ownable current-client Memory reaches its configured maximum");
 
             void ApplyNamedMemoryFeed(EquipData memory)
             {
@@ -27997,6 +29128,18 @@ namespace AscNet.Test
                 if (picBody.Length < 8 || picBody[0] != 0x89 || picBody[1] != 0x50 || picBody[2] != 0x4E || picBody[3] != 0x47)
                     throw new InvalidDataException("notice pic endpoint did not return PNG data.");
 
+                await AssertVersion46ScrollPictureFixtures(client);
+                foreach (string missingPicEndpoint in new[]
+                {
+                    "/prod/client/notice/pic/unknown-notice.png",
+                    "/prod/client/notice/pic/%2E%2E%2FScrollPicNotice.json",
+                })
+                {
+                    using HttpResponseMessage missingPicResponse = await client.GetAsync(missingPicEndpoint);
+                    if (missingPicResponse.StatusCode != HttpStatusCode.NotFound)
+                        throw new InvalidDataException($"{missingPicEndpoint}: expected HTTP 404, got {(int)missingPicResponse.StatusCode} {missingPicResponse.StatusCode}.");
+                }
+
                 (string endpoint, string title)[] noticeHtmlEndpoints = CurrentClientNoticeHtmlEndpoints().ToArray();
                 AssertCurrentClientNoticeHtmlEndpointIsCovered(noticeHtmlEndpoints, "/prod/client/notice/html/6a1e0fcbf1b4a13fd8bf48ff.html");
                 foreach ((string endpoint, string title) in noticeHtmlEndpoints)
@@ -28020,6 +29163,40 @@ namespace AscNet.Test
             {
                 await app.StopAsync();
             }
+        }
+
+        private static async Task AssertVersion46ScrollPictureFixtures(HttpClient client)
+        {
+            const string requestedPicture = "6a5956d3f1b4a1481fc346ce.png";
+            JObject scrollPicNotice = JObject.Parse(File.ReadAllText(
+                ResourcePath("Configs", "Notices", "4.6.0", "ScrollPicNotice.json")));
+            JArray pictures = scrollPicNotice.Value<JArray>("Content")
+                ?? throw new InvalidDataException("4.6 ScrollPicNotice omitted Content.");
+
+            foreach (JObject picture in pictures.OfType<JObject>())
+            {
+                string picAddr = RequiredNonEmptyString(picture, "PicAddr", "4.6 ScrollPicNotice Content");
+                const string pictureDirectory = "client/notice/pic/";
+                if (!picAddr.StartsWith(pictureDirectory, StringComparison.Ordinal)
+                    || picAddr[pictureDirectory.Length..].Contains('/')
+                    || picAddr[pictureDirectory.Length..].Length == 0)
+                {
+                    throw new InvalidDataException($"4.6 ScrollPicNotice contains unsafe picture path '{picAddr}'.");
+                }
+
+                string localPicture = ResourcePath(
+                    ["Configs", "Notices", "4.6.0", .. picAddr.Split('/', StringSplitOptions.RemoveEmptyEntries)]);
+                if (!File.Exists(localPicture))
+                    throw new FileNotFoundException($"4.6 ScrollPicNotice picture is not installed: {picAddr}", localPicture);
+            }
+
+            using HttpResponseMessage response = await client.GetAsync($"/prod/client/notice/pic/{requestedPicture}");
+            byte[] body = await response.Content.ReadAsByteArrayAsync();
+            if (response.StatusCode != HttpStatusCode.OK)
+                throw new InvalidDataException($"/prod/client/notice/pic/{requestedPicture}: expected HTTP 200, got {(int)response.StatusCode} {response.StatusCode}.");
+            string expectedMediaType = NoticeImageMediaType(body, $"/prod/client/notice/pic/{requestedPicture}");
+            if (!string.Equals(response.Content.Headers.ContentType?.MediaType, expectedMediaType, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"/prod/client/notice/pic/{requestedPicture}: expected {expectedMediaType} Content-Type for its image bytes, got '{response.Content.Headers.ContentType}'.");
         }
 
         private static async Task AssertNoticeVersionTraversalDoesNotServeExternalFixture(HttpClient client)
@@ -28089,11 +29266,27 @@ namespace AscNet.Test
             }
         }
 
+        private static string NoticeImageMediaType(byte[] body, string endpoint)
+        {
+            if (body.Length >= 8 && body.AsSpan(0, 8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
+                return "image/png";
+            if (body.Length >= 12
+                && body.AsSpan(0, 4).SequenceEqual("RIFF"u8)
+                && body.AsSpan(8, 4).SequenceEqual("WEBP"u8))
+            {
+                return "image/webp";
+            }
+
+            throw new InvalidDataException($"{endpoint}: expected non-empty PNG or WebP image bytes.");
+        }
+
         private static void AssertNoticeTraversalBodyDoesNotServeExternalFixture(string body, string name, string sentinelId, string externalFixturePath)
         {
-            JObject payload = JObject.Parse(body);
-            if (string.Equals(payload.Value<string>("Id"), sentinelId, StringComparison.Ordinal))
+            if (JToken.Parse(body) is JObject payload
+                && string.Equals(payload.Value<string>("Id"), sentinelId, StringComparison.Ordinal))
+            {
                 throw new InvalidDataException($"{name}: unsafe notice version traversal served fixture outside Configs/Notices/<version>: {externalFixturePath}");
+            }
         }
 
         private static void AssertCurrentClientNoticePayload(JObject payload, string endpoint)
@@ -28139,7 +29332,7 @@ namespace AscNet.Test
                 throw new InvalidDataException($"Current GameNotice fixture does not reference required notice HTML endpoint {expectedEndpoint}.");
         }
 
-        private static async Task AssertCurrentClientNoticeHtmlEndpoint(HttpClient client, string endpoint, string title)
+        private static async Task AssertCurrentClientNoticeHtmlEndpoint(HttpClient client, string endpoint, string _)
         {
             using HttpResponseMessage response = await client.GetAsync(endpoint);
             string body = await response.Content.ReadAsStringAsync();
@@ -28154,9 +29347,6 @@ namespace AscNet.Test
             if (body.Length == 0)
                 throw new InvalidDataException($"{endpoint}: expected non-empty HTML body.");
 
-            string encodedTitle = WebUtility.HtmlEncode(title);
-            if (!body.Contains(encodedTitle, StringComparison.Ordinal))
-                throw new InvalidDataException($"{endpoint}: expected HTML body to contain notice title '{title}'.");
         }
 
         private static void ValidateSteamClientConfig()

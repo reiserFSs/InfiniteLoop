@@ -1,0 +1,147 @@
+Id	Name	SkipId	TimeId	BtnInitMethodName	IsRemindWhenOpen	RemindPriority	RedConditions[1]	RedConditions[2]	RedConditions[3]	ActivityRewardIds[1]	RewardShowTimeIds[1]	TagCondition	RedParam	TagParam	ConstShowRewardId
+1	3.4主线活动	535	48401	RefreshActivityMainLine2	1	11									
+2	Side Event	8000		RefreshActivityBranch											
+3	3.4超难关	11724	48101	RefreshActivityBossSingle	1	7	CONDITION_ACTIVITY_BOSS_SINGLE_REWARD								
+4	8/6-8/20	20019		RefreshActivityBossOnline											
+5	Interlude 1	20117		RefreshAllActivityPrequel											
+6	Babel Tower	20015		RefreshNormal			CONDITION_ACTIVITYBRIE_BABELTOWER_REWARD								
+7	Roguelike Ascension	20018		RefreshActivityRogueLike											
+8	Multi Clear	20017	48111	RefreshActivityRepeateChallenge	1	1	CONDITION_REPEAT_CHALLENGE_ENTRANCE			69060	47703				
+9	Regional Co-op	11723		RefreshActivityArenaOnline											
+10	Sniper Battle	11722		RefreshActivityUnionKill											
+11	Short Story	11729		RefreshActivityShortStories											
+12	Interlude 2	11731		RefreshAllActivityPrequel											
+13	Autopoiesis Maze	11726		RefreshActivityLabyrinth											
+14	Guild System	15001		RefreshActivitySociety											
+15	Resources AE-5	11728		RefreshActivityResource											
+16	Training Stage	89025		RefreshActivitySpecialTrain								Default			
+17	Kowloong War	99998		RefreshActivityExtra											
+18	World Boss	11735		RefreshWorldBoss											
+19	Auto Chess	20104		RefreshExpedition											
+20	New Ultimate Zone	10009		RefreshFubenBossSingle								CONDITION_ACTIVITYBRIE_BOSSSINGLE			
+21	Event Shop	20055		RefreshActivityShop											
+22	Extra - Hidden	99995		RefreshActivityExtra											
+23	Board Game Mode	11737		RefreshMaintainerAction											
+24	RPG Mode	11736		RefreshRpgTower											
+25	Event Draw	20053		RefreshDrawActivity											
+26	Fake Ascension - Main Roleplay Event	11738		RefreshTRPG											
+27	3.4新角色试玩	20235	48705	RefreshNewCharActivity	1	2	CONDITION_KOROMCHARACTIVITYMAINRED					CONDITION_NEWCHARACT_ISCHALLENGEABLE			
+28	涂装试玩关	10035	48701	RefreshFubenActivityTrial	1	3						CONDITION_NEWCHARACT_SKIP_TRIAL			
+29	Mentorship System	15003		RefreshShiTu											
+30	Nier Mode	11749		RefreshNier											
+31	Micawberism Cloisters	11750		RefreshPokemon											
+32	追及玩法	11751		RefreshPursuit											
+33	Super Stronghold	70001		RefreshStrongHold											
+34	Simulated Battle	11752		RefreshSimulate											
+35	宠物	7110		RefreshPartner											
+36	2021 White Day Event	80011													
+37	Ro-sham-bo Mini-game	11753													
+38	Moe War	11756		RefreshMoeWar											
+39	Pet Cards Drawing System	7212		RefreshPetCard											
+40	New CUB Event	7109		RefreshPetTrial											
+41	Poker Guessing	11761		RefreshPokerGuessing											
+42	Hacking Mode	11758		RefreshHack											
+43	Push Box	20128		RefreshRpgMaker			CONDITION_RPG_MAKER_GAME_RED								
+44	Limit Break	81104		RefreshReform			CONDITION_REFORM_All_RED_POINT								
+45	双人同行	82001		RefreshCoupleCombat											
+46	Super Tower Climb	20084		RefreshSuperTower											
+47	Summer Event Stages	20088		RefreshSummerSeries											
+48	Killing Space	20083		RefreshKillZone											
+49	Virtual Horizon	11734		RefreshExpedition											
+50	3-Ping - Circuit Connect	82010					CONDITION_SAMECOLOR_IS_CHALLENGE								
+51	Special Dispatch - Server Final Battle	80176		RefreshAreaWar			XRedPointConditionAreaWarActivity					XRedPointConditionAreaWarActivityTag			
+52	Ultimate Brawl	20104		RefreshSuperSmashBros								Default			
+53	Tutorial Stage Coating Trial	89012		RefreshTeachingSkin								Default			
+54	Shooting Mode	89011		RefreshMaverick								Default			
+55	Memory Rescue	82040		RefreshMemorySave											
+56	Roguelike Mode	82020		RefreshTheatre											
+57	Management Sim	82050		RefreshDoomsDay											
+58	SP characters	82070		RefreshPivotCombat								CONDITION_PIVOTCOMBAT_NEW_AREA_OPEN_RED_POINT			
+59	Limited Time Escape	82080		RefreshEscape								CONDITION_ESCAPE_ACTIVITY_CHALLENGE			
+60	Floating Record - Story Collection	20191		RefreshFubenShortStory											
+61	Tower Defense	82100		RefreshDoubleTower											
+62	Secondary Panel Event Shop			RefreshFubenShortStory											
+63	Secondary Panel Jump	20125		RefreshSecondActivityPanel											
+64	Guild War	85016		RefreshGuildWar			CONDITION_GUILDWAR_Main								
+65	矿工	20177		RefreshGoldenMiner			CONDITION_GOLDEN_MINER_REWARD					Default			
+66	福禄献礼	83010		RefreshNormal											
+67	Music Mini-game	84010		RefreshTaiKoMaster								CONDITION_ACTIVITY_TAIKO_MASTER_CD_UNLOCK			
+68	Multidimensional Challenge	84020		RefreshMultiDim											
+69	Event Story	20147		RefreshActivityFestival											
+70	Simulated Siege	84040		RefreshGuildBoss											
+71	Yin-Yang Tower - Inner World	85013		RefreshTwoSideTower								CONDITION_TWO_SIDE_TOWER_NEW_CHAPTER			
+72	Special Training	11727		RefreshActivitySpecialTrain											
+73	Double Seventh Festival Event	11761		RefreshActivityFestival											
+74	Roguelike 2.0 (Cursed Waves)	85015		RefreshBiancaTheatre											
+75	Mid-Autumn Event Story	20166		RefreshActivityFestival											
+76	Arcade Anima	11772		RefreshActivityCharacterTower											
+77	The Mythic Paradise of Punishing: Gray Raven	80201		RefreshActivityRift			CONDITION_RIFT_ENTRANCE								
+78	Palette Clash	88004		RefreshColorTable											
+79	Blazing Trails	89001		RefreshBrilliantWalk											
+80	Memory Pact	11775		RefreshFubenAwareness											
+81	Punishing: Gray Raven Restaurant	89008		RefreshRestaurant											
+82	Special Training	89007		RefreshActivitySpecialTrain								Default			
+83	Holiday Story	90024		RefreshActivityFestival			CONDITION_ACTIVITY_FESTIVAL_DMC						15010306		
+84	Dumplings and Dragons	89013		RefreshNormal								CONDITION_MAZE_FIRST_TIME			
+85	Space Odyssey	89015		RefreshPlanetRunning								CONDITION_PLANET_RUNNING_NEW_CHAPTER			
+86	BVB	89016		RefreshMonsterCombat								CONDITION_MONSTER_COMBAT_NEW_CHAPTER			
+87	Cerberus - The Meandering Three	89018		RefreshNormal											
+88	Ultralimit Streak	89023		RefreshTransfinite											
+89	Roguelike 3.0	89027		RefreshTheatre3											
+90	BLACK★ROCK SHOOTER Battle Chess	89028		RefreshNormal			CONDITION_BLACK_ROCK_CHESS_ENTRANCE								
+91	Kowloong's Greatest Merchant	89044		RefreshNormal			CONDITION_ROGUESIM_ACTIVITY								
+92	2.9 Main Event Special Configuration - Hidden Stage	511		RefreshActivityMainLine			CONDITION_MAINLINE_CHAPTER_REWARD								
+94	Coating Trial Stage Assembly Version	10035		RefreshFubenActivityTrial								CONDITION_NEWCHARACT_SKIP_TRIAL			
+95	Magic Square Bounce	89045					CONDITION_DLC_CASUAL_ACTIVITY								
+96	Hidden Story	510		RefreshActivityMainLine											
+97	Turkey Square	89049					CONDITION_FANGKUAI_MAIN					CONDITION_FANGKUAI_CHALLENGE			
+98	Kotodama	89050					CONDITION_KOTODAMA_MAIN					CONDITION_KOTODAMA_NO_PASS_ALLSTAGE			
+99	Temple Fair	89052		RefreshNormal			CONDITION_TEMPLE_MAIN					CONDITION_TEMPLE_CHALLENGE			
+100	Punishing: Gray Raven Crafts	89058					CONDITION_LINKCRAFT_MAIN								
+101	Crouching Cat, Hidden Rat	89057					CONDITION_DLC_MOUSE_HUNTER_ACTIVITY								
+102	Lamia Coating Trial Stage	10035		RefreshFubenActivityTrial								CONDITION_NEWCHARACT_SKIP_TRIAL		107	
+103	Wanshi Connect	89062					CONDITION_LINE_ARITHMETIC								
+104	Effect Mode	89063					CONDITION_MECHANISM_MAIN								
+105	Coating Story	89065					CONDITION_FASHION_STORY_ENTRANCE								
+106	Rating Mode	89061	48501		1	9	CONDITION_BOSS_INSHOT								
+107	New Hard	89073					CONDITION_SUCCEED_BOSS								
+108	Simulated Trial Event	89071					CONDITION_SIMULATE_TRAIN								
+109	Stroll Mode	89074					CONDITION_TEMPLE2								
+110	Inventory Sorting	90020					CONDITION_BAGORGANIZE_ANY								
+111	2048	89075					CONDITION_GAME2048_MAIN								
+112	FPS	89079					CONDITION_FPSGAME_MAIN								
+113	Selection Stage	90010					CONDITION_STAGE_MEMORY								
+114	Luna Pool Coating	80203													
+115	Corrupted Battlefront: Pioneers of Peril	90011					CONDITION_MAVERICK3_MAIN								
+116	幸运房东	90014					CONDITION_LUCKY_TENANT2								
+117	Grindable Character Pool	20239					CONDITION_GACHACANLIVER_MAIN								
+118	Trial of Simulacrums	89061					CONDITION_BOSS_INSHOT								
+119	Card Game	90016					CONDITION_PCG_ACTIVITY								
+120	Valentine's Day	90018					CONDITION_POKER_GUESSING2								
+121	New Mine	89091					CONDITION_SCORETOWER_MAIN								
+122	Pac-Man	90025					CONDITION_PACMAN2_NEW_STAGE								
+123	Roguelike 5	89092					CONDITION_THEATRE5_PVP_NEW_ACTIVITY								
+124	3.6 Second Half Main Event	526		RefreshActivityMainLine2											
+125	Holographic Replay Bonuses	89093					CONDITION_BOUNTY_CHALLENGE								
+126	Tactical Override	89094					CONDITION_SOLO_REFORM_MAIN	CONDITION_SOLO_REFORM_CHALLENGE_TASK							
+127	3.6上半主线	525		RefreshActivityMainLine2											
+128	3.7主线活动	527		RefreshActivityMainLine2											
+131	3.6角色试玩	1300609		RefreshNewCharActivity			CONDITION_KOROMCHARACTIVITYMAINRED1					CONDITION_NEWCHARACT_ISCHALLENGEABLE		BtnActivityNewRole --新角色试玩-SkipId长期复用	
+132	3.7角色试玩	1300610		RefreshNewCharActivity			CONDITION_KOROMCHARACTIVITYMAINRED2					CONDITION_NEWCHARACT_ISCHALLENGEABLE		BtnActivityNewRole --新角色试玩-SkipId长期复用	
+133	Horse Betting	89100					CONDITION_RACE_MAIN								
+134	Anniversary Panel	89047					CONDITION_ANNIVERSARY_REPEATCHALLENGE	CONDITION_ANNIVERSARY_DRAW	CONDITION_SUMMER_SIGNIN_ACTIVITY						
+135	Babylonia 2.0	89076					CONDITION_BIG_WORLD_SKY_GARDEN_ENTRANCE								
+136	空花预热签到	90058					CONDITION_RADIO_SIGN								
+137	relink	90047					CONDITION_DLC_RELINK_MAIN								
+138	卡池皮肤试玩	20363													
+139	情人节打牌	90018					CONDITION_POKER_GUESSING2								
+140	Service Shop	90055	48032		1	13									69238
+141	Service Mission	90057	48032		1	12	CONDITION_TASK_CANLIVER								
+142	Roguelike 4	89090													
+143	大好感	20368	48301		1	6	CONDITION_FAVORABILITY_STORY_GIFT_TASK								703152
+144	PGR Brothers	1300635					CONDITION_PBRGAME_MAIN								
+145	Minigame Collection	1300640					CONDITION_GAMECOLLECTION_CAN_REWARD_OR_BUY								
+146	肉鸽6	89102	48602		1	5	CONDITION_THEATRE6_MAIN								
+147	Grand Dyeing	89105	48128		1	8	CONDITION_DYEMERGE_MAIN								
+148	夏日剧情活动	89106	48820		1	10	CONDITION_FASHION_STORY_ENTRANCE								
+149	Mini Modification	89094	48201		1	4	CONDITION_SOLO_REFORM_MAIN								

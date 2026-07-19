@@ -1,0 +1,5 @@
+Id	MaxTimeCost	ScoreRatio	MinTimeCost
+1	120	1500	
+2	165	1300	120
+3	210	1100	165
+4	9999	1000	210

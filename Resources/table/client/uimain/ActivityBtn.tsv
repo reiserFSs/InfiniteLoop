@@ -1,0 +1,23 @@
+Id	Priority	Name	NameEN	SkipId	TimeId	Conditions[1]	BtnIcon	LeftTimeFun	EventId	RedPointConditions[1]	RedPointConditions[2]	RedPointConditions[3]	ManagerName	IsAgency	RedPointRefreshEventId
+1	100	Happy Birthday	HAPPY BIRTHDAY	89053	518	32003	Assets/Product/Texture/Image/UiMain/MainBrithday01.png	GetBirthday	EVENT_PLAYER_SET_BIRTHDAY						
+4	97	Welcome Back	RETURN	89002	14101	32002	Assets/Product/Texture/Image/UiMain/MainSpRegression0301.png	GetRegression3rd	EVENT_REGRESSION3_ACTIVITY_STATUS_CHANGE	CONDITION_REGRESSION3_ALL					
+5	86	Preload	PRE DOWNLOAD	89042	903	860748	Assets/Product/Texture/Image/UiMain/MainDownload.png			CONDITION_PRELOAD_NEW_VERSION					
+6		Whispers of Admiration	Dearest Whispers	189064		30404	Assets/Product/Texture/Image/UiMain/Mainlovergift2024520.png								
+7		Pulao's Desserts	PULAO'S DESSERTS	189065			Assets/Product/Texture/Image/UiMain/MainPulaoDesserts.png			CONDITION_DAILY_RESET					
+8		Tidal Twirl	Tidal Twirl	89026	47351	30406	Assets/Product/Texture/Image/UiMain/MainTurntable04.png	GetByTimeIdCommon		CONDITION_TURNTABLE_SUMMARY					
+9	88	Heavenly Tailwind	Heavenly Tailwind	89056	47301	774800	Assets/Product/Texture/Image/UiMain/MainAccumulateExpend.png	GetAccumulateDraw	EVENT_ACCUMULATE_DRWA_UPDATE	CONDITION_ACCUMULATE_EXPEND_MAIN					
+10	87	Neon Tidings	Luminous Tidesong	20226	48034	770400	Assets/Product/Texture/Image/UiMain/MainActivityShop05.png	GetByTimeIdCommon							
+11		Sweet Express	Sweet Express	90037		30406	Assets/Product/Texture/Image/UiMain/MainSlotmachine.png	GetByTimeIdCommon		CONDITION_SLOT_MACHINE_RED					
+12		Stellar Glow Supply	SUPPLY	20230		770402	Assets/Product/Texture/Image/UiMain/MainSupply01.png								
+13	98	Thunderbolt Manual	MANUAL	89078	906	770305	Assets/Product/Texture/Image/UiMain/MainWheelChair.png			CONDITION_WHEELCHAIRMANUAL_MAIN			XWheelchairManual	1	EVENT_WHEELCHAIRMANUAL_REFRESH_MAINLEFTENTRANCE_REDDOT
+15	99	Homeward-Bound Voyage	WELCOME BACK	89081	46301	774800	Assets/Product/Texture/Image/UiMain/MainHoldRegression.png	GetReCall	EVENT_RECALL_OPEN_STATUS_UPDATE	CONDITION_RECALL_ENTRANCE					
+16		Starlit Dreams	Starlit Dreams	89047		860740	Assets/Product/Texture/Image/UiMain/Main5thImg.png			CONDITION_ANNIVERSARY_REPEATCHALLENGE	CONDITION_ANNIVERSARY_DRAW	CONDITION_SUMMER_SIGNIN_ACTIVITY			
+17		Insatiable Research	RESEARCH	20239		1050100	Assets/Product/Texture/Image/UiMain/MainGachaCanLiver01.png			CONDITION_GACHACANLIVER_MAIN					
+18	85	Passage of the Past	Passage of the Past	90017		870003	Assets/Product/Texture/Image/UiMain/MainVersionGift01.png	GetByTimeIdCommon		CONDITION_VERSIONGIFT_TASK	CONDITION_VERSIONGIFT_REWARD				
+19	89	Spring's First Moon	Blissful Gift	90022		774800	Assets/Product/Texture/Image/UiMain/MainWeeklyChallenge.png	GetByTimeIdCommon		CONDITION_WEEK_CHALLENGE					
+20	88	Fresh Dawning	FRESH DAWNING	1300569		870003	Assets/Product/Texture/Image/UiMain/MainCombAccumulateDraw.png			CONDITION_VERSIONGIFT_TASK	CONDITION_VERSIONGIFT_REWARD				
+21	88	Fresh Dawning	FRESH DAWNING	1300569	2160593	774800	Assets/Product/Texture/Image/UiMain/MainCombAccumulateDraw.png			EVENT_ACCUMULATE_DRWA_UPDATE_COMB	CONDITION_ACCUMULATE_EXPEND_MAIN_COMB				
+22	97	Novice Arsenal	Novice Arsenal	50050	24	863105	Assets/Product/Texture/Image/UiMain/MainQiriqiandaoNew.png								
+23		Christmas Bliss	Christmas Bliss	189071			Assets/Product/Texture/Image/UiMain/MainChristmas.png			CONDITION_DAILY_RESET					
+24		Auspicious Treasury	Auspicious Treasury	1300626		774800	Assets/Product/Texture/Image/UiMain/MainAccumulateExpend.png	GetAccumulateExpendShopLeftTime		CONDITION_ACCUMULATE_EXPEND_SHOP_NOTIFY					
+25		Wishing Target	Wishing Target	20361	46712	770402	Assets/Product/Texture/Image/UiMain/MainBtnSummerSign306.png								

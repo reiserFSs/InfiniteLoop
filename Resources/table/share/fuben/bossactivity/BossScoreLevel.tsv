@@ -1,0 +1,4 @@
+Id	Des	MaxScore	ScoreRatio	MinScore
+1	Easy	15000	1000	
+2	Medium	30000	1000	15000
+3	Hard	999999	1000	30000

@@ -284,8 +284,15 @@ namespace AscNet.GameServer.Handlers
                 : TableReaderV2.Parse<FashionColorTable>().Find(candidate =>
                     candidate.Id == request.ColorId
                     && candidate.OriginalFashionId == request.FashionId);
+            bool ownsColor = request.ColorId == 0
+                || (session.character.FashionColors?.TryGetValue(
+                        (int)request.FashionId,
+                        out List<int>? ownedColorIds) == true
+                    && ownedColorIds.Contains(request.ColorId));
 
-            if (fashion is null || fashionRow is null || (request.ColorId != 0 && colorRow is null))
+            if (fashion is null
+                || fashionRow is null
+                || (request.ColorId != 0 && (colorRow is null || !ownsColor)))
             {
                 session.SendResponse(new FashionSwitchColorResponse { Code = invalidRequestCode }, packet.Id);
                 return;
@@ -297,12 +304,14 @@ namespace AscNet.GameServer.Handlers
                 session.character.Save();
             }
 
-            List<int> ownedColors = TableReaderV2.Parse<FashionColorTable>()
-                .Where(candidate => candidate.OriginalFashionId == request.FashionId)
-                .Select(candidate => candidate.Id)
+            List<int> ownedColors = session.character.FashionColors?
+                .GetValueOrDefault((int)request.FashionId)?
+                .Where(colorId => TableReaderV2.Parse<FashionColorTable>().Any(candidate =>
+                    candidate.Id == colorId
+                    && candidate.OriginalFashionId == request.FashionId))
                 .Distinct()
                 .Order()
-                .ToList();
+                .ToList() ?? [];
             session.SendPush(new FashionSyncNotify
             {
                 FashionList = [fashion],

@@ -199,6 +199,21 @@ namespace AscNet.GameServer.Handlers
             session.inventory.Save();
         }
 
+        private static void AccumulateEnhanceSkillCosts(
+            Dictionary<int, int> costs,
+            EnhanceSkillUpgradeTable upgrade)
+        {
+            int costCount = Math.Min(upgrade.CostItem.Count, upgrade.CostItemCount.Count);
+            for (int index = 0; index < costCount; index++)
+            {
+                int itemId = upgrade.CostItem[index];
+                int count = upgrade.CostItemCount[index];
+                if (itemId <= 0 || count <= 0)
+                    continue;
+                costs[itemId] = costs.GetValueOrDefault(itemId) + count;
+            }
+        }
+
         [RequestPacketHandler("CharacterLevelUpRequest")]
         public static void CharacterLevelUpRequestHandler(Session session, Packet.Request packet)
         {
@@ -588,56 +603,59 @@ namespace AscNet.GameServer.Handlers
 
             EnhanceSkillGroupTable? enhanceSkillGroup = TableReaderV2.Parse<EnhanceSkillGroupTable>()
                 .SingleOrDefault(x => x.Id == request.SkillGroupId);
-            int[] affectedChars = TableReaderV2.Parse<EnhanceSkillTable>()
+            int[] affectedCharacterIds = TableReaderV2.Parse<EnhanceSkillTable>()
                 .Where(x => x.SkillGroupId.Contains(request.SkillGroupId))
                 .Select(x => x.CharacterId)
                 .ToArray();
-            int[] enhanceSkillIds = enhanceSkillGroup?.SkillId.Where(skillId => skillId > 0).ToArray() ?? [];
+            int[] enhanceSkillIds = enhanceSkillGroup?.SkillId
+                .Where(skillId => skillId > 0)
+                .Distinct()
+                .ToArray() ?? [];
             Dictionary<int, EnhanceSkillUpgradeTable> unlockRows = TableReaderV2.Parse<EnhanceSkillUpgradeTable>()
                 .Where(x => enhanceSkillIds.Contains(x.SkillId) && x.Level == 0)
                 .ToDictionary(x => x.SkillId);
+            CharacterData[] affectedCharacters = session.character.Characters
+                .Where(character => affectedCharacterIds.Contains((int)character.Id))
+                .ToArray();
 
             if (enhanceSkillIds.Length == 0
                 || unlockRows.Count != enhanceSkillIds.Length
-                || !session.character.Characters.Any(character => affectedChars.Contains((int)character.Id)))
+                || affectedCharacters.Length == 0)
             {
                 // CharacterManagerGetCharacterDataNotFound. Never acknowledge an unlock that table data cannot fulfill.
                 session.SendResponse(new CharacterUnlockEnhanceSkillResponse() { Code = 20009021 }, packet.Id);
                 return;
             }
 
-            NotifyItemDataList notifyItemData = new();
-            NotifyCharacterDataList notifyCharacterData = new();
-            foreach (int enhanceSkillId in enhanceSkillIds)
+            if (affectedCharacters.Any(character =>
+                enhanceSkillIds.Any(skillId => character.EnhanceSkillList.Any(skill => skill.Id == skillId))))
             {
-                EnhanceSkillUpgradeTable upgradeTable = unlockRows[enhanceSkillId];
+                // CharacterSkillUnlocked
+                session.SendResponse(new CharacterUnlockEnhanceSkillResponse() { Code = 20009047 }, packet.Id);
+                return;
+            }
 
-                bool unlockedAnyCharacter = false;
-                foreach (var character in session.character.Characters.Where(x => affectedChars.Contains((int)x.Id)))
+            Dictionary<int, int> costs = [];
+            foreach (CharacterData character in affectedCharacters)
+            {
+                foreach (int enhanceSkillId in enhanceSkillIds)
                 {
-                    if (character.EnhanceSkillList.Any(x => x.Id == enhanceSkillId))
-                    {
-                        // CharacterSkillUnlocked
-                        session.SendResponse(new CharacterUnlockEnhanceSkillResponse() { Code = 20009047 }, packet.Id);
-                        return;
-                    }
-                    character.EnhanceSkillList.Add(new()
+                    character.EnhanceSkillList.Add(new CharacterSkill
                     {
                         Id = (uint)enhanceSkillId,
                         Level = 1
                     });
-                    notifyCharacterData.CharacterDataList.Add(character);
-                    unlockedAnyCharacter = true;
-                }
-
-                if (!unlockedAnyCharacter)
-                    continue;
-
-                for (int i = 0; i < Math.Min(upgradeTable.CostItem.Count, upgradeTable.CostItemCount.Count); i++)
-                {
-                    notifyItemData.ItemDataList.Add(session.inventory.Do(upgradeTable.CostItem[i], upgradeTable.CostItemCount[i] * -1));
                 }
             }
+            foreach (int enhanceSkillId in enhanceSkillIds)
+                AccumulateEnhanceSkillCosts(costs, unlockRows[enhanceSkillId]);
+
+            NotifyItemDataList notifyItemData = new();
+            foreach ((int itemId, int count) in costs)
+                notifyItemData.ItemDataList.Add(session.inventory.Do(itemId, -count));
+            NotifyCharacterDataList notifyCharacterData = new();
+            notifyCharacterData.CharacterDataList.AddRange(affectedCharacters);
+
             session.SendPush(notifyItemData);
             session.SendPush(notifyCharacterData);
 
@@ -651,35 +669,43 @@ namespace AscNet.GameServer.Handlers
         {
             CharacterUpgradeEnhanceSkillRequest request = packet.Deserialize<CharacterUpgradeEnhanceSkillRequest>();
 
-            var enhanceSkillIds = TableReaderV2.Parse<EnhanceSkillGroupTable>().Where(x => x.Id == request.SkillGroupId).SelectMany(x => x.SkillId);
+            int[] enhanceSkillIds = TableReaderV2.Parse<EnhanceSkillGroupTable>()
+                .Where(x => x.Id == request.SkillGroupId)
+                .SelectMany(x => x.SkillId)
+                .Where(skillId => skillId > 0)
+                .Distinct()
+                .ToArray();
+            Dictionary<int, int> costs = [];
+            NotifyCharacterDataList notifyCharacterData = new();
+            foreach (CharacterData character in session.character.Characters)
+            {
+                bool changed = false;
+                foreach (int enhanceSkillId in enhanceSkillIds)
+                {
+                    CharacterSkill? skill = character.EnhanceSkillList.Find(x => x.Id == enhanceSkillId);
+                    if (skill is null)
+                        continue;
+
+                    for (int upgradeIndex = 0; upgradeIndex < request.Count; upgradeIndex++)
+                    {
+                        EnhanceSkillUpgradeTable? upgrade = TableReaderV2.Parse<EnhanceSkillUpgradeTable>()
+                            .Find(x => x.SkillId == enhanceSkillId && x.Level == skill.Level);
+                        if (upgrade is null)
+                            continue;
+
+                        skill.Level++;
+                        AccumulateEnhanceSkillCosts(costs, upgrade);
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                    notifyCharacterData.CharacterDataList.Add(character);
+            }
 
             NotifyItemDataList notifyItemData = new();
-            NotifyCharacterDataList notifyCharacterData = new();
-            foreach (var enhanceSkillId in enhanceSkillIds)
-            {
-                foreach (var character in session.character.Characters.Where(x => x.EnhanceSkillList.Any(x => x.Id == enhanceSkillId)))
-                {
-                    for (int j = 0; j < request.Count; j++)
-                    {
-                        var skill = character.EnhanceSkillList.Find(x => x.Id == enhanceSkillId);
-                        if (skill is not null)
-                        {
-                            EnhanceSkillUpgradeTable? upgradeTable = TableReaderV2.Parse<EnhanceSkillUpgradeTable>().Find(x => x.SkillId == enhanceSkillId && x.Level == skill.Level);
-                            if (upgradeTable is null)
-                                continue;
-
-                            skill.Level++;
-
-                            for (int i = 0; i < Math.Min(upgradeTable.CostItem.Count, upgradeTable.CostItemCount.Count); i++)
-                            {
-                                notifyItemData.ItemDataList.Add(session.inventory.Do(upgradeTable.CostItem[i], upgradeTable.CostItemCount[i] * -1));
-                            }
-                        }
-                    }
-
-                    notifyCharacterData.CharacterDataList.Add(character);
-                }
-            }
+            foreach ((int itemId, int count) in costs)
+                notifyItemData.ItemDataList.Add(session.inventory.Do(itemId, -count));
             session.SendPush(notifyItemData);
             session.SendPush(notifyCharacterData);
 

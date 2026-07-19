@@ -254,11 +254,6 @@ namespace AscNet.GameServer.Handlers
         private const int EquipFeedOperationTypeBreakthrough = 2;
         private const int MaxDecomposedEquipCount = 100;
         private const int MaxReturnedEquipCount = 10_000;
-        private const int WeaponOverrunLevelMaterialId = 34000;
-        private const int WeaponOverrunLevelMaterialCount = 25;
-        private const int WeaponOverrunSuitMaterialId = 47;
-        private const int WeaponOverrunSuitMaterialCount = 1200;
-        private const int MaxWeaponOverrunLevel = 1;
 
         [RequestPacketHandler("EquipLevelUpRequest")]
         public static void EquipLevelUpRequestHandler(Session session, Packet.Request packet)
@@ -1567,22 +1562,35 @@ namespace AscNet.GameServer.Handlers
         {
             EquipWeaponOverrunLevelUpRequest request = packet.Deserialize<EquipWeaponOverrunLevelUpRequest>();
             EquipData? equip = FindWeapon(session, request.EquipId);
+            WeaponOverrunTable? progression = equip is null
+                ? null
+                : TableReaderV2.Parse<WeaponOverrunTable>()
+                    .Where(row => row.WeaponId == equip.TemplateId
+                        && row.Level == equip.WeaponOverrunData.Level + 1)
+                    .OrderByDescending(row => (row.CharacterId ?? 0) > 0)
+                    .FirstOrDefault();
+            int itemId = progression?.ConsumeItemIds ?? 0;
+            int itemCount = progression?.ConsumeItemCounts ?? 0;
             long materialCount = session.inventory.Items
-                .FirstOrDefault(item => item.Id == WeaponOverrunLevelMaterialId)?.Count ?? 0;
+                .FirstOrDefault(item => item.Id == itemId)?.Count ?? 0;
+
             if (equip is null
-                || equip.WeaponOverrunData.Level >= MaxWeaponOverrunLevel
-                || materialCount < WeaponOverrunLevelMaterialCount)
+                || progression is null
+                || itemId <= 0
+                || itemCount <= 0
+                || materialCount < itemCount)
             {
                 session.SendResponse(new EquipWeaponOverrunLevelUpResponse { Code = 1 }, packet.Id);
                 return;
             }
 
             NotifyItemDataList notifyItems = new();
-            notifyItems.ItemDataList.Add(
-                session.inventory.Do(WeaponOverrunLevelMaterialId, -WeaponOverrunLevelMaterialCount));
-            session.SendPush(notifyItems);
+            notifyItems.ItemDataList.Add(session.inventory.Do(itemId, -itemCount));
 
-            equip.WeaponOverrunData.Level++;
+            equip.WeaponOverrunData.Level = progression.Level;
+            session.character.Save();
+            session.inventory.Save();
+            session.SendPush(notifyItems);
             session.SendResponse(new EquipWeaponOverrunLevelUpResponse
             {
                 WeaponOverrunData = equip.WeaponOverrunData
@@ -1594,15 +1602,24 @@ namespace AscNet.GameServer.Handlers
         {
             EquipWeaponActiveOverrunSuitRequest request = packet.Deserialize<EquipWeaponActiveOverrunSuitRequest>();
             EquipData? equip = FindWeapon(session, request.EquipId);
+            WeaponOverrunTable? overrun = equip is null
+                ? null
+                : TableReaderV2.Parse<WeaponOverrunTable>()
+                    .FirstOrDefault(row => row.WeaponId == equip.TemplateId
+                        && row.ActiveSuitItemId > 0
+                        && row.ActiveSuitItemCount > 0);
+            int suitItemId = overrun?.ActiveSuitItemId ?? 0;
+            int suitItemCount = overrun?.ActiveSuitItemCount ?? 0;
             long materialCount = session.inventory.Items
-                .FirstOrDefault(item => item.Id == WeaponOverrunSuitMaterialId)?.Count ?? 0;
+                .FirstOrDefault(item => item.Id == suitItemId)?.Count ?? 0;
             bool validSuit = TableReaderV2.Parse<EquipTable>()
                 .Any(row => row.SuitId == request.SuitId && row.Quality == 6);
             if (equip is null
+                || overrun is null
                 || equip.WeaponOverrunData.Level <= 0
                 || equip.WeaponOverrunData.ActiveSuits.Contains(request.SuitId)
                 || !validSuit
-                || materialCount < WeaponOverrunSuitMaterialCount)
+                || materialCount < suitItemCount)
             {
                 session.SendResponse(new EquipWeaponActiveOverrunSuitResponse { Code = 1 }, packet.Id);
                 return;
@@ -1610,10 +1627,11 @@ namespace AscNet.GameServer.Handlers
 
             NotifyItemDataList notifyItems = new();
             notifyItems.ItemDataList.Add(
-                session.inventory.Do(WeaponOverrunSuitMaterialId, -WeaponOverrunSuitMaterialCount));
-            session.SendPush(notifyItems);
-
+                session.inventory.Do(suitItemId, -suitItemCount));
             equip.WeaponOverrunData.ActiveSuits.Add(request.SuitId);
+            session.character.Save();
+            session.inventory.Save();
+            session.SendPush(notifyItems);
             session.SendResponse(new EquipWeaponActiveOverrunSuitResponse
             {
                 WeaponOverrunData = equip.WeaponOverrunData
@@ -1632,6 +1650,7 @@ namespace AscNet.GameServer.Handlers
             }
 
             equip.WeaponOverrunData.ChoseSuit = request.SuitId;
+            session.character.Save();
             session.SendResponse(new EquipWeaponChoseOverrunSuitResponse
             {
                 WeaponOverrunData = equip.WeaponOverrunData
@@ -1769,6 +1788,7 @@ namespace AscNet.GameServer.Handlers
             List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
             List<EquipBreakThroughTable> breakthroughTables = TableReaderV2.Parse<EquipBreakThroughTable>();
             List<EquipDecomposeTable> decomposeTables = TableReaderV2.Parse<EquipDecomposeTable>();
+            List<ItemTable> itemTables = TableReaderV2.Parse<ItemTable>();
             EquipDecomposeConfigTable? returnRateConfig = TableReaderV2
                 .Parse<EquipDecomposeConfigTable>()
                 .FirstOrDefault(config => config.Key == "EquipDecomposeReturnRate");
@@ -1838,10 +1858,9 @@ namespace AscNet.GameServer.Handlers
                 if (coinCount > 0)
                     AddEquipDecomposeReward(rewardByKey, RewardType.Item, Inventory.Coin, coinCount, level: 0, rewardId: 0);
 
-                EquipBreakThroughTable? foodBreakthroughTable = breakthroughTables.FirstOrDefault(table =>
-                    table.EquipId == decomposeTable.ExpToEquipId
-                    && table.Times == 0);
-                if (foodBreakthroughTable is null || foodBreakthroughTable.Exp <= 0)
+                ItemTable? foodItemTable = itemTables.FirstOrDefault(table => table.Id == decomposeTable.ExpToItemId);
+                int foodExp = foodItemTable is null ? 0 : foodItemTable.GetEquipUpgradeInfo().Exp;
+                if (foodExp <= 0)
                     return false;
 
                 decimal foodCountDecimal;
@@ -1849,7 +1868,7 @@ namespace AscNet.GameServer.Handlers
                 {
                     foodCountDecimal = checked(
                         totalExp * returnRateConfig.Value
-                        / (foodBreakthroughTable.Exp * 10_000m));
+                        / (foodExp * 10_000m));
                 }
                 catch (OverflowException)
                 {
@@ -1861,16 +1880,13 @@ namespace AscNet.GameServer.Handlers
                 int foodCount = FloorToInt(foodCountDecimal);
                 if (foodCount > 0)
                 {
-                    EquipTable? foodEquipTable = equipTables.FirstOrDefault(table => table.Id == decomposeTable.ExpToEquipId);
-                    if (foodEquipTable is null || !Character.IsOwnableEquipTemplate(foodEquipTable))
-                        return false;
 
                     AddEquipDecomposeReward(
                         rewardByKey,
-                        RewardType.Equip,
-                        decomposeTable.ExpToEquipId,
+                        RewardType.Item,
+                        decomposeTable.ExpToItemId,
                         foodCount,
-                        level: 1,
+                        level: 0,
                         rewardId: 0);
                 }
 
@@ -1909,8 +1925,7 @@ namespace AscNet.GameServer.Handlers
             if (returnedEquipCount > MaxReturnedEquipCount)
                 return false;
 
-            Dictionary<int, ItemTable> itemTablesById = TableReaderV2.Parse<ItemTable>()
-                .ToDictionary(table => table.Id);
+            Dictionary<int, ItemTable> itemTablesById = itemTables.ToDictionary(table => table.Id);
             foreach (EquipDecomposeReward reward in rewardByKey.Values.Where(reward => reward.Type == RewardType.Equip))
             {
                 EquipTable? rewardEquipTable = equipTables.FirstOrDefault(table => table.Id == reward.TemplateId);

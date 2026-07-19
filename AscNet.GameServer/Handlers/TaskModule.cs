@@ -9,6 +9,8 @@ using LoginTask = AscNet.Common.MsgPack.NotifyTaskData.NotifyTaskDataTaskData.No
 using LoginTaskSchedule = AscNet.Common.MsgPack.NotifyTaskData.NotifyTaskDataTaskData.NotifyTaskDataTaskDataTask.NotifyTaskDataTaskDataTaskSchedule;
 using SyncTask = AscNet.Common.MsgPack.NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask;
 using SyncTaskSchedule = AscNet.Common.MsgPack.NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask.NotifyTaskTasksTaskSchedule;
+using LifeTreeTask = AscNet.Table.V2.share.task.TaskTable;
+using LifeTreeTaskCondition = AscNet.Table.V2.share.task.ConditionTable;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -97,6 +99,7 @@ namespace AscNet.GameServer.Handlers
 
     internal class TaskModule
     {
+        private const string CurrentTaskTimeFormat = "yyyy/M/d H:mm";
         [RequestPacketHandler("DoClientTaskEventRequest")]
         public static void DoClientTaskEventRequestHandler(Session session, Packet.Request packet)
         {
@@ -522,9 +525,12 @@ namespace AscNet.GameServer.Handlers
             List<LoginTask> tasks = BuildStoryTaskProgress(session)
                 .Select(ToLoginTask)
                 .ToList();
-            HashSet<uint> storyIds = tasks.Select(x => x.Id).ToHashSet();
+            HashSet<uint> existingIds = tasks.Select(x => x.Id).ToHashSet();
             tasks.AddRange(BuildCurrentTaskProgress(session, loginOnly: true)
-                .Where(x => !storyIds.Contains((uint)x.TaskId))
+                .Where(x => existingIds.Add((uint)x.TaskId))
+                .Select(ToLoginTask));
+            tasks.AddRange(BuildLifeTreeTaskProgress(session)
+                .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
             return tasks;
         }
@@ -539,6 +545,7 @@ namespace AscNet.GameServer.Handlers
                     Tasks = BuildStoryTaskProgress(session)
                         .Select(ToSyncTask)
                         .Concat(BuildCurrentTaskProgress(session, loginOnly: true).Select(ToSyncTask))
+                        .Concat(BuildLifeTreeTaskProgress(session).Select(ToSyncTask))
                         .GroupBy(x => x.Id)
                         .Select(x => x.First())
                         .ToList()
@@ -564,6 +571,62 @@ namespace AscNet.GameServer.Handlers
                     Tasks = progress.Select(ToSyncTask).ToList()
                 }
             });
+        }
+
+        internal static NotifyTask? ApplyLifeTreeUnlockProgress(Player player, int characterId, int status)
+        {
+            Dictionary<int, LifeTreeTaskCondition> conditions = TableReaderV2.Parse<LifeTreeTaskCondition>()
+                .Where(condition => condition.Type == 137001
+                    && condition.Params.Count >= 2
+                    && condition.Params[0] == characterId
+                    && condition.Params[1] == status)
+                .ToDictionary(condition => condition.Id);
+            List<LifeTreeTask> tasks = TableReaderV2.Parse<LifeTreeTask>()
+                .Where(task => conditions.ContainsKey(task.Condition))
+                .ToList();
+            if (tasks.Count == 0)
+                return null;
+
+            uint now = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            foreach (LifeTreeTask task in tasks)
+                player.MissionProgress.ConditionCounters[task.Condition] = Math.Max(1, task.Result ?? 1);
+            return new NotifyTask
+            {
+                Tasks = new()
+                {
+                    Tasks = tasks.Select(task => new SyncTask
+                    {
+                        Id = (uint)task.Id,
+                        Schedule = [new SyncTaskSchedule { Id = (uint)task.Condition, Value = task.Result ?? 1 }],
+                        State = TaskStateAchieved,
+                        RecordTime = now,
+                        ActivityId = 0,
+                        ActivateTime = 0
+                    }).ToList()
+                }
+            };
+        }
+
+        private static List<MissionTaskProgress> BuildLifeTreeTaskProgress(Session session)
+        {
+            HashSet<int> conditionIds = TableReaderV2.Parse<LifeTreeTaskCondition>()
+                .Where(condition => condition.Type == 137001)
+                .Select(condition => condition.Id)
+                .ToHashSet();
+            return TableReaderV2.Parse<LifeTreeTask>()
+                .Where(task => conditionIds.Contains(task.Condition))
+                .Select(task =>
+                {
+                    int result = Math.Max(1, task.Result ?? 1);
+                    int value = Math.Min(
+                        session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition),
+                        result);
+                    int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
+                        ? TaskStateFinish
+                        : value >= result ? TaskStateAchieved : TaskStateActive;
+                    return new MissionTaskProgress(task.Id, task.Condition, value, state);
+                })
+                .ToList();
         }
 
         public static void ResetArenaTasks(Session session)
@@ -657,6 +720,57 @@ namespace AscNet.GameServer.Handlers
             SendConditionTypeSync(session, conditionType);
         }
 
+        internal static void RecordTableDrivenProgress(Session session, int taskTimeLimitId, int conditionType, int parameter)
+        {
+            EnsureMissionResets(session);
+            HashSet<int> allowedTaskIds = TableReaderV2.Parse<TaskTimeLimitTable>()
+                .FirstOrDefault(limit => limit.Id == taskTimeLimitId)?.TaskId.ToHashSet() ?? new();
+            Dictionary<int, ConditionTable> conditions = TableReaderV2.Parse<ConditionTable>()
+                .Where(condition => condition.Type == conditionType && condition.Params.Contains(parameter))
+                .ToDictionary(condition => condition.Id);
+            if (conditions.Count == 0)
+            {
+                return;
+            }
+
+            List<TaskTable> tasks = TableReaderV2.Parse<TaskTable>()
+                .Where(task => allowedTaskIds.Contains(task.Id) && conditions.ContainsKey(task.Condition))
+                .ToList();
+            if (tasks.Count == 0)
+            {
+                return;
+            }
+            foreach (ConditionTable condition in tasks.Select(task => conditions[task.Condition]).DistinctBy(condition => condition.Id))
+            {
+                int target = tasks.Where(task => task.Condition == condition.Id)
+                    .Select(task => (int)(task.Result ?? 0))
+                    .DefaultIfEmpty(1)
+                    .Max();
+                session.player.MissionProgress.ConditionCounters[condition.Id] = Math.Max(
+                    session.player.MissionProgress.ConditionCounters.GetValueOrDefault(condition.Id),
+                    target);
+            }
+
+            session.player.Save();
+            session.SendPush(new NotifyTask
+            {
+                Tasks = new()
+                {
+                    Tasks = tasks.Select(task =>
+                    {
+                        int result = task.Result ?? 0;
+                        int value = Math.Min(
+                            session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition),
+                            result);
+                        int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
+                            ? TaskStateFinish
+                            : value >= result ? TaskStateAchieved : TaskStateActive;
+                        return ToSyncTask(new MissionTaskProgress(task.Id, task.Condition, value, state));
+                    }).ToList()
+                }
+            });
+        }
+
         private static bool AddConditionTypeProgress(Session session, int conditionType, int amount)
         {
             List<int> conditionIds = TableReaderV2.Parse<CurrentConditionTable>()
@@ -707,7 +821,11 @@ namespace AscNet.GameServer.Handlers
             CurrentTaskTable? currentTask = TableReaderV2.Parse<CurrentTaskTable>().FirstOrDefault(x => x.Id == taskId);
             if (currentTask is null)
             {
-                return ClaimStoryTaskReward(session, taskId, pushSync);
+                if (TableReaderV2.Parse<StoryTaskTable>().Any(task => task.Id == taskId))
+                {
+                    return ClaimStoryTaskReward(session, taskId, pushSync);
+                }
+                return ClaimLifeTreeTaskReward(session, taskId, pushSync);
             }
 
             EnsureMissionResets(session);
@@ -742,6 +860,70 @@ namespace AscNet.GameServer.Handlers
             {
                 Code = 0,
                 RewardGoodsList = rewardGoodsList
+            };
+        }
+
+        private static FinishTaskResponse ClaimLifeTreeTaskReward(Session session, int taskId, bool pushSync)
+        {
+            EnsureMissionResets(session);
+            LifeTreeTask? task = TableReaderV2.Parse<LifeTreeTask>().FirstOrDefault(candidate =>
+                candidate.Id == taskId
+                && TableReaderV2.Parse<LifeTreeTaskCondition>().Any(condition =>
+                    condition.Id == candidate.Condition && condition.Type == 137001));
+            if (task is null)
+            {
+                return new FinishTaskResponse { Code = 20026005 };
+            }
+            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
+            {
+                return new FinishTaskResponse { Code = 20026006 };
+            }
+
+            MissionTaskProgress? progress = BuildLifeTreeTaskProgress(session)
+                .FirstOrDefault(candidate => candidate.TaskId == taskId);
+            if (progress is null || progress.State != TaskStateAchieved)
+            {
+                return new FinishTaskResponse { Code = 20026007 };
+            }
+
+            List<RewardGoodsTable> rewardGoods = GetRewardGoods(task.RewardId ?? 0);
+            if (rewardGoods.Count == 0)
+            {
+                return new FinishTaskResponse { Code = 20026003 };
+            }
+
+            RewardApplicationResult rewardApplication;
+            try
+            {
+                rewardApplication = RewardHandler.ApplyRewardsOnceAndPersist(
+                    [new RewardGrant($"lifetree-task:{taskId}", rewardGoods)],
+                    session);
+                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
+                try
+                {
+                    session.player.SaveChecked();
+                }
+                catch
+                {
+                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
+                    throw;
+                }
+            }
+            catch (Exception exception)
+            {
+                session.log.Error($"Failed to persist LifeTree task reward {taskId}: {exception}");
+                return new FinishTaskResponse { Code = 20026003 };
+            }
+            rewardApplication.SendPushes(session);
+            if (pushSync)
+            {
+                SendTaskSync(session);
+            }
+
+            return new FinishTaskResponse
+            {
+                Code = 0,
+                RewardGoodsList = rewardApplication.RewardGoods
             };
         }
 
@@ -870,6 +1052,35 @@ namespace AscNet.GameServer.Handlers
                 });
         }
 
+        private static bool IsCurrentTaskVisibleAtLogin(CurrentTaskTable task, DateTimeOffset now)
+        {
+            if (task.LoginVisible == 1 || task.Type is 4 or 6 or 7 or 71 or 91)
+                return true;
+            if (string.IsNullOrWhiteSpace(task.StartTime) && string.IsNullOrWhiteSpace(task.EndTime))
+                return false;
+            if (!string.IsNullOrWhiteSpace(task.StartTime)
+                && (!TryParseCurrentTaskTime(task.StartTime, out DateTimeOffset startTime) || now < startTime))
+            {
+                return false;
+            }
+            if (!string.IsNullOrWhiteSpace(task.EndTime)
+                && (!TryParseCurrentTaskTime(task.EndTime, out DateTimeOffset endTime) || now >= endTime))
+            {
+                return false;
+            }
+            return true;
+        }
+
+        private static bool TryParseCurrentTaskTime(string value, out DateTimeOffset result)
+        {
+            return DateTimeOffset.TryParseExact(
+                value,
+                CurrentTaskTimeFormat,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out result);
+        }
+
         private static List<MissionTaskProgress> BuildCurrentTaskProgress(Session session, bool loginOnly)
         {
             Dictionary<int, CurrentConditionTable> conditions = TableReaderV2.Parse<CurrentConditionTable>().ToDictionary(x => x.Id);
@@ -877,7 +1088,8 @@ namespace AscNet.GameServer.Handlers
             IEnumerable<CurrentTaskTable> tasks = allTasks;
             if (loginOnly)
             {
-                tasks = tasks.Where(x => x.LoginVisible == 1 || x.Type is 4 or 6 or 7 or 71 or 91);
+                DateTimeOffset now = DateTimeOffset.UtcNow;
+                tasks = tasks.Where(task => IsCurrentTaskVisibleAtLogin(task, now));
             }
 
             return tasks

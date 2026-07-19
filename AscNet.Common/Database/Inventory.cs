@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 namespace AscNet.Common.Database
 {
     #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-    public class Inventory
+    public partial class Inventory
     {
         public const long GlobalItemMaxCount = 999;
         public const long MoneyItemMaxCount = 999_999_999;
@@ -146,6 +146,18 @@ namespace AscNet.Common.Database
             collection.ReplaceOne(Builders<Inventory>.Filter.Eq(x => x.Id, Id), this);
         }
 
+        public void SaveChecked()
+        {
+            ReplaceOneResult result = collection.ReplaceOne(
+                Builders<Inventory>.Filter.Eq(x => x.Id, Id),
+                this);
+            if (!result.IsAcknowledged || result.MatchedCount != 1)
+            {
+                string matchCount = result.IsAcknowledged ? result.MatchedCount.ToString() : "unacknowledged";
+                throw new MongoException($"Inventory save for uid {Uid} matched {matchCount} documents.");
+            }
+        }
+
         [BsonId]
         public ObjectId Id { get; set; }
 
@@ -156,6 +168,9 @@ namespace AscNet.Common.Database
         [BsonElement("items")]
         [BsonRequired]
         public List<Item> Items { get; set; }
+
+        [BsonElement("applied_reward_claims")]
+        public List<string> AppliedRewardClaims { get; set; } = new();
     }
 
     public partial class ItemConfig

@@ -1,0 +1,3 @@
+RegionId	RegionName	TimeId	MinLv	MaxLv	RotateGroupId	TaskGroupId[1]	ScoreRewardGroupId	IslandId	IconLv	RewardId[1]	RewardId[2]	RewardId[3]
+1	Low Power Zone	713	80	89	1	37	1	1	Assets/Product/Texture/Image/UiTransfinite/UiTransfiniteLv.png	61997	61998	69186
+2	High Power Zone	713	90	120	2	38	1	2	Assets/Product/Texture/Image/UiTransfinite/UiTransfiniteLv02.png	61999	62000	69187

@@ -1,0 +1,7 @@
+Id	ConditionIds[1]	ConditionIds[2]	UnlockTitles[1]	UnlockTitles[2]	GridDivineCardUnlockAnims[1]	GridDivineCardUnlockAnims[2]	UiLifeTreeCardUnlockAnims[1]	UiLifeTreeCardUnlockAnims[2]
+1031005	853012		Phylotree Forms Sefirah - Mercy		LockedToPositive			
+1291003	853013		Phylotree Forms Sefirah - Foundation					
+1141004	853014		Phylotree Nexus Revealed					
+1391003	853015		Phylotree Nexus Revealed					
+1061004	853016		Phylotree Nexus Revealed					
+1021007	853017	853018	Phylotree Forms Sefirah - Crown	Phylotree Forms Inverse Sefirah - Atheism	LockedToPositive	PositiveToReverse		AnimBgPositiveToReverse

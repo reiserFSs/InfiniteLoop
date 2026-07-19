@@ -1,6 +1,7 @@
 ﻿using AscNet.GameServer;
 using AscNet.GameServer.Handlers;
 using AscNet.GameServer.Commands;
+using AscNet.Common.Database;
 using AscNet.Logging;
 
 namespace AscNet
@@ -15,6 +16,7 @@ namespace AscNet
             LoggerFactory.InitializeLogger(new Logger(typeof(Program), LogLevel.DEBUG, LogLevel.DEBUG));
             LoggerFactory.Logger.Info("Starting...");
 
+            Player.EnsureLeaderboardIndexes();
             PacketFactory.LoadPacketHandlers();
             CommandFactory.LoadCommands();
 

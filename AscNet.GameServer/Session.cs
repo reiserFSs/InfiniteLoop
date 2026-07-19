@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+﻿using System.Collections.Concurrent;
+using System.Buffers.Binary;
 using System.Net.Sockets;
 using System.Reflection.Emit;
 using AscNet.Common;
@@ -13,7 +14,7 @@ using Logger = AscNet.Logging.Logger;
 
 namespace AscNet.GameServer
 {
-    public class Session
+    public partial class Session
     {
         public readonly string id;
         public readonly TcpClient client;
@@ -31,10 +32,12 @@ namespace AscNet.GameServer
         public readonly Logger log;
         private long lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private int packetNo = 0;
+        private int disconnectState;
         private readonly MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block);
         private const int InitialReceiveBufferLength = 1 << 16;
         private const int MaxReceivePacketLength = 1 << 22;
         private static readonly object BigWorldPacketDumpLock = new();
+        private static readonly ConcurrentDictionary<long, object> PlayerOperationLocks = new();
         private static long BigWorldPacketDumpOrdinal;
         private static readonly string BigWorldPacketDumpRootDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".runtime"));
         private static readonly string DefaultBigWorldPacketDumpDirectory = Path.Combine(BigWorldPacketDumpRootDirectory, "bigworld-packet-dumps");
@@ -48,6 +51,28 @@ namespace AscNet.GameServer
             log = new(typeof(Session), id, LogLevel.DEBUG, LogLevel.DEBUG);
             log.LogLevelColor[LogLevel.INFO] = ConsoleColor.Cyan;
             Task.Run(ClientLoop);
+        }
+
+        internal static object GetPlayerOperationLock(long playerId) =>
+            PlayerOperationLocks.GetOrAdd(playerId, static _ => new object());
+
+        private void InvokeRequestHandler(
+            RequestPacketHandlerDelegate requestPacketHandler,
+            Packet.Request request)
+        {
+            Player? currentPlayer = player;
+            if (currentPlayer is null)
+            {
+                if (Volatile.Read(ref disconnectState) == 0)
+                    requestPacketHandler.Invoke(this, request);
+                return;
+            }
+
+            lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
+            {
+                if (Volatile.Read(ref disconnectState) == 0)
+                    requestPacketHandler.Invoke(this, request);
+            }
         }
 
         public async void ClientLoop()
@@ -175,7 +200,7 @@ namespace AscNet.GameServer
                                             // TODO: with new logger this will be unnecessary
                                             if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
                                                 log.Info($"{request.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(request.Content)) : "")}");
-                                            requestPacketHandler.Invoke(this, request);
+                                            InvokeRequestHandler(requestPacketHandler, request);
                                         }
                                         else
                                         {
@@ -254,6 +279,7 @@ namespace AscNet.GameServer
             {
                 "BoardMutualRequest" => true,
                 "ReconnectAck" => true,
+                "DormOutRequest" => true,
                 _ => false
             };
         }
@@ -501,15 +527,32 @@ namespace AscNet.GameServer
 
         public void DisconnectProtocol()
         {
-            if (Server.Instance.Sessions.GetValueOrDefault(id) is null)
+            Player? currentPlayer = player;
+            if (currentPlayer is null)
+            {
+                DisconnectCore();
                 return;
+            }
+
+            lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
+                DisconnectCore();
+        }
+
+        private void DisconnectCore()
+        {
+            if (!Server.Instance.Sessions.TryGetValue(id, out Session? registered)
+                || !ReferenceEquals(registered, this))
+            {
+                return;
+            }
 
             // DB save on disconnect
             Save();
+            Volatile.Write(ref disconnectState, 1);
 
             log.Warn($"{id} disconnected");
             client.Close();
-            Server.Instance.Sessions.Remove(id);
+            Server.Instance.Sessions.TryRemove(id, out _);
         }
 
         public void Save()

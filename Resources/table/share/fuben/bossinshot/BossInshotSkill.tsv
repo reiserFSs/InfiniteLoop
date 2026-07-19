@@ -1,0 +1,55 @@
+Id	Name	Tips	Desc	VideoUrl	PracticeStageId	FightEventId
+1	Skill 1	Defense Skill	Primal Projection will block attacks and will counterattack after 4 blocks. Stronger counterattacks will be triggered if the enemy is in the berserk phase.	External/Video/cbzshiting.usm		
+2	Skill 2	Grip Skill	In the Berserk status, Primal Projection could push away the character and launch a slash that cannot be dodged by Super Armor after blocking 4 times.	External/Video/cbzxiaotouji.usm	30163090	4601
+3	Skill 3	Attack Skill	Primal Projection will stop time and launch an attack upon entering the berserk phase. You can dodge the attack before getting hit.	External/Video/cbzgedang.usm	30163090	4602
+4	Skill 4	Grip Skill	Primal Projection will catch character during its Wrath Form.	External/Video/cbzdatouji.usm	30163090	4603
+5	Skill 5	Parry Skill	Primal Projection will launch triple attacks upon entering the berserk phase. Attacks can be parried.	External/Video/cbzsanlianpindao.usm	30163090	4604
+6	Skill 6	Parry Skill	Primal Projection could rush forward and attack after blocking 4 attacks in the berserk phase. The attack can be parried.	External/Video/cbzshanxiantujin.usm	30163090	4605
+7	Skill 7	Parry Skill	Primal Projection could slash downward once after blocking 4 attacks in the berserk phase. The attack can be parried.	External/Video/cbzshanxianxiaza.usm	30163090	4606
+8	Skill 8	Parry Skill	Primal Projection will cast a Parry Skill when berserk gauge is empty. If the parry succeeds, it will enter the paralysis status. Otherwise, it will restore 50% Rage.	External/Video/cbzzhongjie.usm	30163090	4607
+9	Skill 1	Deflection Skill	Once Echo enters her Rage Form, Cecily will launch continuous coordinated attacks that can be parried with Echo.	External/Video/pingfen4615.usm	30163098	4615
+10	Skill 2	Deflection Skill	Once Echo enters her Rage Form, Cecily will launch continuous coordinated attacks that can be parried with Echo.	External/Video/pingfen4616.usm	30163098	4616
+11	Skill 3	Cut through the darkness	Echo fires an arrow to control your character before launching powerful attacks.	External/Video/pingfen4619.usm	30163098	4619
+12	Skill 4	Basic Skill	Echo fires arrows at you after jumping forward into the air.	External/Video/pingfen4621.usm	30163098	4621
+13	Skill 5	Basic Skill	Echo climbs to the top of the pillar before leaping up to attack.	External/Video/pingfen4622.usm	30163098	4622
+14	Skill 6	Parry Skill	Echo rushes forward to launch a kick that can be parried.	External/Video/pingfen4624.usm	30163098	4624
+15	Skill 7	Parry Skill	Echo fires a powerful shot after charging. This attack can be parried.	External/Video/pingfen4625.usm	30163098	4625
+16	Skill 8	Parry Skill	When Echo exits her Rage Form for the first time, she will launch 3 attacks that can be parried.	External/Video/pingfen4626.usm		
+17	Skill 1	Parry Skill	Perfect Parry can be achieved when you use a different type of skill every time you Parry Veronica's attacks. Veronica will enter Fatigue once you achieve Perfect Parry.	External/Video/pingfenwlnkpindaoshibai.usm		
+18	Skill 2	Parry Skill	Veronica will unleash Multi-Parry. Veronica will enter Fatigue once you achieve multiple Perfect Parries.	External/Video/pingfen4628.usm	30163099	4628
+19	Skill 3	Parry Skill	Veronica will unleash Multi-Parry. Veronica will enter Fatigue once you achieve multiple Perfect Parries.	External/Video/pingfen4629.usm	30163099	4629
+21	Skill 4	Parry Skill	Veronica soars into the sky to unleash a powerful attack that can be parried.	External/Video/pingfen4631.usm	30163099	4631
+22	Skill 5	Grip Skill	Veronica will launch Throw Skill that can only be evaded by Dodge.	External/Video/pingfen4632.usm	30163099	4632
+23	Skill 6	Basic Skill	Veronica hurls her weapon to unleash a Shock Wave.	External/Video/pingfen4633.usm	30163099	4633
+24	Skill 7	This skill cannot be dodged.	Veronica will unleash a straight attack that cannot be dodged or avoided with invincibility frames.	External/Video/pingfen4634.usm	30163099	4634
+25	Skill 8	Basic Skill	Veronica slashes towards the ground and deals DMG to its enemies using the shockwave.	External/Video/pingfen4635.usm	30163099	4635
+26	Skill 9	Basic Skill	Trigger Matrix when attacked during Post-Action to parry the attack and launch a powerful counterattack (unlock this skill after entering Rage Form a second time)	External/Video/pingfenwlnkjingfang.usm		
+30	Skill 1	Anti-Matrix Skill	Powered will lose control in the Berserk Phase and launch triple Anti-Matrix Attacks.	External/Video/pingfenfallingstarpowered01shikong.usm	30163255	4636
+31	Skill 2	Dodge Skill	Powered will dash forward. Perform an Extreme Dodge to avoid the attack to make Powered enter the Imbalance Status.	External/Video/pingfenfallingstarpowered02qianchong.usm	30163255	4637
+32	Skill 3	Dodge Skill	Powered will dash to the side. Perform an Extreme Dodge to avoid the attack to make Powered enter the Imbalance Status.	External/Video/pingfenfallingstarpowered03hengyi.usm	30163255	4638
+33	Skill 4	Dodge Skill	Powered will jump up and then slam. Perform an Extreme Dodge to avoid the attack to make Powered enter the Imbalance Status.	External/Video/pingfenfallingstarpowered04xiaza.usm	30163255	4639
+34	Skill 5	Parry Skill	Powered shoots laser beams through its eyes. The laser beams are a double combo that can be parried.	External/Video/pingfenfallingstarpowered05erlianpin.usm	30163255	4640
+35	Skill 6	Parry Skill	Powered will launch three attacks that can be parried after the Berserk Phase.	External/Video/pingfenfallingstarpowered06sanlianpin.usm	30163255	4641
+36	Skill 7	Grip Skill	In the Berserk Status, Powered will charge and then dash forward, swinging its tail to catch the character.	External/Video/pingfenfallingstarpowered07xuli.usm	30163255	4642
+37	Skill 8	Parry Skill	Powered will launch triple melee attacks. The last attack can be parried.	External/Video/pingfenfallingstarpowered08jinzhansanlian.usm	30163255	4643
+38	Rapid Slash	Parry Skill	Mirrored Vergil performs Iaido, dashes forward, and draws blade to slash surrounding targets.	External/Video/pingfen753420.usm	30163259	4648
+39	Yamato - Slice	Parry Skill	Mirrored Vergil performs Iaido, performs a chain of slashes, and deals damage on hit.	External/Video/pingfen753421.usm	30163259	4649
+40	Skyfall Slash	Basic Skill	Mirrored Vergil flashes to midair and performs a downward slash with his weapon, knocking the target to the ground.	External/Video/pingfen753422.usm	30163259	4650
+41	Judgment Cut	Basic Skill	Mirrored Vergil performs laido and launches a Judgment Cut at the target location.	External/Video/pingfen753423.usm	30163259	4651
+42	Mirage Blades	Basic Skill	Mirrored Vergil gathers the demonic power to create Mirage Blades and fires at the target.	External/Video/pingfen753424.usm	30163259	4652
+43	Heavy Rain Blade Array	Basic Skill	Mirrored Vergil summons a large amount of Mirage Blades above the target and makes them fall down like a storm to attack the target.	External/Video/pingfen753425.usm	30163259	4653
+44	Heart Piercer	Grip Skill	Mirrored Vergil charges and dashes forward, thrusting his weapon into the target, controlling the target, and dealing massive damage.	External/Video/pingfen753426.usm	30163259	4654
+45	Judgment Cut End	Basic Skill	Mirrored Vergil performs a powerful laido, launches an extremely powerful Judgment Cut, and attacks all surrounding targets.	External/Video/pingfen753427.usm	30163259	4655
+46	Dive Bomb	Parry Skill	Mirrored Vergil enters the SDT Form, hovers around the battlefield, and seeks opportunities to launch powerful impacts.	External/Video/pingfen753428.usm	30163259	4656
+47	Skill 1	Parry Skill	In the Knight Form, Enora Lueya fires armor gauntlets, jumps up into the air, and smashes the ground hard.	External/Video/pingfen4659.usm	30163263	4659
+48	Skill 2	Parry Skill	In the Knight Form, Enora Lueya falls back and fires at the enemy.	External/Video/pingfen4660.usm	30163263	4660
+49	Skill 3	Parry Skill	In the Knight Form, Enora Lueya leaps up into the air and throws a heavy punch at the enemy.	External/Video/pingfen4661.usm	30163263	4661
+50	Skill 4	Parry Skill	In the Knight Form, Enora Lueya creates a boxing ring and uses the ring ropes to throw accelerated heavy punches at the enemy.	External/Video/pingfen4662.usm	30163263	4662
+51	Skill 5	Basic Skill	In the Knight Form, Enora Lueya smashes the ground and teleports to the distance to fire light beams at the enemy.	External/Video/pingfen4663.usm	30163263	4663
+52	Skill 6	Basic Skill	In the Knight Form, Enora Lueya quickly throws powerful punches at the enemy.	External/Video/pingfen4664.usm	30163263	4664
+53	Skill 1	Parry Skill	When Ezette enters a rage, it lets out a roar and jumps onto a high platform, picks up a boulder and hurls it at the enemy (can be parried), then appears and charges toward the enemy after the boulder hits.	External/Video/pingfen4665.usm	30163267	4673
+54	Skill 2	Basic Skill	Ezette burrows underground and launches a series of attacks: a thrust, a drill attack, and a grapple attack, before finally leaping into the air and crashing down.	External/Video/pingfen4666.usm	30163267	4674
+55	Skill 3	Parry Skill	Ezette briefly charges up and delivers a high-speed forward slash. After sustaining the attack for a moment, it steps back, charges for 1 second, then dashes forward and swings with great force.	External/Video/pingfen4667.usm	30163267	4675
+56	Skill 4	Parry Skill	Ezette briefly charges up, then dashes forward and vanishes. After a short time, it reappears and leaps into the air before dropping down with a slashing strike.	External/Video/pingfen4668.usm	30163267	4676
+57	Skill 5	Grip Skill	Ezette lunges forward with a series of slashes. After hitting an enemy or parrying multiple times, Ezette will unleash a grapple attack.	External/Video/pingfen4669.usm	30163267	4677
+58	Skill 6	Basic Skill	After Ezette's triple thrust, the final strike features multiple variations.	External/Video/pingfen4670.usm	30163267	4678

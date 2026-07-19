@@ -1,0 +1,25 @@
+Id	LottoGroupId	Priority	Banner	ReachRewardTimes	ExtraRewardId	ConsumeId	BuyTicketRuleIdList[1]	BuyTicketRuleIdList[2]	BuyTicketRuleIdList[3]	BuyTicketRuleIdList[4]	BuyTicketRuleIdList[5]	BuyTicketRuleIdList[6]	BuyTicketRuleIdList[7]	BuyTicketRuleIdList[8]	BuyTicketRuleIdList[9]	BuyTicketRuleIdList[10]	ConsumeCountList[1]	ConsumeCountList[2]	ConsumeCountList[3]	ConsumeCountList[4]	ConsumeCountList[5]	ConsumeCountList[6]	ConsumeCountList[7]	ConsumeCountList[8]	ConsumeCountList[9]	ConsumeCountList[10]	LottoStageActivity	OpenUiName	TimeId	StoryStageMode
+1	1	1	Assets/Product/Ui/ComponentPrefab/DrawCoating/DrawCoating02.prefab	8	1211	50100	1	2	3	4	5	6	7	8	9	10	50	100	250	400	600	800	1200	1700	2200	2700				
+2	2	2	Assets/Product/Ui/ComponentPrefab/DrawCoating/DrawCoating03.prefab	8	1224	50101	11	12	13	14	15	16	17	18	19	20	50	100	250	400	600	800	1200	1700	2200	2700				
+3	3	3	Assets/Product/Ui/ComponentPrefab/DrawCoating/DrawCoating04.prefab	8	1229	50102	21	22	23	24	25	26	27	28	29	30	50	200	400	600	800	1200	1600	2000	2500	3150				
+4	4	4	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1250	50105	31	32	33	34	35	36	37	38	39	40	50	200	400	600	800	1200	1600	2000	2500	3150				
+5	5	5	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1264	50106	41	42	43	44	45	46	47	48	49	50	50	100	250	400	600	800	1200	1700	2200	2700				
+6	6	6	Assets/Product/Ui/ComponentPrefab/DrawCoating/DrawCoating03.prefab	8	1224	50107	51	52	53	54	55	56	57	58	59	60	50	100	250	400	600	800	1200	1700	2200	2700				
+7	7	7	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra03.prefab	8	1250	50110	61	62	63	64	65	66	67	68	69	70	50	200	400	600	800	1200	1600	2000	2500	3150				
+8	8	8	Assets/Product/Ui/ComponentPrefab/DrawCoating/DrawCoating02.prefab	8	1211	50111	71	72	73	74	75	76	77	78	79	80	50	100	250	400	600	800	1200	1700	2200	2700				
+9	9	9	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1288	50112	81	82	83	84	85	86	87	88	89	90	50	100	250	400	600	800	1200	1700	2200	2700	31	UiLottoKarenina		
+10	10	10	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1309	50116	91	92	93	94	95	96	97	98	99	100	50	100	250	400	600	800	1200	1700	2200	2700		UiLottoVera		
+11	11	11	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1264	50118	101	102	103	104	105	106	107	108	109	110	50	100	250	400	600	800	1200	1700	2200	2700	34	UiLottoLifu	24101	
+12	12	12	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra03.prefab	8	1250	50121	111	112	113	114	115	116	117	118	119	120	50	200	400	600	800	1200	1600	2000	2500	3150				
+13	13	13	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1288	50122	121	122	123	124	125	126	127	128	129	130	50	100	250	400	600	800	1200	1700	2200	2700	36	UiLottoKarenina	27801	
+14	14	14	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra03.prefab	8	1250	50128	131	132	133	134	135	136	137	138	139	140	50	200	400	600	800	1200	1600	2000	2500	3150				
+15	15	15	Assets/Product/Ui/ComponentPrefab/UiWheelChairManual/UiWheelChairManualLottoBg.prefab			50130	141	142	143	144	145	146	147	148	149	150	100	250	400	750	1000	1500	2000	2500	3000	3500			906	
+16	16	16	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1363	50131	151	152	153	154	155	156	157	158	159	160	50	100	250	400	600	800	1200	1700	2200	2700	40	UiLottoLuna	33020	
+17	17	17	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1363	50144	151	152	153	154	155	156	157	158	159	160	50	100	250	400	600	800	1200	1700	2200	2700	46	UiLottoLuna		
+18	18	18	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1309	50145	91	92	93	94	95	96	97	98	99	100	50	100	250	400	600	800	1200	1700	2200	2700		UiLottoVera		
+19	19	19	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1288	50146	121	122	123	124	125	126	127	128	129	130	50	100	250	400	600	800	1200	1700	2200	2700	47	UiLottoKarenina		
+20	20	20	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	1264	50147	101	102	103	104	105	106	107	108	109	110	50	100	250	400	600	800	1200	1700	2200	2700	48	UiLottoLifu		
+21	21	21	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra03.prefab	8	1250	50156	171	172	173	174	175	176	177	178	179	180	50	200	400	600	800	1200	1600	2000	2500	3150				
+100001	100001	2	Assets/Product/Ui/ComponentPrefab/DrawCoating/EnDrawCoating01.prefab	1	1211	260001	1										50												2160016	
+110001	110001	1	Assets/Product/Ui/ComponentPrefab/DrawCoating/DrawCoating02.prefab	8	1211	400066	110001	110002	110003	110004	110005	110006	110007	110008	110009	110010	50	100	250	400	600	800	1200	1700	2200	2700			2160134	
+22	22	22	Assets/Product/Ui/ComponentPrefab/DrawCollaboration/DrawExtra02.prefab	8	67146	50157	181	182	183	184	185	186	187	188	189	190	50	100	250	400	600	800	1200	1700	2200	2700	54	UiLottoCibeizhe		2

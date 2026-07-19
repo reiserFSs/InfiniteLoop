@@ -1,0 +1,5 @@
+Id	CommonFx	CommonCamera	StageCharacter[1]	StageIds[1]	StageIds[2]	StageIds[3]	StageIds[4]	CommonFirstGuides[1]	CommonGuides[1]	UseCharacter	ConsumeCounts[1]	ConsumeCounts[2]	ConsumeCounts[3]	ConsumeCounts[4]
+1	GroupParticle/FxSceneUiTheatre63DMain_Fog01	1	3	2				64702	64792					
+2				3	4	5	6			2		1	1	1
+3				7	8	9	10			3		1	1	1
+4				11	12	13	14			4		1	1	1

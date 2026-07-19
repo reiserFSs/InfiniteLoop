@@ -1,0 +1,4 @@
+VersionId	Name	ContentIds[1]	ContentIds[2]	ContentIds[3]	TimeId	Priority	SwitchIcon	ConditionId
+1	Operation Guide	101	102	103	100	1	Assets/Product/Texture/Image/BigWorld/Common/UiBigWorldProcess/UiBigWorldProcessImg03.png	
+2	Operation Guide II	201	202	203	100	2	Assets/Product/Texture/Image/BigWorld/Common/UiBigWorldProcess/UiBigWorldProcessImg02.png	50002051
+3	Operation Guide III	301	302	303	100	3	Assets/Product/Texture/Image/BigWorld/Common/UiBigWorldProcess/UiBigWorldProcessImg04.png	50003221

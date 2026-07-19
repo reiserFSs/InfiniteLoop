@@ -1,0 +1,13 @@
+{
+  "Mails": [
+    {
+      "Id": "ascnet-disclaimer",
+      "GroupId": 0,
+      "Type": 0,
+      "SendName": "<color=#8b0000><b>AscNet</b></color> Developers",
+      "Title": "<b>Welcome to AscNet</b> [欢迎来到 AscNet]",
+      "Content": "Hello Commandant!\nWelcome to <color=#8b0000><b>AscNet</b></color>, we are happy that you are using this <b>Server Software</b>.\nThis <b>Server Software</b> is always free and if you are paying to gain access to this you are being SCAMMED.\n\n欢迎来到 <color=#8b0000><b>AscNet</b></color>，我们很高兴您使用本服务器软件。\n本服务器软件始终是免费的，如果您是通过付费来使用本软件，那您就被骗了。",
+      "IsForbidDelete": true
+    }
+  ]
+}

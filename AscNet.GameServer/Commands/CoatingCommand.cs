@@ -43,8 +43,13 @@ namespace AscNet.GameServer.Commands
                             .Select(fashion => fashion.Id)
                             .Distinct();
 
+                    List<HeadPortraitList> changedHeads = new();
                     foreach (int fashionId in fashionIds)
-                        changed |= RewardHandler.UnlockFashionReward(fashionId, session, changedFashions);
+                        changed |= RewardHandler.UnlockFashionReward(
+                            fashionId,
+                            session,
+                            changedFashions,
+                            changedHeads);
 
                     List<WeaponFashionData> changedWeaponFashions = new();
                     if (Target == "all")
@@ -72,6 +77,12 @@ namespace AscNet.GameServer.Commands
                         {
                             WeaponFashionDataList = changedWeaponFashions
                         });
+                    }
+
+                    if (changedHeads.Count > 0)
+                    {
+                        session.SendPush(new NotifyHeadPortraitInfos { Heads = changedHeads });
+                        session.player.Save();
                     }
 
                     if (changed)

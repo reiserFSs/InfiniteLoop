@@ -1,0 +1,25 @@
+Key	Desc	Values[1]	Values[2]	Values[3]
+TaskOverflowGoodFactor	If a mission is completed early, excess materials are converted into Coins.	10		
+ActiveSkillSlotInitCount	Starting Active Skill Slots	4		
+InsertSkillSlotInitCount	Starting Insert Skill Slots	3		
+SkillBagSlotInitCount	Starting Skill Inventory Slots	8		
+ActiveSkillSlotLimit	Max Active Skill Slots	4		
+InsertSkillSlotLimit	Max Insert Skill Slots	3		
+SkillBagSlotLimit	Max Skill Inventory Slots	8		
+ActiveSkillSlotSort	Active Skill Slot Priority (1 Special Slot, 2 Active Slot, 3 Insert Slot, 4 Inventory)	2	4	
+ClashSkillSlotSort	Parry Skill Slot Priority (1 Special Slot, 2 Active Slot, 3 Insert Slot, 4 Inventory)	1	4	
+UltraCalcSkillSlotSort	Matrix Skill Slot Priority (1 Special Slot, 2 Active Slot, 3 Insert Slot, 4 Inventory)	1	4	
+InsertSkillSlotSort	Insert Skill Slot Priority (1 Special Slot, 2 Active Slot, 3 Insert Slot, 4 Inventory)	3	1	4
+PlayModeConditionId	Game Mode Requirement ID	1021001		
+SaveTagCount	Save Tags	2		
+MaxSaveFileCount	Save Slots	6		
+Theatre6Coin	Storyline Token	97084		
+TalentCoin	Talent Tree Token	97085		
+DefaultURSkill	Character Parry/Matrix Skill slot at game start	1		
+DefaultZDSkill	Character Active Skill slot at game start	3		
+DefaultCRSkill	Character Insert Skill slot at game start	0		
+EventMaxDepth	Event loop max depth (program use)	999		
+BuffMaxTriggerCount	Max simultaneous buff triggers	20		
+GoodBaseWeight	Base material weight, used for mission randomization.	100		
+StoryAvgId	AVG played when first entering Story Mode	1		
+SkillUpAttrPackId	Unique Skill Upgrade Relic	100		

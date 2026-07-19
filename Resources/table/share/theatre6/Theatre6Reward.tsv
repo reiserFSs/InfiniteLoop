@@ -1,0 +1,7 @@
+Id	Name	Priority	ShopId	TaskTimeLimitId
+1	Permanent Shop	3	1469	
+2	Limited-Time Shop	4	1470	
+21	Limited-Time Shop	5	1473	
+3	Permanent Mission	1		707
+4	Limited Mission	2		708
+5	Limited Mission	3		735

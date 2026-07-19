@@ -38,3 +38,4 @@ Id	NpcId	Name	Desc	RecommendElement[1]	Icon	LiHuiPath	Priority	InitQuality	Carry
 16370000	4237	Morigan	Damage, Crowd Control	6	Assets/Product/Texture/Image/RolePartner/Pet3Duya1.png	Assets/Product/Texture/Image/Pets/Pet3CrowoffMd010011.png	370	3	0	237	30	0			62	150	1391003	1	1	0
 16380000	4238	Ignis	Damage, Control	2	Assets/Product/Texture/Image/RolePartner/Pet3Lion1.png	Assets/Product/Texture/Image/Pets/Pet3LiononMd010011.png	380	3	0	238	30	0			62	150	1061004	0	1	0
 16390000	4239	Allos	Damage, Control	3	Assets/Product/Texture/Image/RolePartner/Pet3Motordragon1.png	Assets/Product/Texture/Image/Pets/Pet3MotordragononMd010011.png	390	3	0	239	30	0			62	150	1021007	0	1	0
+16400000	4240	大公	聚怪，伤害	4	Assets/Product/Texture/Image/RolePartner/Pet3Chandelier1.png	Assets/Product/Texture/Image/Pets/Pet3ChandelieronMd010011.png	400	3	0	240	30	0			62	150	1401003	1	1	0

@@ -28,10 +28,13 @@ namespace AscNet.GameServer.Commands
                 case "add":
                     if (Target == "all")
                     {
-                        var rewards = TableReaderV2
-                            .Parse<CharacterTable>()
-                            .Where(x => !session.character.Characters.Any(y => y.Id == x.Id))
-                            .Select(x => new Reward { Id = x.Id, Type = RewardType.Character });
+                        HashSet<uint> ownedCharacterIds = session.character.Characters
+                            .Select(character => character.Id)
+                            .ToHashSet();
+                        IEnumerable<Reward> rewards = TableReaderV2.Parse<CharacterTable>()
+                            .Where(character => Character.IsOwnableCharacter((uint)character.Id)
+                                && !ownedCharacterIds.Contains((uint)character.Id))
+                            .Select(character => new Reward { Id = character.Id, Type = RewardType.Character });
 
                         RewardHandler.GiveRewards(rewards, session);
                     }

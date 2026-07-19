@@ -17,7 +17,7 @@ namespace AscNet.GameServer.Commands
 
         public override string Help => "Command to interact with your equips";
 
-        [Argument(0, @"^add$|^sync$", "The operation selected (add, sync)", ArgumentFlags.IgnoreCase)]
+        [Argument(0, @"^add$|^prune$|^sync$", "The operation selected (add, prune, sync)", ArgumentFlags.IgnoreCase)]
         string Op { get; set; } = string.Empty;
 
         [Argument(1, @"^[0-9]+$|^all$", "The target equip, value is equip id or 'all'", ArgumentFlags.IgnoreCase | ArgumentFlags.Optional)]
@@ -39,11 +39,18 @@ namespace AscNet.GameServer.Commands
                 case "add":
                     if (Target == "all")
                     {
-                        foreach (var equip in TableReaderV2.Parse<EquipTable>())
+                        HashSet<uint> ownedTemplateIds = session.character.Equips
+                            .Select(equip => equip.TemplateId)
+                            .ToHashSet();
+                        foreach (EquipTable equip in TableReaderV2.Parse<EquipTable>()
+                                     .Where(equip => !ownedTemplateIds.Contains((uint)equip.Id)))
                         {
-                            var newEquip = session.character.AddEquip((uint)equip.Id);
+                            EquipData? newEquip = session.character.AddEquip((uint)equip.Id);
                             if (newEquip is not null)
+                            {
+                                ownedTemplateIds.Add(newEquip.TemplateId);
                                 notifyEquipData.EquipDataList.Add(newEquip);
+                            }
                         }
                     }
                     else
@@ -54,11 +61,59 @@ namespace AscNet.GameServer.Commands
                             notifyEquipData.EquipDataList.Add(newEquip);
                     }
                     break;
+                case "prune":
+                    PruneDuplicateWeapons(notifyEquipData);
+                    break;
                 default:
                     throw new InvalidOperationException("Invalid operation!");
             }
 
+            if (notifyEquipData.EquipDataList.Count > 0 || notifyEquipData.DeletedEquipIdList.Count > 0)
+                session.character.SaveChecked();
+
             session.SendPush(notifyEquipData);
+        }
+
+        private void PruneDuplicateWeapons(NotifyEquipDataList notifyEquipData)
+        {
+            Dictionary<uint, EquipTable> equipRowsById = TableReaderV2.Parse<EquipTable>()
+                .ToDictionary(row => (uint)row.Id);
+            foreach (IGrouping<uint, EquipData> duplicates in session.character.Equips
+                         .Where(equip => equipRowsById.TryGetValue(equip.TemplateId, out EquipTable? row)
+                             && row.Site == 0)
+                         .GroupBy(equip => equip.TemplateId))
+            {
+                if (duplicates.Count() < 2)
+                    continue;
+
+                List<EquipData> removable = duplicates
+                    .Where(IsUninvestedDuplicateWeapon)
+                    .OrderBy(equip => equip.Id)
+                    .ToList();
+                int pristineToKeep = duplicates.Count() == removable.Count ? 1 : 0;
+                foreach (EquipData equip in removable.Skip(pristineToKeep))
+                {
+                    session.character.Equips.Remove(equip);
+                    notifyEquipData.DeletedEquipIdList.Add(equip.Id);
+                }
+            }
+        }
+
+        private bool IsUninvestedDuplicateWeapon(EquipData equip)
+        {
+            return equip.CharacterId == 0
+                && !equip.IsLock
+                && !equip.IsRecycle
+                && !session.player.IsEquipInTeamPrefab(equip.Id)
+                && equip.Level <= 1
+                && equip.Exp <= 0
+                && equip.Breakthrough <= 0
+                && equip.ResonanceInfo.Count == 0
+                && equip.UnconfirmedResonanceInfo.Count == 0
+                && equip.AwakeSlotList.Count == 0
+                && equip.WeaponOverrunData.Level <= 0
+                && equip.WeaponOverrunData.ActiveSuits.Count == 0
+                && equip.WeaponOverrunData.ChoseSuit <= 0;
         }
 
         private void SyncEquipsFromDatabase()

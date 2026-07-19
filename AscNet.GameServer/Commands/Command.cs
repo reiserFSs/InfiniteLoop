@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using AscNet.Logging;
 using Newtonsoft.Json;
@@ -99,30 +100,69 @@ namespace AscNet.GameServer.Commands
     {
         public HelpCommand(Session session, string[] args, bool validate = true) : base(session, args, validate) { }
 
-        public override string Help => "Show this help.";
+        public override string Help => "List commands or show details for one command.";
+
+        [Argument(0, @"^[^\s]+$", "Command to describe", ArgumentFlags.Optional | ArgumentFlags.IgnoreCase)]
+        string CommandName { get; set; } = string.Empty;
 
         public override void Execute()
         {
-            string helpText = string.Empty;
-
-            foreach (var command in CommandFactory.commands.Keys)
+            if (!string.IsNullOrEmpty(CommandName))
             {
-                Command? cmd = CommandFactory.CreateCommand(command, session, args, false);
-                if (cmd is not null)
-                {
-                    List<PropertyInfo> argsProperties = cmd.GetType().GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Where(x => x.GetCustomAttribute(typeof(ArgumentAttribute)) is not null).ToList();
+                string commandName = CommandName.ToLowerInvariant();
+                Command? command = CommandFactory.CreateCommand(commandName, session, [], false);
+                if (command is null)
+                    throw new CommandMessageCallbackException($"Unknown command /{CommandName}.");
 
-                    helpText += $"{command} {string.Join(" ", argsProperties.Select(x => (((ArgumentAttribute)x.GetCustomAttribute(typeof(ArgumentAttribute))!).Flags & ArgumentFlags.Optional) == ArgumentFlags.Optional ? $"[{x.Name}]" : $"<{x.Name}>"))}\n{cmd.Help}\n";
-                    foreach (var argProp in argsProperties)
-                    {
-                        ArgumentAttribute attr = (ArgumentAttribute)argProp.GetCustomAttribute(typeof(ArgumentAttribute))!;
-                        helpText += string.Format($"└{argProp.Name} \"{attr.Pattern}\"{{0}}\n", string.IsNullOrEmpty(attr.Description) ? string.Empty : $", {attr.Description}");
-                    }
-                    helpText += '\n';
-                }
+                List<(PropertyInfo Property, ArgumentAttribute Argument)> arguments = GetArguments(command);
+                StringBuilder details = new();
+                details.AppendLine(BuildUsage(commandName, arguments));
+                details.AppendLine(command.Help);
+                foreach ((PropertyInfo property, ArgumentAttribute argument) in arguments)
+                    details.AppendLine($"{property.Name}: {argument.Description ?? "No description available."}");
+
+                throw new CommandMessageCallbackException(details.ToString().TrimEnd());
             }
 
-            throw new CommandMessageCallbackException(helpText);
+            StringBuilder overview = new("Available commands:\n");
+            foreach (string commandName in CommandFactory.commands.Keys.Order(StringComparer.Ordinal))
+            {
+                Command? command = CommandFactory.CreateCommand(commandName, session, [], false);
+                if (command is null)
+                    continue;
+
+                overview.Append(BuildUsage(commandName, GetArguments(command)));
+                overview.Append(" — ");
+                overview.AppendLine(command.Help);
+            }
+            overview.Append("Use /help <command> for details.");
+
+            throw new CommandMessageCallbackException(overview.ToString());
+        }
+
+        private static List<(PropertyInfo Property, ArgumentAttribute Argument)> GetArguments(Command command)
+        {
+            return command.GetType()
+                .GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Select(property => (Property: property, Argument: property.GetCustomAttribute<ArgumentAttribute>()))
+                .Where(entry => entry.Argument is not null)
+                .Select(entry => (Property: entry.Property, Argument: entry.Argument!))
+                .OrderBy(entry => entry.Argument.Position)
+                .ToList();
+        }
+
+        private static string BuildUsage(
+            string commandName,
+            IReadOnlyList<(PropertyInfo Property, ArgumentAttribute Argument)> arguments)
+        {
+            if (arguments.Count == 0)
+                return $"/{commandName}";
+
+            string argumentList = string.Join(" ", arguments.Select(entry =>
+                (entry.Argument.Flags & ArgumentFlags.Optional) == ArgumentFlags.Optional
+                    ? $"[{entry.Property.Name}]"
+                    : $"<{entry.Property.Name}>"));
+            return $"/{commandName} {argumentList}";
         }
     }
 

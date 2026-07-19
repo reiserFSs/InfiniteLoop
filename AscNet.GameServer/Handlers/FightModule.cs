@@ -39,7 +39,8 @@ namespace AscNet.GameServer.Handlers
         RankScore = 20,
         Medal = 21,
         DrawTicket = 22,
-        ChatBoard = 26
+        ChatBoard = 26,
+        FashionColor = 34
     }
 
     [MessagePackObject(true)]
@@ -164,6 +165,19 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class FightRestartRequest
+    {
+        public uint FightId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class FightRestartResponse
+    {
+        public int Code { get; set; }
+        public uint Seed { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class KcpConfirmRequest
     {
     }
@@ -259,6 +273,7 @@ namespace AscNet.GameServer.Handlers
     internal class FightModule
     {
         private const int TeamManagerSetTeamParaError = 20004003;
+        private const int FightAuthorizationError = 1033;
         private enum TeamPrefabValidationFailure
         {
             None,
@@ -380,6 +395,7 @@ namespace AscNet.GameServer.Handlers
         public static void LeaveFightRequestHandler(Session session, Packet.Request packet)
         {
             BossModule.CancelFight(session);
+            session.PendingBossInshotFight = null;
             session.fight = null;
             session.SendResponse(new LeaveFightResponse(), packet.Id);
         }
@@ -392,6 +408,7 @@ namespace AscNet.GameServer.Handlers
             StageTable? stageTable = ResolveStageTable(req.PreFightData.StageId, out bool isCurrentStudyStage);
             if (stageTable is null
                 && !BossModule.IsStage(req.PreFightData.StageId)
+                && !BossInshotModule.IsStage(req.PreFightData.StageId)
                 && !(ArenaModule.IsArenaStage(req.PreFightData.StageId) && req.PreFightData.SelectAreaId > 0)
                 && !RepeatChallengeModule.IsStage(req.PreFightData.StageId)
                 && !MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.PreFightData.StageId))
@@ -423,6 +440,37 @@ namespace AscNet.GameServer.Handlers
                 }
             };
 
+            if (TransfiniteModule.ApplyPreFight(session, req.PreFightData, out int transfiniteCode))
+            {
+                rsp.Code = transfiniteCode;
+                session.SendResponse(rsp, packet.Id);
+                return;
+            }
+
+            bool isFashionStage = FashionStoryModule.TryValidateStage(
+                session, (int)req.PreFightData.StageId, out int fashionCode);
+            if (isFashionStage)
+            {
+                bool isTrialStage = FashionStoryModule.IsTrialStage(session, (int)req.PreFightData.StageId);
+                if (fashionCode != 0 || !isTrialStage)
+                {
+                    rsp.Code = fashionCode != 0 ? fashionCode : FashionStoryModule.StageLocked;
+                    session.SendResponse(rsp, packet.Id);
+                    return;
+                }
+
+                req.PreFightData.ChallengeCount = 1;
+                req.PreFightData.CardIds = [];
+            }
+
+            if (BossInshotModule.ValidatePreFightRequest(session, req.PreFightData, out int bossInshotValidationCode)
+                && bossInshotValidationCode != 0)
+            {
+                rsp.Code = bossInshotValidationCode;
+                session.SendResponse(rsp, packet.Id);
+                return;
+            }
+
             RepeatChallengeModule.ApplyPreFight(session.player, rsp.FightData);
             if (req.PreFightData.SelectAreaId > 0 && !ArenaModule.ApplyPreFight(session, req.PreFightData, rsp))
             {
@@ -440,6 +488,8 @@ namespace AscNet.GameServer.Handlers
                 IsRobot = false,
                 CaptainIndex = req.PreFightData.CaptainPos > 0 ? req.PreFightData.CaptainPos - 1 : 0,
                 FirstFightPos = req.PreFightData.FirstFightPos > 0 ? req.PreFightData.FirstFightPos - 1 : 0,
+                EnterCgIndex = req.PreFightData.EnterCgIndex - 1,
+                SettleCgIndex = req.PreFightData.SettleCgIndex - 1,
                 NpcData = new()
             });
 
@@ -456,6 +506,10 @@ namespace AscNet.GameServer.Handlers
                 robotIds = validRequestedRobotIds.Count > 0
                     ? validRequestedRobotIds
                     : configuredStudyRobotIds.ToList();
+            }
+            else if (BossInshotModule.IsStage(req.PreFightData.StageId))
+            {
+                robotIds = requestedRobotIds;
             }
             else
             {
@@ -561,6 +615,7 @@ namespace AscNet.GameServer.Handlers
 
                     CharacterSkillTable? characterSkill = TableReaderV2.Parse<CharacterSkillTable>().Find(x => x.CharacterId == robot.CharacterId);
                     IEnumerable<int> skills = characterSkill?.SkillGroupId.SelectMany(x => TableReaderV2.Parse<CharacterSkillGroupTable>().Find(y => y.Id == x)?.SkillId ?? new List<int>()) ?? new List<int>();
+                    HashSet<int> removedSkillIds = robot.RemoveSkillId?.ToHashSet() ?? [];
                     AscNet.Table.V2.share.character.CharacterTable? robotCharacter = TableReaderV2.Parse<AscNet.Table.V2.share.character.CharacterTable>()
                         .Find(character => character.Id == robot.CharacterId);
                     uint fashionId = (uint)(robotCharacter?.DefaultNpcFashtionId > 0
@@ -598,7 +653,7 @@ namespace AscNet.GameServer.Handlers
                             InitQuality = Convert.ToInt32(robot.CharacterQuality),
                             Star = Convert.ToInt32(robot.CharacterStar),
                             Grade = Convert.ToInt32(robot.CharacterGrade),
-                            SkillList = skills.Where(x => !robot.RemoveSkillId.Contains(x)).Select(x => new CharacterSkill() { Id = (uint)x, Level = Math.Min(Convert.ToInt32(robot.SkillLevel), TableReaderV2.Parse<CharacterSkillLevelEffectTable>().OrderByDescending(x => x.Level).FirstOrDefault(y => y.SkillId == x)?.Level ?? 1) }).ToList(),
+                            SkillList = skills.Where(x => !removedSkillIds.Contains(x)).Select(x => new CharacterSkill() { Id = (uint)x, Level = Math.Min(Convert.ToInt32(robot.SkillLevel), TableReaderV2.Parse<CharacterSkillLevelEffectTable>().OrderByDescending(x => x.Level).FirstOrDefault(y => y.SkillId == x)?.Level ?? 1) }).ToList(),
                             FashionId = fashionId,
                             CreateTime = 0,
                             TrustLv = 1,
@@ -624,6 +679,17 @@ namespace AscNet.GameServer.Handlers
             if (isTheatreFight)
                 BiancaTheatreModule.ApplyTheatreFightStageData(session, req.PreFightData.StageId, rsp);
 
+            bool isBossInshotFight = BossInshotModule.ApplyPreFight(session, req.PreFightData, rsp, out int bossInshotCode);
+            if (isBossInshotFight)
+            {
+                if (bossInshotCode != 0)
+                {
+                    rsp.Code = bossInshotCode;
+                    session.SendResponse(rsp, packet.Id);
+                    return;
+                }
+            }
+
             if (BossModule.IsStage(req.PreFightData.StageId)
                 && !BossModule.ApplyPreFight(session, req.PreFightData, rsp))
             {
@@ -632,7 +698,10 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            session.fight = new(req);
+            if (!isBossInshotFight)
+                session.PendingBossInshotFight = null;
+
+            session.fight = new(req, rsp.FightData.FightId);
             session.SendResponse(rsp, packet.Id);
         }
 
@@ -643,31 +712,62 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new FightRebootResponse(), packet.Id);
         }
 
+        [RequestPacketHandler("FightRestartRequest")]
+        public static void HandleFightRestartRequestHandler(Session session, Packet.Request packet)
+        {
+            FightRestartRequest req = MessagePackSerializer.Deserialize<FightRestartRequest>(packet.Content);
+            if (session.fight is null || session.fight.FightId != req.FightId)
+            {
+                session.SendResponse(new FightRestartResponse { Code = FightAuthorizationError }, packet.Id);
+                return;
+            }
+
+            session.SendResponse(new FightRestartResponse
+            {
+                Code = 0,
+                Seed = (uint)Random.Shared.NextInt64(0, uint.MaxValue)
+            }, packet.Id);
+        }
+
         [RequestPacketHandler("EnterStoryRequest")]
         public static void HandleEnterStoryRequestHandler(Session session, Packet.Request packet)
         {
             EnterStoryRequest req = packet.Deserialize<EnterStoryRequest>();
+            EnterStoryResponse response = new();
 
-            StageDatum stageData = new()
+            if (req.StageId <= 0 || !TableReaderV2.Parse<StageTable>().Any(stage => stage.StageId == req.StageId))
             {
-                StageId = req.StageId,
-                StarsMark = 7,
-                Passed = true,
-                PassTimesToday = 0,
-                PassTimesTotal = 1,
-                BuyCount = 0,
-                Score = 0,
-                LastPassTime = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-                RefreshTime = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-                CreateTime = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-                BestRecordTime = 0,
-                LastRecordTime = 0
-            };
-            session.stage.AddStage(stageData);
+                response.Code = FashionStoryModule.StageNotFound;
+                session.SendResponse(response, packet.Id);
+                return;
+            }
 
-            session.SendPush(new NotifyStageData() { StageList = [stageData] });
+            bool isFashionStage = FashionStoryModule.TryValidateStage(session, req.StageId, out int validationCode);
+            if (isFashionStage
+                && (validationCode != 0 || FashionStoryModule.IsTrialStage(session, req.StageId)))
+            {
+                response.Code = validationCode != 0 ? validationCode : FashionStoryModule.StageLocked;
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
+            if (!session.stage.Stages.TryGetValue(req.StageId, out StageDatum? stageData) || !stageData.Passed)
+            {
+                stageData = new StageDatum
+                {
+                    StageId = req.StageId,
+                    Passed = true,
+                    CreateTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    BestCardIds = [],
+                    LastCardIds = []
+                };
+                session.stage.AddStage(stageData);
+                session.stage.Save();
+            }
+
+            session.SendPush(new NotifyStageData { StageList = [stageData] });
             SendMainLineLuosaitaSectionInfoIfCaptured(session, req.StageId);
-            session.SendResponse(new EnterStoryResponse(), packet.Id);
+            session.SendResponse(response, packet.Id);
         }
 
         [RequestPacketHandler("TeamSetTeamRequest")]
@@ -724,6 +824,76 @@ namespace AscNet.GameServer.Handlers
             session.player.TeamPrefabs = teamPrefabs;
             session.player.Save();
             session.SendResponse(new TeamPrefabSetTeamResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("TeamPrefabSetPartnerRequest")]
+        public static void TeamPrefabSetPartnerRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabSetPartnerRequest? request = packet.Deserialize<TeamPrefabSetPartnerRequest>();
+            session.player.NormalizeTeamPrefabs();
+            List<TeamPrefabData> teamPrefabs = session.player.TeamPrefabs;
+            int teamPrefabIndex = request is null
+                ? -1
+                : teamPrefabs.FindIndex(value => value.TeamId == request.TeamId);
+            if (request is null
+                || teamPrefabIndex < 0
+                || !teamPrefabs[teamPrefabIndex].TeamData.TryGetValue(
+                    request.TeamPos,
+                    out int characterId)
+                || characterId <= 0)
+            {
+                SendInvalidTeamPrefabPartnerResponse(session, packet.Id);
+                return;
+            }
+
+            TeamPrefabData source = teamPrefabs[teamPrefabIndex];
+            Dictionary<int, TeamPrefabPartnerData?> partnerData = source.PartnerData?
+                .ToDictionary(pair => pair.Key, pair => pair.Value)
+                ?? [];
+            partnerData[request.TeamPos] = request.TeamPrefabPartnerData;
+            TeamPrefabData candidate = new()
+            {
+                TeamType = source.TeamType,
+                TeamId = source.TeamId,
+                CaptainPos = source.CaptainPos,
+                FirstFightPos = source.FirstFightPos,
+                EnterCgIndex = source.EnterCgIndex,
+                SettleCgIndex = source.SettleCgIndex,
+                TeamData = source.TeamData,
+                TeamName = source.TeamName,
+                SelectedGeneralSkill = source.SelectedGeneralSkill,
+                PartnerData = partnerData,
+                EquipData = source.EquipData,
+                TagsSet = source.TagsSet,
+                SwitchSkills = source.SwitchSkills
+            };
+            if (!TryNormalizeTeamPrefab(
+                    session,
+                    candidate,
+                    out TeamPrefabData normalized,
+                    out TeamPrefabValidationFailure failure))
+            {
+                string detail = IsPartnerSkillValidationFailure(failure)
+                    ? DescribePartnerSkillData(session, candidate)
+                    : string.Empty;
+                session.log.Warn(
+                    $"TeamPrefabSetPartner rejected TeamId={request.TeamId}, TeamPos={request.TeamPos}: " +
+                    $"{failure}{detail}");
+                SendInvalidTeamPrefabPartnerResponse(session, packet.Id);
+                return;
+            }
+
+            teamPrefabs[teamPrefabIndex] = normalized;
+            session.player.TeamPrefabs = teamPrefabs;
+            session.player.Save();
+            session.SendResponse(new TeamPrefabSetPartnerResponse(), packet.Id);
+        }
+
+        private static void SendInvalidTeamPrefabPartnerResponse(Session session, int packetId)
+        {
+            session.SendResponse(
+                new TeamPrefabSetPartnerResponse { Code = TeamManagerSetTeamParaError },
+                packetId);
         }
 
         private static bool IsPartnerSkillValidationFailure(TeamPrefabValidationFailure failure)
@@ -1603,9 +1773,31 @@ namespace AscNet.GameServer.Handlers
         public static void FightSettleRequestHandler(Session session, Packet.Request packet)
         {
             FightSettleRequest req = MessagePackSerializer.Deserialize<FightSettleRequest>(packet.Content);
+            int fashionCode = 0;
+            bool isFashionStage = req.Result.StageId <= int.MaxValue
+                && FashionStoryModule.TryValidateStage(
+                    session,
+                    (int)req.Result.StageId,
+                    out fashionCode);
+            if (isFashionStage
+                && (fashionCode != 0
+                    || session.fight?.PreFight.PreFightData.StageId != req.Result.StageId))
+            {
+                session.SendResponse(new FightSettleResponse
+                {
+                    Code = fashionCode != 0 ? fashionCode : FashionStoryModule.PreFightStageNotFound
+                }, packet.Id);
+                return;
+            }
+            if (!IsAuthorizedFightSettle(session, req.Result))
+            {
+                session.SendResponse(new FightSettleResponse { Code = FightAuthorizationError }, packet.Id);
+                return;
+            }
             StageTable? stageTable = ResolveStageTable(req.Result.StageId, out _);
             if (stageTable is null
                 && !BossModule.IsStage(req.Result.StageId)
+                && !BossInshotModule.IsStage(req.Result.StageId)
                 && !(ArenaModule.IsArenaStage(req.Result.StageId)
                     && session.fight?.PreFight.PreFightData.SelectAreaId > 0)
                 && !RepeatChallengeModule.IsStage(req.Result.StageId)
@@ -1623,12 +1815,32 @@ namespace AscNet.GameServer.Handlers
             StageDatum? previousStageData = session.stage.Stages.TryGetValue(responseStageId, out StageDatum? existingStageData) ? existingStageData : null;
             bool isFirstClear = previousStageData is null;
             bool isSuccessfulSettle = req.Result.IsWin && !req.Result.IsForceExit;
+            if (TransfiniteModule.TrySettle(session, req.Result, out FightSettleResponse transfiniteResponse))
+            {
+                session.fight = null;
+                session.SendResponse(transfiniteResponse, packet.Id);
+                return;
+            }
             if (!isSuccessfulSettle)
             {
                 BiancaTheatreModule.TrySendTheatreRetreatSettle(session, req.Result.StageId);
                 BossModule.CancelFight(session);
+                session.PendingBossInshotFight = null;
                 session.fight = null;
                 session.SendResponse(BuildFailedFightSettleResponse(responseStageId, req), packet.Id);
+                return;
+            }
+            if (BossInshotModule.TrySettle(session, req.Result, out FightSettleResponse bossInshotResponse))
+            {
+                if (session.PendingBossInshotFight is null)
+                    session.fight = null;
+                if (bossInshotResponse.Code == 0)
+                {
+                    session.SendPush(BossInshotModule.BuildNotifyBossInshotData(session.player));
+                    session.SendPush(new NotifyArchiveMonsterRecord());
+                    TaskModule.SendTaskSync(session);
+                }
+                session.SendResponse(bossInshotResponse, packet.Id);
                 return;
             }
             if (BossModule.TryBuildFightSettle(session, req.Result, out BossSingleFightResult? bossSingleResult))
@@ -1642,7 +1854,8 @@ namespace AscNet.GameServer.Handlers
                         StageId = req.Result.StageId,
                         LeftTime = checked((int)req.Result.LeftTime),
                         NpcHpInfo = req.Result.NpcHpInfo,
-                        ChallengeCount = challengeCount,
+                        // Pain Cage attempts are committed by BossSingleSaveScoreRequest, not generic settlement.
+                        ChallengeCount = 0,
                         BossSingleFightResult = bossSingleResult
                     }
                 };
@@ -1678,6 +1891,12 @@ namespace AscNet.GameServer.Handlers
             }
 
             List<List<RewardGoods>> multiRewards = new();
+            List<RewardApplicationResult>? deferredRewardApplications = null;
+            bool deferFashionFirstClearPushes = isFashionStage
+                && isFirstClear
+                && FashionStoryModule.IsTrialStage(session, (int)req.Result.StageId);
+            if (deferFashionFirstClearPushes)
+                deferredRewardApplications = [];
             List<RewardTable> rewardTables = TableReaderV2.Parse<RewardTable>()
                 .Where(x => rewardIds.Contains(x.Id))
                 .ToList();
@@ -1713,15 +1932,25 @@ namespace AscNet.GameServer.Handlers
                     .Select(x => TableReaderV2.Parse<RewardGoodsTable>().FirstOrDefault(y => y.Id == x))
                     .OfType<RewardGoodsTable>();
 
-                var rewards = RewardHandler.GiveRewards(rewardGoods, session);
-                multiRewards.Add(new List<RewardGoods>(rewards));
+                if (deferredRewardApplications is not null)
+                {
+                    RewardApplicationResult application = RewardHandler.ApplyRewards(rewardGoods, session);
+                    deferredRewardApplications.Add(application);
+                    multiRewards.Add(new List<RewardGoods>(application.RewardGoods));
+                }
+                else
+                {
+                    List<RewardGoods> rewards = RewardHandler.GiveRewards(rewardGoods, session);
+                    multiRewards.Add(new List<RewardGoods>(rewards));
+                }
             }
 
-            if (notifyItemData.ItemDataList.Count > 0)
+            if (notifyItemData.ItemDataList.Count > 0 && !deferFashionFirstClearPushes)
             {
                 session.SendPush(notifyItemData);
             }
             session.ExpSanityCheck();
+            NotifyCharacterDataList? deferredCharacterData = null;
 
             if (cardExp > 0)
             {
@@ -1738,8 +1967,11 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
                 
-                session.SendPush(charData);
+                if (!deferFashionFirstClearPushes)
+                    session.SendPush(charData);
                 session.character.Save();
+                if (deferFashionFirstClearPushes)
+                    deferredCharacterData = charData;
             }
 
             List<long> bestCardIds = req.Result.NpcDpsTable?
@@ -1787,6 +2019,18 @@ namespace AscNet.GameServer.Handlers
             session.inventory.Save();
             session.character.Save();
             session.stage.Save();
+            if (deferredRewardApplications is not null)
+            {
+                foreach (RewardApplicationResult application in deferredRewardApplications)
+                    application.SendPushes(session);
+                if (notifyItemData.ItemDataList.Count > 0)
+                    session.SendPush(notifyItemData);
+                if (deferredCharacterData is not null
+                    && deferredCharacterData.CharacterDataList.Count > 0)
+                {
+                    session.SendPush(deferredCharacterData);
+                }
+            }
 
             FightSettleResponse fightSettleResponse = new()
             {
@@ -1849,6 +2093,13 @@ namespace AscNet.GameServer.Handlers
         private static bool IsMainLine2AchievementStage(uint stageId)
         {
             return MainLine2AchievementStageIds.Value.Contains(stageId);
+        }
+
+        private static bool IsAuthorizedFightSettle(Session session, FightSettleResult result)
+        {
+            return session.fight is { } fight
+                && fight.FightId == result.FightId
+                && fight.PreFight.PreFightData.StageId == result.StageId;
         }
 
         private static uint ResolveFightSettleStageId(Session session, FightSettleRequest req)

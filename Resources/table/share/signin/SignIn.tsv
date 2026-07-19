@@ -1,0 +1,2 @@
+Id	TimeId	Name	FullScreenBg	PrefabPath	BtnBg	Type	RoundDays[1]	SubRoundId[1]	PreSignId	IsShowWhenSignOver
+1	24	Daily Log-in	Assets/Product/Texture/Image/UiActivityBase/SignBgDailyLoginNew.png	Assets/Product/Ui/ComponentPrefab/Sign/SignDaily.prefab	Assets/Product/Texture/Image/UiActivityBase/SignLabelDailyLoginNew.png	1	28	101	2	1

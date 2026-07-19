@@ -1,0 +1,12 @@
+ActivityId	MainTimeId	MainTemplateId[1]	MainTemplateId[2]	MainTemplateId[3]	MainTemplateCount[1]	MainTemplateCount[2]	MainTemplateCount[3]	EventCause[1]	PeriodId[1]	Name	Kind[1]	SkipId	ActivityIcon	TaskSourceGroupId
+46001	48705	50005	102		100	200		16014	4600101	The Knower's Dilemma	1	20235	Assets/Product/Texture/Image/UiTodolist/UiTodolist205.png	
+46002	48702	90031	31204	1	1	10	12000		4600201	Azure Embrace	22	10035	Assets/Product/Texture/Image/UiTodolist/UiTodolist206.png	46002
+46003	48701	90031	31204	1	1	10	12000		4600301	Shimmering Tide	22	10035	Assets/Product/Texture/Image/UiTodolist/UiTodolist207.png	46003
+46004	48820	50005	102		125	125			4600401	Tidal Wishes	11	89106	Assets/Product/Texture/Image/UiTodolist/UiTodolist208.png	46004
+46005	48501	50005	102		1000	1000			4600501	Trial of Simulacrums	6	89061	Assets/Product/Texture/Image/UiTodolist/UiTodolist209.png	46005
+46006	48101	50005	102	13019724	250	200	5	16013	4600601	Bier's Echoes	6	11724	Assets/Product/Texture/Image/UiTodolist/UiTodolist210.png	
+46007	48201	50005	102		1000	1500			4600701	Shattered Mirage	2	89094	Assets/Product/Texture/Image/UiTodolist/UiTodolist211.png	46007
+46008	48128	50005	102		500	500			4600801	Huhu's Fantastic Garden	8	89105	Assets/Product/Texture/Image/UiTodolist/UiTodolist212.png	46008
+46009	48301	3			100			17001	4600901	Journal of Promise	11	20368	Assets/Product/Texture/Image/UiTodolist/UiTodolist213.png	
+46010	48801	3	102		150	500			4601001	Dimensional Tuner	8	90068	Assets/Product/Texture/Image/UiTodolist/UiTodolist214.png	46010
+46011	48119	3	102		100	100		95002	4601101	Summer's Rhythm	8	20182	Assets/Product/Texture/Image/UiTodolist/UiTodolist215.png	

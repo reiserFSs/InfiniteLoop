@@ -1,0 +1,33 @@
+Id	Name	TipsImg	BoardOffsetX	BoardOffsetY	BoardScale	PreStage	RuleTipsMapperIds[1]	RuleTipsMapperIds[2]	RuleTipsMapperIds[3]	RuleTipsMapperIds[4]	RuleTipsMapperIds[5]	RuleTipsMapperIds[6]	StartFocusPosIndexs[1]	StartFocusPosIndexs[2]	StartFocusPosIndexs[3]	StartFocusPosIndexs[4]
+1011	1	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_01.png	-142.3	-50.0	1.2											
+1012	2	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_02.png	-138.6	-41.0999	1.2	1011										
+1013	3	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_03.png	2.9	30.1	1.0	1012	102	203					10505			
+1014	4	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_04.png	-67.8	1.3999	1.1	1013	102	103					10403			
+1015	5	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_05.png	-138.5	-38.7999	1.2	1014	102	203					10403			
+1016	6	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_06.png	-137.6	-41.0	1.2	1015	102	103	20203	30203			10204			
+1017	7	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_07.png	-69.8	1.7999	1.1	1016	102	10103	20203	30203			10203	10302		
+1018	8	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg01_08.png	-93.6999	70.0999	1.1	1017	102	103	10103	203	20203	30203	10306	10205	10203	
+1021	1	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_01.png	-140.8	3.9	1.2	1018										
+1022	2	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_02.png	-139.1999	-37.5	1.2	1021	102	103	20203	30203						
+1023	3	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_03.png	-138.3999	4.4	1.2	1022	102	103	20203	30203			10204	10303		
+1024	4	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_04.png	-29.5	17.7999	1.1	1023	102	10103	20203	30203			10305	10404		
+1025	5	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_05.png	-137.8	-39.4	1.2	1024	102	10103	203				10204	10405		
+1026	6	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_06.png	-119.5999	-39.5	1.2	1025	102	103	10103	20203	30203		10506	10405	10605	
+1027	7	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_07.png	68.4	65.9	1.0	1026	102	10103	203	20203	30203		10306	10506	10405	
+1028	8	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg02_08.png	-52.9	-46.7999	1.2	1027	102	103	10103	20203	30203		10404	10503	10604	
+1031	1	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_01.png	3.0	39.5	1.0	1028										
+1032	2	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_02.png	-139.5	-88.0	1.2	1031	102									
+1033	3	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_03.png	-28.7999	103.0	1.1	1032	103	203	30203				10404			
+1034	4	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_04.png	54.2999	144.1999	1.0	1033	102	103	10103	20203	30203		10405	10403	10704	
+1035	5	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_05.png	-28.2999	-66.5999	1.1	1034	102	103	203	20203	30203		10406	10704		
+1036	6	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_06.png	-46.5	39.7	1.0	1035	102	10103	203	20203	30203		10204	10507	10804	
+1037	7	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_07.png	3.5999	22.1	1.0	1036	102	103	10103	203	20203		10306	10603		
+1038	8	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg03_08.png	1.7	-22.2999	1.0	1037	102	103	10103	20203	30203		10604	10608	10609	10704
+1041	1	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_01.png	3.5		1.0	1038										
+1042	2	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_02.png	2.0	40.5	1.0	1041	103	203								
+1043	3	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_03.png	2.5	35.2	1.0	1042	10103	20203					10205	10805		
+1044	4	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_04.png	2.5	-7.4	1.0	1043	102	203	20203				10307	10505		
+1045	5	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_05.png	2.5	15.3	1.0	1044	102	103	203				10302	10305		
+1046	6	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_06.png	1.8999	-30.3999	1.0	1045	102	103					10403	10408	10709	
+1047	7	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_07.png	55.5	2.2999	0.9499	1046	102	10103	203	20203			10304	10307	10604	10607
+1048	8	Assets/Product/Texture/Image/UiDyeMerge/UiDyeMergeMainTipsBg04_08.png	126.9	160.3999	0.8999	1047	102	103	10103	203	20203	30203	10205	10408	10609	10606

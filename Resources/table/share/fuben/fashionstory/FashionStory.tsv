@@ -1,0 +1,7 @@
+Id	TrialBg	SkipId[1]	PrefabType	SingleLines[1]	SingleLines[2]	SingleLines[3]	SingleLines[4]	SingleLines[5]	TrialStages[1]	TrialStages[2]	TrialStages[3]	TrialStages[4]	TaskLimitId	TimeId	RewardActivityTimeId	RewardSkipId
+1	Assets/Product/Texture/Image/UiSummerFashion/SummerFashionTuzhuangBg.png	7214														
+2	Assets/Product/Texture/Image/UiSummerFashion/SummerFashionTuzhuangBg.png	20176														
+3	Assets/Product/Texture/Image/UiSummerFashion/SummerFashionTuzhuangBg.png	20020	2	3	4	5	6		30101051	30101052			251			
+4	Assets/Product/Texture/Image/UiSummerFashion/SummerFashionTuzhuangBg.png	20020	2	7	8	9	10		30101072	30101073			363			
+5	Assets/Product/Texture/Image/UiSummerFashion/SummerFashionTuzhuangBg.png	20020	2	11	12	13			30101097				521	39110		
+6	Assets/Product/Texture/Image/UiSummerFashion/SummerFashionTuzhuangBg.png	20020	2	14	15	16	17	18	30101129	30101130	30101132	30101133	723	48820	48821	1300647

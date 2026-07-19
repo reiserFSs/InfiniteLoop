@@ -220,40 +220,49 @@ namespace AscNet.GameServer.Handlers
         public static void SendChatRequestHandler(Session session, Packet.Request packet)
         {
             SendChatRequest request = MessagePackSerializer.Deserialize<SendChatRequest>(packet.Content);
+            string? content = request.ChatData.Content?.TrimStart('\r', '\n');
+            request.ChatData.Content = content;
+
             NotifyChatMessage notifyChatMessage = BuildNotifyChatMessage(session, request.ChatData);
+            string? commandFeedback = null;
             NotifyWorldChat notifyWorldChat = new();
 
-            if (request.ChatData.Content is not null && request.ChatData.Content.StartsWith('/'))
+            if (content?.StartsWith('/') == true)
             {
-                var cmdStrings = request.ChatData.Content.Split(" ");
+                string[] commandParts = content[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                string commandName = commandParts.FirstOrDefault() ?? string.Empty;
 
                 try
                 {
-                    Command? cmd = CommandFactory.CreateCommand(cmdStrings.First().Split('/').Last(), session, cmdStrings[1..]);
-                    if (cmd is null)
+                    Command? command = CommandFactory.CreateCommand(commandName, session, commandParts[1..]);
+                    if (command is null)
                     {
-                        notifyWorldChat.ChatMessages.Add(MakeLuciaMessage($"Invalid command {cmdStrings.First().Split('/').Last()}, try /help"));
+                        commandFeedback = $"Invalid command {commandName}, try /help";
                     }
-
-                    cmd?.Execute();
-                    notifyWorldChat.ChatMessages.Add(MakeLuciaMessage("Command executed!"));
+                    else
+                    {
+                        command.Execute();
+                        commandFeedback = "Command executed!";
+                    }
                 }
                 catch (CommandMessageCallbackException ex)
                 {
-                    notifyWorldChat.ChatMessages.Add(MakeLuciaMessage(ex.Message));
+                    commandFeedback = ex.Message;
                 }
                 catch (Exception ex)
                 {
 #if DEBUG
-                    notifyWorldChat.ChatMessages.Add(MakeLuciaMessage($"Command {cmdStrings.First().Split('/').Last()} failed to execute!, " + ex.ToString()));
+                    commandFeedback = $"Command {commandName} failed to execute!, " + ex;
 #else
-                    notifyWorldChat.ChatMessages.Add(MakeLuciaMessage($"Command {cmdStrings.First().Split('/').Last()} failed to execute!, " + ex.Message));
+                    commandFeedback = $"Command {commandName} failed to execute!, " + ex.Message;
 #endif
                 }
             }
 
             session.SendPush(notifyChatMessage);
-            session.SendResponse(new SendChatResponse() { Code = 0, RefreshTime = 0 }, packet.Id);
+            session.SendResponse(new SendChatResponse { Code = 0, RefreshTime = 0 }, packet.Id);
+            if (commandFeedback is not null)
+                session.SendPush(BuildCommandFeedback(request.ChatData.ChannelType, commandFeedback));
             session.SendPush(notifyWorldChat);
         }
 
@@ -283,6 +292,21 @@ namespace AscNet.GameServer.Handlers
                 MentorType = 1,
                 CollectWordId = chatData.CollectWordId,
                 ChatBoardId = (int)session.player.PlayerData.CurrentChatBoardId
+            };
+        }
+
+        private static NotifyChatMessage BuildCommandFeedback(ChatChannelType channelType, string content)
+        {
+            return new()
+            {
+                MessageId = 0,
+                ChannelType = channelType,
+                MsgType = ChatMsgType.Normal,
+                SenderId = 88_001,
+                Icon = 9_010_102,
+                CreateTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
+                NickName = "System - Lucia",
+                Content = content
             };
         }
 

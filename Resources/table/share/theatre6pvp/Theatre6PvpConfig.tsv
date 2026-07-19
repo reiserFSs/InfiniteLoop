@@ -1,0 +1,17 @@
+Key	Desc	Values[1]
+MatchExpandMaxCount	Maximum Match Score Expansion Count	3
+ActionPointMaxLimit	Stamina Limit	15
+ActionPointRecoverInterval	Stamina Recovery Interval	28800
+LineupSlotRepeatLimit	Maximum number of times the same save can appear in the defense lineup	2
+RefreshMatchCd	Refresh Matchmaking Opponent CD (seconds)	5
+UnlockPvpModeConditionId	Unlock PvP Mode Condition ID	1021100
+SlotAttackLineupLimit	Attack Lineup Slots	2
+MaxSlotDefenseLineupLimit	Max Defense Lineup Slots	3
+MaxBattleRecordCount	Maximum Battle Log Count	10
+DlcFightWorldId	DLC Fight WorldId	202
+FightExpireDuration	Combat Timeout (Seconds)	86400
+RestartFightTimesLimit	Max Re-entry Attempts	3
+ActionPointInit	体力初始值	6
+ActionPointPerCost	体力单次消耗值	1
+RefreshMatchPeriodSeconds	Refresh Time Interval Duration	60
+RefreshMatchMaxCountPerPeriod	Refresh Count Within Interval	5

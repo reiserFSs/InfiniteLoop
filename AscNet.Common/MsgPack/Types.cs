@@ -53,12 +53,6 @@ namespace AscNet.Common.MsgPack
     }
 
 
-    [MessagePackObject(true)]
-    public partial class BaseEquipLoginData
-    {
-        public List<dynamic> BaseEquipList { get; set; } = new();
-        public List<dynamic> DressedList { get; set; } = new();
-    }
 
 
     [MessagePackObject(true)]
@@ -260,6 +254,12 @@ namespace AscNet.Common.MsgPack
         public long Id { get; set; }
         public long LeftCount { get; set; }
         public long BeginTime { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public partial class NotifyHeadPortraitInfos
+    {
+        public List<HeadPortraitList> Heads { get; set; } = new();
     }
 
     [MessagePackObject(true)]
@@ -518,6 +518,33 @@ namespace AscNet.Common.MsgPack
     }
 
 
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyWheelchairManualActivity
+    {
+        public List<Int32> OpenActivityIds { get; set; } = new();
+        public Int64 CurrentGuildBossEndTime { get; set; }
+        public Int32 ActivityId { get; set; }
+        public Int32 PlanId { get; set; }
+        public Int32 BpLevel { get; set; }
+        public Boolean IsSeniorManualUnlock { get; set; }
+        public Int64 StartTick { get; set; }
+        public List<Int32> GetRewardManualRewardIds { get; set; } = new();
+        public List<Int32> GetRewardPlanIds { get; set; } = new();
+        public List<Int32> FinishStageIds { get; set; } = new();
+        public List<Object> TimeLimitActivityInfos { get; set; } = new();
+        public List<Object>? WeekActivityInfos { get; set; } = new();
+        public List<Int32> BluePointSet { get; set; } = new();
+        public List<Int32> RedPointSet { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyWheelchairManualActivityUpdate
+    {
+        public List<Object> UpdateTimeLimitActivityInfos { get; set; } = new();
+        public List<Object>? UpdateWeekActivityInfos { get; set; }
+        public Int64 CurrentGuildBossEndTime { get; set; }
+    }
+
     [MessagePackObject(true)]
     public partial class NotifyLogin
     {
@@ -532,14 +559,12 @@ namespace AscNet.Common.MsgPack
         public List<dynamic> FashionSuitList { get; set; } = new();
         public Dictionary<int, List<int>> FashionColors { get; set; } = new();
         public List<HeadPortraitList> HeadPortraitList { get; set; } = new();
-        public BaseEquipLoginData BaseEquipLoginData { get; set; }
         public FubenData FubenData { get; set; }
         public Boolean IsSetFightCgEnable { get; set; }
         public FubenMainLineData FubenMainLineData { get; set; }
         public FubenEventData FubenEventData { get; set; } = new();
         public FubenMainLine2Data FubenMainLine2Data { get; set; }
         public FubenMainLineLuosaitaData FubenMainLineLuosaitaData { get; set; } = new();
-        public NotifyFashionColorData FashionColorData { get; set; }
         public FubenLoginData FubenChapterExtraLoginData { get; set; }
         public FubenUrgentEventData FubenUrgentEventData { get; set; }
         public List<dynamic> AutoFightRecords { get; set; } = new();
@@ -1005,10 +1030,18 @@ namespace AscNet.Common.MsgPack
             public Int32 DormitoryId { get; set; }
             public Int32 Addition { get; set; }
             public List<Int32> AttrList { get; set; } = new();
+            public List<Int32> BaseAttrList { get; set; } = new();
             public Boolean IsLocked { get; set; }
         }
 
         public List<NotifyDormitoryDataFurniture> FurnitureList { get; set; } = new();
+        [global::MessagePack.MessagePackObject(true)]
+        public class NotifyDormitoryDataEvent
+        {
+            public Int32 EventId { get; set; }
+            public UInt32 EndTime { get; set; }
+        }
+
         [global::MessagePack.MessagePackObject(true)]
         public class NotifyDormitoryDataCharacter
         {
@@ -1020,12 +1053,60 @@ namespace AscNet.Common.MsgPack
             public Int32 VitalitySpeed { get; set; }
             public UInt32 LastFondleRecoveryTime { get; set; }
             public Int32 LeftFondleCount { get; set; }
-            public List<dynamic> EventList { get; set; } = new();
+            public List<NotifyDormitoryDataEvent> EventList { get; set; } = new();
         }
 
         public List<NotifyDormitoryDataCharacter> CharacterList { get; set; } = new();
         public List<dynamic> Layouts { get; set; } = new();
         public List<dynamic> BindRelations { get; set; } = new();
+        [global::MessagePack.MessagePackObject(true)]
+        public class NotifyDormitoryDataDormQuestData
+        {
+            public Int32 ResetCount { get; set; }
+            public Int32 TerminalLv { get; set; }
+            public Int32 TerminalUpgradeExp { get; set; }
+            public Int32 FinishQuestCount { get; set; }
+            public UInt32 TerminalUpgradeTime { get; set; }
+            public Int32 TerminalUpgradeStatus { get; set; }
+            public List<List<Int32>> FinishQuests { get; set; } = new();
+            public List<Int32> TriggerLimitedQuest { get; set; } = new();
+            public List<NotifyDormitoryDataDormQuest> TotalQuest { get; set; } = new();
+            public List<NotifyDormitoryDataDormQuestAccept> QuestAccept { get; set; } = new();
+            public List<NotifyDormitoryDataDormCollectFile> CollectFiles { get; set; } = new();
+        }
+
+        [global::MessagePack.MessagePackObject(true)]
+        public class NotifyDormitoryDataDormQuest
+        {
+            public Int32 QuestId { get; set; }
+            public Int32 FileId { get; set; }
+            public Int32 Index { get; set; }
+            public Boolean IsSpecialQuest { get; set; }
+            public Int32 ResetCount { get; set; }
+        }
+
+        [global::MessagePack.MessagePackObject(true)]
+        public class NotifyDormitoryDataDormQuestAccept
+        {
+            public Int32 QuestId { get; set; }
+            public UInt32 AcceptTime { get; set; }
+            public List<UInt32> TeamCharacter { get; set; } = new();
+            public Int32 FileId { get; set; }
+            public Boolean IsSpecialQuest { get; set; }
+            public Int32 Index { get; set; }
+            public Boolean IsSatisfyRecommend { get; set; }
+            public Int32 ResetCount { get; set; }
+            public Boolean IsAward { get; set; }
+        }
+
+        [global::MessagePack.MessagePackObject(true)]
+        public class NotifyDormitoryDataDormCollectFile
+        {
+            public Int32 FileId { get; set; }
+            public Boolean IsRead { get; set; }
+        }
+
+        public NotifyDormitoryDataDormQuestData DormQuestData { get; set; } = new();
     }
 
 
@@ -1345,6 +1426,8 @@ namespace AscNet.Common.MsgPack
         public Int32 Schedule { get; set; }
         public List<dynamic> StageStarInfos { get; set; } = new();
         public List<dynamic> StarRewardIds { get; set; } = new();
+        public Dictionary<Int32, Int32> DifficultyScoreRecord { get; set; } = new();
+        public List<Int32> PassStoryIds { get; set; } = new();
     }
 
 
@@ -1598,26 +1681,51 @@ namespace AscNet.Common.MsgPack
 
 
     [global::MessagePack.MessagePackObject(true)]
+    public class PassportInfo
+    {
+        public Int32 Id { get; set; }
+        public List<Int32> GotRewardList { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class PassportBaseInfo
+    {
+        public Int32 Level { get; set; }
+        public Int64 Exp { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyPassportBaseInfo
+    {
+        public PassportBaseInfo BaseInfo { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class PassportRewardGoods
+    {
+        public Int32 RewardType { get; set; }
+        public Int32 TemplateId { get; set; }
+        public Int32 Count { get; set; }
+        public Int32 Level { get; set; }
+        public Int32 Quality { get; set; }
+        public Int32 Grade { get; set; }
+        public Int32 Breakthrough { get; set; }
+        public Int32 ConvertFrom { get; set; }
+        public Boolean IsGift { get; set; }
+        public Int32 RewardMulti { get; set; }
+        public Int32 Id { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
     public class NotifyPassportData
     {
         public Int32 ActivityId { get; set; }
         public Int32 Level { get; set; }
-        [global::MessagePack.MessagePackObject(true)]
-        public class NotifyPassportDataPassportInfo
-        {
-            public Int32 Id { get; set; }
-            public List<UInt32> GotRewardList { get; set; } = new();
-        }
-
-        public List<NotifyPassportDataPassportInfo> PassportInfos { get; set; } = new();
-        [global::MessagePack.MessagePackObject(true)]
-        public class NotifyPassportDataLastTimeBaseInfo
-        {
-            public Int32 Level { get; set; }
-            public UInt32 Exp { get; set; }
-        }
-
-        public NotifyPassportDataLastTimeBaseInfo LastTimeBaseInfo { get; set; }
+        public List<PassportInfo> PassportInfos { get; set; } = new();
+        public PassportBaseInfo LastTimeBaseInfo { get; set; } = new();
+        public Boolean IsGetSupplyReward { get; set; }
+        public Boolean IsActivateRegressionTask { get; set; }
+        public Boolean IsActivateNewbieTask { get; set; }
     }
 
 
@@ -2709,6 +2817,22 @@ namespace AscNet.Common.MsgPack
         public Int32 Code { get; set; }
     }
 
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabSetPartnerRequest
+    {
+        public Int32 TeamId { get; set; }
+        public Int32 TeamPos { get; set; }
+        public TeamPrefabPartnerData? TeamPrefabPartnerData { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabSetPartnerResponse
+    {
+        public Int32 Code { get; set; }
+    }
+
+
 
     [global::MessagePack.MessagePackObject(true)]
     public class TeamPrefabApplyRequest
@@ -2804,6 +2928,7 @@ namespace AscNet.Common.MsgPack
             public Int32 GeneralSkill { get; set; }
             public Int32 BossSingleStageType { get; set; }
             public dynamic? BossSingleChallengeBuffGroup { get; set; }
+            public Int32? BossInshotTowerId { get; set; }
         }
 
         public PreFightRequestPreFightData PreFightData { get; set; }
@@ -2842,6 +2967,8 @@ namespace AscNet.Common.MsgPack
                 public Boolean IsRobot { get; set; }
                 public Int32 CaptainIndex { get; set; }
                 public Int32 FirstFightPos { get; set; }
+                public Int32 EnterCgIndex { get; set; }
+                public Int32 SettleCgIndex { get; set; }
                 public Dictionary<int, dynamic> NpcData { get; set; }
                 public dynamic? CustomNpc { get; set; }
                 public dynamic? AssistNpcData { get; set; }
@@ -2869,6 +2996,13 @@ namespace AscNet.Common.MsgPack
     public class NotifyStageData
     {
         public List<StageDatum> StageList { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyFashionStoryData
+    {
+        public Int32 ActivityId { get; set; }
+        public List<Int32> FinishStageList { get; set; } = new();
     }
 
 
@@ -2967,7 +3101,7 @@ namespace AscNet.Common.MsgPack
             public dynamic? TeachingActivityFightResult { get; set; }
             public dynamic? PracticeFightResult { get; set; }
             public dynamic? KotodamaSettleResult { get; set; }
-            public dynamic? BossInshotSettleResult { get; set; }
+            public BossInshotSettleResult? BossInshotSettleResult { get; set; }
             public dynamic? SucceedBossBattleResult { get; set; }
             public dynamic? FpsGameSettleResult { get; set; }
             public dynamic? Maverick3SettleResult { get; set; }
@@ -2977,6 +3111,14 @@ namespace AscNet.Common.MsgPack
         }
 
         public FightSettleResponseSettle Settle { get; set; }
+    }
+
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class BossInshotSettleResult
+    {
+        public Int32 Score { get; set; }
+        public Boolean IsNewRecord { get; set; }
     }
 
 
@@ -3329,13 +3471,108 @@ namespace AscNet.Common.MsgPack
         [global::MessagePack.MessagePackObject(true)]
         public class LottoRecord
         {
-            public RewardGoods RewardGoods { get; set; }
+            [global::MessagePack.MessagePackObject(true)]
+            public class LottoRewardGoods
+            {
+                public Int32 RewardType { get; set; }
+                public UInt32 TemplateId { get; set; }
+                public Int32 Count { get; set; }
+                public Int32 Level { get; set; }
+                public Int32 Quality { get; set; }
+                public Int32 Grade { get; set; }
+                public Int32 Breakthrough { get; set; }
+                public Int32 ConvertFrom { get; set; }
+                public Boolean IsGift { get; set; }
+                public Int32 RewardMulti { get; set; }
+                public Int32 Id { get; set; }
+            }
+
+            public LottoRewardGoods RewardGoods { get; set; } = new();
             public Int32 LottoTime { get; set; }
         }
 
-        public List<dynamic> LottoInfos { get; set; } = new();
+        public List<LottoInfo> LottoInfos { get; set; } = new();
     }
 
+
+    [MessagePack.MessagePackObject(true)]
+    public class NotifyLoginMailCollectionBoxData
+    {
+        [MessagePack.MessagePackObject(true)]
+        public class MailCollectionBoxData
+        {
+            public List<int> ReceivedFavoriteMailIds { get; set; } = new();
+        }
+
+        public List<int> OpenActivityIds { get; set; } = new();
+        public MailCollectionBoxData MailCollectionBoxDataDb { get; set; } = new();
+    }
+
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailReadRequest
+    {
+        public string Id { get; set; } = string.Empty;
+    }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailReadResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailDeleteRequest { }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailDeleteResponse
+    {
+        public List<string> DelIdList { get; set; } = new();
+    }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailGetSingleRewardRequest
+    {
+        public string Id { get; set; } = string.Empty;
+    }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailGetSingleRewardResponse
+    {
+        public int Code { get; set; }
+        public List<MailRewardGoods>? RewardGoodsList { get; set; }
+        public int Status { get; set; }
+    }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailGetRewardRequest
+    {
+        public List<string> IdList { get; set; } = new();
+    }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailGetRewardResponse
+    {
+        public int Code { get; set; }
+        public List<MailRewardGoods>? RewardGoodsList { get; set; }
+        public Dictionary<string, int> MailStatus { get; set; } = new();
+    }
+
+    [MessagePack.MessagePackObject(true)]
+    public class MailRewardGoods
+    {
+        public Int32 RewardType { get; set; }
+        public UInt32 TemplateId { get; set; }
+        public Int32 Count { get; set; }
+        public Int32 Level { get; set; }
+        public Int32 Quality { get; set; }
+        public Int32 Grade { get; set; }
+        public Int32 Breakthrough { get; set; }
+        public Int32 ConvertFrom { get; set; }
+        public Boolean IsGift { get; set; }
+        public Int32 RewardMulti { get; set; }
+        public Int32 Id { get; set; }
+    }
 
     [MessagePack.MessagePackObject(true)]
     public class NotifyMails
@@ -3343,37 +3580,25 @@ namespace AscNet.Common.MsgPack
         [MessagePack.MessagePackObject(true)]
         public class NotifyMailsNewMailList
         {
-            public string Id { get; set; }
+            public string Id { get; set; } = string.Empty;
             public int GroupId { get; set; }
-            public dynamic? BatchId { get; set; }
+            public string? BatchId { get; set; }
             public int Type { get; set; }
             public int Status { get; set; }
-            public string SendName { get; set; }
-            public string Title { get; set; }
-            public string Content { get; set; }
+            public string SendName { get; set; } = string.Empty;
+            public string Title { get; set; } = string.Empty;
+            public string Content { get; set; } = string.Empty;
             public long CreateTime { get; set; }
             public long SendTime { get; set; }
             public long ExpireTime { get; set; }
-            [MessagePack.MessagePackObject(true)]
-            public class NotifyMailsNewMailListRewardGoodsList
-            {
-                public int RewardType { get; set; }
-                public uint TemplateId { get; set; }
-                public int Count { get; set; }
-                public int Level { get; set; }
-                public int Quality { get; set; }
-                public int Grade { get; set; }
-                public int Breakthrough { get; set; }
-                public int ConvertFrom { get; set; }
-                public int Id { get; set; }
-            }
-
-            public List<NotifyMailsNewMailListRewardGoodsList> RewardGoodsList { get; set; } = new();
+            public List<MailRewardGoods>? RewardGoodsList { get; set; }
             public bool IsForbidDelete { get; set; }
+            public bool IsSurvey { get; set; }
+            public long ReserveTime { get; set; }
         }
 
         public List<NotifyMailsNewMailList> NewMailList { get; set; } = new();
-        public dynamic? ExpireIdList { get; set; }
+        public List<string>? ExpireIdList { get; set; }
     }
 
 

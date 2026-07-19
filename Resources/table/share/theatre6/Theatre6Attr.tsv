@@ -1,0 +1,7 @@
+Id	Name	Desc	Min	Max	SaveScore	AttrType	AttrKey	Priority	Icon
+1	ATK	Affects DMG dealt when casting skills.\nIncreases gradually as you progress through stages.	1	10000000	12	1	Attack	1	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RoundSettlementRoleIcon02.png
+2	Health	Character HP in battle. The battle is lost when HP reaches zero.\nIncreases gradually as you progress through stages.	1	9999999	1	1	Life	2	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RoundSettlementRoleIcon01.png
+3	Fighting Will	Casting skills consumes Fighting Will.\nDuring battle, each point of Fighting Will grants 0.3% DMG Reduction, up to 40%.\nIn [Phantom Clash], only Fighting Will above 50 grants DMG Reduction.	1	9999999	48	2	Stamina	3	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RoundSettlementRoleIcon03.png
+4	Initiative	Affects Parry success rate.\nWhen casting Parry Skills, every 1 point of Initiative increases DMG dealt by 0.6%.	1	9999999	6	2	WrestlePoint	4	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RoundSettlementRoleIcon05.png
+5	Hypersequence	Affects Counter success rate and Hypersequence gained when taking hits.	1	9999999	6	2	OverClock	5	Assets/Product/Texture/Image/UiTheatre6/UiTheatre6RoundSettlementRoleIcon04.png
+6	Sanity Cap		-200	9999999		3	MaxSan		

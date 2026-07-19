@@ -1,5 +1,8 @@
 ﻿using AscNet.Common.MsgPack;
 using AscNet.Common.Database;
+using AscNet.Common.Util;
+using AscNet.Table.V2.client.functional;
+using AscNet.Table.V2.share.functional;
 using MessagePack;
 
 namespace AscNet.GameServer.Handlers
@@ -310,18 +313,32 @@ namespace AscNet.GameServer.Handlers
 
     internal class PlayerModule
     {
+        private static readonly Lazy<HashSet<long>> ValidPlayerMarkIds = new(() =>
+            TableReaderV2.Parse<FunctionalOpenTable>()
+                .Select(row => (long)row.Id)
+                .Concat(TableReaderV2.Parse<SkipFunctionalTable>()
+                    .Select(row => (long)row.FunctionalId.GetValueOrDefault()))
+                .Where(id => id > 0)
+                .ToHashSet());
+
         [RequestPacketHandler("ChangePlayerMarkRequest")]
         public static void ChangePlayerMarkRequestHandler(Session session, Packet.Request packet)
         {
             ChangePlayerMarkRequest request = MessagePackSerializer.Deserialize<ChangePlayerMarkRequest>(packet.Content);
 
-            if (session.player.PlayerData.Marks is null)
+            if (!ValidPlayerMarkIds.Value.Contains(request.MaskId))
             {
-                session.log.Debug("Marks is somehow null");
-                session.player.PlayerData.Marks = new();
+                session.SendResponse(new ChangePlayerMarkResponse { Code = 1 }, packet.Id);
+                return;
             }
 
-            session.player.PlayerData.Marks.Add(request.MaskId);
+            session.player.PlayerData.Marks ??= new();
+
+            if (!session.player.PlayerData.Marks.Contains(request.MaskId))
+            {
+                session.player.PlayerData.Marks.Add(request.MaskId);
+                session.player.Save();
+            }
             session.SendResponse(new ChangePlayerMarkResponse(), packet.Id);
         }
 
