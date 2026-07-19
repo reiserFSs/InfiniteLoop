@@ -61,7 +61,7 @@ namespace AscNet.SDKServer
         private class RequestLoggingMiddleware
         {
             private readonly RequestDelegate _next;
-            private static readonly string[] surpressedRoutes = ["/feedback"];
+            private static readonly PathString[] suppressedRoutes = ["/feedback"];
 
             public RequestLoggingMiddleware(RequestDelegate next)
             {
@@ -84,7 +84,8 @@ namespace AscNet.SDKServer
                 }
                 finally
                 {
-                     log.Info($"{context.Response.StatusCode} {context.Request.Method.ToUpper()} {context.Request.Path + context.Request.QueryString}");
+                    if (!suppressedRoutes.Any(route => context.Request.Path == route))
+                        log.Info($"{context.Response.StatusCode} {context.Request.Method} {context.Request.Path + context.Request.QueryString}");
                 }
             }
         }

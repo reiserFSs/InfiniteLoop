@@ -213,10 +213,13 @@ namespace AscNet.GameServer
                                         Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
                                         debugContent = push.Content;
                                         ProbeBigWorldPacket("client-push", push.Name, push.Content, null, packet.No);
-                                        if (IsKnownClientPush(push.Name))
-                                            log.Info(push.Name);
-                                        else
-                                            log.Warn($"{push.Name} client push ignored!{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(push.Content)) : "")}");
+                                        if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
+                                        {
+                                            if (IsKnownClientPush(push.Name))
+                                                log.Info(push.Name);
+                                            else
+                                                log.Warn($"{push.Name} client push ignored!{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(push.Content)) : "")}");
+                                        }
                                         break;
 
                                     case Packet.ContentType.Exception:
@@ -305,7 +308,8 @@ namespace AscNet.GameServer
                 Type = Packet.ContentType.Push,
                 Content = MessagePackSerializer.Serialize(packet)
             });
-            log.Info($"{packet.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + JsonConvert.SerializeObject(push)) : "")}");
+            if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
+                log.Info($"{packet.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + JsonConvert.SerializeObject(push)) : "")}");
         }
 
         public void SendPush(string name, byte[] push)
@@ -323,7 +327,8 @@ namespace AscNet.GameServer
                 Type = Packet.ContentType.Push,
                 Content = MessagePackSerializer.Serialize(packet)
             });
-            log.Info($"{name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(push)) : "")}");
+            if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
+                log.Info($"{name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(push)) : "")}");
         }
 
         private static readonly object EquipmentPushProbeLock = new();
@@ -331,6 +336,11 @@ namespace AscNet.GameServer
 
         private void ProbeEquipmentPush<T>(string name, T push)
         {
+            string? value = Environment.GetEnvironmentVariable("ASCNET_EQUIP_PUSH_LOG");
+            if (!string.Equals(value, "1", StringComparison.Ordinal)
+                && !string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase))
+                return;
             string? summary = name switch
             {
                 nameof(NotifyLogin) when push is NotifyLogin notifyLogin => DescribeEquipList(notifyLogin.EquipList),
@@ -362,7 +372,7 @@ namespace AscNet.GameServer
 
         private void ProbeBigWorldPacket(string direction, string name, byte[] content, int? requestId, int outerPacketNo)
         {
-            if (!IsBigWorldPacketDumpEnabled() || !ShouldDumpBigWorldPacket(name))
+            if (!ShouldDumpBigWorldPacket(name) || !IsBigWorldPacketDumpEnabled())
                 return;
 
             try
@@ -474,7 +484,8 @@ namespace AscNet.GameServer
                 Type = Packet.ContentType.Response,
                 Content = MessagePackSerializer.Serialize(packet)
             });
-            log.Info($"{packet.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + JsonConvert.SerializeObject(response)) : "")}");
+            if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
+                log.Info($"{packet.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + JsonConvert.SerializeObject(response)) : "")}");
         }
 
         public void SendResponse(string name, byte[] responseContent, int clientSeq = 0)
@@ -492,7 +503,8 @@ namespace AscNet.GameServer
                 Type = Packet.ContentType.Response,
                 Content = MessagePackSerializer.Serialize(packet)
             });
-            log.Info($"{name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(responseContent)) : "")}");
+            if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
+                log.Info($"{name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(responseContent)) : "")}");
         }
 
         private void Send(Packet packet)

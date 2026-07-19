@@ -149,16 +149,11 @@
 
         private void Append(string message, string memberName, LogLevel logLevel)
         {
-            if (!string.IsNullOrWhiteSpace(memberName))
-            {
-                AppendToConsole($"[{memberName}][{_loggerName}]: {message}", logLevel);
-                AppendToFile($"[{memberName}][{_loggerName}]: {message}", logLevel);
-            }
-            else
-            {
-                AppendToConsole($"[{_loggerName}]: {message}", logLevel);
-                AppendToFile($"[{_loggerName}]: {message}", logLevel);
-            }
+            string prefixedMessage = !string.IsNullOrWhiteSpace(memberName)
+                ? $"[{memberName}][{_loggerName}]: {message}"
+                : $"[{_loggerName}]: {message}";
+            AppendToConsole(prefixedMessage, logLevel);
+            AppendToFile(prefixedMessage, logLevel);
         }
 
         private void AppendToConsole(string message, LogLevel logLevel)

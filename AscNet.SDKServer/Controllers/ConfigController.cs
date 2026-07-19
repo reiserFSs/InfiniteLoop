@@ -48,11 +48,7 @@ namespace AscNet.SDKServer.Controllers
             app.MapGet("/prod/client/notice/html/{fileName}", HandleNoticeHtmlRequest);
 
 
-            app.MapPost("/feedback", (HttpContext ctx) =>
-            {
-                SDKServer.log.Info("1");
-                return "1";
-            });
+            app.MapPost("/feedback", () => "1");
         }
 
         private static string HandleConfigRequest(HttpContext ctx)
@@ -70,7 +66,6 @@ namespace AscNet.SDKServer.Controllers
                 AddLegacyClientConfig(remoteConfigs, package, version, versionConfig, publicHttpOrigin);
 
             string serializedObject = TsvTool.SerializeObject(remoteConfigs);
-            SDKServer.log.Info(serializedObject);
             return serializedObject;
         }
 
@@ -79,7 +74,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "LoginNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            return SerializeAndLog(null);
+            return Serialize(null);
         }
 
         private static string HandleScrollTextNoticeRequest(HttpContext ctx)
@@ -87,7 +82,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "ScrollTextNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            return SerializeAndLog(null);
+            return Serialize(null);
         }
 
         private static string HandleScrollPicNoticeRequest(HttpContext ctx)
@@ -95,7 +90,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "ScrollPicNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            return SerializeAndLog(null);
+            return Serialize(null);
         }
 
         private static string HandleGameNoticeRequest(HttpContext ctx)
@@ -104,7 +99,7 @@ namespace AscNet.SDKServer.Controllers
                 return fixtureJson;
 
             List<GameNotice> notices = new();
-            return SerializeAndLog(notices);
+            return Serialize(notices);
         }
 
         private static string HandleSecondMenuNoticeRequest(HttpContext ctx)
@@ -112,7 +107,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "SecondMenuNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            return SerializeAndLog(null);
+            return Serialize(null);
         }
 
         private static string HandlePopUpPicNoticeRequest(HttpContext ctx)
@@ -120,7 +115,7 @@ namespace AscNet.SDKServer.Controllers
             if (TryReadNoticeFixture(ctx, "PopUpPicNotice.json", out string fixtureJson))
                 return fixtureJson;
 
-            return SerializeAndLog(null);
+            return Serialize(null);
         }
 
         private static IResult HandleNoticePicRequest(HttpContext ctx)
@@ -476,16 +471,13 @@ namespace AscNet.SDKServer.Controllers
             }
 
             fixtureJson = File.ReadAllText(path);
-            SDKServer.log.Info(fixtureJson);
             return true;
         }
 
 
-        private static string SerializeAndLog(object? value)
+        private static string Serialize(object? value)
         {
-            string serializedObject = JsonConvert.SerializeObject(value);
-            SDKServer.log.Info(serializedObject);
-            return serializedObject;
+            return JsonConvert.SerializeObject(value);
         }
     }
 }

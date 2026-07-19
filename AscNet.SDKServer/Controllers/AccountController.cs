@@ -113,7 +113,7 @@ namespace AscNet.SDKServer.Controllers
             {
                 try
                 {
-                    Account? account = Account.FromToken(token) ?? Account.FromUID(userId);
+                    Account? account = Account.FromToken(token);
 
                     if (account is null)
                         account = GateFallbackAccount(loginType, userId);
@@ -131,9 +131,7 @@ namespace AscNet.SDKServer.Controllers
                         Token = player.Token
                     };
 
-                    string serializedObject = JsonConvert.SerializeObject(gate);
-                    SDKServer.log.Info(serializedObject);
-                    return serializedObject;
+                    return JsonConvert.SerializeObject(gate);
                 }
                 catch (Exception ex)
                 {

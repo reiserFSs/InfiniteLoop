@@ -1,14 +1,17 @@
 import errno
 import importlib.abc
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import io
 import multiprocessing
 import os
 from pathlib import Path
 import queue
 import runpy
+import socket
 import sys
+import threading
 import tempfile
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -43,6 +46,60 @@ def hold_build_lock(root, entered, release):
     with run_steam.serialized_build_lock():
         entered.put(os.getpid())
         release.get(timeout=5)
+
+
+class GateFallbackUsernameTests(unittest.TestCase):
+    def args(self, fallback, *, no_ensure_account):
+        return SimpleNamespace(
+            gate_fallback_username=fallback,
+            no_ensure_account=no_ensure_account,
+            ascnet_username="test",
+        )
+
+    def test_normal_run_defaults_to_ascnet_username(self):
+        self.assertEqual("test", run_steam.gate_fallback_username(self.args(None, no_ensure_account=False)))
+
+    def test_no_ensure_account_disables_omitted_fallback(self):
+        self.assertIsNone(run_steam.gate_fallback_username(self.args(None, no_ensure_account=True)))
+
+    def test_explicit_fallback_wins_under_no_ensure_account(self):
+        for fallback in ("fallback", ""):
+            with self.subTest(fallback=fallback):
+                self.assertEqual(fallback, run_steam.gate_fallback_username(self.args(fallback, no_ensure_account=True)))
+
+
+class RunnerOwnedHttpTests(unittest.TestCase):
+    def test_post_json_ignores_inherited_http_proxy(self):
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                body = b'{"ok": true}'
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        with HTTPServer(("127.0.0.1", 0), Handler) as server, socket.socket() as dead_proxy:
+            dead_proxy.bind(("127.0.0.1", 0))
+            thread = threading.Thread(target=server.serve_forever)
+            thread.start()
+            env = os.environ.copy()
+            proxy = f"http://127.0.0.1:{dead_proxy.getsockname()[1]}"
+            env.update(HTTP_PROXY=proxy, http_proxy=proxy)
+            env.pop("NO_PROXY", None)
+            env.pop("no_proxy", None)
+            try:
+                with patch.dict(os.environ, env, clear=True):
+                    self.assertEqual(
+                        {"ok": True},
+                        run_steam.post_json(f"http://127.0.0.1:{server.server_port}/", {}, timeout=1),
+                    )
+            finally:
+                server.shutdown()
+                thread.join()
 
 
 class WindowsBuildLockTests(unittest.TestCase):

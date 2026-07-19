@@ -258,6 +258,12 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class SegmentCheckFightResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class LeaveFightRequest
     {
     }
@@ -389,6 +395,12 @@ namespace AscNet.GameServer.Handlers
         {
             _ = MessagePackSerializer.Deserialize<CheckCodeRequest>(packet.Content);
             session.SendResponse(new CheckCodeResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("SegmentCheckFightRequest")]
+        public static void SegmentCheckFightRequestHandler(Session session, Packet.Request packet)
+        {
+            session.SendResponse(new SegmentCheckFightResponse(), packet.Id);
         }
 
         [RequestPacketHandler("LeaveFightRequest")]
@@ -1969,7 +1981,6 @@ namespace AscNet.GameServer.Handlers
                 
                 if (!deferFashionFirstClearPushes)
                     session.SendPush(charData);
-                session.character.Save();
                 if (deferFashionFirstClearPushes)
                     deferredCharacterData = charData;
             }

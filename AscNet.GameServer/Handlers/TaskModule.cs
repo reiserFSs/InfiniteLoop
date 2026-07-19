@@ -100,6 +100,15 @@ namespace AscNet.GameServer.Handlers
     internal class TaskModule
     {
         private const string CurrentTaskTimeFormat = "yyyy/M/d H:mm";
+        private static readonly Lazy<IReadOnlyDictionary<int, CurrentConditionTable>> CurrentConditionsById = new(() =>
+            TableReaderV2.Parse<CurrentConditionTable>().ToDictionary(condition => condition.Id));
+        private static readonly Lazy<IReadOnlyList<CurrentTaskTable>> CurrentTasksByPriority = new(() =>
+            TableReaderV2.Parse<CurrentTaskTable>().OrderByDescending(task => task.Priority).ToArray());
+        private static readonly Lazy<IReadOnlySet<int>> CurrentTaskIds = new(() =>
+            CurrentTasksByPriority.Value.Select(task => task.Id).ToHashSet());
+        private static readonly Lazy<IReadOnlyDictionary<uint, EquipTable>> EquipRowsById = new(() =>
+            TableReaderV2.Parse<EquipTable>().ToDictionary(equip => (uint)equip.Id));
+
         [RequestPacketHandler("DoClientTaskEventRequest")]
         public static void DoClientTaskEventRequestHandler(Session session, Packet.Request packet)
         {
@@ -114,7 +123,7 @@ namespace AscNet.GameServer.Handlers
         {
             FinishTaskRequest request = MessagePackSerializer.Deserialize<FinishTaskRequest>(packet.Content);
             FinishTaskResponse response = ClaimTaskReward(session, request.TaskId, pushSync: false);
-            if (TableReaderV2.Parse<CurrentTaskTable>().Any(task => task.Id == request.TaskId))
+            if (CurrentTaskIds.Value.Contains(request.TaskId))
             {
                 SendCurrentTaskBatch(session, [request.TaskId]);
             }
@@ -149,7 +158,7 @@ namespace AscNet.GameServer.Handlers
             }
 
             int[] requestedTaskIds = request.TaskIds.Distinct().ToArray();
-            HashSet<int> currentTaskIds = TableReaderV2.Parse<CurrentTaskTable>().Select(task => task.Id).ToHashSet();
+            IReadOnlySet<int> currentTaskIds = CurrentTaskIds.Value;
             int[] requestedCurrentTaskIds = requestedTaskIds.Where(currentTaskIds.Contains).ToArray();
             if (requestedCurrentTaskIds.Length > 0)
             {
@@ -480,7 +489,7 @@ namespace AscNet.GameServer.Handlers
                 return new GetCourseRewardResponse { Code = 20026013 };
             }
 
-            List<RewardGoodsTable> rewardGoods = GetRewardGoods(courseTable.RewardId);
+            List<RewardGoodsTable> rewardGoods = RewardHandler.GetRewardGoods(courseTable.RewardId);
             if (rewardGoods.Count == 0)
             {
                 return new GetCourseRewardResponse { Code = 20026013 };
@@ -790,11 +799,10 @@ namespace AscNet.GameServer.Handlers
         private static void SendConditionTypesSync(Session session, IEnumerable<int> conditionTypes)
         {
             HashSet<int> selectedTypes = conditionTypes.ToHashSet();
-            Dictionary<int, CurrentConditionTable> conditions = TableReaderV2.Parse<CurrentConditionTable>()
-                .Where(condition => selectedTypes.Contains(condition.Type))
-                .ToDictionary(condition => condition.Id);
+            IReadOnlyDictionary<int, CurrentConditionTable> conditions = CurrentConditionsById.Value;
             List<MissionTaskProgress> progress = TableReaderV2.Parse<CurrentTaskTable>()
-                .Where(task => conditions.ContainsKey(task.Condition))
+                .Where(task => conditions.TryGetValue(task.Condition, out CurrentConditionTable? condition)
+                    && selectedTypes.Contains(condition.Type))
                 .Select(task =>
                 {
                     CurrentConditionTable condition = conditions[task.Condition];
@@ -886,7 +894,7 @@ namespace AscNet.GameServer.Handlers
                 return new FinishTaskResponse { Code = 20026007 };
             }
 
-            List<RewardGoodsTable> rewardGoods = GetRewardGoods(task.RewardId ?? 0);
+            List<RewardGoodsTable> rewardGoods = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
             if (rewardGoods.Count == 0)
             {
                 return new FinishTaskResponse { Code = 20026003 };
@@ -946,7 +954,7 @@ namespace AscNet.GameServer.Handlers
                 return new FinishTaskResponse { Code = 20026007 };
             }
 
-            List<RewardGoodsTable> rewardGoods = GetRewardGoods(task.RewardId);
+            List<RewardGoodsTable> rewardGoods = RewardHandler.GetRewardGoods(task.RewardId);
             if (rewardGoods.Count == 0)
             {
                 return new FinishTaskResponse { Code = 20026003 };
@@ -1083,9 +1091,8 @@ namespace AscNet.GameServer.Handlers
 
         private static List<MissionTaskProgress> BuildCurrentTaskProgress(Session session, bool loginOnly)
         {
-            Dictionary<int, CurrentConditionTable> conditions = TableReaderV2.Parse<CurrentConditionTable>().ToDictionary(x => x.Id);
-            List<CurrentTaskTable> allTasks = TableReaderV2.Parse<CurrentTaskTable>();
-            IEnumerable<CurrentTaskTable> tasks = allTasks;
+            IReadOnlyDictionary<int, CurrentConditionTable> conditions = CurrentConditionsById.Value;
+            IEnumerable<CurrentTaskTable> tasks = CurrentTasksByPriority.Value;
             if (loginOnly)
             {
                 DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -1093,7 +1100,6 @@ namespace AscNet.GameServer.Handlers
             }
 
             return tasks
-                .OrderByDescending(x => x.Priority)
                 .Select(task =>
                 {
                     CurrentConditionTable? condition = conditions.GetValueOrDefault(task.Condition);
@@ -1105,7 +1111,7 @@ namespace AscNet.GameServer.Handlers
                     }
                     bool prerequisiteSatisfied = task.PreTaskId == 0
                         || session.player.MissionProgress.ClaimedTaskIds.Contains(task.PreTaskId)
-                        || allTasks.All(candidate => candidate.Id != task.PreTaskId);
+                        || !CurrentTaskIds.Value.Contains(task.PreTaskId);
                     int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
                         ? TaskStateFinish
                         : prerequisiteSatisfied && value >= task.Result ? TaskStateAchieved : TaskStateActive;
@@ -1153,8 +1159,7 @@ namespace AscNet.GameServer.Handlers
             int requiredQuality = parameters[4];
             int progressionMode = parameters[5];
             int requiredLevel = parameters[6];
-            Dictionary<uint, EquipTable> equipment = TableReaderV2.Parse<EquipTable>()
-                .ToDictionary(equip => (uint)equip.Id);
+            IReadOnlyDictionary<uint, EquipTable> equipment = EquipRowsById.Value;
             return session.character.Equips.Count(equip =>
                 !equip.IsRecycle
                 && equipment.TryGetValue(equip.TemplateId, out EquipTable? row)
@@ -1407,24 +1412,6 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
-        private static List<RewardGoodsTable> GetRewardGoods(int rewardId)
-        {
-            RewardTable? rewardTable = TableReaderV2.Parse<RewardTable>().FirstOrDefault(x => x.Id == rewardId);
-            if (rewardTable is null)
-            {
-                return [];
-            }
-
-            HashSet<int> subIds = rewardTable.SubIds.ToHashSet();
-            if (subIds.Count == 0)
-            {
-                return [];
-            }
-
-            return TableReaderV2.Parse<RewardGoodsTable>()
-                .Where(x => subIds.Contains(x.Id))
-                .ToList();
-        }
 
         private const int NewPlayerActivenessItemId = 20;
 

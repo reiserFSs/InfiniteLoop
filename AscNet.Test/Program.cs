@@ -139,6 +139,12 @@ namespace AscNet.Test
                     ValidatePreFightPositionCompatibility();
                     return;
                 }
+                if (args.Contains("--segment-check-fight-compat-only"))
+                {
+                    ValidateSegmentCheckFightCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--fight-restart-compat-only"))
                 {
                     ValidateFightRestartCompatibility();
@@ -190,6 +196,11 @@ namespace AscNet.Test
                 if (args.Contains("--login-account-compat-only"))
                 {
                     ValidateLoginAccountCompatibility();
+                    return;
+                }
+                if (args.Contains("--gate-login-compat-only"))
+                {
+                    ValidateGateLoginCompatibility().GetAwaiter().GetResult();
                     return;
                 }
                 if (args.Contains("--daily-sign-in-compat-only"))
@@ -554,6 +565,7 @@ namespace AscNet.Test
                 ValidateCharacterSwitchSkillCompatibility();
                 ValidateTeamPrefabCompatibility();
                 ValidatePreFightPositionCompatibility();
+                ValidateSegmentCheckFightCompatibility();
                 ValidateFightRestartCompatibility();
                 ValidateCharacterProgressionPersistenceCompatibility();
                 ValidateCharacterSkillGroupTableBackedCompatibility();
@@ -21123,6 +21135,12 @@ namespace AscNet.Test
                 nameof(TableReaderV2.Parse),
                 BindingFlags.Static | BindingFlags.Public);
             Type taskModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule");
+            Type rewardHandler = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
+            MethodInfo getRewardGoods = RequiredMethod(
+                rewardHandler,
+                "GetRewardGoods",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(int)]);
             MethodInfo sendTaskSync = RequiredMethod(
                 taskModule,
                 "SendTaskSync",
@@ -21137,8 +21155,7 @@ namespace AscNet.Test
             MethodInfo courseRewardHandler = GetRegisteredRequestHandlerMethod("GetCourseRewardRequest");
             AssertEqual("GetCourseRewardRequestHandler", courseRewardHandler.Name, "GetCourseRewardRequest registered handler method");
             AssertMethodTransitivelyCallsGenericMethod(courseRewardHandler, tableParse, typeof(CourseTable), "GetCourseRewardRequestHandler course table lookup");
-            AssertMethodTransitivelyCallsGenericMethod(courseRewardHandler, tableParse, typeof(RewardTable), "GetCourseRewardRequestHandler reward table lookup");
-            AssertMethodTransitivelyCallsGenericMethod(courseRewardHandler, tableParse, typeof(RewardGoodsTable), "GetCourseRewardRequestHandler reward goods lookup");
+            AssertMethodTransitivelyCalls(courseRewardHandler, getRewardGoods, "GetCourseRewardRequestHandler authoritative reward lookup");
             AssertMethodDoesNotTransitivelyCallGenericMethod(courseRewardHandler, tableParse, typeof(StageTable), "GetCourseRewardRequestHandler stale stage first-clear lookup");
             AssertMethodTransitivelyCalls(courseRewardHandler, stageAddCourse, "GetCourseRewardRequestHandler course claim marker");
             AssertMethodTransitivelyCalls(courseRewardHandler, stageSave, "GetCourseRewardRequestHandler stage course persistence");
@@ -21149,12 +21166,10 @@ namespace AscNet.Test
             AssertEqual("FinishTaskRequestHandler", finishTaskHandler.Name, "FinishTaskRequest registered handler method");
             AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(StoryTaskTable), "FinishTaskRequestHandler story task lookup");
             AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(StoryTaskConditionTable), "FinishTaskRequestHandler story task condition lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(RewardTable), "FinishTaskRequestHandler reward table lookup");
             AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(CurrentTaskTable), "FinishTaskRequestHandler current task lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(CurrentConditionTable), "FinishTaskRequestHandler current condition lookup");
+            AssertMethodTransitivelyCalls(finishTaskHandler, getRewardGoods, "FinishTaskRequestHandler authoritative reward lookup");
             AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(CurrentRewardTable), "FinishTaskRequestHandler current reward lookup");
             AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(CurrentRewardGoodsTable), "FinishTaskRequestHandler current reward goods lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(RewardGoodsTable), "FinishTaskRequestHandler reward goods lookup");
             AssertMethodTransitivelyCalls(finishTaskHandler, stageAddFinishedTask, "FinishTaskRequestHandler finished task marker");
             AssertMethodTransitivelyCalls(finishTaskHandler, stageSave, "FinishTaskRequestHandler stage task persistence");
             AssertMethodTransitivelyCalls(finishTaskHandler, inventorySave, "FinishTaskRequestHandler inventory reward persistence");
@@ -21166,8 +21181,7 @@ namespace AscNet.Test
             AssertEqual("FinishMultiTaskRequestHandler", finishMultiTaskHandler.Name, "FinishMultiTaskRequest registered handler method");
             AssertMethodTransitivelyCallsGenericMethod(finishMultiTaskHandler, tableParse, typeof(StoryTaskTable), "FinishMultiTaskRequestHandler story task lookup");
             AssertMethodTransitivelyCallsGenericMethod(finishMultiTaskHandler, tableParse, typeof(StoryTaskConditionTable), "FinishMultiTaskRequestHandler story task condition lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishMultiTaskHandler, tableParse, typeof(RewardTable), "FinishMultiTaskRequestHandler reward table lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishMultiTaskHandler, tableParse, typeof(RewardGoodsTable), "FinishMultiTaskRequestHandler reward goods lookup");
+            AssertMethodTransitivelyCalls(finishMultiTaskHandler, getRewardGoods, "FinishMultiTaskRequestHandler authoritative reward lookup");
             AssertMethodTransitivelyCalls(finishMultiTaskHandler, stageAddFinishedTask, "FinishMultiTaskRequestHandler finished task marker");
             AssertMethodTransitivelyCalls(finishMultiTaskHandler, stageSave, "FinishMultiTaskRequestHandler stage task persistence");
             AssertMethodTransitivelyCalls(finishMultiTaskHandler, inventorySave, "FinishMultiTaskRequestHandler inventory reward persistence");
@@ -21465,6 +21479,46 @@ namespace AscNet.Test
                     throw new InvalidDataException($"{name}: unexpected extra {extra.Type} packet.");
             }
         }
+        private static void ValidateSegmentCheckFightCompatibility()
+        {
+            const long playerId = 88_066;
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "segment-check-fight-compat-test");
+
+            AssertResponse(13_215, new
+            {
+                Operations = new Dictionary<int, object>(),
+                Codes = Array.Empty<int>(),
+                CurFrame = 1
+            });
+            AssertResponse(13_216, new
+            {
+                Operations = new Dictionary<int, object> { [2] = new { IncId = 2 } },
+                Codes = new[] { -1, 1 },
+                CurFrame = 2
+            });
+
+            void AssertResponse(int packetId, object request)
+            {
+                InvokeRegisteredRequestHandler("SegmentCheckFightRequest", harness.Session, packetId, request);
+                JObject response = ReadResponseMapPayload(
+                    harness,
+                    packetId,
+                    nameof(SegmentCheckFightResponse),
+                    "SegmentCheckFightResponse");
+                AssertEqual(
+                    true,
+                    response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    "SegmentCheckFightResponse map keys");
+                AssertEqual(0, RequiredValue<int>(response, "Code", JTokenType.Integer, "SegmentCheckFightResponse"), "SegmentCheckFightResponse Code");
+                if (harness.TryReadAvailablePacket("SegmentCheckFightResponse unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"SegmentCheckFightResponse: unexpected extra {extra.Type} packet.");
+            }
+        }
+
         private static void ValidateFightRestartCompatibility()
         {
             const long playerId = 88_065;

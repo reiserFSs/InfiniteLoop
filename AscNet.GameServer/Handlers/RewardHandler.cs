@@ -87,6 +87,39 @@ namespace AscNet.GameServer.Handlers
 
     internal class RewardHandler
     {
+        private static readonly Lazy<IReadOnlyDictionary<int, IReadOnlyList<RewardGoodsTable>>> RewardGoodsByRewardId = new(() =>
+        {
+            Dictionary<int, List<RewardGoodsTable>> goodsByRewardId = [];
+            Dictionary<int, List<List<RewardGoodsTable>>> rewardsByGoodsId = [];
+            foreach (RewardTable reward in TableReaderV2.Parse<RewardTable>())
+            {
+                if (!goodsByRewardId.TryAdd(reward.Id, []))
+                    continue;
+
+                List<RewardGoodsTable> goods = goodsByRewardId[reward.Id];
+                foreach (int subId in reward.SubIds.Distinct())
+                {
+                    if (!rewardsByGoodsId.TryGetValue(subId, out List<List<RewardGoodsTable>>? rewards))
+                    {
+                        rewards = [];
+                        rewardsByGoodsId.Add(subId, rewards);
+                    }
+                    rewards.Add(goods);
+                }
+            }
+
+            foreach (RewardGoodsTable goods in TableReaderV2.Parse<RewardGoodsTable>())
+            {
+                if (rewardsByGoodsId.TryGetValue(goods.Id, out List<List<RewardGoodsTable>>? rewards))
+                    foreach (List<RewardGoodsTable> rewardGoods in rewards)
+                        rewardGoods.Add(goods);
+            }
+
+            return goodsByRewardId.ToDictionary(
+                entry => entry.Key,
+                entry => (IReadOnlyList<RewardGoodsTable>)entry.Value.ToArray());
+        });
+
         public static RewardType? GetRewardType(RewardGoodsTable reward)
         {
             var idVal = (int)MathF.Floor((reward.TemplateId > 0 ? reward.TemplateId : reward.Id) / 1000000);
@@ -104,21 +137,9 @@ namespace AscNet.GameServer.Handlers
 
         public static List<RewardGoodsTable> GetRewardGoods(int rewardId)
         {
-            RewardTable? rewardTable = TableReaderV2.Parse<RewardTable>().FirstOrDefault(x => x.Id == rewardId);
-            if (rewardTable is null)
-            {
-                return [];
-            }
-
-            HashSet<int> subIds = rewardTable.SubIds.ToHashSet();
-            if (subIds.Count == 0)
-            {
-                return [];
-            }
-
-            return TableReaderV2.Parse<RewardGoodsTable>()
-                .Where(x => subIds.Contains(x.Id))
-                .ToList();
+            return RewardGoodsByRewardId.Value.TryGetValue(rewardId, out IReadOnlyList<RewardGoodsTable>? rewardGoods)
+                ? new List<RewardGoodsTable>(rewardGoods)
+                : [];
         }
 
         public static RewardApplicationResult ApplyRewards(

@@ -295,9 +295,23 @@ namespace AscNet.Common.Database
         public static readonly IMongoCollection<Player> collection = Common.db.GetCollection<Player>("players");
         private static readonly Logger log = new(typeof(Player), LogLevel.WARN, LogLevel.WARN);
 
-        public static void EnsureLeaderboardIndexes()
+        public static void EnsureIndexes()
         {
-            collection.Indexes.CreateOne(
+            Account.collection.Indexes.CreateMany(
+            [
+                new CreateIndexModel<Account>(Builders<Account>.IndexKeys.Ascending(account => account.Username),
+                    new CreateIndexOptions { Name = "accounts_username" }),
+                new CreateIndexModel<Account>(Builders<Account>.IndexKeys.Ascending(account => account.Token),
+                    new CreateIndexOptions { Name = "accounts_token" }),
+                new CreateIndexModel<Account>(Builders<Account>.IndexKeys.Ascending(account => account.Uid),
+                    new CreateIndexOptions { Name = "accounts_uid" })
+            ]);
+            collection.Indexes.CreateMany(
+            [
+                new CreateIndexModel<Player>(Builders<Player>.IndexKeys.Ascending(player => player.Token),
+                    new CreateIndexOptions { Name = "players_token" }),
+                new CreateIndexModel<Player>(Builders<Player>.IndexKeys.Ascending(player => player.PlayerData.Id),
+                    new CreateIndexOptions { Name = "players_player_data_id" }),
                 new CreateIndexModel<Player>(
                     Builders<Player>.IndexKeys
                         .Ascending(player => player.Theatre6.Pvp.AuthorizedSeasonId)
@@ -308,7 +322,17 @@ namespace AscNet.Common.Database
                     {
                         Name = "theatre6_pvp_season_score_player",
                         Sparse = true
-                    }));
+                    })
+            ]);
+            Character.collection.Indexes.CreateOne(new CreateIndexModel<Character>(
+                Builders<Character>.IndexKeys.Ascending(character => character.Uid),
+                new CreateIndexOptions { Name = "characters_uid" }));
+            Inventory.collection.Indexes.CreateOne(new CreateIndexModel<Inventory>(
+                Builders<Inventory>.IndexKeys.Ascending(inventory => inventory.Uid),
+                new CreateIndexOptions { Name = "inventory_uid" }));
+            Stage.collection.Indexes.CreateOne(new CreateIndexModel<Stage>(
+                Builders<Stage>.IndexKeys.Ascending(stage => stage.Uid),
+                new CreateIndexOptions { Name = "stages_uid" }));
             BossInshotRankEntry.EnsureIndexes();
         }
 

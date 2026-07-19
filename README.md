@@ -179,6 +179,7 @@ Common options:
 | `--ascnet-username test` | Local AscNet account used for Steam login handoff. |
 | `--ascnet-password test` | Password used when creating that local account. |
 | `--gate-fallback-username <name>` | Map unknown Steam/KRSDK gate logins to an existing local account. |
+| `--no-ensure-account` | Skip local account creation/checking and disable implicit unknown-user fallback. |
 | `--seed-krsdk-cache` | Opt in to writing local AscNet account data into KRSDK cache files. |
 | `--krsdk-cache-dir <path>` | Override the KRSDK login-cache directory used for repair/seeding. |
 | `--no-proxy` | Run only AscNet; skip mitmproxy. |

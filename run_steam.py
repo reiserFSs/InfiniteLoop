@@ -40,6 +40,14 @@ CONFIG_SMOKE_TARGETS = [
     ),
 ]
 CURRENT_DOCUMENT_VERSION = "4.6.7"
+LOCAL_SDK_HTTP = None
+
+
+def local_sdk_open(request: str | urllib.request.Request, timeout: float):
+    global LOCAL_SDK_HTTP
+    if LOCAL_SDK_HTTP is None:
+        LOCAL_SDK_HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    return LOCAL_SDK_HTTP.open(request, timeout=timeout)
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,7 +67,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--gate-fallback-username",
         default=os.environ.get("ASCNET_GATE_FALLBACK_USERNAME"),
-        help="Local AscNet username to use when Steam/KRSDK reaches /api/Login/Login with an unknown external uid. Pass an empty value to disable. Default: --ascnet-username.",
+        help="Local AscNet username to use when Steam/KRSDK reaches /api/Login/Login with an unknown external uid. Pass an empty value to disable. Defaults to --ascnet-username unless --no-ensure-account is used.",
     )
     parser.add_argument(
         "--ascnet-username",
@@ -71,7 +79,7 @@ def parse_args() -> argparse.Namespace:
         default=os.environ.get("ASCNET_PASSWORD", "test"),
         help="Local AscNet account password used when --ascnet-username must be created. Default: %(default)s",
     )
-    parser.add_argument("--no-ensure-account", action="store_true", help="Do not create/check the local AscNet account before launching.")
+    parser.add_argument("--no-ensure-account", action="store_true", help="Do not create/check a local account or implicitly map unknown Steam/KRSDK users to one.")
     parser.add_argument(
         "--krsdk-cache-dir",
         default=os.environ.get("ASCNET_KRSDK_CACHE_DIR", str(DEFAULT_KRSDK_CACHE_DIR)),
@@ -243,7 +251,7 @@ def smoke_config_target(sdk_url: str, timeout: float, label: str, path: str, cha
 
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=2.0) as response:
+            with local_sdk_open(url, timeout=2.0) as response:
                 body = response.read().decode("utf-8", errors="replace")
             required = [
                 "ApplicationVersion\tstring\t4.6.0",
@@ -269,7 +277,7 @@ def post_json(url: str, payload: dict[str, str], timeout: float) -> dict[str, ob
     data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(url, data=data, method="POST")
     request.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with local_sdk_open(request, timeout=timeout) as response:
         body = response.read().decode("utf-8", errors="replace")
     parsed = json.loads(body)
     if not isinstance(parsed, dict):
@@ -482,6 +490,12 @@ def normalize_launch_cmd(raw: list[str] | None) -> list[str] | None:
 
 
 
+def gate_fallback_username(args: argparse.Namespace) -> str | None:
+    if args.gate_fallback_username is not None:
+        return args.gate_fallback_username
+    return None if args.no_ensure_account else args.ascnet_username
+
+
 def terminate(processes: Iterable[subprocess.Popen[bytes]]) -> None:
     alive = [process for process in processes if process.poll() is None]
     for process in reversed(alive):
@@ -504,11 +518,9 @@ def main() -> int:
 
     env = os.environ.copy()
     env["ASCNET_PUBLIC_HTTP_ORIGIN"] = args.sdk_url.rstrip("/")
-    gate_fallback_username = args.gate_fallback_username
-    if gate_fallback_username is None:
-        gate_fallback_username = args.ascnet_username
-    if gate_fallback_username:
-        env["ASCNET_GATE_FALLBACK_USERNAME"] = gate_fallback_username
+    gate_fallback = gate_fallback_username(args)
+    if gate_fallback:
+        env["ASCNET_GATE_FALLBACK_USERNAME"] = gate_fallback
     else:
         env.pop("ASCNET_GATE_FALLBACK_USERNAME", None)
     child_env = proxy_env(env, args.proxy_host, args.proxy_port, args.sdk_url, args.proxy_log, args.proxy_https)

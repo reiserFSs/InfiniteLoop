@@ -16,7 +16,7 @@ namespace AscNet
             LoggerFactory.InitializeLogger(new Logger(typeof(Program), LogLevel.DEBUG, LogLevel.DEBUG));
             LoggerFactory.Logger.Info("Starting...");
 
-            Player.EnsureLeaderboardIndexes();
+            Player.EnsureIndexes();
             PacketFactory.LoadPacketHandlers();
             CommandFactory.LoadCommands();
 
