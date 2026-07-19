@@ -347,7 +347,7 @@ namespace AscNet.GameServer.Handlers
                 session.character.Fashions.Add(fashion);
                 changed = true;
             }
-            else if (fashion is not null && fashion.IsLock)
+            else if (fashion is not null && fashion.IsLock && ownsCharacter)
             {
                 fashion.IsLock = false;
                 changed = true;
@@ -357,6 +357,12 @@ namespace AscNet.GameServer.Handlers
             {
                 FashionSyncNotify fashionSync = new();
                 fashionSync.FashionList.Add(fashion);
+                foreach (int colorId in TableReaderV2.Parse<FashionColorTable>()
+                             .Where(color => color.OriginalFashionId == fashion.Id)
+                             .Select(color => color.Id))
+                {
+                    RewardHandler.UnlockFashionColorReward(colorId, session, fashionSync);
+                }
                 session.SendPush(fashionSync);
                 session.character.Save();
             }

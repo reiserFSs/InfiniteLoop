@@ -346,6 +346,12 @@ namespace AscNet.Common.Database
                 changed = true;
             }
 
+            if (FashionColors is null)
+            {
+                FashionColors = new();
+                changed = true;
+            }
+
             if (Partners is null)
             {
                 Partners = new();
@@ -422,6 +428,28 @@ namespace AscNet.Common.Database
                 normalizedFashions.Add(fashion);
             }
             Fashions = normalizedFashions;
+
+            HashSet<int> unlockedFashionIds = Fashions
+                .Where(fashion => !fashion.IsLock)
+                .Select(fashion => (int)fashion.Id)
+                .ToHashSet();
+            foreach (FashionColorTable color in TableReaderV2.Parse<FashionColorTable>())
+            {
+                if (!unlockedFashionIds.Contains(color.OriginalFashionId)
+                    && !unlockedFashionIds.Contains(color.TargetFashionId))
+                {
+                    continue;
+                }
+
+                if (!FashionColors.TryGetValue(color.OriginalFashionId, out List<int>? colors))
+                    FashionColors[color.OriginalFashionId] = colors = new();
+
+                if (colors.Contains(color.Id))
+                    continue;
+
+                colors.Add(color.Id);
+                changed = true;
+            }
 
             foreach (CharacterData character in Characters)
             {

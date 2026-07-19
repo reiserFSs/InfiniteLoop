@@ -13221,7 +13221,10 @@ namespace AscNet.Test
 
             AscNet.GameServer.Commands.CommandFactory.commands.Clear();
             AscNet.GameServer.Commands.CommandFactory.LoadCommands();
-            CharacterTable ownedCharacter = TableReaderV2.Parse<CharacterTable>().First(row => row.Type == 1);
+            FashionTable colorFashion = TableReaderV2.Parse<FashionTable>().Single(fashion =>
+                fashion.Id == TableReaderV2.Parse<FashionColorTable>().First().OriginalFashionId);
+            CharacterTable ownedCharacter = TableReaderV2.Parse<CharacterTable>()
+                .Single(characterRow => characterRow.Id == colorFashion.CharacterId);
             character.Characters =
             [
                 CreateLoginAccountCompatibilityCharacter(
@@ -13237,6 +13240,8 @@ namespace AscNet.Test
                 harness, nameof(FashionSyncNotify), "coating unlock all character fashion push");
             NotifyWeaponFashionInfo allWeaponPush = ReadPushPayload<NotifyWeaponFashionInfo>(
                 harness, nameof(NotifyWeaponFashionInfo), "coating unlock all weapon fashion push");
+            ReadPushPayload<NotifyHeadPortraitInfos>(
+                harness, nameof(NotifyHeadPortraitInfos), "coating unlock all head portrait push");
             HashSet<int> catalogWeaponIds = items.Values
                 .Where(item => item.ItemType == (int)ItemType.WeaponFashion)
                 .Select(item => item.SubTypeParams.FirstOrDefault())
@@ -13252,6 +13257,34 @@ namespace AscNet.Test
                 throw new InvalidDataException("coating unlock all did not unlock all fashions for the owned character.");
             AssertEqual(ownedCharacterFashionIds.Count, fashionPush.FashionList.Count,
                 "coating unlock all character push changed count");
+            Dictionary<int, HashSet<int>> ownedCharacterFashionColors = TableReaderV2.Parse<FashionColorTable>()
+                .Where(color => ownedCharacterFashionIds.Contains(color.OriginalFashionId))
+                .GroupBy(color => color.OriginalFashionId)
+                .ToDictionary(group => group.Key, group => group.Select(color => color.Id).ToHashSet());
+            if (ownedCharacterFashionColors.Count == 0)
+                throw new InvalidDataException("coating unlock all test fixture has no table-derived character colors.");
+            if (character.FashionColors is null
+                || character.FashionColors.Count != ownedCharacterFashionColors.Count)
+            {
+                throw new InvalidDataException("coating unlock all did not store exactly the owned character colors.");
+            }
+            AssertEqual(ownedCharacterFashionColors.Count, fashionPush.FashionColors.Count,
+                "coating unlock all character color push fashion count");
+            foreach ((int fashionId, HashSet<int> colorIds) in ownedCharacterFashionColors)
+            {
+                if (!character.FashionColors.TryGetValue(fashionId, out List<int>? ownedColorIds)
+                    || !colorIds.SetEquals(ownedColorIds))
+                {
+                    throw new InvalidDataException(
+                        $"coating unlock all did not store the table-derived colors for fashion {fashionId}.");
+                }
+                if (!fashionPush.FashionColors.TryGetValue(fashionId, out List<int>? pushedColorIds)
+                    || !colorIds.SetEquals(pushedColorIds))
+                {
+                    throw new InvalidDataException(
+                        $"coating unlock all did not push the table-derived colors for fashion {fashionId}.");
+                }
+            }
             AssertEqual(catalogWeaponIds.Count - 2, allWeaponPush.WeaponFashionDataList.Count,
                 "coating unlock all weapon push changed count");
             AssertEqual(savesBeforeCommand + 1, characterCollection.ReplaceOneCalls,
@@ -15647,9 +15680,121 @@ namespace AscNet.Test
 
         private static void ValidateFashionColorCompatibility()
         {
-            FashionColorTable colorRow = TableReaderV2.Parse<FashionColorTable>().First();
+            List<FashionColorTable> colorRows = TableReaderV2.Parse<FashionColorTable>();
+            List<FashionTable> fashionRows = TableReaderV2.Parse<FashionTable>();
+            List<FashionColorTable> normalizationRows = colorRows
+                .Where(color => fashionRows.Any(fashion => fashion.Id == color.TargetFashionId))
+                .GroupBy(color => color.TargetFashionId)
+                .Select(group => group.First())
+                .Take(2)
+                .ToList();
+            FashionColorTable ownedTargetColor = normalizationRows.First();
+            FashionColorTable? lockedTargetColor = normalizationRows.Skip(1).FirstOrDefault();
+            AscNet.Common.Database.Character migratedCharacter = CreateDrawCompatibilityCharacter(99_400);
+            migratedCharacter.Fashions =
+            [
+                new FashionList { Id = ownedTargetColor.TargetFashionId, IsLock = false }
+            ];
+            if (lockedTargetColor is not null)
+                migratedCharacter.Fashions.Add(new FashionList { Id = lockedTargetColor.TargetFashionId, IsLock = true });
+            migratedCharacter.FashionColors = null!;
+
+            AssertEqual(true, migratedCharacter.NormalizeCharactersForCurrentTables(),
+                "legacy alternate coating ownership normalization changed state");
+            AssertEqual(lockedTargetColor is null ? 1 : 2, migratedCharacter.Fashions.Count,
+                "legacy alternate coating FashionList entries preserved");
+            foreach (IGrouping<int, FashionColorTable> colorsByOriginalFashion in colorRows
+                         .Where(color => color.TargetFashionId == ownedTargetColor.TargetFashionId)
+                         .GroupBy(color => color.OriginalFashionId))
+            {
+                AssertIntegerList(
+                    colorsByOriginalFashion.Select(color => (long)color.Id).Order().ToArray(),
+                    migratedCharacter.FashionColors[colorsByOriginalFashion.Key]
+                        .Select(id => (long)id).Order().ToArray(),
+                    "legacy unlocked alternate coating color ownership");
+            }
+            if (lockedTargetColor is not null)
+            {
+                foreach (FashionColorTable lockedColor in colorRows
+                             .Where(color => color.TargetFashionId == lockedTargetColor.TargetFashionId))
+                {
+                    AssertEqual(false,
+                        migratedCharacter.FashionColors.GetValueOrDefault(lockedColor.OriginalFashionId)?
+                            .Contains(lockedColor.Id) ?? false,
+                        "locked alternate coating does not grant color ownership");
+                }
+            }
+            AssertEqual(false, migratedCharacter.NormalizeCharactersForCurrentTables(),
+                "legacy alternate coating ownership normalization idempotence");
+
+            AscNet.Common.Database.Character originalFashionCharacter = CreateDrawCompatibilityCharacter(99_402);
+            originalFashionCharacter.Fashions =
+            [
+                new FashionList { Id = ownedTargetColor.OriginalFashionId, IsLock = false }
+            ];
+            AssertEqual(true, originalFashionCharacter.NormalizeCharactersForCurrentTables(),
+                "unlocked original fashion grants alternate coating color");
+            AssertEqual(true,
+                originalFashionCharacter.FashionColors[ownedTargetColor.OriginalFashionId]
+                    .Contains(ownedTargetColor.Id),
+                "unlocked original fashion color ownership");
+            AssertEqual(false, originalFashionCharacter.NormalizeCharactersForCurrentTables(),
+                "original fashion color normalization idempotence");
+
+            AscNet.Common.Database.Character absentTargetCharacter = CreateDrawCompatibilityCharacter(99_401);
+            absentTargetCharacter.FashionColors = null!;
+            AssertEqual(true, absentTargetCharacter.NormalizeCharactersForCurrentTables(),
+                "absent alternate coating ownership initializes colors");
+            AssertEqual(0, absentTargetCharacter.FashionColors.Count,
+                "absent alternate coating does not grant color ownership");
+            AssertEqual(false, absentTargetCharacter.NormalizeCharactersForCurrentTables(),
+                "absent alternate coating normalization idempotence");
+
+            FashionColorTable colorRow = colorRows.First();
             FashionTable fashionRow = TableReaderV2.Parse<FashionTable>()
                 .Single(row => row.Id == colorRow.OriginalFashionId);
+            CharacterTable fashionCharacterRow = TableReaderV2.Parse<CharacterTable>()
+                .Single(row => row.Id == fashionRow.CharacterId);
+            AssertEqual(fashionCharacterRow.DefaultNpcFashtionId + 2, fashionRow.Id,
+                "alternate color original is the final awaken fashion");
+            AscNet.Common.Database.Character unlockCharacter = CreateDrawCompatibilityCharacter(99_403);
+            unlockCharacter.Characters = [new CharacterData { Id = (uint)fashionRow.CharacterId }];
+            unlockCharacter.Fashions = [new FashionList { Id = fashionRow.Id, IsLock = true }];
+            using (MongoCollectionOverride unlockMongoOverride =
+                   MongoCollectionOverride.InstallForDailySignInCompatibility(
+                       out _,
+                       out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> unlockCollection,
+                       out _))
+            using (LoopbackSessionHarness unlockHarness = new(
+                       unlockCharacter,
+                       CreateDrawCompatibilityPlayer(99_403),
+                       CreateDrawCompatibilityInventory(99_403, []),
+                       sessionId: "fashion-color-unlock-compat"))
+            {
+                InvokeRequestHandler(
+                    unlockHarness,
+                    nameof(FashionUnLockRequest),
+                    19_400,
+                    new FashionUnLockRequest { FashionId = (uint)fashionRow.Id });
+                FashionSyncNotify unlockPush = ReadPushPayload<FashionSyncNotify>(
+                    unlockHarness,
+                    nameof(FashionSyncNotify),
+                    "FashionUnLockRequest alternate color push");
+                FashionUnLockResponse unlockResponse = ReadResponsePayload<FashionUnLockResponse>(
+                    unlockHarness.ReadPacket(nameof(FashionUnLockResponse)),
+                    nameof(FashionUnLockResponse));
+                AssertEqual(0, unlockResponse.Code, "FashionUnLockResponse alternate color code");
+                AssertEqual(false, unlockPush.FashionList.Single().IsLock,
+                    "FashionUnLockRequest unlocks original fashion");
+                AssertIntegerList(
+                    colorRows.Where(row => row.OriginalFashionId == fashionRow.Id)
+                        .Select(row => (long)row.Id).Order().ToArray(),
+                    unlockPush.FashionColors[fashionRow.Id]
+                        .Select(id => (long)id).Order().ToArray(),
+                    "FashionUnLockRequest grants alternate colors");
+                AssertEqual(1, unlockCollection.ReplaceOneCalls,
+                    "FashionUnLockRequest saves fashion and colors once");
+            }
             const long playerId = 99_401;
             const int switchPacketId = 19_401;
             FashionList ownedFashion = new()
@@ -23811,6 +23956,8 @@ namespace AscNet.Test
 
             Type arenaModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.ArenaModule");
             MethodInfo reconcileArenaLogin = RequiredMethod(arenaModule, "ReconcileLogin", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session), typeof(long?)]);
+            MethodInfo currentArenaActivity = RequiredMethod(arenaModule, "CurrentActivity",
+                BindingFlags.Static | BindingFlags.NonPublic, [typeof(long?)]);
             MethodInfo recordArenaFight = RequiredMethod(arenaModule, "RecordFightResult", BindingFlags.Static | BindingFlags.Public, [typeof(Session), typeof(FightSettleResult)]);
             MethodInfo currentArenaTaskIds = RequiredMethod(arenaModule, "CurrentTaskIds",
                 BindingFlags.Static | BindingFlags.NonPublic, [typeof(AscNet.Common.Database.Player)]);
@@ -23933,6 +24080,8 @@ namespace AscNet.Test
             player.SimulatedBattlefield.ArenaChallengeId = savedTaskChallengeId;
             player.SimulatedBattlefield.ArenaLevel = capturedTaskChallenge.ArenaLv;
             player.SimulatedBattlefield.ArenaChallengeId = capturedTaskChallenge.ChallengeId;
+            player.SimulatedBattlefield.ArenaActivityNo = (int)(currentArenaActivity.Invoke(null, [(long?)null])
+                ?? throw new InvalidDataException("ArenaModule.CurrentActivity returned nil."));
 
             const int unjoinedAreaPacketId = 81_000;
             InvokeRegisteredRequestHandler("AreaDataRequest", harness.Session, unjoinedAreaPacketId, new Dictionary<string, object>());

@@ -27,29 +27,39 @@ namespace AscNet.GameServer.Commands
             switch (Op)
             {
                 case "unlock":
-                    List<FashionList> changedFashions = new();
+                    FashionSyncNotify fashionSync = new();
                     bool changed = false;
                     HashSet<int>? ownedCharacterIds = Target == "all"
                         ? session.character.Characters.Select(character => (int)character.Id).ToHashSet()
                         : null;
 
-                    IEnumerable<int> fashionIds = Target == "all"
+                    HashSet<int> fashionIds = (Target == "all"
                         ? TableReaderV2.Parse<FashionTable>()
                             .Where(fashion => ownedCharacterIds!.Contains(fashion.CharacterId))
-                            .Select(fashion => fashion.Id)
-                            .Distinct()
                         : TableReaderV2.Parse<FashionTable>()
-                            .Where(fashion => fashion.CharacterId == characterId)
-                            .Select(fashion => fashion.Id)
-                            .Distinct();
+                            .Where(fashion => fashion.CharacterId == characterId))
+                        .Select(fashion => fashion.Id)
+                        .ToHashSet();
 
                     List<HeadPortraitList> changedHeads = new();
                     foreach (int fashionId in fashionIds)
                         changed |= RewardHandler.UnlockFashionReward(
                             fashionId,
                             session,
-                            changedFashions,
+                            fashionSync.FashionList,
                             changedHeads);
+
+                    foreach (int colorId in TableReaderV2.Parse<FashionColorTable>()
+                                 .Where(color => fashionIds.Contains(color.OriginalFashionId))
+                                 .Select(color => color.Id)
+                                 .Distinct())
+                    {
+                        if (!RewardHandler.UnlockFashionColorReward(colorId, session))
+                            continue;
+
+                        changed = true;
+                        RewardHandler.UnlockFashionColorReward(colorId, session, fashionSync);
+                    }
 
                     List<WeaponFashionData> changedWeaponFashions = new();
                     if (Target == "all")
@@ -68,8 +78,8 @@ namespace AscNet.GameServer.Commands
                             );
                     }
 
-                    if (changedFashions.Count > 0)
-                        session.SendPush(new FashionSyncNotify { FashionList = changedFashions });
+                    if (fashionSync.FashionList.Count > 0 || fashionSync.FashionColors.Count > 0)
+                        session.SendPush(fashionSync);
 
                     if (changedWeaponFashions.Count > 0)
                     {
