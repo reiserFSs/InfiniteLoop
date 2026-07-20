@@ -6,6 +6,7 @@ using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.character.enhanceskill;
 using AscNet.Table.V2.share.character.grade;
 using AscNet.Table.V2.share.character.quality;
+using AscNet.Table.V2.share.trust;
 using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.item;
 using MessagePack;
@@ -188,6 +189,27 @@ namespace AscNet.GameServer.Handlers
         public List<FashionList> FashionList = new();
         public Dictionary<int, List<int>> FashionColors = new();
     }
+
+    [MessagePackObject(true)]
+    public class CharacterSendGiftRequest
+    {
+        public int TemplateId;
+        public Dictionary<int, int> GiftItems;
+    }
+
+    [MessagePackObject(true)]
+    public class CharacterSendGiftResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
+    public class NotifyCharacterTrustInfo
+    {
+        public int TemplateId;
+        public int TrustLv;
+        public int TrustExp;
+    }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
@@ -301,6 +323,103 @@ namespace AscNet.GameServer.Handlers
             SaveCharacterProgress(session);
 
             session.SendResponse(new CharacterLevelUpResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("CharacterSendGiftRequest")]
+        public static void CharacterSendGiftRequestHandler(Session session, Packet.Request packet)
+        {
+            CharacterSendGiftRequest request = packet.Deserialize<CharacterSendGiftRequest>();
+            CharacterData? character = session.character.Characters.Find(candidate => candidate.Id == request.TemplateId);
+            if (character is null)
+            {
+                session.SendResponse(new CharacterSendGiftResponse() { Code = 20009001 }, packet.Id);
+                return;
+            }
+
+            if (request.GiftItems is null || request.GiftItems.Count == 0 || request.GiftItems.Any(gift => gift.Value <= 0))
+            {
+                session.SendResponse(new CharacterSendGiftResponse() { Code = 20009037 }, packet.Id);
+                return;
+            }
+
+            Dictionary<int, CharacterTrustItemTable> gifts = TableReaderV2.Parse<CharacterTrustItemTable>()
+                .ToDictionary(gift => gift.Id);
+            Dictionary<int, CharacterTrustExpTable> levels = TableReaderV2.Parse<CharacterTrustExpTable>()
+                .Where(level => level.CharacterId == request.TemplateId)
+                .GroupBy(level => level.TrustLv)
+                .ToDictionary(group => group.Key, group => group.First());
+
+            if (request.GiftItems.Keys.Any(itemId => !gifts.ContainsKey(itemId)))
+            {
+                session.SendResponse(new CharacterSendGiftResponse() { Code = 20009036 }, packet.Id);
+                return;
+            }
+
+            if (request.GiftItems.Any(gift => !session.inventory.Items.Any(item => item.Id == gift.Key && item.Count >= gift.Value)))
+            {
+                session.SendResponse(new CharacterSendGiftResponse() { Code = 20009037 }, packet.Id);
+                return;
+            }
+
+            int trustLevel;
+            int trustExp;
+            int totalExp = 0;
+            try
+            {
+                trustLevel = checked((int)character.TrustLv);
+                trustExp = checked((int)character.TrustExp);
+                if (!levels.ContainsKey(trustLevel))
+                    throw new KeyNotFoundException();
+
+                foreach ((int itemId, int count) in request.GiftItems)
+                {
+                    CharacterTrustItemTable gift = gifts[itemId];
+                    int itemExp = gift.FavorCharacterId.Contains(request.TemplateId) ? gift.FavorExp ?? gift.Exp : gift.Exp;
+                    totalExp = checked(totalExp + checked(itemExp * count));
+                }
+
+                trustExp = checked(trustExp + totalExp);
+                while (levels[trustLevel].Exp is int requiredExp && requiredExp > 0)
+                {
+                    if (trustExp < requiredExp)
+                        break;
+
+                    trustExp -= requiredExp;
+                    trustLevel = checked(trustLevel + 1);
+                    if (!levels.ContainsKey(trustLevel))
+                        throw new KeyNotFoundException();
+                }
+
+                if (levels[trustLevel].Exp.GetValueOrDefault() == 0)
+                    trustExp = 0;
+            }
+            catch (OverflowException)
+            {
+                session.SendResponse(new CharacterSendGiftResponse() { Code = 20009037 }, packet.Id);
+                return;
+            }
+            catch (KeyNotFoundException)
+            {
+                session.SendResponse(new CharacterSendGiftResponse() { Code = 20009038 }, packet.Id);
+                return;
+            }
+
+            NotifyItemDataList notifyItems = new();
+            foreach ((int itemId, int count) in request.GiftItems)
+                notifyItems.ItemDataList.Add(session.inventory.Do(itemId, -count));
+
+            character.TrustLv = trustLevel;
+            character.TrustExp = trustExp;
+            session.SendPush(new NotifyCharacterTrustInfo()
+            {
+                TemplateId = request.TemplateId,
+                TrustLv = trustLevel,
+                TrustExp = trustExp
+            });
+            session.SendPush(notifyItems);
+            session.SendPush(new NotifyCharacterDataList() { CharacterDataList = { character } });
+            SaveCharacterProgress(session);
+            session.SendResponse(new CharacterSendGiftResponse(), packet.Id);
         }
 
         [RequestPacketHandler("CharacterSetCollectStateRequest")]

@@ -34,6 +34,7 @@ using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.player;
 using AscNet.Table.V2.share.robot;
 using AscNet.Table.V2.client.draw;
+using AscNet.Table.V2.share.trust;
 using MessagePack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -317,6 +318,12 @@ namespace AscNet.Test
                     ValidateCharacterSwitchSkillCompatibility();
                     return;
                 }
+                if (args.Contains("--character-gift-compat-only"))
+                {
+                    ValidateCharacterSendGiftCompatibility();
+                    return;
+                }
+
 
 
                 if (args.Contains("--character-progression-persistence-compat-only"))
@@ -563,6 +570,7 @@ namespace AscNet.Test
                 ValidatePlayerGenderCompatibility();
                 ValidateCharacterSwitchLiberateMagicCompatibility();
                 ValidateCharacterSwitchSkillCompatibility();
+                ValidateCharacterSendGiftCompatibility();
                 ValidateTeamPrefabCompatibility();
                 ValidatePreFightPositionCompatibility();
                 ValidateSegmentCheckFightCompatibility();
@@ -20060,6 +20068,229 @@ namespace AscNet.Test
         {
             AssertEqual(true, Session.IsKnownClientPush("BoardMutualRequest"), "Session known client push BoardMutualRequest");
             AssertEqual(false, Session.IsKnownClientPush("DefinitelyUnknownClientPushForCompatibilityTest"), "Session unknown client push");
+        }
+
+        private static void ValidateCharacterSendGiftCompatibility()
+        {
+            const string requestName = nameof(CharacterSendGiftRequest);
+            const string responseName = nameof(CharacterSendGiftResponse);
+            const long playerId = 99_570;
+            const int packetId = 19_570;
+            AssertEqual("CharacterSendGiftRequestHandler", GetRegisteredRequestHandlerMethod(requestName).Name,
+                $"{requestName} registered handler method");
+
+            List<CharacterTrustItemTable> gifts = TableReaderV2.Parse<CharacterTrustItemTable>()
+                .Where(row => Convert.ToInt32(row.Exp) > 0 && Convert.ToInt32(row.FavorExp) > 0)
+                .OrderBy(row => row.Id)
+                .ToList();
+            Dictionary<int, Dictionary<int, CharacterTrustExpTable>> levels = TableReaderV2.Parse<CharacterTrustExpTable>()
+                .Where(row => AscNet.Common.Database.Character.IsOwnableCharacter((uint)row.CharacterId))
+                .GroupBy(row => row.CharacterId)
+                .Select(group => (CharacterId: group.Key, Levels: group.OrderBy(row => row.TrustLv).ToDictionary(row => row.TrustLv)))
+                .Where(value => value.Levels.ContainsKey(1) && value.Levels.ContainsKey(2))
+                .ToDictionary(value => value.CharacterId, value => value.Levels);
+            if (gifts.Count == 0 || levels.Count == 0)
+                throw new InvalidDataException($"{requestName}: trust tables contain no gift and progression fixtures.");
+
+            (CharacterTrustItemTable Gift, int CharacterId)[] favoriteCandidates = gifts
+                .SelectMany(gift => gift.FavorCharacterId
+                    .Where(levels.ContainsKey)
+                    .Select(id => (Gift: gift, CharacterId: id)))
+                .ToArray();
+            if (favoriteCandidates.Length == 0)
+                throw new InvalidDataException($"{requestName}: trust tables contain no favorite gift fixture.");
+            (CharacterTrustItemTable Gift, int CharacterId) favorite = favoriteCandidates[0];
+
+            (CharacterTrustItemTable Gift, int CharacterId)[] normalCandidates = gifts
+                .Where(gift => gift.Id != favorite.Gift.Id)
+                .SelectMany(gift => levels.Keys
+                    .Where(characterId => characterId != favorite.CharacterId
+                        && !gift.FavorCharacterId.Contains(characterId))
+                    .Select(characterId => (Gift: gift, CharacterId: characterId)))
+                .ToArray();
+            if (normalCandidates.Length == 0)
+                throw new InvalidDataException($"{requestName}: trust tables contain no normal gift fixture distinct from the favorite fixture.");
+            (CharacterTrustItemTable Gift, int CharacterId) normal = normalCandidates[0];
+
+            int FavoriteScore() => Convert.ToInt32(favorite.Gift.FavorExp);
+            int NormalScore() => Convert.ToInt32(normal.Gift.Exp);
+            if (FavoriteScore() <= NormalScore())
+                throw new InvalidDataException($"{requestName}: selected favorite score must exceed the selected normal score.");
+
+            (int TrustLv, int TrustExp) Apply(int characterId, int trustLv, int trustExp, int score, int count)
+            {
+                int total = checked(trustExp + score * count);
+                while (true)
+                {
+                    if (!levels[characterId].TryGetValue(trustLv, out CharacterTrustExpTable? level))
+                        throw new InvalidDataException($"{requestName}: no level {trustLv} config for character {characterId}.");
+                    int required = Convert.ToInt32(level.Exp);
+                    if (required <= 0)
+                        return (trustLv, 0);
+                    if (total < required)
+                        return (trustLv, total);
+                    total -= required;
+                    trustLv++;
+                }
+            }
+
+            void AssertMapKeys(object value, string[] expectedKeys, string name)
+            {
+                JObject map = JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerializer.Serialize(value)));
+                AssertEqual(true, map.Properties().Select(property => property.Name).SequenceEqual(expectedKeys),
+                    $"{name} MessagePack map keys");
+            }
+
+            void AssertNoExtraPacket(LoopbackSessionHarness harness, string name)
+            {
+                if (harness.TryReadAvailablePacket($"{name} unexpected packet", out Packet packet))
+                    throw new InvalidDataException($"{name}: unexpected {packet.Type} packet.");
+            }
+
+            void AssertSuccess(
+                string name,
+                (CharacterTrustItemTable Gift, int CharacterId) fixture,
+                int count,
+                int initialLv,
+                int initialExp,
+                int score,
+                int requestPacketId,
+                bool assertRelogin)
+            {
+                (int TrustLv, int TrustExp) expected = Apply(fixture.CharacterId, initialLv, initialExp, score, count);
+                AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId + requestPacketId);
+                CharacterData giftedCharacter = character.AddCharacter((uint)fixture.CharacterId).Character;
+                giftedCharacter.TrustLv = initialLv;
+                giftedCharacter.TrustExp = initialExp;
+                AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                    playerId + requestPacketId, [new Item { Id = fixture.Gift.Id, Count = count }]);
+                using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
+                using LoopbackSessionHarness harness = new(
+                    character,
+                    CreateDrawCompatibilityPlayer(playerId + requestPacketId),
+                    inventory,
+                    $"{requestName}-{name}");
+                CharacterSendGiftRequest request = new()
+                {
+                    TemplateId = fixture.CharacterId,
+                    GiftItems = new Dictionary<int, int> { [fixture.Gift.Id] = count }
+                };
+                AssertMapKeys(request, ["TemplateId", "GiftItems"], $"{name} request");
+                InvokeRequestHandler(harness, requestName, requestPacketId, request);
+
+                NotifyCharacterTrustInfo trustPush = ReadPushPayload<NotifyCharacterTrustInfo>(
+                    harness, nameof(NotifyCharacterTrustInfo), $"{name} first packet");
+                AssertMapKeys(trustPush, ["TemplateId", "TrustLv", "TrustExp"], $"{name} trust push");
+                AssertEqual(fixture.CharacterId, trustPush.TemplateId, $"{name} trust push TemplateId");
+                AssertEqual(expected.TrustLv, trustPush.TrustLv, $"{name} trust push TrustLv");
+                AssertEqual(expected.TrustExp, trustPush.TrustExp, $"{name} trust push TrustExp");
+
+                NotifyItemDataList itemPush = ReadPushPayload<NotifyItemDataList>(
+                    harness, nameof(NotifyItemDataList), $"{name} second packet");
+                AssertEqual(0L, itemPush.ItemDataList.Single(item => item.Id == fixture.Gift.Id).Count,
+                    $"{name} consumed inventory count");
+                NotifyCharacterDataList characterPush = ReadPushPayload<NotifyCharacterDataList>(
+                    harness, nameof(NotifyCharacterDataList), $"{name} third packet");
+                CharacterData pushedCharacter = characterPush.CharacterDataList.Single(data => data.Id == (uint)fixture.CharacterId);
+                AssertEqual((long)expected.TrustLv, pushedCharacter.TrustLv, $"{name} character push TrustLv");
+                AssertEqual((long)expected.TrustExp, pushedCharacter.TrustExp, $"{name} character push TrustExp");
+                CharacterSendGiftResponse response = ReadResponsePayload<CharacterSendGiftResponse>(
+                    harness, requestPacketId, responseName, $"{name} response");
+                AssertMapKeys(response, ["Code"], $"{name} response");
+                AssertEqual(0, response.Code, $"{name} response Code");
+                AssertNoExtraPacket(harness, name);
+
+                AssertEqual((long)expected.TrustLv, giftedCharacter.TrustLv, $"{name} session TrustLv");
+                AssertEqual((long)expected.TrustExp, giftedCharacter.TrustExp, $"{name} session TrustExp");
+                AssertEqual(0L, inventory.Items.Single(item => item.Id == fixture.Gift.Id).Count, $"{name} session inventory");
+                AssertEqual(1, characterCollection.ReplaceOneCalls, $"{name} character save count");
+                AssertEqual(1, inventoryCollection.ReplaceOneCalls, $"{name} inventory save count");
+                CharacterData persistedCharacter = characterCollection.LastReplacement!.Characters
+                    .Single(data => data.Id == (uint)fixture.CharacterId);
+                AssertEqual((long)expected.TrustLv, persistedCharacter.TrustLv, $"{name} persisted TrustLv");
+                AssertEqual((long)expected.TrustExp, persistedCharacter.TrustExp, $"{name} persisted TrustExp");
+                AssertEqual(0L, inventoryCollection.LastReplacement!.Items.Single(item => item.Id == fixture.Gift.Id).Count,
+                    $"{name} persisted inventory");
+
+                if (!assertRelogin)
+                    return;
+                AscNet.Common.Database.Character reloaded = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    characterCollection.LastReplacement.ToBson());
+                harness.Session.character = reloaded;
+                NotifyLogin login = (NotifyLogin)(RequiredMethod(
+                    RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                    "BuildNotifyLogin",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    [typeof(Session)]).Invoke(null, [harness.Session])
+                    ?? throw new InvalidDataException($"{name}: BuildNotifyLogin returned null."));
+                LoginCharacterList loginCharacter = login.CharacterList.Single(data => data.Id == (uint)fixture.CharacterId);
+                AssertEqual((long)expected.TrustLv, loginCharacter.TrustLv, $"{name} relogin TrustLv");
+                AssertEqual((long)expected.TrustExp, loginCharacter.TrustExp, $"{name} relogin TrustExp");
+            }
+
+            int firstRequired = Convert.ToInt32(levels[favorite.CharacterId][1].Exp);
+            int secondRequired = Convert.ToInt32(levels[favorite.CharacterId][2].Exp);
+            int favoriteCount = (firstRequired + secondRequired) / FavoriteScore() + 1;
+            AssertSuccess("favorite multi-level", favorite, favoriteCount, 1, 0, FavoriteScore(), packetId, true);
+            AssertSuccess("normal score", normal, 1, 1, 0, NormalScore(), packetId + 1, false);
+
+            int maxTrustLv = levels[normal.CharacterId].Keys.Max();
+            int beforeMaxTrustLv = maxTrustLv - 1;
+            if (!levels[normal.CharacterId].ContainsKey(beforeMaxTrustLv))
+                throw new InvalidDataException($"{requestName}: normal fixture has no level before its maximum.");
+            int beforeMaxExp = Math.Max(0, Convert.ToInt32(levels[normal.CharacterId][beforeMaxTrustLv].Exp) - 1);
+            AssertSuccess("max cap", normal, 1, beforeMaxTrustLv, beforeMaxExp, NormalScore(), packetId + 2, false);
+
+            void AssertRejected(
+                string name,
+                int templateId,
+                Dictionary<int, int> giftItems,
+                int expectedCode,
+                bool ownsCharacter = false,
+                bool ownsGift = false,
+                int trustLv = 1)
+            {
+                AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId + packetId + expectedCode);
+                if (ownsCharacter)
+                    character.Characters = [new CharacterData { Id = (uint)templateId, TrustLv = trustLv, TrustExp = 0 }];
+                AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
+                    playerId + packetId + expectedCode,
+                    ownsGift ? [new Item { Id = favorite.Gift.Id, Count = 1 }] : []);
+                using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
+                using LoopbackSessionHarness harness = new(
+                    character,
+                    CreateDrawCompatibilityPlayer(playerId + packetId + expectedCode),
+                    inventory,
+                    $"{requestName}-{name}");
+                InvokeRequestHandler(harness, requestName, packetId + expectedCode, new CharacterSendGiftRequest
+                {
+                    TemplateId = templateId,
+                    GiftItems = giftItems
+                });
+                CharacterSendGiftResponse response = ReadResponsePayload<CharacterSendGiftResponse>(
+                    harness, packetId + expectedCode, responseName, $"{name} response");
+                AssertEqual(expectedCode, response.Code, $"{name} response Code");
+                AssertEqual(0, characterCollection.ReplaceOneCalls, $"{name} character save count");
+                AssertEqual(0, inventoryCollection.ReplaceOneCalls, $"{name} inventory save count");
+                AssertNoExtraPacket(harness, name);
+            }
+
+            AssertRejected("missing character", favorite.CharacterId + 1,
+                new Dictionary<int, int> { [favorite.Gift.Id] = 1 }, 20009001);
+            AssertRejected("unknown gift", favorite.CharacterId,
+                new Dictionary<int, int> { [gifts.Max(row => row.Id) + 1] = 1 }, 20009036, ownsCharacter: true);
+            AssertRejected("malformed gift map", favorite.CharacterId, [], 20009037, ownsCharacter: true);
+            AssertRejected("insufficient gift", favorite.CharacterId,
+                new Dictionary<int, int> { [favorite.Gift.Id] = 1 }, 20009037, ownsCharacter: true);
+            AssertRejected("missing level config", favorite.CharacterId,
+                new Dictionary<int, int> { [favorite.Gift.Id] = 1 }, 20009038, ownsCharacter: true, ownsGift: true,
+                trustLv: levels[favorite.CharacterId].Keys.Max() + 1);
         }
 
         private static void ValidateCharacterProgressionPersistenceCompatibility()

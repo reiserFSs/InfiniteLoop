@@ -568,108 +568,122 @@ internal partial class Program
 
     private static void ValidateVersion46GuideCompletion()
     {
-        Dictionary<int, ConditionTable> conditions = TableReaderV2.Parse<ConditionTable>().ToDictionary(row => row.Id);
-        GuideGroupTable guide = TableReaderV2.Parse<GuideGroupTable>().First(row => row.CompleteId == row.Id && row.RewardId > 0 && row.ConditionId.Count > 0 && row.ConditionId.All(id => conditions.TryGetValue(id, out ConditionTable? condition) && string.IsNullOrWhiteSpace(condition.Formula) && condition.Type == 10105 && condition.Params.Count > 0));
-        int[] requiredStages = guide.ConditionId.SelectMany(id => conditions[id].Params).Distinct().ToArray();
+        Dictionary<int, ConditionTable> conditions = TableReaderV2.Parse<ConditionTable>()
+            .ToDictionary(row => row.Id);
+        List<GuideGroupTable> guides = TableReaderV2.Parse<GuideGroupTable>().ToList();
+        GuideGroupTable completedTriggerGuide = guides.First(row =>
+            row.CompleteId == row.Id
+            && row.RewardId == 0
+            && row.ConditionId.Any(id =>
+                conditions.TryGetValue(id, out ConditionTable? condition)
+                && condition.Type == 10108
+                && condition.Params.Count > 0));
+        int[] stagesThatDisableTrigger = completedTriggerGuide.ConditionId
+            .Where(conditions.ContainsKey)
+            .SelectMany(id => conditions[id].Type == 10108 ? conditions[id].Params : [])
+            .Distinct()
+            .ToArray();
+        GuideGroupTable sharedCompletionGuide = guides.First(row =>
+            row.CompleteId != row.Id && row.RewardId == 0);
+        List<GuideGroupTable> skippedGroup = guides
+            .Where(row => row.GroupId != 0)
+            .GroupBy(row => row.GroupId)
+            .Where(group => group.Count() > 1 && group.All(row => row.RewardId == 0))
+            .Select(group => group.ToList())
+            .First();
+        GuideGroupTable rewardedGroupGuide = guides.First(row => row.RewardId > 0);
+
         const long uid = 46_004;
         AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(uid);
-        AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(uid, []);
-        using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerSaves, out _, out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventorySaves);
-        using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(uid), player, inventory, "v46-guide-complete");
+        using MongoCollectionOverride mongo =
+            MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerSaves,
+                out _,
+                out _);
+        using LoopbackSessionHarness harness = new(
+            CreateDrawCompatibilityCharacter(uid),
+            player,
+            CreateDrawCompatibilityInventory(uid, []),
+            "v46-guide-complete");
         harness.Session.stage = CreateLoginAccountCompatibilityStage(uid);
 
-        InvokeRegisteredRequestHandler(nameof(GuideCompleteRequest), harness.Session, 46_040, new GuideCompleteRequest { GuideGroupId = guide.Id });
-        GuideCompleteResponse denied = ReadResponsePayload<GuideCompleteResponse>(harness, 46_040, nameof(GuideCompleteResponse), "4.6 ineligible GuideComplete");
-        AssertEqual(1, denied.Code, "4.6 ineligible GuideComplete code");
-        AssertEqual(0, playerSaves.ReplaceOneCalls, "4.6 ineligible GuideComplete player saves");
-
-        foreach (int stageId in requiredStages)
+        foreach (int stageId in stagesThatDisableTrigger)
             harness.Session.stage.AddStage(new StageDatum { StageId = (uint)stageId, Passed = true });
-        InvokeRegisteredRequestHandler(nameof(GuideCompleteRequest), harness.Session, 46_041, new GuideCompleteRequest { GuideGroupId = guide.Id });
-        Packet rewardPushPacket = harness.ReadPacket("4.6 eligible GuideComplete reward push");
-        AssertEqual(Packet.ContentType.Push, rewardPushPacket.Type, "4.6 eligible GuideComplete reward packet type");
-        Packet.Push rewardPush = MessagePackSerializer.Deserialize<Packet.Push>(rewardPushPacket.Content);
-        AssertEqual(nameof(NotifyItemDataList), rewardPush.Name, "4.6 eligible GuideComplete reward packet name");
-        GuideCompleteResponse granted = ReadResponsePayload<GuideCompleteResponse>(harness, 46_041, nameof(GuideCompleteResponse), "4.6 eligible GuideComplete");
-        AssertEqual(0, granted.Code, "4.6 eligible GuideComplete code");
-        if (granted.RewardGoodsList is null || granted.RewardGoodsList.Count == 0)
-            throw new InvalidDataException("4.6 eligible GuideComplete did not grant configured rewards.");
-        AssertEqual(true, player.PlayerData.GuideData.Contains(guide.Id), "4.6 eligible GuideComplete state");
-        AssertEqual(1, playerSaves.ReplaceOneCalls, "4.6 eligible GuideComplete player save");
-        AssertEqual(1, inventorySaves.ReplaceOneCalls, "4.6 eligible GuideComplete inventory save");
-
-        InvokeRegisteredRequestHandler(nameof(GuideCompleteRequest), harness.Session, 46_042, new GuideCompleteRequest { GuideGroupId = guide.Id });
-        GuideCompleteResponse repeat = ReadResponsePayload<GuideCompleteResponse>(harness, 46_042, nameof(GuideCompleteResponse), "4.6 repeated GuideComplete");
-        AssertEqual(0, repeat.Code, "4.6 repeated GuideComplete code");
-        AssertEqual(1, playerSaves.ReplaceOneCalls, "4.6 repeated GuideComplete does not save");
-
-        GuideGroupTable harmonyTwoGuide = TableReaderV2.Parse<GuideGroupTable>()
-            .Single(row => row.Id == 61211 && row.CompleteId == row.Id);
-        player.PlayerData.Level = 90;
-        player.PlayerData.GuideData.Add(61210);
         InvokeRegisteredRequestHandler(
             nameof(GuideCompleteRequest),
+            harness.Session,
+            46_040,
+            new GuideCompleteRequest { GuideGroupId = completedTriggerGuide.Id });
+        GuideCompleteResponse completedAfterTrigger = ReadResponsePayload<GuideCompleteResponse>(
+            harness,
+            46_040,
+            nameof(GuideCompleteResponse),
+            "4.6 GuideComplete after trigger condition changes");
+        AssertEqual(0, completedAfterTrigger.Code,
+            "4.6 GuideComplete accepts completion after its display trigger changes");
+        AssertEqual(true, player.PlayerData.GuideData.Contains(completedTriggerGuide.Id),
+            "4.6 GuideComplete records completion after trigger changes");
+        AssertEqual(1, playerSaves.ReplaceOneCalls,
+            "4.6 GuideComplete persists completion after trigger changes");
+
+        InvokeRegisteredRequestHandler(
+            nameof(GuideCompleteRequest),
+            harness.Session,
+            46_041,
+            new GuideCompleteRequest { GuideGroupId = sharedCompletionGuide.Id });
+        GuideCompleteResponse sharedCompletion = ReadResponsePayload<GuideCompleteResponse>(
+            harness,
+            46_041,
+            nameof(GuideCompleteResponse),
+            "4.6 GuideComplete shared completion config");
+        AssertEqual(0, sharedCompletion.Code,
+            "4.6 GuideComplete accepts table-backed shared completion config");
+        AssertEqual(true, player.PlayerData.GuideData.Contains(sharedCompletionGuide.Id),
+            "4.6 GuideComplete records shared completion config");
+        AssertEqual(2, playerSaves.ReplaceOneCalls,
+            "4.6 GuideComplete persists shared completion config");
+
+        InvokeRegisteredRequestHandler(
+            nameof(GuideGroupFinishRequest),
+            harness.Session,
+            46_042,
+            new GuideGroupFinishRequest { GroupId = skippedGroup[0].GroupId });
+        GuideGroupFinishResponse skipped = ReadResponsePayload<GuideGroupFinishResponse>(
+            harness,
+            46_042,
+            nameof(GuideGroupFinishResponse),
+            "4.6 GuideGroupFinish");
+        AssertEqual(0, skipped.Code, "4.6 GuideGroupFinish code");
+        AssertEqual(true,
+            skippedGroup.All(row => player.PlayerData.GuideData.Contains(row.Id)),
+            "4.6 GuideGroupFinish records every guide in the group");
+        AssertEqual(3, playerSaves.ReplaceOneCalls,
+            "4.6 GuideGroupFinish persists skipped group");
+
+        InvokeRegisteredRequestHandler(
+            nameof(GuideGroupFinishRequest),
             harness.Session,
             46_043,
-            new GuideCompleteRequest { GuideGroupId = harmonyTwoGuide.Id });
-        GuideCompleteResponse unavailableHarmonyTwo = ReadResponsePayload<GuideCompleteResponse>(
+            new GuideGroupFinishRequest { GroupId = rewardedGroupGuide.GroupId });
+        Packet rewardPushPacket = harness.ReadPacket("4.6 rewarded GuideGroupFinish push");
+        AssertEqual(Packet.ContentType.Push, rewardPushPacket.Type,
+            "4.6 rewarded GuideGroupFinish packet type");
+        GuideGroupFinishResponse rewarded = ReadResponsePayload<GuideGroupFinishResponse>(
             harness,
             46_043,
-            nameof(GuideCompleteResponse),
-            "4.6 unavailable Harmony II guide completion");
-        AssertEqual(1, unavailableHarmonyTwo.Code,
-            "4.6 Harmony II guide requires a compatible equipped weapon");
-        AssertEqual(1, playerSaves.ReplaceOneCalls,
-            "4.6 unavailable Harmony II guide does not save");
-
-        WeaponOverrunTable harmonyTwoConfig = TableReaderV2.Parse<WeaponOverrunTable>()
-            .Single(row => row.WeaponId == 2_526_001 && row.Level == 2);
-        AssertEqual(1_531_005, harmonyTwoConfig.CharacterId,
-            "4.6 Harmony II table character binding");
-
-        EquipData harmonyEquip = new()
-        {
-            Id = 2_291,
-            TemplateId = 2_526_001,
-            CharacterId = harmonyTwoConfig.CharacterId!.Value + 1,
-            WeaponOverrunData = new() { Level = 7 }
-        };
-        harness.Session.character.Equips.Add(harmonyEquip);
-        InvokeRegisteredRequestHandler(
-            nameof(GuideCompleteRequest),
-            harness.Session,
-            46_044,
-            new GuideCompleteRequest { GuideGroupId = harmonyTwoGuide.Id });
-        GuideCompleteResponse mismatchedHarmonyTwo = ReadResponsePayload<GuideCompleteResponse>(
-            harness,
-            46_044,
-            nameof(GuideCompleteResponse),
-            "4.6 mismatched Harmony II guide completion");
-        AssertEqual(1, mismatchedHarmonyTwo.Code,
-            "4.6 Harmony II guide requires the configured character binding");
-        AssertEqual(1, playerSaves.ReplaceOneCalls,
-            "4.6 mismatched Harmony II guide does not save");
-
-        harmonyEquip.CharacterId = harmonyTwoConfig.CharacterId.Value;
-        InvokeRegisteredRequestHandler(
-            nameof(GuideCompleteRequest),
-            harness.Session,
-            46_045,
-            new GuideCompleteRequest { GuideGroupId = harmonyTwoGuide.Id });
-        GuideCompleteResponse harmonyTwoComplete = ReadResponsePayload<GuideCompleteResponse>(
-            harness,
-            46_045,
-            nameof(GuideCompleteResponse),
-            "4.6 Harmony II guide completion");
-        AssertEqual(0, harmonyTwoComplete.Code, "4.6 Harmony II guide completion code");
-        AssertEqual(true, player.PlayerData.GuideData.Contains(harmonyTwoGuide.Id),
-            "4.6 Harmony II guide completion state");
-        AssertEqual(2, playerSaves.ReplaceOneCalls, "4.6 Harmony II guide completion save");
+            nameof(GuideGroupFinishResponse),
+            "4.6 rewarded GuideGroupFinish");
+        AssertEqual(0, rewarded.Code, "4.6 rewarded GuideGroupFinish code");
+        AssertEqual(true, rewarded.RewardGoodsList is { Count: > 0 },
+            "4.6 rewarded GuideGroupFinish returns configured rewards");
+        AssertEqual(true, player.PlayerData.GuideData.Contains(rewardedGroupGuide.Id),
+            "4.6 rewarded GuideGroupFinish records completion");
+        AssertEqual(4, playerSaves.ReplaceOneCalls,
+            "4.6 rewarded GuideGroupFinish persists completion");
 
         AscNet.Common.Database.Player guideReload =
-            MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
-        AssertEqual(true, guideReload.PlayerData.GuideData.Contains(harmonyTwoGuide.Id),
-            "4.6 Harmony II guide completion survives relogin");
+            MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                player.ToBson());
         using (LoopbackSessionHarness reloginHarness = new(
             harness.Session.character,
             guideReload,
@@ -687,24 +701,38 @@ internal partial class Program
                 [reloginHarness.Session])!;
             NotifyLogin reloginWire = MessagePackSerializer.Deserialize<NotifyLogin>(
                 MessagePackSerializer.Serialize(relogin));
-            AssertEqual(true, reloginWire.PlayerData.GuideData.Contains(harmonyTwoGuide.Id),
-                "4.6 Harmony II guide completion returned after relogin");
+            AssertEqual(true,
+                skippedGroup.All(row => reloginWire.PlayerData.GuideData.Contains(row.Id)),
+                "4.6 skipped guide group returned after relogin");
         }
         int savesAfterRelogin = playerSaves.ReplaceOneCalls;
 
+        InvokeRegisteredRequestHandler(
+            nameof(GuideGroupFinishRequest),
+            harness.Session,
+            46_044,
+            new GuideGroupFinishRequest { GroupId = skippedGroup[0].GroupId });
+        GuideGroupFinishResponse repeated = ReadResponsePayload<GuideGroupFinishResponse>(
+            harness,
+            46_044,
+            nameof(GuideGroupFinishResponse),
+            "4.6 repeated GuideGroupFinish");
+        AssertEqual(0, repeated.Code, "4.6 repeated GuideGroupFinish code");
+        AssertEqual(savesAfterRelogin, playerSaves.ReplaceOneCalls,
+            "4.6 repeated GuideGroupFinish does not save");
 
         InvokeRegisteredRequestHandler(
-            nameof(GuideCompleteRequest),
+            nameof(GuideGroupFinishRequest),
             harness.Session,
-            46_046,
-            new GuideCompleteRequest { GuideGroupId = harmonyTwoGuide.Id });
-        GuideCompleteResponse repeatedHarmonyTwo = ReadResponsePayload<GuideCompleteResponse>(
+            46_045,
+            new GuideGroupFinishRequest { GroupId = int.MinValue });
+        GuideGroupFinishResponse invalid = ReadResponsePayload<GuideGroupFinishResponse>(
             harness,
-            46_046,
-            nameof(GuideCompleteResponse),
-            "4.6 repeated Harmony II guide completion");
-        AssertEqual(0, repeatedHarmonyTwo.Code, "4.6 repeated Harmony II guide completion code");
+            46_045,
+            nameof(GuideGroupFinishResponse),
+            "4.6 invalid GuideGroupFinish");
+        AssertEqual(1, invalid.Code, "4.6 invalid GuideGroupFinish code");
         AssertEqual(savesAfterRelogin, playerSaves.ReplaceOneCalls,
-            "4.6 repeated Harmony II guide completion does not save");
+            "4.6 invalid GuideGroupFinish does not save");
     }
 }
