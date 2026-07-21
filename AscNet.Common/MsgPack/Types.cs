@@ -82,6 +82,10 @@ namespace AscNet.Common.MsgPack
         public long Ability { get; set; }
         public long LiberateLv { get; set; }
         public CharacterHeadInfo CharacterHeadInfo { get; set; }
+        public int NewFlag { get; set; }
+        public bool CollectState { get; set; }
+        public bool IsEnhanceSkillNotice { get; set; }
+        public int CharacterType { get; set; }
     }
 
     [MessagePackObject(true)]

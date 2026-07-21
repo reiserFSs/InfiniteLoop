@@ -1,4 +1,5 @@
 ﻿using AscNet.Common.MsgPack;
+using AscNet.Common.Database;
 using MessagePack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.guide;
@@ -142,6 +143,7 @@ namespace AscNet.GameServer.Handlers
             session.player.PlayerData.GuideData ??= new();
             if (session.player.PlayerData.GuideData.Contains(request.GuideGroupId))
             {
+                session.SendPush(new NotifyGuide { GuideGroupId = request.GuideGroupId });
                 session.SendResponse(new GuideCompleteResponse(), packet.Id);
                 return;
             }
@@ -186,10 +188,22 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
             rewardApplication?.SendPushes(session);
+            session.SendPush(new NotifyGuide { GuideGroupId = request.GuideGroupId });
             session.SendResponse(new GuideCompleteResponse
             {
                 RewardGoodsList = rewardApplication?.RewardGoods
             }, packet.Id);
+        }
+
+        internal static void SkipCommonGuides(Player player)
+        {
+            player.PlayerData.GuideData ??= new();
+            HashSet<long> completedGuides = new(player.PlayerData.GuideData);
+            foreach (GuideGroupTable guide in GuideGroups.Value.Values.Where(guide => guide.Ignore == 0 && guide.RewardId == 0))
+            {
+                if (completedGuides.Add(guide.Id))
+                    player.PlayerData.GuideData.Add(guide.Id);
+            }
         }
 
         private static bool IsValidGuide(int guideGroupId)

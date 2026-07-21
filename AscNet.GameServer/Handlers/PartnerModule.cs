@@ -132,6 +132,19 @@ namespace AscNet.GameServer.Handlers
     {
         public int Code;
     }
+    [MessagePackObject(true)]
+    public class PartnerUpdateLockRequest
+    {
+        public int PartnerId;
+        public bool IsLock;
+    }
+
+    [MessagePackObject(true)]
+    public class PartnerUpdateLockResponse
+    {
+        public int Code;
+    }
+
 
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
@@ -509,6 +522,22 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyItems);
             SendPartnerUpdate(session, partner);
             session.SendResponse(new PartnerEvolutionResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("PartnerUpdateLockRequest")]
+        public static void PartnerUpdateLockRequestHandler(Session session, Packet.Request packet)
+        {
+            PartnerUpdateLockRequest request = packet.Deserialize<PartnerUpdateLockRequest>();
+            PartnerData? partner = FindPartner(session, request.PartnerId);
+            if (partner is null)
+            {
+                session.SendResponse(new PartnerUpdateLockResponse { Code = ErrorCode }, packet.Id);
+                return;
+            }
+
+            partner.IsLock = request.IsLock;
+            session.character.Save();
+            session.SendResponse(new PartnerUpdateLockResponse(), packet.Id);
         }
 
         [RequestPacketHandler("PartnerCarryRequest")]

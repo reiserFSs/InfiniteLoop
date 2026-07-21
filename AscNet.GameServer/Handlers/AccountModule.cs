@@ -1190,6 +1190,18 @@ namespace AscNet.GameServer.Handlers
         {
             DoLogin(session, updateLoginAccounting: true);
         }
+        internal static void ReconcileGatherRewardBaselines(Session session)
+        {
+            HashSet<int> ownedCharacterIds = session.character.Characters.Select(character => (int)character.Id).ToHashSet();
+            foreach (ExhibitionRewardTable reward in TableReaderV2.Parse<ExhibitionRewardTable>().Where(reward =>
+                         reward.LevelId == 1
+                         && reward.ConditionIds.Count == 0
+                         && ownedCharacterIds.Contains(reward.CharacterId)))
+            {
+                session.player.AddGatherReward(reward.Id);
+            }
+        }
+
 
         static void DoLogin(Session session, bool updateLoginAccounting)
         {
@@ -1207,14 +1219,17 @@ namespace AscNet.GameServer.Handlers
                 }
 
                 session.player.PlayerData.LastLoginTime = currentTime;
-                session.player.AddGatherReward(5);
             }
+            ReconcileGatherRewardBaselines(session);
             RepairProfileCosmeticRewards(session);
             session.player.NormalizeTeamPrefabs();
             session.ClampPlayerLevelToConfiguredMaximum();
             Theatre6Module.ReconcileAvailability(session.player, DateTimeOffset.UtcNow);
 
             (ActivityResultNotify? arenaResult, NotifyArenaActivity arenaActivity) = ArenaModule.ReconcileLogin(session);
+
+            if (Common.Common.config.SkipCommonGuides)
+                GuideModule.SkipCommonGuides(session.player);
 
             NotifyLogin notifyLogin = BuildNotifyLogin(session);
 
@@ -1514,6 +1529,10 @@ namespace AscNet.GameServer.Handlers
                 TrustExp = character.TrustExp,
                 Ability = character.Ability,
                 LiberateLv = character.LiberateLv,
+                NewFlag = character.NewFlag,
+                CollectState = character.CollectState,
+                IsEnhanceSkillNotice = character.IsEnhanceSkillNotice,
+                CharacterType = character.CharacterType,
                 CharacterHeadInfo = new()
                 {
                     HeadFashionId = character.CharacterHeadInfo?.HeadFashionId ?? 0,

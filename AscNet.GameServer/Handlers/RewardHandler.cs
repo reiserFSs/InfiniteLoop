@@ -4,6 +4,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.GameServer.Handlers.Drops;
 using AscNet.Table.V2.share.character;
+using AscNet.Table.V2.share.exhibition;
 using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.reward;
@@ -40,6 +41,7 @@ namespace AscNet.GameServer.Handlers
         internal NotifyWeaponFashionInfo WeaponFashionData { get; } = new();
         internal NotifyHeadPortraitInfos HeadPortraitData { get; } = new();
         internal bool DormFurnitureChanged { get; set; }
+        internal List<int> GatherRewardIds { get; } = [];
 
 
         public void SendPushes(Session session)
@@ -54,6 +56,8 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(WeaponFashionData);
             if (CharacterData.CharacterDataList.Count > 0)
                 session.SendPush(CharacterData);
+            foreach (int id in GatherRewardIds)
+                session.SendPush(new NotifyGatherReward { Id = id });
             if (HeadPortraitData.Heads.Count > 0)
                 session.SendPush(HeadPortraitData);
         }
@@ -79,6 +83,11 @@ namespace AscNet.GameServer.Handlers
             WeaponFashionData.WeaponFashionDataList.AddRange(
                 source.WeaponFashionData.WeaponFashionDataList);
             CharacterData.CharacterDataList.AddRange(source.CharacterData.CharacterDataList);
+            foreach (int id in source.GatherRewardIds)
+            {
+                if (!GatherRewardIds.Contains(id))
+                    GatherRewardIds.Add(id);
+            }
             foreach (HeadPortraitList head in source.HeadPortraitData.Heads)
             {
                 if (!HeadPortraitData.Heads.Any(existing => existing.Id == head.Id))
@@ -189,6 +198,7 @@ namespace AscNet.GameServer.Handlers
                     BeginTime = head.BeginTime
                 })
                 .ToList();
+            List<int> originalGatherRewards = session.player.GatherRewards.ToList();
             PlayerDormState? originalDorm = grants.SelectMany(grant => grant.Goods)
                 .Any(goods => GetRewardType(goods) == RewardType.Furniture)
                 ? BsonSerializer.Deserialize<PlayerDormState>(session.player.Dorm.ToBson())
@@ -271,6 +281,7 @@ namespace AscNet.GameServer.Handlers
                     characterPersisted = true;
                 }
                 if (result.DormFurnitureChanged
+                    || result.GatherRewardIds.Count > 0
                     || session.player.HeadPortraits.Count != originalHeadPortraits.Count)
                 {
                     session.player.SaveChecked();
@@ -291,6 +302,7 @@ namespace AscNet.GameServer.Handlers
                 if (!playerPersisted)
                 {
                     session.player.HeadPortraits = originalHeadPortraits;
+                    session.player.GatherRewards = originalGatherRewards;
                     if (originalDorm is not null)
                         session.player.Dorm = originalDorm;
                 }
@@ -495,7 +507,7 @@ namespace AscNet.GameServer.Handlers
             Session session)
         {
             RewardApplicationResult result = ApplyRewards(rewardGoods, session);
-            if (result.DormFurnitureChanged || result.HeadPortraitData.Heads.Count > 0)
+            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
                 session.player.Save();
             result.SendPushes(session);
             return result.RewardGoods;
@@ -504,7 +516,7 @@ namespace AscNet.GameServer.Handlers
         public static void GiveRewards(IEnumerable<Reward> rewards, Session session)
         {
             RewardApplicationResult result = ApplyRewards(rewards, session);
-            if (result.DormFurnitureChanged || result.HeadPortraitData.Heads.Count > 0)
+            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
                 session.player.Save();
             result.SendPushes(session);
         }
@@ -760,13 +772,17 @@ namespace AscNet.GameServer.Handlers
                     itemDataList.Add(session.inventory.Do(reward.Id, reward.Count));
                     break;
                 case RewardType.Character:
-
                     var characterRet = session.character.AddCharacter((uint)reward.Id, level: reward.Level);
                     characterDataList.Add(characterRet.Character);
                     fashionData.FashionList.Add(characterRet.Fashion);
                     if (characterRet.Equip is not null)
                         equipDataList.Add(characterRet.Equip);
-
+                    ExhibitionRewardTable? baselineReward = TableReaderV2.Parse<ExhibitionRewardTable>()
+                        .FirstOrDefault(row => row.CharacterId == reward.Id
+                            && row.LevelId == 1
+                            && row.ConditionIds.Count == 0);
+                    if (baselineReward is not null && session.player.AddGatherReward(baselineReward.Id))
+                        result.GatherRewardIds.Add(baselineReward.Id);
                     break;
                 case RewardType.Equip:
                     EquipData? equip = session.character.AddEquip((uint)reward.Id, level: reward.Level);

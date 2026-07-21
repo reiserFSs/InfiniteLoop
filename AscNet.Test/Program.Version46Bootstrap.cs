@@ -614,6 +614,13 @@ internal partial class Program
             harness.Session,
             46_040,
             new GuideCompleteRequest { GuideGroupId = completedTriggerGuide.Id });
+        NotifyGuide completedAfterTriggerNotify = ReadPushPayload<NotifyGuide>(
+            harness,
+            nameof(NotifyGuide),
+            "4.6 GuideComplete after trigger condition changes notify");
+        AssertEqual(completedTriggerGuide.Id,
+            completedAfterTriggerNotify.GuideGroupId,
+            "4.6 GuideComplete after trigger condition changes notified guide");
         GuideCompleteResponse completedAfterTrigger = ReadResponsePayload<GuideCompleteResponse>(
             harness,
             46_040,
@@ -631,6 +638,13 @@ internal partial class Program
             harness.Session,
             46_041,
             new GuideCompleteRequest { GuideGroupId = sharedCompletionGuide.Id });
+        NotifyGuide sharedCompletionNotify = ReadPushPayload<NotifyGuide>(
+            harness,
+            nameof(NotifyGuide),
+            "4.6 GuideComplete shared completion config notify");
+        AssertEqual(sharedCompletionGuide.Id,
+            sharedCompletionNotify.GuideGroupId,
+            "4.6 GuideComplete shared completion config notified guide");
         GuideCompleteResponse sharedCompletion = ReadResponsePayload<GuideCompleteResponse>(
             harness,
             46_041,

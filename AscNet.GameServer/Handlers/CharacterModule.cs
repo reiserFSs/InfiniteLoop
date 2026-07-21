@@ -55,6 +55,18 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class CharacterResetNewFlagRequest
+    {
+        public List<int> CharacterIds = new();
+    }
+
+    [MessagePackObject(true)]
+    public class CharacterResetNewFlagResponse
+    {
+        public int Code;
+    }
+
+    [MessagePackObject(true)]
     public class CharacterLevelUpRequest
     {
         public uint TemplateId;
@@ -848,10 +860,10 @@ namespace AscNet.GameServer.Handlers
             NotifyCharacterDataList notifyCharacterData = new();
             foreach (CharacterData character in affectedCharacters)
             {
-                if (!character.IsEnhanceSkillNotice)
+                if (character.IsEnhanceSkillNotice)
                     continue;
 
-                character.IsEnhanceSkillNotice = false;
+                character.IsEnhanceSkillNotice = true;
                 notifyCharacterData.CharacterDataList.Add(character);
             }
 
@@ -862,6 +874,29 @@ namespace AscNet.GameServer.Handlers
             }
 
             session.SendResponse(new CharacterEnhanceSkillNoticeResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("CharacterResetNewFlagRequest")]
+        public static void CharacterResetNewFlagRequestHandler(Session session, Packet.Request packet)
+        {
+            CharacterResetNewFlagRequest request = packet.Deserialize<CharacterResetNewFlagRequest>();
+            NotifyCharacterDataList notifyCharacterData = new();
+            foreach (CharacterData character in session.character.Characters)
+            {
+                if (character.Id > (uint)int.MaxValue || character.NewFlag == 0 || !request.CharacterIds.Contains((int)character.Id))
+                    continue;
+
+                character.NewFlag = 0;
+                notifyCharacterData.CharacterDataList.Add(character);
+            }
+
+            if (notifyCharacterData.CharacterDataList.Count > 0)
+            {
+                session.SendPush(notifyCharacterData);
+                SaveCharacterProgress(session);
+            }
+
+            session.SendResponse(new CharacterResetNewFlagResponse(), packet.Id);
         }
 
         [RequestPacketHandler("CharacterSetHeadInfoRequest")]

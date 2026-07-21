@@ -83,6 +83,11 @@ namespace AscNet.Test
                     ValidateDormCompatibility();
                     return;
                 }
+                if (args.Contains("--transfinite-compat-only"))
+                {
+                    ValidateTransfiniteCompatibility();
+                    return;
+                }
                 if (args.Contains("--version-46-compat-only"))
                 {
                     ValidateVersion46BootstrapCompatibility();
@@ -1353,6 +1358,36 @@ namespace AscNet.Test
             };
 
             using LoopbackSessionHarness harness = new(character, inventory: inventory, sessionId: "partner-progression-test");
+            void AssertNoExtraPacket(string name)
+            {
+                if (harness.TryReadAvailablePacket($"{name} unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"{name}: unexpected extra {extra.Type} packet.");
+            }
+
+            InvokeRequestHandler(harness, nameof(PartnerUpdateLockRequest), 17_096,
+                new PartnerUpdateLockRequest { PartnerId = partner.Id, IsLock = true });
+            AssertEqual(0, ReadResponsePayload<PartnerUpdateLockResponse>(
+                harness.ReadPacket("lock PartnerUpdateLockResponse"), nameof(PartnerUpdateLockResponse)).Code,
+                "lock PartnerUpdateLockResponse code");
+            AssertEqual(true, partner.IsLock, "partner lock state");
+            AssertNoExtraPacket("partner lock response-only contract");
+
+            InvokeRequestHandler(harness, nameof(PartnerUpdateLockRequest), 17_097,
+                new PartnerUpdateLockRequest { PartnerId = partner.Id, IsLock = false });
+            AssertEqual(0, ReadResponsePayload<PartnerUpdateLockResponse>(
+                harness.ReadPacket("unlock PartnerUpdateLockResponse"), nameof(PartnerUpdateLockResponse)).Code,
+                "unlock PartnerUpdateLockResponse code");
+            AssertEqual(false, partner.IsLock, "partner unlock state");
+            AssertNoExtraPacket("partner unlock response-only contract");
+
+            InvokeRequestHandler(harness, nameof(PartnerUpdateLockRequest), 17_098,
+                new PartnerUpdateLockRequest { PartnerId = int.MaxValue, IsLock = true });
+            AssertEqual(1, ReadResponsePayload<PartnerUpdateLockResponse>(
+                harness.ReadPacket("missing PartnerUpdateLockResponse"), nameof(PartnerUpdateLockResponse)).Code,
+                "missing PartnerUpdateLockResponse code");
+            AssertEqual(false, partner.IsLock, "missing partner lock preserves state");
+            AssertNoExtraPacket("missing partner lock response-only contract");
+
             InvokeRequestHandler(
                 harness,
                 nameof(PartnerLevelUpRequest),
@@ -4908,7 +4943,7 @@ namespace AscNet.Test
             player.Token = reconnectToken;
             player.PlayerData.LastLoginTime = DateTimeOffset.UtcNow.AddDays(-2).ToUnixTimeSeconds();
             player.PlayerData.NewPlayerTaskActiveDay = 9;
-            player.GatherRewards = [5, 6];
+            player.GatherRewards = [6, 7];
             AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
             character.Characters.Add(CreateLoginAccountCompatibilityCharacter(1021001, fashionId: 3021001));
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
@@ -19633,8 +19668,115 @@ namespace AscNet.Test
                 level2FashionId,
                 initialFashionIsLocked: true,
                 $"{name} claimed level 2 locked fashion login repair");
+            AssertGatherAwakenBaselineRewardReconciliation();
             ValidateHelentineGatherAwakenRewardCompatibility();
         }
+        private static void AssertGatherAwakenBaselineRewardReconciliation()
+        {
+            const long loginPlayerId = 102_100_750;
+            const long grantPlayerId = 102_100_751;
+            const string name = "GatherReward LevelId=1 baseline reconciliation";
+
+            ExhibitionRewardTable[] baselineRows = TableReaderV2.Parse<ExhibitionRewardTable>()
+                .Where(row => row.LevelId == 1 && row.ConditionIds.Count == 0)
+                .GroupBy(row => row.CharacterId)
+                .Select(group => group.Single())
+                .OrderBy(row => row.Id)
+                .Skip(1)
+                .Take(3)
+                .ToArray();
+            AssertEqual(3, baselineRows.Length, $"{name} distinct table-derived baseline rows");
+            AssertEqual(3, baselineRows.Select(row => row.Id).Distinct().Count(), $"{name} distinct baseline reward ids");
+
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out _,
+                out _);
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo doLogin = RequiredMethod(
+                accountModule,
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            MethodInfo reconcileGatherRewardBaselines = RequiredMethod(
+                accountModule,
+                "ReconcileGatherRewardBaselines",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            AssertMethodTransitivelyCalls(
+                doLogin,
+                reconcileGatherRewardBaselines,
+                $"{name} DoLogin baseline reconciliation");
+
+            AscNet.Common.Database.Player loginPlayer = CreateDrawCompatibilityPlayer(loginPlayerId);
+            loginPlayer.GatherRewards = [baselineRows[0].Id];
+            AscNet.Common.Database.Character loginCharacter = CreateDrawCompatibilityCharacter(loginPlayerId);
+            loginCharacter.AddCharacter((uint)baselineRows[0].CharacterId);
+            loginCharacter.AddCharacter((uint)baselineRows[1].CharacterId);
+            using (LoopbackSessionHarness loginHarness = new(
+                loginCharacter,
+                loginPlayer,
+                CreateDrawCompatibilityInventory(loginPlayerId, []),
+                $"{name} login"))
+            {
+                reconcileGatherRewardBaselines.Invoke(null, [loginHarness.Session]);
+            }
+            AssertIntegerList(
+                baselineRows.Take(2).Select(row => (long)row.Id).Order().ToArray(),
+                loginPlayer.GatherRewards.Where(id => baselineRows.Take(2).Select(row => row.Id).Contains(id)).Order().Select(id => (long)id).ToArray(),
+                $"{name} reconciled ids without duplicates");
+            int savesBeforeLoginPersist = playerCollection.ReplaceOneCalls;
+            loginPlayer.Save();
+            AssertEqual(savesBeforeLoginPersist + 1, playerCollection.ReplaceOneCalls, $"{name} login player persistence");
+            AssertIntegerList(
+                baselineRows.Take(2).Select(row => (long)row.Id).Order().ToArray(),
+                (playerCollection.LastReplacement ?? throw new InvalidDataException($"{name}: login player replacement missing."))
+                    .GatherRewards.Where(id => baselineRows.Take(2).Select(row => row.Id).Contains(id)).Order().Select(id => (long)id).ToArray(),
+                $"{name} persisted login replacement ids");
+
+            Type rewardHandlerType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
+            MethodInfo giveRewards = RequiredMethod(
+                rewardHandlerType,
+                "GiveRewards",
+                BindingFlags.Static | BindingFlags.Public,
+                [typeof(IEnumerable<Reward>), typeof(Session)]);
+            AscNet.Common.Database.Player grantPlayer = CreateDrawCompatibilityPlayer(grantPlayerId);
+            AscNet.Common.Database.Character grantCharacter = CreateDrawCompatibilityCharacter(grantPlayerId);
+            using LoopbackSessionHarness grantHarness = new(
+                grantCharacter,
+                grantPlayer,
+                CreateDrawCompatibilityInventory(grantPlayerId, []),
+                $"{name} character grant");
+            int savesBeforeGrant = playerCollection.ReplaceOneCalls;
+            giveRewards.Invoke(null,
+            [
+                new Reward[] { new() { Id = baselineRows[2].CharacterId, Count = 1, Level = 1, Type = RewardType.Character } },
+                grantHarness.Session
+            ]);
+            AssertEqual(true, grantPlayer.GatherRewards.Contains(baselineRows[2].Id), $"{name} granted character baseline id");
+            AssertEqual(1, grantPlayer.GatherRewards.Count(id => id == baselineRows[2].Id), $"{name} granted character baseline id count");
+            AssertEqual(savesBeforeGrant + 1, playerCollection.ReplaceOneCalls, $"{name} granted character player persistence");
+
+            int characterPushIndex = -1;
+            int gatherPushIndex = -1;
+            for (int packetIndex = 0; packetIndex < 8 && gatherPushIndex < 0; packetIndex++)
+            {
+                Packet packet = grantHarness.ReadPacket($"{name} character grant packet {packetIndex + 1}");
+                AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} character grant packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                if (push.Name == nameof(NotifyCharacterDataList))
+                    characterPushIndex = packetIndex;
+                if (push.Name == nameof(NotifyGatherReward))
+                {
+                    gatherPushIndex = packetIndex;
+                    NotifyGatherReward gatherReward = MessagePackSerializer.Deserialize<NotifyGatherReward>(push.Content);
+                    AssertEqual(baselineRows[2].Id, gatherReward.Id, $"{name} granted character NotifyGatherReward id");
+                }
+            }
+            AssertEqual(true, characterPushIndex >= 0, $"{name} granted character NotifyCharacterDataList");
+            AssertEqual(true, gatherPushIndex > characterPushIndex, $"{name} NotifyCharacterDataList before NotifyGatherReward");
+        }
+
 
         private static void ValidateHelentineGatherAwakenRewardCompatibility()
         {
@@ -19985,7 +20127,7 @@ namespace AscNet.Test
                 throw new InvalidDataException($"{name}: expected fashion {expectedFashionId} to be absent before login repair.");
             }
 
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForStoryDeployVersionGapCompatibility();
             using LoopbackSessionHarness harness = new(
                 character,
                 player,
@@ -20501,6 +20643,127 @@ namespace AscNet.Test
             MethodInfo fightSettleHandler = GetRegisteredRequestHandlerMethod("FightSettleRequest");
             AssertEqual("FightSettleRequestHandler", fightSettleHandler.Name, "FightSettleRequest registered handler method");
             AssertMethodTransitivelyCalls(fightSettleHandler, characterSave, "FightSettleRequestHandler character card-exp persistence");
+            ValidateCharacterMenuAcknowledgementCompatibility();
+        }
+        private static void ValidateCharacterMenuAcknowledgementCompatibility()
+        {
+            const string resetRequestName = nameof(CharacterResetNewFlagRequest);
+            const string resetResponseName = nameof(CharacterResetNewFlagResponse);
+            const string noticeRequestName = nameof(CharacterEnhanceSkillNoticeRequest);
+            const string noticeResponseName = nameof(CharacterEnhanceSkillNoticeResponse);
+            const int packetId = 19_540;
+            const long playerId = 99_540;
+
+            CharacterTable[] rows = TableReaderV2.Parse<CharacterTable>()
+                .Where(row => row.Type == 1)
+                .Take(2)
+                .ToArray();
+            if (rows.Length != 2)
+                throw new InvalidDataException("Character menu acknowledgement fixture requires two playable characters.");
+            int unknownCharacterId = checked(rows.Max(row => row.Id) + 1);
+
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            CharacterData firstCharacter = CreateLoginAccountCompatibilityCharacter(
+                (uint)rows[0].Id, (uint)rows[0].DefaultNpcFashtionId);
+            firstCharacter.NewFlag = 7;
+            firstCharacter.CollectState = true;
+            firstCharacter.IsEnhanceSkillNotice = false;
+            firstCharacter.CharacterType = 4;
+            CharacterData secondCharacter = CreateLoginAccountCompatibilityCharacter(
+                (uint)rows[1].Id, (uint)rows[1].DefaultNpcFashtionId);
+            secondCharacter.NewFlag = 3;
+            secondCharacter.CollectState = false;
+            secondCharacter.IsEnhanceSkillNotice = true;
+            secondCharacter.CharacterType = 7;
+            character.Characters = [firstCharacter, secondCharacter];
+
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out _,
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                    out _);
+            using LoopbackSessionHarness harness = new(
+                character,
+                CreateDrawCompatibilityPlayer(playerId),
+                CreateDrawCompatibilityInventory(playerId, []),
+                "character-menu-acknowledgement-compat");
+
+            CharacterResetNewFlagRequest resetRequest = new()
+            {
+                CharacterIds = [rows[0].Id, rows[1].Id, rows[1].Id, unknownCharacterId]
+            };
+            CharacterResetNewFlagRequest resetRoundTrip =
+                MessagePackSerializer.Deserialize<CharacterResetNewFlagRequest>(
+                    MessagePackSerializer.Serialize(resetRequest));
+            AssertIntegerList(resetRequest.CharacterIds.Select(id => (long)id).ToArray(),
+                resetRoundTrip.CharacterIds.Select(id => (long)id).ToArray(),
+                $"{resetRequestName} CharacterIds round-trip");
+            InvokeRequestHandler(harness, resetRequestName, packetId, resetRoundTrip);
+            NotifyCharacterDataList resetPush = ReadPushPayload<NotifyCharacterDataList>(
+                harness, nameof(NotifyCharacterDataList), $"{resetRequestName} push before response");
+            AssertIntegerList(rows.Select(row => (long)row.Id).ToArray(),
+                resetPush.CharacterDataList.Select(data => (long)data.Id).ToArray(),
+                $"{resetRequestName} changed character ids");
+            AssertEqual(0, resetPush.CharacterDataList.Single(data => data.Id == (uint)rows[0].Id).NewFlag,
+                $"{resetRequestName} first pushed NewFlag");
+            AssertEqual(0, resetPush.CharacterDataList.Single(data => data.Id == (uint)rows[1].Id).NewFlag,
+                $"{resetRequestName} second pushed NewFlag");
+            CharacterResetNewFlagResponse resetResponse =
+                ReadResponsePayload<CharacterResetNewFlagResponse>(
+                    harness.ReadPacket($"{resetResponseName} second packet"), resetResponseName);
+            AssertEqual(0, resetResponse.Code, $"{resetResponseName} Code");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, $"{resetRequestName} saves changed roster once");
+
+            InvokeRequestHandler(harness, resetRequestName, packetId + 1, resetRequest);
+            CharacterResetNewFlagResponse repeatedResetResponse =
+                ReadResponsePayload<CharacterResetNewFlagResponse>(
+                    harness.ReadPacket($"{resetResponseName} idempotent response"), resetResponseName);
+            AssertEqual(0, repeatedResetResponse.Code, $"{resetResponseName} idempotent Code");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, $"{resetRequestName} already-cleared roster does not save");
+            if (harness.TryReadAvailablePacket($"{resetRequestName} idempotent unexpected packet", out Packet resetExtra))
+                throw new InvalidDataException($"{resetRequestName} idempotent emitted unexpected {resetExtra.Type} packet.");
+
+            InvokeRequestHandler(harness, noticeRequestName, packetId + 2,
+                new CharacterEnhanceSkillNoticeRequest { TemplateId = rows[0].Id });
+            NotifyCharacterDataList noticePush = ReadPushPayload<NotifyCharacterDataList>(
+                harness, nameof(NotifyCharacterDataList), $"{noticeRequestName} push before response");
+            AssertEqual(1, noticePush.CharacterDataList.Count, $"{noticeRequestName} changed character count");
+            AssertEqual((uint)rows[0].Id, noticePush.CharacterDataList[0].Id,
+                $"{noticeRequestName} selected character id");
+            AssertEqual(true, noticePush.CharacterDataList[0].IsEnhanceSkillNotice,
+                $"{noticeRequestName} marks selected notice viewed");
+            CharacterEnhanceSkillNoticeResponse noticeResponse =
+                ReadResponsePayload<CharacterEnhanceSkillNoticeResponse>(
+                    harness.ReadPacket($"{noticeResponseName} second packet"), noticeResponseName);
+            AssertEqual(0, noticeResponse.Code, $"{noticeResponseName} Code");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, $"{noticeRequestName} saves changed roster once");
+
+            InvokeRequestHandler(harness, noticeRequestName, packetId + 3,
+                new CharacterEnhanceSkillNoticeRequest { TemplateId = rows[0].Id });
+            CharacterEnhanceSkillNoticeResponse repeatedNoticeResponse =
+                ReadResponsePayload<CharacterEnhanceSkillNoticeResponse>(
+                    harness.ReadPacket($"{noticeResponseName} idempotent response"), noticeResponseName);
+            AssertEqual(0, repeatedNoticeResponse.Code, $"{noticeResponseName} idempotent Code");
+            AssertEqual(2, characterCollection.ReplaceOneCalls, $"{noticeRequestName} already-viewed roster does not save");
+            if (harness.TryReadAvailablePacket($"{noticeRequestName} idempotent unexpected packet", out Packet noticeExtra))
+                throw new InvalidDataException($"{noticeRequestName} idempotent emitted unexpected {noticeExtra.Type} packet.");
+
+            MethodInfo buildNotifyLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "BuildNotifyLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+            NotifyLogin login = (NotifyLogin)(buildNotifyLogin.Invoke(null, [harness.Session])
+                ?? throw new InvalidDataException("BuildNotifyLogin returned null."));
+            foreach (CharacterData source in harness.Session.character.Characters)
+            {
+                LoginCharacterList mapped = login.CharacterList.Single(data => data.Id == source.Id);
+                AssertEqual(source.NewFlag, mapped.NewFlag, $"NotifyLogin character {source.Id} NewFlag");
+                AssertEqual(source.CollectState, mapped.CollectState, $"NotifyLogin character {source.Id} CollectState");
+                AssertEqual(source.IsEnhanceSkillNotice, mapped.IsEnhanceSkillNotice,
+                    $"NotifyLogin character {source.Id} IsEnhanceSkillNotice");
+                AssertEqual(source.CharacterType, mapped.CharacterType, $"NotifyLogin character {source.Id} CharacterType");
+            }
         }
 
         private static void ValidateCharacterSwitchSkillCompatibility()
@@ -21537,12 +21800,12 @@ namespace AscNet.Test
             AssertEqual(4, taskStatusRoundTrip.NewPlayerTaskActiveDay, "NotifyNewPlayerTaskStatus NewPlayerTaskActiveDay MessagePack round-trip");
 
             AscNet.Common.Database.Player player = new();
-            AssertEqual(1, player.GatherRewards.Count, "Player initial gather reward count");
-            AssertEqual(5, player.GatherRewards[0], "Player initial gather reward id");
-            AssertEqual(false, player.AddGatherReward(5), "Player AddGatherReward rejects the already-claimed base reward");
-            AssertEqual(1, player.GatherRewards.Count, "Player duplicate base gather reward count");
+            AssertEqual(0, player.GatherRewards.Count, "Player initial gather reward count");
             AssertEqual(true, player.AddGatherReward(6), "Player AddGatherReward accepts a new reward id");
-            AssertEqual(false, player.AddGatherReward(6), "Player AddGatherReward rejects a duplicate new reward id");
+            AssertEqual(false, player.AddGatherReward(6), "Player AddGatherReward rejects a duplicate reward id");
+            AssertEqual(1, player.GatherRewards.Count, "Player duplicate gather reward count");
+            AssertEqual(true, player.AddGatherReward(7), "Player AddGatherReward accepts another reward id");
+            AssertEqual(false, player.AddGatherReward(7), "Player AddGatherReward rejects another duplicate reward id");
             AssertEqual(2, player.GatherRewards.Count, "Player idempotent gather reward count");
 
             MethodInfo sendPush = RequiredGenericMethodDefinition(
@@ -26343,6 +26606,106 @@ namespace AscNet.Test
             List<GuideFightTable> guideFights = TableReaderV2.Parse<GuideFightTable>();
             if (!guideFights.Any(guideFight => guideFight.StageId == 10010005))
                 throw new InvalidDataException("GuideFightTable: missing current tutorial stage 10010005.");
+            HashSet<long> expectedSkippedGuideIds = guideGroups
+                .Where(guideGroup => guideGroup.Ignore == 0 && guideGroup.RewardId == 0)
+                .Select(guideGroup => (long)guideGroup.Id)
+                .ToHashSet();
+            HashSet<long> ignoredGuideIds = guideGroups
+                .Where(guideGroup => guideGroup.Ignore != 0)
+                .Select(guideGroup => (long)guideGroup.Id)
+                .ToHashSet();
+            HashSet<long> rewardBearingGuideIds = guideGroups
+                .Where(guideGroup => guideGroup.RewardId != 0)
+                .Select(guideGroup => (long)guideGroup.Id)
+                .ToHashSet();
+            if (expectedSkippedGuideIds.Count == 0 || ignoredGuideIds.Count == 0 || rewardBearingGuideIds.Count == 0)
+                throw new InvalidDataException("GuideGroupTable: expected skippable, ignored, and reward-bearing guide groups.");
+
+            long existingGuideMarker = guideGroups.Max(guideGroup => (long)guideGroup.Id) + 1;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(existingGuideMarker);
+            player.PlayerData.GuideData = [existingGuideMarker];
+            expectedSkippedGuideIds.Add(existingGuideMarker);
+
+            MethodInfo skipCommonGuides = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.GuideModule"),
+                "SkipCommonGuides",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(AscNet.Common.Database.Player)]);
+            skipCommonGuides.Invoke(null, [player]);
+
+            List<long> actualGuideData = player.PlayerData.GuideData
+                ?? throw new InvalidDataException("GuideModule.SkipCommonGuides cleared GuideData.");
+            HashSet<long> actualGuideIds = actualGuideData.ToHashSet();
+            if (!actualGuideIds.SetEquals(expectedSkippedGuideIds))
+                throw new InvalidDataException("GuideModule.SkipCommonGuides: expected all and only non-ignored, rewardless GuideGroupTable ids plus the existing marker.");
+            if (!actualGuideIds.Contains(existingGuideMarker))
+                throw new InvalidDataException("GuideModule.SkipCommonGuides: existing guide marker was not preserved.");
+            if (actualGuideIds.Overlaps(ignoredGuideIds))
+                throw new InvalidDataException("GuideModule.SkipCommonGuides: added an ignored GuideGroupTable id.");
+            if (actualGuideIds.Overlaps(rewardBearingGuideIds))
+                throw new InvalidDataException("GuideModule.SkipCommonGuides: added a reward-bearing GuideGroupTable id.");
+            if (actualGuideData.Count != actualGuideIds.Count)
+                throw new InvalidDataException("GuideModule.SkipCommonGuides: added duplicate guide markers.");
+
+            long[] firstPassGuideData = actualGuideData.ToArray();
+            skipCommonGuides.Invoke(null, [player]);
+            if (!player.PlayerData.GuideData.SequenceEqual(firstPassGuideData))
+                throw new InvalidDataException("GuideModule.SkipCommonGuides: second invocation was not idempotent.");
+            HashSet<int> guideCompletionIds = TableReaderV2.Parse<GuideCompleteTable>()
+                .Select(guideCompletion => guideCompletion.Id)
+                .ToHashSet();
+            GuideGroupTable eligibleGuide = guideGroups.First(guideGroup =>
+                guideGroup.RewardId == 0 && guideCompletionIds.Contains(guideGroup.CompleteId));
+            const long guideCompletePlayerId = 88_100;
+            using MongoCollectionOverride mongoOverride =
+                MongoCollectionOverride.InstallForDailySignInCompatibility(
+                    out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                    out _,
+                    out _);
+            AscNet.Common.Database.Player guideCompletePlayer =
+                CreateDrawCompatibilityPlayer(guideCompletePlayerId);
+            using LoopbackSessionHarness guideCompleteHarness = new(
+                CreateDrawCompatibilityCharacter(guideCompletePlayerId),
+                guideCompletePlayer,
+                CreateDrawCompatibilityInventory(guideCompletePlayerId, []),
+                "guide-complete-table-compat");
+            InvokeRegisteredRequestHandler(
+                nameof(GuideCompleteRequest),
+                guideCompleteHarness.Session,
+                88_100,
+                new GuideCompleteRequest { GuideGroupId = eligibleGuide.Id });
+            NotifyGuide guideNotify = ReadPushPayload<NotifyGuide>(
+                guideCompleteHarness,
+                nameof(NotifyGuide),
+                "GuideComplete table-backed first packet");
+            AssertEqual(eligibleGuide.Id, guideNotify.GuideGroupId,
+                "GuideComplete table-backed notified GuideGroupId");
+            GuideCompleteResponse guideCompleteResponse =
+                ReadResponsePayload<GuideCompleteResponse>(
+                    guideCompleteHarness,
+                    88_100,
+                    nameof(GuideCompleteResponse),
+                    "GuideComplete table-backed response");
+            AssertEqual(0, guideCompleteResponse.Code,
+                "GuideComplete table-backed response Code");
+            AssertEqual(true, guideCompletePlayer.PlayerData.GuideData.Contains(eligibleGuide.Id),
+                "GuideComplete table-backed persisted GuideGroupId");
+            AssertEqual(1, playerCollection.ReplaceOneCalls,
+                "GuideComplete table-backed persistence count");
+
+            InvokeRegisteredRequestHandler(
+                nameof(GuideCompleteRequest),
+                guideCompleteHarness.Session,
+                88_101,
+                new GuideCompleteRequest { GuideGroupId = guideGroups.Max(guideGroup => guideGroup.Id) + 1 });
+            GuideCompleteResponse invalidGuideCompleteResponse =
+                ReadResponsePayload<GuideCompleteResponse>(
+                    guideCompleteHarness,
+                    88_101,
+                    nameof(GuideCompleteResponse),
+                    "GuideComplete invalid response");
+            AssertEqual(1, invalidGuideCompleteResponse.Code, "GuideComplete invalid response Code");
+            AssertNoAvailablePacket(guideCompleteHarness, "GuideComplete invalid request");
         }
 
         private static void ValidateRequestHandlerRegistration(string requestName)

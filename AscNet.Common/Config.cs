@@ -16,6 +16,9 @@ namespace AscNet.Common
         [Option(DefaultValue = false)]
         bool SaveClientLogs { get; set; }
 
+        [Option(DefaultValue = false)]
+        bool SkipCommonGuides { get; set; }
+
 
         interface IGameServer
         {

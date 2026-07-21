@@ -551,7 +551,7 @@ namespace AscNet.Common.Database
         public List<HeadPortraitList> HeadPortraits { get; set; }
 
         [BsonElement("gather_rewards")]
-        public List<int> GatherRewards { get; set; } = [5];
+        public List<int> GatherRewards { get; set; } = [];
 
         [BsonElement("use_background_id")]
         public int UseBackgroundId { get; set; } = 14000001;

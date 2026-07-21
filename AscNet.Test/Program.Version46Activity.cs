@@ -247,6 +247,7 @@ internal static partial class Program
                 nameof(GuideCompleteResponse),
                 "Guide reward player persistence failure response");
             AssertEqual(1, failedGuide.Code, "Guide reward player persistence failure Code");
+            AssertNoAvailablePacket(guideHarness, "Guide reward player persistence failure");
             AssertEqual(false,
                 guidePlayer.PlayerData.GuideData?.Contains(rewardedGuide.Id) == true,
                 "Guide reward player persistence failure rolls back completion");
@@ -279,6 +280,22 @@ internal static partial class Program
                 guideHarness.Session,
                 46_601,
                 new GuideCompleteRequest { GuideGroupId = rewardedGuide.Id });
+            NotifyGuide? retriedGuideNotify = null;
+            for (int packetIndex = 0; packetIndex < 8; packetIndex++)
+            {
+                Packet packet = guideHarness.ReadPacket("Guide reward persistence retry packet");
+                AssertEqual(Packet.ContentType.Push, packet.Type, "Guide reward persistence retry push packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                if (push.Name != nameof(NotifyGuide))
+                    continue;
+                retriedGuideNotify = MessagePackSerializer.Deserialize<NotifyGuide>(push.Content);
+                break;
+            }
+            if (retriedGuideNotify is null)
+                throw new InvalidDataException("Guide reward persistence retry did not notify guide completion.");
+            AssertEqual(rewardedGuide.Id,
+                retriedGuideNotify.GuideGroupId,
+                "Guide reward persistence retry notified guide");
             GuideCompleteResponse retriedGuide = (GuideCompleteResponse)ReadResponsePayload(
                 guideHarness,
                 46_601,
@@ -704,10 +721,10 @@ internal static partial class Program
             int passedStageId = stageGroup.StageId[0];
             prepared.BattleInfo = new TransfiniteBattleState
             {
-                StageId = passedStageId,
+                StageGroupId = prepared.StageGroupId,
                 StageProgressIndex = 1,
-                Score = 1,
-                PassedStageIds = [passedStageId]
+                StageInfo = [new TransfiniteStageState { StageId = passedStageId, IsWin = true, Score = 1 }],
+                Result = new TransfiniteBattleResultState()
             };
             prepared.BestSpendTime = new Dictionary<int, int>
             {
@@ -723,7 +740,7 @@ internal static partial class Program
                 $"Transfinite level-{level} progressed BattleInfo group");
             AssertEqual(passedStageId, progressedBattle.StageInfo.Single().StageId,
                 $"Transfinite level-{level} progressed StageInfo state");
-            AssertEqual(prepared.BattleInfo.Score, progressedBattle.StageInfo.Single().Score,
+            AssertEqual(1, progressedBattle.StageInfo.Single().Score,
                 $"Transfinite level-{level} progressed StageInfo score");
             AssertEqual(prepared.StageGroupId, progressedData.BestSpendTime.Single().StageGroupId,
                 $"Transfinite level-{level} progressed BestSpendTime group");
@@ -1024,6 +1041,365 @@ internal static partial class Program
             AssertEqual(0, harness.Session.stage?.Stages.Count ?? 0,
                 "Transfinite rejected settle does not write generic stage progress");
         }
+    }
+
+    private static void ValidateTransfiniteCompatibility()
+    {
+        Type Payload(string name) => RequiredAscNetGameServerType($"AscNet.GameServer.Handlers.{name}");
+        void AssertDto(string name, params string[] keys)
+        {
+            Type type = Payload(name);
+            object value = Activator.CreateInstance(type)
+                ?? throw new InvalidDataException($"{name} needs a public parameterless constructor.");
+            byte[] bytes = MessagePackSerializer.Serialize(type, value);
+            _ = MessagePackSerializer.Deserialize(type, bytes)
+                ?? throw new InvalidDataException($"{name} did not round-trip.");
+            AssertMailNamedMapKeys(type, value, keys, $"{name} wire keys");
+        }
+
+        // These are the current-client named-map contracts, not inferred runtime defaults.
+        AssertDto("TransfiniteTeamInfo", "CharacterIdList", "CaptainPos", "FirstFightPos",
+            "SelectedGeneralSkill", "EnterCgIndex", "SettleCgIndex");
+        AssertDto("TransfiniteBattleResult", "LastWinStageId", "CharacterResultList", "StageSpendTime");
+        AssertDto("TransfiniteStageInfo", "StageId", "IsWin", "SpendTime", "Score");
+        AssertDto("TransfiniteBattleInfo", "StageGroupId", "StageProgressIndex", "StartStageProgress",
+            "TeamInfo", "StageInfo", "Result", "LastResult", "HistoryResults");
+        AssertDto("TransfiniteSetTeamRequest", "StageGroupId", "TeamInfo", "ResetStageIndex");
+        AssertDto("TransfiniteSetTeamResponse", "Code", "BattleInfo");
+        AssertDto("TransfiniteConfirmBattleResultRequest", "StageGroupId", "IsGiveUp");
+        AssertDto("TransfiniteConfirmBattleResultResponse", "Code", "RewardGoodsList", "BattleInfo");
+        AssertDto("TransfiniteResetStageGroupRequest", "StageGroupId");
+        AssertDto("TransfiniteResetStageGroupResponse", "Code", "BattleInfo");
+        AssertDto("TransfiniteGetScoreRewardRequest", "ScoreRewardIndex");
+        AssertDto("TransfiniteGetScoreRewardResponse", "Code", "RewardGoodsList", "GotScoreRewardIndex");
+
+        foreach (string request in new[]
+        {
+            "TransfiniteSetTeamRequest",
+            "TransfiniteConfirmBattleResultRequest",
+            "TransfiniteResetStageGroupRequest",
+            "TransfiniteGetScoreRewardRequest",
+            "TransfiniteGetRotateSettleInfoRequest"
+        })
+            _ = GetRegisteredRequestHandlerMethod(request);
+
+        List<TransfiniteStageGroupTable> groups = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+            .Where(group => group.StageId.Count > 0)
+            .GroupBy(group => string.Join(',', group.StageId))
+            .Select(group => group.First())
+            .Take(2)
+            .ToList();
+        AssertEqual(2, groups.Count, "Transfinite has two independently table-derived stage groups");
+        AssertEqual(false, groups[0].StageGroupId == groups[1].StageGroupId,
+            "Transfinite table-derived stage groups are distinct");
+        AssertEqual(false, groups[0].StageId.SequenceEqual(groups[1].StageId),
+            "Transfinite table-derived teams target distinct stage sequences");
+        // Current source supplies no ResetStageGroup transition: it must remain explicitly fail-closed.
+        long playerId = 46_180;
+        Player player = CreateDrawCompatibilityPlayer(playerId);
+        using LoopbackSessionHarness harness = new(
+            CreateDrawCompatibilityCharacter(playerId), player, CreateDrawCompatibilityInventory(playerId, []),
+            "transfinite-reset-boundary");
+        string before = Convert.ToHexString(player.ToBson());
+        Type resetRequestType = Payload("TransfiniteResetStageGroupRequest");
+        object reset = Activator.CreateInstance(resetRequestType)
+            ?? throw new InvalidDataException("TransfiniteResetStageGroupRequest cannot construct.");
+        resetRequestType.GetProperty("StageGroupId")!.SetValue(reset, groups[0].StageGroupId);
+        InvokeRegisteredRequestHandler("TransfiniteResetStageGroupRequest", harness.Session, 46_180, reset);
+        Packet responsePacket = harness.ReadPacket("Transfinite reset response");
+        Packet.Response envelope = MessagePackSerializer.Deserialize<Packet.Response>(responsePacket.Content);
+        AssertEqual(before, Convert.ToHexString(player.ToBson()), "Transfinite ResetStageGroup is mutation-free");
+        AssertEqual("TransfiniteResetStageGroupResponse", envelope.Name, "Transfinite reset response name");
+        object response = MessagePackSerializer.Deserialize(Payload(envelope.Name), envelope.Content)
+            ?? throw new InvalidDataException("Transfinite reset response nil.");
+        AssertEqual(20008002, Convert.ToInt32(Payload(envelope.Name).GetProperty("Code")!.GetValue(response)),
+            "Transfinite ResetStageGroup missing-source boundary");
+        // Capture flow begins at progress 0 with the first stage one-based for display.
+        TransfiniteActivityTable activity = TableReaderV2.Parse<TransfiniteActivityTable>()
+            .First(row => ActivityScheduleService.TryGet(row.TimeId, out ActivityScheduleEntry schedule)
+                && schedule.Source.StartsWith("version-history:", StringComparison.Ordinal));
+        ActivityScheduleService.TryGet(activity.TimeId, out ActivityScheduleEntry activeSchedule);
+        long flowPlayerId = 46_181;
+        Player flowPlayer = CreateDrawCompatibilityPlayer(flowPlayerId);
+        flowPlayer.PlayerData.Level = 80;
+        Character flowCharacter = CreateDrawCompatibilityCharacter(flowPlayerId);
+        flowCharacter.Characters = [new CharacterData { Id = 1 }, new CharacterData { Id = 2 }, new CharacterData { Id = 3 }];
+        MethodInfo prepare = RequiredMethod(Payload("TransfiniteModule"), "PrepareLogin",
+            BindingFlags.Static | BindingFlags.NonPublic, [typeof(Player), typeof(long)]);
+        using MongoCollectionOverride flowMongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out RecordingMongoCollectionProxy<Player> flowPlayerCollection,
+            out RecordingMongoCollectionProxy<Character> flowCharacterCollection,
+            out RecordingMongoCollectionProxy<Inventory> flowInventoryCollection);
+        prepare.Invoke(null, [flowPlayer, activeSchedule.StartTime]);
+        TransfiniteState flowState = flowPlayer.Transfinite
+            ?? throw new InvalidDataException("Transfinite flow fixture was not authorized.");
+        int sameCircleSaves = flowPlayerCollection.ReplaceOneCalls;
+        prepare.Invoke(null, [flowPlayer, activeSchedule.StartTime]);
+        AssertEqual(sameCircleSaves, flowPlayerCollection.ReplaceOneCalls, "Transfinite same-circle PrepareLogin does not save");
+        long sentinelPlayerId = 46_183;
+        Player sentinelPlayer = CreateDrawCompatibilityPlayer(sentinelPlayerId);
+        sentinelPlayer.Transfinite = new TransfiniteState
+        {
+            ActivityId = activity.Id,
+            ActivityAuthorizedUntil = long.MaxValue,
+            RegionId = flowState.RegionId,
+            ScoreRewardGroupId = flowState.ScoreRewardGroupId,
+            RotateSettleInfo = new TransfiniteRotateSettleState
+            {
+                RotationId = 52,
+                RegionId = flowState.RegionId,
+                MaxStageProgressIndex = 6,
+                ScoreRewardGroupId = 0
+            }
+        };
+        using (LoopbackSessionHarness sentinelHarness = new(CreateDrawCompatibilityCharacter(sentinelPlayerId), sentinelPlayer,
+                   CreateDrawCompatibilityInventory(sentinelPlayerId, []), "transfinite-group-zero-rotation"))
+        {
+            InvokeRegisteredRequestHandler(nameof(TransfiniteGetRotateSettleInfoRequest), sentinelHarness.Session, 46_179,
+                new TransfiniteGetRotateSettleInfoRequest());
+            TransfiniteGetRotateSettleInfoResponse sentinel = ReadResponsePayload<TransfiniteGetRotateSettleInfoResponse>(
+                sentinelHarness, 46_179, nameof(TransfiniteGetRotateSettleInfoResponse), "Transfinite group-0 rotation receipt");
+            AssertEqual(0, sentinel.Code, "Transfinite group-0 rotation receipt code");
+            AssertEqual(6, sentinel.MaxStageProgressIndex, "Transfinite group-0 rotation receipt progress");
+            AssertEqual(null, sentinelPlayer.Transfinite.RotateSettleInfo, "Transfinite group-0 rotation receipt consumes sentinel");
+        }
+        int flowGroup = flowState.StageGroupId;
+        using LoopbackSessionHarness flowHarness = new(flowCharacter, flowPlayer,
+            CreateDrawCompatibilityInventory(flowPlayerId, []), "transfinite-captured-team-flow");
+        flowState.ActivityAuthorizedUntil = long.MaxValue;
+        TransfiniteTeamInfo Team(params long[] ids) => new()
+        {
+            CharacterIdList = ids.ToList(), CaptainPos = 1, FirstFightPos = 1,
+            SelectedGeneralSkill = 0
+        };
+        void AssertRejectedTeam(TransfiniteTeamInfo team, string name)
+        {
+            InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_181,
+                new TransfiniteSetTeamRequest { StageGroupId = flowGroup, TeamInfo = team, ResetStageIndex = true });
+            TransfiniteSetTeamResponse rejected = ReadResponsePayload<TransfiniteSetTeamResponse>(flowHarness, 46_181,
+                nameof(TransfiniteSetTeamResponse), name);
+            AssertEqual(20008002, rejected.Code, name);
+        }
+        TransfiniteTeamInfo invalidSkill = Team(1, 0, 0);
+        invalidSkill.SelectedGeneralSkill = int.MaxValue;
+        AssertRejectedTeam(invalidSkill, "Transfinite configured general skill boundary");
+        AssertRejectedTeam(Team(1, 1, 0), "Transfinite duplicate team member");
+        AssertRejectedTeam(Team(99, 0, 0), "Transfinite unowned team member");
+        TransfiniteTeamInfo invalidPosition = Team(1, 0, 0);
+        invalidPosition.CaptainPos = 2;
+        AssertRejectedTeam(invalidPosition, "Transfinite captain selects nonzero slot");
+
+        InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_182,
+            new TransfiniteSetTeamRequest { StageGroupId = flowGroup, TeamInfo = Team(1, 2, 0), ResetStageIndex = true });
+        TransfiniteSetTeamResponse setTeam = ReadResponsePayload<TransfiniteSetTeamResponse>(flowHarness, 46_182,
+            nameof(TransfiniteSetTeamResponse), "Transfinite SetTeam response-only");
+        AssertEqual(0, setTeam.Code, "Transfinite SetTeam success");
+        TransfiniteBattleInfo teamBattle = setTeam.BattleInfo
+            ?? throw new InvalidDataException("Transfinite SetTeam omitted BattleInfo.");
+        AssertEqual(0, teamBattle.StageProgressIndex, "Transfinite captured SetTeam progress");
+        AssertEqual(1, teamBattle.StartStageProgress, "Transfinite captured SetTeam start");
+        AssertEqual(0, teamBattle.StageInfo.Count, "Transfinite SetTeam has no stage result");
+        AssertEqual(true, teamBattle.TeamInfo is not null && teamBattle.Result is not null,
+            "Transfinite TeamInfo always carries Result");
+        int fightStageId = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+            .Single(group => group.StageGroupId == flowGroup).StageId[0];
+        InvokeRegisteredRequestHandler(nameof(PreFightRequest), flowHarness.Session, 46_183,
+            new PreFightRequest { PreFightData = new() { StageId = (uint)fightStageId, CardIds = [], RobotIds = [] } });
+        PreFightResponse preFight = ReadResponsePayload<PreFightResponse>(flowHarness, 46_183,
+            nameof(PreFightResponse), "Transfinite authorized PreFight");
+        AssertEqual(0, preFight.Code, "Transfinite authorized PreFight code");
+        AssertEqual((uint)fightStageId, preFight.FightData.StageId, "Transfinite PreFight falls through with FightData");
+        AssertEqual(true, flowHarness.Session.fight is not null, "Transfinite PreFight creates session fight");
+        InvokeRegisteredRequestHandler(nameof(FightSettleRequest), flowHarness.Session, 46_184,
+            new FightSettleRequest { Result = new FightSettleResult { StageId = (uint)fightStageId, FightId = preFight.FightData.FightId, IsWin = true } });
+        FightSettleResponse settled = ReadResponsePayload<FightSettleResponse>(flowHarness, 46_184,
+            nameof(FightSettleResponse), "Transfinite winning FightSettle");
+        AssertEqual(0, settled.Code, "Transfinite winning FightSettle code");
+        AssertEqual(true, flowPlayer.Transfinite!.BattleInfo!.LastResult is not null,
+            "Transfinite FightSettle persists typed pending LastResult");
+        AssertEqual(0, flowHarness.Session.stage?.Stages.Count ?? 0,
+            "Transfinite never writes generic Stage progress");
+        // A give-up only consumes a typed pending result; it does not turn it into progress.
+        InvokeRegisteredRequestHandler(nameof(TransfiniteConfirmBattleResultRequest), flowHarness.Session, 46_185,
+            new TransfiniteConfirmBattleResultRequest { StageGroupId = flowGroup, IsGiveUp = true });
+        TransfiniteConfirmBattleResultResponse gaveUp = ReadResponsePayload<TransfiniteConfirmBattleResultResponse>(
+            flowHarness, 46_185, nameof(TransfiniteConfirmBattleResultResponse), "Transfinite pending give-up");
+        AssertEqual(0, gaveUp.Code, "Transfinite pending give-up code");
+        AssertEqual(null, flowPlayer.Transfinite!.BattleInfo!.LastResult, "Transfinite give-up clears only pending result");
+        AssertEqual(0, flowPlayer.Transfinite.BattleInfo.StageProgressIndex, "Transfinite give-up preserves progress");
+        AssertEqual(0, flowPlayer.Transfinite.BattleInfo.StageInfo.Count, "Transfinite give-up preserves stage history");
+
+        Dictionary<int, TransfiniteStageTable> stageRows = TableReaderV2.Parse<TransfiniteStageTable>()
+            .ToDictionary(row => row.StageId);
+        List<TransfiniteStageGroupTable> allStageGroups = TableReaderV2.Parse<TransfiniteStageGroupTable>().ToList();
+        List<TransfiniteRotateGroupTable> allRotates = TableReaderV2.Parse<TransfiniteRotateGroupTable>().ToList();
+        TransfiniteStageGroupTable fourteenStages = allStageGroups.First(group =>
+            group.Type == 2
+            && group.StageId.Count == 14
+            && group.StageId.All(stageRows.ContainsKey)
+            && group.StageId.Sum(id => stageRows[id].Score ?? 0) > 0
+            && group.StageId.Any(id => stageRows[id].StageType == 2
+                && stageRows[id].ExtraScore > 0 && stageRows[id].ExtraTimeLimit > 0));
+        TransfiniteRotateGroupTable flowRotate = allRotates
+            .First(rotate => rotate.StageGroupId.Contains(fourteenStages.StageGroupId));
+        ItemTable scoreItem = TableReaderV2.Parse<ItemTable>().Single(item => item.Id == 105);
+        TransfiniteRegionTable flowRegion = TableReaderV2.Parse<TransfiniteRegionTable>()
+            .First(region => region.RotateGroupId == flowRotate.RotateGroupId);
+        TransfiniteScoreRewardGroupTable flowRewards = TableReaderV2.Parse<TransfiniteScoreRewardGroupTable>()
+            .Single(group => group.RegionId == flowRegion.RegionId
+                && group.ScoreRewardGroupId == flowRegion.ScoreRewardGroupId);
+        long fullPlayerId = 46_182;
+        Player fullPlayer = CreateDrawCompatibilityPlayer(fullPlayerId);
+        fullPlayer.Transfinite = new TransfiniteState
+        {
+            ActivityId = activity.Id,
+            ActivityAuthorizedUntil = long.MaxValue,
+            CircleId = 1,
+            RegionId = flowRegion.RegionId,
+            ScoreRewardGroupId = flowRegion.ScoreRewardGroupId,
+            StageGroupId = fourteenStages.StageGroupId
+        };
+        Character fullCharacter = CreateDrawCompatibilityCharacter(fullPlayerId);
+        fullCharacter.Characters = [new CharacterData { Id = 1 }, new CharacterData { Id = 2 }, new CharacterData { Id = 3 }];
+        using LoopbackSessionHarness fullHarness = new(fullCharacter, fullPlayer,
+            CreateDrawCompatibilityInventory(fullPlayerId, []), "transfinite-fourteen-stage-flow");
+        InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), fullHarness.Session, 46_186,
+            new TransfiniteSetTeamRequest { StageGroupId = fourteenStages.StageGroupId, TeamInfo = Team(1, 2, 3), ResetStageIndex = true });
+        AssertEqual(0, ReadResponsePayload<TransfiniteSetTeamResponse>(fullHarness, 46_186,
+            nameof(TransfiniteSetTeamResponse), "Transfinite fourteen-stage SetTeam").Code,
+            "Transfinite fourteen-stage SetTeam code");
+
+        int expectedScore = 0;
+        int expectedSpend = 0;
+        for (int index = 0; index < fourteenStages.StageId.Count; index++)
+        {
+            int stageId = fourteenStages.StageId[index];
+            TransfiniteStageTable row = stageRows[stageId];
+            int spend = row.StageType == 2 ? row.ExtraTimeLimit!.Value - 1 : index + 1;
+            int score = (row.Score ?? 0) + (row.StageType == 2 ? row.ExtraScore ?? 0 : 0);
+            expectedScore += score;
+            expectedSpend += spend;
+            int packetId = 46_200 + index * 3;
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), fullHarness.Session, packetId,
+                new PreFightRequest { PreFightData = new() { StageId = (uint)stageId, CardIds = [], RobotIds = [] } });
+            PreFightResponse started = ReadResponsePayload<PreFightResponse>(fullHarness, packetId,
+                nameof(PreFightResponse), $"Transfinite stage {index + 1} PreFight");
+            AssertEqual(0, started.Code, $"Transfinite stage {index + 1} PreFight code");
+            Dictionary<int, NpcHp> hp = index == 0
+                ? new()
+                {
+                    [999] = new NpcHp
+                    {
+                        CharacterId = 1, Type = 1, BuffIds = [],
+                        AttrTable = new()
+                        {
+                            [1] = new Dictionary<object, object> { ["Value"] = 55, ["MaxValue"] = 100 },
+                            [2] = new Dictionary<object, object> { ["Value"] = 37 }
+                        }
+                    }
+                }
+                : new();
+            InvokeRegisteredRequestHandler(nameof(FightSettleRequest), fullHarness.Session, packetId + 1,
+                new FightSettleRequest { Result = new FightSettleResult
+                {
+                    StageId = (uint)stageId, FightId = started.FightData.FightId, IsWin = true,
+                    LeftTime = spend, NpcHpInfo = hp
+                } });
+            AssertEqual(0, ReadResponsePayload<FightSettleResponse>(fullHarness, packetId + 1,
+                nameof(FightSettleResponse), $"Transfinite stage {index + 1} FightSettle").Code,
+                $"Transfinite stage {index + 1} FightSettle code");
+            TransfiniteBattleState pending = fullPlayer.Transfinite!.BattleInfo!;
+            AssertEqual(stageId, pending.LastResult!.LastWinStageId, $"Transfinite stage {index + 1} pending stage");
+            if (index == 0)
+            {
+                AssertEqual(55, pending.LastResult.CharacterResultList.Single(x => x.CharacterId == 1).HpPercent,
+                    "Transfinite NpcHp values map independently of dictionary slot");
+                AssertEqual(37, pending.LastResult.CharacterResultList.Single(x => x.CharacterId == 1).Energy,
+                    "Transfinite NpcHp energy maps independently of dictionary slot");
+                AssertEqual(stageId, BsonSerializer.Deserialize<Player>(fullPlayer.ToBson()).Transfinite!.BattleInfo!.LastResult!.LastWinStageId,
+                    "Transfinite pending BSON reconnect fidelity");
+            }
+            InvokeRegisteredRequestHandler(nameof(TransfiniteConfirmBattleResultRequest), fullHarness.Session, packetId + 2,
+                new TransfiniteConfirmBattleResultRequest { StageGroupId = fourteenStages.StageGroupId });
+            if (index + 1 < fourteenStages.StageId.Count)
+            {
+                TransfiniteConfirmBattleResultResponse confirmed = ReadResponsePayload<TransfiniteConfirmBattleResultResponse>(
+                    fullHarness, packetId + 2, nameof(TransfiniteConfirmBattleResultResponse), $"Transfinite stage {index + 1} Confirm");
+                AssertEqual(0, confirmed.Code, $"Transfinite stage {index + 1} Confirm code");
+                AssertEqual(score, fullPlayer.Transfinite!.BattleInfo!.StageInfo[index].Score,
+                    $"Transfinite stage {index + 1} table score");
+                if (index == 0)
+                    AssertEqual(1, BsonSerializer.Deserialize<Player>(fullPlayer.ToBson()).Transfinite!.BattleInfo!.StageProgressIndex,
+                        "Transfinite confirmed BSON reconnect fidelity");
+            }
+            else
+            {
+                Packet terminalPush = fullHarness.ReadPacket("Transfinite terminal score item push");
+                if (terminalPush.Type == Packet.ContentType.Response)
+                {
+                    TransfiniteConfirmBattleResultResponse early = MessagePackSerializer.Deserialize<TransfiniteConfirmBattleResultResponse>(
+                        MessagePackSerializer.Deserialize<Packet.Response>(terminalPush.Content).Content);
+                    throw new InvalidDataException(
+                        $"Transfinite terminal responded before item push: Code={early.Code}, rewards={early.RewardGoodsList?.Count ?? 0}.");
+                }
+                AssertEqual(Packet.ContentType.Push, terminalPush.Type, "Transfinite terminal push precedes response");
+                AssertEqual(nameof(NotifyItemDataList), MessagePackSerializer.Deserialize<Packet.Push>(terminalPush.Content).Name,
+                    "Transfinite terminal score push name");
+                NotifyItemDataList terminalItems = MessagePackSerializer.Deserialize<NotifyItemDataList>(
+                    MessagePackSerializer.Deserialize<Packet.Push>(terminalPush.Content).Content);
+                AssertEqual(Math.Min((long)expectedScore, Inventory.GetMaxCount(scoreItem)),
+                    terminalItems.ItemDataList.Single(item => item.Id == 105).Count,
+                    "Transfinite terminal item push applies Item table cap");
+                TransfiniteConfirmBattleResultResponse terminal = ReadResponsePayload<TransfiniteConfirmBattleResultResponse>(
+                    fullHarness, packetId + 2, nameof(TransfiniteConfirmBattleResultResponse), "Transfinite terminal Confirm");
+                AssertEqual(0, terminal.Code, "Transfinite terminal Confirm code");
+                AssertEqual(expectedScore, terminal.RewardGoodsList!.Single(x => x.TemplateId == 105).Count,
+                    "Transfinite terminal grants raw summed score currency");
+            }
+        }
+        AssertEqual(null, fullPlayer.Transfinite!.BattleInfo, "Transfinite terminal clears BattleInfo");
+        AssertEqual(expectedSpend, fullPlayer.Transfinite.BestSpendTime[fourteenStages.StageGroupId],
+            "Transfinite terminal records total BestSpendTime");
+        AssertEqual(Math.Min((long)expectedScore, Inventory.GetMaxCount(scoreItem)),
+            fullHarness.Session.inventory.Items.Single(x => x.Id == 105).Count,
+            "Transfinite terminal score inventory applies Item table cap");
+        AssertEqual(0, fullHarness.Session.stage?.Stages.Count ?? 0, "Transfinite fourteen-stage flow never writes generic stages");
+        List<int> earnedRewardIndices = Enumerable.Range(0, Math.Min(flowRewards.Score.Count, flowRewards.RewardId.Count))
+            .Where(index => flowRewards.Score[index] <= expectedScore && flowRewards.RewardId[index] > 0)
+            .Take(3).ToList();
+        AssertEqual(3, earnedRewardIndices.Count, "Transfinite terminal score earns three table rewards");
+        List<int> nonmonotonicClaims = [earnedRewardIndices[0], earnedRewardIndices[2], earnedRewardIndices[1]];
+        InvokeRegisteredRequestHandler(nameof(TransfiniteGetScoreRewardRequest), fullHarness.Session, 46_250,
+            new TransfiniteGetScoreRewardRequest { ScoreRewardIndex = nonmonotonicClaims });
+        Packet scorePush = fullHarness.ReadPacket("Transfinite score reward item push");
+        AssertEqual(Packet.ContentType.Push, scorePush.Type, "Transfinite score claim push precedes response");
+        AssertEqual(nameof(NotifyItemDataList), MessagePackSerializer.Deserialize<Packet.Push>(scorePush.Content).Name,
+            "Transfinite score claim push name");
+        TransfiniteGetScoreRewardResponse scoreClaim = ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
+            fullHarness, 46_250, nameof(TransfiniteGetScoreRewardResponse), "Transfinite nonmonotonic score claim");
+        AssertEqual(0, scoreClaim.Code, "Transfinite nonmonotonic score claim code");
+        AssertIntegerList(nonmonotonicClaims.Select(Convert.ToInt64).ToArray(),
+            scoreClaim.GotScoreRewardIndex.Select(Convert.ToInt64).ToArray(),
+            "Transfinite nonmonotonic score claim receipt order");
+        InvokeRegisteredRequestHandler(nameof(TransfiniteGetScoreRewardRequest), fullHarness.Session, 46_251,
+            new TransfiniteGetScoreRewardRequest { ScoreRewardIndex = [earnedRewardIndices[0]] });
+        AssertEqual(20008002, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
+            fullHarness, 46_251, nameof(TransfiniteGetScoreRewardResponse), "Transfinite duplicate score claim").Code,
+            "Transfinite duplicate score claim rejection");
+        InvokeRegisteredRequestHandler(nameof(TransfiniteGetScoreRewardRequest), fullHarness.Session, 46_252,
+            new TransfiniteGetScoreRewardRequest { ScoreRewardIndex = [int.MaxValue] });
+        AssertEqual(20008002, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
+            fullHarness, 46_252, nameof(TransfiniteGetScoreRewardResponse), "Transfinite out-of-range score claim").Code,
+            "Transfinite out-of-range score claim rejection");
+        int unearned = Enumerable.Range(0, Math.Min(flowRewards.Score.Count, flowRewards.RewardId.Count))
+            .First(index => flowRewards.Score[index] > 0 && flowRewards.RewardId[index] > 0
+                && !nonmonotonicClaims.Contains(index));
+        fullHarness.Session.inventory.Items.Single(item => item.Id == 105).Count = 0;
+        InvokeRegisteredRequestHandler(nameof(TransfiniteGetScoreRewardRequest), fullHarness.Session, 46_253,
+            new TransfiniteGetScoreRewardRequest { ScoreRewardIndex = [unearned] });
+        AssertEqual(20008002, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
+            fullHarness, 46_253, nameof(TransfiniteGetScoreRewardResponse), "Transfinite unearned score claim").Code,
+            "Transfinite unearned score claim rejection");
     }
 
     private static void ValidateWheelchairManualCompatibility()

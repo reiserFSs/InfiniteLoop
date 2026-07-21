@@ -1823,8 +1823,8 @@ namespace AscNet.GameServer.Handlers
                 (int)session.player.PlayerData.Level);
             int challengeCount = session.fight?.PreFight.PreFightData.ChallengeCount ?? 1;
             uint responseStageId = ResolveFightSettleStageId(session, req);
+            StageDatum? previousStageData = session.stage?.Stages.TryGetValue(responseStageId, out StageDatum? existingStageData) == true ? existingStageData : null;
             bool isQuickClear = responseStageId != req.Result.StageId;
-            StageDatum? previousStageData = session.stage.Stages.TryGetValue(responseStageId, out StageDatum? existingStageData) ? existingStageData : null;
             bool isFirstClear = previousStageData is null;
             bool isSuccessfulSettle = req.Result.IsWin && !req.Result.IsForceExit;
             if (TransfiniteModule.TrySettle(session, req.Result, out FightSettleResponse transfiniteResponse))
