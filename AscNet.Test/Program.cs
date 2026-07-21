@@ -35,6 +35,8 @@ using AscNet.Table.V2.share.player;
 using AscNet.Table.V2.share.robot;
 using AscNet.Table.V2.client.draw;
 using AscNet.Table.V2.share.trust;
+using AscNet.Table.V2.share.alarmclock;
+using AscNet.Table.V2.share.dormitory.furniture;
 using MessagePack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -1671,12 +1673,10 @@ namespace AscNet.Test
                     Slots = [3],
                     UseItemId = 3002,
                     SelectSkillIds = [102],
-                    SelectType = EquipResonanceType.WeaponSkill,
-                    CharacterId = 1021007
+                    CharacterId = 1021007,
+                    SelectType = EquipResonanceType.WeaponSkill
                 }));
             if (request.EquipId != 2848
-                || request.Slots.Count != 1
-                || request.Slots[0] != 3
                 || request.UseItemId != 3002
                 || request.CharacterId != 1021007
                 || request.SelectType != EquipResonanceType.WeaponSkill
@@ -16570,10 +16570,11 @@ namespace AscNet.Test
             const long playerId = 99_101;
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(
                 playerId,
-                [new Item { Id = 1, Count = 30_000 }, new Item { Id = 200, Count = 1_000 }, new Item { Id = 32_000, Count = 30 }]);
+                [new Item { Id = 1, Count = 30_000 }, new Item { Id = 200, Count = 1_000 }, new Item { Id = 103, Count = 4_500 }, new Item { Id = 32_000, Count = 30 }]);
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
             using LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
-                CreateDrawCompatibilityPlayer(playerId),
+                player,
                 inventory,
                 "shop-compat-test");
 
@@ -16615,6 +16616,177 @@ namespace AscNet.Test
                 if (!AscNet.Common.Database.Inventory.IsValidClientItemId((int)leapWaferId))
                     throw new InvalidDataException($"Leap Shop reward item {leapWaferId} is missing from Item.tsv.");
             }
+            player.ShopBuyTimes[95_000] = 3;
+            const int dormShopInfoPacketId = 12_010;
+            InvokeRegisteredRequestHandler(
+                nameof(GetShopInfoRequest),
+                harness.Session,
+                dormShopInfoPacketId,
+                new GetShopInfoRequest { Id = 950 });
+            GetShopInfoResponse dormShopInfoResponse = ReadResponsePayload<GetShopInfoResponse>(
+                harness,
+                dormShopInfoPacketId,
+                nameof(GetShopInfoResponse),
+                "GetShopInfoRequest Dorm Shop response");
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods dormStaticGoods =
+                dormShopInfoResponse.ClientShop.GoodsList.Single(goods => goods.Id == 95_000);
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods dormResetGoods =
+                dormShopInfoResponse.ClientShop.GoodsList.Single(goods => goods.Id == 95_001);
+            AssertEqual(3, dormStaticGoods.TotalBuyTimes, "Dorm Shop persisted static goods buy count");
+            AssertEqual(true, dormResetGoods.RefreshTime > DateTimeOffset.UtcNow.ToUnixTimeSeconds(), "Dorm Shop resettable goods next refresh");
+            AlarmClockTable dormResetClock = TableReaderV2.Parse<AlarmClockTable>().Single(clock => clock.ClockId == 10_004);
+            AssertEqual(0L, ((long)dormResetGoods.RefreshTime - dormResetClock.EpochTime!.Value) % dormResetClock.AlarmCycle, "Dorm Shop refresh alarm phase");
+            AssertEqual(1, DateTimeOffset.FromUnixTimeSeconds(dormResetGoods.RefreshTime).Day, "Dorm Shop refresh alarm month day");
+            AssertEqual(dormResetGoods.RefreshTime, dormShopInfoResponse.ClientShop.RefreshTime, "Dorm Shop next shop refresh");
+
+            const int secondDormShopInfoPacketId = 12_011;
+            InvokeRegisteredRequestHandler(
+                nameof(GetShopInfoRequest),
+                harness.Session,
+                secondDormShopInfoPacketId,
+                new GetShopInfoRequest { Id = 1_010_001 });
+            GetShopInfoResponse secondDormShopInfoResponse = ReadResponsePayload<GetShopInfoResponse>(
+                harness,
+                secondDormShopInfoPacketId,
+                nameof(GetShopInfoResponse),
+                "GetShopInfoRequest second Dorm Shop response");
+            AssertEqual(true, secondDormShopInfoResponse.ClientShop.GoodsList.Count > 0, "Second Dorm Shop static GoodsList non-empty");
+            HashSet<uint> furnitureRewardIds = TableReaderV2.Parse<FurnitureRewardTable>()
+                .Select(reward => (uint)reward.Id)
+                .ToHashSet();
+            HashSet<uint>? firstDispatchFurnitureIds = null;
+            foreach (int shopId in Enumerable.Range(951, 50))
+            {
+                const int dispatchShopInfoPacketId = 12_016;
+                InvokeRegisteredRequestHandler(
+                    nameof(GetShopInfoRequest),
+                    harness.Session,
+                    dispatchShopInfoPacketId + shopId,
+                    new GetShopInfoRequest { Id = (uint)shopId });
+                GetShopInfoResponse dispatchShopInfoResponse = ReadResponsePayload<GetShopInfoResponse>(
+                    harness,
+                    dispatchShopInfoPacketId + shopId,
+                    nameof(GetShopInfoResponse),
+                    $"GetShopInfoRequest Dispatch Shop {shopId} response");
+                GetShopInfoResponse.GetShopInfoResponseClientShop dispatchShop = dispatchShopInfoResponse.ClientShop;
+                AssertEqual(0, dispatchShopInfoResponse.Code, $"Dispatch Shop {shopId} response Code");
+                AssertEqual((uint)shopId, dispatchShop.Id, $"Dispatch Shop {shopId} response Id");
+                AssertEqual(true, dispatchShop.GoodsList.Count > 0, $"Dispatch Shop {shopId} GoodsList non-empty");
+                AssertEqual(0, dispatchShop.RefreshTime, $"Dispatch Shop {shopId} RefreshTime");
+                AssertEqual(0, dispatchShop.ClosedTime, $"Dispatch Shop {shopId} ClosedTime");
+                AssertEqual(0, dispatchShop.ManualRefreshTimes, $"Dispatch Shop {shopId} ManualRefreshTimes");
+                AssertEqual(0, dispatchShop.ManualResetTimesLimit, $"Dispatch Shop {shopId} ManualResetTimesLimit");
+                AssertEqual(0, dispatchShop.RefreshCostId, $"Dispatch Shop {shopId} RefreshCostId");
+                AssertEqual(0, dispatchShop.RefreshCostCount, $"Dispatch Shop {shopId} RefreshCostCount");
+                AssertEqual(0, dispatchShop.TotalBuyTimes, $"Dispatch Shop {shopId} TotalBuyTimes");
+                AssertEqual(0, dispatchShop.BuyTimesLimit, $"Dispatch Shop {shopId} BuyTimesLimit");
+                HashSet<uint> dispatchFurnitureIds = new();
+                foreach (GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods goods in dispatchShop.GoodsList)
+                {
+                    AssertEqual(9, goods.RewardGoods.RewardType, $"Dispatch Shop {shopId} goods {goods.Id} RewardType");
+                    AssertEqual(1, goods.RewardGoods.Count, $"Dispatch Shop {shopId} goods {goods.Id} RewardGoods Count");
+                    AssertEqual(true, furnitureRewardIds.Contains(goods.RewardGoods.TemplateId), $"Dispatch Shop {shopId} goods {goods.Id} FurnitureRewardTable reward");
+                    AssertEqual(1, goods.ConsumeList.Count, $"Dispatch Shop {shopId} goods {goods.Id} ConsumeList count");
+                    AssertEqual(103, goods.ConsumeList[0].Id, $"Dispatch Shop {shopId} goods {goods.Id} ConsumeList item");
+                    AssertEqual(4_200U, goods.ConsumeList[0].Count, $"Dispatch Shop {shopId} goods {goods.Id} ConsumeList count");
+                    AssertEqual(0, goods.TotalBuyTimes, $"Dispatch Shop {shopId} goods {goods.Id} TotalBuyTimes");
+                    AssertEqual(0, goods.BuyTimesLimit, $"Dispatch Shop {shopId} goods {goods.Id} BuyTimesLimit");
+                    AssertEqual(true, goods.OnSales is System.Collections.Generic.IDictionary<dynamic, dynamic> onSales && onSales.Count == 0, $"Dispatch Shop {shopId} goods {goods.Id} OnSales");
+                    AssertEqual(0, goods.SelloutTime, $"Dispatch Shop {shopId} goods {goods.Id} SelloutTime");
+                    AssertEqual(0, goods.RefreshTime, $"Dispatch Shop {shopId} goods {goods.Id} RefreshTime");
+                    AssertEqual(0, goods.AutoResetClockId, $"Dispatch Shop {shopId} goods {goods.Id} AutoResetClockId");
+                    dispatchFurnitureIds.Add(goods.RewardGoods.TemplateId);
+                }
+
+                if (shopId == 951)
+                    firstDispatchFurnitureIds = dispatchFurnitureIds;
+                if (shopId == 1000)
+                {
+                    if (firstDispatchFurnitureIds is null || firstDispatchFurnitureIds.SetEquals(dispatchFurnitureIds))
+                        throw new InvalidDataException("Dispatch Shops 951 and 1000: expected distinct furniture reward sets.");
+                }
+            }
+            const int dormDecorShopPacketId = 12_014;
+            InvokeRegisteredRequestHandler(
+                nameof(GetShopInfoRequest),
+                harness.Session,
+                dormDecorShopPacketId,
+                new GetShopInfoRequest { Id = 1_012_001 });
+            GetShopInfoResponse dormDecorShop = ReadResponsePayload<GetShopInfoResponse>(
+                harness,
+                dormDecorShopPacketId,
+                nameof(GetShopInfoResponse),
+                "GetShopInfoRequest Dorm decor shop response");
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods decorGoods =
+                dormDecorShop.ClientShop.GoodsList.First(goods => goods.RewardGoods.RewardType == (int)RewardType.Furniture);
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods.GetShopInfoResponseClientShopGoodsConsume decorCost =
+                decorGoods.ConsumeList.Single();
+            Item decorCurrency = inventory.Items.FirstOrDefault(item => item.Id == decorCost.Id)
+                ?? new Item { Id = decorCost.Id };
+            if (!inventory.Items.Contains(decorCurrency))
+                inventory.Items.Add(decorCurrency);
+            decorCurrency.Count = decorCost.Count;
+            HashSet<int> furnitureIdsBefore = player.Dorm.Furniture.Select(furniture => furniture.Id).ToHashSet();
+            FurnitureRewardTable furnitureReward = TableReaderV2.Parse<FurnitureRewardTable>()
+                .Single(row => row.Id == decorGoods.RewardGoods.TemplateId);
+            FurnitureExtraAttrTable furnitureExtra = TableReaderV2.Parse<FurnitureExtraAttrTable>()
+                .Single(row => row.Id == furnitureReward.ExtraAttrId);
+            FurnitureBaseAttrTable furnitureBase = TableReaderV2.Parse<FurnitureBaseAttrTable>()
+                .Single(row => row.Id == furnitureExtra.BaseAttrId);
+            const int dormDecorBuyPacketId = 12_015;
+            InvokeRegisteredRequestHandler(
+                nameof(BuyRequest),
+                harness.Session,
+                dormDecorBuyPacketId,
+                new BuyRequest { ShopId = 1_012_001, GoodsId = decorGoods.Id, Count = 1 });
+            BuyResponse dormDecorBuy = (BuyResponse)ReadResponsePayload(
+                harness,
+                dormDecorBuyPacketId,
+                nameof(BuyResponse),
+                "BuyRequest Dorm decor response",
+                typeof(BuyResponse),
+                maxPacketsToRead: 4);
+            AssertEqual(0, dormDecorBuy.Code, "Dorm decor purchase code");
+            AssertEqual(0L, decorCurrency.Count, "Dorm decor purchase cost");
+            var purchasedFurniture = player.Dorm.Furniture.Single(furniture => !furnitureIdsBefore.Contains(furniture.Id));
+            AssertEqual((uint)furnitureReward.FurnitureId, purchasedFurniture.ConfigId, "Dorm decor purchased config");
+            AssertEqual(0, purchasedFurniture.DormitoryId, "Dorm decor purchased furniture unassigned");
+            AssertEqual(furnitureBase.Value, purchasedFurniture.AttrList.Sum(), "Dorm decor purchased furniture attributes");
+            AssertEqual(true, player.Dorm.FurnitureUnlocks.Contains(purchasedFurniture.ConfigId), "Dorm decor purchase unlock");
+
+            player.ShopBuyTimes[95_001] = 10;
+            player.ShopResetPeriods[10_004] = 0;
+            const int staleDormShopInfoPacketId = 12_012;
+            InvokeRegisteredRequestHandler(
+                nameof(GetShopInfoRequest),
+                harness.Session,
+                staleDormShopInfoPacketId,
+                new GetShopInfoRequest { Id = 950 });
+            GetShopInfoResponse staleDormShopInfoResponse = ReadResponsePayload<GetShopInfoResponse>(
+                harness,
+                staleDormShopInfoPacketId,
+                nameof(GetShopInfoResponse),
+                "GetShopInfoRequest stale Dorm Shop response");
+            AssertEqual(0, staleDormShopInfoResponse.ClientShop.GoodsList.Single(goods => goods.Id == 95_001).TotalBuyTimes, "Dorm Shop stale reset count");
+            AssertEqual(0, player.ShopBuyTimes.GetValueOrDefault(95_001U), "Dorm Shop stale reset persisted count");
+            player.ShopBuyTimes[95_001] = 10;
+            player.ShopResetPeriods[10_004] = 0;
+
+            const int dormBuyPacketId = 12_013;
+            InvokeRegisteredRequestHandler(
+                nameof(BuyRequest),
+                harness.Session,
+                dormBuyPacketId,
+                new BuyRequest { ShopId = 950, GoodsId = 95_001, Count = 1 });
+            BuyResponse dormBuyResponse = (BuyResponse)ReadResponsePayload(
+                harness,
+                dormBuyPacketId,
+                nameof(BuyResponse),
+                "BuyRequest reset Dorm Shop goods response",
+                typeof(BuyResponse),
+                maxPacketsToRead: 4);
+            AssertEqual(0, dormBuyResponse.Code, "Dorm Shop purchase after stale reset");
+            AssertEqual(1, player.ShopBuyTimes.GetValueOrDefault(95_001U), "Dorm Shop purchase count after reset");
 
             const int fixedShopPacketId = 12_002;
             InvokeRegisteredRequestHandler(

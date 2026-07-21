@@ -1,0 +1,3 @@
+Id	TypeId	Model	Name	HeadRoundIcon	HeadIcon	InteractPos	DialogWidgetHeight	DialogTouchHeight	EffectWidgetHeight	BehaviorType[1]	AttractBehaviorType[1]
+1001	1	Assets/Product/Role/Room/Prefab/QR0XiaodouniMd010011.prefab	Azukisan	Assets/Product/Texture/Image/Role/RoleHeadR0Xiaodouni02Q.png	Assets/Product/Texture/Image/Role/RoleHeadR0Xiaodouni01Q.png	1	0.6	0.5099	0.8	DORMXIAODOUNI	DORMXIAODOUNI
+1002	2	Assets/Product/Role/Room/Prefab/QR0AyaMd010011.prefab	Duckie	Assets/Product/Texture/Image/Role/RoleHeadQR0Aya02Q.png	Assets/Product/Texture/Image/Role/RoleHeadQR0Aya01Q.png	1	0.6	0.5099	0.8	AYA	AYA

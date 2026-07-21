@@ -424,6 +424,17 @@
     },
     {
       "columns": 2,
+      "contentSha256": "4f06f6c706405011a18eff234b545bd45c3f449b6c06c4427f577fd1574dcbfb",
+      "filter": "all",
+      "naturalKey": "Key",
+      "path": "share/config/Config.tsv",
+      "rows": 383,
+      "source": [
+        "share/config/Config.json"
+      ]
+    },
+    {
+      "columns": 2,
       "contentSha256": "0b6f60538e77bbb78728a9d31db2ba29b6ecf2b0bf1694c26a9dad553548522d",
       "filter": "config-keys:TeamMaxPos,MaxTeamPrefab",
       "naturalKey": "Key",
@@ -431,6 +442,292 @@
       "rows": 2,
       "source": [
         "share/config/Config.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "7c9de8555b4b1211e3f7f81e653e5ef708874897b843a08c6c55de87179fa7b1",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/DormBgm.tsv",
+      "rows": 4,
+      "source": [
+        "share/dormitory/DormBgm.json"
+      ]
+    },
+    {
+      "columns": 111,
+      "contentSha256": "81f09c10fd32a1611763abf7453af5f9668cc93f28b0ab4bb975697fd7715eaf",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/DormTemplate.tsv",
+      "rows": 33,
+      "source": [
+        "share/dormitory/DormTemplate.json"
+      ]
+    },
+    {
+      "columns": 23,
+      "contentSha256": "5a88a1ded43bfec3c5ce82bc48380d1f5b5818f11d301bc865358e50c75f4996",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/Dormitory.tsv",
+      "rows": 24,
+      "source": [
+        "share/dormitory/Dormitory.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "b9ee5325a7d7359d32fe8cfe1946103fbaba029047c34d096358e4e52b302655",
+      "filter": "all",
+      "naturalKey": "EventId",
+      "path": "share/dormitory/character/DormCharacterEvent.tsv",
+      "rows": 720,
+      "source": [
+        "share/dormitory/character/DormCharacterEvent.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "92e7c367249301945dba105906a87479625558786f41d5080339ca2f25c41455",
+      "filter": "all",
+      "naturalKey": "CharacterId",
+      "path": "share/dormitory/character/DormCharacterFondle.tsv",
+      "rows": 90,
+      "source": [
+        "share/dormitory/character/DormCharacterFondle.json"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "0f07da40fd61b3c6fc7bf77964cb2fdf21c0a246a62fbb0ac4824528e8933488",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/character/DormCharacterRecovery.tsv",
+      "rows": 450,
+      "source": [
+        "share/dormitory/character/DormCharacterRecovery.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "fc0281cd2048b8886646301f9e8ede51293dacfe6fdc8ad16d19c91ba0445972",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/character/DormCharacterReward.tsv",
+      "rows": 9,
+      "source": [
+        "share/dormitory/character/DormCharacterReward.json"
+      ]
+    },
+    {
+      "columns": 29,
+      "contentSha256": "356e3db3c41cd80dba9372fbdb4cbb777b6a44a30c7730c1fda90679c85438e6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/character/DormCharacterStyle.tsv",
+      "rows": 90,
+      "source": [
+        "share/dormitory/character/DormCharacterStyle.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "09a992159de72fb68a8fefdc3b732d685aef6b3aa0e4d5d827f0476ad1bb97fe",
+      "filter": "all",
+      "naturalKey": "DormitoryNum",
+      "path": "share/dormitory/character/DormCharacterWork.tsv",
+      "rows": 24,
+      "source": [
+        "share/dormitory/character/DormCharacterWork.json"
+      ]
+    },
+    {
+      "columns": 35,
+      "contentSha256": "327e24af01cd88b988c513cbaaa307ffc487d1b10ba658c86c6055eeac29eef6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/Furniture.tsv",
+      "rows": 1004,
+      "source": [
+        "share/dormitory/furniture/Furniture.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "87226d177c1c9b3b98e6076344a262b54669f2642c8a5fc3d74120150c2d6098",
+      "filter": "all",
+      "naturalKey": "AttributeId",
+      "path": "share/dormitory/furniture/FurnitureAdditionalAttr.tsv",
+      "rows": 78,
+      "source": [
+        "share/dormitory/furniture/FurnitureAdditionalAttr.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "fe51ccc6f79011b9bb4e4fb2dba9637e765c5cbcf3199b7cc52be4d9435af338",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureBaseAttr.tsv",
+      "rows": 800,
+      "source": [
+        "share/dormitory/furniture/FurnitureBaseAttr.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "32bcdbb2c5f374bd2b13d9ef060d2562b03be79689a6e8cba5d67fcce8aae961",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureBehavior.tsv",
+      "rows": 42,
+      "source": [
+        "share/dormitory/furniture/FurnitureBehavior.json"
+      ]
+    },
+    {
+      "columns": 47,
+      "contentSha256": "5e976e82b0ea0c75f7bbafdd8543b3880de814b26e22ac6333e858fab7083d07",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureCreateAttr.tsv",
+      "rows": 104,
+      "source": [
+        "share/dormitory/furniture/FurnitureCreateAttr.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "2f5b5da497b71486d57754d13989b97b7c3120f5dde25a046ba76763ba3a0dc3",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureExtraAttr.tsv",
+      "rows": 8,
+      "source": [
+        "share/dormitory/furniture/FurnitureExtraAttr.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "b738f29cafac76784245a0ca0a1d1575939e54e0f167ed63805540965e102030",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureLevel.tsv",
+      "rows": 56,
+      "source": [
+        "share/dormitory/furniture/FurnitureLevel.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "a07d0ff5a32f4eac4b25444dc6fb85be68839986f76b48f57b79aa202d91557e",
+      "filter": "all",
+      "naturalKey": "PutId",
+      "path": "share/dormitory/furniture/FurniturePutNum.tsv",
+      "rows": 4,
+      "source": [
+        "share/dormitory/furniture/FurniturePutNum.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "e4ea8ac1b52b2094c0eb95c9b6604eaf67b192ba77fb26e34d1734ef3daccd13",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureReward.tsv",
+      "rows": 1011,
+      "source": [
+        "share/dormitory/furniture/FurnitureReward.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "a43aa2ef4e37f3c69513cbb80e1a61ce7287a597d9243e510655d544718b44cf",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureSuit.tsv",
+      "rows": 88,
+      "source": [
+        "share/dormitory/furniture/FurnitureSuit.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "6a62be523c70862f6d190193e1185e032d0153738896c48413b286cd9dacc34b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/furniture/FurnitureType.tsv",
+      "rows": 13,
+      "source": [
+        "share/dormitory/furniture/FurnitureType.json"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "e275314b74df4e759bee02ac52d42dfd779f5b41af0cbc060d79d6d12701ece0",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/pet/DormPet.tsv",
+      "rows": 2,
+      "source": [
+        "share/dormitory/pet/DormPet.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "d7fc366b41667ca210bb62561341a20139c67fe756136e061ba3fd917ff1fb65",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/pet/DormPetBehaviour.tsv",
+      "rows": 34,
+      "source": [
+        "share/dormitory/pet/DormPetBehaviour.json"
+      ]
+    },
+    {
+      "columns": 19,
+      "contentSha256": "fc3a1155105b2a913e8b85dd0a20b1e286dbd7e833ba6c90fc07a0364c89a54e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/quest/Quest.tsv",
+      "rows": 161,
+      "source": [
+        "share/dormitory/quest/Quest.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "494fbd44f09f73ecd0c73322a63ae4821a7903f109a29ee64cc90ed0bd6b07e2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/quest/QuestFile.tsv",
+      "rows": 318,
+      "source": [
+        "share/dormitory/quest/QuestFile.json"
+      ]
+    },
+    {
+      "columns": 71,
+      "contentSha256": "28888dffcda01b83e6441fba5e80d674795f092752e15f0fa9a0f392f4fef0c1",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/dormitory/quest/QuestPool.tsv",
+      "rows": 13,
+      "source": [
+        "share/dormitory/quest/QuestPool.json"
+      ]
+    },
+    {
+      "columns": 26,
+      "contentSha256": "8efc5f68ad24ef546e20c788e94f5a1e76be2f8c44a5e042028f3e505ea59d66",
+      "filter": "all",
+      "naturalKey": "Lv",
+      "path": "share/dormitory/quest/QuestTerminal.tsv",
+      "rows": 9,
+      "source": [
+        "share/dormitory/quest/QuestTerminal.json"
       ]
     },
     {
@@ -2463,6 +2760,28 @@
       "rows": 34,
       "source": [
         "share/trpg/TRPGFunction.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "225ac123acb0561bf92899c81540546e09ca7b8f112991504676f75642e18b25",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/trust/CharacterTrustExp.tsv",
+      "rows": 656,
+      "source": [
+        "share/trust/CharacterTrustExp.json"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "98e9323393a519e428a3bf198841751e4bd2097fe06b3863aa8c6308123d7580",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/trust/CharacterTrustItem.tsv",
+      "rows": 52,
+      "source": [
+        "share/trust/CharacterTrustItem.json"
       ]
     },
     {

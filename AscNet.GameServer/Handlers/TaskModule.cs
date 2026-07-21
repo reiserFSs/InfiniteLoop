@@ -100,6 +100,8 @@ namespace AscNet.GameServer.Handlers
     internal class TaskModule
     {
         private const string CurrentTaskTimeFormat = "yyyy/M/d H:mm";
+        private const int DormNormalTaskType = 12;
+        private const int DormDailyTaskType = 13;
         private static readonly Lazy<IReadOnlyDictionary<int, CurrentConditionTable>> CurrentConditionsById = new(() =>
             TableReaderV2.Parse<CurrentConditionTable>().ToDictionary(condition => condition.Id));
         private static readonly Lazy<IReadOnlyList<CurrentTaskTable>> CurrentTasksByPriority = new(() =>
@@ -126,6 +128,10 @@ namespace AscNet.GameServer.Handlers
             if (CurrentTaskIds.Value.Contains(request.TaskId))
             {
                 SendCurrentTaskBatch(session, [request.TaskId]);
+            }
+            else if (IsDormTask(request.TaskId))
+            {
+                SendDormTaskBatch(session, [request.TaskId]);
             }
             else
             {
@@ -160,11 +166,16 @@ namespace AscNet.GameServer.Handlers
             int[] requestedTaskIds = request.TaskIds.Distinct().ToArray();
             IReadOnlySet<int> currentTaskIds = CurrentTaskIds.Value;
             int[] requestedCurrentTaskIds = requestedTaskIds.Where(currentTaskIds.Contains).ToArray();
+            int[] requestedDormTaskIds = requestedTaskIds.Where(IsDormTask).ToArray();
             if (requestedCurrentTaskIds.Length > 0)
             {
                 SendCurrentTaskBatch(session, requestedCurrentTaskIds);
             }
-            if (requestedTaskIds.Any(taskId => !currentTaskIds.Contains(taskId)))
+            if (requestedDormTaskIds.Length > 0)
+            {
+                SendDormTaskBatch(session, requestedDormTaskIds);
+            }
+            if (requestedTaskIds.Any(taskId => !currentTaskIds.Contains(taskId) && !IsDormTask(taskId)))
             {
                 SendTaskSync(session);
             }
@@ -541,6 +552,9 @@ namespace AscNet.GameServer.Handlers
             tasks.AddRange(BuildLifeTreeTaskProgress(session)
                 .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
+            tasks.AddRange(BuildDormTaskProgress(session)
+                .Where(x => existingIds.Add((uint)x.TaskId))
+                .Select(ToLoginTask));
             return tasks;
         }
 
@@ -581,6 +595,26 @@ namespace AscNet.GameServer.Handlers
                 }
             });
         }
+        private static bool IsDormTask(int taskId) =>
+            TableReaderV2.Parse<TaskTable>().Any(task => task.Id == taskId && IsDormTask(task));
+        private static bool IsDormTask(TaskTable task) =>
+            task.Type is DormNormalTaskType or DormDailyTaskType || task.Suffix == "Dormitory";
+
+        private static void SendDormTaskBatch(Session session, IReadOnlyCollection<int> taskIds)
+        {
+            HashSet<int> selectedIds = taskIds.ToHashSet();
+            session.SendPush(new NotifyTask
+            {
+                Tasks = new()
+                {
+                    Tasks = BuildDormTaskProgress(session)
+                        .Where(task => selectedIds.Contains(task.TaskId))
+                        .Select(ToSyncTask)
+                        .ToList()
+                }
+            });
+        }
+
 
         internal static NotifyTask? ApplyLifeTreeUnlockProgress(Player player, int characterId, int status)
         {
@@ -637,6 +671,33 @@ namespace AscNet.GameServer.Handlers
                 })
                 .ToList();
         }
+        private static List<MissionTaskProgress> BuildDormTaskProgress(Session session)
+        {
+            Dictionary<int, ConditionTable> conditions = TableReaderV2.Parse<ConditionTable>()
+                .Where(condition => condition.Type is >= 29000 and < 29100)
+                .ToDictionary(condition => condition.Id);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            return TableReaderV2.Parse<TaskTable>()
+                .Where(task => IsDormTask(task)
+                    && conditions.ContainsKey(task.Condition)
+                    && IsTaskActive(task, now)
+                    && (session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
+                        || task.ShowAfterTaskId is not > 0
+                        || session.player.MissionProgress.ClaimedTaskIds.Contains(task.ShowAfterTaskId.Value)))
+                .Select(task =>
+                {
+                    int result = task.Result ?? 1;
+                    int value = Math.Min(session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition), result);
+                    bool claimed = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id);
+                    bool prerequisiteSatisfied = task.ShowAfterTaskId is not > 0
+                        || session.player.MissionProgress.ClaimedTaskIds.Contains(task.ShowAfterTaskId.Value);
+                    return new MissionTaskProgress(task.Id, task.Condition, value,
+                        claimed ? TaskStateFinish : prerequisiteSatisfied && value >= result ? TaskStateAchieved : TaskStateActive);
+                })
+                .Where(progress => progress.State != TaskStateActive || progress.Value > 0)
+                .ToList();
+        }
+
 
         public static void ResetArenaTasks(Session session)
         {
@@ -779,6 +840,49 @@ namespace AscNet.GameServer.Handlers
                 }
             });
         }
+        internal static void RecordTableDrivenProgress(Session session, IEnumerable<(int ConditionType, int? Parameter, int Amount)> increments)
+        {
+            EnsureMissionResets(session);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            Dictionary<(int ConditionType, int? Parameter), int> amounts = increments
+                .Where(increment => increment.Amount > 0)
+                .GroupBy(increment => (increment.ConditionType, increment.Parameter))
+                .ToDictionary(group => group.Key, group => group.Sum(increment => increment.Amount));
+            if (amounts.Count == 0) return;
+
+            Dictionary<int, int> conditionAmounts = TableReaderV2.Parse<ConditionTable>()
+                .Where(condition => amounts.Any(increment => condition.Type == increment.Key.ConditionType
+                    && (increment.Key.Parameter is null ? condition.Params.Count < 2 : condition.Params.Count > 1 && condition.Params[1] == increment.Key.Parameter)))
+                .ToDictionary(condition => condition.Id, condition => amounts.Single(increment => condition.Type == increment.Key.ConditionType
+                    && (increment.Key.Parameter is null ? condition.Params.Count < 2 : condition.Params.Count > 1 && condition.Params[1] == increment.Key.Parameter)).Value);
+            List<TaskTable> tasks = TableReaderV2.Parse<TaskTable>()
+                .Where(task => conditionAmounts.ContainsKey(task.Condition) && IsTaskActive(task, now))
+                .ToList();
+            if (tasks.Count == 0) return;
+
+            foreach ((int conditionId, int amount) in conditionAmounts.Where(entry => tasks.Any(task => task.Condition == entry.Key)))
+                AddConditionProgress(session, conditionId, amount);
+
+            session.player.Save();
+            session.SendPush(new NotifyTask
+            {
+                Tasks = new()
+                {
+                    Tasks = tasks.Select(task =>
+                    {
+                        int result = task.Result ?? 1;
+                        int value = Math.Min(session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition), result);
+                        int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
+                            ? TaskStateFinish
+                            : value >= result ? TaskStateAchieved : TaskStateActive;
+                        return ToSyncTask(new MissionTaskProgress(task.Id, task.Condition, value, state));
+                    }).ToList()
+                }
+            });
+        }
+        private static bool IsTaskActive(TaskTable task, DateTimeOffset now) =>
+            (string.IsNullOrWhiteSpace(task.StartTime) || TryParseCurrentTaskTime(task.StartTime, out DateTimeOffset start) && now >= start)
+            && (string.IsNullOrWhiteSpace(task.EndTime) || TryParseCurrentTaskTime(task.EndTime, out DateTimeOffset end) && now < end);
 
         private static bool AddConditionTypeProgress(Session session, int conditionType, int amount)
         {
@@ -800,19 +904,9 @@ namespace AscNet.GameServer.Handlers
         {
             HashSet<int> selectedTypes = conditionTypes.ToHashSet();
             IReadOnlyDictionary<int, CurrentConditionTable> conditions = CurrentConditionsById.Value;
-            List<MissionTaskProgress> progress = TableReaderV2.Parse<CurrentTaskTable>()
-                .Where(task => conditions.TryGetValue(task.Condition, out CurrentConditionTable? condition)
+            List<MissionTaskProgress> progress = BuildCurrentTaskProgress(session, loginOnly: true, conditionTypes: selectedTypes)
+                .Where(task => conditions.TryGetValue(task.ConditionId, out CurrentConditionTable? condition)
                     && selectedTypes.Contains(condition.Type))
-                .Select(task =>
-                {
-                    CurrentConditionTable condition = conditions[task.Condition];
-                    int stored = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition);
-                    int value = condition.Type is 28003 or 28006 ? stored : Math.Min(stored, task.Result);
-                    int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
-                        ? TaskStateFinish
-                        : value >= task.Result ? TaskStateAchieved : TaskStateActive;
-                    return new MissionTaskProgress(task.Id, task.Condition, value, state);
-                })
                 .ToList();
             session.SendPush(new NotifyTask
             {
@@ -829,6 +923,11 @@ namespace AscNet.GameServer.Handlers
             CurrentTaskTable? currentTask = TableReaderV2.Parse<CurrentTaskTable>().FirstOrDefault(x => x.Id == taskId);
             if (currentTask is null)
             {
+                FinishTaskResponse? dormTaskResponse = ClaimDormTaskReward(session, taskId, pushSync);
+                if (dormTaskResponse is not null)
+                {
+                    return dormTaskResponse;
+                }
                 if (TableReaderV2.Parse<StoryTaskTable>().Any(task => task.Id == taskId))
                 {
                     return ClaimStoryTaskReward(session, taskId, pushSync);
@@ -868,6 +967,75 @@ namespace AscNet.GameServer.Handlers
             {
                 Code = 0,
                 RewardGoodsList = rewardGoodsList
+            };
+        }
+
+        private static FinishTaskResponse? ClaimDormTaskReward(Session session, int taskId, bool pushSync)
+        {
+            TaskTable? task = TableReaderV2.Parse<TaskTable>().FirstOrDefault(candidate =>
+                candidate.Id == taskId && IsDormTask(candidate));
+            if (task is null)
+            {
+                return null;
+            }
+
+            EnsureMissionResets(session);
+            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
+            {
+                return new FinishTaskResponse { Code = 20026006 };
+            }
+
+            ConditionTable? condition = TableReaderV2.Parse<ConditionTable>().FirstOrDefault(candidate => candidate.Id == task.Condition);
+            if (condition is null
+                || condition.Type is < 29000 or >= 29100
+                || !IsTaskActive(task, DateTimeOffset.UtcNow)
+                || task.ShowAfterTaskId is > 0 && !session.player.MissionProgress.ClaimedTaskIds.Contains(task.ShowAfterTaskId.Value)
+                || session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition) < (task.Result ?? 1))
+            {
+                return new FinishTaskResponse { Code = 20026007 };
+            }
+
+            List<RewardGoodsTable> rewardGoods = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
+            if (rewardGoods.Count == 0)
+            {
+                return new FinishTaskResponse { Code = 20026003 };
+            }
+
+            RewardApplicationResult rewardApplication;
+            try
+            {
+                string claimKey = task.Type == DormDailyTaskType
+                    ? $"dorm-task:{taskId}:{session.player.MissionProgress.DailyResetDay}"
+                    : $"dorm-task:{taskId}";
+                rewardApplication = RewardHandler.ApplyRewardsOnceAndPersist(
+                    [new RewardGrant(claimKey, rewardGoods)],
+                    session);
+                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
+                try
+                {
+                    session.player.SaveChecked();
+                }
+                catch
+                {
+                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
+                    throw;
+                }
+            }
+            catch (Exception exception)
+            {
+                session.log.Error($"Failed to persist Dorm task reward {taskId}: {exception}");
+                return new FinishTaskResponse { Code = 20026003 };
+            }
+
+            rewardApplication.SendPushes(session);
+            if (pushSync)
+            {
+                SendTaskSync(session);
+            }
+            return new FinishTaskResponse
+            {
+                Code = 0,
+                RewardGoodsList = rewardApplication.RewardGoods
             };
         }
 
@@ -1089,10 +1257,12 @@ namespace AscNet.GameServer.Handlers
                 out result);
         }
 
-        private static List<MissionTaskProgress> BuildCurrentTaskProgress(Session session, bool loginOnly)
+        private static List<MissionTaskProgress> BuildCurrentTaskProgress(Session session, bool loginOnly, IReadOnlySet<int>? conditionTypes = null)
         {
             IReadOnlyDictionary<int, CurrentConditionTable> conditions = CurrentConditionsById.Value;
             IEnumerable<CurrentTaskTable> tasks = CurrentTasksByPriority.Value;
+            if (conditionTypes is not null)
+                tasks = tasks.Where(task => conditions.TryGetValue(task.Condition, out CurrentConditionTable? condition) && conditionTypes.Contains(condition.Type));
             if (loginOnly)
             {
                 DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -1254,6 +1424,7 @@ namespace AscNet.GameServer.Handlers
             long week = CurrentWeeklyResetPeriod(timestamp);
             bool changed = false;
             bool inventoryChanged = false;
+            bool characterChanged = false;
 
             if (session.player.MissionProgress.DailyResetDay < 0)
             {
@@ -1263,6 +1434,9 @@ namespace AscNet.GameServer.Handlers
             else if (session.player.MissionProgress.DailyResetDay != day)
             {
                 ResetMissionType(session, 2);
+                (bool dormInventoryChanged, bool dormCharacterChanged) = ResetDormMissionType(session, DormDailyTaskType);
+                inventoryChanged |= dormInventoryChanged;
+                characterChanged |= dormCharacterChanged;
                 session.player.PlayerData.DailyActivenessRewardStatus = 0;
                 Item? dailyActiveness = session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.DailyActiveness);
                 if (dailyActiveness is not null && dailyActiveness.Count != 0)
@@ -1301,6 +1475,10 @@ namespace AscNet.GameServer.Handlers
             {
                 session.inventory.Save();
             }
+            if (characterChanged)
+            {
+                session.character.Save();
+            }
         }
 
         private static void ResetMissionType(Session session, int taskType)
@@ -1314,6 +1492,25 @@ namespace AscNet.GameServer.Handlers
                 session.player.MissionProgress.ConditionCounters.Remove(conditionId);
             }
         }
+        private static (bool Inventory, bool Character) ResetDormMissionType(Session session, int taskType)
+        {
+            List<TaskTable> tasks = TableReaderV2.Parse<TaskTable>().Where(task => task.Type == taskType).ToList();
+            HashSet<int> taskIds = tasks.Select(task => task.Id).ToHashSet();
+            session.player.MissionProgress.ClaimedTaskIds.RemoveAll(taskIds.Contains);
+            foreach (int conditionId in tasks.Select(task => task.Condition).Distinct())
+            {
+                session.player.MissionProgress.ConditionCounters.Remove(conditionId);
+            }
+
+            HashSet<string> legacyKeys = taskIds.Select(taskId => $"dorm-task:{taskId}").ToHashSet(StringComparer.Ordinal);
+            string[] prefixes = legacyKeys.Select(key => key + ":").ToArray();
+            bool IsDailyClaim(string claim) => legacyKeys.Contains(claim)
+                || prefixes.Any(prefix => claim.StartsWith(prefix, StringComparison.Ordinal));
+            bool inventoryChanged = session.inventory.AppliedRewardClaims.RemoveAll(IsDailyClaim) > 0;
+            bool characterChanged = session.character.AppliedRewardClaims.RemoveAll(IsDailyClaim) > 0;
+            return (inventoryChanged, characterChanged);
+        }
+
 
         private static LoginTask ToLoginTask(MissionTaskProgress progress)
         {

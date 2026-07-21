@@ -39,6 +39,8 @@ namespace AscNet.GameServer.Handlers
         internal NotifyItemDataList ItemData { get; } = new();
         internal NotifyWeaponFashionInfo WeaponFashionData { get; } = new();
         internal NotifyHeadPortraitInfos HeadPortraitData { get; } = new();
+        internal bool DormFurnitureChanged { get; set; }
+
 
         public void SendPushes(Session session)
         {
@@ -82,6 +84,8 @@ namespace AscNet.GameServer.Handlers
                 if (!HeadPortraitData.Heads.Any(existing => existing.Id == head.Id))
                     HeadPortraitData.Heads.Add(head);
             }
+            DormFurnitureChanged |= source.DormFurnitureChanged;
+
         }
     }
 
@@ -185,6 +189,11 @@ namespace AscNet.GameServer.Handlers
                     BeginTime = head.BeginTime
                 })
                 .ToList();
+            PlayerDormState? originalDorm = grants.SelectMany(grant => grant.Goods)
+                .Any(goods => GetRewardType(goods) == RewardType.Furniture)
+                ? BsonSerializer.Deserialize<PlayerDormState>(session.player.Dorm.ToBson())
+                : null;
+
             Inventory stagedInventory =
                 BsonSerializer.Deserialize<Inventory>(originalInventory.ToBson());
             Character stagedCharacter =
@@ -261,7 +270,8 @@ namespace AscNet.GameServer.Handlers
                     stagedCharacter.SaveChecked();
                     characterPersisted = true;
                 }
-                if (session.player.HeadPortraits.Count != originalHeadPortraits.Count)
+                if (result.DormFurnitureChanged
+                    || session.player.HeadPortraits.Count != originalHeadPortraits.Count)
                 {
                     session.player.SaveChecked();
                     playerPersisted = true;
@@ -279,7 +289,11 @@ namespace AscNet.GameServer.Handlers
                 if (characterPersisted)
                     CopyCharacter(originalCharacter, stagedCharacter);
                 if (!playerPersisted)
+                {
                     session.player.HeadPortraits = originalHeadPortraits;
+                    if (originalDorm is not null)
+                        session.player.Dorm = originalDorm;
+                }
                 throw;
             }
             finally
@@ -321,7 +335,6 @@ namespace AscNet.GameServer.Handlers
             }
             return rewards;
         }
-
         private static bool IsInventoryDocumentReward(Reward reward) =>
             reward.Type == RewardType.Item;
 
@@ -331,6 +344,7 @@ namespace AscNet.GameServer.Handlers
                 or RewardType.Fashion
                 or RewardType.WeaponFashion
                 or RewardType.FashionColor
+                or RewardType.Furniture
                 or RewardType.HeadPortrait;
 
         private static void AddCurrentStatePush(
@@ -449,17 +463,30 @@ namespace AscNet.GameServer.Handlers
             Session session,
             RewardApplicationResult result)
         {
-            foreach (Reward reward in rewards)
+            List<Reward> resolved = rewards.ToList();
+            PlayerDormState? dorm = resolved.Any(reward => reward.Type == RewardType.Furniture)
+                ? BsonSerializer.Deserialize<PlayerDormState>(session.player.Dorm.ToBson())
+                : null;
+            try
             {
-                HandleReward(
-                    reward,
-                    session,
-                    result.ItemData.ItemDataList,
-                    result.CharacterData.CharacterDataList,
-                    result.FashionData,
-                    result.EquipData.EquipDataList,
-                    result.WeaponFashionData.WeaponFashionDataList,
-                    result.HeadPortraitData.Heads);
+                foreach (Reward reward in resolved)
+                {
+                    HandleReward(
+                        reward,
+                        session,
+                        result,
+                        result.ItemData.ItemDataList,
+                        result.CharacterData.CharacterDataList,
+                        result.FashionData,
+                        result.EquipData.EquipDataList,
+                        result.WeaponFashionData.WeaponFashionDataList,
+                        result.HeadPortraitData.Heads);
+                }
+            }
+            catch
+            {
+                if (dorm is not null) session.player.Dorm = dorm;
+                throw;
             }
         }
 
@@ -468,7 +495,7 @@ namespace AscNet.GameServer.Handlers
             Session session)
         {
             RewardApplicationResult result = ApplyRewards(rewardGoods, session);
-            if (result.HeadPortraitData.Heads.Count > 0)
+            if (result.DormFurnitureChanged || result.HeadPortraitData.Heads.Count > 0)
                 session.player.Save();
             result.SendPushes(session);
             return result.RewardGoods;
@@ -477,7 +504,7 @@ namespace AscNet.GameServer.Handlers
         public static void GiveRewards(IEnumerable<Reward> rewards, Session session)
         {
             RewardApplicationResult result = ApplyRewards(rewards, session);
-            if (result.HeadPortraitData.Heads.Count > 0)
+            if (result.DormFurnitureChanged || result.HeadPortraitData.Heads.Count > 0)
                 session.player.Save();
             result.SendPushes(session);
         }
@@ -719,6 +746,7 @@ namespace AscNet.GameServer.Handlers
         private static void HandleReward(
             Reward reward,
             Session session,
+            RewardApplicationResult result,
             List<Item> itemDataList,
             List<CharacterData> characterDataList,
             FashionSyncNotify fashionData,
@@ -756,6 +784,9 @@ namespace AscNet.GameServer.Handlers
                 case RewardType.BaseEquip:
                     break;
                 case RewardType.Furniture:
+                    if (!DormModule.TryGrantFurnitureReward(session, reward.Id, reward.Count))
+                        throw new InvalidDataException($"Invalid furniture reward {reward.Id}.");
+                    result.DormFurnitureChanged = true;
                     break;
                 case RewardType.HeadPortrait:
                     UnlockHeadPortraitReward(reward.Id, session, headPortraits);

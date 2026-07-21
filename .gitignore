@@ -388,3 +388,9 @@ test_proxy.py
  
 # ignore internal scripts
 /scripts
+
+# internal protocol gap script
+test_protocol_gap.py 
+
+# protocol gap tables
+Resources/table.pre-4.6.6/

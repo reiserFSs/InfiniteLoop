@@ -1,5 +1,6 @@
 ﻿using AscNet.Common;
 using AscNet.Table.V2.share.item;
+using AscNet.Table.V2.share.alarmclock;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
@@ -72,6 +73,8 @@ namespace AscNet.GameServer.Handlers
         private const string ShopSnapshotPath = "Configs/client_shops.json";
         private const string ShopBaseInfoSnapshotPath = "Configs/shop_base_infos.json";
         private static readonly Lazy<Dictionary<uint, ClientShop>> RetailShopSnapshot = new(LoadShopSnapshot);
+        private static readonly Lazy<Dictionary<int, AlarmClockTable>> AlarmClocks = new(() =>
+            TableReaderV2.Parse<AlarmClockTable>().GroupBy(clock => clock.ClockId).ToDictionary(group => group.Key, group => group.First()));
 
         [RequestPacketHandler("GetShopInfoRequest")]
         public static void GetShopInfoRequestHandler(Session session, Packet.Request packet)
@@ -144,9 +147,17 @@ namespace AscNet.GameServer.Handlers
                 IsShowBuyResult = false
             };
             ClientShopGoods? goods = FindShopGoods(request.ShopId, request.GoodsId);
-            if (goods is null
-                || !TryPreparePurchase(session, goods, request.Count, out RewardGoods rewardGoods))
+            if (goods is null)
             {
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
+            bool resetChanged = ReconcileShopResetPeriods(session.player, [goods]);
+            if (!TryPreparePurchase(session, goods, request.Count, out RewardGoods rewardGoods))
+            {
+                if (resetChanged)
+                    session.player.Save();
                 session.SendResponse(response, packet.Id);
                 return;
             }
@@ -188,10 +199,18 @@ namespace AscNet.GameServer.Handlers
             {
                 ClientShop shop = MessagePackSerializer.Deserialize<ClientShop>(
                     MessagePackSerializer.Serialize(snapshot));
+                if (ReconcileShopResetPeriods(player, shop.GoodsList))
+                    player.Save();
                 player.ShopBuyTimes ??= new();
                 foreach (ClientShopGoods goods in shop.GoodsList)
+                {
                     goods.TotalBuyTimes = player.ShopBuyTimes.GetValueOrDefault(goods.Id);
+                    goods.RefreshTime = TryGetAlarmWindow(goods.AutoResetClockId, DateTimeOffset.UtcNow, out _, out long next)
+                        ? checked((int)next)
+                        : 0;
+                }
                 shop.TotalBuyTimes = shop.GoodsList.Sum(goods => goods.TotalBuyTimes);
+                shop.RefreshTime = shop.GoodsList.Where(goods => goods.RefreshTime > 0).Select(goods => goods.RefreshTime).DefaultIfEmpty().Min();
                 return shop;
             }
 
@@ -331,6 +350,81 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
+        private static bool ReconcileShopResetPeriods(Player player, IEnumerable<ClientShopGoods> encounteredGoods)
+        {
+            bool changed = false;
+            foreach (int clockId in encounteredGoods.Select(goods => goods.AutoResetClockId).Where(clockId => clockId > 0).Distinct())
+            {
+                if (!TryGetAlarmWindow(clockId, DateTimeOffset.UtcNow, out long period, out _))
+                    continue;
+
+                player.ShopResetPeriods ??= new();
+                if (!player.ShopResetPeriods.TryGetValue(clockId, out long storedPeriod))
+                {
+                    player.ShopResetPeriods[clockId] = period;
+                    changed = true;
+                    continue;
+                }
+
+                if (storedPeriod >= period)
+                    continue;
+
+                player.ShopResetPeriods[clockId] = period;
+                if (player.ShopBuyTimes is not null)
+                {
+                    foreach (uint goodsId in RetailShopSnapshot.Value.Values
+                                 .SelectMany(shop => shop.GoodsList)
+                                 .Where(goods => goods.AutoResetClockId == clockId)
+                                 .Select(goods => goods.Id))
+                    {
+                        changed |= player.ShopBuyTimes.Remove(goodsId);
+                    }
+                }
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static bool TryGetAlarmWindow(int clockId, DateTimeOffset now, out long period, out long next)
+        {
+            period = next = 0;
+            if (!AlarmClocks.Value.TryGetValue(clockId, out AlarmClockTable? clock)
+                || clock.AlarmCycle <= 0
+                || !HasValidFilters(clock))
+            {
+                return false;
+            }
+
+            long cycle = clock.AlarmCycle;
+            long epoch = clock.EpochTime.GetValueOrDefault();
+            long current = now.ToUnixTimeSeconds();
+            long candidate = epoch + ((current - epoch) / cycle) * cycle;
+            while (!MatchesFilters(clock, candidate))
+                candidate -= cycle;
+            period = candidate;
+
+            candidate += cycle;
+            while (!MatchesFilters(clock, candidate))
+                candidate += cycle;
+            next = candidate;
+            return true;
+        }
+
+        private static bool HasValidFilters(AlarmClockTable clock)
+        {
+            return clock.DayOfWeek.All(day => day is >= 1 and <= 7)
+                && clock.DayOfMonth.All(day => day is >= 1 and <= 31);
+        }
+
+        private static bool MatchesFilters(AlarmClockTable clock, long timestamp)
+        {
+            DateTimeOffset date = DateTimeOffset.FromUnixTimeSeconds(timestamp);
+            int weekday = date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek;
+            return (clock.DayOfWeek.Count == 0 || clock.DayOfWeek.Contains(weekday))
+                && (clock.DayOfMonth.Count == 0 || clock.DayOfMonth.Contains(date.Day));
+        }
+
         private static ClientShopGoods? FindShopGoods(uint shopId, uint goodsId)
         {
             return RetailShopSnapshot.Value.TryGetValue(shopId, out ClientShop? shop)
@@ -358,7 +452,8 @@ namespace AscNet.GameServer.Handlers
 
             if (!Enum.IsDefined(typeof(RewardType), goods.RewardGoods.RewardType))
                 return false;
-            if ((RewardType)goods.RewardGoods.RewardType == RewardType.Item)
+            RewardType rewardType = (RewardType)goods.RewardGoods.RewardType;
+            if (rewardType == RewardType.Item)
             {
                 int rewardItemId = (int)goods.RewardGoods.TemplateId;
                 if (!Inventory.IsValidClientItemId(rewardItemId))
@@ -370,6 +465,15 @@ namespace AscNet.GameServer.Handlers
                 {
                     return false;
                 }
+            }
+            else if (rewardType == RewardType.Furniture
+                && ((long)goods.RewardGoods.Count * count > int.MaxValue
+                    || !DormModule.CanGrantFurnitureReward(
+                        session.player.Dorm,
+                        (int)goods.RewardGoods.TemplateId,
+                        goods.RewardGoods.Count * count)))
+            {
+                return false;
             }
 
             foreach (ClientShopConsume consume in goods.ConsumeList)

@@ -587,6 +587,9 @@ namespace AscNet.Common.Database
         [BsonElement("shop_buy_times")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<uint, int> ShopBuyTimes { get; set; } = new();
+        [BsonElement("shop_reset_periods")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, long> ShopResetPeriods { get; set; } = new();
 
         [BsonElement("team_groups")]
         [BsonRequired]
