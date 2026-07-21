@@ -713,6 +713,13 @@ namespace AscNet.GameServer.Handlers
             if (!isBossInshotFight)
                 session.PendingBossInshotFight = null;
 
+            if (!TransfiniteModule.TryCommitPreFight(session, req.PreFightData.StageId, out int transfiniteCommitCode))
+            {
+                rsp.Code = transfiniteCommitCode;
+                session.SendResponse(rsp, packet.Id);
+                return;
+            }
+
             session.fight = new(req, rsp.FightData.FightId);
             session.SendResponse(rsp, packet.Id);
         }

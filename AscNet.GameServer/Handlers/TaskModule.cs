@@ -1,7 +1,9 @@
 ﻿using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
+using AscNet.GameServer.Game;
 using AscNet.Table.V2.share.task;
+using AscNet.Table.V2.share.fuben.transfinite;
 using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.equip;
 using MessagePack;
@@ -124,8 +126,13 @@ namespace AscNet.GameServer.Handlers
         public static void FinishTaskRequestHandler(Session session, Packet.Request packet)
         {
             FinishTaskRequest request = MessagePackSerializer.Deserialize<FinishTaskRequest>(packet.Content);
-            FinishTaskResponse response = ClaimTaskReward(session, request.TaskId, pushSync: false);
-            if (CurrentTaskIds.Value.Contains(request.TaskId))
+            FinishTaskResponse response = ClaimTaskReward(session, request.TaskId, pushSync: false, out RewardApplicationResult? transfiniteApplication);
+            if (IsTransfiniteTask(session, request.TaskId))
+            {
+                SendTransfiniteTaskSync(session, TransfiniteTasks(session).Where(task => task.Id == request.TaskId));
+                transfiniteApplication?.SendPushes(session);
+            }
+            else if (CurrentTaskIds.Value.Contains(request.TaskId))
             {
                 SendCurrentTaskBatch(session, [request.TaskId]);
             }
@@ -149,9 +156,14 @@ namespace AscNet.GameServer.Handlers
                 Code = 0
             };
 
+            List<RewardApplicationResult> transfiniteApplications = [];
             foreach (int taskId in request.TaskIds.Distinct())
             {
-                FinishTaskResponse taskResponse = ClaimTaskReward(session, taskId, pushSync: false);
+                FinishTaskResponse taskResponse = ClaimTaskReward(session, taskId, pushSync: false, out RewardApplicationResult? transfiniteApplication);
+                if (transfiniteApplication is not null)
+                {
+                    transfiniteApplications.Add(transfiniteApplication);
+                }
                 if (taskResponse.Code == 0)
                 {
                     response.RewardGoodsList.AddRange(taskResponse.RewardGoodsList);
@@ -165,7 +177,8 @@ namespace AscNet.GameServer.Handlers
 
             int[] requestedTaskIds = request.TaskIds.Distinct().ToArray();
             IReadOnlySet<int> currentTaskIds = CurrentTaskIds.Value;
-            int[] requestedCurrentTaskIds = requestedTaskIds.Where(currentTaskIds.Contains).ToArray();
+            int[] requestedTransfiniteTaskIds = requestedTaskIds.Where(taskId => IsTransfiniteTask(session, taskId)).ToArray();
+            int[] requestedCurrentTaskIds = requestedTaskIds.Where(taskId => currentTaskIds.Contains(taskId) && !requestedTransfiniteTaskIds.Contains(taskId)).ToArray();
             int[] requestedDormTaskIds = requestedTaskIds.Where(IsDormTask).ToArray();
             if (requestedCurrentTaskIds.Length > 0)
             {
@@ -175,7 +188,15 @@ namespace AscNet.GameServer.Handlers
             {
                 SendDormTaskBatch(session, requestedDormTaskIds);
             }
-            if (requestedTaskIds.Any(taskId => !currentTaskIds.Contains(taskId) && !IsDormTask(taskId)))
+            if (requestedTransfiniteTaskIds.Length > 0)
+            {
+                SendTransfiniteTaskSync(session, TransfiniteTasks(session).Where(task => requestedTransfiniteTaskIds.Contains(task.Id)));
+                foreach (RewardApplicationResult application in transfiniteApplications)
+                {
+                    application.SendPushes(session);
+                }
+            }
+            if (requestedTaskIds.Any(taskId => !currentTaskIds.Contains(taskId) && !IsDormTask(taskId) && !IsTransfiniteTask(session, taskId)))
             {
                 SendTaskSync(session);
             }
@@ -555,6 +576,9 @@ namespace AscNet.GameServer.Handlers
             tasks.AddRange(BuildDormTaskProgress(session)
                 .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
+            tasks.AddRange(BuildTransfiniteTaskProgress(session)
+                .Where(x => existingIds.Add((uint)x.TaskId))
+                .Select(ToLoginTask));
             return tasks;
         }
 
@@ -569,6 +593,7 @@ namespace AscNet.GameServer.Handlers
                         .Select(ToSyncTask)
                         .Concat(BuildCurrentTaskProgress(session, loginOnly: true).Select(ToSyncTask))
                         .Concat(BuildLifeTreeTaskProgress(session).Select(ToSyncTask))
+                        .Concat(BuildTransfiniteTaskProgress(session).Select(ToSyncTask))
                         .GroupBy(x => x.Id)
                         .Select(x => x.First())
                         .ToList()
@@ -614,6 +639,177 @@ namespace AscNet.GameServer.Handlers
                 }
             });
         }
+        internal static NotifyTask? RecordTransfiniteConfirmedProgress(Session session, int stageGroupId, int stageId, int spendTime, int? timeLimit, int winStreak)
+        {
+            List<TaskTable> tasks = TransfiniteTasks(session);
+            HashSet<int> changedConditions = [];
+            foreach (TaskTable task in tasks.Where(task => task.Type == 79))
+            {
+                int target = task.Result ?? 1;
+                int current = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition);
+                int value = target < 14 && timeLimit is > 0 && spendTime < timeLimit
+                    ? Math.Min(target, checked(current + 1))
+                    : target == 14 ? Math.Max(current, Math.Min(winStreak, target)) : current;
+                if (value != current)
+                {
+                    session.player.MissionProgress.ConditionCounters[task.Condition] = value;
+                    changedConditions.Add(task.Condition);
+                }
+            }
+            int? stageGroupType = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+                .SingleOrDefault(group => group.StageGroupId == stageGroupId)?.Type;
+            HashSet<int> achievementTaskGroupIds = TableReaderV2.Parse<TransfiniteAchievementTable>()
+                .Where(achievement => achievement.Type == stageGroupType && achievement.StageGroupId.Contains(stageGroupId))
+                .Select(achievement => achievement.Id)
+                .ToHashSet();
+            HashSet<int> achievementTaskIds = TableReaderV2.Parse<TransfiniteTaskGroupTable>()
+                .Where(group => achievementTaskGroupIds.Contains(group.Id))
+                .SelectMany(group => group.TaskIds)
+                .ToHashSet();
+            HashSet<int> taskConditions = tasks
+                .Where(task => achievementTaskIds.Contains(task.Id))
+                .Select(task => task.Condition)
+                .ToHashSet();
+            foreach (ConditionTable condition in TableReaderV2.Parse<ConditionTable>()
+                         .Where(condition => taskConditions.Contains(condition.Id)
+                             && condition.Type == 103000
+                             && condition.Params.Skip(1).Contains(stageId)))
+            {
+                session.player.MissionProgress.ConditionCounters[condition.Id] =
+                    checked(session.player.MissionProgress.ConditionCounters.GetValueOrDefault(condition.Id) + 1);
+                changedConditions.Add(condition.Id);
+            }
+            return changedConditions.Count == 0 ? null : new NotifyTask
+            {
+                Tasks = new()
+                {
+                    Tasks = BuildTransfiniteTaskProgress(session)
+                        .Where(task => changedConditions.Contains(task.ConditionId))
+                        .Select(ToSyncTask)
+                        .ToList()
+                }
+            };
+        }
+
+        private static List<MissionTaskProgress> BuildTransfiniteTaskProgress(Session session) =>
+            TransfiniteTasks(session).Select(task =>
+            {
+                int target = task.Result ?? 1;
+                int value = Math.Min(session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition), target);
+                int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
+                    ? TaskStateFinish
+                    : value >= target ? TaskStateAchieved : TaskStateActive;
+                return new MissionTaskProgress(task.Id, task.Condition, value, state);
+            }).ToList();
+
+        private static List<TaskTable> TransfiniteTasks(Session session)
+        {
+            TransfiniteState? state = session.player.Transfinite;
+            if (state is null
+                || state.ActivityAuthorizedUntil < DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                || !TableReaderV2.Parse<TransfiniteActivityTable>().Any(activity => activity.Id == state.ActivityId))
+                return [];
+
+            TransfiniteRegionTable? region = TableReaderV2.Parse<TransfiniteRegionTable>()
+                .SingleOrDefault(region => region.RegionId == state.RegionId);
+            if (region is null)
+                return [];
+
+            HashSet<int> stageGroups = [state.StageGroupId];
+            stageGroups.UnionWith(TableReaderV2.Parse<TransfiniteIslandTable>()
+                .Where(island => island.Id == region.IslandId)
+                .SelectMany(island => island.StageGroupId));
+            Dictionary<int, int> stageGroupTypes = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+                .Where(group => stageGroups.Contains(group.StageGroupId))
+                .ToDictionary(group => group.StageGroupId, group => group.Type);
+            HashSet<int> taskGroups = [region.TaskGroupId];
+            taskGroups.UnionWith(TableReaderV2.Parse<TransfiniteAchievementTable>()
+                .Where(achievement => achievement.StageGroupId.Any(groupId =>
+                    stageGroupTypes.GetValueOrDefault(groupId) == achievement.Type))
+                .Select(achievement => achievement.Id));
+            List<TransfiniteTaskGroupTable> groups = TableReaderV2.Parse<TransfiniteTaskGroupTable>()
+                .Where(group => taskGroups.Contains(group.Id))
+                .ToList();
+            HashSet<int> taskIds = groups.SelectMany(group => group.TaskIds).ToHashSet();
+            TransfiniteTaskGroupSpecialTreatmentTable? special = TableReaderV2.Parse<TransfiniteTaskGroupSpecialTreatmentTable>()
+                .FirstOrDefault(row => row.TaskGroup == region.TaskGroupId
+                    && ActivityScheduleService.TryGet(row.TimeId, out ActivityScheduleEntry schedule)
+                    && schedule.IsOpen(DateTimeOffset.UtcNow));
+            if (special is not null)
+            {
+                taskIds.ExceptWith(groups.Single(group => group.Id == region.TaskGroupId).TaskIds);
+                taskIds.UnionWith(special.TaskIds);
+            }
+            return TableReaderV2.Parse<TaskTable>()
+                .Where(task => taskIds.Contains(task.Id) && task.Type is 79 or 80)
+                .ToList();
+        }
+        private static bool IsTransfiniteTask(Session session, int taskId) =>
+            TransfiniteTasks(session).Any(task => task.Id == taskId);
+
+
+        private static void SendTransfiniteTaskSync(Session session, IEnumerable<TaskTable>? tasks = null)
+        {
+            HashSet<int>? taskIds = tasks?.Select(task => task.Id).ToHashSet();
+            session.SendPush(new NotifyTask
+            {
+                Tasks = new()
+                {
+                    Tasks = BuildTransfiniteTaskProgress(session)
+                        .Where(task => taskIds is null || taskIds.Contains(task.TaskId))
+                        .Select(ToSyncTask)
+                        .ToList()
+                }
+            });
+        }
+
+
+        private static FinishTaskResponse? ClaimTransfiniteTaskReward(Session session, int taskId, out RewardApplicationResult? application)
+        {
+            application = null;
+            TaskTable? task = TransfiniteTasks(session).FirstOrDefault(task => task.Id == taskId);
+            if (task is null)
+            {
+                return null;
+            }
+            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
+            {
+                return new FinishTaskResponse { Code = 20026006 };
+            }
+            MissionTaskProgress? progress = BuildTransfiniteTaskProgress(session)
+                .FirstOrDefault(progress => progress.TaskId == taskId);
+            if (progress is null || progress.State != TaskStateAchieved)
+            {
+                return new FinishTaskResponse { Code = 20026007 };
+            }
+            List<RewardGoodsTable> rewards = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
+            if (rewards.Count == 0)
+            {
+                return new FinishTaskResponse { Code = 20026003 };
+            }
+            try
+            {
+                RewardApplicationResult applied = RewardHandler.ApplyRewardsOnceAndPersist(
+                    [new RewardGrant($"transfinite-task:{taskId}", rewards)], session);
+                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
+                try
+                {
+                    session.player.SaveChecked();
+                }
+                catch
+                {
+                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
+                    throw;
+                }
+                application = applied;
+                return new FinishTaskResponse { Code = 0, RewardGoodsList = applied.RewardGoods };
+            }
+            catch
+            {
+                return new FinishTaskResponse { Code = 20026003 };
+            }
+        }
+
 
 
         internal static NotifyTask? ApplyLifeTreeUnlockProgress(Player player, int characterId, int status)
@@ -918,8 +1114,14 @@ namespace AscNet.GameServer.Handlers
         }
 
 
-        private static FinishTaskResponse ClaimTaskReward(Session session, int taskId, bool pushSync)
+        private static FinishTaskResponse ClaimTaskReward(Session session, int taskId, bool pushSync, out RewardApplicationResult? transfiniteApplication)
         {
+            transfiniteApplication = null;
+            FinishTaskResponse? transfiniteTaskResponse = ClaimTransfiniteTaskReward(session, taskId, out transfiniteApplication);
+            if (transfiniteTaskResponse is not null)
+            {
+                return transfiniteTaskResponse;
+            }
             CurrentTaskTable? currentTask = TableReaderV2.Parse<CurrentTaskTable>().FirstOrDefault(x => x.Id == taskId);
             if (currentTask is null)
             {
