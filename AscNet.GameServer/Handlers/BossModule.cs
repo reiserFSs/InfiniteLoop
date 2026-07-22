@@ -341,7 +341,6 @@ namespace AscNet.GameServer.Handlers
             }
 
             state.BossAutoFightCount++;
-            session.player.Save();
             TaskModule.RecordStageClear(session, request.StageId, 1);
             SendRankPush(session);
             session.SendPush(BuildLoginData(session.player));
@@ -738,7 +737,6 @@ namespace AscNet.GameServer.Handlers
                     : state.BossBestiaryScores;
                 scores[pending.StageId] = Math.Max(scores.GetValueOrDefault(pending.StageId), pending.Result.TotalScore);
                 stageData = UpdateStageDatum(session, pending, pending.Result.TotalScore);
-                session.player.Save();
                 session.stage.Save();
                 return true;
             }
@@ -775,7 +773,6 @@ namespace AscNet.GameServer.Handlers
             state.BossMaxScore = Math.Max(state.BossMaxScore, state.BossTotalScore);
             state.BossLastScoreTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             stageData = UpdateStageDatum(session, pending, record.MaxScore);
-            session.player.Save();
             session.stage.Save();
             return true;
         }

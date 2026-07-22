@@ -30,14 +30,16 @@ namespace AscNet.GameServer
         public bool PendingBigWorldStartFightNotify;
         public readonly Dictionary<(uint EquipId, int Slot), ResonanceInfo> PendingEquipResonances = new();
         public readonly Logger log;
-        private long lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        private int startState;
         private int packetNo = 0;
         private int disconnectState;
         private readonly MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block);
         private const int InitialReceiveBufferLength = 1 << 16;
         private const int MaxReceivePacketLength = 1 << 22;
         private static readonly object BigWorldPacketDumpLock = new();
+        private readonly object outboundLock = new();
         private static readonly ConcurrentDictionary<long, object> PlayerOperationLocks = new();
+        public Task Completion { get; private set; } = Task.CompletedTask;
         private static long BigWorldPacketDumpOrdinal;
         private static readonly string BigWorldPacketDumpRootDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".runtime"));
         private static readonly string DefaultBigWorldPacketDumpDirectory = Path.Combine(BigWorldPacketDumpRootDirectory, "bigworld-packet-dumps");
@@ -50,7 +52,14 @@ namespace AscNet.GameServer
             // TODO: add session based configuration? maybe from database?
             log = new(typeof(Session), id, LogLevel.DEBUG, LogLevel.DEBUG);
             log.LogLevelColor[LogLevel.INFO] = ConsoleColor.Cyan;
-            Task.Run(ClientLoop);
+        }
+
+        public void Start()
+        {
+            if (Interlocked.Exchange(ref startState, 1) != 0)
+                throw new InvalidOperationException("Session has already been started.");
+
+            Completion = ClientLoop();
         }
 
         internal static object GetPlayerOperationLock(long playerId) =>
@@ -60,6 +69,7 @@ namespace AscNet.GameServer
             RequestPacketHandlerDelegate requestPacketHandler,
             Packet.Request request)
         {
+            using IDisposable metrics = MongoCommandMetrics.Begin(request.Name);
             Player? currentPlayer = player;
             if (currentPlayer is null)
             {
@@ -75,7 +85,7 @@ namespace AscNet.GameServer
             }
         }
 
-        public async void ClientLoop()
+        private async Task ClientLoop()
         {
             NetworkStream stream;
             try
@@ -84,36 +94,29 @@ namespace AscNet.GameServer
             }
             catch (ObjectDisposedException)
             {
+                DisconnectProtocol();
                 return;
             }
             catch (InvalidOperationException) when (!client.Connected)
             {
+                DisconnectProtocol();
                 return;
             }
             int prevBuf = 0;
             byte[] msg = new byte[InitialReceiveBufferLength];
 
-            while (client.Connected)
+            while (Volatile.Read(ref disconnectState) == 0)
             {
                 try
                 {
-                    bool readAnyBytes = false;
+                    using CancellationTokenSource idleTimeout = new(TimeSpan.FromSeconds(10));
+                    int len = await stream.ReadAsync(
+                        msg.AsMemory(prevBuf, msg.Length - prevBuf),
+                        idleTimeout.Token);
+                    if (len <= 0)
+                        break;
 
-                    while (stream.DataAvailable)
-                    {
-                        if (prevBuf == msg.Length)
-                            break;
-
-                        int len = stream.Read(msg, prevBuf, msg.Length - prevBuf);
-                        if (len <= 0)
-                            break;
-
-                        prevBuf += len;
-                        readAnyBytes = true;
-                    }
-
-                    if (readAnyBytes)
-                        lastPacketTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    prevBuf += len;
 
                     if (prevBuf > 0)
                     {
@@ -244,10 +247,6 @@ namespace AscNet.GameServer
                 {
                     break;
                 }
-                await Task.Delay(10);
-                // 10 sec timeout
-                if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - lastPacketTime > 10000)
-                    break;
             }
 
             DisconnectProtocol();
@@ -289,8 +288,11 @@ namespace AscNet.GameServer
 
         public void ContinuePushSequenceFrom(int lastMsgSeqNo)
         {
-            if (lastMsgSeqNo > packetNo)
-                packetNo = lastMsgSeqNo;
+            lock (outboundLock)
+            {
+                if (lastMsgSeqNo > packetNo)
+                    packetNo = lastMsgSeqNo;
+            }
         }
 
         public void SendPush<T>(T push) where T : new()
@@ -300,14 +302,17 @@ namespace AscNet.GameServer
                 Name = typeof(T).Name,
                 Content = MessagePackSerializer.Serialize(push)
             };
-            ProbeBigWorldPacket("push", packet.Name, packet.Content, null, packetNo + 1);
-            ProbeEquipmentPush(packet.Name, push);
-            Send(new Packet()
+            lock (outboundLock)
             {
-                No = ++packetNo,
-                Type = Packet.ContentType.Push,
-                Content = MessagePackSerializer.Serialize(packet)
-            });
+                ProbeBigWorldPacket("push", packet.Name, packet.Content, null, packetNo + 1);
+                ProbeEquipmentPush(packet.Name, push);
+                Send(new Packet()
+                {
+                    No = ++packetNo,
+                    Type = Packet.ContentType.Push,
+                    Content = MessagePackSerializer.Serialize(packet)
+                });
+            }
             if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
                 log.Info($"{packet.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + JsonConvert.SerializeObject(push)) : "")}");
         }
@@ -319,14 +324,17 @@ namespace AscNet.GameServer
                 Name = name,
                 Content = push
             };
-            ProbeBigWorldPacket("push", packet.Name, packet.Content, null, packetNo + 1);
-            ProbeEquipmentPush(name, push);
-            Send(new Packet()
+            lock (outboundLock)
             {
-                No = ++packetNo,
-                Type = Packet.ContentType.Push,
-                Content = MessagePackSerializer.Serialize(packet)
-            });
+                ProbeBigWorldPacket("push", packet.Name, packet.Content, null, packetNo + 1);
+                ProbeEquipmentPush(name, push);
+                Send(new Packet()
+                {
+                    No = ++packetNo,
+                    Type = Packet.ContentType.Push,
+                    Content = MessagePackSerializer.Serialize(packet)
+                });
+            }
             if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
                 log.Info($"{name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(push)) : "")}");
         }
@@ -517,7 +525,8 @@ namespace AscNet.GameServer
             BinaryPrimitives.WriteInt32LittleEndian(sendBytes.AsSpan()[0..4], serializedPacket.Length);
             Array.Copy(serializedPacket, 0, sendBytes, 4, serializedPacket.Length);
 
-            client.GetStream().Write(sendBytes);
+            lock (outboundLock)
+                client.GetStream().Write(sendBytes);
         }
 
 
@@ -553,18 +562,27 @@ namespace AscNet.GameServer
         private void DisconnectCore()
         {
             if (!Server.Instance.Sessions.TryGetValue(id, out Session? registered)
-                || !ReferenceEquals(registered, this))
+                || !ReferenceEquals(registered, this)
+                || Interlocked.Exchange(ref disconnectState, 1) != 0)
             {
                 return;
             }
 
-            // DB save on disconnect
-            Save();
-            Volatile.Write(ref disconnectState, 1);
-
-            log.Warn($"{id} disconnected");
-            client.Close();
-            Server.Instance.Sessions.TryRemove(id, out _);
+            using IDisposable metrics = MongoCommandMetrics.Begin("Disconnect");
+            try
+            {
+                Save();
+            }
+            catch (Exception exception)
+            {
+                log.Error("Failed to save session state during disconnect.", exception);
+            }
+            finally
+            {
+                log.Warn($"{id} disconnected");
+                client.Close();
+                Server.Instance.Sessions.TryRemove(id, out _);
+            }
         }
 
         public void Save()

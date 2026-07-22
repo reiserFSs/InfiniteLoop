@@ -1190,7 +1190,7 @@ namespace AscNet.GameServer.Handlers
         {
             DoLogin(session, updateLoginAccounting: true);
         }
-        internal static void ReconcileGatherRewardBaselines(Session session)
+        private static void ReconcileGatherRewardBaselines(Session session)
         {
             HashSet<int> ownedCharacterIds = session.character.Characters.Select(character => (int)character.Id).ToHashSet();
             foreach (ExhibitionRewardTable reward in TableReaderV2.Parse<ExhibitionRewardTable>().Where(reward =>

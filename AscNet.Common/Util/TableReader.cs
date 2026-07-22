@@ -1,4 +1,5 @@
 using AscNet.Logging;
+using System.Collections.Concurrent;
 using System.Reflection;
 
 namespace AscNet.Common.Util
@@ -37,60 +38,69 @@ namespace AscNet.Common.Util
 
     public static class TableReaderV2
     {
-        private static readonly Dictionary<Type, object> cache = new();
+        private static readonly ConcurrentDictionary<Type, object> cache = new();
+        // ponytail: global cold-load gate; use per-table gates if concurrent cold loads become a throughput bottleneck.
+        private static readonly object coldLoadGate = new();
         private static readonly Logger c = new(typeof(TableReaderV2), nameof(TableReaderV2), LogLevel.DEBUG, LogLevel.DEBUG);
 
         public static List<T> Parse<T>() where T : ITable
         {
-            if (cache.ContainsKey(typeof(T)))
-            {
-                return (List<T>)cache.GetValueOrDefault(typeof(T))!;
-            }
+            if (cache.TryGetValue(typeof(T), out object? cached))
+                return (List<T>)cached;
 
-            List<T> result = new();
-
-            try
+            lock (coldLoadGate)
             {
-                string path = JsonSnapshot.ResolvePath(T.File);
-                using (var reader = new StreamReader(path))
+                if (cache.TryGetValue(typeof(T), out cached))
+                    return (List<T>)cached;
+
+                List<T> result = new();
+
+                try
                 {
-                    // Read the header line to get column names
-                    string headerLine = reader.ReadLine()!;
-                    string[] columnNames = headerLine.Split('\t');
-
-                    // Read data lines and parse them into objects
-                    while (!reader.EndOfStream)
+                    string path = JsonSnapshot.ResolvePath(T.File);
+                    using (var reader = new StreamReader(path))
                     {
-                        string dataLine = reader.ReadLine()!;
-                        if (string.IsNullOrEmpty(dataLine))
-                            break;
+                        // Read the header line to get column names
+                        string headerLine = reader.ReadLine()!;
+                        string[] columnNames = headerLine.Split('\t');
+                        PropertyInfo?[] properties = columnNames
+                            .Select(columnName => typeof(T).GetProperty(columnName.Split('[').First()))
+                            .ToArray();
 
-                        string[] values = dataLine.Split('\t');
+                        // Read data lines and parse them into objects
+                        while (!reader.EndOfStream)
+                        {
+                            string dataLine = reader.ReadLine()!;
+                            if (string.IsNullOrEmpty(dataLine))
+                                break;
 
-                        T obj = MapToObject<T>(columnNames, values);
-                        result.Add(obj);
+                            string[] values = dataLine.Split('\t');
+
+                            T obj = MapToObject<T>(properties, values);
+                            result.Add(obj);
+                        }
                     }
+                    c.Debug($"{typeof(T).Name} Loaded From {path}");
+
+                    cache.TryAdd(typeof(T), result);
                 }
-                c.Debug($"{typeof(T).Name} Loaded From {path}");
+                catch (Exception ex)
+                {
+                    c.Error($"An error occurred: {ex.Message}");
+                }
 
-                cache.Add(typeof(T), result);
+                return result;
             }
-            catch (Exception ex)
-            {
-                c.Error($"An error occurred: {ex.Message}");
-            }
-
-            return result;
         }
 
 
-        static T MapToObject<T>(string[] columnNames, string[] values) where T : ITable
+        static T MapToObject<T>(PropertyInfo?[] properties, string[] values) where T : ITable
         {
             T obj = Activator.CreateInstance<T>();
 
-            for (int i = 0; i < Math.Min(columnNames.Length, values.Length); i++)
+            for (int i = 0; i < Math.Min(properties.Length, values.Length); i++)
             {
-                PropertyInfo? prop = typeof(T).GetProperty(columnNames[i].Split('[').First());
+                PropertyInfo? prop = properties[i];
                 if (prop != null)
                 {
                     if (prop.PropertyType == typeof(List<int>))

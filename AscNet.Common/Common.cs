@@ -1,5 +1,6 @@
 ﻿using Config.Net;
 using MongoDB.Driver;
+using AscNet.Common.Database;
 
 namespace AscNet.Common
 {
@@ -18,6 +19,7 @@ namespace AscNet.Common
                {
                    Server = new MongoServerAddress(config.Database.Host, config.Database.Port),
                    ServerSelectionTimeout = TimeSpan.FromSeconds(2),
+                   ClusterConfigurator = MongoCommandMetrics.Configure
                    //    Credential = MongoCredential.CreateCredential("admin", config.Database.Username, config.Database.Password)
                }
            );

@@ -2,6 +2,8 @@
 using System.Net.Sockets;
 using System.Net;
 using AscNet.Logging;
+using AscNet.Common.Util;
+using AscNet.Table.V2.share.task;
 
 namespace AscNet.GameServer
 {
@@ -39,6 +41,12 @@ namespace AscNet.GameServer
             {
                 try
                 {
+                    TableReaderV2.Parse<CurrentTaskTable>();
+                    TableReaderV2.Parse<StoryTaskTable>();
+                    TableReaderV2.Parse<StoryTaskConditionTable>();
+                    TableReaderV2.Parse<CurrentConditionTable>();
+                    TableReaderV2.Parse<ConditionTable>();
+                    TableReaderV2.Parse<TaskTable>();
                     listener.Start();
                     log.Info($"{nameof(GameServer)} started and listening on port {Common.Common.config.GameServer.Port}");
 
@@ -48,7 +56,10 @@ namespace AscNet.GameServer
                         string id = tcpClient.Client.RemoteEndPoint!.ToString()!;
 
                         log.Warn($"{id} connected");
-                        if (!Sessions.TryAdd(id, new Session(id, tcpClient)))
+                        Session session = new(id, tcpClient);
+                        if (Sessions.TryAdd(id, session))
+                            session.Start();
+                        else
                             tcpClient.Close();
                     }
                 }

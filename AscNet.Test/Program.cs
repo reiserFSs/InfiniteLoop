@@ -78,6 +78,11 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--table-reader-concurrency-only"))
+                {
+                    ValidateTableReaderConcurrency();
+                    return;
+                }
                 if (args.Contains("--dorm-compat-only"))
                 {
                     ValidateDormCompatibility();
@@ -222,6 +227,17 @@ namespace AscNet.Test
                     ValidateSessionClientLoopFramingCompatibility();
                     return;
                 }
+                if (args.Contains("--mongo-metrics-compat-only"))
+                {
+                    ValidateMongoCommandMetricsCompatibility();
+                    return;
+                }
+                if (args.Contains("--session-idle-timeout-compat-only"))
+                {
+                    AssertIdleClientSessionTimesOut();
+                    return;
+                }
+
 
                 if (args.Contains("--stage-bookmark-compat-only"))
                 {
@@ -3421,6 +3437,36 @@ namespace AscNet.Test
 
         }
 
+        private static void ValidateMongoCommandMetricsCompatibility()
+        {
+            if (!AscNet.Common.Database.MongoCommandMetrics.Enabled)
+                throw new InvalidOperationException("Set ASCNET_MONGO_METRICS=1 to run Mongo command metrics compatibility.");
+
+            const string requestName = "MongoMetricsProbeRequest";
+            const int packetId = 91_031;
+            IMongoCollection<BsonDocument> collection = AscNet.Common.Common.db.GetCollection<BsonDocument>("mongo_metrics_probe");
+            PacketFactory.ReqHandlers.Add(requestName, (session, packet) =>
+            {
+                FilterDefinition<BsonDocument> filter = Builders<BsonDocument>.Filter.Eq("_id", session.id);
+                collection.ReplaceOne(filter, new BsonDocument("_id", session.id), new ReplaceOptions { IsUpsert = true });
+                collection.DeleteOne(filter);
+                session.SendResponse(new HeartbeatResponse { UtcServerTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds() }, packet.Id);
+            });
+
+            try
+            {
+                using LoopbackSessionHarness harness = new(
+                    CreateDrawCompatibilityCharacter(88_011),
+                    sessionId: "mongo-metrics-compat-test");
+                harness.WriteClientBytes(LoopbackSessionHarness.SerializeClientRequestFrame(requestName, packetId, null));
+                AssertHeartbeatResponse(harness, packetId, "Mongo command metrics scoped request");
+            }
+            finally
+            {
+                PacketFactory.ReqHandlers.Remove(requestName);
+            }
+        }
+
         private static void ValidateSessionClientLoopFramingCompatibility()
         {
             Dictionary<string, RequestPacketHandlerDelegate> handlersSnapshot = new(PacketFactory.ReqHandlers);
@@ -3431,6 +3477,8 @@ namespace AscNet.Test
                 AssertSplitClientFrameTailPreservesSecondRequest();
                 AssertExactReceiveBufferFillDoesNotDropFollowingRequest();
                 AssertOversizedReceiveBufferFrameDoesNotDropFollowingRequest();
+                AssertClosedClientSessionIsRemoved();
+                AssertConcurrentPushesRemainFramedAndSequenced();
             }
             finally
             {
@@ -3522,6 +3570,105 @@ namespace AscNet.Test
             harness.WriteClientBytes(combinedWrite);
             AssertHeartbeatResponse(harness, oversizedPacketId, "Session.ClientLoop oversized receive-buffer HeartbeatRequest response");
             AssertHeartbeatResponse(harness, followingPacketId, "Session.ClientLoop request following oversized receive-buffer response");
+        }
+
+        private static void AssertClosedClientSessionIsRemoved()
+        {
+            const string sessionId = "session-client-loop-cleanup-compat-test";
+            TcpListener listener = new(IPAddress.Loopback, port: 0);
+            listener.Start();
+            using TcpClient clientSide = new(AddressFamily.InterNetwork);
+            clientSide.Connect((IPEndPoint)listener.LocalEndpoint);
+            using TcpClient sessionSide = listener.AcceptTcpClient();
+            Session session = new(sessionId, sessionSide);
+
+            try
+            {
+                if (!Server.Instance.Sessions.TryAdd(sessionId, session))
+                    throw new InvalidDataException("Session.ClientLoop cleanup test could not register its session.");
+
+                session.Start();
+                clientSide.Close();
+                if (!session.Completion.Wait(TimeSpan.FromSeconds(5)))
+                    throw new InvalidDataException("Session.ClientLoop cleanup test timed out waiting for client closure.");
+                if (Server.Instance.Sessions.ContainsKey(sessionId))
+                    throw new InvalidDataException("Session.ClientLoop cleanup test left a closed session registered.");
+            }
+            finally
+            {
+                Server.Instance.Sessions.TryRemove(sessionId, out _);
+                listener.Stop();
+            }
+        }
+
+        private static void AssertIdleClientSessionTimesOut()
+        {
+            const string sessionId = "session-client-loop-idle-timeout-compat-test";
+            TcpListener listener = new(IPAddress.Loopback, port: 0);
+            listener.Start();
+            using TcpClient clientSide = new(AddressFamily.InterNetwork);
+            clientSide.Connect((IPEndPoint)listener.LocalEndpoint);
+            using TcpClient sessionSide = listener.AcceptTcpClient();
+            Session session = new(sessionId, sessionSide);
+            DateTime started = DateTime.UtcNow;
+
+            try
+            {
+                if (!Server.Instance.Sessions.TryAdd(sessionId, session))
+                    throw new InvalidDataException("Session.ClientLoop timeout test could not register its session.");
+
+                session.Start();
+                if (!session.Completion.Wait(TimeSpan.FromSeconds(12)))
+                    throw new InvalidDataException("Session.ClientLoop did not enforce its idle timeout.");
+                if (DateTime.UtcNow - started < TimeSpan.FromSeconds(9))
+                    throw new InvalidDataException("Session.ClientLoop disconnected before its idle timeout.");
+                if (Server.Instance.Sessions.ContainsKey(sessionId))
+                    throw new InvalidDataException("Session.ClientLoop timeout test left an idle session registered.");
+            }
+            finally
+            {
+                Server.Instance.Sessions.TryRemove(sessionId, out _);
+                listener.Stop();
+            }
+        }
+
+        private static void AssertConcurrentPushesRemainFramedAndSequenced()
+        {
+            const int senderCount = 16;
+            const int pushesPerSender = 16;
+            const int pushCount = senderCount * pushesPerSender;
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(88_010),
+                sessionId: "session-concurrent-push-compat-test");
+            using ManualResetEventSlim start = new();
+
+            Task<Packet[]> reader = Task.Run(() =>
+            {
+                Packet[] packets = new Packet[pushCount];
+                for (int index = 0; index < packets.Length; index++)
+                    packets[index] = harness.ReadPacket($"Session concurrent push {index + 1}");
+                return packets;
+            });
+            Task[] senders = Enumerable.Range(0, senderCount)
+                .Select(sender => Task.Run(() =>
+                {
+                    start.Wait();
+                    for (int index = 0; index < pushesPerSender; index++)
+                        harness.Session.SendPush("ConcurrentPush", MessagePackSerializer.Serialize((sender, index)));
+                }))
+                .ToArray();
+
+            start.Set();
+            Task.WaitAll(senders);
+            Packet[] packets = reader.GetAwaiter().GetResult();
+            for (int index = 0; index < packets.Length; index++)
+            {
+                Packet packet = packets[index];
+                AssertEqual(Packet.ContentType.Push, packet.Type, $"Session concurrent push {index + 1} packet type");
+                AssertEqual(index + 1, packet.No, $"Session concurrent push {index + 1} sequence");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                AssertEqual("ConcurrentPush", push.Name, $"Session concurrent push {index + 1} name");
+            }
         }
 
         private static void AssertHeartbeatResponse(LoopbackSessionHarness harness, int expectedPacketId, string name)
@@ -17236,6 +17383,23 @@ namespace AscNet.Test
                 ]);
             }
 
+            public static MongoCollectionOverride InstallForBossCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Stage> stageCollection)
+            {
+                IMongoCollection<AscNet.Common.Database.Player> recordingPlayerCollection =
+                    CreateRecordingMongoCollection(out playerCollection);
+                IMongoCollection<AscNet.Common.Database.Stage> recordingStageCollection =
+                    CreateRecordingMongoCollection(out stageCollection);
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), recordingPlayerCollection),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Stage)), recordingStageCollection)
+                ]);
+            }
+
             public static MongoCollectionOverride InstallForMainLine2MessageStateCompatibility(
                 out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection)
             {
@@ -25521,7 +25685,9 @@ namespace AscNet.Test
 
         private static void ValidateBossSingleCompatibility()
         {
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForBossCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Stage> stageCollection);
             const long playerId = 99_701;
             const uint characterId = 1_021_001;
             AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
@@ -26215,6 +26381,8 @@ namespace AscNet.Test
             AssertEqual(normalStage.StageId, harness.Session.PendingBossSingleScore?.StageId ?? 0,
                 "Pain Cage provisional score session state");
 
+            int playerSavesBeforeNormalScore = playerCollection.ReplaceOneCalls;
+            int stageSavesBeforeNormalScore = stageCollection.ReplaceOneCalls;
             const int normalSavePacketId = 82_032;
             BossSingleSaveScoreResponse normalSave = SaveScore(
                 normalSavePacketId,
@@ -26222,6 +26390,10 @@ namespace AscNet.Test
                 "Pain Cage normal save",
                 out List<string> savePushes);
             AssertEqual(0, normalSave.Code, "Pain Cage normal save-score code");
+            AssertEqual(playerSavesBeforeNormalScore + 1, playerCollection.ReplaceOneCalls,
+                "Pain Cage normal save persists Player once");
+            AssertEqual(stageSavesBeforeNormalScore + 1, stageCollection.ReplaceOneCalls,
+                "Pain Cage normal save persists Stage once");
             int rankPushIndex = savePushes.IndexOf(nameof(NotifyBossSingleRankInfo));
             int stagePushIndex = savePushes.IndexOf(nameof(NotifyStageData));
             int loginPushIndex = savePushes.IndexOf(nameof(NotifyFubenBossSingleData));
@@ -26329,6 +26501,8 @@ namespace AscNet.Test
             AssertEqual(true, player.SimulatedBattlefield.BossResetStageIds.Contains(normalStage.StageId),
                 "Pain Cage reset marker persistence");
 
+            int playerSavesBeforeAutoFight = playerCollection.ReplaceOneCalls;
+            int stageSavesBeforeAutoFight = stageCollection.ReplaceOneCalls;
             const int autoPacketId = 82_039;
             InvokeRegisteredRequestHandler(
                 nameof(BossSingleAutoFightRequest),
@@ -26341,6 +26515,10 @@ namespace AscNet.Test
                 "Pain Cage auto-fight",
                 out List<string> autoPushes);
             AssertEqual(0, auto.Code, "Pain Cage auto-fight code");
+            AssertEqual(playerSavesBeforeAutoFight + 1, playerCollection.ReplaceOneCalls,
+                "Pain Cage auto-fight persists Player once");
+            AssertEqual(stageSavesBeforeAutoFight + 1, stageCollection.ReplaceOneCalls,
+                "Pain Cage auto-fight persists Stage once");
             AssertEqual(1, player.SimulatedBattlefield.BossAutoFightCount,
                 "Pain Cage auto-fight count");
             AscNet.Common.Database.BossSingleStageRecordState autoRecord =
@@ -27333,6 +27511,7 @@ namespace AscNet.Test
                     player = player ?? CreateDrawCompatibilityPlayer(character.Uid),
                     inventory = inventory ?? CreateDrawCompatibilityInventory(character.Uid, [])
                 };
+                Session.Start();
             }
 
             public static byte[] SerializeClientRequestFrame(string requestName, int packetId, object? request)
@@ -30719,6 +30898,24 @@ namespace AscNet.Test
         private static string ConfigValue(List<RemoteConfig> remoteConfigs, string key)
         {
             return remoteConfigs.Single(config => config.Key == key).Value;
+        }
+
+        private static void ValidateTableReaderConcurrency()
+        {
+            const int callerCount = 16;
+            using Barrier start = new(callerCount);
+            Task<List<CurrentTaskTable>>[] callers = Enumerable.Range(0, callerCount)
+                .Select(_ => Task.Run(() =>
+                {
+                    start.SignalAndWait();
+                    return TableReaderV2.Parse<CurrentTaskTable>();
+                }))
+                .ToArray();
+
+            Task.WaitAll(callers);
+            List<CurrentTaskTable> first = callers[0].Result;
+            if (callers.Any(caller => !ReferenceEquals(first, caller.Result)))
+                throw new InvalidDataException("TableReaderV2 concurrent cold load did not return one cached list.");
         }
 
         private static void UseResourceWorkingDirectory()
