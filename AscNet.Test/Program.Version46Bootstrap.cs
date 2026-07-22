@@ -255,6 +255,10 @@ internal partial class Program
         {
             if (notice.Value<JArray>("Content") is not { Count: > 0 })
                 throw new InvalidDataException("4.6 SecondMenuNotice omitted submenu entries.");
+            JToken officialSite = notice.Value<JArray>("Content")!
+                .Single(entry => entry.Value<string>("Title") == "Official Site");
+            AssertEqual("Logo", officialSite.Value<string>("StyleType"),
+                "4.6 Official Site submenu style");
         });
 
         MethodInfo popupHandler = RequiredMethod(

@@ -1309,7 +1309,6 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyNewPlayerTaskStatus);
             TaskModule.SendTaskSync(session);
             session.SendPush(BuildRegressionLoginData());
-            session.SendPush(new NotifyMaintainerActionData());
             session.SendPush(new NotifyAllRedEnvelope());
             session.SendPush(new NotifyScoreTitleData());
             session.SendPush(BuildBfrtLoginData());

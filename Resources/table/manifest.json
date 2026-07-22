@@ -212,6 +212,17 @@
       ]
     },
     {
+      "columns": 7,
+      "contentSha256": "dea7fdeea3ca0057aff8b286165fb5769ff7bdb417accd0ff8912f1abb069891",
+      "filter": "all",
+      "naturalKey": "ClockId",
+      "path": "share/alarmclock/AlarmClock.tsv",
+      "rows": 19,
+      "source": [
+        "share/alarmclock/AlarmClock.json"
+      ]
+    },
+    {
       "columns": 9,
       "contentSha256": "3646cf5bc8f07e61fb538d1933663a8bb78cc6ca12de3933384c4de0aa103c12",
       "filter": "all",
@@ -838,6 +849,17 @@
       "rows": 246,
       "source": [
         "share/equip/WeaponSkillPool.json"
+      ]
+    },
+    {
+      "columns": 1,
+      "contentSha256": "cbb51fec486295bdae69ba23105501c6fd1fcce68981bae03fbcde96035665fc",
+      "filter": "all+cn-live-4.6.1-allowlist-id:58110,58120",
+      "naturalKey": "Id",
+      "path": "share/equip/equipguide/EquipRecommend.tsv",
+      "rows": 925,
+      "source": [
+        "share/equip/equipguide/EquipRecommend.json"
       ]
     },
     {

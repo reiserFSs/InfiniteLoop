@@ -17,6 +17,8 @@ namespace AscNet.GameServer.Handlers
     public class GuildListRecommendResponse
     {
         public int Code;
+        public List<object> Datas = [];
+        public long JoinCdEnd;
     }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
@@ -25,11 +27,17 @@ namespace AscNet.GameServer.Handlers
     {
         private const uint DefaultGuildId = 365;
 
-        // TODO: Guild listing
+        // Guild recommendation data is unavailable until guild persistence exists.
         [RequestPacketHandler("GuildListRecommendRequest")]
         public static void GuildListRecommendRequestHandler(Session session, Packet.Request packet)
         {
-            session.SendResponse(new GuildListRecommendResponse(), packet.Id);
+            _ = MessagePackSerializer.Deserialize<GuildListRecommendRequest>(packet.Content);
+            session.SendResponse(new GuildListRecommendResponse
+            {
+                Code = 0,
+                Datas = [],
+                JoinCdEnd = 0
+            }, packet.Id);
         }
 
         [RequestPacketHandler("GuildListDetailRequest")]

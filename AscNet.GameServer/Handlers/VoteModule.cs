@@ -1,5 +1,6 @@
 ﻿using AscNet.Common.MsgPack;
-
+using AscNet.Common.Util;
+using AscNet.Table.V2.share.equip.equipguide;
 namespace AscNet.GameServer.Handlers
 {
     internal class VoteModule
@@ -8,18 +9,22 @@ namespace AscNet.GameServer.Handlers
         public static void GetVoteGroupListRequestHandler(Session session, Packet.Request packet)
         {
             GetVoteGroupListResponse response = new();
-            response.VoteGroupList.Add(new()
+            int[] voteIds = TableReaderV2.Parse<EquipRecommendTable>()
+                .Select(row => row.Id)
+                .Where(id => id > 0)
+                .Distinct()
+                .Order()
+                .ToArray();
+
+            if (voteIds.Length > 0)
             {
-                Id = 101,
-                TimeToClose = 0,
-                VoteDic = new Dictionary<dynamic, dynamic>
+                response.VoteGroupList.Add(new()
                 {
-                    { 1010, 350 },
-                    { 1011, 267 },
-                    { 1012, 1235 },
-                    { 1013, 3 }
-                }
-            });
+                    Id = voteIds[0],
+                    TimeToClose = 0,
+                    VoteDic = voteIds.ToDictionary(id => (dynamic)id, _ => (dynamic)0)
+                });
+            }
 
             session.SendResponse(response, packet.Id);
         }

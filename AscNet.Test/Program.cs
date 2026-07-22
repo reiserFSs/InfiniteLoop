@@ -4437,6 +4437,8 @@ namespace AscNet.Test
                 startupPushes,
                 retailCriticalStartupOrderThroughPassport,
                 "AccountModule.DoLogin retail-critical startup order");
+            AssertEqual(false, startupPushes.Contains(nameof(NotifyMaintainerActionData)),
+                "AccountModule.DoLogin omits inactive Maintainer Action data");
             int guildDormPlayerDataIndex = RequiredPushIndex(
                 startupPushes,
                 "NotifyGuildDormPlayerData",
@@ -9783,6 +9785,16 @@ namespace AscNet.Test
                     throw new InvalidDataException($"GetPlayerInfoListResponse unknown PlayerInfo {unknownPlayerInfo.Id} Name: expected non-empty fallback display name.");
             }
 
+            const int guildRecommendPacketId = 11_106;
+            InvokeRegisteredRequestHandler(nameof(GuildListRecommendRequest), harness.Session,
+                guildRecommendPacketId, new GuildListRecommendRequest { PageNo = 1 });
+            GuildListRecommendResponse guildRecommend = ReadResponsePayload<GuildListRecommendResponse>(
+                harness, guildRecommendPacketId, nameof(GuildListRecommendResponse),
+                "GuildListRecommendRequest response");
+            AssertEqual(0, guildRecommend.Code, "GuildListRecommendResponse Code");
+            AssertEqual(0, guildRecommend.Datas.Count, "GuildListRecommendResponse empty no-guild recommendations");
+            AssertEqual(0L, guildRecommend.JoinCdEnd, "GuildListRecommendResponse no-guild join cooldown");
+
             const int votePacketId = 11_006;
             InvokeRegisteredRequestHandler(nameof(GetVoteGroupListRequest), harness.Session, votePacketId, new GetVoteGroupListRequest());
             GetVoteGroupListResponse voteGroupListResponse = ReadResponsePayload<GetVoteGroupListResponse>(
@@ -9790,9 +9802,22 @@ namespace AscNet.Test
                 votePacketId,
                 nameof(GetVoteGroupListResponse),
                 "GetVoteGroupListRequest response");
-            AssertEqual(true, voteGroupListResponse.VoteGroupList.Count > 0, "GetVoteGroupListResponse VoteGroupList non-empty");
-            GetVoteGroupListResponse.GetVoteGroupListResponseVoteGroup voteGroup = voteGroupListResponse.VoteGroupList[0];
-            AssertEqual(true, voteGroup.VoteDic is not null && voteGroup.VoteDic.Count > 0, "GetVoteGroupListResponse VoteGroupList[0] VoteDic non-empty");
+            GetVoteGroupListResponse.GetVoteGroupListResponseVoteGroup voteGroup =
+                voteGroupListResponse.VoteGroupList.Single();
+            long[] configuredVoteIds = TableReaderV2
+                .Parse<AscNet.Table.V2.share.equip.equipguide.EquipRecommendTable>()
+                .Select(row => (long)row.Id)
+                .Where(id => id > 0)
+                .Distinct()
+                .Order()
+                .ToArray();
+            AssertIntegerList(configuredVoteIds,
+                voteGroup.VoteDic.Keys.Select(Convert.ToInt64).Order().ToArray(),
+                "GetVoteGroupListResponse table-derived vote ids");
+            AssertEqual(true, configuredVoteIds.Contains(58010) && configuredVoteIds.Contains(58110),
+                "GetVoteGroupListResponse covers independently observed Equipment Guide ids");
+            AssertEqual(true, voteGroup.VoteDic.Values.All(value => Convert.ToInt64(value) == 0),
+                "GetVoteGroupListResponse neutral vote counts");
 
             const int guildDetailPacketId = 11_007;
             InvokeRegisteredRequestHandler(
