@@ -36,6 +36,18 @@
       ]
     },
     {
+      "columns": 8,
+      "contentSha256": "9d06d98f57260cccb02e1231eb03d15a058fe30db586376879d1cf7d779cbda7",
+      "filter": "display-window+LoginNotice-version-year-anchor",
+      "naturalKey": "Id",
+      "path": "client/draw/DrawPredict.tsv",
+      "rows": 8,
+      "source": [
+        "client/draw/DrawPredict.json",
+        "Resources/Configs/Notices/4.6.0/LoginNotice.json"
+      ]
+    },
+    {
       "columns": 87,
       "contentSha256": "0b6153b6001837fcd3f4c78a1aec6316bf977bb56615847aa45d63579a037067",
       "filter": "all",

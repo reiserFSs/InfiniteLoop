@@ -6164,10 +6164,87 @@ namespace AscNet.Test
             };
         }
 
+        private static void AssertDataDrivenRotationCatalog()
+        {
+            List<DrawPredictTable> predictions = TableReaderV2.Parse<DrawPredictTable>();
+            Type drawManagerType = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+            DrawInfo[] templates = drawManagerType
+                .GetField("DrawTemplates", BindingFlags.Static | BindingFlags.NonPublic)?
+                .GetValue(null) as DrawInfo[]
+                ?? throw new MissingFieldException(drawManagerType.FullName, "DrawTemplates");
+            Dictionary<int, DrawPreviewTable> previews = TableReaderV2.Parse<DrawPreviewTable>()
+                .ToDictionary(x => x.Id);
+            DrawPredictTable[] orderedPredictions = predictions.OrderBy(x => x.StartTime).ToArray();
+            AssertIntegerList(
+                [52, 53, 54, 55, 50, 51, 56, 57],
+                orderedPredictions.Select(x => (long)x.TimeId).ToArray(),
+                "DrawPredict chronological TimeId order");
+            for (int i = 1; i < orderedPredictions.Length; i++)
+            {
+                if (orderedPredictions[i - 1].EndTime > orderedPredictions[i].StartTime)
+                    throw new InvalidDataException(
+                        $"DrawPredict windows {orderedPredictions[i - 1].Id} and {orderedPredictions[i].Id} overlap.");
+            }
+
+            void AssertRotation(
+                int predictionId,
+                long startTime,
+                long endTime,
+                int[] targets,
+                int[] normalDrawIds,
+                int[] fateDrawIds)
+            {
+                DrawPredictTable prediction = predictions.Single(x => x.Id == predictionId);
+                AssertEqual(startTime, prediction.StartTime, $"DrawPredict {predictionId} derived StartTime");
+                AssertEqual(endTime, prediction.EndTime, $"DrawPredict {predictionId} derived EndTime");
+                AssertIntegerList(
+                    targets.Select(Convert.ToInt64).ToArray(),
+                    prediction.CharacterId.Select(Convert.ToInt64).ToArray(),
+                    $"DrawPredict {predictionId} target order");
+
+                foreach ((int groupId, int[] drawIds) in new[] { (12, normalDrawIds), (13, fateDrawIds) })
+                {
+                    AssertIntegerList(
+                        targets.Select(Convert.ToInt64).ToArray(),
+                        drawIds.Select(id => (long)previews[id].UpGoodsId.Single()).ToArray(),
+                        $"DrawPredict {predictionId} group {groupId} preview join");
+                    foreach (int drawId in drawIds)
+                    {
+                        DrawInfo draw = templates.Single(x => x.Id == drawId);
+                        AssertEqual(groupId, draw.GroupId, $"DrawPredict {predictionId} draw {drawId} group");
+                        AssertEqual(startTime, draw.StartTime, $"DrawPredict {predictionId} draw {drawId} StartTime");
+                        AssertEqual(endTime, draw.EndTime, $"DrawPredict {predictionId} draw {drawId} EndTime");
+                        AssertEqual(
+                            previews[drawId].UpGoodsId.Single(),
+                            draw.ResourceIds.GetValueOrDefault(1),
+                            $"DrawPredict {predictionId} draw {drawId} target");
+                    }
+                }
+            }
+
+
+            AssertRotation(
+                3,
+                1784790000,
+                1785999600,
+                [1531005, 1321003, 1331003],
+                [1500, 1501, 1502],
+                [2494, 2495, 2496]);
+            AssertRotation(
+                6,
+                1785999600,
+                1787209200,
+                [1061004, 1051005, 1211003],
+                [1503, 1504, 1505],
+                [2497, 2498, 2499]);
+        }
+
+
         private static void ValidateDrawCompatibility()
         {
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
             AssertConstructShardTableCompatibility();
+            AssertDataDrivenRotationCatalog();
 
             const long playerId = 880001;
             const int unavailableCode = 1;
@@ -6213,6 +6290,39 @@ namespace AscNet.Test
                 throw new InvalidDataException($"DrawGetDrawGroupListResponse: expected at least two table-derived groups, got {groups.DrawGroupInfoList.Count}.");
             DrawAdjustActivityInfo adjustment = groups.DrawAdjustActivityInfoList.Single();
             AssertEqual(1, adjustment.DrawGroupId, "DrawGetDrawGroupListResponse captured adjustment group");
+            long drawNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            DrawPredictTable? activeRotation = TableReaderV2.Parse<DrawPredictTable>()
+                .SingleOrDefault(x => x.StartTime <= drawNow && drawNow < x.EndTime);
+            foreach (DrawGroupInfo advertisedGroup in groups.DrawGroupInfoList)
+            {
+                InvokeRegisteredRequestHandler(
+                    nameof(DrawGetDrawInfoListRequest),
+                    harness.Session,
+                    packetId,
+                    new DrawGetDrawInfoListRequest { GroupId = advertisedGroup.Id });
+                DrawGetDrawInfoListResponse advertisedDraws = ReadResponsePayload<DrawGetDrawInfoListResponse>(
+                    harness,
+                    packetId++,
+                    nameof(DrawGetDrawInfoListResponse),
+                    "advertised draw group response");
+                AssertEqual(0, advertisedDraws.Code, "advertised draw group response Code");
+                if (advertisedDraws.DrawInfoList.Count == 0 || advertisedDraws.DrawInfoList.Any(draw => draw.GroupId != advertisedGroup.Id))
+                    throw new InvalidDataException($"Draw group {advertisedGroup.Id} was advertised without a matching active draw.");
+                if (advertisedGroup.Id is 12 or 13 && activeRotation is not null)
+                {
+                    AssertEqual(activeRotation.StartTime, advertisedGroup.BannerBeginTime, $"Draw group {advertisedGroup.Id} banner begin");
+                    AssertEqual(activeRotation.EndTime, advertisedGroup.BannerEndTime, $"Draw group {advertisedGroup.Id} banner end");
+                    AssertIntegerList(
+                        activeRotation.CharacterId.Select(Convert.ToInt64).Order().ToArray(),
+                        advertisedDraws.DrawInfoList.Select(draw => (long)draw.ResourceIds.GetValueOrDefault(1)).Order().ToArray(),
+                        $"Draw group {advertisedGroup.Id} active targets");
+                    AssertIntegerList(
+                        advertisedDraws.DrawInfoList.Select(draw => (long)draw.Id).Order().ToArray(),
+                        advertisedGroup.OptionalDrawIdList.Select(Convert.ToInt64).Order().ToArray(),
+                        $"Draw group {advertisedGroup.Id} active optional draws");
+                }
+            }
+
 
             InvokeRegisteredRequestHandler(
                 nameof(DrawGetDrawInfoListRequest),

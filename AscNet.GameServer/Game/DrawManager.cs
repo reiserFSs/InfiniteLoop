@@ -16,6 +16,8 @@ internal static class DrawManager
     private const int MinDrawItemShowQuality = 3;
     private static readonly List<DrawSceneTable> DrawScenes = TableReaderV2.Parse<DrawSceneTable>();
     private static readonly List<DrawPreviewTable> DrawPreviews = TableReaderV2.Parse<DrawPreviewTable>();
+    private static readonly List<DrawPredictTable> DrawPredictions = TableReaderV2.Parse<DrawPredictTable>();
+    private static readonly Dictionary<int, DrawSceneTable> DrawScenesById = DrawScenes.ToDictionary(x => x.Id);
     private static readonly List<CharacterTable> Characters = TableReaderV2.Parse<CharacterTable>();
     private static readonly List<CharacterQualityTable> CharacterQualities = TableReaderV2.Parse<CharacterQualityTable>();
     private static readonly List<EquipTable> Equips = TableReaderV2.Parse<EquipTable>();
@@ -316,7 +318,7 @@ internal static class DrawManager
         }
     ];
 
-    private static readonly DrawInfo[] DrawTemplates =
+    private static readonly DrawInfo[] DrawTemplates = BuildDrawTemplates(
     [
         new DrawInfo
         {
@@ -4813,7 +4815,106 @@ internal static class DrawManager
             UpGoodsId = 0,
             GroupSubType = 0,
         }
-    ];
+    ]);
+    
+    private readonly record struct DrawRotationWindow(int TimeId, long StartTime, long EndTime, int[] CharacterIds);
+
+    private static DrawInfo[] BuildDrawTemplates(DrawInfo[] templates)
+    {
+        List<DrawInfo> result = [.. templates];
+        DrawInfo normalTemplate = result.Single(x => x.GroupId == 35);
+        DrawInfo fateTemplate = result.Single(x => x.GroupId == 36);
+
+        foreach (DrawRotationWindow window in ResolveRotationWindows())
+        {
+            if (!TryResolveRotationDraws(window, out DrawPreviewTable[] normal, out DrawPreviewTable[] fate))
+                continue;
+
+            foreach (DrawPreviewTable preview in normal)
+                AddRotationDraw(result, normalTemplate, preview, 12, window);
+            foreach (DrawPreviewTable preview in fate)
+                AddRotationDraw(result, fateTemplate, preview, 13, window);
+        }
+
+        return result.ToArray();
+    }
+
+    private static void AddRotationDraw(
+        List<DrawInfo> draws,
+        DrawInfo source,
+        DrawPreviewTable preview,
+        int groupId,
+        DrawRotationWindow window)
+    {
+        DrawInfo? draw = draws.SingleOrDefault(x => x.Id == preview.Id);
+        if (draw is null)
+        {
+            draw = Clone(source);
+            draw.Id = preview.Id;
+            draw.GroupId = groupId;
+            draw.IsShowShop = false;
+            draw.IsShowBubble = false;
+            draw.ResourceIds = new() { [1] = preview.UpGoodsId.Single() };
+            draws.Add(draw);
+        }
+
+        draw.StartTime = window.StartTime;
+        draw.EndTime = window.EndTime;
+    }
+
+    private static List<DrawRotationWindow> ResolveRotationWindows()
+    {
+        List<DrawRotationWindow> result = [];
+        foreach (DrawPredictTable prediction in DrawPredictions)
+        {
+            if (prediction.TimeId <= 0
+                || prediction.StartTime <= 0
+                || prediction.EndTime <= prediction.StartTime
+                || prediction.CharacterId.Count == 0
+                || prediction.CharacterId.Distinct().Count() != prediction.CharacterId.Count)
+            {
+                continue;
+            }
+
+            result.Add(new(
+                prediction.TimeId,
+                prediction.StartTime,
+                prediction.EndTime,
+                prediction.CharacterId.ToArray()));
+        }
+
+        return result;
+    }
+
+
+    private static bool TryResolveRotationDraws(
+        DrawRotationWindow window,
+        out DrawPreviewTable[] normal,
+        out DrawPreviewTable[] fate)
+    {
+        HashSet<int> targets = window.CharacterIds.ToHashSet();
+        var candidates = DrawPreviews
+            .Where(preview => preview.UpGoodsId.Count == 1
+                && preview.GoodsId.Count >= targets.Count - 1
+                && targets.SetEquals(preview.UpGoodsId.Concat(preview.GoodsId.Take(targets.Count - 1)))
+                && DrawScenesById.TryGetValue(preview.Id, out DrawSceneTable? scene)
+                && scene.ModelId == preview.UpGoodsId[0])
+            .ToArray();
+
+        normal = candidates
+            .Where(preview => DrawScenesById[preview.Id].UiModelPath.EndsWith("UiNewDrawMainRoleDescending.prefab", StringComparison.Ordinal))
+            .OrderBy(preview => Array.IndexOf(window.CharacterIds, preview.UpGoodsId[0]))
+            .ToArray();
+        fate = candidates
+            .Where(preview => DrawScenesById[preview.Id].UiModelPath.EndsWith("UiNewDrawMainRolePredestined.prefab", StringComparison.Ordinal))
+            .OrderBy(preview => Array.IndexOf(window.CharacterIds, preview.UpGoodsId[0]))
+            .ToArray();
+
+        return normal.Length == targets.Count
+            && fate.Length == targets.Count
+            && normal.Select(x => x.UpGoodsId[0]).ToHashSet().SetEquals(targets)
+            && fate.Select(x => x.UpGoodsId[0]).ToHashSet().SetEquals(targets);
+    }
 
     private static readonly DrawAdjustActivityInfo[] DrawAdjustTemplates =
     [
@@ -4856,13 +4957,21 @@ internal static class DrawManager
     private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     private static bool IsActive(DrawGroupInfo group) => (group.StartTime == 0 || group.StartTime <= Now()) && (group.EndTime == 0 || Now() < group.EndTime);
     private static bool IsActive(DrawInfo draw) => GroupsById.TryGetValue(draw.GroupId, out DrawGroupInfo? group) && IsActive(group) && (draw.StartTime == 0 || draw.StartTime <= Now()) && (draw.EndTime == 0 || Now() < draw.EndTime);
+    private static bool HasActiveDraws(DrawGroupInfo group) => DrawsByGroup.TryGetValue(group.Id, out List<DrawInfo>? draws) && draws.Any(IsActive);
 
     public static List<DrawGroupInfo> GetDrawGroupInfos(Player player)
     {
         EnsureState(player);
-        return GroupTemplates.Where(IsActive).Where(group => DrawsByGroup.ContainsKey(group.Id)).Select(group =>
+        return GroupTemplates.Where(IsActive).Where(HasActiveDraws).Select(group =>
         {
             DrawGroupInfo value = Clone(group);
+            List<DrawInfo> activeDraws = DrawsByGroup[group.Id].Where(IsActive).ToList();
+            if (group.Id is 12 or 13)
+            {
+                value.BannerBeginTime = activeDraws.Min(x => x.StartTime);
+                value.BannerEndTime = activeDraws.Max(x => x.EndTime);
+                value.OptionalDrawIdList = activeDraws.Select(x => x.Id).ToList();
+            }
             value.UseDrawIdDict = GetSelections(player, group);
             value.SwitchDrawIdCount = player.DrawState.SwitchCountByGroup.GetValueOrDefault(group.Id);
             DrawInfo selected = GetSelected(player, group);
@@ -4872,7 +4981,7 @@ internal static class DrawManager
         }).ToList();
     }
 
-    public static List<(int DrawGroupId, int Priority)> GetDrawHistoryGroups() => GroupTemplates.Where(IsActive).Where(x => DrawsByGroup.ContainsKey(x.Id)).Select(x => (x.Id, x.Priority)).ToList();
+    public static List<(int DrawGroupId, int Priority)> GetDrawHistoryGroups() => GroupTemplates.Where(IsActive).Where(HasActiveDraws).Select(x => (x.Id, x.Priority)).ToList();
 
     public static (int BottomTimes, int MaxBottomTimes) GetDrawHistoryStatus(Player player, int groupId, int groupSubType)
     {
@@ -4993,18 +5102,25 @@ internal static class DrawManager
     private static Dictionary<int, int> GetSelections(Player player, DrawGroupInfo group)
     {
         EnsureState(player);
-        Dictionary<int, int> defaults = new(group.UseDrawIdDict);
+        Dictionary<int, int> defaults = group.UseDrawIdDict
+            .Where(x => DrawsById.TryGetValue(x.Value, out DrawInfo? draw) && IsActive(draw))
+            .ToDictionary();
         if (player.DrawState.SelectedDrawByGroup.TryGetValue(group.Id, out PlayerDrawSelectionState? selections))
-            foreach ((int slot, int drawId) in selections.Slots.Where(x => DrawsById.ContainsKey(x.Value))) defaults[slot] = drawId;
-        if (defaults.Count == 0 && group.OptionalDrawIdList.Count > 0) defaults[0] = group.OptionalDrawIdList[0];
+        {
+            foreach ((int slot, int drawId) in selections.Slots)
+                if (DrawsById.TryGetValue(drawId, out DrawInfo? draw) && IsActive(draw))
+                    defaults[slot] = drawId;
+        }
+        if (defaults.Count == 0)
+            defaults[0] = DrawsByGroup[group.Id].First(IsActive).Id;
         return defaults;
     }
 
     private static DrawInfo GetSelected(Player player, DrawGroupInfo group)
     {
         foreach (int id in GetSelections(player, group).OrderByDescending(x => x.Key).Select(x => x.Value))
-            if (DrawsById.TryGetValue(id, out DrawInfo? draw) && draw.GroupId == group.Id) return draw;
-        return DrawsByGroup[group.Id].First();
+            if (DrawsById.TryGetValue(id, out DrawInfo? draw) && draw.GroupId == group.Id && IsActive(draw)) return draw;
+        return DrawsByGroup[group.Id].First(IsActive);
     }
 
     private static int GetSelectionSlot(DrawInfo draw)
