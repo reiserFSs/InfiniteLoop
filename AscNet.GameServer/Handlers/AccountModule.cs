@@ -569,6 +569,11 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
             }
+            foreach (SignInTable signIn in TableReaderV2.Parse<SignInTable>()
+                .Where(signIn => signIn.Type == 1 && signIn.TimeId is > 0))
+            {
+                AddDerived(signIn.TimeId, 0, 0);
+            }
 
             if (wheelchairActivityActive)
             {

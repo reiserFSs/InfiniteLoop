@@ -30,6 +30,7 @@ using AscNet.Table.V2.share.config;
 using AscNet.Table.V2.share.team;
 using AscNet.Table.V2.share.attrib;
 using AscNet.Table.V2.share.item;
+using AscNet.Table.V2.share.signin;
 using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.player;
 using AscNet.Table.V2.share.robot;
@@ -3910,6 +3911,25 @@ namespace AscNet.Test
             AssertEqual(1L, initialSignIn.Day, "NotifyLogin first daily reward Day");
             AssertEqual(false, initialSignIn.Got, "NotifyLogin first daily reward Got");
             AssertEqual(0L, initialSignIn.FinishDay, "NotifyLogin first daily reward neutral FinishDay");
+            SignInTable dailySignIn = TableReaderV2.Parse<SignInTable>().Single(row => row.Type == 1);
+            long dailySignInId = Convert.ToInt64(dailySignIn.Id);
+            long dailySignInTimeId = Convert.ToInt64(dailySignIn.TimeId);
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            MethodInfo buildTimeLimitControls = RequiredMethod(
+                accountModule,
+                "BuildTimeLimitControlConfigList",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(DateTimeOffset), typeof(bool)]);
+            foreach (DateTimeOffset now in new[] { DateTimeOffset.UnixEpoch, DateTimeOffset.UtcNow })
+            {
+                List<TimeLimitCtrlConfigList> timeLimitControls =
+                    (List<TimeLimitCtrlConfigList>)(buildTimeLimitControls.Invoke(null, [now, false])
+                        ?? throw new InvalidDataException("BuildTimeLimitControlConfigList returned no controls."));
+                TimeLimitCtrlConfigList dailySignInControl =
+                    timeLimitControls.Single(control => control.Id == dailySignInTimeId);
+                AssertEqual(0L, dailySignInControl.StartTime, "daily SignIn TimeLimitCtrlConfigList StartTime");
+                AssertEqual(0L, dailySignInControl.EndTime, "daily SignIn TimeLimitCtrlConfigList EndTime");
+            }
 
             using LoopbackSessionHarness harness = new(
                 CreateDrawCompatibilityCharacter(playerId),
@@ -3985,7 +4005,6 @@ namespace AscNet.Test
             AssertEqual(1L, signedTodaySignIn.Day, "NotifyLogin claimed daily reward Day");
             AssertEqual(true, signedTodaySignIn.Got, "NotifyLogin claimed daily reward Got");
             AssertEqual(0L, signedTodaySignIn.FinishDay, "NotifyLogin claimed daily reward stable FinishDay");
-
             reloadedPlayer.LastSignInTime = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
             SignInfo nextDaySignIn = BuildCurrentSignInInfo(reloadedPlayer);
             AssertEqual(1L, nextDaySignIn.Round, "NotifyLogin next daily reward Round");
