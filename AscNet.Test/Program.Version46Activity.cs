@@ -68,17 +68,17 @@ internal static partial class Program
             ?? throw new InvalidDataException("Transfinite did not authorize at its first schedule boundary.");
         AssertEqual(transfiniteRotations[0].Activity.Id, firstTransfinite.ActivityId, "Transfinite selects the first open activity");
         AssertEqual(
-            transfiniteRotations[0].Schedule.StartTime - transfiniteRotations[0].Schedule.StartTime % transfiniteRotations[0].Activity.CycleSeconds,
+            transfiniteRotations[0].Schedule.StartTime,
             firstTransfinite.BeginTime,
-            "Transfinite derives the first rotation from its own CycleSeconds");
+            "Transfinite anchors the first rotation to its schedule");
         PrepareTransfinite(transfiniteRotations[1].Schedule.StartTime);
         TransfiniteState secondTransfinite = scheduledTransfinitePlayer.Transfinite
             ?? throw new InvalidDataException("Transfinite did not switch at its second schedule boundary.");
         AssertEqual(transfiniteRotations[1].Activity.Id, secondTransfinite.ActivityId, "Transfinite selects the highest open activity");
         AssertEqual(
-            transfiniteRotations[1].Schedule.StartTime - transfiniteRotations[1].Schedule.StartTime % transfiniteRotations[1].Activity.CycleSeconds,
+            transfiniteRotations[1].Schedule.StartTime,
             secondTransfinite.BeginTime,
-            "Transfinite derives the second rotation from its own CycleSeconds");
+            "Transfinite anchors the second rotation to its schedule");
         PrepareTransfinite(transfiniteRotations[1].Schedule.EndTime);
         AssertEqual(0L, scheduledTransfinitePlayer.Transfinite!.ActivityAuthorizedUntil, "Transfinite clears authorization after its 4.6 windows");
 
@@ -695,10 +695,11 @@ internal static partial class Program
             TransfiniteState prepared = loginPlayer.Transfinite
                 ?? throw new InvalidDataException($"Transfinite level-{level} login omitted state.");
             AssertEqual(expectedRegion, prepared.RegionId, $"Transfinite level-{level} region");
-            AssertEqual(
-                transfiniteLoginNow - transfiniteLoginNow % TableReaderV2.Parse<TransfiniteActivityTable>()
-                    .Single(activity => activity.Id == prepared.ActivityId).CycleSeconds,
-                prepared.BeginTime,
+            TransfiniteActivityTable preparedActivity = TableReaderV2.Parse<TransfiniteActivityTable>()
+                .Single(activity => activity.Id == prepared.ActivityId);
+            if (!ActivityScheduleService.TryGet(preparedActivity.TimeId, out ActivityScheduleEntry preparedSchedule))
+                throw new InvalidDataException($"Transfinite level-{level} schedule missing.");
+            AssertEqual(preparedSchedule.StartTime, prepared.BeginTime,
                 $"Transfinite level-{level} cycle begin");
             NotifyTransfiniteData loginWire = (NotifyTransfiniteData)Call(
                 "TransfiniteModule", "BuildNotify", [typeof(Player)], loginPlayer);
@@ -873,7 +874,7 @@ internal static partial class Program
                 "Transfinite settlement replay returns persisted receipt");
         }
 
-        const int transfiniteConfigNotFound = 20008002;
+        const int transfiniteConfigNotFound = 20201006;
         long failurePlayerId = 46_111;
         Player inventoryFailurePlayer = CreateDrawCompatibilityPlayer(failurePlayerId);
         inventoryFailurePlayer.Transfinite =
@@ -998,7 +999,7 @@ internal static partial class Program
                 player,
                 CreateDrawCompatibilityInventory(playerId, []),
                 $"transfinite-fight-gate-{index}");
-            int expectedCode = index == 0 ? 20008001 : 20008002;
+            int expectedCode = index == 0 ? 20201001 : 20201006;
             int preFightPacketId = 46_520 + index;
             InvokeRegisteredRequestHandler(
                 nameof(PreFightRequest),
@@ -1084,37 +1085,6 @@ internal static partial class Program
         })
             _ = GetRegisteredRequestHandlerMethod(request);
 
-        List<TransfiniteStageGroupTable> groups = TableReaderV2.Parse<TransfiniteStageGroupTable>()
-            .Where(group => group.StageId.Count > 0)
-            .GroupBy(group => string.Join(',', group.StageId))
-            .Select(group => group.First())
-            .Take(2)
-            .ToList();
-        AssertEqual(2, groups.Count, "Transfinite has two independently table-derived stage groups");
-        AssertEqual(false, groups[0].StageGroupId == groups[1].StageGroupId,
-            "Transfinite table-derived stage groups are distinct");
-        AssertEqual(false, groups[0].StageId.SequenceEqual(groups[1].StageId),
-            "Transfinite table-derived teams target distinct stage sequences");
-        // Current source supplies no ResetStageGroup transition: it must remain explicitly fail-closed.
-        long playerId = 46_180;
-        Player player = CreateDrawCompatibilityPlayer(playerId);
-        using LoopbackSessionHarness harness = new(
-            CreateDrawCompatibilityCharacter(playerId), player, CreateDrawCompatibilityInventory(playerId, []),
-            "transfinite-reset-boundary");
-        string before = Convert.ToHexString(player.ToBson());
-        Type resetRequestType = Payload("TransfiniteResetStageGroupRequest");
-        object reset = Activator.CreateInstance(resetRequestType)
-            ?? throw new InvalidDataException("TransfiniteResetStageGroupRequest cannot construct.");
-        resetRequestType.GetProperty("StageGroupId")!.SetValue(reset, groups[0].StageGroupId);
-        InvokeRegisteredRequestHandler("TransfiniteResetStageGroupRequest", harness.Session, 46_180, reset);
-        Packet responsePacket = harness.ReadPacket("Transfinite reset response");
-        Packet.Response envelope = MessagePackSerializer.Deserialize<Packet.Response>(responsePacket.Content);
-        AssertEqual(before, Convert.ToHexString(player.ToBson()), "Transfinite ResetStageGroup is mutation-free");
-        AssertEqual("TransfiniteResetStageGroupResponse", envelope.Name, "Transfinite reset response name");
-        object response = MessagePackSerializer.Deserialize(Payload(envelope.Name), envelope.Content)
-            ?? throw new InvalidDataException("Transfinite reset response nil.");
-        AssertEqual(20008002, Convert.ToInt32(Payload(envelope.Name).GetProperty("Code")!.GetValue(response)),
-            "Transfinite ResetStageGroup missing-source boundary");
         // Capture flow begins at progress 0 with the first stage one-based for display.
         TransfiniteActivityTable activity = TableReaderV2.Parse<TransfiniteActivityTable>()
             .First(row => ActivityScheduleService.TryGet(row.TimeId, out ActivityScheduleEntry schedule)
@@ -1137,6 +1107,26 @@ internal static partial class Program
         int sameCircleSaves = flowPlayerCollection.ReplaceOneCalls;
         prepare.Invoke(null, [flowPlayer, activeSchedule.StartTime]);
         AssertEqual(sameCircleSaves, flowPlayerCollection.ReplaceOneCalls, "Transfinite same-circle PrepareLogin does not save");
+        TransfiniteRegionTable flowLoginRegion = TableReaderV2.Parse<TransfiniteRegionTable>()
+            .Single(region => region.RegionId == flowState.RegionId);
+        HashSet<int> allowedGroups = [flowState.StageGroupId];
+        allowedGroups.UnionWith(TableReaderV2.Parse<TransfiniteRotateGroupTable>()
+            .Single(rotate => rotate.RotateGroupId == flowLoginRegion.RotateGroupId)
+            .StageGroupId);
+        allowedGroups.UnionWith(TableReaderV2.Parse<TransfiniteIslandTable>()
+            .Where(island => island.Id == flowLoginRegion.IslandId)
+            .SelectMany(island => island.StageGroupId));
+        int staleBattleGroup = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+            .Select(group => group.StageGroupId)
+            .FirstOrDefault(groupId => !allowedGroups.Contains(groupId));
+        if (staleBattleGroup == 0)
+            throw new InvalidDataException("Transfinite current region needs a table-derived stale battle group.");
+        flowState.BattleInfo = new TransfiniteBattleState { StageGroupId = staleBattleGroup };
+        int staleBattleCleanupSaves = flowPlayerCollection.ReplaceOneCalls;
+        prepare.Invoke(null, [flowPlayer, activeSchedule.StartTime]);
+        AssertEqual(null, flowState.BattleInfo, "Transfinite same-circle stale battle group cleanup");
+        AssertEqual(staleBattleCleanupSaves + 1, flowPlayerCollection.ReplaceOneCalls,
+            "Transfinite same-circle stale battle group cleanup persists");
         long sentinelPlayerId = 46_183;
         Player sentinelPlayer = CreateDrawCompatibilityPlayer(sentinelPlayerId);
         sentinelPlayer.Transfinite = new TransfiniteState
@@ -1165,6 +1155,29 @@ internal static partial class Program
             AssertEqual(null, sentinelPlayer.Transfinite.RotateSettleInfo, "Transfinite group-0 rotation receipt consumes sentinel");
         }
         int flowGroup = flowState.StageGroupId;
+        long noSettlementPlayerId = 46_184;
+        Player noSettlementPlayer = CreateDrawCompatibilityPlayer(noSettlementPlayerId);
+        noSettlementPlayer.Transfinite = new TransfiniteState
+        {
+            ActivityId = activity.Id,
+            ActivityAuthorizedUntil = long.MaxValue,
+            RegionId = flowState.RegionId,
+            StageGroupId = flowGroup,
+            ScoreRewardGroupId = flowState.ScoreRewardGroupId
+        };
+        using (LoopbackSessionHarness noSettlementHarness = new(
+            CreateDrawCompatibilityCharacter(noSettlementPlayerId),
+            noSettlementPlayer,
+            CreateDrawCompatibilityInventory(noSettlementPlayerId, []),
+            "transfinite-no-rotation-settlement"))
+        {
+            InvokeRegisteredRequestHandler(nameof(TransfiniteGetRotateSettleInfoRequest), noSettlementHarness.Session, 46_180,
+                new TransfiniteGetRotateSettleInfoRequest());
+            AssertEqual(20201023, ReadResponsePayload<TransfiniteGetRotateSettleInfoResponse>(
+                noSettlementHarness, 46_180, nameof(TransfiniteGetRotateSettleInfoResponse),
+                "Transfinite no rotation settlement").Code,
+                "Transfinite no rotation settlement code");
+        }
         using LoopbackSessionHarness flowHarness = new(flowCharacter, flowPlayer,
             CreateDrawCompatibilityInventory(flowPlayerId, []), "transfinite-captured-team-flow");
         flowState.ActivityAuthorizedUntil = long.MaxValue;
@@ -1179,7 +1192,7 @@ internal static partial class Program
                 new TransfiniteSetTeamRequest { StageGroupId = flowGroup, TeamInfo = team, ResetStageIndex = true });
             TransfiniteSetTeamResponse rejected = ReadResponsePayload<TransfiniteSetTeamResponse>(flowHarness, 46_181,
                 nameof(TransfiniteSetTeamResponse), name);
-            AssertEqual(20008002, rejected.Code, name);
+            AssertEqual(20201006, rejected.Code, name);
         }
         TransfiniteTeamInfo invalidSkill = Team(1, 0, 0);
         invalidSkill.SelectedGeneralSkill = int.MaxValue;
@@ -1189,6 +1202,63 @@ internal static partial class Program
         TransfiniteTeamInfo invalidPosition = Team(1, 0, 0);
         invalidPosition.CaptainPos = 2;
         AssertRejectedTeam(invalidPosition, "Transfinite captain selects nonzero slot");
+
+        int alternateAllowedGroup = allowedGroups.First(groupId => groupId != flowGroup);
+        InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_186,
+            new TransfiniteSetTeamRequest
+            {
+                StageGroupId = alternateAllowedGroup,
+                TeamInfo = Team(1, 2, 0),
+                ResetStageIndex = true
+            });
+        AssertEqual(0, ReadResponsePayload<TransfiniteSetTeamResponse>(
+            flowHarness, 46_186, nameof(TransfiniteSetTeamResponse), "Transfinite alternate rotation SetTeam").Code,
+            "Transfinite alternate rotation SetTeam code");
+        int alternateStageId = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+            .Single(group => group.StageGroupId == alternateAllowedGroup).StageId[0];
+        InvokeRegisteredRequestHandler(nameof(PreFightRequest), flowHarness.Session, 46_189,
+            new PreFightRequest { PreFightData = new() { StageId = (uint)alternateStageId, CardIds = [], RobotIds = [] } });
+        AssertEqual(0, ReadResponsePayload<PreFightResponse>(
+            flowHarness, 46_189, nameof(PreFightResponse), "Transfinite alternate rotation PreFight").Code,
+            "Transfinite alternate rotation PreFight code");
+        flowHarness.Session.fight = null;
+        flowState.BattleInfo = new TransfiniteBattleState
+        {
+            StageGroupId = alternateAllowedGroup,
+            StartStageProgress = 1,
+            TeamInfo = new TransfiniteTeamState
+            {
+                CharacterIdList = [1, 2, 0],
+                CaptainPos = 1,
+                FirstFightPos = 1
+            },
+            Result = new TransfiniteBattleResultState()
+        };
+        InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_187,
+            new TransfiniteSetTeamRequest
+            {
+                StageGroupId = flowGroup,
+                TeamInfo = Team(1, 2, 0),
+                ResetStageIndex = false
+            });
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteSetTeamResponse>(
+            flowHarness, 46_187, nameof(TransfiniteSetTeamResponse), "Transfinite guarded group switch").Code,
+            "Transfinite group switch requires reset");
+        AssertEqual(alternateAllowedGroup, flowState.BattleInfo.StageGroupId,
+            "Transfinite guarded group switch preserves active group");
+
+        InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_188,
+            new TransfiniteSetTeamRequest
+            {
+                StageGroupId = flowGroup,
+                TeamInfo = Team(1, 2, 0),
+                ResetStageIndex = true
+            });
+        TransfiniteSetTeamResponse switchedTeam = ReadResponsePayload<TransfiniteSetTeamResponse>(
+            flowHarness, 46_188, nameof(TransfiniteSetTeamResponse), "Transfinite reset group switch");
+        AssertEqual(0, switchedTeam.Code, "Transfinite reset group switch code");
+        AssertEqual(flowGroup, switchedTeam.BattleInfo?.StageGroupId, "Transfinite reset group switch target");
+        AssertEqual(0, switchedTeam.BattleInfo?.StageProgressIndex, "Transfinite reset group switch progress");
 
         InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_182,
             new TransfiniteSetTeamRequest { StageGroupId = flowGroup, TeamInfo = Team(1, 2, 0), ResetStageIndex = true });
@@ -1202,22 +1272,140 @@ internal static partial class Program
         AssertEqual(0, teamBattle.StageInfo.Count, "Transfinite SetTeam has no stage result");
         AssertEqual(true, teamBattle.TeamInfo is not null && teamBattle.Result is not null,
             "Transfinite TeamInfo always carries Result");
+        int validBattleSaves = flowPlayerCollection.ReplaceOneCalls;
+        prepare.Invoke(null, [flowPlayer, activeSchedule.StartTime]);
+        AssertEqual(flowGroup, flowState.BattleInfo?.StageGroupId, "Transfinite same-circle active battle remains");
+        AssertEqual(validBattleSaves + 1, flowPlayerCollection.ReplaceOneCalls,
+            "Transfinite same-circle active battle metadata refresh persists");
+        flowState.ActivityAuthorizedUntil = long.MaxValue;
         int fightStageId = TableReaderV2.Parse<TransfiniteStageGroupTable>()
             .Single(group => group.StageGroupId == flowGroup).StageId[0];
+        TransfiniteStageGroupTable resetGroup = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+            .Single(group => group.StageGroupId == flowGroup);
+        int resetAnchor = TableReaderV2.Parse<TransfiniteStartStageProgressTable>()
+            .Select(row => row.StartProgress)
+            .FirstOrDefault(progress => progress > 1 && progress < resetGroup.StageId.Count);
+        if (resetAnchor == 0)
+            throw new InvalidDataException("Transfinite reset requires a table-derived noninitial anchor.");
+        int resetStageId = resetGroup.StageId[resetAnchor - 1];
+        int resetActiveStageId = resetGroup.StageId[resetAnchor];
+        void SeedResetProgress()
+        {
+            TransfiniteBattleState battle = flowPlayer.Transfinite!.BattleInfo!;
+            battle.StartStageProgress = resetAnchor;
+            battle.StageProgressIndex = resetAnchor;
+            battle.StageInfo = [new TransfiniteStageState { StageId = resetStageId, IsWin = true }];
+            battle.Result = new TransfiniteBattleResultState { LastWinStageId = resetStageId };
+            battle.LastResult = new TransfiniteBattleResultState { LastWinStageId = resetStageId };
+            battle.HistoryResults = [new TransfiniteBattleResultState { LastWinStageId = resetStageId }];
+        }
+        SeedResetProgress();
+        int wrongResetGroup = TableReaderV2.Parse<TransfiniteStageGroupTable>()
+            .First(group => group.StageGroupId != flowGroup).StageGroupId;
+        string beforeWrongReset = Convert.ToHexString(flowPlayer.Transfinite.ToBson());
+        InvokeRegisteredRequestHandler(nameof(TransfiniteResetStageGroupRequest), flowHarness.Session, 46_286,
+            new TransfiniteResetStageGroupRequest { StageGroupId = wrongResetGroup });
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteResetStageGroupResponse>(
+            flowHarness, 46_286, nameof(TransfiniteResetStageGroupResponse), "Transfinite wrong-group reset").Code,
+            "Transfinite wrong-group reset code");
+        AssertEqual(beforeWrongReset, Convert.ToHexString(flowPlayer.Transfinite.ToBson()),
+            "Transfinite wrong-group reset does not mutate state");
+
+        Fight resetFight = new(new PreFightRequest
+        {
+            PreFightData = new() { StageId = (uint)resetActiveStageId }
+        });
+        flowHarness.Session.fight = resetFight;
+        string beforeFailedReset = Convert.ToHexString(flowPlayer.Transfinite.ToBson());
+        flowPlayerCollection.ThrowOnReplaceOne = true;
+        InvokeRegisteredRequestHandler(nameof(TransfiniteResetStageGroupRequest), flowHarness.Session, 46_288,
+            new TransfiniteResetStageGroupRequest { StageGroupId = flowGroup });
+        flowPlayerCollection.ThrowOnReplaceOne = false;
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteResetStageGroupResponse>(
+            flowHarness, 46_288, nameof(TransfiniteResetStageGroupResponse), "Transfinite reset persistence failure").Code,
+            "Transfinite reset persistence failure code");
+        AssertEqual(beforeFailedReset, Convert.ToHexString(flowPlayer.Transfinite.ToBson()),
+            "Transfinite reset persistence failure rolls back state");
+        AssertEqual(true, ReferenceEquals(resetFight, flowHarness.Session.fight),
+            "Transfinite reset persistence failure restores matching fight");
+
+        flowPlayer.Transfinite!.MaxRotateStageProgressIndex = 7;
+        flowPlayer.Transfinite.BestSpendTime[flowGroup] = 123;
+        flowPlayer.Transfinite.GotScoreRewardIndex = [1];
+        flowPlayer.Transfinite.LastModifyTime = 1;
+        InvokeRegisteredRequestHandler(nameof(TransfiniteResetStageGroupRequest), flowHarness.Session, 46_285,
+            new TransfiniteResetStageGroupRequest { StageGroupId = flowGroup });
+        TransfiniteResetStageGroupResponse resetResponse = ReadResponsePayload<TransfiniteResetStageGroupResponse>(
+            flowHarness, 46_285, nameof(TransfiniteResetStageGroupResponse), "Transfinite reset abort");
+        AssertEqual(0, resetResponse.Code, "Transfinite reset abort code");
+        AssertEqual(null, resetResponse.BattleInfo, "Transfinite reset response discards BattleInfo");
+        AssertEqual(null, flowPlayer.Transfinite.BattleInfo, "Transfinite reset persists no BattleInfo");
+        AssertEqual(null, flowHarness.Session.fight, "Transfinite matching reset clears session fight");
+        AssertEqual(7, flowPlayer.Transfinite.MaxRotateStageProgressIndex, "Transfinite reset preserves max progress");
+        AssertEqual(123, flowPlayer.Transfinite.BestSpendTime[flowGroup], "Transfinite reset preserves best time");
+        AssertEqual(true, flowPlayer.Transfinite.GotScoreRewardIndex.SequenceEqual([1]), "Transfinite reset preserves score rewards");
+        AssertEqual(true, flowPlayer.Transfinite.LastModifyTime > 1, "Transfinite reset updates modify time");
+
+        InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_282,
+            new TransfiniteSetTeamRequest { StageGroupId = flowGroup, TeamInfo = Team(1, 2, 0), ResetStageIndex = true });
+        TransfiniteSetTeamResponse freshTeam = ReadResponsePayload<TransfiniteSetTeamResponse>(flowHarness, 46_282,
+            nameof(TransfiniteSetTeamResponse), "Transfinite fresh SetTeam after tally");
+        AssertEqual(0, freshTeam.Code, "Transfinite fresh SetTeam after tally code");
+        AssertEqual(0, freshTeam.BattleInfo?.StageProgressIndex, "Transfinite fresh SetTeam starts at zero");
+        flowHarness.Session.fight = new Fight(new PreFightRequest
+        {
+            PreFightData = new() { StageId = uint.MaxValue }
+        });
+        Fight unrelatedFight = flowHarness.Session.fight;
+        string beforeUnrelatedFightReset = Convert.ToHexString(flowPlayer.Transfinite.ToBson());
+        InvokeRegisteredRequestHandler(nameof(TransfiniteResetStageGroupRequest), flowHarness.Session, 46_288,
+            new TransfiniteResetStageGroupRequest { StageGroupId = flowGroup });
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteResetStageGroupResponse>(
+            flowHarness, 46_288, nameof(TransfiniteResetStageGroupResponse), "Transfinite unrelated-fight reset").Code,
+            "Transfinite unrelated fight rejects reset");
+        AssertEqual(beforeUnrelatedFightReset, Convert.ToHexString(flowPlayer.Transfinite.ToBson()),
+            "Transfinite unrelated fight reset does not mutate state");
+        AssertEqual(true, ReferenceEquals(unrelatedFight, flowHarness.Session.fight),
+            "Transfinite unrelated fight reset preserves session fight");
+        flowHarness.Session.fight = null;
         InvokeRegisteredRequestHandler(nameof(PreFightRequest), flowHarness.Session, 46_183,
             new PreFightRequest { PreFightData = new() { StageId = (uint)fightStageId, CardIds = [], RobotIds = [] } });
         PreFightResponse preFight = ReadResponsePayload<PreFightResponse>(flowHarness, 46_183,
-            nameof(PreFightResponse), "Transfinite authorized PreFight");
-        AssertEqual(0, preFight.Code, "Transfinite authorized PreFight code");
-        AssertEqual((uint)fightStageId, preFight.FightData.StageId, "Transfinite PreFight falls through with FightData");
-        AssertEqual(true, flowHarness.Session.fight is not null, "Transfinite PreFight creates session fight");
+            nameof(PreFightResponse), "Transfinite fresh PreFight after tally");
+        AssertEqual(0, preFight.Code, "Transfinite fresh PreFight after tally code");
+        AssertEqual((uint)fightStageId, preFight.FightData.StageId, "Transfinite fresh PreFight uses first group stage");
+        AssertEqual(true, flowHarness.Session.fight is not null, "Transfinite fresh PreFight creates session fight");
         InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_283,
             new TransfiniteSetTeamRequest { StageGroupId = flowGroup, TeamInfo = Team(1, 2, 0), ResetStageIndex = true });
-        AssertEqual(20008002, ReadResponsePayload<TransfiniteSetTeamResponse>(
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteSetTeamResponse>(
             flowHarness, 46_283, nameof(TransfiniteSetTeamResponse), "Transfinite active-fight SetTeam").Code,
             "Transfinite active fight rejects team replacement");
+        string beforeForceExit = Convert.ToHexString(flowPlayer.Transfinite.ToBson());
+        InvokeRegisteredRequestHandler(nameof(FightSettleRequest), flowHarness.Session, 46_289,
+            new FightSettleRequest
+            {
+                Result = new FightSettleResult
+                {
+                    StageId = (uint)fightStageId,
+                    FightId = preFight.FightData.FightId,
+                    IsWin = false,
+                    IsForceExit = true
+                }
+            });
+        FightSettleResponse forceExit = ReadResponsePayload<FightSettleResponse>(flowHarness, 46_289,
+            nameof(FightSettleResponse), "Transfinite force-exit FightSettle");
+        AssertEqual(0, forceExit.Code, "Transfinite force-exit FightSettle code");
+        AssertEqual(false, forceExit.Settle.IsWin, "Transfinite force-exit reports loss");
+        AssertEqual(null, flowHarness.Session.fight, "Transfinite force-exit clears session fight");
+        AssertEqual(beforeForceExit, Convert.ToHexString(flowPlayer.Transfinite.ToBson()),
+            "Transfinite force-exit preserves run progress");
+        InvokeRegisteredRequestHandler(nameof(PreFightRequest), flowHarness.Session, 46_290,
+            new PreFightRequest { PreFightData = new() { StageId = (uint)fightStageId, CardIds = [], RobotIds = [] } });
+        PreFightResponse forceExitRetry = ReadResponsePayload<PreFightResponse>(flowHarness, 46_290,
+            nameof(PreFightResponse), "Transfinite retry after force exit");
+        AssertEqual(0, forceExitRetry.Code, "Transfinite retry after force exit code");
         InvokeRegisteredRequestHandler(nameof(FightSettleRequest), flowHarness.Session, 46_184,
-            new FightSettleRequest { Result = new FightSettleResult { StageId = (uint)fightStageId, FightId = preFight.FightData.FightId, IsWin = true } });
+            new FightSettleRequest { Result = new FightSettleResult { StageId = (uint)fightStageId, FightId = forceExitRetry.FightData.FightId, IsWin = true } });
         FightSettleResponse settled = ReadResponsePayload<FightSettleResponse>(flowHarness, 46_184,
             nameof(FightSettleResponse), "Transfinite winning FightSettle");
         AssertEqual(0, settled.Code, "Transfinite winning FightSettle code");
@@ -1227,7 +1415,7 @@ internal static partial class Program
             "Transfinite never writes generic Stage progress");
         InvokeRegisteredRequestHandler(nameof(TransfiniteSetTeamRequest), flowHarness.Session, 46_284,
             new TransfiniteSetTeamRequest { StageGroupId = flowGroup, TeamInfo = Team(1, 2, 0), ResetStageIndex = true });
-        AssertEqual(20008002, ReadResponsePayload<TransfiniteSetTeamResponse>(
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteSetTeamResponse>(
             flowHarness, 46_284, nameof(TransfiniteSetTeamResponse), "Transfinite pending-result SetTeam").Code,
             "Transfinite pending result rejects team replacement");
         // A give-up only consumes a typed pending result; it does not turn it into progress.
@@ -1541,7 +1729,7 @@ internal static partial class Program
         fullPlayer.Transfinite.RegionId = otherRegion.RegionId;
         InvokeRegisteredRequestHandler(nameof(PreFightRequest), fullHarness.Session, 46_258,
             new PreFightRequest { PreFightData = new() { StageId = (uint)spillStageId, CardIds = [], RobotIds = [] } });
-        AssertEqual(20008002, ReadResponsePayload<PreFightResponse>(
+        AssertEqual(20201006, ReadResponsePayload<PreFightResponse>(
             fullHarness, 46_258, nameof(PreFightResponse), "Transfinite stale-region Spill Point PreFight").Code,
             "Transfinite stale-region Spill Point is rejected");
         fullPlayer.Transfinite.RegionId = flowRegion.RegionId;
@@ -1565,12 +1753,12 @@ internal static partial class Program
             "Transfinite nonmonotonic score claim receipt order");
         InvokeRegisteredRequestHandler(nameof(TransfiniteGetScoreRewardRequest), fullHarness.Session, 46_251,
             new TransfiniteGetScoreRewardRequest { ScoreRewardIndex = [earnedRewardIndices[0]] });
-        AssertEqual(20008002, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
             fullHarness, 46_251, nameof(TransfiniteGetScoreRewardResponse), "Transfinite duplicate score claim").Code,
             "Transfinite duplicate score claim rejection");
         InvokeRegisteredRequestHandler(nameof(TransfiniteGetScoreRewardRequest), fullHarness.Session, 46_252,
             new TransfiniteGetScoreRewardRequest { ScoreRewardIndex = [int.MaxValue] });
-        AssertEqual(20008002, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
             fullHarness, 46_252, nameof(TransfiniteGetScoreRewardResponse), "Transfinite out-of-range score claim").Code,
             "Transfinite out-of-range score claim rejection");
         int unearned = Enumerable.Range(0, Math.Min(flowRewards.Score.Count, flowRewards.RewardId.Count))
@@ -1579,7 +1767,7 @@ internal static partial class Program
         fullHarness.Session.inventory.Items.Single(item => item.Id == 105).Count = 0;
         InvokeRegisteredRequestHandler(nameof(TransfiniteGetScoreRewardRequest), fullHarness.Session, 46_253,
             new TransfiniteGetScoreRewardRequest { ScoreRewardIndex = [unearned] });
-        AssertEqual(20008002, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
+        AssertEqual(20201006, ReadResponsePayload<TransfiniteGetScoreRewardResponse>(
             fullHarness, 46_253, nameof(TransfiniteGetScoreRewardResponse), "Transfinite unearned score claim").Code,
             "Transfinite unearned score claim rejection");
     }

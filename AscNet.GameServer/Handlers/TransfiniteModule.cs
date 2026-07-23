@@ -35,7 +35,7 @@ namespace AscNet.GameServer.Handlers;
 
 internal static class TransfiniteModule
 {
-    internal const int ActivityNotOpen = 20008001, ConfigNotFound = 20008002, NoRotateSettlement = 20008003;
+    internal const int ActivityNotOpen = 20201001, StageGroupCfgNotFound = 20201006, NoRotateSettlement = 20201023;
     // XItemManager.ItemId.TransfiniteScore = 105 in the authoritative client enum.
     private const int TransfiniteScoreItemId = 105;
     private static readonly Lazy<Dictionary<int, TransfiniteActivityTable>> Activities = new(() => TableReaderV2.Parse<TransfiniteActivityTable>().ToDictionary(x => x.Id));
@@ -55,7 +55,7 @@ internal static class TransfiniteModule
     {
         DateTimeOffset time = DateTimeOffset.FromUnixTimeSeconds(now);
         TransfiniteActivityTable? activity = Activities.Value.Values.Where(x => ActivityScheduleService.TryGet(x.TimeId, out ActivityScheduleEntry s) && s.IsOpen(time)).OrderByDescending(x => x.Id).FirstOrDefault();
-        if (activity is null || !ActivityScheduleService.TryGet(activity.TimeId, out ActivityScheduleEntry schedule) || !Select(activity, (int)player.PlayerData.Level, now, out TransfiniteState? next))
+        if (activity is null || !ActivityScheduleService.TryGet(activity.TimeId, out ActivityScheduleEntry schedule) || !Select(activity, schedule, (int)player.PlayerData.Level, now, out TransfiniteState? next))
         {
             if (player.Transfinite is { ActivityAuthorizedUntil: not 0 } inactive)
             {
@@ -69,12 +69,13 @@ internal static class TransfiniteModule
         {
             if (old.ActivityId == next.ActivityId && old.CircleId == next.CircleId)
             {
-                if (old.ActivityAuthorizedUntil == next.ActivityAuthorizedUntil
+                bool metadataMatches = old.ActivityAuthorizedUntil == next.ActivityAuthorizedUntil
                     && old.BeginTime == next.BeginTime
                     && old.RegionId == next.RegionId
                     && old.StageGroupIndex == next.StageGroupIndex
                     && old.StageGroupId == next.StageGroupId
-                    && old.ScoreRewardGroupId == next.ScoreRewardGroupId)
+                    && old.ScoreRewardGroupId == next.ScoreRewardGroupId;
+                if (metadataMatches && (old.BattleInfo is not { } battle || IsAllowedGroup(next, battle.StageGroupId)))
                     return;
                 old.ActivityAuthorizedUntil = next.ActivityAuthorizedUntil;
                 old.BeginTime = next.BeginTime;
@@ -82,7 +83,7 @@ internal static class TransfiniteModule
                 old.StageGroupIndex = next.StageGroupIndex;
                 old.StageGroupId = next.StageGroupId;
                 old.ScoreRewardGroupId = next.ScoreRewardGroupId;
-                if (old.BattleInfo is { } battle && !IsAllowedGroup(old, battle.StageGroupId))
+                if (old.BattleInfo is { } staleBattle && !IsAllowedGroup(next, staleBattle.StageGroupId))
                     old.BattleInfo = null;
                 player.Save();
                 return;
@@ -101,11 +102,60 @@ internal static class TransfiniteModule
         }
         player.Transfinite = next; player.Save();
     }
-    private static bool Select(TransfiniteActivityTable activity, int level, long now, out TransfiniteState? state)
-    { state = null; if (activity.CycleSeconds <= 0) return false; TransfiniteRegionTable? region = Regions.Value.SingleOrDefault(x => level >= x.MinLv && level <= x.MaxLv); if (region is null || !Rotates.Value.TryGetValue(region.RotateGroupId, out var rotate) || rotate.StageGroupId.Count == 0) return false; long begin = now - now % activity.CycleSeconds, circle = begin / activity.CycleSeconds + 1; if (circle > int.MaxValue) return false; int index = (int)((circle - 1) % rotate.StageGroupId.Count), group = rotate.StageGroupId[index]; if (!Groups.Value.ContainsKey(group) || !Rewards.Value.Any(x => x.RegionId == region.RegionId && x.ScoreRewardGroupId == region.ScoreRewardGroupId)) return false; state = new() { ActivityId = activity.Id, CircleId = (int)circle, BeginTime = begin, RegionId = region.RegionId, StageGroupIndex = index, StageGroupId = group, ScoreRewardGroupId = region.ScoreRewardGroupId }; return true; }
+    private static bool Select(TransfiniteActivityTable activity, ActivityScheduleEntry schedule, int level, long now, out TransfiniteState? state)
+    {
+        state = null;
+        if (activity.CycleSeconds <= 0 || now < schedule.StartTime)
+            return false;
+        TransfiniteRegionTable? region = Regions.Value.SingleOrDefault(x => level >= x.MinLv && level <= x.MaxLv);
+        if (region is null || !Rotates.Value.TryGetValue(region.RotateGroupId, out var rotate) || rotate.StageGroupId.Count == 0)
+            return false;
+        long cycleOffset = (now - schedule.StartTime) / activity.CycleSeconds;
+        long begin = schedule.StartTime + cycleOffset * activity.CycleSeconds;
+        long circle = schedule.StartTime / activity.CycleSeconds + cycleOffset + 1;
+        if (circle > int.MaxValue)
+            return false;
+        int index = (int)((circle - 1) % rotate.StageGroupId.Count);
+        int group = rotate.StageGroupId[index];
+        if (!Groups.Value.ContainsKey(group) || !Rewards.Value.Any(x => x.RegionId == region.RegionId && x.ScoreRewardGroupId == region.ScoreRewardGroupId))
+            return false;
+        state = new() { ActivityId = activity.Id, CircleId = (int)circle, BeginTime = begin, RegionId = region.RegionId, StageGroupIndex = index, StageGroupId = group, ScoreRewardGroupId = region.ScoreRewardGroupId };
+        return true;
+    }
     internal static NotifyTransfiniteData BuildNotify(Player player) => Authorized(player.Transfinite) ? new() { TransfiniteData = ToWire(player.Transfinite!) } : new();
 
-    [RequestPacketHandler("TransfiniteSetTeamRequest")] public static void SetTeam(Session s, Packet.Request p) { var r = p.Deserialize<TransfiniteSetTeamRequest>(); var state = s.player.Transfinite; if (!Authorized(state)) { s.SendResponse(new TransfiniteSetTeamResponse { Code = ActivityNotOpen }, p.Id); return; } if (r.TeamInfo is null || !IsAllowedGroup(state!, r.StageGroupId) || !ValidTeam(s, r.TeamInfo)) { s.SendResponse(new TransfiniteSetTeamResponse { Code = ConfigNotFound }, p.Id); return; } if (s.fight is not null || state!.BattleInfo?.LastResult is not null) { s.SendResponse(new TransfiniteSetTeamResponse { Code = ConfigNotFound }, p.Id); return; } var battle = state.BattleInfo; if (battle is null) battle = new() { StageGroupId = r.StageGroupId, StartStageProgress = 1, TeamInfo = ToState(r.TeamInfo), Result = new() }; else if (battle.StageGroupId != r.StageGroupId) { s.SendResponse(new TransfiniteSetTeamResponse { Code = ConfigNotFound }, p.Id); return; } else { battle.TeamInfo = ToState(r.TeamInfo); battle.Result ??= new(); } state.BattleInfo = battle; state.LastModifyTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); s.player.Save(); s.SendResponse(new TransfiniteSetTeamResponse { BattleInfo = ToWire(battle) }, p.Id); }
+    [RequestPacketHandler("TransfiniteSetTeamRequest")]
+    public static void SetTeam(Session s, Packet.Request p)
+    {
+        TransfiniteSetTeamRequest r = p.Deserialize<TransfiniteSetTeamRequest>();
+        TransfiniteState? state = s.player.Transfinite;
+        if (!Authorized(state))
+        {
+            s.SendResponse(new TransfiniteSetTeamResponse { Code = ActivityNotOpen }, p.Id);
+            return;
+        }
+        if (r.TeamInfo is null || !IsAllowedGroup(state!, r.StageGroupId) || !ValidTeam(s, r.TeamInfo)
+            || s.fight is not null || state.BattleInfo?.LastResult is not null)
+        {
+            s.SendResponse(new TransfiniteSetTeamResponse { Code = StageGroupCfgNotFound }, p.Id);
+            return;
+        }
+
+        TransfiniteBattleState? battle = state.BattleInfo;
+        if (battle is null || battle.StageGroupId != r.StageGroupId && r.ResetStageIndex)
+            battle = new() { StageGroupId = r.StageGroupId, StartStageProgress = 1 };
+        else if (battle.StageGroupId != r.StageGroupId)
+        {
+            s.SendResponse(new TransfiniteSetTeamResponse { Code = StageGroupCfgNotFound }, p.Id);
+            return;
+        }
+        battle.TeamInfo = ToState(r.TeamInfo);
+        battle.Result ??= new();
+        state.BattleInfo = battle;
+        state.LastModifyTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        s.player.Save();
+        s.SendResponse(new TransfiniteSetTeamResponse { BattleInfo = ToWire(battle) }, p.Id);
+    }
     [RequestPacketHandler("TransfiniteConfirmBattleResultRequest")]
     public static void Confirm(Session s, Packet.Request p)
     {
@@ -113,7 +163,7 @@ internal static class TransfiniteModule
         var state = s.player.Transfinite;
         var battle = state?.BattleInfo;
         if (!Authorized(state)) { s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = ActivityNotOpen }, p.Id); return; }
-        if (!IsAllowedGroup(state!, r.StageGroupId) || battle?.LastResult is null || battle.StageGroupId != r.StageGroupId) { s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = ConfigNotFound }, p.Id); return; }
+        if (!IsAllowedGroup(state!, r.StageGroupId) || battle?.LastResult is null || battle.StageGroupId != r.StageGroupId) { s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
 
         TransfiniteState stateSnapshot = BsonSerializer.Deserialize<TransfiniteState>(state.ToBson());
         MissionProgressState progressSnapshot = BsonSerializer.Deserialize<MissionProgressState>(s.player.MissionProgress.ToBson());
@@ -121,16 +171,16 @@ internal static class TransfiniteModule
         {
             battle.LastResult = null;
             try { s.player.Save(); }
-            catch { s.player.Transfinite = stateSnapshot; s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = ConfigNotFound }, p.Id); return; }
+            catch { s.player.Transfinite = stateSnapshot; s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
             s.SendResponse(new TransfiniteConfirmBattleResultResponse { BattleInfo = ToWire(battle) }, p.Id);
             return;
         }
 
         int stageId = battle.LastResult.LastWinStageId;
-        if (!Expected(battle, stageId) || !Stages.Value.TryGetValue(stageId, out var row)) { s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = ConfigNotFound }, p.Id); return; }
+        if (!Expected(battle, stageId) || !Stages.Value.TryGetValue(stageId, out var row)) { s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
         int score = row.Score ?? 0;
         int extra = row.ExtraScore ?? 0;
-        if (score < 0 || extra < 0 || (extra > 0 && (row.ExtraTimeLimit is null || row.ExtraTimeLimit <= 0))) { s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = ConfigNotFound }, p.Id); return; }
+        if (score < 0 || extra < 0 || (extra > 0 && (row.ExtraTimeLimit is null || row.ExtraTimeLimit <= 0))) { s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
         if (extra > 0 && battle.LastResult.StageSpendTime < row.ExtraTimeLimit) score = checked(score + extra);
 
         battle.StageInfo.Add(new() { StageId = stageId, IsWin = true, SpendTime = battle.LastResult.StageSpendTime, Score = score });
@@ -169,32 +219,57 @@ internal static class TransfiniteModule
         {
             s.player.Transfinite = stateSnapshot;
             s.player.MissionProgress = progressSnapshot;
-            s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = ConfigNotFound }, p.Id);
+            s.SendResponse(new TransfiniteConfirmBattleResultResponse { Code = StageGroupCfgNotFound }, p.Id);
         }
     }
-    [RequestPacketHandler("TransfiniteResetStageGroupRequest")] public static void Reset(Session s, Packet.Request p) { _ = p.Deserialize<TransfiniteResetStageGroupRequest>(); s.SendResponse(new TransfiniteResetStageGroupResponse { Code = ConfigNotFound }, p.Id); }
-    [RequestPacketHandler("TransfiniteGetScoreRewardRequest")] public static void GetScoreReward(Session s, Packet.Request p) { var r = p.Deserialize<TransfiniteGetScoreRewardRequest>(); var state = s.player.Transfinite; if (!Authorized(state)) { s.SendResponse(new TransfiniteGetScoreRewardResponse { Code = ActivityNotOpen }, p.Id); return; } var group = Rewards.Value.SingleOrDefault(x => x.RegionId == state!.RegionId && x.ScoreRewardGroupId == state.ScoreRewardGroupId); if (group is null || r.ScoreRewardIndex.Count == 0 || r.ScoreRewardIndex.Distinct().Count() != r.ScoreRewardIndex.Count || r.ScoreRewardIndex.Any(i => i < 0 || i >= group.Score.Count || i >= group.RewardId.Count || state.GotScoreRewardIndex.Contains(i) || group.Score[i] > Score(s) || group.RewardId[i] <= 0)) { s.SendResponse(new TransfiniteGetScoreRewardResponse { Code = ConfigNotFound }, p.Id); return; } try { var applied = RewardHandler.ApplyRewardsOnceAndPersist(r.ScoreRewardIndex.Select(i => new RewardGrant($"transfinite-score:{state.ActivityId}:{state.CircleId}:{i}", RewardHandler.GetRewardGoods(group.RewardId[i]))).ToList(), s); int before = state.GotScoreRewardIndex.Count; state.GotScoreRewardIndex.AddRange(r.ScoreRewardIndex); try { s.player.Save(); } catch { state.GotScoreRewardIndex.RemoveRange(before, r.ScoreRewardIndex.Count); throw; } applied.SendPushes(s); s.SendResponse(new TransfiniteGetScoreRewardResponse { RewardGoodsList = applied.RewardGoods, GotScoreRewardIndex = state.GotScoreRewardIndex.ToList() }, p.Id); } catch { s.SendResponse(new TransfiniteGetScoreRewardResponse { Code = ConfigNotFound }, p.Id); } }
+    [RequestPacketHandler("TransfiniteResetStageGroupRequest")]
+    public static void Reset(Session s, Packet.Request p)
+    {
+        var r = p.Deserialize<TransfiniteResetStageGroupRequest>();
+        TransfiniteState? state = s.player.Transfinite;
+        TransfiniteBattleState? battle = state?.BattleInfo;
+        if (!Authorized(state)) { s.SendResponse(new TransfiniteResetStageGroupResponse { Code = ActivityNotOpen }, p.Id); return; }
+        if (battle is null
+            || battle.StageGroupId != r.StageGroupId
+            || !IsAllowedGroup(state!, r.StageGroupId)
+            || s.fight is { } fight
+                && (fight.PreFight.PreFightData.StageId > int.MaxValue || !Expected(battle, (int)fight.PreFight.PreFightData.StageId)))
+        {
+            s.SendResponse(new TransfiniteResetStageGroupResponse { Code = StageGroupCfgNotFound }, p.Id);
+            return;
+        }
+
+        TransfiniteState snapshot = BsonSerializer.Deserialize<TransfiniteState>(state!.ToBson());
+        Fight? fightSnapshot = s.fight;
+        state!.BattleInfo = null;
+        state.LastModifyTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        s.fight = null;
+        try { s.player.Save(); }
+        catch { s.player.Transfinite = snapshot; s.fight = fightSnapshot; s.SendResponse(new TransfiniteResetStageGroupResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
+        s.SendResponse(new TransfiniteResetStageGroupResponse(), p.Id);
+    }
+    [RequestPacketHandler("TransfiniteGetScoreRewardRequest")] public static void GetScoreReward(Session s, Packet.Request p) { var r = p.Deserialize<TransfiniteGetScoreRewardRequest>(); var state = s.player.Transfinite; if (!Authorized(state)) { s.SendResponse(new TransfiniteGetScoreRewardResponse { Code = ActivityNotOpen }, p.Id); return; } var group = Rewards.Value.SingleOrDefault(x => x.RegionId == state!.RegionId && x.ScoreRewardGroupId == state.ScoreRewardGroupId); if (group is null || r.ScoreRewardIndex.Count == 0 || r.ScoreRewardIndex.Distinct().Count() != r.ScoreRewardIndex.Count || r.ScoreRewardIndex.Any(i => i < 0 || i >= group.Score.Count || i >= group.RewardId.Count || state.GotScoreRewardIndex.Contains(i) || group.Score[i] > Score(s) || group.RewardId[i] <= 0)) { s.SendResponse(new TransfiniteGetScoreRewardResponse { Code = StageGroupCfgNotFound }, p.Id); return; } try { var applied = RewardHandler.ApplyRewardsOnceAndPersist(r.ScoreRewardIndex.Select(i => new RewardGrant($"transfinite-score:{state.ActivityId}:{state.CircleId}:{i}", RewardHandler.GetRewardGoods(group.RewardId[i]))).ToList(), s); int before = state.GotScoreRewardIndex.Count; state.GotScoreRewardIndex.AddRange(r.ScoreRewardIndex); try { s.player.Save(); } catch { state.GotScoreRewardIndex.RemoveRange(before, r.ScoreRewardIndex.Count); throw; } applied.SendPushes(s); s.SendResponse(new TransfiniteGetScoreRewardResponse { RewardGoodsList = applied.RewardGoods, GotScoreRewardIndex = state.GotScoreRewardIndex.ToList() }, p.Id); } catch { s.SendResponse(new TransfiniteGetScoreRewardResponse { Code = StageGroupCfgNotFound }, p.Id); } }
     [RequestPacketHandler("TransfiniteGetRotateSettleInfoRequest")]
     public static void GetRotateSettleInfo(Session s, Packet.Request p)
     {
         _ = p.Deserialize<TransfiniteGetRotateSettleInfoRequest>(); var state = s.player.Transfinite;
         if (!Authorized(state)) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ActivityNotOpen }, p.Id); return; }
         if (state!.RotateSettleInfo is not { } pending) { if (state.LastRotateReceipt is { } completed) { s.SendResponse(ToResponse(completed), p.Id); return; } s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = NoRotateSettlement }, p.Id); return; }
-        if (pending.ScoreRewardGroupId == 0) { var sentinelReceipt = new TransfiniteRotateSettleReceipt { RotationId = pending.RotationId, MaxStageProgressIndex = pending.MaxStageProgressIndex, SettleTransfiniteScore = 0, UnSettleTransfiniteScore = 0 }; if (!CommitRotateReceipt(s, state, sentinelReceipt)) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ConfigNotFound }, p.Id); return; } s.SendResponse(ToResponse(sentinelReceipt), p.Id); return; }
+        if (pending.ScoreRewardGroupId == 0) { var sentinelReceipt = new TransfiniteRotateSettleReceipt { RotationId = pending.RotationId, MaxStageProgressIndex = pending.MaxStageProgressIndex, SettleTransfiniteScore = 0, UnSettleTransfiniteScore = 0 }; if (!CommitRotateReceipt(s, state, sentinelReceipt)) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = StageGroupCfgNotFound }, p.Id); return; } s.SendResponse(ToResponse(sentinelReceipt), p.Id); return; }
         TransfiniteScoreRewardGroupTable? group = Rewards.Value.SingleOrDefault(x => x.RegionId == pending.RegionId && x.ScoreRewardGroupId == pending.ScoreRewardGroupId);
-        if (group is null || !TryResolveRotateRewards(pending, group, out List<RewardGoodsTable> rows)) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ConfigNotFound }, p.Id); return; }
+        if (group is null || !TryResolveRotateRewards(pending, group, out List<RewardGoodsTable> rows)) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
         List<TransfiniteInventoryReceipt> matches = s.inventory.TransfiniteReceipts.Where(x => x.ActivityId == state.ActivityId && x.RotationId == pending.RotationId).Take(2).ToList();
-        if (matches.Count > 1) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ConfigNotFound }, p.Id); return; }
-        if (matches.SingleOrDefault() is { } saved) { if (!ReceiptMatches(saved, pending, rows) || !CommitRotateReceipt(s, state, ToPlayerReceipt(saved))) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ConfigNotFound }, p.Id); return; } SendReceiptPush(s, saved); s.SendResponse(ToResponse(saved), p.Id); return; }
-        if (!CanApplyItems(rows, s.inventory)) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ConfigNotFound }, p.Id); return; }
+        if (matches.Count > 1) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
+        if (matches.SingleOrDefault() is { } saved) { if (!ReceiptMatches(saved, pending, rows) || !CommitRotateReceipt(s, state, ToPlayerReceipt(saved))) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = StageGroupCfgNotFound }, p.Id); return; } SendReceiptPush(s, saved); s.SendResponse(ToResponse(saved), p.Id); return; }
+        if (!CanApplyItems(rows, s.inventory)) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
         List<RewardGoods> goods = rows.Select(x => new RewardGoods { Id = x.Id, TemplateId = x.TemplateId, Count = x.Count, RewardType = (int)RewardType.Item }).ToList();
         TransfiniteInventoryReceipt receipt = new() { ActivityId = state.ActivityId, RotationId = pending.RotationId, RegionId = pending.RegionId, ScoreRewardGroupId = pending.ScoreRewardGroupId, MaxStageProgressIndex = pending.MaxStageProgressIndex, SettleTransfiniteScore = pending.SettleTransfiniteScore, UnSettleTransfiniteScore = pending.UnSettleTransfiniteScore, RewardGoods = goods.Select(ToReceipt).ToList() };
         Inventory snapshot = BsonSerializer.Deserialize<Inventory>(s.inventory.ToBson()); List<Item> changed = rows.GroupBy(x => x.TemplateId).Select(x => s.inventory.Do(x.Key, checked(x.Sum(y => y.Count)))).ToList(); s.inventory.TransfiniteReceipts.Add(receipt);
-        try { s.inventory.Save(); } catch { s.inventory.Items = snapshot.Items; s.inventory.TransfiniteReceipts = snapshot.TransfiniteReceipts; s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ConfigNotFound }, p.Id); return; }
-        if (!CommitRotateReceipt(s, state, ToPlayerReceipt(receipt))) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = ConfigNotFound }, p.Id); return; }
+        try { s.inventory.Save(); } catch { s.inventory.Items = snapshot.Items; s.inventory.TransfiniteReceipts = snapshot.TransfiniteReceipts; s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
+        if (!CommitRotateReceipt(s, state, ToPlayerReceipt(receipt))) { s.SendResponse(new TransfiniteGetRotateSettleInfoResponse { Code = StageGroupCfgNotFound }, p.Id); return; }
         if (changed.Count > 0) s.SendPush(new NotifyItemDataList { ItemDataList = changed }); s.SendResponse(ToResponse(receipt), p.Id);
     }
-    private static bool IsAllowedGroup(TransfiniteState state, int groupId) => groupId == state.StageGroupId || Regions.Value.SingleOrDefault(x => x.RegionId == state.RegionId) is { } region && Islands.Value.Any(x => x.Id == region.IslandId && x.StageGroupId.Contains(groupId));
+    private static bool IsAllowedGroup(TransfiniteState state, int groupId) => Regions.Value.SingleOrDefault(x => x.RegionId == state.RegionId) is { } region && (Rotates.Value.TryGetValue(region.RotateGroupId, out var rotate) && rotate.StageGroupId.Contains(groupId) || Islands.Value.Any(x => x.Id == region.IslandId && x.StageGroupId.Contains(groupId)));
     internal static bool ApplyPreFight(Session s, PreFightRequest.PreFightRequestPreFightData r, out int code)
     {
         if (!IsStage(r.StageId)) { code = 0; return false; }
@@ -206,7 +281,7 @@ internal static class TransfiniteModule
             && IsAllowedGroup(state!, battle.StageGroupId)
             && Expected(battle, (int)r.StageId)
             && (battle.LastResult is null || battle.LastResult.LastWinStageId == (int)r.StageId);
-        code = valid ? 0 : (Authorized(state) ? ConfigNotFound : ActivityNotOpen);
+        code = valid ? 0 : (Authorized(state) ? StageGroupCfgNotFound : ActivityNotOpen);
         return !valid;
     }
     internal static bool TryCommitPreFight(Session s, uint stageId, out int code)
@@ -222,16 +297,48 @@ internal static class TransfiniteModule
             || !Expected(battle, (int)stageId)
             || battle.LastResult is { } pending && pending.LastWinStageId != (int)stageId)
         {
-            code = Authorized(state) ? ConfigNotFound : ActivityNotOpen;
+            code = Authorized(state) ? StageGroupCfgNotFound : ActivityNotOpen;
             return false;
         }
         if (battle.LastResult is not { } retry) return true;
         battle.LastResult = null;
         try { s.player.Save(); }
-        catch { battle.LastResult = retry; code = ConfigNotFound; return false; }
+        catch { battle.LastResult = retry; code = StageGroupCfgNotFound; return false; }
         return true;
     }
-    internal static bool TrySettle(Session s, FightSettleResult r, out FightSettleResponse response) { if (!IsStage(r.StageId)) { response = null!; return false; } var b = s.player.Transfinite?.BattleInfo; if (!Authorized(s.player.Transfinite) || b is null || b.LastResult is not null || !IsAllowedGroup(s.player.Transfinite!, b.StageGroupId) || !Expected(b, (int)r.StageId) || !r.IsWin || r.IsForceExit) { response = new() { Code = ConfigNotFound }; return true; } b.LastResult = new() { LastWinStageId = (int)r.StageId, StageSpendTime = SafeTime(r.LeftTime), CharacterResultList = Results(s, r) }; s.player.Save(); response = new() { Code = 0, Settle = new() { IsWin = true, StageId = r.StageId, LeftTime = (int)Math.Clamp(r.LeftTime, int.MinValue, int.MaxValue), NpcHpInfo = r.NpcHpInfo, TransfiniteBattleResult = Wire(b.LastResult) } }; return true; }
+    internal static bool TrySettle(Session s, FightSettleResult r, out FightSettleResponse response)
+    {
+        if (!IsStage(r.StageId)) { response = null!; return false; }
+        TransfiniteBattleState? battle = s.player.Transfinite?.BattleInfo;
+        if (!Authorized(s.player.Transfinite) || battle is null || battle.LastResult is not null
+            || !IsAllowedGroup(s.player.Transfinite!, battle.StageGroupId) || !Expected(battle, (int)r.StageId))
+        {
+            response = new() { Code = StageGroupCfgNotFound };
+            return true;
+        }
+        if (!r.IsWin || r.IsForceExit)
+        {
+            response = new()
+            {
+                Code = 0,
+                Settle = new()
+                {
+                    IsWin = false,
+                    StageId = r.StageId,
+                    LeftTime = (int)Math.Clamp(r.LeftTime, int.MinValue, int.MaxValue),
+                    NpcHpInfo = r.NpcHpInfo,
+                    RewardGoodsList = null!,
+                    MultiRewardGoodsList = null!,
+                    ChallengeCount = 0
+                }
+            };
+            return true;
+        }
+        battle.LastResult = new() { LastWinStageId = (int)r.StageId, StageSpendTime = SafeTime(r.LeftTime), CharacterResultList = Results(s, r) };
+        s.player.Save();
+        response = new() { Code = 0, Settle = new() { IsWin = true, StageId = r.StageId, LeftTime = (int)Math.Clamp(r.LeftTime, int.MinValue, int.MaxValue), NpcHpInfo = r.NpcHpInfo } };
+        return true;
+    }
     private static int SafeTime(long left) => left == long.MinValue ? int.MaxValue : (int)Math.Min(int.MaxValue, Math.Abs(left));
     private static bool Expected(TransfiniteBattleState b, int stage) => Groups.Value.TryGetValue(b.StageGroupId, out var g) && b.StageProgressIndex >= 0 && b.StageProgressIndex < g.StageId.Count && g.StageId[b.StageProgressIndex] == stage;
     private static int Score(Session s) => checked((int)Math.Min(int.MaxValue, s.inventory.Items.Where(x => x.Id == TransfiniteScoreItemId).Sum(x => (long)x.Count)));

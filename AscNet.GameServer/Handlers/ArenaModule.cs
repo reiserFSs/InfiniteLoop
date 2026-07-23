@@ -232,7 +232,8 @@ namespace AscNet.GameServer.Handlers
 
         public static ArenaResult? RecordFightResult(Session session, FightSettleResult result)
         {
-            if (!result.IsWin || result.IsForceExit || !IsArenaStage(result.StageId)
+            bool isDeath = !result.IsWin && IsAllTeamDead(result);
+            if ((!result.IsWin && !isDeath) || result.IsForceExit || !IsArenaStage(result.StageId)
                 || session.fight?.PreFight.PreFightData.StageId != result.StageId)
                 return null;
             if (ReconcileLive(session))
@@ -252,7 +253,7 @@ namespace AscNet.GameServer.Handlers
             int passTimeLimit = ArenaStageDataset.PassTimeLimit(areaId, result.StageId, areaStage.MarkId, areaStage.Desc) ?? 0;
             long activeFrames = Math.Max(0, result.SettleFrame - result.StartFrame - result.PauseFrame);
             int fightTime = checked((int)Math.Min(int.MaxValue, activeFrames / FightFramesPerSecond));
-            int timeLeft = Math.Max(0, passTimeLimit - fightTime);
+            int timeLeft = isDeath ? 0 : Math.Max(0, passTimeLimit - fightTime);
 
             Dictionary<string, double> metrics = Metrics(result);
             metrics["LeftTime"] = timeLeft;
@@ -683,6 +684,19 @@ namespace AscNet.GameServer.Handlers
             return hash;
         }
 
+        private static bool IsAllTeamDead(FightSettleResult result)
+        {
+            NpcHp[] team = result.NpcHpInfo?.Values.Where(npc => npc.Type == 1).ToArray() ?? [];
+            return team.Length > 0 && team.All(IsZeroHp);
+        }
+
+        private static bool IsZeroHp(NpcHp npc)
+        {
+            if (npc.AttrTable is null || !npc.AttrTable.TryGetValue(1, out dynamic? hp))
+                return false;
+            return HasDynamicMember(hp, "Value") && ReadDynamicNumber(hp, "Value") <= 0;
+        }
+
         private static Dictionary<string, double> Metrics(FightSettleResult r)
         {
             double total = Math.Max(1, r.NpcHpInfo?.Values.Count(npc => npc.Type == 3) ?? 0);
@@ -703,6 +717,13 @@ namespace AscNet.GameServer.Handlers
             return new() { ["KillNum"] = r.DeathTotalEnemy, ["TotalNum"] = total, ["Hp"] = hp,
                 ["LeftTime"] = Math.Max(0, r.LeftTime), ["EnemyHp"] = Math.Max(0, r.TotalDamage), ["NpcGroup"] = Math.Max(0, npcGroup) };
         }
+
+        private static bool HasDynamicMember(object? value, string key) =>
+            value is IDictionary<object, object> primitive
+                ? primitive.Keys.Any(member => string.Equals(Convert.ToString(member), key, StringComparison.Ordinal))
+                : value is IDictionary<string, object> objects
+                    ? objects.ContainsKey(key)
+                    : value is JObject json && json.ContainsKey(key);
 
         private static double ReadDynamicNumber(object? value, string key)
         {

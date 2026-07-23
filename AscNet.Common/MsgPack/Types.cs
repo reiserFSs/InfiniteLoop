@@ -2836,6 +2836,57 @@ namespace AscNet.Common.MsgPack
         public Int32 Code { get; set; }
     }
 
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabDelRequest
+    {
+        public Int32 TeamId { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabDelResponse
+    {
+        public Int32 Code { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabMoveForwardRequest
+    {
+        public Int32 TeamId { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabMoveForwardResponse
+    {
+        public Int32 Code { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabSetTagsRequest
+    {
+        public Int32 TeamId { get; set; }
+        public List<Int32> Tags { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabSetTagsResponse
+    {
+        public Int32 Code { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabUpdateEquipRequest
+    {
+        public Int32 TeamId { get; set; }
+        public Int32 TeamPos { get; set; }
+        public TeamPrefabEquipData? TeamPrefabEquipData { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class TeamPrefabUpdateEquipResponse
+    {
+        public Int32 Code { get; set; }
+    }
+
 
 
     [global::MessagePack.MessagePackObject(true)]

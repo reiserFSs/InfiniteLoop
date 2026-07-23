@@ -14187,6 +14187,104 @@ namespace AscNet.Test
             AssertIntegerList([17, 3], player.TeamPrefabs.Select(value => (long)value.TeamId).ToArray(),
                 "new TeamId appends in order");
             AssertNested(player.TeamPrefabs[1], "nested in-memory round-trip");
+            DispatchPrefabMutation(
+                nameof(TeamPrefabSetTagsRequest),
+                nameof(TeamPrefabSetTagsResponse),
+                new TeamPrefabSetTagsRequest { TeamId = 3, Tags = [presetTagIds[0]] },
+                71_060,
+                true,
+                "single preset tag update");
+            AssertIntegerList([presetTagIds[0]], player.TeamPrefabs[1].TagsSet.Select(value => (long)value).ToArray(),
+                "single preset tag update persists only requested tags");
+            DispatchPrefabMutation(
+                nameof(TeamPrefabSetTagsRequest),
+                nameof(TeamPrefabSetTagsResponse),
+                new TeamPrefabSetTagsRequest { TeamId = 3, Tags = [int.MaxValue] },
+                71_061,
+                false,
+                "invalid preset tag update");
+
+            DispatchPrefabMutation(
+                nameof(TeamPrefabUpdateEquipRequest),
+                nameof(TeamPrefabUpdateEquipResponse),
+                new TeamPrefabUpdateEquipRequest
+                {
+                    TeamId = 3,
+                    TeamPos = 1,
+                    TeamPrefabEquipData = new()
+                    {
+                        EquipDataDict = new()
+                        {
+                            [equipRows[0].Site] = new TeamPrefabEquipEntry
+                            {
+                                EquipId = 7_001,
+                                ResonanceDict = new() { [1] = resonanceSkills[0], [2] = resonanceSkills[1] },
+                                WeaponOverrunSuitId = overrunSuitId
+                            }
+                        }
+                    }
+                },
+                71_062,
+                true,
+                "single preset equip update");
+            AssertEqual(false, player.TeamPrefabs[1].EquipData[1]!.EquipDataDict.ContainsKey(equipRows[1].Site),
+                "single preset equip update replaces requested position only");
+            DispatchPrefabMutation(
+                nameof(TeamPrefabUpdateEquipRequest),
+                nameof(TeamPrefabUpdateEquipResponse),
+                new TeamPrefabUpdateEquipRequest
+                {
+                    TeamId = 3,
+                    TeamPos = teamMaxPos + 1,
+                    TeamPrefabEquipData = new()
+                },
+                71_063,
+                false,
+                "invalid preset equip position");
+            DispatchAndAssert(nonEmpty, 71_064, "restore full preset after partial updates");
+
+            DispatchPrefabMutation(
+                nameof(TeamPrefabMoveForwardRequest),
+                nameof(TeamPrefabMoveForwardResponse),
+                new TeamPrefabMoveForwardRequest { TeamId = 3 },
+                71_065,
+                true,
+                "preset moves one position forward");
+            AssertIntegerList([3, 17], player.TeamPrefabs.Select(value => (long)value.TeamId).ToArray(),
+                "preset move swaps with predecessor");
+            DispatchPrefabMutation(
+                nameof(TeamPrefabMoveForwardRequest),
+                nameof(TeamPrefabMoveForwardResponse),
+                new TeamPrefabMoveForwardRequest { TeamId = int.MaxValue },
+                71_066,
+                false,
+                "invalid preset move");
+            DispatchPrefabMutation(
+                nameof(TeamPrefabDelRequest),
+                nameof(TeamPrefabDelResponse),
+                new TeamPrefabDelRequest { TeamId = 17 },
+                71_067,
+                true,
+                "preset delete");
+            AssertIntegerList([3], player.TeamPrefabs.Select(value => (long)value.TeamId).ToArray(),
+                "preset delete removes only target");
+            DispatchPrefabMutation(
+                nameof(TeamPrefabDelRequest),
+                nameof(TeamPrefabDelResponse),
+                new TeamPrefabDelRequest { TeamId = 17 },
+                71_068,
+                false,
+                "invalid preset delete");
+            DispatchAndAssert(capturedEmpty, 71_069, "restore deleted preset");
+            DispatchPrefabMutation(
+                nameof(TeamPrefabMoveForwardRequest),
+                nameof(TeamPrefabMoveForwardResponse),
+                new TeamPrefabMoveForwardRequest { TeamId = 17 },
+                71_070,
+                true,
+                "restore preset order");
+            AssertIntegerList([17, 3], player.TeamPrefabs.Select(value => (long)value.TeamId).ToArray(),
+                "preset order restored");
 
             TeamPrefabData nullPassiveSkills = Clone(nonEmpty, data =>
             {
@@ -14608,7 +14706,36 @@ namespace AscNet.Test
                 }
             }
 
+            void DispatchPrefabMutation(
+                string mutationRequestName,
+                string mutationResponseName,
+                object request,
+                int packetId,
+                bool succeeds,
+                string name)
+            {
+                int saveCountBefore = playerCollection.ReplaceOneCalls;
+                byte[] playerStateBefore = harness.Session.player.ToBson();
+                InvokeRegisteredRequestHandler(mutationRequestName, harness.Session, packetId, request);
+                JObject response = ReadResponseMapPayload(harness, packetId, mutationResponseName, $"{name} response");
+                AssertEqual(
+                    succeeds ? 0 : 20004003,
+                    RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response"),
+                    $"{name} Code");
+                AssertEqual(true, response.Properties().Select(property => property.Name).SequenceEqual(["Code"]),
+                    $"{name} response key-only payload");
+                AssertEqual(saveCountBefore + (succeeds ? 1 : 0), playerCollection.ReplaceOneCalls,
+                    $"{name} Player.Save count");
+                if (!succeeds)
+                {
+                    AssertEqual(Convert.ToHexString(playerStateBefore),
+                        Convert.ToHexString(harness.Session.player.ToBson()), $"{name} does not mutate Player");
+                }
+                AssertNoExtraPacket(name);
+            }
+
             int ExpectedPartnerMainSkill(
+
                 PartnerData partner,
                 int carrierCharacterId,
                 int selectedMainSkill)
@@ -17404,7 +17531,8 @@ namespace AscNet.Test
                 [
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
-                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), CreateNoOpMongoCollection<AscNet.Common.Database.Player>())
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), CreateNoOpMongoCollection<AscNet.Common.Database.Player>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Stage)), CreateNoOpMongoCollection<AscNet.Common.Database.Stage>())
                 ]);
             }
 
@@ -22524,8 +22652,12 @@ namespace AscNet.Test
             const long playerId = 88_065;
             const int preFightPacketId = 13_211;
             const int successfulRestartPacketId = 13_212;
-            const int mismatchedRestartPacketId = 13_213;
-            const int absentRestartPacketId = 13_214;
+            const int mismatchedRestartPacketId = 13_220;
+            const int absentRestartPacketId = 13_221;
+            const int legacyRestartPacketId = 13_222;
+            const int legacySettlePacketId = 13_223;
+            const int malformedSettlePacketId = 13_224;
+            const int overflowSettlePacketId = 13_225;
             StageTable stage = TableReaderV2.Parse<StageTable>()
                 .Where(row => row.StageId >= 10_000_000 && row.RobotId.Count == 0)
                 .OrderBy(row => row.StageId)
@@ -22574,21 +22706,27 @@ namespace AscNet.Test
             Fight activeFight = harness.Session.fight
                 ?? throw new InvalidDataException("FightRestartRequest setup: expected active session fight.");
             AssertEqual(preFightData.FightId, activeFight.FightId, "FightRestartRequest setup active FightId");
+            AssertEqual(true, preFightData.FightId <= int.MaxValue,
+                "FightRestartRequest setup newly issued FightId stays positive Int32");
 
-            InvokeRegisteredRequestHandler(
-                nameof(FightRestartRequest),
-                harness.Session,
-                successfulRestartPacketId,
-                new FightRestartRequest { FightId = activeFight.FightId });
-            AssertRestartResponse(
-                harness,
-                successfulRestartPacketId,
-                0,
-                "FightRestartRequest active fight");
-            AssertEqual(true, ReferenceEquals(activeFight, harness.Session.fight), "FightRestartRequest active fight identity");
-            AssertEqual(activeFight.FightId, harness.Session.fight?.FightId ?? 0, "FightRestartRequest active fight Id");
-            AssertEqual(true, ReferenceEquals(activeFight.PreFight, harness.Session.fight?.PreFight), "FightRestartRequest active PreFight state");
-            AssertNoExtraPacket(harness, "FightRestartRequest active fight");
+            for (int restartIndex = 0; restartIndex < 8; restartIndex++)
+            {
+                int restartPacketId = successfulRestartPacketId + restartIndex;
+                InvokeRegisteredRequestHandler(
+                    nameof(FightRestartRequest),
+                    harness.Session,
+                    restartPacketId,
+                    new FightRestartRequest { FightId = unchecked((int)activeFight.FightId) });
+                AssertRestartResponse(
+                    harness,
+                    restartPacketId,
+                    0,
+                    $"FightRestartRequest active fight {restartIndex + 1}");
+                AssertEqual(true, ReferenceEquals(activeFight, harness.Session.fight), "FightRestartRequest active fight identity");
+                AssertEqual(activeFight.FightId, harness.Session.fight?.FightId ?? 0, "FightRestartRequest active fight Id");
+                AssertEqual(true, ReferenceEquals(activeFight.PreFight, harness.Session.fight?.PreFight), "FightRestartRequest active PreFight state");
+                AssertNoExtraPacket(harness, "FightRestartRequest active fight");
+            }
 
             uint mismatchedFightId = activeFight.FightId == uint.MaxValue
                 ? activeFight.FightId - 1
@@ -22597,7 +22735,7 @@ namespace AscNet.Test
                 nameof(FightRestartRequest),
                 harness.Session,
                 mismatchedRestartPacketId,
-                new FightRestartRequest { FightId = mismatchedFightId });
+                new FightRestartRequest { FightId = unchecked((int)mismatchedFightId) });
             AssertRestartResponse(
                 harness,
                 mismatchedRestartPacketId,
@@ -22607,6 +22745,143 @@ namespace AscNet.Test
             AssertEqual(activeFight.FightId, harness.Session.fight?.FightId ?? 0, "FightRestartRequest mismatched fight Id");
             AssertEqual(true, ReferenceEquals(activeFight.PreFight, harness.Session.fight?.PreFight), "FightRestartRequest mismatched PreFight state");
             AssertNoExtraPacket(harness, "FightRestartRequest mismatched fight");
+
+            uint legacyHighBitFightId = unchecked((uint)int.MinValue);
+            byte[] signedLegacyRestartPayload = MessagePackSerializer.Serialize(
+                new FightRestartRequest { FightId = unchecked((int)legacyHighBitFightId) });
+            AssertEqual(
+                unchecked((int)legacyHighBitFightId),
+                MessagePackSerializer.Deserialize<FightRestartRequest>(signedLegacyRestartPayload).FightId,
+                "FightRestartRequest signed legacy FightId payload");
+            harness.Session.fight = new Fight(preFightRequest, legacyHighBitFightId);
+            RequestPacketHandlerDelegate restartHandler = GetRegisteredRequestHandler(nameof(FightRestartRequest));
+            restartHandler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = legacyRestartPacketId,
+                Name = nameof(FightRestartRequest),
+                Content = signedLegacyRestartPayload
+            });
+            AssertRestartResponse(harness, legacyRestartPacketId, 0, "FightRestartRequest signed legacy FightId");
+            AssertEqual(legacyHighBitFightId, harness.Session.fight?.FightId ?? 0,
+                "FightRestartRequest signed legacy FightId remains active");
+            AssertNoExtraPacket(harness, "FightRestartRequest signed legacy FightId");
+
+            const long overflowMagnitude = (long)int.MaxValue + 1;
+            NpcDpsTable lossDps = new()
+            {
+                Value = overflowMagnitude,
+                MaxValue = overflowMagnitude + 1,
+                DamageTotal = overflowMagnitude + 2,
+                DamageNormal = overflowMagnitude + 3,
+                DamageMagic = [overflowMagnitude + 4, overflowMagnitude + 5],
+                BreakEndure = overflowMagnitude + 6,
+                Cure = overflowMagnitude + 7,
+                Hurt = overflowMagnitude + 8
+            };
+            FightSettleRequest legacyLossRequest = new()
+            {
+                Result = new FightSettleResult
+                {
+                    StageId = preFightRequest.PreFightData.StageId,
+                    FightId = unchecked((int)legacyHighBitFightId),
+                    IsWin = false,
+                    IsForceExit = true,
+                    NpcDpsTable = new Dictionary<int, NpcDpsTable> { [1] = lossDps }
+                }
+            };
+            FightSettleRequest legacyLossRoundTrip = MessagePackSerializer.Deserialize<FightSettleRequest>(
+                MessagePackSerializer.Serialize(legacyLossRequest));
+            NpcDpsTable lossDpsRoundTrip = legacyLossRoundTrip.Result.NpcDpsTable[1];
+            AssertEqual(lossDps.Value, lossDpsRoundTrip.Value, "FightSettleRequest loss NpcDpsTable Value MessagePack round-trip");
+            AssertEqual(lossDps.MaxValue, lossDpsRoundTrip.MaxValue, "FightSettleRequest loss NpcDpsTable MaxValue MessagePack round-trip");
+            AssertEqual(lossDps.DamageTotal, lossDpsRoundTrip.DamageTotal, "FightSettleRequest loss NpcDpsTable DamageTotal MessagePack round-trip");
+            AssertEqual(lossDps.DamageNormal, lossDpsRoundTrip.DamageNormal, "FightSettleRequest loss NpcDpsTable DamageNormal MessagePack round-trip");
+            AssertEqual(lossDps.DamageMagic[0], lossDpsRoundTrip.DamageMagic[0], "FightSettleRequest loss NpcDpsTable DamageMagic[0] MessagePack round-trip");
+            AssertEqual(lossDps.DamageMagic[1], lossDpsRoundTrip.DamageMagic[1], "FightSettleRequest loss NpcDpsTable DamageMagic[1] MessagePack round-trip");
+            AssertEqual(lossDps.BreakEndure, lossDpsRoundTrip.BreakEndure, "FightSettleRequest loss NpcDpsTable BreakEndure MessagePack round-trip");
+            AssertEqual(lossDps.Cure, lossDpsRoundTrip.Cure, "FightSettleRequest loss NpcDpsTable Cure MessagePack round-trip");
+            AssertEqual(lossDps.Hurt, lossDpsRoundTrip.Hurt, "FightSettleRequest loss NpcDpsTable Hurt MessagePack round-trip");
+
+            RequestPacketHandlerDelegate settleHandler = GetRegisteredRequestHandler(nameof(FightSettleRequest));
+            settleHandler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = legacySettlePacketId,
+                Name = nameof(FightSettleRequest),
+                Content = MessagePackSerializer.Serialize(legacyLossRoundTrip)
+            });
+            FightSettleResponse legacyLoss = ReadResponsePayload<FightSettleResponse>(
+                harness,
+                legacySettlePacketId,
+                nameof(FightSettleResponse),
+                "FightSettleRequest signed legacy FightId");
+            AssertEqual(0, legacyLoss.Code, "FightSettleRequest signed legacy FightId code");
+            AssertEqual(false, legacyLoss.Settle.IsWin, "FightSettleRequest signed legacy loss");
+            AssertEqual(null, harness.Session.fight, "FightSettleRequest signed legacy loss clears active fight");
+            AssertNoExtraPacket(harness, "FightSettleRequest signed legacy FightId");
+            AssertMalformedSettle(malformedSettlePacketId, [0xc1], "malformed wire");
+
+            System.Buffers.ArrayBufferWriter<byte> overflowWireBuffer = new();
+            MessagePackWriter overflowWire = new(overflowWireBuffer);
+            overflowWire.WriteMapHeader(1);
+            overflowWire.Write(nameof(FightSettleRequest.Result));
+            overflowWire.WriteMapHeader(5);
+            overflowWire.Write(nameof(FightSettleResult.IsWin));
+            overflowWire.Write(false);
+            overflowWire.Write(nameof(FightSettleResult.IsForceExit));
+            overflowWire.Write(false);
+            overflowWire.Write(nameof(FightSettleResult.StageId));
+            overflowWire.Write(preFightRequest.PreFightData.StageId);
+            overflowWire.Write(nameof(FightSettleResult.FightId));
+            overflowWire.Write(unchecked((int)legacyHighBitFightId));
+            overflowWire.Write(nameof(FightSettleResult.NpcDpsTable));
+            overflowWire.WriteMapHeader(1);
+            overflowWire.Write(1);
+            overflowWire.WriteMapHeader(1);
+            overflowWire.Write(nameof(NpcDpsTable.RoleId));
+            overflowWire.Write((long)int.MaxValue + 1);
+            overflowWire.Flush();
+            FightSettleHeaderResult recoveredHeader = MessagePackSerializer
+                .Deserialize<FightSettleHeaderRequest>(overflowWireBuffer.WrittenMemory).Result
+                ?? throw new InvalidDataException("FightSettleRequest overflow loss header missing.");
+            AssertEqual(false, recoveredHeader.IsWin, "FightSettleRequest overflow loss header");
+            AssertEqual(preFightRequest.PreFightData.StageId, recoveredHeader.StageId,
+                "FightSettleRequest overflow loss stage");
+            AssertEqual(unchecked((int)legacyHighBitFightId), recoveredHeader.FightId,
+                "FightSettleRequest overflow loss FightId");
+            harness.Session.fight = new Fight(preFightRequest, legacyHighBitFightId);
+            harness.Session.PendingBossInshotFight = new PendingBossInshotFight();
+            settleHandler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = overflowSettlePacketId,
+                Name = nameof(FightSettleRequest),
+                Content = overflowWireBuffer.WrittenMemory.ToArray()
+            });
+            FightSettleResponse recoveredLoss = ReadResponsePayload<FightSettleResponse>(
+                harness, overflowSettlePacketId, nameof(FightSettleResponse), "FightSettleRequest overflow loss");
+            AssertEqual(0, recoveredLoss.Code, "FightSettleRequest overflow loss code");
+            AssertEqual(false, recoveredLoss.Settle.IsWin, "FightSettleRequest overflow loss result");
+            AssertEqual(null, harness.Session.fight, "FightSettleRequest overflow loss clears active fight");
+            AssertEqual(null, harness.Session.PendingBossInshotFight, "FightSettleRequest overflow loss clears pending mode");
+            AssertNoExtraPacket(harness, "FightSettleRequest overflow loss");
+
+            void AssertMalformedSettle(int packetId, byte[] content, string name)
+            {
+                harness.Session.fight = new Fight(preFightRequest, legacyHighBitFightId);
+                harness.Session.PendingBossInshotFight = new PendingBossInshotFight();
+                settleHandler.Invoke(harness.Session, new Packet.Request
+                {
+                    Id = packetId,
+                    Name = nameof(FightSettleRequest),
+                    Content = content
+                });
+                FightSettleResponse response = ReadResponsePayload<FightSettleResponse>(
+                    harness, packetId, nameof(FightSettleResponse), $"FightSettleRequest {name}");
+                AssertEqual(1033, response.Code, $"FightSettleRequest {name} code");
+                AssertEqual(null, harness.Session.fight, $"FightSettleRequest {name} clears active fight");
+                AssertEqual(null, harness.Session.PendingBossInshotFight, $"FightSettleRequest {name} clears pending mode");
+                AssertNoExtraPacket(harness, $"FightSettleRequest {name}");
+            }
+
 
             using LoopbackSessionHarness absentHarness = new(
                 CreateDrawCompatibilityCharacter(playerId + 1),
@@ -22619,7 +22894,7 @@ namespace AscNet.Test
                 nameof(FightRestartRequest),
                 absentHarness.Session,
                 absentRestartPacketId,
-                new FightRestartRequest { FightId = activeFight.FightId });
+                new FightRestartRequest { FightId = unchecked((int)activeFight.FightId) });
             AssertRestartResponse(
                 absentHarness,
                 absentRestartPacketId,
@@ -22635,20 +22910,36 @@ namespace AscNet.Test
                 int expectedCode,
                 string name)
             {
-                JObject response = ReadResponseMapPayload(
-                    responseHarness,
-                    expectedPacketId,
-                    nameof(FightRestartResponse),
-                    $"{name} response");
-                AssertEqual(
-                    true,
-                    response.Properties().Select(property => property.Name).SequenceEqual(["Code", "Seed"]),
-                    $"{name} response map keys");
-                AssertEqual(expectedCode, RequiredValue<int>(response, "Code", JTokenType.Integer, $"{name} response"), $"{name} Code");
-                JToken seed = RequiredToken(response, "Seed", JTokenType.Integer, $"{name} response");
-                long seedValue = seed.Value<long>();
-                if (seedValue < uint.MinValue || seedValue > uint.MaxValue)
-                    throw new InvalidDataException($"{name} Seed: expected uint-compatible integer, got {seed}.");
+                Packet packet = responseHarness.ReadPacket($"{name} response");
+                AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} response packet type");
+                Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                AssertEqual(expectedPacketId, response.Id, $"{name} response packet id");
+                AssertEqual(nameof(FightRestartResponse), response.Name, $"{name} response packet name");
+
+                MessagePackReader reader = new(new System.Buffers.ReadOnlySequence<byte>(response.Content));
+                int fieldCount = reader.ReadMapHeader();
+                List<string> fields = new(fieldCount);
+                int code = default;
+                for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+                {
+                    string field = reader.ReadString() ?? throw new InvalidDataException($"{name} response: null map key.");
+                    fields.Add(field);
+                    switch (field)
+                    {
+                        case "Code":
+                            code = reader.ReadInt32();
+                            break;
+                        case "Seed":
+                            reader.ReadInt32();
+                            break;
+                        default:
+                            reader.Skip();
+                            break;
+                    }
+                }
+
+                AssertEqual(true, fields.SequenceEqual(["Code", "Seed"]), $"{name} response map keys");
+                AssertEqual(expectedCode, code, $"{name} Code");
             }
 
             static void AssertNoExtraPacket(LoopbackSessionHarness responseHarness, string name)
@@ -24893,7 +25184,19 @@ namespace AscNet.Test
                 BindingFlags.Static | BindingFlags.NonPublic,
                 [typeof(AscNet.Common.Database.Player)]);
             AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
-            using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(playerId), player, inventory, "simulated-battlefield-compat-test");
+            AscNet.Common.Database.Character battlefieldCharacter = CreateDrawCompatibilityCharacter(playerId);
+            battlefieldCharacter.Characters.Add(CreateLoginAccountCompatibilityCharacter(1_021_001, 3_021_001));
+            player.PlayerData.CurrTeamId = 1;
+            player.TeamGroups[1] = new TeamGroupDatum
+            {
+                TeamType = 1,
+                TeamId = 1,
+                CaptainPos = 1,
+                FirstFightPos = 1,
+                TeamData = new() { { 1, 1_021_001 }, { 2, 0 }, { 3, 0 } },
+                TeamName = "Simulated Battlefield"
+            };
+            using LoopbackSessionHarness harness = new(battlefieldCharacter, player, inventory, "simulated-battlefield-compat-test");
             harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
             player.MissionProgress.ConditionCounters[arenaResetProbeTask.Condition] = 7;
             player.MissionProgress.ClaimedTaskIds.Add(arenaResetProbeTask.Id);
@@ -25640,7 +25943,7 @@ namespace AscNet.Test
                     {
                         ChallengeCount = 1,
                         StageId = 30_090_802,
-                        CardIds = [],
+                        CardIds = [1_021_001],
                         RobotIds = []
                     }
                 });
@@ -25651,10 +25954,43 @@ namespace AscNet.Test
                 "Simulated Battlefield PreFightResponse");
             AssertEqual(0, repeatChallengePreFight.Code, "Simulated Battlefield PreFightResponse Code");
             AssertEqual(30_090_802U, repeatChallengePreFight.FightData.StageId, "Simulated Battlefield PreFightResponse StageId");
-            AssertEqual(3, repeatChallengePreFight.FightData.RebootId, "Simulated Battlefield PreFightResponse RebootId");
+            AssertEqual(0, repeatChallengePreFight.FightData.RebootId, "Simulated Battlefield PreFightResponse RebootId");
             if (!repeatChallengePreFight.FightData.MonsterLevel.SequenceEqual([357, 252, 197]))
                 throw new InvalidDataException($"Simulated Battlefield PreFightResponse MonsterLevel: expected 357,252,197, got {string.Join(",", repeatChallengePreFight.FightData.MonsterLevel)}.");
             AssertEqual(51201, Convert.ToInt32(repeatChallengePreFight.FightData.EventIds.Single()), "Simulated Battlefield Authority Level 1 effect");
+
+            const int repeatChallengeSettlePacketId = 81_006;
+            InvokeRegisteredRequestHandler(
+                nameof(FightSettleRequest),
+                harness.Session,
+                repeatChallengeSettlePacketId,
+                new FightSettleRequest
+                {
+                    Result = new FightSettleResult
+                    {
+                        IsWin = true,
+                        StageId = 30_090_802,
+                        FightId = repeatChallengePreFight.FightData.FightId
+                    }
+                });
+            NotifyRcExpChange? repeatExpChange = null;
+            FightSettleResponse? repeatSettleResponse = null;
+            for (int packetIndex = 0; packetIndex < 16 && repeatSettleResponse is null; packetIndex++)
+            {
+                Packet settlePacket = harness.ReadPacket($"Simulated Battlefield FightSettle packet {packetIndex + 1}");
+                if (settlePacket.Type == Packet.ContentType.Push)
+                {
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(settlePacket.Content);
+                    if (push.Name == nameof(NotifyRcExpChange))
+                        repeatExpChange = MessagePackSerializer.Deserialize<NotifyRcExpChange>(push.Content);
+                    continue;
+                }
+                Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(settlePacket.Content);
+                AssertEqual(repeatChallengeSettlePacketId, response.Id, "Simulated Battlefield FightSettleResponse packet id");
+                repeatSettleResponse = MessagePackSerializer.Deserialize<FightSettleResponse>(response.Content);
+            }
+            AssertEqual(0, repeatSettleResponse?.Code ?? -1, "Simulated Battlefield FightSettleResponse Code");
+            AssertEqual(50, repeatExpChange?.ExpInfo.Exp ?? -1, "Simulated Battlefield settle EXP push");
 
             MethodInfo recordRepeatChallengeStageClear = RequiredMethod(
                 repeatChallengeModule,
@@ -25663,9 +25999,9 @@ namespace AscNet.Test
                 [typeof(AscNet.Common.Database.Player), typeof(uint), typeof(int)]);
             AssertEqual(
                 true,
-                (bool)(recordRepeatChallengeStageClear.Invoke(null, [player, 30_090_802U, 2])
+                (bool)(recordRepeatChallengeStageClear.Invoke(null, [player, 30_090_802U, 1])
                     ?? throw new InvalidDataException("RepeatChallengeModule.RecordStageClear returned nil.")),
-                "Simulated Battlefield repeat challenge clear progression");
+                "Simulated Battlefield repeat challenge second clear progression");
             NotifyRepeatChallengeData progressedRepeatChallengeLogin = buildRepeatChallengeLoginData.Invoke(null, [player]) as NotifyRepeatChallengeData
                 ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil after stage clear.");
             AssertEqual(2, progressedRepeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield progressed Authority Level");
@@ -25675,6 +26011,49 @@ namespace AscNet.Test
                 ?? throw new InvalidDataException("Simulated Battlefield progressed repeat challenge FinishStages serialized as nil.");
             if (!finishStages.SequenceEqual([30_090_802]))
                 throw new InvalidDataException($"Simulated Battlefield progressed repeat challenge FinishStages: expected 30090802, got {string.Join(",", finishStages)}.");
+
+            const int battlefieldShopPacketId = 81_007;
+            InvokeRegisteredRequestHandler(
+                nameof(GetShopInfoRequest),
+                harness.Session,
+                battlefieldShopPacketId,
+                new GetShopInfoRequest { Id = 1_421 });
+            GetShopInfoResponse battlefieldShop = ReadResponsePayload<GetShopInfoResponse>(
+                harness,
+                battlefieldShopPacketId,
+                nameof(GetShopInfoResponse),
+                "Simulated Battlefield shop response");
+            AssertEqual(0, battlefieldShop.Code, "Simulated Battlefield shop response Code");
+            AssertEqual(19, battlefieldShop.ClientShop.GoodsList.Count, "Simulated Battlefield shop goods count");
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods battlefieldGoods =
+                battlefieldShop.ClientShop.GoodsList.First();
+            GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods.GetShopInfoResponseClientShopGoodsConsume battlefieldCost =
+                battlefieldGoods.ConsumeList.Single();
+            AssertEqual(true, Enum.IsDefined(typeof(RewardType), battlefieldGoods.RewardGoods.RewardType),
+                "Simulated Battlefield shop reward type");
+            AssertEqual(true, AscNet.Common.Database.Inventory.IsValidClientItemId(battlefieldCost.Id),
+                "Simulated Battlefield shop currency item");
+            AssertEqual(true, battlefieldCost.Count > 0, "Simulated Battlefield shop currency cost");
+            Item battlefieldCurrency = inventory.Items.FirstOrDefault(item => item.Id == battlefieldCost.Id)
+                ?? new Item { Id = battlefieldCost.Id };
+            if (!inventory.Items.Contains(battlefieldCurrency))
+                inventory.Items.Add(battlefieldCurrency);
+            battlefieldCurrency.Count = battlefieldCost.Count;
+            const int battlefieldBuyPacketId = 81_008;
+            InvokeRegisteredRequestHandler(
+                nameof(BuyRequest),
+                harness.Session,
+                battlefieldBuyPacketId,
+                new BuyRequest { ShopId = 1_421, GoodsId = battlefieldGoods.Id, Count = 1 });
+            BuyResponse battlefieldBuy = (BuyResponse)ReadResponsePayload(
+                harness,
+                battlefieldBuyPacketId,
+                nameof(BuyResponse),
+                "Simulated Battlefield shop purchase response",
+                typeof(BuyResponse),
+                maxPacketsToRead: 4);
+            AssertEqual(0, battlefieldBuy.Code, "Simulated Battlefield shop purchase Code");
+            AssertEqual(0L, battlefieldCurrency.Count, "Simulated Battlefield shop purchase cost");
 
             const int progressedPreFightPacketId = 81_005;
             InvokeRegisteredRequestHandler(
@@ -25705,6 +26084,83 @@ namespace AscNet.Test
                 ?? throw new InvalidDataException("RepeatChallengeModule.BuildLoginData returned nil at maximum Authority Level.");
             AssertEqual(25, cappedRepeatChallengeLogin.ExpInfo.Level, "Simulated Battlefield maximum Authority Level");
             AssertEqual(7_175, cappedRepeatChallengeLogin.ExpInfo.Exp, "Simulated Battlefield maximum cumulative Authority EXP");
+
+            const int arenaDeathPreFightPacketId = 81_105;
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, arenaDeathPreFightPacketId, new PreFightRequest
+            {
+                PreFightData = new PreFightRequest.PreFightRequestPreFightData
+                {
+                    ChallengeCount = 1, StageId = checked((uint)selectedStageId), SelectAreaId = selectedAreaId,
+                    ArenaSelectIndex = arenaSelectIndex, CardIds = [], RobotIds = []
+                }
+            });
+            PreFightResponse arenaDeathPreFight = ReadResponsePayload<PreFightResponse>(
+                harness, arenaDeathPreFightPacketId, nameof(PreFightResponse), "War Zone death PreFightResponse");
+            FightSettleResult arenaDeath = new()
+            {
+                IsWin = false, IsForceExit = false, StageId = checked((uint)selectedStageId),
+                FightId = arenaDeathPreFight.FightData.FightId,
+                StartFrame = 10, SettleFrame = 110, PauseFrame = 20, LeftTime = 0,
+                DeathTotalEnemy = 0, TotalDamage = 0,
+                StringToIntRecord = new Dictionary<object, object> { ["NpcGroup"] = 0 },
+                NpcHpInfo = new()
+                {
+                    [1] = new NpcHp { Type = 1, AttrTable = new() { [1] = new Dictionary<object, object> { ["Value"] = 0, ["MaxValue"] = 100 } }, BuffIds = [] },
+                    [2] = new NpcHp { Type = 3, AttrTable = new(), BuffIds = [] }
+                }
+            };
+            scoreMetrics = new()
+            {
+                ["KillNum"] = 0, ["TotalNum"] = 1, ["Hp"] = 0,
+                ["LeftTime"] = 0, ["EnemyHp"] = 0, ["NpcGroup"] = 0
+            };
+            int expectedDeathEnemyPoint = EvaluateMark(selectedMark.EnemyHpPoint, selectedMark.MaxEnemyHpPoint);
+            int expectedDeathMyHpPoint = EvaluateMark(selectedMark.MyHpPoint, selectedMark.MaxMyHpPoint);
+            int expectedDeathTimePoint = EvaluateMark(selectedMark.TimePoint, selectedMark.MaxTimePoint);
+            int expectedDeathNpcPoint = EvaluateMark(selectedMark.NpcGroupPoint, selectedMark.MaxNpcGroupPoint);
+            int expectedDeathPoint = Math.Clamp(
+                expectedDeathEnemyPoint + expectedDeathMyHpPoint + expectedDeathTimePoint + expectedDeathNpcPoint,
+                selectedMark.MinPoint,
+                selectedMark.MaxPoint);
+            const int arenaDeathSettlePacketId = 81_106;
+            InvokeRegisteredRequestHandler(nameof(FightSettleRequest), harness.Session, arenaDeathSettlePacketId,
+                new FightSettleRequest { Result = arenaDeath });
+            bool arenaDeathTaskBeforeResponse = false;
+            FightSettleResponse? arenaDeathResponse = null;
+            for (int packetIndex = 0; packetIndex < 4 && arenaDeathResponse is null; packetIndex++)
+            {
+                Packet deathPacket = harness.ReadPacket($"War Zone death FightSettle packet {packetIndex + 1}");
+                if (deathPacket.Type == Packet.ContentType.Push)
+                {
+                    Packet.Push deathPush = MessagePackSerializer.Deserialize<Packet.Push>(deathPacket.Content);
+                    AssertEqual(nameof(NotifyTask), deathPush.Name, "War Zone death only advances tasks");
+                    arenaDeathTaskBeforeResponse = true;
+                    continue;
+                }
+                Packet.Response deathPacketResponse = MessagePackSerializer.Deserialize<Packet.Response>(deathPacket.Content);
+                AssertEqual(arenaDeathSettlePacketId, deathPacketResponse.Id, "War Zone death FightSettleResponse packet id");
+                AssertEqual(nameof(FightSettleResponse), deathPacketResponse.Name, "War Zone death FightSettleResponse packet name");
+                arenaDeathResponse = MessagePackSerializer.Deserialize<FightSettleResponse>(deathPacketResponse.Content);
+            }
+            FightSettleResponse.FightSettleResponseSettle deathSettle = arenaDeathResponse?.Settle
+                ?? throw new InvalidDataException("War Zone death FightSettleResponse missing.");
+            AssertEqual(true, arenaDeathTaskBeforeResponse, "War Zone death task push precedes FightSettleResponse");
+            AssertEqual(0, arenaDeathResponse.Code, "War Zone death FightSettleResponse Code");
+            AssertEqual(true, deathSettle.IsWin, "War Zone death response IsWin");
+            AssertEqual((long)arenaDeath.StageId, deathSettle.StageId, "War Zone death response StageId");
+            AssertEqual((int)arenaDeath.LeftTime, deathSettle.LeftTime, "War Zone death response LeftTime");
+            AssertEqual(JObject.FromObject(arenaDeath.NpcHpInfo).ToString(Formatting.None),
+                JObject.FromObject(deathSettle.NpcHpInfo).ToString(Formatting.None), "War Zone death response NpcHpInfo");
+            AssertEqual(null, deathSettle.RewardGoodsList, "War Zone death RewardGoodsList");
+            AssertEqual(null, deathSettle.MultiRewardGoodsList, "War Zone death MultiRewardGoodsList");
+            AssertEqual(0, deathSettle.ChallengeCount, "War Zone death ChallengeCount");
+            ArenaResult deathResult = deathSettle.ArenaResult
+                ?? throw new InvalidDataException("War Zone death ArenaResult is nil.");
+            AssertEqual(4, deathResult.FightTime, "War Zone death frame-derived FightTime");
+            AssertEqual(0, deathResult.MyHpLeft, "War Zone death MyHpLeft");
+            AssertEqual(0, deathResult.TimeLeft, "War Zone death TimeLeft");
+            AssertEqual(expectedDeathPoint, deathResult.Point, "War Zone death request/table-derived Point");
+            AssertEqual(null, harness.Session.fight, "War Zone death clears fight");
 
         }
 
@@ -26339,6 +26795,33 @@ namespace AscNet.Test
                 "Pain Cage retreat leaves character stamina unchanged");
             AssertEqual(null, harness.Session.PendingBossSingleScore,
                 "Pain Cage retreat leaves no provisional score");
+
+            PreFightResponse deathPreFight = StartFight(82_027, normalStage.StageId, stageType: 1);
+            AssertEqual(0, deathPreFight.Code, "Pain Cage death pre-fight code");
+            FightSettleResponse deathSettle = SettleFight(
+                82_028,
+                deathPreFight,
+                normalStage,
+                characterHp: 0,
+                bossHp: 100,
+                isWin: false);
+            AssertEqual(0, deathSettle.Code, "Pain Cage death settle code");
+            AssertEqual(true, deathSettle.Settle?.IsWin ?? false, "Pain Cage death settle result");
+            _ = RequiredBossResult(deathSettle, "Pain Cage death FightSettleResponse");
+            AssertEqual(normalStage.StageId, harness.Session.PendingBossSingleScore?.StageId ?? 0,
+                "Pain Cage death settlement remains provisional for save-score");
+            InvokeRegisteredRequestHandler(
+                nameof(LeaveFightRequest),
+                harness.Session,
+                82_029,
+                new LeaveFightRequest());
+            _ = ReadResponsePayload<LeaveFightResponse>(
+                harness,
+                82_029,
+                nameof(LeaveFightResponse),
+                "Pain Cage death discard LeaveFightResponse");
+            AssertEqual(null, harness.Session.PendingBossSingleScore,
+                "Pain Cage death discard clears provisional score");
 
             const int normalPreFightPacketId = 82_030;
             PreFightResponse normalPreFight = StartFight(normalPreFightPacketId, normalStage.StageId, stageType: 1);

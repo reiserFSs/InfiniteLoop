@@ -70,17 +70,17 @@ namespace AscNet.GameServer.Handlers
     [MessagePackObject(true)]
     public partial class NpcDpsTable
     {
-        public int Value { get; set; }
-        public int MaxValue { get; set; }
+        public long Value { get; set; }
+        public long MaxValue { get; set; }
         public int RoleId { get; set; }
         public int NpcId { get; set; }
         public int CharacterId { get; set; }
-        public int DamageTotal { get; set; }
-        public int DamageNormal { get; set; }
-        public List<int> DamageMagic { get; set; } = new();
-        public int BreakEndure { get; set; }
-        public int Cure { get; set; }
-        public int Hurt { get; set; }
+        public long DamageTotal { get; set; }
+        public long DamageNormal { get; set; }
+        public List<long> DamageMagic { get; set; } = new();
+        public long BreakEndure { get; set; }
+        public long Cure { get; set; }
+        public long Hurt { get; set; }
         public int Type { get; set; }
         public int Level { get; set; }
         public List<int> BuffIds { get; set; } = new();
@@ -140,6 +140,22 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public sealed class FightSettleHeaderRequest
+    {
+        public FightSettleHeaderResult? Result { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public sealed class FightSettleHeaderResult
+    {
+        public bool IsWin { get; set; }
+        public bool IsForceExit { get; set; }
+        public uint StageId { get; set; }
+        public long FightId { get; set; }
+        public long LeftTime { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class EnterStoryRequest
     {
         public int StageId { get; set; }
@@ -167,14 +183,14 @@ namespace AscNet.GameServer.Handlers
     [MessagePackObject(true)]
     public class FightRestartRequest
     {
-        public uint FightId { get; set; }
+        public int FightId { get; set; }
     }
 
     [MessagePackObject(true)]
     public class FightRestartResponse
     {
         public int Code { get; set; }
-        public uint Seed { get; set; }
+        public int Seed { get; set; }
     }
 
     [MessagePackObject(true)]
@@ -441,7 +457,9 @@ namespace AscNet.GameServer.Handlers
                 FightData = new()
                 {
                     Online = false,
-                    FightId = req.PreFightData.StageId + (uint)Random.Shared.NextInt64(0, uint.MaxValue - req.PreFightData.StageId),
+                    FightId = (uint)Random.Shared.NextInt64(
+                        Math.Clamp(req.PreFightData.StageId, 1u, (uint)int.MaxValue),
+                        (long)int.MaxValue + 1),
                     OnlineMode = 0,
                     Seed = (uint)Random.Shared.NextInt64(0, uint.MaxValue),
                     StageId = req.PreFightData.StageId,
@@ -735,7 +753,7 @@ namespace AscNet.GameServer.Handlers
         public static void HandleFightRestartRequestHandler(Session session, Packet.Request packet)
         {
             FightRestartRequest req = MessagePackSerializer.Deserialize<FightRestartRequest>(packet.Content);
-            if (session.fight is null || session.fight.FightId != req.FightId)
+            if (session.fight is null || session.fight.FightId != unchecked((uint)req.FightId))
             {
                 session.SendResponse(new FightRestartResponse { Code = FightAuthorizationError }, packet.Id);
                 return;
@@ -744,7 +762,7 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new FightRestartResponse
             {
                 Code = 0,
-                Seed = (uint)Random.Shared.NextInt64(0, uint.MaxValue)
+                Seed = (int)Random.Shared.NextInt64(int.MinValue, (long)int.MaxValue + 1)
             }, packet.Id);
         }
 
@@ -843,6 +861,139 @@ namespace AscNet.GameServer.Handlers
             session.player.TeamPrefabs = teamPrefabs;
             session.player.Save();
             session.SendResponse(new TeamPrefabSetTeamResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("TeamPrefabDelRequest")]
+        public static void TeamPrefabDelRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabDelRequest? request = packet.Deserialize<TeamPrefabDelRequest>();
+            session.player.NormalizeTeamPrefabs();
+            int index = request is null
+                ? -1
+                : session.player.TeamPrefabs.FindIndex(team => team.TeamId == request.TeamId);
+            if (index < 0)
+            {
+                session.SendResponse(new TeamPrefabDelResponse { Code = TeamManagerSetTeamParaError }, packet.Id);
+                return;
+            }
+
+            session.player.TeamPrefabs.RemoveAt(index);
+            session.player.Save();
+            session.SendResponse(new TeamPrefabDelResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("TeamPrefabMoveForwardRequest")]
+        public static void TeamPrefabMoveForwardRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabMoveForwardRequest? request = packet.Deserialize<TeamPrefabMoveForwardRequest>();
+            session.player.NormalizeTeamPrefabs();
+            int index = request is null
+                ? -1
+                : session.player.TeamPrefabs.FindIndex(team => team.TeamId == request.TeamId);
+            if (index < 0)
+            {
+                session.SendResponse(new TeamPrefabMoveForwardResponse { Code = TeamManagerSetTeamParaError }, packet.Id);
+                return;
+            }
+
+            if (index > 0)
+                (session.player.TeamPrefabs[index - 1], session.player.TeamPrefabs[index]) =
+                    (session.player.TeamPrefabs[index], session.player.TeamPrefabs[index - 1]);
+            session.player.Save();
+            session.SendResponse(new TeamPrefabMoveForwardResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("TeamPrefabSetTagsRequest")]
+        public static void TeamPrefabSetTagsRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabSetTagsRequest? request = packet.Deserialize<TeamPrefabSetTagsRequest>();
+            session.player.NormalizeTeamPrefabs();
+            int index = request is null
+                ? -1
+                : session.player.TeamPrefabs.FindIndex(team => team.TeamId == request.TeamId);
+            if (index < 0)
+            {
+                session.SendResponse(new TeamPrefabSetTagsResponse { Code = TeamManagerSetTeamParaError }, packet.Id);
+                return;
+            }
+
+            TeamPrefabData source = session.player.TeamPrefabs[index];
+            TeamPrefabData candidate = new()
+            {
+                TeamType = source.TeamType,
+                TeamId = source.TeamId,
+                CaptainPos = source.CaptainPos,
+                FirstFightPos = source.FirstFightPos,
+                EnterCgIndex = source.EnterCgIndex,
+                SettleCgIndex = source.SettleCgIndex,
+                TeamData = source.TeamData,
+                TeamName = source.TeamName,
+                SelectedGeneralSkill = source.SelectedGeneralSkill,
+                PartnerData = source.PartnerData,
+                EquipData = source.EquipData,
+                TagsSet = request!.Tags ?? [],
+                SwitchSkills = source.SwitchSkills
+            };
+            if (!TryNormalizeTeamPrefab(session, candidate, out TeamPrefabData normalized, out _))
+            {
+                session.SendResponse(new TeamPrefabSetTagsResponse { Code = TeamManagerSetTeamParaError }, packet.Id);
+                return;
+            }
+
+            session.player.TeamPrefabs[index] = normalized;
+            session.player.Save();
+            session.SendResponse(new TeamPrefabSetTagsResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("TeamPrefabUpdateEquipRequest")]
+        public static void TeamPrefabUpdateEquipRequestHandler(Session session, Packet.Request packet)
+        {
+            TeamPrefabUpdateEquipRequest? request = packet.Deserialize<TeamPrefabUpdateEquipRequest>();
+            session.player.NormalizeTeamPrefabs();
+            int index = request is null
+                ? -1
+                : session.player.TeamPrefabs.FindIndex(team => team.TeamId == request.TeamId);
+            if (index < 0 || request!.TeamPrefabEquipData is null)
+            {
+                session.SendResponse(new TeamPrefabUpdateEquipResponse { Code = TeamManagerSetTeamParaError }, packet.Id);
+                return;
+            }
+
+            TeamPrefabData source = session.player.TeamPrefabs[index];
+            if (!source.TeamData.ContainsKey(request.TeamPos))
+            {
+                session.SendResponse(new TeamPrefabUpdateEquipResponse { Code = TeamManagerSetTeamParaError }, packet.Id);
+                return;
+            }
+
+            Dictionary<int, TeamPrefabEquipData?> equipData = source.EquipData
+                .ToDictionary(pair => pair.Key, pair => pair.Value);
+            equipData[request.TeamPos] = request.TeamPrefabEquipData;
+            TeamPrefabData candidate = new()
+            {
+                TeamType = source.TeamType,
+                TeamId = source.TeamId,
+                CaptainPos = source.CaptainPos,
+                FirstFightPos = source.FirstFightPos,
+                EnterCgIndex = source.EnterCgIndex,
+                SettleCgIndex = source.SettleCgIndex,
+                TeamData = source.TeamData,
+                TeamName = source.TeamName,
+                SelectedGeneralSkill = source.SelectedGeneralSkill,
+                PartnerData = source.PartnerData,
+                EquipData = equipData,
+                TagsSet = source.TagsSet,
+                SwitchSkills = source.SwitchSkills
+            };
+            if (!TryNormalizeTeamPrefab(session, candidate, out TeamPrefabData normalized, out _))
+            {
+                session.SendResponse(new TeamPrefabUpdateEquipResponse { Code = TeamManagerSetTeamParaError }, packet.Id);
+                return;
+            }
+
+            session.player.TeamPrefabs[index] = normalized;
+            session.player.Save();
+            session.SendResponse(new TeamPrefabUpdateEquipResponse(), packet.Id);
         }
 
         [RequestPacketHandler("TeamPrefabSetPartnerRequest")]
@@ -1788,10 +1939,71 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new EnterChallengeResponse(), packet.Id);
         }
 
+        private static bool TryRecoverFailedFightSettle(Session session, Packet.Request packet, out FightSettleRequest request)
+        {
+            request = null!;
+            try
+            {
+                FightSettleHeaderResult? header = MessagePackSerializer
+                    .Deserialize<FightSettleHeaderRequest>(packet.Content).Result;
+                if (header is null || header.IsWin && !header.IsForceExit)
+                    return false;
+
+                FightSettleResult result = new()
+                {
+                    IsWin = false,
+                    IsForceExit = header.IsForceExit,
+                    StageId = header.StageId,
+                    FightId = header.FightId,
+                    LeftTime = header.LeftTime
+                };
+                if (!IsAuthorizedFightSettle(session, result))
+                    return false;
+
+                request = new FightSettleRequest { Result = result };
+                return true;
+            }
+            catch (MessagePackSerializationException)
+            {
+                return false;
+            }
+        }
+
+        private static void ClearFailedFightSettle(Session session)
+        {
+            BossModule.CancelFight(session);
+            session.PendingBossInshotFight = null;
+            session.fight = null;
+        }
+
         [RequestPacketHandler("FightSettleRequest")]
         public static void FightSettleRequestHandler(Session session, Packet.Request packet)
         {
-            FightSettleRequest req = MessagePackSerializer.Deserialize<FightSettleRequest>(packet.Content);
+            FightSettleRequest? req;
+            try
+            {
+                req = MessagePackSerializer.Deserialize<FightSettleRequest>(packet.Content);
+            }
+            catch (MessagePackSerializationException)
+            {
+                if (TryRecoverFailedFightSettle(session, packet, out req))
+                {
+                    uint stageId = ResolveFightSettleStageId(session, req);
+                    session.log.Warn($"Recovered failed fight settlement with malformed optional telemetry for stage {stageId}.");
+                    ClearFailedFightSettle(session);
+                    session.SendResponse(BuildFailedFightSettleResponse(stageId, req), packet.Id);
+                    return;
+                }
+                ClearFailedFightSettle(session);
+                session.SendResponse(new FightSettleResponse { Code = FightAuthorizationError }, packet.Id);
+                return;
+            }
+            if (req?.Result is null)
+            {
+                ClearFailedFightSettle(session);
+                session.SendResponse(new FightSettleResponse { Code = FightAuthorizationError }, packet.Id);
+                return;
+            }
             int fashionCode = 0;
             bool isFashionStage = req.Result.StageId <= int.MaxValue
                 && FashionStoryModule.TryValidateStage(
@@ -1840,29 +2052,8 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(transfiniteResponse, packet.Id);
                 return;
             }
-            if (!isSuccessfulSettle)
-            {
-                BiancaTheatreModule.TrySendTheatreRetreatSettle(session, req.Result.StageId);
-                BossModule.CancelFight(session);
-                session.PendingBossInshotFight = null;
-                session.fight = null;
-                session.SendResponse(BuildFailedFightSettleResponse(responseStageId, req), packet.Id);
-                return;
-            }
-            if (BossInshotModule.TrySettle(session, req.Result, out FightSettleResponse bossInshotResponse))
-            {
-                if (session.PendingBossInshotFight is null)
-                    session.fight = null;
-                if (bossInshotResponse.Code == 0)
-                {
-                    session.SendPush(BossInshotModule.BuildNotifyBossInshotData(session.player));
-                    session.SendPush(new NotifyArchiveMonsterRecord());
-                    TaskModule.SendTaskSync(session);
-                }
-                session.SendResponse(bossInshotResponse, packet.Id);
-                return;
-            }
-            if (BossModule.TryBuildFightSettle(session, req.Result, out BossSingleFightResult? bossSingleResult))
+            if (!req.Result.IsForceExit
+                && BossModule.TryBuildFightSettle(session, req.Result, out BossSingleFightResult? bossSingleResult))
             {
                 FightSettleResponse response = new()
                 {
@@ -1880,6 +2071,52 @@ namespace AscNet.GameServer.Handlers
                 };
                 session.fight = null;
                 session.SendResponse(response, packet.Id);
+                return;
+            }
+            if (!isSuccessfulSettle
+                && !req.Result.IsForceExit
+                && ArenaModule.IsArenaStage(req.Result.StageId)
+                && session.fight?.PreFight.PreFightData.SelectAreaId > 0
+                && ArenaModule.RecordFightResult(session, req.Result) is ArenaResult arenaDeathResult)
+            {
+                TaskModule.RecordArenaResult(session, arenaDeathResult.Point);
+                session.fight = null;
+                session.SendResponse(new FightSettleResponse
+                {
+                    Code = 0,
+                    Settle = new()
+                    {
+                        IsWin = true,
+                        StageId = req.Result.StageId,
+                        LeftTime = checked((int)req.Result.LeftTime),
+                        NpcHpInfo = req.Result.NpcHpInfo,
+                        RewardGoodsList = null!,
+                        MultiRewardGoodsList = null!,
+                        ChallengeCount = 0,
+                        ArenaResult = arenaDeathResult
+                    }
+                }, packet.Id);
+                return;
+            }
+
+            if (!isSuccessfulSettle)
+            {
+                BiancaTheatreModule.TrySendTheatreRetreatSettle(session, req.Result.StageId);
+                ClearFailedFightSettle(session);
+                session.SendResponse(BuildFailedFightSettleResponse(responseStageId, req), packet.Id);
+                return;
+            }
+            if (BossInshotModule.TrySettle(session, req.Result, out FightSettleResponse bossInshotResponse))
+            {
+                if (session.PendingBossInshotFight is null)
+                    session.fight = null;
+                if (bossInshotResponse.Code == 0)
+                {
+                    session.SendPush(BossInshotModule.BuildNotifyBossInshotData(session.player));
+                    session.SendPush(new NotifyArchiveMonsterRecord());
+                    TaskModule.SendTaskSync(session);
+                }
+                session.SendResponse(bossInshotResponse, packet.Id);
                 return;
             }
 
@@ -2077,7 +2314,7 @@ namespace AscNet.GameServer.Handlers
                 SendMainLineLuosaitaSectionInfoIfCaptured(session, (int)req.Result.StageId);
             }
             if (updatedRepeatChallenge)
-                session.SendPush(RepeatChallengeModule.BuildLoginData(session.player));
+                session.SendPush(RepeatChallengeModule.BuildExpChange(session.player));
             TaskModule.RecordStageClear(session, (int)req.Result.StageId, challengeCount);
             session.SendResponse(fightSettleResponse, packet.Id);
         }
@@ -2116,7 +2353,9 @@ namespace AscNet.GameServer.Handlers
         private static bool IsAuthorizedFightSettle(Session session, FightSettleResult result)
         {
             return session.fight is { } fight
-                && fight.FightId == result.FightId
+                && result.FightId >= int.MinValue
+                && result.FightId <= uint.MaxValue
+                && fight.FightId == unchecked((uint)result.FightId)
                 && fight.PreFight.PreFightData.StageId == result.StageId;
         }
 

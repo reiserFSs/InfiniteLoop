@@ -2873,6 +2873,62 @@
         "client/theatre6/Theatre6ClientConfig.json",
         "share/item/Item.json"
       ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "644adc6235a2ab7b44e81231dff5f9a33c706f559d5abc781d38bfaec9b7e4c6",
+      "filter": "minimal-runtime-projection",
+      "naturalKey": "Id",
+      "path": "share/fuben/repeatchallenge/RepeatChallengeActivity.tsv",
+      "rows": 1,
+      "source": [
+        "share/fuben/repeatchallenge/RepeatChallengeActivity.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "3cc82a18eb3ffea58a24fd77b8a3c0129687ae6343b7e76eac64cac39d246397",
+      "filter": "minimal-runtime-projection",
+      "naturalKey": "Id",
+      "path": "share/fuben/repeatchallenge/RepeatChallengeChapter.tsv",
+      "rows": 1,
+      "source": [
+        "share/fuben/repeatchallenge/RepeatChallengeChapter.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "87504cde53e3717540ddae9e15010c57a5f5c33dbf20c38e09e0e610421d5d7b",
+      "filter": "minimal-runtime-projection",
+      "naturalKey": "Id",
+      "path": "share/fuben/repeatchallenge/RepeatChallengeLevel.tsv",
+      "rows": 25,
+      "source": [
+        "share/fuben/repeatchallenge/RepeatChallengeLevel.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "9185bb5f7b2e538200d6aa190cc4a7038d5893a874fbf43ecc1aac5d07aabb70",
+      "filter": "minimal-runtime-projection",
+      "naturalKey": "Id",
+      "path": "share/fuben/repeatchallenge/RepeatChallengeReward.tsv",
+      "rows": 5,
+      "source": [
+        "share/fuben/repeatchallenge/RepeatChallengeReward.json"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "91409edd068b309a86f22e64e3e9a4cb96c64f16868952b95cc9aa796b7c9b44",
+      "filter": "minimal-runtime-projection",
+      "naturalKey": "Id",
+      "path": "share/fuben/repeatchallenge/RepeatChallengeStage.tsv",
+      "rows": 1,
+      "source": [
+        "share/fuben/repeatchallenge/RepeatChallengeStage.json",
+        "share/fuben/Stage.json"
+      ]
     }
   ],
   "validationNotes": [

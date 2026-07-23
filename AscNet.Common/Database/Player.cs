@@ -256,6 +256,9 @@ namespace AscNet.Common.Database
         [BsonElement("boss_claimed_reward_ids")]
         public List<int> BossClaimedRewardIds { get; set; } = new();
 
+        [BsonElement("repeat_challenge_activity_id")]
+        public int RepeatChallengeActivityId { get; set; }
+
         [BsonElement("repeat_challenge_level")]
         public int RepeatChallengeLevel { get; set; } = 1;
 
@@ -264,6 +267,9 @@ namespace AscNet.Common.Database
 
         [BsonElement("repeat_challenge_cleared")]
         public bool RepeatChallengeCleared { get; set; }
+
+        [BsonElement("repeat_challenge_claimed_reward_ids")]
+        public List<int> RepeatChallengeClaimedRewardIds { get; set; } = new();
     }
 
     public class MedalUnlockState
