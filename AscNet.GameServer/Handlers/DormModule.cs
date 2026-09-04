@@ -202,13 +202,12 @@ internal partial class DormModule
 
     private static bool EnsureAllFurniture(PlayerDormState dorm)
     {
-        const int DesiredCopiesPerFurniture = 7;
         FurnitureTables tables = FurnitureData.Value;
-        Dictionary<uint, int> ownedCounts = dorm.Furniture
-            .GroupBy(furniture => furniture.ConfigId)
-            .ToDictionary(group => group.Key, group => group.Count());
+        HashSet<uint> owned = dorm.Furniture.Select(furniture => furniture.ConfigId).ToHashSet();
         bool changed = false;
 
+        // Every Furniture.tsv entry becomes both unlocked in the catalog and owned as
+        // one placeable item. Existing copies are preserved, so this is idempotent.
         foreach (FurnitureTable config in tables.Furniture)
         {
             uint configId = checked((uint)config.Id);
@@ -218,8 +217,7 @@ internal partial class DormModule
                 changed = true;
             }
 
-            ownedCounts.TryGetValue(configId, out int currentCount);
-            if (currentCount >= DesiredCopiesPerFurniture)
+            if (owned.Contains(configId))
                 continue;
 
             FurnitureRewardTable? reward = tables.Rewards.FirstOrDefault(row => row.FurnitureId == config.Id);
@@ -228,22 +226,18 @@ internal partial class DormModule
             List<int> bases = extra?.AttrIds.Take(3).Concat(Enumerable.Repeat(0, 3)).Take(3).ToList() ?? [0, 0, 0];
             List<int> attrs = baseAttr is null ? [0, 0, 0] : Split(baseAttr.Value, bases).ToList();
 
-            while (currentCount < DesiredCopiesPerFurniture)
+            dorm.Furniture.Add(new PlayerDormFurniture
             {
-                dorm.Furniture.Add(new PlayerDormFurniture
-                {
-                    Id = dorm.NextFurnitureId++,
-                    ConfigId = configId,
-                    DormitoryId = -1,
-                    Addition = reward?.AdditionId ?? 0,
-                    AttrList = new List<int>(attrs),
-                    BaseAttrList = new List<int>(bases),
-                    IsLocked = false
-                });
-                currentCount++;
-                changed = true;
-            }
-            ownedCounts[configId] = currentCount;
+                Id = dorm.NextFurnitureId++,
+                ConfigId = configId,
+                DormitoryId = -1,
+                Addition = reward?.AdditionId ?? 0,
+                AttrList = attrs,
+                BaseAttrList = bases,
+                IsLocked = false
+            });
+            owned.Add(configId);
+            changed = true;
         }
 
         return changed;
@@ -258,6 +252,9 @@ internal partial class DormModule
             .ToDictionary(row => (uint)row.CharacterId);
         uint now = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
+        // Reconcile special dorm characters that were purchased before DormCharacter
+        // rewards were implemented by the server. ShopBuyTimes is persistent, so this
+        // safely repairs existing purchases on the next login.
         foreach (int rewardId in ShopModule.GetPurchasedDormCharacterRewardIds(session.player))
             changed |= TryGrantDormCharacterReward(session, rewardId);
 
