@@ -230,6 +230,24 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
+        internal static IEnumerable<int> GetPurchasedDormCharacterRewardIds(Player player)
+        {
+            player.ShopBuyTimes ??= new();
+            foreach (ClientShop shop in RetailShopSnapshot.Value.Values)
+            {
+                foreach (ClientShopGoods goods in shop.GoodsList)
+                {
+                    if (player.ShopBuyTimes.GetValueOrDefault(goods.Id) <= 0
+                        || goods.RewardGoods.RewardType != (int)RewardType.DormCharacter)
+                    {
+                        continue;
+                    }
+
+                    yield return checked((int)goods.RewardGoods.TemplateId);
+                }
+            }
+        }
+
         private static Dictionary<uint, ClientShop> LoadShopSnapshot()
         {
             JObject root = JsonSnapshot.LoadObject(ShopSnapshotPath);
