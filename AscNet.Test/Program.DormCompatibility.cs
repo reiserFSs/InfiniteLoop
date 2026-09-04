@@ -13,6 +13,8 @@ using AscNet.Table.V2.share.dormitory.furniture;
 using AscNet.Table.V2.share.dormitory.quest;
 using AscNet.Table.V2.share.task;
 using MessagePack;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 
 namespace AscNet.Test;
 
@@ -263,6 +265,7 @@ internal partial class Program
                 QuestId = board.QuestId, Index = board.Index, ResetCount = board.ResetCount, IsSpecialQuest = board.IsSpecialQuest, IsAward = true
             });
         InvokeRegisteredRequestHandler(nameof(QuestAcceptRequest), harness.Session, 46_995_036, new QuestAcceptRequest());
+        _ = ReadPushPayload<NotifyDormQuestData>(harness, nameof(NotifyDormQuestData), "Dorm exhausted board refresh push");
         AssertEqual(20060072, ReadResponsePayload<QuestAcceptResponse>(harness, 46_995_036, nameof(QuestAcceptResponse), "Dorm quest board reset trigger response").Code,
             "Dorm quest exhausted board trigger code");
         AssertEqual(completedReset + 1, player.Dorm.Quest.ResetCount, "Dorm quest exhausted board advances reset");
@@ -778,6 +781,116 @@ internal partial class Program
         AssertEqual(20060040, ReadResponsePayload<DormCharacterFinishAllEventResponse>(harness, 46_995_007,
             nameof(DormCharacterFinishAllEventResponse), "Dorm finish-all replay response").Code, "Dorm finish-all replay code");
         AssertNoAvailablePacket(harness, "Dorm finish-all replay");
+    }
+
+    private static void ValidateDormDispatchAllCompatibility()
+    {
+        Dictionary<int, QuestTable> quests = TableReaderV2.Parse<QuestTable>().ToDictionary(row => row.Id);
+        QuestTerminalTable[] terminals = TableReaderV2.Parse<QuestTerminalTable>().Where(row => row.Lv > 0)
+            .OrderBy(row => row.Lv).Take(2).ToArray();
+        AssertEqual(2, terminals.Length, "Dorm dispatch distinct terminal states");
+        foreach (QuestTerminalTable terminal in terminals)
+        {
+            int level = terminal.Lv!.Value;
+            long playerId = 47_100 + level;
+            Character roster = CreateDrawCompatibilityCharacter(playerId);
+            roster.Characters = TableReaderV2.Parse<DormCharacterStyleTable>()
+                .Select(row => new CharacterData { Id = (uint)row.Id }).ToList();
+            Player player = CreateDrawCompatibilityPlayer(playerId);
+            Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            player.Dorm.Quest.TerminalLv = level;
+            QuestPoolTable pool = TableReaderV2.Parse<QuestPoolTable>().Single(row => row.Id == terminal.SpecialQuest);
+            int specialId = pool.QuestId.First(id => quests[id].PreQuestId is null or 0);
+            player.Dorm.Quest.TriggerLimitedQuest = pool.QuestId.Where(id => id != specialId).ToList();
+            using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<Player> saves, out _, out _);
+            using LoopbackSessionHarness harness = new(roster, player, inventory, $"dorm-dispatch-{terminal.Lv}");
+            MethodInfo buildLogin = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.DormModule"),
+                "BuildQuestLoginData", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session)]);
+            var login = (NotifyDormitoryData.NotifyDormitoryDataDormQuestData)buildLogin.Invoke(null, [harness.Session])!;
+            var special = login.TotalQuest.Single(board => board.IsSpecialQuest);
+            AssertEqual(specialId, special.QuestId, "Dorm initial advertised special quest");
+            AssertEqual(terminal.QuestCount, login.TotalQuest.Count, "Dorm advertised board includes special slot");
+            int packetId = 47_100_000 + level * 100;
+            QuestAcceptParam Parameter(int index, int questId, int skip) => new()
+            {
+                Index = index,
+                TeamCharacter = roster.Characters.Skip(skip).Take(quests[questId].MemberCount).Select(row => row.Id).ToList()
+            };
+            QuestAcceptResponse Dispatch(QuestAcceptRequest request, string name, bool taskPush = false, bool boardPush = false)
+            {
+                InvokeRegisteredRequestHandler(nameof(QuestAcceptRequest), harness.Session, ++packetId, request);
+                if (boardPush)
+                {
+                    NotifyDormQuestData refresh = ReadPushPayload<NotifyDormQuestData>(harness, nameof(NotifyDormQuestData), name);
+                    AssertEqual(false, refresh.TotalQuest.Any(board => board.Index == special.Index), $"{name} removes stale special index");
+                    AssertIntegerList(player.Dorm.Quest.TotalQuest.Select(board => (long)board.QuestId).ToArray(),
+                        refresh.TotalQuest.Select(board => (long)board.QuestId).ToArray(), $"{name} current board");
+                }
+                if (taskPush) _ = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), name);
+                QuestAcceptResponse response = ReadResponsePayload<QuestAcceptResponse>(harness, packetId, nameof(QuestAcceptResponse), name);
+                AssertNoAvailablePacket(harness, name);
+                return response;
+            }
+            QuestAcceptParam specialParam = Parameter(special.Index, special.QuestId, 0);
+            AssertEqual(0, Dispatch(new QuestAcceptRequest { QuestAcceptParams = [specialParam] }, "Dorm manual special accept", taskPush: true).Code,
+                "Dorm manual dispatch shares acceptance");
+            player.Dorm.Quest.QuestAccept.Single().AcceptTime = 0;
+            InvokeRegisteredRequestHandler(nameof(QuestGetAllRewardRequest), harness.Session, ++packetId, new QuestGetAllRewardRequest());
+            _ = ReadPushPayload<NotifyItemDataList>(harness, nameof(NotifyItemDataList), "Dorm last eligible special reward");
+            AssertEqual(0, ReadResponsePayload<QuestGetAllRewardResponse>(harness, packetId, nameof(QuestGetAllRewardResponse),
+                "Dorm last eligible special reward").Code, "Dorm special reward code");
+            AssertEqual(true, player.Dorm.Quest.TriggerLimitedQuest.Contains(special.QuestId), "Dorm special reward removes future eligibility");
+            int beforeReset = player.Dorm.Quest.ResetCount;
+            InvokeRegisteredRequestHandler(nameof(HeartbeatRequest), harness.Session, ++packetId, new HeartbeatRequest());
+            NotifyDormQuestData shrunk = ReadPushPayload<NotifyDormQuestData>(harness, nameof(NotifyDormQuestData), "Dorm eligibility board replacement");
+            _ = ReadResponsePayload<HeartbeatResponse>(harness, packetId, nameof(HeartbeatResponse), "Dorm eligibility heartbeat");
+            AssertEqual(terminal.QuestCount - 1, shrunk.TotalQuest.Count, "Dorm ineligible special slot disappears");
+            AssertEqual(false, shrunk.TotalQuest.Any(board => board.Index == special.Index), "Dorm replacement invalidates advertised index");
+            AssertEqual(beforeReset + 1, player.Dorm.Quest.ResetCount, "Dorm replacement advances generation");
+            AssertEqual(true, shrunk.QuestAccept.Single().IsAward, "Dorm replacement retains rewarded history");
+            Player reload = BsonSerializer.Deserialize<Player>((saves.LastReplacement
+                ?? throw new InvalidDataException("Dorm board replacement was not persisted.")).ToBson());
+            harness.Session.player = player = reload;
+            var relog = (NotifyDormitoryData.NotifyDormitoryDataDormQuestData)buildLogin.Invoke(null, [harness.Session])!;
+            AssertIntegerList(shrunk.TotalQuest.Select(board => (long)board.QuestId).ToArray(),
+                relog.TotalQuest.Select(board => (long)board.QuestId).ToArray(), "Dorm relog preserves replacement board");
+            AssertEqual(beforeReset + 1, relog.ResetCount, "Dorm relog does not reset replacement again");
+            List<QuestAcceptParam> valid = [];
+            int used = 0;
+            foreach (var board in relog.TotalQuest.Take(2))
+            {
+                valid.Add(Parameter(board.Index, board.QuestId, used));
+                used += quests[board.QuestId].MemberCount;
+            }
+            int acceptedBefore = player.Dorm.Quest.QuestAccept.Count;
+            AssertEqual(20060071, Dispatch(new QuestAcceptRequest { QuestAcceptParams = [valid[0], specialParam] },
+                "Dorm stale batch resync", boardPush: true).Code, "Dorm stale board index remains an error");
+            AssertEqual(acceptedBefore, player.Dorm.Quest.QuestAccept.Count, "Dorm stale batch has no partial acceptance");
+            AssertEqual(20060072, Dispatch(new QuestAcceptRequest { QuestAcceptParams = [valid[0], valid[0]] },
+                "Dorm duplicate batch").Code, "Dorm duplicate index boundary");
+            QuestAcceptResponse batch = Dispatch(new QuestAcceptRequest { QuestAcceptParams = valid }, "Dorm dispatch all retry", taskPush: true);
+            AssertEqual(0, batch.Code, "Dorm retry dispatches replacement board");
+            AssertEqual(acceptedBefore + valid.Count, batch.QuestAccept.Count, "Dorm batch response includes history and both teams");
+            foreach (QuestAcceptParam parameter in valid)
+            {
+                var accepted = batch.QuestAccept.Single(row => row.Index == parameter.Index && row.ResetCount == relog.ResetCount);
+                AssertEqual(relog.TotalQuest.Single(row => row.Index == parameter.Index).QuestId, accepted.QuestId, "Dorm batch uses current quest identity");
+                AssertIntegerList(parameter.TeamCharacter.Select(id => (long)id).ToArray(),
+                    accepted.TeamCharacter.Select(id => (long)id).ToArray(), "Dorm batch preserves selected team");
+            }
+            var unaccepted = relog.TotalQuest.First(board => valid.All(parameter => parameter.Index != board.Index));
+            QuestAcceptParam busy = Parameter(unaccepted.Index, unaccepted.QuestId, 0);
+            AssertEqual(20060075, Dispatch(new QuestAcceptRequest { QuestAcceptParams = [busy] }, "Dorm busy team").Code, "Dorm busy character boundary");
+            Player acceptedReload = BsonSerializer.Deserialize<Player>(saves.LastReplacement!.ToBson());
+            harness.Session.player = player = acceptedReload;
+            AssertEqual(20060069, Dispatch(new QuestAcceptRequest { QuestAcceptParams = [valid[0]] },
+                "Dorm accepted replay after reload").Code, "Dorm persisted duplicate dispatch is rejected");
+            AssertEqual(valid.Count, player.Dorm.Quest.QuestAccept.Count(row => !row.IsAward), "Dorm retries do not add teams");
+            InvokeRegisteredRequestHandler(nameof(HeartbeatRequest), harness.Session, ++packetId, new HeartbeatRequest());
+            _ = ReadResponsePayload<HeartbeatResponse>(harness, packetId, nameof(HeartbeatResponse), "Dorm replacement steady heartbeat");
+            AssertNoAvailablePacket(harness, "Dorm steady board emits no redundant replacement");
+        }
     }
 
     private static int DormConfig(string key)

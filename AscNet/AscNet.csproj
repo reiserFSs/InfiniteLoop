@@ -14,7 +14,8 @@
     <ProjectReference Include="..\AscNet.Logging\AscNet.Logging.csproj" />
   </ItemGroup>
 	<ItemGroup>
-		<Content Include="..\Resources\**">
+		<Content Include="..\Resources\**"
+		         Exclude="..\Resources\**\.runtime\**;..\Resources\**\.DS_Store;..\Resources\**\*.log;..\Resources\**\*.LOG;..\Resources\**\proxylog;..\Resources\**\proxylog\**;..\Resources\**\*.pcap;..\Resources\**\*.PCAP;..\Resources\**\*.pcapng;..\Resources\**\*.PCAPNG;..\Resources\**\*.cap;..\Resources\**\*.CAP;..\Resources\**\bin\**;..\Resources\**\Bin\**;..\Resources\**\obj\**;..\Resources\**\Obj\**">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>

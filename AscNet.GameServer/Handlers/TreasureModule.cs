@@ -28,7 +28,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ReceiveTreasureRewardRequest")]
         public static void HandleReceiveTreasureRewardRequestHandler(Session session, Packet.Request packet)
         {
-            TreasureRewardRequest request = MessagePackSerializer.Deserialize<TreasureRewardRequest>(packet.Content);
+            TreasureRewardRequest request = packet.Deserialize<TreasureRewardRequest>();
             TreasureRewardResponse response = ClaimMainLineTreasureReward(session, request.TreasureId);
             session.SendResponse(response, packet.Id);
         }

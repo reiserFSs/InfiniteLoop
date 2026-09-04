@@ -17,6 +17,7 @@ using AscNet.Table.V2.share.condition;
 using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.partner;
 using AscNet.Table.V2.share.attrib;
+using AscNet.Table.V2.share.exhibition;
 
 namespace AscNet.Common.Database
 {
@@ -56,13 +57,13 @@ namespace AscNet.Common.Database
 
         private uint NextEquipId => Equips.MaxBy(x => x.Id)?.Id + 1 ?? 1;
 
-        public static Character FromUid(long uid)
+        public static Character FromUid(long uid, IReadOnlyCollection<int> gatherRewards)
         {
             Character character = collection.AsQueryable().FirstOrDefault(x => x.Uid == uid) ?? Create(uid);
             bool changed = false;
             if (character.NormalizeEquipsForCurrentTables())
                 changed = true;
-            if (character.NormalizeCharactersForCurrentTables())
+            if (character.NormalizeCharactersForCurrentTables(gatherRewards))
                 changed = true;
             if (character.NormalizeWeaponFashionsForCurrentTables())
                 changed = true;
@@ -327,7 +328,7 @@ namespace AscNet.Common.Database
             return changed;
         }
 
-        public bool NormalizeCharactersForCurrentTables()
+        public bool NormalizeCharactersForCurrentTables(IReadOnlyCollection<int> gatherRewards)
         {
             bool changed = false;
             if (Characters is null)
@@ -453,6 +454,7 @@ namespace AscNet.Common.Database
                 changed = true;
             }
 
+            CharacterSkillTableIndexes? skillTableIndexes = null;
             foreach (CharacterData character in Characters)
             {
                 if (!characterRowsById.TryGetValue((int)character.Id, out CharacterTable? characterRow))
@@ -515,7 +517,7 @@ namespace AscNet.Common.Database
                         character.SkillList,
                         character,
                         skillRow,
-                        skillIdsByGroupId);
+                        skillIdsByGroupId, skillTableIndexes ??= new(), gatherRewards);
                     if (character.SkillList is null || !character.SkillList.SequenceEqual(normalizedSkills))
                     {
                         character.SkillList = normalizedSkills;
@@ -678,7 +680,7 @@ namespace AscNet.Common.Database
         {
             Dictionary<int, IReadOnlyList<uint>> skillIdsByGroupId = BuildCharacterSkillIdsByGroupId(
                 TableReaderV2.Parse<CharacterSkillGroupTable>());
-            return NormalizeCharacterSkills(null, character, characterSkill, skillIdsByGroupId);
+            return NormalizeCharacterSkills(null, character, characterSkill, skillIdsByGroupId, new(), []);
         }
 
         private static Dictionary<int, IReadOnlyList<uint>> BuildCharacterSkillIdsByGroupId(
@@ -695,18 +697,50 @@ namespace AscNet.Common.Database
                         .Select(skillId => (uint)skillId)
                         .ToArray());
         }
+        private sealed class CharacterSkillTableIndexes
+        {
+            private Dictionary<int, IReadOnlyList<CharacterSkillUpgradeTable>>? upgradesBySkillId;
+            private Dictionary<int, ConditionTable>? conditionsById;
+            private Dictionary<int, int>? maxLevelBySkillId;
+
+            public Dictionary<int, IReadOnlyList<CharacterSkillUpgradeTable>> UpgradesBySkillId =>
+                upgradesBySkillId ??= TableReaderV2.Parse<CharacterSkillUpgradeTable>()
+                    .GroupBy(upgrade => upgrade.SkillId)
+                    .ToDictionary(group => group.Key, group => (IReadOnlyList<CharacterSkillUpgradeTable>)group.ToArray());
+
+            public Dictionary<int, ConditionTable> ConditionsById =>
+                conditionsById ??= TableReaderV2.Parse<ConditionTable>()
+                    .ToDictionary(condition => condition.Id);
+
+            public Dictionary<int, int> MaxLevelBySkillId
+            {
+                get
+                {
+                    if (maxLevelBySkillId is not null)
+                        return maxLevelBySkillId;
+
+                    Dictionary<int, int> levels = new();
+                    foreach (CharacterSkillLevelEffectTable row in TableReaderV2.Parse<CharacterSkillLevelEffectTable>())
+                    {
+                        if (!levels.TryGetValue(row.SkillId, out int maxLevel) || row.Level > maxLevel)
+                            levels[row.SkillId] = row.Level;
+                    }
+                    return maxLevelBySkillId = levels;
+                }
+            }
+        }
+
 
         private static List<CharacterSkill> NormalizeCharacterSkills(
             IReadOnlyList<CharacterSkill>? existingSkills,
             CharacterData character,
             CharacterSkillTable characterSkill,
-            IReadOnlyDictionary<int, IReadOnlyList<uint>> skillIdsByGroupId)
+            IReadOnlyDictionary<int, IReadOnlyList<uint>> skillIdsByGroupId,
+            CharacterSkillTableIndexes tableIndexes,
+            IReadOnlyCollection<int> gatherRewards)
         {
             List<CharacterSkill> normalizedSkills = new();
-            Dictionary<int, IReadOnlyList<CharacterSkillUpgradeTable>> upgradesBySkillId = TableReaderV2
-                .Parse<CharacterSkillUpgradeTable>()
-                .GroupBy(upgrade => upgrade.SkillId)
-                .ToDictionary(group => group.Key, group => (IReadOnlyList<CharacterSkillUpgradeTable>)group.ToArray());
+            Dictionary<int, IReadOnlyList<CharacterSkillUpgradeTable>> upgradesBySkillId = tableIndexes.UpgradesBySkillId;
             foreach (int skillGroupId in characterSkill.SkillGroupId.Where(skillGroupId => skillGroupId > 0).Distinct())
             {
                 if (!skillIdsByGroupId.TryGetValue(skillGroupId, out IReadOnlyList<uint>? groupSkillIds))
@@ -716,13 +750,17 @@ namespace AscNet.Common.Database
                     && upgradesBySkillId.TryGetValue((int)defaultSkillId, out IReadOnlyList<CharacterSkillUpgradeTable>? defaultUpgrades)
                         ? defaultUpgrades.FirstOrDefault(row => row.Level == 0)
                         : null;
-                if (initial is not null && !MeetsCharacterSkillCondition(character, initial.ConditionId))
+                if (initial is not null && !MeetsCharacterSkillCondition(character, initial.ConditionId, gatherRewards, tableIndexes))
                     continue;
 
                 CharacterSkill? selectedSkill = existingSkills?.LastOrDefault(skill => groupSkillIds.Contains(skill.Id));
+                // Liberation eligibility permits a request; login must not perform that manual unlock.
+                if (selectedSkill is null && initial?.ConditionId.Any(id =>
+                    tableIndexes.ConditionsById.TryGetValue(id, out ConditionTable? condition) && condition.Type == 11102) == true)
+                    continue;
                 if (selectedSkill is not null)
                 {
-                    int maxLevel = CharacterSkillMaxLevel((int)selectedSkill.Id);
+                    int maxLevel = tableIndexes.MaxLevelBySkillId.GetValueOrDefault((int)selectedSkill.Id);
                     if (maxLevel > 0 && selectedSkill.Level > maxLevel)
                         normalizedSkills.Add(new CharacterSkill { Id = selectedSkill.Id, Level = maxLevel });
                     else
@@ -733,7 +771,7 @@ namespace AscNet.Common.Database
                     normalizedSkills.Add(new CharacterSkill { Id = defaultSkillId, Level = 1 });
                 }
             }
-            ReconcileQualityGatedSkills(character, normalizedSkills, characterSkill, skillIdsByGroupId, upgradesBySkillId);
+            ReconcileQualityGatedSkills(character, normalizedSkills, characterSkill, skillIdsByGroupId, tableIndexes, gatherRewards);
             return normalizedSkills;
         }
 
@@ -742,27 +780,30 @@ namespace AscNet.Common.Database
             List<CharacterSkill> skills,
             CharacterSkillTable characterSkill,
             IReadOnlyDictionary<int, IReadOnlyList<uint>> skillIdsByGroupId,
-            IReadOnlyDictionary<int, IReadOnlyList<CharacterSkillUpgradeTable>> upgradesBySkillId)
+            CharacterSkillTableIndexes tableIndexes,
+            IReadOnlyCollection<int> gatherRewards)
         {
             bool changed = false;
+            Dictionary<int, IReadOnlyList<CharacterSkillUpgradeTable>> upgradesBySkillId = tableIndexes.UpgradesBySkillId;
             foreach (int groupId in characterSkill.SkillGroupId.Where(id => id > 0).Distinct())
             {
                 if (!skillIdsByGroupId.TryGetValue(groupId, out IReadOnlyList<uint>? groupSkillIds))
                     continue;
                 uint skillId = groupSkillIds.FirstOrDefault();
                 if (skillId == 0 || !upgradesBySkillId.TryGetValue((int)skillId, out IReadOnlyList<CharacterSkillUpgradeTable>? upgrades)
-                    || !upgrades.Any(upgrade => upgrade.ConditionId is { Count: > 0 }))
+                    || !upgrades.Any(upgrade => upgrade.ConditionId.Any(id =>
+                        tableIndexes.ConditionsById.TryGetValue(id, out ConditionTable? condition) && condition.Type == 13105)))
                     continue;
 
                 int targetLevel = 0;
                 for (int level = 0; ; level++)
                 {
                     CharacterSkillUpgradeTable? upgrade = upgrades.FirstOrDefault(row => row.Level == level);
-                    if (upgrade is null || !MeetsCharacterSkillCondition(character, upgrade.ConditionId))
+                    if (upgrade is null || !MeetsCharacterSkillCondition(character, upgrade.ConditionId, gatherRewards, tableIndexes))
                         break;
                     targetLevel = level + 1;
                 }
-                int maxLevel = CharacterSkillMaxLevel((int)skillId);
+                int maxLevel = tableIndexes.MaxLevelBySkillId.GetValueOrDefault((int)skillId);
                 if (maxLevel > 0)
                     targetLevel = Math.Min(targetLevel, maxLevel);
                 CharacterSkill? current = skills.FirstOrDefault(skill => groupSkillIds.Contains(skill.Id));
@@ -784,7 +825,7 @@ namespace AscNet.Common.Database
             return changed;
         }
 
-        public bool UnlockQualityGatedSkills(CharacterData character)
+        public bool UnlockQualityGatedSkills(CharacterData character, IReadOnlyCollection<int> gatherRewards)
         {
             CharacterSkillTable? skillTable = TableReaderV2.Parse<CharacterSkillTable>()
                 .Find(row => row.CharacterId == character.Id);
@@ -792,11 +833,7 @@ namespace AscNet.Common.Database
                 return false;
             Dictionary<int, IReadOnlyList<uint>> skillsByGroup = BuildCharacterSkillIdsByGroupId(
                 TableReaderV2.Parse<CharacterSkillGroupTable>());
-            Dictionary<int, IReadOnlyList<CharacterSkillUpgradeTable>> upgradesBySkillId = TableReaderV2
-                .Parse<CharacterSkillUpgradeTable>()
-                .GroupBy(upgrade => upgrade.SkillId)
-                .ToDictionary(group => group.Key, group => (IReadOnlyList<CharacterSkillUpgradeTable>)group.ToArray());
-            return ReconcileQualityGatedSkills(character, character.SkillList, skillTable, skillsByGroup, upgradesBySkillId);
+            return ReconcileQualityGatedSkills(character, character.SkillList, skillTable, skillsByGroup, new(), gatherRewards);
         }
 
 
@@ -835,14 +872,17 @@ namespace AscNet.Common.Database
             if (groupSkillIds.Count <= 1)
                 return false;
 
-            CharacterSkill? selectedSkill = character.SkillList?
+            if (character.SkillList is not { } skills)
+                return false;
+
+            CharacterSkill? selectedSkill = skills
                 .LastOrDefault(skill => groupSkillIds.Contains(skill.Id));
             if (selectedSkill is null || selectedSkill.Id == (uint)skillId)
                 return selectedSkill is not null;
 
             List<CharacterSkill> normalizedSkills = new();
             bool inserted = false;
-            foreach (CharacterSkill characterSkill in character.SkillList)
+            foreach (CharacterSkill characterSkill in skills)
             {
                 if (!groupSkillIds.Contains(characterSkill.Id))
                 {
@@ -879,7 +919,7 @@ namespace AscNet.Common.Database
 
         public static int EnhanceSkillMaxLevel(int skillId)
         {
-            int rowCount = OrderedEnhanceSkillUpgrades(skillId).Count;
+            int rowCount = TableReaderV2.Parse<EnhanceSkillUpgradeTable>().Count(row => row.SkillId == skillId);
             return Math.Max(0, rowCount - 1);
         }
 
@@ -1145,7 +1185,7 @@ namespace AscNet.Common.Database
                 .Max();
         }
 
-        public UpgradeCharacterSkillResult UpgradeCharacterSkillGroup(int skillGroupId, int count)
+        public UpgradeCharacterSkillResult UpgradeCharacterSkillGroup(int skillGroupId, int count, IReadOnlyCollection<int> gatherRewards)
         {
             HashSet<uint> affectedCharacters = new();
             int totalCoinCost = 0;
@@ -1183,7 +1223,7 @@ namespace AscNet.Common.Database
                             // CharacterSkillMaxLevel
                             throw new ServerCodeException("Skill already maxed!", 20009014);
                         }
-                        if (!MeetsCharacterSkillCondition(character, skillUpgrade.ConditionId))
+                        if (!MeetsCharacterSkillCondition(character, skillUpgrade.ConditionId, gatherRewards))
                         {
                             // CharacterSkillConditionNotMet
                             throw new ServerCodeException("Skill condition not met!", 20009021);
@@ -1208,7 +1248,8 @@ namespace AscNet.Common.Database
             };
         }
 
-        public static bool MeetsCharacterSkillCondition(CharacterData character, IReadOnlyList<int>? conditionIds, long? playerLevel = null)
+        public static bool MeetsCharacterSkillCondition(CharacterData character, IReadOnlyList<int>? conditionIds,
+            IReadOnlyCollection<int> gatherRewards, long? playerLevel = null)
         {
             if (conditionIds is null || conditionIds.Count == 0)
                 return true;
@@ -1216,18 +1257,29 @@ namespace AscNet.Common.Database
             Dictionary<int, ConditionTable> conditions = TableReaderV2.Parse<ConditionTable>()
                 .ToDictionary(condition => condition.Id);
             return conditionIds.Where(id => id > 0)
-                .All(id => MeetsCharacterSkillCondition(character, playerLevel, id, conditions, 0));
+                .All(id => MeetsCharacterSkillCondition(character, playerLevel, id, conditions, gatherRewards, 0));
+        }
+        private static bool MeetsCharacterSkillCondition(CharacterData character, IReadOnlyList<int>? conditionIds,
+            IReadOnlyCollection<int> gatherRewards, CharacterSkillTableIndexes tableIndexes)
+        {
+            if (conditionIds is null || conditionIds.Count == 0)
+                return true;
+
+            Dictionary<int, ConditionTable> conditions = tableIndexes.ConditionsById;
+            return conditionIds.Where(id => id > 0)
+                .All(id => MeetsCharacterSkillCondition(character, null, id, conditions, gatherRewards, 0));
         }
 
+
         private static bool MeetsCharacterSkillCondition(CharacterData character, long? playerLevel, int conditionId,
-            IReadOnlyDictionary<int, ConditionTable> conditions, int depth)
+            IReadOnlyDictionary<int, ConditionTable> conditions, IReadOnlyCollection<int> gatherRewards, int depth)
         {
             if (depth > 32 || !conditions.TryGetValue(conditionId, out ConditionTable? condition))
                 return false;
             if (!string.IsNullOrWhiteSpace(condition.Formula))
             {
                 int position = 0;
-                return ParseConditionOr(condition.Formula, ref position, character, playerLevel, conditions, depth + 1)
+                return ParseConditionOr(condition.Formula, ref position, character, playerLevel, conditions, gatherRewards, depth + 1)
                     && position == condition.Formula.Length;
             }
             if (condition.Params.Count == 0)
@@ -1235,9 +1287,12 @@ namespace AscNet.Common.Database
 
             return condition.Type switch
             {
+                // The client checks claimed exhibition milestones, not the character's cached LiberateLv.
                 11102 => condition.Params.Count >= 2
-                    && character.Id == (uint)condition.Params[0]
-                    && character.LiberateLv >= condition.Params[1],
+                    && TableReaderV2.Parse<ExhibitionRewardTable>().Any(reward =>
+                        reward.CharacterId == condition.Params[0]
+                        && reward.LevelId >= condition.Params[1]
+                        && gatherRewards.Contains(reward.Id)),
                 13103 => character.Level >= condition.Params[0],
                 10101 => playerLevel is not null && playerLevel >= condition.Params[0],
                 13105 => character.Quality > condition.Params[0]
@@ -1251,40 +1306,40 @@ namespace AscNet.Common.Database
         }
 
         private static bool ParseConditionOr(string formula, ref int position, CharacterData character, long? playerLevel,
-            IReadOnlyDictionary<int, ConditionTable> conditions, int depth)
+            IReadOnlyDictionary<int, ConditionTable> conditions, IReadOnlyCollection<int> gatherRewards, int depth)
         {
-            bool result = ParseConditionAnd(formula, ref position, character, playerLevel, conditions, depth);
+            bool result = ParseConditionAnd(formula, ref position, character, playerLevel, conditions, gatherRewards, depth);
             while (position < formula.Length && formula[position] == '|')
             {
                 position++;
-                bool right = ParseConditionAnd(formula, ref position, character, playerLevel, conditions, depth);
+                bool right = ParseConditionAnd(formula, ref position, character, playerLevel, conditions, gatherRewards, depth);
                 result |= right;
             }
             return result;
         }
 
         private static bool ParseConditionAnd(string formula, ref int position, CharacterData character, long? playerLevel,
-            IReadOnlyDictionary<int, ConditionTable> conditions, int depth)
+            IReadOnlyDictionary<int, ConditionTable> conditions, IReadOnlyCollection<int> gatherRewards, int depth)
         {
-            bool result = ParseConditionPrimary(formula, ref position, character, playerLevel, conditions, depth);
+            bool result = ParseConditionPrimary(formula, ref position, character, playerLevel, conditions, gatherRewards, depth);
             while (position < formula.Length && formula[position] == '&')
             {
                 position++;
-                bool right = ParseConditionPrimary(formula, ref position, character, playerLevel, conditions, depth);
+                bool right = ParseConditionPrimary(formula, ref position, character, playerLevel, conditions, gatherRewards, depth);
                 result &= right;
             }
             return result;
         }
 
         private static bool ParseConditionPrimary(string formula, ref int position, CharacterData character, long? playerLevel,
-            IReadOnlyDictionary<int, ConditionTable> conditions, int depth)
+            IReadOnlyDictionary<int, ConditionTable> conditions, IReadOnlyCollection<int> gatherRewards, int depth)
         {
             while (position < formula.Length && char.IsWhiteSpace(formula[position]))
                 position++;
             if (position < formula.Length && formula[position] == '(')
             {
                 position++;
-                bool result = ParseConditionOr(formula, ref position, character, playerLevel, conditions, depth);
+                bool result = ParseConditionOr(formula, ref position, character, playerLevel, conditions, gatherRewards, depth);
                 if (position >= formula.Length || formula[position++] != ')')
                     return false;
                 return result;
@@ -1295,7 +1350,7 @@ namespace AscNet.Common.Database
             while (position < formula.Length && char.IsAsciiDigit(formula[position]))
                 id = checked(id * 10 + formula[position++] - '0');
             return position > start
-                && MeetsCharacterSkillCondition(character, playerLevel, id, conditions, depth);
+                && MeetsCharacterSkillCondition(character, playerLevel, id, conditions, gatherRewards, depth);
         }
 
         public EquipData? AddEquip(uint equipId, int characterId = 0, int level = 1)

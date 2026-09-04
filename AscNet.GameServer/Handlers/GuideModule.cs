@@ -135,7 +135,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GuideCompleteRequest")]
         public static void GuideCompleteRequestHandler(Session session, Packet.Request packet)
         {
-            GuideCompleteRequest request = MessagePackSerializer.Deserialize<GuideCompleteRequest>(packet.Content);
+            GuideCompleteRequest request = packet.Deserialize<GuideCompleteRequest>();
             if (!GuideGroups.Value.TryGetValue(request.GuideGroupId, out GuideGroupTable? guide)
                 || !GuideCompletions.Value.ContainsKey(guide.CompleteId))
             {

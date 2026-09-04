@@ -14,7 +14,7 @@ namespace AscNet
 
             // TODO: Add LogLevel parsing from appsettings file
             LoggerFactory.InitializeLogger(new Logger(typeof(Program), LogLevel.DEBUG, LogLevel.DEBUG));
-            LoggerFactory.Logger.Info("Starting...");
+            LoggerFactory.Info("Starting...", memberName: "");
 
             Player.EnsureIndexes();
             PacketFactory.LoadPacketHandlers();
@@ -34,7 +34,7 @@ namespace AscNet
 
         static void KillProtocol(object? sender, EventArgs e)
         {
-            LoggerFactory.Logger.Info("Shutting down...");
+            LoggerFactory.Info("Shutting down...", memberName: "");
 
             foreach (var session in Server.Instance.Sessions)
             {

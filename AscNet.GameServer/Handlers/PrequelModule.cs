@@ -48,7 +48,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ReceivePrequelRewardRequest")]
         public static void ReceivePrequelRewardRequestHandler(Session session, Packet.Request packet)
         {
-            ReceivePrequelRewardRequest request = MessagePackSerializer.Deserialize<ReceivePrequelRewardRequest>(packet.Content);
+            ReceivePrequelRewardRequest request = packet.Deserialize<ReceivePrequelRewardRequest>();
             ReceivePrequelRewardResponse response = ClaimPrequelReward(session, request.StageId);
             session.SendResponse(response, packet.Id);
         }

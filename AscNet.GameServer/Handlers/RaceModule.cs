@@ -108,28 +108,28 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("RaceGetRacePlaybackReportHashRequest")]
         public static void RaceGetRacePlaybackReportHashRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<RaceGetRacePlaybackReportHashRequest>(packet.Content);
+            _ = packet.Deserialize<RaceGetRacePlaybackReportHashRequest>();
             session.SendResponse(new RaceGetRacePlaybackReportHashResponse() { Code = NotAvailableCode }, packet.Id);
         }
 
         [RequestPacketHandler("RaceGetRacePlaybackRequest")]
         public static void RaceGetRacePlaybackRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<RaceGetRacePlaybackRequest>(packet.Content);
+            _ = packet.Deserialize<RaceGetRacePlaybackRequest>();
             session.SendResponse(new RaceGetRacePlaybackResponse() { Code = NotAvailableCode }, packet.Id);
         }
 
         [RequestPacketHandler("RaceGetPlaybackRankResultRequest")]
         public static void RaceGetPlaybackRankResultRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<RaceGetPlaybackRankResultRequest>(packet.Content);
+            _ = packet.Deserialize<RaceGetPlaybackRankResultRequest>();
             session.SendResponse(new RaceGetRacePlaybackRankResultResponse() { Code = NotAvailableCode }, packet.Id);
         }
 
         [RequestPacketHandler("RaceTestGetRaceReportRequest")]
         public static void RaceTestGetRaceReportRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<RaceTestGetRaceReportRequest>(packet.Content);
+            _ = packet.Deserialize<RaceTestGetRaceReportRequest>();
             session.SendResponse(new RaceTestGetRaceReportResponse() { Code = NotAvailableCode }, packet.Id);
         }
     }

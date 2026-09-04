@@ -617,7 +617,7 @@ namespace AscNet.GameServer.Handlers
                     ChallengeLevelType = challenge?.LevelType ?? 0,
                     ChallengeSectionId = challenge?.SectionId ?? 0,
                     ChallengeFeatureGroupId = challenge?.FeatureGroupId ?? 0,
-                    ChallengeTotalScore = ChallengeDisplayTotal(state, challenge?.LevelType ?? 0),
+                    ChallengeTotalScore = ChallengeDisplayTotal(state, challenge?.SectionId ?? 0),
                     ChallengeStageHistoryList = state.BossChallengeHistory
                         .OrderBy(record => record.StageId)
                         .Select(record => new NotifyFubenBossSingleData.NotifyFubenBossSingleDataChallengeStageHistory
@@ -702,10 +702,13 @@ namespace AscNet.GameServer.Handlers
             return (challengeGrade.LevelType, selectedSection.TableId, featureGroupId);
         }
  
-        private static int ChallengeDisplayTotal(SimulatedBattlefieldState state, int levelType)
+        private static int ChallengeDisplayTotal(SimulatedBattlefieldState state, int sectionId)
         {
-            if (levelType <= 0) return 0;
-            return state.BossChallengeHistory.Sum(record => record.Score);
+            if (sectionId <= 0) return 0;
+            HashSet<int> stageIds = ResolveChallengeSection(sectionId).StageId.ToHashSet();
+            return state.BossChallengeHistory
+                .Where(record => stageIds.Contains(record.StageId))
+                .Sum(record => record.Score);
         }
 
         private static int ChallengeRankTotal(SimulatedBattlefieldState state, int levelType)

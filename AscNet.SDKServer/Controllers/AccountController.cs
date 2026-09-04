@@ -11,9 +11,9 @@ namespace AscNet.SDKServer.Controllers
         private const string GateFallbackUsernameEnv = "ASCNET_GATE_FALLBACK_USERNAME";
         public static void Register(WebApplication app)
         {
-            app.MapPost("/api/AscNet/register", (HttpContext ctx) =>
+            app.MapPost("/api/AscNet/register", async (HttpContext ctx) =>
             {
-                AuthRequest? req = JsonConvert.DeserializeObject<AuthRequest>(Encoding.UTF8.GetString(ctx.Request.BodyReader.ReadAsync().Result.Buffer));
+                AuthRequest? req = await ReadAuthRequest(ctx);
 
                 if (req is null)
                 {
@@ -28,26 +28,21 @@ namespace AscNet.SDKServer.Controllers
                 {
                     Account account = Account.Create(req.Username, req.Password);
 
-                    return JsonConvert.SerializeObject(new
-                    {
-                        code = 0,
-                        msg = "OK",
-                        account
-                    });
+                    return AccountResponse(account);
                 }
-                catch (Exception ex)
+                catch (ArgumentException)
                 {
                     return JsonConvert.SerializeObject(new
                     {
                         code = -1,
-                        msg = ex.Message
+                        msg = "Username is already registered!"
                     });
                 }
             });
 
-            app.MapPost("/api/AscNet/login", (HttpContext ctx) =>
+            app.MapPost("/api/AscNet/login", async (HttpContext ctx) =>
             {
-                AuthRequest? req = JsonConvert.DeserializeObject<AuthRequest>(Encoding.UTF8.GetString(ctx.Request.BodyReader.ReadAsync().Result.Buffer));
+                AuthRequest? req = await ReadAuthRequest(ctx);
 
                 if (req is null)
                 {
@@ -69,19 +64,14 @@ namespace AscNet.SDKServer.Controllers
                     });
                 }
 
-                return JsonConvert.SerializeObject(new
-                {
-                    code = 0,
-                    msg = "OK",
-                    account
-                });
+                return AccountResponse(account);
             });
 
-            app.MapPost("/api/AscNet/verify", (HttpContext ctx) =>
+            app.MapPost("/api/AscNet/verify", async (HttpContext ctx) =>
             {
-                AuthRequest? req = JsonConvert.DeserializeObject<AuthRequest>(Encoding.UTF8.GetString(ctx.Request.BodyReader.ReadAsync().Result.Buffer));
+                AuthRequest? req = await ReadAuthRequest(ctx, verify: true);
 
-                if (req is null || req.Token == string.Empty)
+                if (req is null)
                 {
                     return JsonConvert.SerializeObject(new
                     {
@@ -101,12 +91,7 @@ namespace AscNet.SDKServer.Controllers
                     });
                 }
 
-                return JsonConvert.SerializeObject(new
-                {
-                    code = 0,
-                    msg = "OK",
-                    account
-                });
+                return AccountResponse(account);
             });
 
             app.MapGet("/api/Login/Login", ([FromQuery] int loginType, [FromQuery] int userId, [FromQuery] string token, [FromQuery] string? clientIp) =>
@@ -116,7 +101,7 @@ namespace AscNet.SDKServer.Controllers
                     Account? account = Account.FromToken(token);
 
                     if (account is null)
-                        account = GateFallbackAccount(loginType, userId);
+                        account = GateFallbackAccount();
 
                     if (account is null)
                         return InvalidLoginToken();
@@ -135,11 +120,73 @@ namespace AscNet.SDKServer.Controllers
                 }
                 catch (Exception ex)
                 {
-                    SDKServer.log.Error($"Gate login lookup failed: {ex.Message}");
+                    SDKServer.log.Error($"Gate login lookup failed: {ex.GetType().Name}");
                     return InvalidLoginToken();
                 }
             });
         }
+
+        // Engineering limit, not a retail protocol constant: the runner sends only username/password,
+        // and AuthRequest adds only a token (generated as a 36-character GUID). 16 KiB leaves ample
+        // room for escaped/unicode credentials while bounding both known-length and chunked input.
+        private const int MaxAuthBodyBytes = 16 * 1024;
+
+        private static async Task<AuthRequest?> ReadAuthRequest(HttpContext context, bool verify = false)
+        {
+            context.RequestAborted.ThrowIfCancellationRequested();
+            if (context.Request.ContentLength > MaxAuthBodyBytes)
+            {
+                context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                return null;
+            }
+
+            byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(MaxAuthBodyBytes + 1);
+            try
+            {
+                int length = 0;
+                int read;
+                while ((read = await context.Request.Body.ReadAsync(
+                    buffer.AsMemory(length, MaxAuthBodyBytes + 1 - length), context.RequestAborted)) != 0)
+                {
+                    length += read;
+                    if (length > MaxAuthBodyBytes)
+                    {
+                        context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                        return null;
+                    }
+                }
+
+                context.RequestAborted.ThrowIfCancellationRequested();
+                AuthRequest? request = JsonConvert.DeserializeObject<AuthRequest>(Encoding.UTF8.GetString(buffer, 0, length));
+                if (request is not null && (verify
+                    ? !string.IsNullOrEmpty(request.Token)
+                    : !string.IsNullOrEmpty(request.Username) && !string.IsNullOrEmpty(request.Password)))
+                    return request;
+            }
+            catch (JsonException)
+            {
+                // Do not expose parser messages: they can contain credential-bearing input.
+            }
+            catch (BadHttpRequestException ex) when (ex.StatusCode is 400 or 413)
+            {
+                context.Response.StatusCode = ex.StatusCode;
+                return null;
+            }
+            finally
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+            }
+
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return null;
+        }
+
+        private static string AccountResponse(Account account) => JsonConvert.SerializeObject(new
+        {
+            code = 0,
+            msg = "OK",
+            account = new { account.Id, account.Uid, account.Username, account.Token }
+        });
 
         private static string InvalidLoginToken()
         {
@@ -158,7 +205,7 @@ namespace AscNet.SDKServer.Controllers
             return host;
         }
 
-        private static Account? GateFallbackAccount(int loginType, int userId)
+        private static Account? GateFallbackAccount()
         {
             string? fallbackUsername = Environment.GetEnvironmentVariable(GateFallbackUsernameEnv);
             if (string.IsNullOrWhiteSpace(fallbackUsername))
@@ -166,7 +213,7 @@ namespace AscNet.SDKServer.Controllers
 
             Account? account = Account.FromUsername(fallbackUsername);
             if (account is not null)
-                SDKServer.log.Warn($"Gate login fallback mapped loginType={loginType} userId={userId} to local account '{fallbackUsername}'.");
+                SDKServer.log.Warn("Gate login fallback mapped to the configured local account.");
 
             return account;
         }

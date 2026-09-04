@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
@@ -74,12 +75,12 @@ internal static class PassportModule
         else if (session.player.Passport.IsGetSupplyReward) response.Code = 20137016;
         else
         {
-            int rewardId = ReadSupplyReward(activity!);
+            int rewardId = ReadSupplyReward(activity);
             if (rewardId <= 0) response.Code = 20137017;
             else if (!TryPlan([rewardId], out List<PlannedGood> plan)) response.Code = 20137010;
             else
             {
-                string claimKey = $"passport-supply:{activity!.Id}";
+                string claimKey = $"passport-supply:{activity.Id}";
                 bool inventoryClaimed = session.inventory.AppliedRewardClaims.Contains(
                     claimKey,
                     StringComparer.Ordinal);
@@ -153,7 +154,7 @@ internal static class PassportModule
     {
         PassportRecvAllRewardResponse response = new();
         if (!TryActiveActivity(session, out PassportActivityTable? activity)) response.Code = 20137001;
-        else if (!TryBaseInfo(session, activity!.Id, out PassportBaseInfo baseInfo)) response.Code = 20137009;
+        else if (!TryBaseInfo(session, activity.Id, out PassportBaseInfo baseInfo)) response.Code = 20137009;
         else
         {
             List<PassportTypeInfoTable> types = TableReaderV2.Parse<PassportTypeInfoTable>()
@@ -273,7 +274,7 @@ internal static class PassportModule
     public static void RecvReward(Session session, Packet.Request packet)
     {
         PassportRecvRewardRequest request =
-            MessagePackSerializer.Deserialize<PassportRecvRewardRequest>(packet.Content);
+            packet.Deserialize<PassportRecvRewardRequest>();
         PassportRecvRewardResponse response = new();
         if (!TryActiveActivity(session, out PassportActivityTable? activity)) response.Code = 20137001;
         else
@@ -282,14 +283,14 @@ internal static class PassportModule
                 .FirstOrDefault(row => row.Id == request.Id);
             if (reward is null || reward.RewardId is not > 0) response.Code = 20137010;
             else if (!TableReaderV2.Parse<PassportTypeInfoTable>()
-                .Any(type => type.Id == reward.PassportId && type.ActivityId == activity!.Id))
+                .Any(type => type.Id == reward.PassportId && type.ActivityId == activity.Id))
                 response.Code = 20137005;
             else
             {
                 PassportStateInfo? info = session.player.Passport.PassportInfos
                     .FirstOrDefault(candidate => candidate.Id == reward.PassportId);
                 if (info is null) response.Code = 20137002;
-                else if (!TryBaseInfo(session, activity!.Id, out PassportBaseInfo baseInfo))
+                else if (!TryBaseInfo(session, activity.Id, out PassportBaseInfo baseInfo))
                     response.Code = 20137009;
                 else if (reward.Level > baseInfo.Level) response.Code = 20137006;
                 else if (info.GotRewardList.Contains(reward.Id)) response.Code = 20137013;
@@ -298,7 +299,7 @@ internal static class PassportModule
                 else if (!CanApplyItems(session, plan)) response.Code = 20137010;
                 else
                 {
-                    string claimKey = $"passport-reward:{activity!.Id}:{info.Id}:{reward.Id}";
+                    string claimKey = $"passport-reward:{activity.Id}:{info.Id}:{reward.Id}";
                     RewardApplicationResult? rewardApplication;
                     try
                     {
@@ -346,13 +347,13 @@ internal static class PassportModule
     public static void BuyPassport(Session session, Packet.Request packet)
     {
         PassportBuyPassportRequest request =
-            MessagePackSerializer.Deserialize<PassportBuyPassportRequest>(packet.Content);
+            packet.Deserialize<PassportBuyPassportRequest>();
         PassportBuyPassportResponse response = new();
         if (!TryActiveActivity(session, out PassportActivityTable? activity)) response.Code = 20137001;
         else
         {
             PassportTypeInfoTable? type = TableReaderV2.Parse<PassportTypeInfoTable>()
-                .FirstOrDefault(row => row.Id == request.Id && row.ActivityId == activity!.Id);
+                .FirstOrDefault(row => row.Id == request.Id && row.ActivityId == activity.Id);
             if (type is null) response.Code = 20137005;
             else if (type.IsFree == 1) response.Code = 20137003;
             else if (session.player.Passport.PassportInfos.Any(info => info.Id == type.Id))
@@ -365,7 +366,7 @@ internal static class PassportModule
             else if (!CanApplyItems(session, plan)) response.Code = 20137010;
             else
             {
-                string claimKey = $"passport-tier:{activity!.Id}:{type.Id}";
+                string claimKey = $"passport-tier:{activity.Id}:{type.Id}";
                 bool receiptExists = session.inventory.AppliedRewardClaims.Contains(claimKey, StringComparer.Ordinal);
                 Item? consumed = null;
                 if (!receiptExists)
@@ -416,7 +417,7 @@ internal static class PassportModule
                     if (plan.Any(entry => entry.Table.TemplateId == Inventory.PassportExp))
                         session.SendPush(new NotifyPassportBaseInfo
                         {
-                            BaseInfo = ReadBaseInfo(session, activity!.Id)
+                            BaseInfo = ReadBaseInfo(session, activity.Id)
                         });
                     if (consumed is not null)
                         session.SendPush(new NotifyItemDataList { ItemDataList = { consumed } });
@@ -433,10 +434,10 @@ internal static class PassportModule
     public static void BuyExp(Session session, Packet.Request packet)
     {
         PassportBuyExpRequest request =
-            MessagePackSerializer.Deserialize<PassportBuyExpRequest>(packet.Content);
+            packet.Deserialize<PassportBuyExpRequest>();
         PassportBuyExpResponse response = new();
         if (!TryActiveActivity(session, out PassportActivityTable? activity)) response.Code = 20137001;
-        else if (!TryBaseInfo(session, activity!.Id, out PassportBaseInfo baseInfo)) response.Code = 20137009;
+        else if (!TryBaseInfo(session, activity.Id, out PassportBaseInfo baseInfo)) response.Code = 20137009;
         else if (request.ToLevel <= baseInfo.Level) response.Code = 20137011;
         else
         {
@@ -541,7 +542,7 @@ internal static class PassportModule
     }
 
     /// <summary>Handler gate: an open season must exist and match the persisted activity. No implicit rollover.</summary>
-    internal static bool TryActiveActivity(Session session, out PassportActivityTable? activity)
+    internal static bool TryActiveActivity(Session session, [NotNullWhen(true)] out PassportActivityTable? activity)
     {
         activity = ResolveOpenActivity(DateTimeOffset.UtcNow);
         return activity is not null && session.player.Passport.ActivityId == activity.Id;
@@ -567,13 +568,13 @@ internal static class PassportModule
 
     internal static bool IsActivePassportTask(Session session, int taskId) =>
         TryActiveActivity(session, out PassportActivityTable? activity)
-        && ActivePassportTaskIds(activity!, DateTimeOffset.UtcNow).Contains(taskId);
+        && ActivePassportTaskIds(activity, DateTimeOffset.UtcNow).Contains(taskId);
 
     internal static IReadOnlySet<int> PassportTaskIdsByType(Session session, int type)
     {
         if (!TryActiveActivity(session, out PassportActivityTable? activity)) return new HashSet<int>();
         return TableReaderV2.Parse<PassportTaskGroupTable>()
-            .Where(group => group.Group == activity!.DailyTaskGroup || group.Group == activity.WeekTaskGroup)
+            .Where(group => group.Group == activity.DailyTaskGroup || group.Group == activity.WeekTaskGroup)
             .Where(group => group.Type == type && group.TaskId is not null)
             .SelectMany(group => group.TaskId!)
             .Where(id => id > 0)

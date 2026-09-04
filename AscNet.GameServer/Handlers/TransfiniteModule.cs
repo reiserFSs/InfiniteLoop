@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
@@ -60,7 +61,7 @@ internal static class TransfiniteModule
     private static readonly Lazy<HashSet<int>> GeneralSkills = new(() => TableReaderV2.Parse<CharacterGeneralSkillTable>().Select(x => x.Id).ToHashSet());
     private static readonly Lazy<Dictionary<int, ItemTable>> Items = new(() => TableReaderV2.Parse<ItemTable>().ToDictionary(x => x.Id));
     internal static bool IsStage(uint id) => id <= int.MaxValue && Stages.Value.ContainsKey((int)id);
-    private static bool Authorized(TransfiniteState? x) => x is not null && x.ActivityAuthorizedUntil > DateTimeOffset.UtcNow.ToUnixTimeSeconds() && Activities.Value.ContainsKey(x.ActivityId);
+    private static bool Authorized([NotNullWhen(true)] TransfiniteState? x) => x is not null && x.ActivityAuthorizedUntil > DateTimeOffset.UtcNow.ToUnixTimeSeconds() && Activities.Value.ContainsKey(x.ActivityId);
 
     internal static void PrepareLogin(Session session, long now)
     {

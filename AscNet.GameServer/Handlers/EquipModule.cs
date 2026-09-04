@@ -341,6 +341,22 @@ namespace AscNet.GameServer.Handlers
         public int Code;
         public EquipGuideData EquipGuideData { get; set; } = new();
     }
+
+    [MessagePackObject(true)]
+    public class EquipGuideAddOrClearPutOnPosRequest
+    {
+        public int CharacterId;
+        public List<int> Sites = new();
+        public List<int> EquipIds = new();
+        public bool IsAdd;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipGuideAddOrClearPutOnPosResponse
+    {
+        public int Code;
+        public EquipGuideData EquipGuideData { get; set; } = new();
+    }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
@@ -477,6 +493,99 @@ namespace AscNet.GameServer.Handlers
                 session.player.EquipGuideData = original;
                 session.log.Error($"Failed to persist equip guide set target: {exception}");
                 response.Code = 1;
+            }
+            response.EquipGuideData = session.player.EquipGuideData;
+            session.SendResponse(response, packet.Id);
+        }
+
+        [RequestPacketHandler("EquipGuideAddOrClearPutOnPosRequest")]
+        public static void EquipGuideAddOrClearPutOnPosRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipGuideAddOrClearPutOnPosRequest request = packet.Deserialize<EquipGuideAddOrClearPutOnPosRequest>();
+            EquipGuideData original = session.player.EquipGuideData;
+            EquipGuideAddOrClearPutOnPosResponse response = new()
+            {
+                EquipGuideData = original ?? new()
+            };
+            EquipTargetTable? target = original is null || original.TargetId <= 0
+                ? null
+                : TableReaderV2.Parse<EquipTargetTable>().FirstOrDefault(row => row.Id == original.TargetId);
+            EquipRecommendTable? recommendation = target is null
+                ? null
+                : TableReaderV2.Parse<EquipRecommendTable>().FirstOrDefault(row => row.Id == target.EquipRecommendId);
+
+            // EN CodeText supplies these names/values; their assignment and precedence here
+            // are inferred from client gates, not observed retail failure responses.
+            if (original is null || original.TargetId <= 0)
+                response.Code = 20021096; // EquipGuideNotSetTargetId
+            else if (target is null)
+                response.Code = 20021097; // EquipGuideTargetCfgNotFound
+            else if (request.CharacterId != target.CharacterId || request.CharacterId != original.CharacterId
+                || !session.character.Characters.Any(character => character.Id == request.CharacterId))
+                response.Code = 20021098; // EquipGuideCharacterIdInvalid
+            else if (recommendation is null)
+                response.Code = 20021099; // EquipGuideRecommendCfgNotFound
+            else if (request.Sites is null || request.EquipIds is null || request.Sites.Count == 0
+                || request.Sites.Count != request.EquipIds.Count
+                || request.Sites.Distinct().Count() != request.Sites.Count
+                || request.EquipIds.Distinct().Count() != request.EquipIds.Count)
+                response.Code = 5; // ParamsError
+            if (response.Code != 0)
+            {
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
+            List<EquipTable> equipTables = TableReaderV2.Parse<EquipTable>();
+            for (int index = 0; index < request.EquipIds!.Count; index++)
+            {
+                EquipData? equip = session.character.Equips.Find(row => row.Id == request.EquipIds[index]);
+                EquipTable? template = equip is null
+                    ? null
+                    : equipTables.FirstOrDefault(row => row.Id == equip.TemplateId);
+                if (equip is null || template is null
+                    || request.IsAdd && equip.CharacterId != request.CharacterId)
+                    response.Code = 20021012; // EquipManagerGetCharEquipBySiteNotFound
+                else if (template.Site != request.Sites![index])
+                    response.Code = 20021014; // EquipManagerPutOnSiteError
+                else if (template.Id != recommendation!.EquipRecomend
+                    && !recommendation.SuitId.Contains(template.SuitId))
+                    response.Code = 20021105; // EquipGuideTargetInvalid
+                if (response.Code != 0)
+                {
+                    session.SendResponse(response, packet.Id);
+                    return;
+                }
+            }
+
+            List<int> positions = new(original!.PutOnPosList ?? []);
+            if (request.IsAdd)
+            {
+                foreach (int site in request.Sites!)
+                    if (!positions.Contains(site))
+                        positions.Add(site);
+            }
+            else
+            {
+                // Clear is sent after takeoff/transfer; the equipment need not retain its former wearer.
+                positions.RemoveAll(request.Sites!.Contains);
+            }
+            session.player.EquipGuideData = new EquipGuideData
+            {
+                TargetId = original.TargetId,
+                CharacterId = original.CharacterId,
+                PutOnPosList = positions,
+                FinishedTargets = new List<int>(original.FinishedTargets ?? [])
+            };
+            try
+            {
+                session.player.SaveChecked();
+            }
+            catch (Exception exception)
+            {
+                session.player.EquipGuideData = original;
+                session.log.Error($"Failed to persist equip guide positions: {exception}");
+                response.Code = 2; // ServerInternalError; persistence-failure assignment is inferred.
             }
             response.EquipGuideData = session.player.EquipGuideData;
             session.SendResponse(response, packet.Id);

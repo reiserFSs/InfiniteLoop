@@ -77,7 +77,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--ascnet-password",
         default=os.environ.get("ASCNET_PASSWORD", "test"),
-        help="Local AscNet account password used when --ascnet-username must be created. Default: %(default)s",
+        help="Local AscNet account password used when --ascnet-username must be created. Defaults to ASCNET_PASSWORD or test.",
     )
     parser.add_argument("--no-ensure-account", action="store_true", help="Do not create/check a local account or implicitly map unknown Steam/KRSDK users to one.")
     parser.add_argument(

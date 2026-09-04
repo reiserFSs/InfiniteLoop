@@ -48,6 +48,26 @@ def hold_build_lock(root, entered, release):
         release.get(timeout=5)
 
 
+class PasswordHelpTests(unittest.TestCase):
+    def test_help_hides_password_environment_default(self):
+        password = "synthetic-help-password"
+        with (
+            patch.dict(os.environ, {"ASCNET_PASSWORD": password}),
+            patch.object(sys, "argv", ["run_steam.py", "--help"]),
+            patch("sys.stdout", new_callable=io.StringIO) as stdout,
+        ):
+            with self.assertRaises(SystemExit) as exit_context:
+                run_steam.parse_args()
+        self.assertEqual(0, exit_context.exception.code)
+        self.assertIn("--ascnet-password", stdout.getvalue())
+        self.assertNotIn(password, stdout.getvalue())
+        with (
+            patch.dict(os.environ, {"ASCNET_PASSWORD": password}),
+            patch.object(sys, "argv", ["run_steam.py"]),
+        ):
+            self.assertEqual(password, run_steam.parse_args().ascnet_password)
+
+
 class GateFallbackUsernameTests(unittest.TestCase):
     def args(self, fallback, *, no_ensure_account):
         return SimpleNamespace(

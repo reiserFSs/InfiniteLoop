@@ -690,7 +690,7 @@ internal static class BossInshotModule
         KeyValuePair<int, dynamic> deployed = npcMap.FirstOrDefault(pair => Convert.ToInt32(pair.Value.GetType().GetProperty("RobotId")?.GetValue(pair.Value) ?? 0) == robotId);
         if (deployed.Value is null) { code = FightDataError; return true; }
         int npcKey = deployed.Key;
-        Dictionary<string, object?> augmented = ((object)deployed.Value).GetType().GetProperties().ToDictionary(p => p.Name, p => p.GetValue(deployed.Value));
+        Dictionary<string, object?> augmented = ((object)deployed.Value).GetType().GetProperties().ToDictionary(p => p.Name, p => p.GetValue((object)deployed.Value));
         augmented["BossInshotCharacterCfgUid"] = context.CharacterConfigId;
         augmented["EventIds"] = Characters.Value[context.CharacterConfigId].FightEventIds > 0 ? new[] { Characters.Value[context.CharacterConfigId].FightEventIds } : Array.Empty<int>();
         augmented["AttrRateTable"] = new Dictionary<int, int>();

@@ -118,7 +118,7 @@ namespace AscNet.GameServer.Commands
 
         private void SyncEquipsFromDatabase()
         {
-            session.character = Character.FromUid(session.player.PlayerData.Id);
+            session.character = Character.FromUid(session.player.PlayerData.Id, session.player.GatherRewards);
             AccountModule.SendLoginState(session);
         }
     }

@@ -119,14 +119,14 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("JoinWorldRequest")]
         public static void JoinWorldRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<JoinWorldRequest>(packet.Content);
+            _ = packet.Deserialize<JoinWorldRequest>();
             session.SendResponse(new JoinWorldResponse() { Code = 1023 }, packet.Id);
         }
 
         [RequestPacketHandler("CancelJoinWorldRequest")]
         public static void CancelJoinWorldRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<CancelJoinWorldRequest>(packet.Content);
+            _ = packet.Deserialize<CancelJoinWorldRequest>();
             session.SendResponse(new CancelJoinWorldResponse(), packet.Id);
         }
 
@@ -139,35 +139,35 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("QuickUseItemRequest")]
         public static void QuickUseItemRequestHandler(Session session, Packet.Request packet)
         {
-            QuickUseItemRequest request = MessagePackSerializer.Deserialize<QuickUseItemRequest>(packet.Content);
+            QuickUseItemRequest request = packet.Deserialize<QuickUseItemRequest>();
             session.SendResponse(new QuickUseItemResponse() { Index = request.Index }, packet.Id);
         }
 
         [RequestPacketHandler("CollectRequest")]
         public static void CollectRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<CollectRequest>(packet.Content);
+            _ = packet.Deserialize<CollectRequest>();
             session.SendResponse(new CollectResponse(), packet.Id);
         }
 
         [RequestPacketHandler("EnterFightTimeRequest")]
         public static void EnterFightTimeRequestHandler(Session session, Packet.Request packet)
         {
-            EnterFightTimeRequest request = MessagePackSerializer.Deserialize<EnterFightTimeRequest>(packet.Content);
+            EnterFightTimeRequest request = packet.Deserialize<EnterFightTimeRequest>();
             session.SendResponse(new EnterFightTimeResponse() { FightStartTime = request.EnterFightTime }, packet.Id);
         }
 
         [RequestPacketHandler("WorldRebootRequest")]
         public static void WorldRebootRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<WorldRebootRequest>(packet.Content);
+            _ = packet.Deserialize<WorldRebootRequest>();
             session.SendResponse(new WorldRebootResponse(), packet.Id);
         }
 
         [RequestPacketHandler("DlcCheatRequest")]
         public static void DlcCheatRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<DlcCheatRequest>(packet.Content);
+            _ = packet.Deserialize<DlcCheatRequest>();
             session.SendResponse(new DlcCheatResponse(), packet.Id);
         }
     }

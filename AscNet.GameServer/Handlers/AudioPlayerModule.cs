@@ -101,7 +101,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("AddAudioPlayerFavoriteSongRequest")]
         public static void AddFavoriteSong(Session session, Packet.Request packet)
         {
-            var request = MessagePackSerializer.Deserialize<AddAudioPlayerFavoriteSongRequest>(packet.Content);
+            var request = packet.Deserialize<AddAudioPlayerFavoriteSongRequest>();
             var response = new AddAudioPlayerFavoriteSongResponse();
             if (!IsValidSongId(session.player, request.SongId))
             {
@@ -128,7 +128,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("RemoveAudioPlayerFavoriteSongRequest")]
         public static void RemoveFavoriteSong(Session session, Packet.Request packet)
         {
-            var request = MessagePackSerializer.Deserialize<RemoveAudioPlayerFavoriteSongRequest>(packet.Content);
+            var request = packet.Deserialize<RemoveAudioPlayerFavoriteSongRequest>();
             var response = new RemoveAudioPlayerFavoriteSongResponse();
             List<int> songs = session.player.FavoriteSongs ??= new();
             List<int> previous = songs.ToList();
@@ -140,7 +140,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("AddAudioPlayerBackgroundSongRequest")]
         public static void AddBackgroundSongs(Session session, Packet.Request packet)
         {
-            var request = MessagePackSerializer.Deserialize<AddAudioPlayerBackgroundSongRequest>(packet.Content);
+            var request = packet.Deserialize<AddAudioPlayerBackgroundSongRequest>();
             var response = new AddAudioPlayerBackgroundSongResponse();
             if (request.SongIds is null || request.SongIds.Any(songId => !IsValidSongId(session.player, songId)))
             {
@@ -169,7 +169,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("RemoveAudioPlayerBackgroundSongRequest")]
         public static void RemoveBackgroundSong(Session session, Packet.Request packet)
         {
-            var request = MessagePackSerializer.Deserialize<RemoveAudioPlayerBackgroundSongRequest>(packet.Content);
+            var request = packet.Deserialize<RemoveAudioPlayerBackgroundSongRequest>();
             var response = new RemoveAudioPlayerBackgroundSongResponse();
             List<int> songs = session.player.BackgroundSongs ??= new();
             if (songs.Count == 1 && songs.Contains(request.SongId))
@@ -188,7 +188,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ResetAudioPlayerBackgroundSongRequest")]
         public static void ResetBackgroundSongs(Session session, Packet.Request packet)
         {
-            MessagePackSerializer.Deserialize<ResetAudioPlayerBackgroundSongRequest>(packet.Content);
+            packet.Deserialize<ResetAudioPlayerBackgroundSongRequest>();
             var response = new ResetAudioPlayerBackgroundSongResponse();
             List<int> songs = session.player.BackgroundSongs ??= new();
             List<int> previous = songs.ToList();

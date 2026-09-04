@@ -79,7 +79,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetShopInfoRequest")]
         public static void GetShopInfoRequestHandler(Session session, Packet.Request packet)
         {
-            GetShopInfoRequest request = MessagePackSerializer.Deserialize<GetShopInfoRequest>(packet.Content);
+            GetShopInfoRequest request = packet.Deserialize<GetShopInfoRequest>();
             session.SendResponse(new GetShopInfoResponse
             {
                 Code = 0,
@@ -100,7 +100,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetFixedShopListRequest")]
         public static void GetFixedShopListRequestHandler(Session session, Packet.Request packet)
         {
-            GetFixedShopListRequest request = MessagePackSerializer.Deserialize<GetFixedShopListRequest>(packet.Content);
+            GetFixedShopListRequest request = packet.Deserialize<GetFixedShopListRequest>();
             GetFixedShopListResponse response = new()
             {
                 Code = 0
@@ -117,7 +117,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetShopValidInfoRequest")]
         public static void GetShopValidInfoRequestHandler(Session session, Packet.Request packet)
         {
-            GetShopValidInfoRequest request = MessagePackSerializer.Deserialize<GetShopValidInfoRequest>(packet.Content);
+            GetShopValidInfoRequest request = packet.Deserialize<GetShopValidInfoRequest>();
             GetShopValidInfoResponse response = new()
             {
                 Code = 0
@@ -140,7 +140,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("BuyRequest")]
         public static void BuyRequestHandler(Session session, Packet.Request packet)
         {
-            BuyRequest request = MessagePackSerializer.Deserialize<BuyRequest>(packet.Content);
+            BuyRequest request = packet.Deserialize<BuyRequest>();
             BuyResponse response = new()
             {
                 Code = 1,

@@ -380,8 +380,8 @@ internal partial class Program
         }
         catch (Exception exception)
         {
-            Exception cause = exception is System.Reflection.TargetInvocationException { InnerException: not null } invocation
-                ? invocation.InnerException
+            Exception cause = exception is System.Reflection.TargetInvocationException { InnerException: Exception inner }
+                ? inner
                 : exception;
             throw new InvalidDataException($"legacy Stronghold login threw {cause.GetType().FullName}: {cause.Message}", cause);
         }

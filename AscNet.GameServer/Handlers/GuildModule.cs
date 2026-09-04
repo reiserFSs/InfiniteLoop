@@ -44,7 +44,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GuildListRecommendRequest")]
         public static void GuildListRecommendRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<GuildListRecommendRequest>(packet.Content);
+            _ = packet.Deserialize<GuildListRecommendRequest>();
             session.SendResponse(new GuildListRecommendResponse
             {
                 Code = 0,
@@ -56,7 +56,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GuildListDetailRequest")]
         public static void GuildListDetailRequestHandler(Session session, Packet.Request packet)
         {
-            GuildListDetailRequest request = MessagePackSerializer.Deserialize<GuildListDetailRequest>(packet.Content);
+            GuildListDetailRequest request = packet.Deserialize<GuildListDetailRequest>();
             uint guildId = ResolveGuildId(request.GuildId);
 
             session.SendResponse(new GuildListDetailResponse
@@ -94,7 +94,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GuildMemberDetailRequest")]
         public static void GuildMemberDetailRequestHandler(Session session, Packet.Request packet)
         {
-            GuildMemberDetailRequest request = MessagePackSerializer.Deserialize<GuildMemberDetailRequest>(packet.Content);
+            GuildMemberDetailRequest request = packet.Deserialize<GuildMemberDetailRequest>();
             GuildMemberDetailResponse response = new()
             {
                 Code = 0,
@@ -139,7 +139,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GuildWarPopupActionRequest")]
         public static void GuildWarPopupActionRequestHandler(Session session, Packet.Request packet)
         {
-            GuildWarPopupActionRequest request = MessagePackSerializer.Deserialize<GuildWarPopupActionRequest>(packet.Content);
+            GuildWarPopupActionRequest request = packet.Deserialize<GuildWarPopupActionRequest>();
             List<int> played = session.player.GuildWar.PlayedActionIds;
             List<int> added = [];
             foreach (int actionId in request.ActionPlayed ?? [])

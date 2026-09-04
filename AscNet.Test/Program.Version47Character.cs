@@ -6,12 +6,14 @@ using AscNet.GameServer.Handlers;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.character.enhanceskill;
+using AscNet.Table.V2.share.character.quality;
 using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.condition;
 using AscNet.Table.V2.share.headportrait;
 using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.robot;
 using MessagePack;
+using AscNet.Table.V2.share.exhibition;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 
@@ -67,7 +69,7 @@ internal partial class Program
         CharacterData locked = RequiredCharacterData(lockedRoster, characterRow.CharacterId);
         locked.Quality = Math.Max(0, firstQuality - 1);
         locked.SkillList.RemoveAll(skill => skill.Id == skillId);
-        lockedRoster.NormalizeCharactersForCurrentTables();
+        lockedRoster.NormalizeCharactersForCurrentTables([]);
         AssertEqual(false, locked.SkillList.Any(skill => skill.Id == skillId), "quality-gated skill stays absent below first gate");
 
         AscNet.Common.Database.Character intermediateRoster = CreateTestCharacterRoster(characterRow.CharacterId, 80);
@@ -75,7 +77,7 @@ internal partial class Program
         intermediate.Quality = firstQuality;
         intermediate.Star = int.MaxValue;
         intermediate.SkillList.RemoveAll(skill => skill.Id == skillId);
-        intermediateRoster.NormalizeCharactersForCurrentTables();
+        intermediateRoster.NormalizeCharactersForCurrentTables([]);
         AssertEqual(1, intermediate.SkillList.Single(skill => skill.Id == skillId).Level, "quality-gated skill reaches intermediate rank");
 
         AscNet.Common.Database.Character maxRoster = CreateTestCharacterRoster(characterRow.CharacterId, 80);
@@ -84,13 +86,72 @@ internal partial class Program
         max.Star = int.MaxValue;
         max.SkillList.RemoveAll(skill => skill.Id == skillId);
         max.SkillList.Add(new CharacterSkill { Id = skillId, Level = 1 });
-        maxRoster.NormalizeCharactersForCurrentTables();
+        maxRoster.NormalizeCharactersForCurrentTables([]);
         AssertEqual(2, max.SkillList.Single(skill => skill.Id == skillId).Level, "quality-gated skill reaches max rank");
 
         CharacterSkill maxSkill = max.SkillList.Single(skill => skill.Id == skillId);
-        bool changed = maxRoster.NormalizeCharactersForCurrentTables();
+        bool changed = maxRoster.NormalizeCharactersForCurrentTables([]);
         AssertEqual(false, changed, "quality-gated normalization is idempotent");
         AssertEqual(2, maxSkill.Level, "quality-gated max level remains stable");
+
+        var sharedQualityGate = (from character in TableReaderV2.Parse<CharacterSkillTable>()
+                                 where Character.IsOwnableCharacter((uint)character.CharacterId)
+                                 from groupId in character.SkillGroupId.Where(id => id > 0).Distinct()
+                                 let groupRow = TableReaderV2.Parse<CharacterSkillGroupTable>()
+                                     .FirstOrDefault(row => row.Id == groupId)
+                                 let defaultSkillId = groupRow?.SkillId.FirstOrDefault() ?? 0
+                                 let initial = TableReaderV2.Parse<CharacterSkillUpgradeTable>()
+                                     .FirstOrDefault(row => row.SkillId == defaultSkillId && row.Level == 0)
+                                 where defaultSkillId > 0
+                                     && Character.CharacterSkillMaxLevel(defaultSkillId) == 1
+                                     && initial?.ConditionId.Count(id => id > 0) == 1
+                                 let condition = TableReaderV2.Parse<ConditionTable>()
+                                     .First(row => row.Id == initial!.ConditionId.First(id => id > 0))
+                                 where condition.Type == 13105 && condition.Params.Count > 0
+                                     && string.IsNullOrWhiteSpace(condition.Formula)
+                                     && (condition.Params.Count <= 2 || condition.Params[2] == 0)
+                                 let qualityRows = TableReaderV2.Parse<CharacterQualityTable>()
+                                     .Where(row => row.CharacterId == character.CharacterId).ToList()
+                                 let lowerQuality = qualityRows
+                                     .Where(row => row.Quality > 0 && row.Quality < condition.Params[0])
+                                     .OrderBy(row => row.Quality).FirstOrDefault()
+                                 where lowerQuality is not null
+                                     && qualityRows.Any(row => row.Quality == condition.Params[0])
+                                 select new
+                                 {
+                                     character.CharacterId,
+                                     SkillId = (uint)defaultSkillId,
+                                     ConditionId = condition.Id,
+                                     EligibleQuality = condition.Params[0],
+                                     LowerQuality = lowerQuality.Quality
+                                 })
+            .GroupBy(candidate => candidate.ConditionId)
+            .Select(group => group.DistinctBy(candidate => candidate.CharacterId).Take(2).ToArray())
+            .First(pair => pair.Length == 2);
+        AscNet.Common.Database.Character mixedRoster =
+            CreateTestCharacterRoster(sharedQualityGate[0].CharacterId, 80);
+        mixedRoster.AddCharacter((uint)sharedQualityGate[1].CharacterId, 80);
+        for (int eligibleIndex = 0; eligibleIndex < 2; eligibleIndex++)
+        {
+            for (int index = 0; index < 2; index++)
+            {
+                var fixture = sharedQualityGate[index];
+                CharacterData character = RequiredCharacterData(mixedRoster, fixture.CharacterId);
+                character.Quality = index == eligibleIndex ? fixture.EligibleQuality : fixture.LowerQuality;
+                character.Star = 0;
+                character.SkillList.RemoveAll(skill => skill.Id == fixture.SkillId);
+            }
+            mixedRoster.NormalizeCharactersForCurrentTables([]);
+            var eligibleFixture = sharedQualityGate[eligibleIndex];
+            var lockedFixture = sharedQualityGate[1 - eligibleIndex];
+            AssertEqual(1, RequiredCharacterData(mixedRoster, eligibleFixture.CharacterId)
+                .SkillList.Single(skill => skill.Id == eligibleFixture.SkillId).Level,
+                "shared quality condition unlocks the eligible construct's default skill");
+            AssertEqual(false, RequiredCharacterData(mixedRoster, lockedFixture.CharacterId)
+                .SkillList.Any(skill => skill.Id == lockedFixture.SkillId),
+                "shared quality condition leaves the other construct's default skill locked");
+        }
+
         var liberationCandidate = (from character in TableReaderV2.Parse<CharacterSkillTable>()
                                    from groupId in character.SkillGroupId.Where(id => id > 0)
                                    let groupRow = TableReaderV2.Parse<CharacterSkillGroupTable>()
@@ -113,7 +174,7 @@ internal partial class Program
         staleLiberation.LiberateLv = liberationCandidate.RequiredLiberation - 1;
         staleLiberation.SkillList.RemoveAll(skill => skill.Id == liberationCandidate.SkillId);
         staleLiberation.SkillList.Add(new CharacterSkill { Id = liberationCandidate.SkillId, Level = 1 });
-        staleLiberationRoster.NormalizeCharactersForCurrentTables();
+        staleLiberationRoster.NormalizeCharactersForCurrentTables([]);
         AssertEqual(false, staleLiberation.SkillList.Any(skill => skill.Id == liberationCandidate.SkillId),
             "locked Ultima Awaken skill is removed from stale accounts");
 
@@ -122,9 +183,16 @@ internal partial class Program
         CharacterData awakened = RequiredCharacterData(awakenedRoster, liberationCandidate.CharacterId);
         awakened.LiberateLv = liberationCandidate.RequiredLiberation;
         awakened.SkillList.RemoveAll(skill => skill.Id == liberationCandidate.SkillId);
-        awakenedRoster.NormalizeCharactersForCurrentTables();
+        int liberationReward = TableReaderV2.Parse<ExhibitionRewardTable>()
+            .First(row => row.CharacterId == liberationCandidate.CharacterId
+                && row.LevelId >= liberationCandidate.RequiredLiberation).Id;
+        awakenedRoster.NormalizeCharactersForCurrentTables([liberationReward]);
+        AssertEqual(false, awakened.SkillList.Any(skill => skill.Id == liberationCandidate.SkillId),
+            "Ultima eligibility does not perform a manual unlock during normalization");
+        awakened.SkillList.Add(new CharacterSkill { Id = liberationCandidate.SkillId, Level = 1 });
+        awakenedRoster.NormalizeCharactersForCurrentTables([liberationReward]);
         AssertEqual(1, awakened.SkillList.Single(skill => skill.Id == liberationCandidate.SkillId).Level,
-            "Ultima Awaken skill unlocks at its table-required liberation stage");
+            "claimed liberation milestone retains a learned Ultima skill");
 
         var ordinaryCandidate = (from character in TableReaderV2.Parse<CharacterSkillTable>()
                                  from groupId in character.SkillGroupId.Where(id => id > 0)
@@ -140,7 +208,7 @@ internal partial class Program
             RequiredCharacterData(ordinaryRoster, ordinaryCandidate.CharacterId);
         CharacterSkill ordinary = ordinaryCharacter.SkillList.Single(skill => skill.Id == ordinaryCandidate.SkillId);
         int ordinaryLevel = ordinary.Level;
-        ordinaryRoster.NormalizeCharactersForCurrentTables();
+        ordinaryRoster.NormalizeCharactersForCurrentTables([]);
         AssertEqual(ordinaryLevel, ordinaryCharacter.SkillList.Single(skill => skill.Id == ordinary.Id).Level,
             "conditionless ordinary skill is preserved");
     }
@@ -662,7 +730,7 @@ internal partial class Program
             new CharacterSkill { Id = 999_999, Level = 2 }  // foreign
         ];
 
-        bool changed = roster.NormalizeCharactersForCurrentTables();
+        bool changed = roster.NormalizeCharactersForCurrentTables([]);
         AssertEqual(true, changed, "EnhanceSkill normalization reports change");
 
         // Exactly one active skill per owned group; no foreign skills; level 99 clamped to the group max (18).
@@ -810,10 +878,10 @@ internal partial class Program
                 "Selena skill unlock response Code");
             AssertEqual(1, selenaSaves.ReplaceOneCalls, "Selena skill unlock saves character once");
 
-            AssertEqual(false, Character.MeetsCharacterSkillCondition(selenaCharacter, [7326], 52),
+            AssertEqual(false, Character.MeetsCharacterSkillCondition(selenaCharacter, [7326], [], 52),
                 "Selena final skill rejects one missing prerequisite");
             selenaCharacter.EnhanceSkillList.Add(new CharacterSkill { Id = 153329, Level = 18 });
-            AssertEqual(true, Character.MeetsCharacterSkillCondition(selenaCharacter, [7326], 52),
+            AssertEqual(true, Character.MeetsCharacterSkillCondition(selenaCharacter, [7326], [], 52),
                 "Selena final skill accepts both prerequisites");
             InvokeRegisteredRequestHandler(nameof(CharacterUnlockEnhanceSkillRequest), harness.Session, 12_409,
                 new CharacterUnlockEnhanceSkillRequest { SkillGroupId = 1533320 });
@@ -916,7 +984,6 @@ internal partial class Program
     private static void ValidateVersion47EnhanceSkillSwitchCompatibility()
     {
         const int characterId = 1021005;   // Lucia: Crimson Weave, group 1025280 has alternates [102531, 102528]
-        const int groupId = 1025280;
         const uint activeId = 102531;
         const uint alternateId = 102528;
 
@@ -1114,7 +1181,7 @@ internal partial class Program
             CharacterSkillUpgradeTable? initialUpgrade = TableReaderV2.Parse<CharacterSkillUpgradeTable>()
                 .FirstOrDefault(upgrade => upgrade.SkillId == (int)skillId && upgrade.Level == 0);
             bool unlocked = initialUpgrade is null
-                || AscNet.Common.Database.Character.MeetsCharacterSkillCondition(freshCharacter, initialUpgrade.ConditionId);
+                || AscNet.Common.Database.Character.MeetsCharacterSkillCondition(freshCharacter, initialUpgrade.ConditionId, []);
             AssertEqual(unlocked, freshCharacter.SkillList.Any(skill => skill.Id == skillId),
                 $"Effulgence fresh-obtain {groupId} initial condition");
             if (unlocked)

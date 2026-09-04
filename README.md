@@ -56,6 +56,10 @@ The current compatibility target in this tree is:
 This branch adds or fixes current-client server behavior for:
 
 - `NotifyLogin` shape and current-client login data.
+- Completed scheduled sign-ins stay marked claimed across login and daily reset; recurring daily sign-ins still advance normally.
+- Dorm commission board replacements notify the client; stale dispatch indexes trigger a board resync without partial acceptance.
+- Ultima Awakening checks claimed Exhibition milestones for the relevant construct. Eligible skills still require an unlock request, and learned skills survive character reloads.
+- Character login normalization reuses skill-upgrade, condition, and skill-level indexes within one roster pass; skill eligibility is still evaluated per character against current player state.
 - Current-client notice payloads.
 - Stage bookmark compatibility.
 - Board mutual push compatibility.
@@ -214,6 +218,10 @@ The underlying account endpoints are:
 
 Steam/KRSDK login callbacks can be mapped to the local account through `ASCNET_GATE_FALLBACK_USERNAME`.
 
+Register, login, and verify accept JSON bodies up to 16 KiB, including chunked requests. Malformed or missing credentials return HTTP 400; oversized bodies return HTTP 413. Successful account responses omit passwords. Password storage and local gate-fallback behavior are unchanged.
+
+SDK/proxy diagnostics omit query values, and proxy diagnostics omit URL userinfo. Inbound TCP decoding uses untrusted MessagePack settings with a 64 MiB decompression ceiling; the existing 4 MiB wire-frame limit remains. Inbound packet diagnostics record metadata rather than raw payloads.
+
 ## Testing
 
 Run the focused compatibility harness:
@@ -231,6 +239,9 @@ dotnet run --project AscNet.Test/AscNet.Test.csproj -- --player-gender-compat-on
 Available focused switches:
 
 ```text
+--first-batch-safety-only
+--dorm-dispatch-compat-only
+--ultima-awaken-compat-only
 --notify-login-compat-only
 --stage-bookmark-compat-only
 --mainline2-exhibition-compat-only
@@ -266,8 +277,13 @@ Local runtime state should stay out of commits:
 - `.runtime/mongo`
 - `.runtime/proxy-flows.log`
 - build outputs under `bin/` and `obj/`
+- packet captures (`.pcap`, `.pcapng`, `.cap`), `proxylog`, and `.DS_Store`
 
 Do not commit runtime logs, MongoDB files, client binaries, or captured credentials.
+
+The host's resource-copy rules exclude local `.runtime/`, `bin/`, and `obj/` directories, logs, packet captures, and macOS metadata. Runtime JSON and MessagePack resources remain included. Use a fresh output directory when checking packaging; exclusions do not remove files left by older builds.
+
+Ignore rules do not untrack existing files or remove them from Git history. Removing sensitive files from the index is not a substitute for credential revocation or a separate history review.
 
 ## Current caveats
 

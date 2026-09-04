@@ -146,7 +146,7 @@ internal static partial class Program
         JObject task = ReadResponseMapPayload(
             harness, taskPacketId, "FinishMultiTaskResponse", "Passport task response");
         AssertEqual(0, task.Value<int>("Code"), "Passport task Code");
-        AssertIntegerList([80_000], task["SuccessTaskIds"]!.Values<long>().ToArray(),
+        AssertIntegerList([80_000], task["SuccessTaskIds"]!.Select(value => value.Value<long>()).ToArray(),
             "Passport task success ids");
         AssertEqual(5_700L, taskBase.BaseInfo.Exp, "Passport task EXP");
 

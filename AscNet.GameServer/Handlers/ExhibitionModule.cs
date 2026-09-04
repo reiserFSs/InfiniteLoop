@@ -96,7 +96,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GatherRewardRequest")]
         public static void HandleGatherRewardRequestHandler(Session session, Packet.Request packet)
         {
-            GatherRewardRequest req = MessagePackSerializer.Deserialize<GatherRewardRequest>(packet.Content);
+            GatherRewardRequest req = packet.Deserialize<GatherRewardRequest>();
             ExhibitionRewardTable? exhibitionReward = TableReaderV2.Parse<ExhibitionRewardTable>().Find(x => x.Id == req.Id);
             if (exhibitionReward is null)
             {

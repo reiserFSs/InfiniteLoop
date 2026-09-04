@@ -1,5 +1,7 @@
 import os
 import sys
+from pathlib import Path
+import tempfile
 import unittest
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
@@ -40,6 +42,35 @@ class ProxyRoutingTests(unittest.TestCase):
             headers={},
         )
         return SimpleNamespace(request=request, response=None)
+
+    def test_flow_logs_omit_credentials_without_changing_routing(self):
+        path = "/prod/client/notice/html/current-notice.html"
+        query = (
+            "autoToken=synthetic-auto&oauthCode=synthetic-oauth"
+            "&%74oKeN=synthetic-encoded&PaSsWoRd=synthetic-password"
+            "&token=synthetic-first&token=synthetic-second"
+            "&futureCredential=synthetic-unknown&cache=synthetic-cache"
+        )
+        flow = self.flow(f"{path}?{query}")
+        flow.request.pretty_url = (
+            f"http://synthetic-user:synthetic-userinfo@{flow.request.host}"
+            f"{flow.request.path}#synthetic-fragment"
+        )
+        original = vars(flow.request).copy()
+        original["headers"] = flow.request.headers.copy()
+        with tempfile.TemporaryDirectory() as root:
+            log_path = Path(root) / "flows.log"
+            with patch.dict(os.environ, {"ASCNET_PROXY_LOG": str(log_path)}):
+                proxy.request(flow)
+                flow.response = SimpleNamespace(status_code=204)
+                proxy.response(flow)
+            logged = log_path.read_text(encoding="utf-8")
+        self.assertNotIn("synthetic-", logged)
+        self.assertNotIn("?", logged)
+        self.assertNotIn("@", logged)
+        self.assertIn(f"REQ GET http://{flow.request.host}{path} -> -", logged)
+        self.assertIn(f"RSP GET http://{flow.request.host}{path} -> 204", logged)
+        self.assertEqual(original, vars(flow.request))
 
 
     def test_notice_html_stays_on_upstream_cdn(self):

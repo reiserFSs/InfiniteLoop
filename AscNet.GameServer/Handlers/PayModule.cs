@@ -51,7 +51,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetPurchaseListRequest")]
         public static void GetPurchaseListRequestHandler(Session session, Packet.Request packet)
         {
-            GetPurchaseListRequest request = MessagePackSerializer.Deserialize<GetPurchaseListRequest>(packet.Content);
+            GetPurchaseListRequest request = packet.Deserialize<GetPurchaseListRequest>();
             session.SendResponse(BuildPurchaseListResponse(request.UiTypeList, session.player.PurchaseBuyTimes), packet.Id);
         }
 
@@ -112,7 +112,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("PurchaseRequest")]
         public static void PurchaseRequestHandler(Session session, Packet.Request packet)
         {
-            PurchaseRequest request = MessagePackSerializer.Deserialize<PurchaseRequest>(packet.Content);
+            PurchaseRequest request = packet.Deserialize<PurchaseRequest>();
             int count = Math.Max(1, request.Count);
             session.log.Debug($"PurchaseRequest Id={request.Id} Count={count} DiscountId={request.DiscountId} UiTypes={string.Join(',', request.UiTypeList)}");
 

@@ -7,6 +7,8 @@ using AscNet.Table.V2.share.alarmclock;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MessagePack;
+using System.Runtime.CompilerServices;
+using AscNet.Table.V2.share.condition;
 
 namespace AscNet.GameServer.Handlers;
 
@@ -59,6 +61,14 @@ internal partial class DormModule
     private const int QuestTerminalCfgError = 20060078;
     private const int QuestFileNotCollect = 20060079;
     private const int QuestConditionNotFinish = 20060080;
+
+    // Failed parses return fresh lists; key by source identity so subsequent calls still retry.
+    private static readonly ConditionalWeakTable<List<QuestTable>, IReadOnlyDictionary<int, QuestTable>> QuestIndexes = new();
+    private static readonly ConditionalWeakTable<List<ConditionTable>, IReadOnlyDictionary<int, ConditionTable>> QuestConditionIndexes = new();
+    private static IReadOnlyDictionary<int, QuestTable> QuestRowsById() =>
+        QuestIndexes.GetValue(TableReaderV2.Parse<QuestTable>(), static rows => rows.ToDictionary(row => row.Id));
+    private static IReadOnlyDictionary<int, ConditionTable> QuestConditionsById() =>
+        QuestConditionIndexes.GetValue(TableReaderV2.Parse<ConditionTable>(), static rows => rows.ToDictionary(row => row.Id));
 
     private static readonly Lazy<uint> QuestDailyRefreshOffset = new(() =>
         checked((uint)TableReaderV2.Parse<AlarmClockTable>()
@@ -134,13 +144,12 @@ internal partial class DormModule
         session.SendResponse(new QuestUpgradeTerminalLvResponse { Code = code, TerminalUpgradeTime = state.TerminalUpgradeTime }, packet.Id);
     }
 
-[RequestPacketHandler("QuestAcceptRequest")]
+    [RequestPacketHandler("QuestAcceptRequest")]
     public static void QuestAcceptRequestHandler(Session session, Packet.Request packet)
     {
         uint now = QuestNow();
         RefreshQuestState(session);
         QuestAcceptRequest request = packet.Deserialize<QuestAcceptRequest>();
-        RefillExhaustedBoard(session, now);
         PlayerDormQuestState state = session.player.Dorm.Quest;
         int code = ValidateAccept(session, request);
         if (code == 0)
@@ -148,7 +157,7 @@ internal partial class DormModule
             foreach (QuestAcceptParam parameter in request.QuestAcceptParams)
             {
                 PlayerDormQuest board = state.TotalQuest.Single(quest => quest.Index == parameter.Index);
-                QuestTable quest = TableReaderV2.Parse<QuestTable>().Single(row => row.Id == board.QuestId);
+                QuestTable quest = QuestRowsById()[board.QuestId];
                 state.QuestAccept.Add(new PlayerDormQuestAccept
                 {
                     QuestId = board.QuestId, FileId = SelectFile(session, quest, parameter.TeamCharacter, board.ResetCount, board.Index), Index = board.Index, IsSpecialQuest = board.IsSpecialQuest,
@@ -159,6 +168,14 @@ internal partial class DormModule
             session.player.SaveChecked();
             TaskModule.RecordTableDrivenProgress(session, [(29018, null, request.QuestAcceptParams.Count)]);
         }
+        else if (code == QuestNotExist)
+        {
+            session.SendPush(new NotifyDormQuestData
+            {
+                TotalQuest = state.TotalQuest.Select(Quest).ToList(),
+                QuestAccept = state.QuestAccept.Select(Accept).ToList()
+            });
+        }
         session.SendResponse(new QuestAcceptResponse { Code = code, QuestAccept = code == 0 ? state.QuestAccept.Select(Accept).ToList() : [] }, packet.Id);
     }
 
@@ -168,7 +185,7 @@ internal partial class DormModule
         PlayerDormQuestState state = session.player.Dorm.Quest;
         uint now = QuestNow();
         RefreshQuestState(session);
-        Dictionary<int, QuestTable> quests = TableReaderV2.Parse<QuestTable>().ToDictionary(row => row.Id);
+        IReadOnlyDictionary<int, QuestTable> quests = QuestRowsById();
         List<PlayerDormPendingReward> pendingRewards = session.player.Dorm.PendingRewards.Where(pending => pending.Key.StartsWith($"dorm-quest:{session.player.PlayerData.Id}:", StringComparison.Ordinal)).ToList();
         List<PlayerDormQuestAccept> completed = pendingRewards.Count > 0
             ? state.QuestAccept.Where(accept => pendingRewards.Any(pending => pending.Key.StartsWith(QuestClaimPrefix(session, accept), StringComparison.Ordinal))).ToList()
@@ -317,9 +334,13 @@ internal partial class DormModule
             state.ResetCount++;
             state.TotalQuest = BuildBoard(session, terminal, state.ResetCount);
             changed = true;
+            boardChanged = true;
         }
         if (RefillExhaustedBoard(session, now))
+        {
             changed = true;
+            boardChanged = true;
+        }
         if (changed) session.player.SaveChecked();
         if (completedUpgrade) session.SendPush(new NotifyDormQuestTerminalInit { TerminalLv = state.TerminalLv, TotalQuest = state.TotalQuest.Select(Quest).ToList() });
         return boardChanged;
@@ -347,7 +368,7 @@ internal partial class DormModule
     {
         PlayerDormQuestState state = session.player.Dorm.Quest;
         Dictionary<int, QuestPoolTable> pools = TableReaderV2.Parse<QuestPoolTable>().ToDictionary(row => row.Id);
-        Dictionary<int, QuestTable> quests = TableReaderV2.Parse<QuestTable>().ToDictionary(row => row.Id);
+        IReadOnlyDictionary<int, QuestTable> quests = QuestRowsById();
         List<int> poolIds = terminal.NormalQuest.Where(id => id > 0).ToList();
         List<int> minima = terminal.NormalQuestMin.ToList();
         List<int> weights = terminal.NormalQuestWeight.ToList();
@@ -388,7 +409,7 @@ internal partial class DormModule
     private static bool HasSpecialQuest(Session session, QuestTerminalTable terminal)
     {
         PlayerDormQuestState state = session.player.Dorm.Quest;
-        Dictionary<int, QuestTable> quests = TableReaderV2.Parse<QuestTable>().ToDictionary(row => row.Id);
+        IReadOnlyDictionary<int, QuestTable> quests = QuestRowsById();
         QuestPoolTable? pool = TableReaderV2.Parse<QuestPoolTable>().FirstOrDefault(row => row.Id == terminal.SpecialQuest);
         return pool is not null && pool.QuestId.Any(id => quests.TryGetValue(id, out QuestTable? quest) && !state.TriggerLimitedQuest.Contains(id) && (quest.PreQuestId is not int pre || pre <= 0 || state.TriggerLimitedQuest.Contains(pre)) && ConditionsSatisfied(session, quest.Condition, quest, []));
     }
@@ -409,7 +430,7 @@ internal partial class DormModule
         if (state.QuestAccept.Count(accept => !accept.IsAward) + request.QuestAcceptParams.Count > (Terminal(state.TerminalLv)?.TeamCount ?? 0)) return QuestTerminalIdleCountNotEnough;
         HashSet<uint> owned = session.character.Characters.Select(character => character.Id).ToHashSet();
         HashSet<uint> busy = state.QuestAccept.Where(accept => !accept.IsAward).SelectMany(accept => accept.TeamCharacter).ToHashSet();
-        Dictionary<int, QuestTable> quests = TableReaderV2.Parse<QuestTable>().ToDictionary(quest => quest.Id);
+        IReadOnlyDictionary<int, QuestTable> quests = QuestRowsById();
         foreach (QuestAcceptParam parameter in request.QuestAcceptParams)
         {
             PlayerDormQuest? board = state.TotalQuest.FirstOrDefault(quest => quest.Index == parameter.Index && quest.ResetCount == state.ResetCount);
@@ -435,7 +456,7 @@ internal partial class DormModule
 
     private static bool ConditionsSatisfied(Session session, IEnumerable<int> conditionIds, QuestTable? quest, IEnumerable<uint> team)
     {
-        Dictionary<int, AscNet.Table.V2.share.condition.ConditionTable> conditions = TableReaderV2.Parse<AscNet.Table.V2.share.condition.ConditionTable>().ToDictionary(condition => condition.Id);
+        IReadOnlyDictionary<int, ConditionTable> conditions = QuestConditionsById();
         return conditionIds.Where(id => id > 0).All(id => conditions.TryGetValue(id, out AscNet.Table.V2.share.condition.ConditionTable? condition) && condition.Type switch
         {
             20104 => condition.Params.Count > 0 && session.player.Dorm.Quest.TerminalLv >= condition.Params[0],

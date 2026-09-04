@@ -120,7 +120,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("DoClientTaskEventRequest")]
         public static void DoClientTaskEventRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<DoClientTaskEventRequest>(packet.Content);
+            _ = packet.Deserialize<DoClientTaskEventRequest>();
             EnsureMissionResets(session);
             session.SendResponse(new DoClientTaskEventResponse(), packet.Id);
             SendTaskSync(session);
@@ -129,7 +129,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("FinishTaskRequest")]
         public static void FinishTaskRequestHandler(Session session, Packet.Request packet)
         {
-            FinishTaskRequest request = MessagePackSerializer.Deserialize<FinishTaskRequest>(packet.Content);
+            FinishTaskRequest request = packet.Deserialize<FinishTaskRequest>();
             FinishTaskResponse response = ClaimTaskReward(session, request.TaskId, pushSync: false, out RewardApplicationResult? transfiniteApplication, out RewardApplicationResult? passportApplication);
             if (IsTransfiniteTask(session, request.TaskId))
             {
@@ -156,7 +156,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("FinishMultiTaskRequest")]
         public static void FinishMultiTaskRequestHandler(Session session, Packet.Request packet)
         {
-            FinishMultiTaskRequest request = MessagePackSerializer.Deserialize<FinishMultiTaskRequest>(packet.Content);
+            FinishMultiTaskRequest request = packet.Deserialize<FinishMultiTaskRequest>();
             FinishMultiTaskResponse response = new()
             {
                 Code = 0
@@ -222,7 +222,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetActivenessRewardRequest")]
         public static void GetActivenessRewardRequestHandler(Session session, Packet.Request packet)
         {
-            GetActivenessRewardRequest request = MessagePackSerializer.Deserialize<GetActivenessRewardRequest>(packet.Content);
+            GetActivenessRewardRequest request = packet.Deserialize<GetActivenessRewardRequest>();
             GetActivenessRewardResponse response = ClaimActivenessRewards(session, request.RewardType);
             if (response.Code == 0)
             {
@@ -246,7 +246,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetNewPlayerRewardRequest")]
         public static void GetNewPlayerRewardRequestHandler(Session session, Packet.Request packet)
         {
-            Dictionary<string, int>? request = MessagePackSerializer.Deserialize<Dictionary<string, int>?>(packet.Content);
+            Dictionary<string, int>? request = packet.Deserialize<Dictionary<string, int>?>();
             int requestedValue = request?.Values.FirstOrDefault(value => value > 0) ?? 0;
             GetNewPlayerRewardResponse response = ClaimNewPlayerReward(session, requestedValue);
             session.SendResponse(response, packet.Id);
@@ -519,7 +519,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetCourseRewardRequest")]
         public static void GetCourseRewardRequestHandler(Session session, Packet.Request packet)
         {
-            var request = MessagePackSerializer.Deserialize<GetCourseRewardRequest>(packet.Content);
+            var request = packet.Deserialize<GetCourseRewardRequest>();
             GetCourseRewardResponse response = ClaimCourseReward(session, request.StageId);
             session.SendResponse(response, packet.Id);
         }

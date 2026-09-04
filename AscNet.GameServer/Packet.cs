@@ -8,6 +8,10 @@ namespace AscNet.GameServer
     [MessagePackObject(false)]
     public class Packet
     {
+        public static readonly MessagePackSerializerOptions InboundOptions = MessagePackSerializerOptions.Standard
+            .WithCompression(MessagePackCompression.Lz4Block)
+            .WithSecurity(MessagePackSecurity.UntrustedData.WithMaximumDecompressedSize(64 * 1024 * 1024));
+
         [Key(0)]
         public int No;
 
@@ -39,7 +43,7 @@ namespace AscNet.GameServer
 
             public T Deserialize<T>()
             {
-                return MessagePackSerializer.Deserialize<T>(Content);
+                return MessagePackSerializer.Deserialize<T>(Content, InboundOptions);
             }
         }
 

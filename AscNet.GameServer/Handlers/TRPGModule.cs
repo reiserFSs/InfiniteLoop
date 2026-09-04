@@ -39,7 +39,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("TRPGFunctionFinishRequest")]
         public static void TRPGFunctionFinishRequestHandler(Session session, Packet.Request packet)
         {
-            TRPGFunctionFinishRequest request = MessagePackSerializer.Deserialize<TRPGFunctionFinishRequest>(packet.Content);
+            TRPGFunctionFinishRequest request = packet.Deserialize<TRPGFunctionFinishRequest>();
             TRPGFunctionTable? trpgFunction = TableReaderV2.Parse<TRPGFunctionTable>().Find(x => x.Id == request.FunctionId);
 
             var response = new TRPGFunctionFinishResponse();
@@ -66,7 +66,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("TRPGChangePageStatusRequest")]
         public static void TRPGChangePageStatusRequestHandler(Session session, Packet.Request packet)
         {
-            TRPGChangePageStatusRequest request = MessagePackSerializer.Deserialize<TRPGChangePageStatusRequest>(packet.Content);
+            TRPGChangePageStatusRequest request = packet.Deserialize<TRPGChangePageStatusRequest>();
 
             session.SendResponse(new TRPGChangePageStatusResponse(), packet.Id);
         }

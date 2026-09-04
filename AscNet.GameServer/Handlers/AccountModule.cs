@@ -186,7 +186,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("HandshakeRequest")]
         public static void HandshakeRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<HandshakeRequest>(packet.Content);
+            _ = packet.Deserialize<HandshakeRequest>();
             // TODO: make this somehow universal, look into better architecture to handle packets
             // and automatically log their deserialized form
 
@@ -203,7 +203,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("LoginRequest")]
         public static void LoginRequestHandler(Session session, Packet.Request packet)
         {
-            LoginRequest request = MessagePackSerializer.Deserialize<LoginRequest>(packet.Content);
+            LoginRequest request = packet.Deserialize<LoginRequest>();
             Player? player = Player.FromToken(request.Token);
 
             if (player is null)
@@ -254,7 +254,7 @@ namespace AscNet.GameServer.Handlers
                 }
 
                 session.player = player;
-                session.character = Character.FromUid(player.PlayerData.Id);
+                session.character = Character.FromUid(player.PlayerData.Id, player.GatherRewards);
                 session.stage = Stage.FromUid(player.PlayerData.Id);
                 session.inventory = Inventory.FromUid(player.PlayerData.Id);
                 if (player.NormalizeEquipReferences(session.character.Equips.Select(equip => equip.Id).ToHashSet()))
@@ -277,7 +277,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ReconnectRequest")]
         public static void ReconnectRequestHandler(Session session, Packet.Request packet)
         {
-            ReconnectRequest request = MessagePackSerializer.Deserialize<ReconnectRequest>(packet.Content);
+            ReconnectRequest request = packet.Deserialize<ReconnectRequest>();
             Player? candidate = session.player ?? Player.FromToken(request.Token);
             if (candidate?.PlayerData.Id != request.PlayerId)
             {
@@ -328,7 +328,7 @@ namespace AscNet.GameServer.Handlers
                     || previousSession is not null)
                 {
                     session.log.Debug("Reassigning player props...");
-                    session.character = Character.FromUid(player.PlayerData.Id);
+                    session.character = Character.FromUid(player.PlayerData.Id, player.GatherRewards);
                     session.stage = Stage.FromUid(player.PlayerData.Id);
                     session.inventory = Inventory.FromUid(player.PlayerData.Id);
                     if (player.NormalizeEquipReferences(session.character.Equips.Select(equip => equip.Id).ToHashSet()))
@@ -356,14 +356,14 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ClientVersionRequest")]
         public static void ClientVersionRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<ClientVersionRequest>(packet.Content);
+            _ = packet.Deserialize<ClientVersionRequest>();
             session.SendResponse(new ClientVersionResponse(), packet.Id);
         }
 
         [RequestPacketHandler("SetServerBeanRequest")]
         public static void SetServerBeanRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<SetServerBeanRequest>(packet.Content);
+            _ = packet.Deserialize<SetServerBeanRequest>();
             session.SendResponse(new SetServerBeanResponse(), packet.Id);
         }
 
@@ -479,7 +479,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("FinishBriefStoryRequest")]
         public static void FinishBriefStoryRequestHandler(Session session, Packet.Request packet)
         {
-            FinishBriefStoryRequest request = MessagePackSerializer.Deserialize<FinishBriefStoryRequest>(packet.Content);
+            FinishBriefStoryRequest request = packet.Deserialize<FinishBriefStoryRequest>();
             FinishBriefStoryResponse response = new()
             {
                 Code = 0
@@ -638,10 +638,10 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
             }
-            foreach (SignInTable signIn in TableReaderV2.Parse<SignInTable>()
-                .Where(signIn => signIn.Type == 1 && signIn.TimeId is > 0))
+            foreach (SignInTable signIn in TableReaderV2.Parse<SignInTable>())
             {
-                AddDerived(signIn.TimeId.Value, 0, 0);
+                if (signIn.Type == 1 && signIn.TimeId is int timeId && timeId > 0)
+                    AddDerived(timeId, 0, 0);
             }
 
             if (wheelchairActivityActive)

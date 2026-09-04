@@ -117,7 +117,7 @@ namespace AscNet.GameServer.Handlers
         public static void MainLine2UpdateExhibitionChapterRequestHandler(Session session, Packet.Request packet)
         {
             MainLine2UpdateExhibitionChapterRequest request =
-                MessagePackSerializer.Deserialize<MainLine2UpdateExhibitionChapterRequest>(packet.Content);
+                packet.Deserialize<MainLine2UpdateExhibitionChapterRequest>();
             FubenMainLine2Data data = session.player.FubenMainLine2Data ??= new();
             NormalizeMainLine2Data(data);
             if (IsExhibitionChapter(request.ChapterId) && data.LastExhibitionChapterId != request.ChapterId)
@@ -135,7 +135,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("MainLine2ReceiveMainTreasureRequest")]
         public static void MainLine2ReceiveMainTreasureRequestHandler(Session session, Packet.Request packet)
         {
-            MainLine2ReceiveMainTreasureRequest request = MessagePackSerializer.Deserialize<MainLine2ReceiveMainTreasureRequest>(packet.Content);
+            MainLine2ReceiveMainTreasureRequest request = packet.Deserialize<MainLine2ReceiveMainTreasureRequest>();
             MainLine2ReceiveMainTreasureResponse response = ClaimMainLine2MainTreasure(session, request, packet.Content);
             session.SendResponse(response, packet.Id);
         }
@@ -168,7 +168,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("MainLineLuosaitaEnterRequest")]
         public static void MainLineLuosaitaEnterRequestHandler(Session session, Packet.Request packet)
         {
-            MainLineLuosaitaEnterRequest request = MessagePackSerializer.Deserialize<MainLineLuosaitaEnterRequest>(packet.Content);
+            MainLineLuosaitaEnterRequest request = packet.Deserialize<MainLineLuosaitaEnterRequest>();
 
             session.SendResponse(new MainLineLuosaitaEnterResponse
             {
@@ -180,7 +180,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("MainLineLuosaitaMoveRequest")]
         public static void MainLineLuosaitaMoveRequestHandler(Session session, Packet.Request packet)
         {
-            MainLineLuosaitaMoveRequest request = MessagePackSerializer.Deserialize<MainLineLuosaitaMoveRequest>(packet.Content);
+            MainLineLuosaitaMoveRequest request = packet.Deserialize<MainLineLuosaitaMoveRequest>();
 
             session.SendResponse(new MainLineLuosaitaMoveResponse
             {
@@ -192,7 +192,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("MainLineLuosaitaUseDocRequest")]
         public static void MainLineLuosaitaUseDocRequestHandler(Session session, Packet.Request packet)
         {
-            MainLineLuosaitaUseDocRequest request = MessagePackSerializer.Deserialize<MainLineLuosaitaUseDocRequest>(packet.Content);
+            MainLineLuosaitaUseDocRequest request = packet.Deserialize<MainLineLuosaitaUseDocRequest>();
 
             session.SendResponse(new MainLineLuosaitaUseDocResponse
             {
@@ -234,7 +234,7 @@ namespace AscNet.GameServer.Handlers
             bool updated = false;
             try
             {
-                MainLine2MessageStateUpdateRequest request = MessagePackSerializer.Deserialize<MainLine2MessageStateUpdateRequest>(rawContent);
+                MainLine2MessageStateUpdateRequest request = MessagePackSerializer.Deserialize<MainLine2MessageStateUpdateRequest>(rawContent, Packet.InboundOptions);
                 updated = TryApplyMainLine2MessageStateUpdate(data, request);
             }
             catch (Exception)

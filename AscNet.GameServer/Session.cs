@@ -163,13 +163,11 @@ namespace AscNet.GameServer
 
                             try
                             {
-                                packets.Add(MessagePackSerializer.Deserialize<Packet>(packet, lz4Options));
+                                packets.Add(MessagePackSerializer.Deserialize<Packet>(packet, Packet.InboundOptions));
                             }
-                            catch (Exception)
+                            catch (Exception ex)
                             {
-                                log.Debug(BitConverter.ToString(msg).Replace("-", ""));
-                                log.Debug($"PacketLen = {packetLen}, ReadLen = {prevBuf}");
-                                log.Error("Failed to deserialize packet: " + BitConverter.ToString(packet).Replace("-", ""));
+                                log.Error($"Failed to deserialize packet: packetBytes={packetLen}, bufferedBytes={prevBuf}, error={ex.GetType().Name}");
                             }
                         }
 
@@ -191,56 +189,51 @@ namespace AscNet.GameServer
 
                         foreach (var packet in packets)
                         {
-                            byte[] debugContent = packet.Content;
                             try
                             {
                                 switch (packet.Type)
                                 {
                                     case Packet.ContentType.Request:
-                                        Packet.Request request = MessagePackSerializer.Deserialize<Packet.Request>(packet.Content);
-                                        debugContent = request.Content;
-                                        ProbeBigWorldPacket("request", request.Name, request.Content, request.Id, packet.No);
+                                        Packet.Request request = MessagePackSerializer.Deserialize<Packet.Request>(packet.Content, Packet.InboundOptions);
                                         RequestPacketHandlerDelegate? requestPacketHandler = PacketFactory.GetRequestPacketHandler(request.Name);
                                         if (requestPacketHandler is not null)
                                         {
                                             // TODO: with new logger this will be unnecessary
                                             if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
-                                                log.Info($"{request.Name}{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(request.Content)) : "")}");
+                                                log.Info($"Request received: nameLength={request.Name?.Length ?? 0}, contentBytes={request.Content?.Length ?? 0}, id={request.Id}");
                                             InvokeRequestHandler(requestPacketHandler, request);
                                         }
                                         else
                                         {
                                             if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
-                                                log.Warn($"{request.Name} handler not found!{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(request.Content)) : "")}");
+                                                log.Warn($"Request handler not found: nameLength={request.Name?.Length ?? 0}, contentBytes={request.Content?.Length ?? 0}, id={request.Id}");
                                         }
                                         break;
 
                                     case Packet.ContentType.Push:
-                                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
-                                        debugContent = push.Content;
-                                        ProbeBigWorldPacket("client-push", push.Name, push.Content, null, packet.No);
+                                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content, Packet.InboundOptions);
                                         if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
                                         {
                                             if (IsKnownClientPush(push.Name))
-                                                log.Info(push.Name);
+                                                log.Info($"Known client push received: nameLength={push.Name?.Length ?? 0}, contentBytes={push.Content?.Length ?? 0}");
                                             else
-                                                log.Warn($"{push.Name} client push ignored!{(Common.Common.config.VerboseLevel >= VerboseLevel.Debug ? (", " + FormatMessagePackContent(push.Content)) : "")}");
+                                                log.Warn($"Client push ignored: nameLength={push.Name?.Length ?? 0}, contentBytes={push.Content?.Length ?? 0}");
                                         }
                                         break;
 
                                     case Packet.ContentType.Exception:
-                                        Packet.Exception exception = MessagePackSerializer.Deserialize<Packet.Exception>(packet.Content);
-                                        log.Error($"Exception packet received: {exception.Code}, {exception.Message}");
+                                        Packet.Exception exception = MessagePackSerializer.Deserialize<Packet.Exception>(packet.Content, Packet.InboundOptions);
+                                        log.Error($"Exception packet received: code={exception.Code}, id={exception.Id}");
                                         break;
 
                                     default:
-                                        log.Error($"Unknown packet received: {packet}");
+                                        log.Error($"Unknown packet received: type={(int)packet.Type}, contentBytes={packet.Content?.Length ?? 0}");
                                         break;
                                 }
                             }
                             catch (Exception ex)
                             {
-                                log.Error("Failed to invoke handler: " + ex.ToString() + $", Raw {packet.Type} packet: " + BitConverter.ToString(debugContent).Replace("-", ""));
+                                log.Error($"Failed to invoke handler: type={(int)packet.Type}, contentBytes={packet.Content?.Length ?? 0}, error={ex.GetType().Name}");
                             }
                         }
                     }
@@ -418,7 +411,7 @@ namespace AscNet.GameServer
             }
             catch (Exception ex)
             {
-                log.Warn($"BigWorld packet dump failed: {ex.Message}");
+                log.Warn($"BigWorld packet dump failed: {ex.GetType().Name}");
             }
         }
 
@@ -543,8 +536,8 @@ namespace AscNet.GameServer
             {
                 return JsonConvert.SerializeObject(new
                 {
-                    error = ex.Message,
-                    raw = Convert.ToBase64String(content)
+                    error = ex.GetType().Name,
+                    contentBytes = content.Length
                 });
             }
         }

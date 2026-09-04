@@ -385,7 +385,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("JoinFightRequest")]
         public static void JoinFightRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<JoinFightRequest>(packet.Content);
+            _ = packet.Deserialize<JoinFightRequest>();
             session.SendResponse(new JoinFightResponse
             {
                 Code = 1023
@@ -395,14 +395,14 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("FightHeartbeatRequest")]
         public static void FightHeartbeatRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<FightHeartbeatRequest>(packet.Content);
+            _ = packet.Deserialize<FightHeartbeatRequest>();
             session.SendResponse(new FightHeartbeatResponse(), packet.Id);
         }
 
         [RequestPacketHandler("FightReconnectRequest")]
         public static void FightReconnectRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<FightReconnectRequest>(packet.Content);
+            _ = packet.Deserialize<FightReconnectRequest>();
             session.SendResponse(new FightReconnectResponse
             {
                 Code = 1033
@@ -420,7 +420,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("CheckCodeRequest")]
         public static void CheckCodeRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<CheckCodeRequest>(packet.Content);
+            _ = packet.Deserialize<CheckCodeRequest>();
             session.SendResponse(new CheckCodeResponse(), packet.Id);
         }
 
@@ -442,7 +442,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("PreFightRequest")]
         public static void PreFightRequestHandler(Session session, Packet.Request packet)
         {
-            PreFightRequest req = MessagePackSerializer.Deserialize<PreFightRequest>(packet.Content);
+            PreFightRequest req = packet.Deserialize<PreFightRequest>();
             int explorePreFightCode = ExploreModule.ValidatePreFight(session, req.PreFightData);
             if (explorePreFightCode != 0)
             {
@@ -1027,14 +1027,14 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("FightRebootRequest")]
         public static void HandleFightRebootRequestHandler(Session session, Packet.Request packet)
         {
-            FightRebootRequest req = MessagePackSerializer.Deserialize<FightRebootRequest>(packet.Content);
+            FightRebootRequest req = packet.Deserialize<FightRebootRequest>();
             session.SendResponse(new FightRebootResponse(), packet.Id);
         }
 
         [RequestPacketHandler("FightRestartRequest")]
         public static void HandleFightRestartRequestHandler(Session session, Packet.Request packet)
         {
-            FightRestartRequest req = MessagePackSerializer.Deserialize<FightRestartRequest>(packet.Content);
+            FightRestartRequest req = packet.Deserialize<FightRestartRequest>();
             if (session.fight is null || session.fight.FightId != unchecked((uint)req.FightId))
             {
                 session.SendResponse(new FightRestartResponse { Code = FightAuthorizationError }, packet.Id);
@@ -1092,7 +1092,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("TeamSetTeamRequest")]
         public static void HandleTeamSetTeamRequestHandler(Session session, Packet.Request packet)
         {
-            TeamSetTeamRequest req = MessagePackSerializer.Deserialize<TeamSetTeamRequest>(packet.Content);
+            TeamSetTeamRequest req = packet.Deserialize<TeamSetTeamRequest>();
 
             session.player.TeamGroups[(int)session.player.PlayerData.CurrTeamId] = new()
             {
@@ -2304,8 +2304,7 @@ namespace AscNet.GameServer.Handlers
             request = null!;
             try
             {
-                FightSettleHeaderResult? header = MessagePackSerializer
-                    .Deserialize<FightSettleHeaderRequest>(packet.Content).Result;
+                FightSettleHeaderResult? header = packet.Deserialize<FightSettleHeaderRequest>().Result;
                 if (header is null || header.IsWin && !header.IsForceExit)
                     return false;
 
@@ -2342,7 +2341,7 @@ namespace AscNet.GameServer.Handlers
             FightSettleRequest? req;
             try
             {
-                req = MessagePackSerializer.Deserialize<FightSettleRequest>(packet.Content);
+                req = packet.Deserialize<FightSettleRequest>();
             }
             catch (MessagePackSerializationException)
             {
@@ -2546,6 +2545,9 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(bossInshotResponse, packet.Id);
                 return;
             }
+
+            if (session.stage is null)
+                throw new InvalidOperationException("Generic fight settlement requires initialized stage data.");
 
             int teamExp = stageTable is null ? 0 : GetStageTeamExp(stageTable, isFirstClear) * challengeCount;
             int cardExp = stageTable is null ? 0 : GetStageCardExp(stageTable, isFirstClear) * challengeCount;

@@ -81,6 +81,13 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--first-batch-safety-only"))
+                {
+                    ValidatePacketInputSafety();
+                    ValidateSdkInputSafety().GetAwaiter().GetResult();
+                    ValidateTablePerformanceCompatibility();
+                    return;
+                }
                 if (args.Contains("--table-reader-concurrency-only"))
                 {
                     ValidateTableReaderConcurrency();
@@ -89,6 +96,17 @@ namespace AscNet.Test
                 if (args.Contains("--dorm-compat-only"))
                 {
                     ValidateDormCompatibility();
+                    ValidateDormDispatchAllCompatibility();
+                    return;
+                }
+                if (args.Contains("--dorm-dispatch-compat-only"))
+                {
+                    ValidateDormDispatchAllCompatibility();
+                    return;
+                }
+                if (args.Contains("--ultima-awaken-compat-only"))
+                {
+                    ValidateUltimaAwakenCompatibility();
                     return;
                 }
                 if (args.Contains("--awareness-compat-only"))
@@ -535,6 +553,13 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--equip-guide-compat-only"))
+                {
+                    ValidateEquipGuideSetTargetBehavior();
+                    ValidateEquipGuidePutOnPositionsBehavior();
+                    return;
+                }
+
                 if (args.Contains("--inventory-equip-compat-only"))
                 {
                     ValidateInventoryEquipCompatibility();
@@ -695,6 +720,11 @@ namespace AscNet.Test
                     return;
                 }
 
+                ValidateUltimaAwakenCompatibility();
+                ValidateDormDispatchAllCompatibility();
+                ValidatePacketInputSafety();
+                ValidateSdkInputSafety().GetAwaiter().GetResult();
+                ValidateTablePerformanceCompatibility();
                 _ = JsonConvert.DeserializeObject<NotifyLogin>(File.ReadAllText(ResourcePath("Data", "NotifyLogin.json")))!;
                 _ = JsonConvert.DeserializeObject<NotifyTaskData>(File.ReadAllText(ResourcePath("Data", "NotifyTaskData.json")))!;
                 ValidateNotifyLoginCurrentClientCompatibilityShape();
@@ -1235,7 +1265,7 @@ namespace AscNet.Test
                     }
                 ]
             };
-            AssertEqual(true, legacyCharacter.NormalizeCharactersForCurrentTables(), "legacy partner normalization changed state");
+            AssertEqual(true, legacyCharacter.NormalizeCharactersForCurrentTables([]), "legacy partner normalization changed state");
             PartnerSkillData repairedActiveSkill = legacyCharacter.Partners.Single().SkillList.Single(skill => skill.Type == 1);
             AssertEqual(1011, repairedActiveSkill.Id, "legacy partner repaired active skill id");
             AssertEqual(1, repairedActiveSkill.Level, "legacy partner repaired active skill level");
@@ -1275,7 +1305,7 @@ namespace AscNet.Test
                     new PartnerData { Id = 4, TemplateId = 16_090_000, CharacterId = 1021001 }
                 ]
             };
-            AssertEqual(true, carriedPartnerMigration.NormalizeCharactersForCurrentTables(),
+            AssertEqual(true, carriedPartnerMigration.NormalizeCharactersForCurrentTables([]),
                 "persisted partner carry normalization changed state");
             AssertEqual(1021001, carriedPartnerMigration.Partners.Single(partner => partner.Id == 1).CharacterId,
                 "non-recommended persisted Motorbolt retained");
@@ -1421,7 +1451,7 @@ namespace AscNet.Test
                     nameof(PartnerComposeResponse)).Code, "Grand Duke PartnerComposeResponse code");
 
                 AscNet.Common.Database.Character persistedGrandDuke =
-                    AscNet.Common.Database.Character.FromUid(grandDukeUid);
+                    AscNet.Common.Database.Character.FromUid(grandDukeUid, grandDukeHarness.Session.player.GatherRewards);
                 AscNet.Common.Database.Inventory persistedGrandDukeInventory =
                     AscNet.Common.Database.Inventory.FromUid(grandDukeUid);
                 AssertEqual(grandDukeConfig.Id, persistedGrandDuke.Partners.Single().TemplateId,
@@ -2506,8 +2536,10 @@ namespace AscNet.Test
 
         private static void ValidateLiveResonanceRelog(long uid)
         {
-            AscNet.Common.Database.Character first = AscNet.Common.Database.Character.FromUid(uid);
-            AscNet.Common.Database.Character second = AscNet.Common.Database.Character.FromUid(uid);
+            AscNet.Common.Database.Player player = AscNet.Common.Database.Player.TryFromPlayerId(uid)
+                ?? throw new InvalidDataException("Live account player data was not found.");
+            AscNet.Common.Database.Character first = AscNet.Common.Database.Character.FromUid(uid, player.GatherRewards);
+            AscNet.Common.Database.Character second = AscNet.Common.Database.Character.FromUid(uid, player.GatherRewards);
             List<EquipData> equippedMemories = second.Equips
                 .Where(equip => equip.CharacterId > 0
                     && AscNet.Common.Database.Character.ResolveEquipTemplate(equip.TemplateId) is { Site: > 0 })
@@ -2728,7 +2760,7 @@ namespace AscNet.Test
                 AscNet.Common.Database.Character.collection.InsertOne(persistedCharacter);
                 persistedCharacter.Save();
                 AscNet.Common.Database.Character databaseReload =
-                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
+                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid, harness.Session.player.GatherRewards);
                 EquipData databaseEquip = databaseReload.Equips.Single(value => value.Id == relogin.Id);
                 AssertIntegerList([1, 2], databaseEquip.ResonanceInfo.OrderBy(value => value.Slot)
                     .Select(value => (long)value.Slot).ToArray(), "Mongo re-login confirmed resonance slots");
@@ -2794,7 +2826,7 @@ namespace AscNet.Test
             {
                 AscNet.Common.Database.Character.collection.InsertOne(migrationCharacter);
                 AscNet.Common.Database.Character firstMigrationReload =
-                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
+                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid, []);
                 EquipData migrated = firstMigrationReload.Equips.Single(value => value.Id == malformedExisting.Id);
                 AssertIntegerList([1, 2], migrated.ResonanceInfo.OrderBy(value => value.Slot)
                     .Select(value => (long)value.Slot).ToArray(), "Mongo migrated awake resonance slots");
@@ -2829,7 +2861,7 @@ namespace AscNet.Test
                 }
 
                 AscNet.Common.Database.Character secondMigrationReload =
-                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid);
+                    AscNet.Common.Database.Character.FromUid(resonancePersistenceUid, []);
                 EquipData secondMigrated = secondMigrationReload.Equips.Single(value => value.Id == malformedExisting.Id);
                 AssertIntegerList([1, 2], secondMigrated.ResonanceInfo.OrderBy(value => value.Slot)
                     .Select(value => (long)value.Slot).ToArray(), "Mongo migration is idempotent");
@@ -3189,7 +3221,7 @@ namespace AscNet.Test
             JObject requestJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
                 MessagePackSerializer.Serialize(captured)));
             AssertIntegerList([1, 2], requestJson["EquipQuickAwakeInfos"]![0]!["Slots"]!
-                    .Values<long>().ToArray(),
+                    .Select(value => value.Value<long>()).ToArray(),
                 "EquipQuickAwakeRequest serialized slot order");
             JObject responseJson = JObject.Parse(MessagePackSerializer.ConvertToJson(
                 MessagePackSerializer.Serialize(new EquipQuickAwakeResponse())));
@@ -4025,7 +4057,8 @@ namespace AscNet.Test
             if (!roundTrip.HaveBackgroundIds.Contains(player.UseBackgroundId))
                 throw new InvalidDataException($"NotifyLogin HaveBackgroundIds MessagePack round-trip: missing selected background id {player.UseBackgroundId}.");
 
-            if ((roundTrip.TimeLimitCtrlConfigList?.Select(control => control.Id).Distinct().Count() ?? 0) < 2
+            if (roundTrip.TimeLimitCtrlConfigList is null
+                || roundTrip.TimeLimitCtrlConfigList.Select(control => control.Id).Distinct().Count() < 2
                 || roundTrip.FunctionOpenTimeConfigList.Any(mapping =>
                     !roundTrip.TimeLimitCtrlConfigList.Any(control => control.Id == mapping.TimeId)
                     || mapping.TimeId == 20000))
@@ -4736,7 +4769,8 @@ namespace AscNet.Test
                     throw new InvalidDataException("AccountModule.DoLogin NotifyLogin.FubenMainLine2Data: current event startup must not seed Homeward/MainLine2 exhibition chapter 61.");
             }
 
-            if ((startupLogin.TimeLimitCtrlConfigList?.Count ?? 0) < 2
+            if (startupLogin.TimeLimitCtrlConfigList is null
+                || startupLogin.TimeLimitCtrlConfigList.Count < 2
                 || startupLogin.FunctionOpenTimeConfigList.Any(mapping =>
                     !startupLogin.TimeLimitCtrlConfigList.Any(control => control.Id == mapping.TimeId)
                     || mapping.TimeId == 20000))
@@ -8920,7 +8954,7 @@ namespace AscNet.Test
                     reloadedCharacter.Save();
 
                     AscNet.Common.Database.Character freshReload =
-                        AscNet.Common.Database.Character.FromUid(persistenceUid);
+                        AscNet.Common.Database.Character.FromUid(persistenceUid, harness.Session.player.GatherRewards);
                     EquipData freshReloadedEquip = freshReload.Equips.Single(equip => equip.Id == canonicalEquip.Id);
                     AssertEqual(canonicalEquip.TemplateId, freshReloadedEquip.TemplateId, $"{name} database-reloaded equipment template");
                     AssertEqual(false, freshReloadedEquip.IsRecycle, $"{name} database-reloaded equipment recycle state");
@@ -9495,7 +9529,7 @@ namespace AscNet.Test
                     });
                 }
 
-                AssertEqual(true, persistedCharacter.NormalizeCharactersForCurrentTables(), $"Current draw target character {characterId} persisted document repair reports mutation");
+                AssertEqual(true, persistedCharacter.NormalizeCharactersForCurrentTables([]), $"Current draw target character {characterId} persisted document repair reports mutation");
                 CharacterData repairedCharacter = persistedCharacter.Characters.Single(character => character.Id == characterId);
                 AssertEqual(1, repairedCharacter.Level, $"Current draw target character {characterId} repaired Level");
                 AssertEqual(firstQualityRow.Quality, repairedCharacter.Quality, $"Current draw target character {characterId} repaired Quality");
@@ -9635,7 +9669,7 @@ namespace AscNet.Test
                 });
             }
 
-            AssertEqual(true, persistedCharacter.NormalizeCharactersForCurrentTables(), $"Current draw target character {characterId} mismatched nonzero fashion repair reports mutation");
+            AssertEqual(true, persistedCharacter.NormalizeCharactersForCurrentTables([]), $"Current draw target character {characterId} mismatched nonzero fashion repair reports mutation");
             CharacterData repairedCharacter = persistedCharacter.Characters.Single(character => character.Id == characterId);
             AssertEqual((uint)defaultFashionId, repairedCharacter.FashionId, $"Current draw target character {characterId} mismatched nonzero FashionId resets to default");
             if (repairedCharacter.CharacterHeadInfo is null)
@@ -16668,7 +16702,7 @@ namespace AscNet.Test
                 migratedCharacter.Fashions.Add(new FashionList { Id = lockedTargetColor.TargetFashionId, IsLock = true });
             migratedCharacter.FashionColors = null!;
 
-            AssertEqual(true, migratedCharacter.NormalizeCharactersForCurrentTables(),
+            AssertEqual(true, migratedCharacter.NormalizeCharactersForCurrentTables([]),
                 "legacy alternate coating ownership normalization changed state");
             AssertEqual(lockedTargetColor is null ? 1 : 2, migratedCharacter.Fashions.Count,
                 "legacy alternate coating FashionList entries preserved");
@@ -16693,7 +16727,7 @@ namespace AscNet.Test
                         "locked alternate coating does not grant color ownership");
                 }
             }
-            AssertEqual(false, migratedCharacter.NormalizeCharactersForCurrentTables(),
+            AssertEqual(false, migratedCharacter.NormalizeCharactersForCurrentTables([]),
                 "legacy alternate coating ownership normalization idempotence");
 
             AscNet.Common.Database.Character originalFashionCharacter = CreateDrawCompatibilityCharacter(99_402);
@@ -16701,22 +16735,22 @@ namespace AscNet.Test
             [
                 new FashionList { Id = ownedTargetColor.OriginalFashionId, IsLock = false }
             ];
-            AssertEqual(true, originalFashionCharacter.NormalizeCharactersForCurrentTables(),
+            AssertEqual(true, originalFashionCharacter.NormalizeCharactersForCurrentTables([]),
                 "unlocked original fashion grants alternate coating color");
             AssertEqual(true,
                 originalFashionCharacter.FashionColors[ownedTargetColor.OriginalFashionId]
                     .Contains(ownedTargetColor.Id),
                 "unlocked original fashion color ownership");
-            AssertEqual(false, originalFashionCharacter.NormalizeCharactersForCurrentTables(),
+            AssertEqual(false, originalFashionCharacter.NormalizeCharactersForCurrentTables([]),
                 "original fashion color normalization idempotence");
 
             AscNet.Common.Database.Character absentTargetCharacter = CreateDrawCompatibilityCharacter(99_401);
             absentTargetCharacter.FashionColors = null!;
-            AssertEqual(true, absentTargetCharacter.NormalizeCharactersForCurrentTables(),
+            AssertEqual(true, absentTargetCharacter.NormalizeCharactersForCurrentTables([]),
                 "absent alternate coating ownership initializes colors");
             AssertEqual(0, absentTargetCharacter.FashionColors.Count,
                 "absent alternate coating does not grant color ownership");
-            AssertEqual(false, absentTargetCharacter.NormalizeCharactersForCurrentTables(),
+            AssertEqual(false, absentTargetCharacter.NormalizeCharactersForCurrentTables([]),
                 "absent alternate coating normalization idempotence");
 
             FashionColorTable colorRow = colorRows.First();
@@ -19524,7 +19558,7 @@ namespace AscNet.Test
                 typeof(AscNet.Common.Database.Character),
                 nameof(AscNet.Common.Database.Character.FromUid),
                 BindingFlags.Static | BindingFlags.Public,
-                [typeof(long)]);
+                [typeof(long), typeof(IReadOnlyCollection<int>)]);
             MethodInfo normalizeEquips = RequiredMethod(
                 typeof(AscNet.Common.Database.Character),
                 nameof(AscNet.Common.Database.Character.NormalizeEquipsForCurrentTables),
@@ -19652,6 +19686,7 @@ namespace AscNet.Test
                 "EquipCommand sync");
 
             ValidateEquipGuideSetTargetBehavior();
+            ValidateEquipGuidePutOnPositionsBehavior();
         }
 
         private static void ValidateEquipGuideSetTargetBehavior()
@@ -19696,8 +19731,6 @@ namespace AscNet.Test
                 AssertEqual(validTarget.CharacterId, player.EquipGuideData.CharacterId, $"{requestName} valid set persisted CharacterId");
                 AssertIntegerList([1, 3, 6], player.EquipGuideData.PutOnPosList.Select(pos => (long)pos).ToArray(), $"{requestName} valid set persisted PutOnPosList");
                 AssertEmptyList(player.EquipGuideData.FinishedTargets, $"{requestName} valid set persisted FinishedTargets");
-                if (!ReferenceEquals(player, playerCollection.LastReplacement))
-                    throw new InvalidDataException($"{requestName}: expected Player.Save to persist the session player instance.");
                 persistedPlayer = playerCollection.LastReplacement
                     ?? throw new InvalidDataException($"{requestName}: no persisted player replacement.");
             }
@@ -19765,6 +19798,184 @@ namespace AscNet.Test
                 AssertEqual(0, invalidPlayer.EquipGuideData.TargetId, $"{requestName} {caseName} unmutated TargetId");
                 AssertEmptyList(invalidPlayer.EquipGuideData.PutOnPosList, $"{requestName} {caseName} unmutated PutOnPosList");
             }
+        }
+
+        private static void ValidateEquipGuidePutOnPositionsBehavior()
+        {
+            List<EquipTargetTable> targets = TableReaderV2.Parse<EquipTargetTable>();
+            Dictionary<int, EquipRecommendTable> recommendations = TableReaderV2.Parse<EquipRecommendTable>()
+                .ToDictionary(row => row.Id);
+            List<EquipTable> equipment = TableReaderV2.Parse<EquipTable>()
+                .Where(AscNet.Common.Database.Character.IsOwnableEquipTemplate).ToList();
+            var fixture = targets.OrderBy(row => row.Id)
+                .Where(row => recommendations.ContainsKey(row.EquipRecommendId))
+                .Select(row => new
+                {
+                    Target = row,
+                    Recommendation = recommendations[row.EquipRecommendId],
+                    Weapon = equipment.FirstOrDefault(equip => equip.Id == recommendations[row.EquipRecommendId].EquipRecomend),
+                    Memories = equipment.Where(equip => equip.Site > 0
+                            && recommendations[row.EquipRecommendId].SuitId.Contains(equip.SuitId))
+                        .GroupBy(equip => equip.Site).OrderBy(group => group.Key)
+                        .Select(group => group.OrderBy(equip => equip.Id).First()).Take(2).ToArray()
+                })
+                .First(row => row.Weapon is not null && row.Memories.Length == 2);
+            EquipTable[] templates = [fixture.Weapon!, .. fixture.Memories];
+            EquipTable unmatched = equipment.First(row => row.Site == templates[0].Site
+                && row.Id != fixture.Recommendation.EquipRecomend
+                && !fixture.Recommendation.SuitId.Contains(row.SuitId));
+            int otherCharacterId = targets.First(row => row.CharacterId != fixture.Target.CharacterId).CharacterId;
+            int finishedTargetId = targets.First(row => row.Id != fixture.Target.Id).Id;
+            const long playerId = 103_300_100;
+            int packetId = 48_100;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.EquipGuideData = new EquipGuideData
+            {
+                TargetId = fixture.Target.Id,
+                CharacterId = fixture.Target.CharacterId,
+                FinishedTargets = [finishedTargetId]
+            };
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters =
+            [
+                new CharacterData { Id = (uint)fixture.Target.CharacterId },
+                new CharacterData { Id = (uint)otherCharacterId }
+            ];
+            character.Equips = templates.Select((row, index) => new EquipData
+            {
+                Id = (uint)(index + 1),
+                TemplateId = (uint)row.Id,
+                CharacterId = fixture.Target.CharacterId,
+                Level = 1
+            }).ToList();
+            character.Equips.Add(new EquipData
+            {
+                Id = 4, TemplateId = (uint)unmatched.Id, CharacterId = fixture.Target.CharacterId, Level = 1
+            });
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForMainLine2MessageStateCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection);
+            using LoopbackSessionHarness harness = new(character, player,
+                CreateDrawCompatibilityInventory(playerId, []), "equip-guide-positions-compat-test");
+
+            void CheckState(EquipGuideData data, int[] positions, string name)
+            {
+                AssertEqual(fixture.Target.Id, data.TargetId, $"{name} target preserved");
+                AssertEqual(fixture.Target.CharacterId, data.CharacterId, $"{name} character preserved");
+                AssertIntegerList(positions.Select(value => (long)value).ToArray(),
+                    data.PutOnPosList.Select(value => (long)value).ToArray(), $"{name} positions");
+                AssertIntegerList([finishedTargetId], data.FinishedTargets.Select(value => (long)value).ToArray(),
+                    $"{name} finished targets preserved");
+            }
+
+            void Dispatch(string name, EquipGuideAddOrClearPutOnPosRequest request, bool success, int[] positions)
+            {
+                byte[] equipmentBefore = character.ToBson();
+                InvokeRegisteredRequestHandler(nameof(EquipGuideAddOrClearPutOnPosRequest), harness.Session, ++packetId, request);
+                JObject response = ReadResponseMapPayload(harness, packetId,
+                    nameof(EquipGuideAddOrClearPutOnPosResponse), name);
+                AssertEqual("Code,EquipGuideData", string.Join(",", response.Properties().Select(value => value.Name).Order()),
+                    $"{name} response fields");
+                JObject guide = (JObject)response["EquipGuideData"]!;
+                AssertEqual("CharacterId,FinishedTargets,PutOnPosList,TargetId",
+                    string.Join(",", guide.Properties().Select(value => value.Name).Order()), $"{name} guide fields");
+                AssertEqual(success, response.Value<int>("Code") == 0, $"{name} result");
+                CheckState(guide.ToObject<EquipGuideData>()!, positions, $"{name} response");
+                CheckState(player.EquipGuideData, positions, $"{name} session");
+                AssertEqual(true, equipmentBefore.SequenceEqual(character.ToBson()), $"{name} does not alter equipment");
+                if (harness.TryReadAvailablePacket($"{name} extra packet", out Packet extra))
+                    throw new InvalidDataException($"{name}: unexpected extra {extra.Type} packet; expected response only.");
+            }
+
+            EquipGuideAddOrClearPutOnPosRequest Request(bool add, params int[] indices) => new()
+            {
+                CharacterId = fixture.Target.CharacterId,
+                Sites = indices.Select(index => templates[index].Site).ToList(),
+                EquipIds = indices.Select(index => index + 1).ToList(),
+                IsAdd = add
+            };
+
+            int[] allPositions = templates.Select(row => row.Site).ToArray();
+            Dispatch("guide add weapon", Request(true, 0), true, [allPositions[0]]);
+            Dispatch("guide add distinct memories", Request(true, 2, 1), true,
+                [allPositions[0], allPositions[2], allPositions[1]]);
+            // Membership-idempotence is inferred from the client's position map; retail retry errors are unobserved.
+            Dispatch("guide repeat add", Request(true, 1, 2), true,
+                [allPositions[0], allPositions[2], allPositions[1]]);
+            byte[] savedPlayer = (playerCollection.LastReplacement
+                ?? throw new InvalidDataException("Guide add did not persist player state.")).ToBson();
+            player = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(savedPlayer);
+            harness.Session.player = player;
+            CheckState(player.EquipGuideData, [allPositions[0], allPositions[2], allPositions[1]], "guide BSON reload");
+            character.Equips[1].CharacterId = 0;
+            Dispatch("guide clear after takeoff", Request(false, 1), true, [allPositions[0], allPositions[2]]);
+            Dispatch("guide repeat clear", Request(false, 1), true, [allPositions[0], allPositions[2]]);
+            character.Equips[2].CharacterId = otherCharacterId;
+            Dispatch("guide clear after transfer", Request(false, 2), true, [allPositions[0]]);
+
+            void Reject(string name, EquipGuideAddOrClearPutOnPosRequest request)
+            {
+                int saves = playerCollection.ReplaceOneCalls;
+                byte[] before = player.ToBson();
+                Dispatch(name, request, false, [allPositions[0]]);
+                AssertEqual(saves, playerCollection.ReplaceOneCalls, $"{name} rejected before persistence");
+                AssertEqual(true, before.SequenceEqual(player.ToBson()), $"{name} player unchanged");
+            }
+
+            Reject("guide empty arrays", Request(true));
+            EquipGuideAddOrClearPutOnPosRequest malformed = Request(true, 0);
+            malformed.Sites = [];
+            Reject("guide mismatched arrays", malformed);
+            Reject("guide duplicate ids and sites", Request(true, 0, 0));
+            malformed = Request(true, 0);
+            malformed.Sites = [allPositions[1]];
+            Reject("guide incorrect template site", malformed);
+            malformed = Request(true, 0);
+            malformed.EquipIds = [int.MaxValue];
+            Reject("guide foreign inventory id", malformed);
+            malformed = Request(true, 0);
+            malformed.EquipIds = [4];
+            Reject("guide nonrecommended equipment", malformed);
+            Reject("guide add unworn equipment", Request(true, 1));
+            Reject("guide add equipment worn by another character", Request(true, 2));
+            malformed = Request(false, 0);
+            malformed.CharacterId = otherCharacterId;
+            Reject("guide wrong target character", malformed);
+            character.Characters.RemoveAt(0);
+            Reject("guide unowned target character", Request(false, 0));
+            character.Characters.Insert(0, new CharacterData { Id = (uint)fixture.Target.CharacterId });
+            character.Equips[1].CharacterId = fixture.Target.CharacterId;
+            malformed = Request(true, 1, 2);
+            malformed.EquipIds[1] = int.MaxValue;
+            Reject("guide mixed valid and foreign batch is atomic", malformed);
+            malformed = Request(true, 1, 2);
+            malformed.Sites[1] = malformed.Sites[0];
+            Reject("guide distinct ids with duplicate sites", malformed);
+            uint savedTemplateId = character.Equips[1].TemplateId;
+            int missingTemplateId = int.MaxValue;
+            HashSet<int> knownTemplateIds = TableReaderV2.Parse<EquipTable>().Select(row => row.Id).ToHashSet();
+            while (knownTemplateIds.Contains(missingTemplateId))
+                missingTemplateId--;
+            character.Equips[1].TemplateId = (uint)missingTemplateId;
+            Reject("guide unknown equipment template", Request(true, 1));
+            character.Equips[1].TemplateId = savedTemplateId;
+
+            byte[] beforeFailure = player.ToBson();
+            playerCollection.ThrowOnReplaceOne = true;
+            try
+            {
+                Dispatch("guide save failure rollback", Request(false, 0), false, [allPositions[0]]);
+                AssertEqual(true, beforeFailure.SequenceEqual(player.ToBson()), "guide failed save restores full player state");
+            }
+            finally
+            {
+                playerCollection.ThrowOnReplaceOne = false;
+            }
+            Dispatch("guide clear retry after save failure", Request(false, 0), true, []);
+            AscNet.Common.Database.Player clearedReload =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                    (playerCollection.LastReplacement
+                        ?? throw new InvalidDataException("Guide clear did not persist player state.")).ToBson());
+            CheckState(clearedReload.EquipGuideData, [], "guide cleared BSON reload");
         }
 
         private static void ValidateStageBookmarkCompatibilityShape()
@@ -22333,7 +22544,7 @@ namespace AscNet.Test
                 .SkillList.Single(skill => inverse.Group.SkillId.Contains((int)skill.Id));
             AssertEqual((uint)inverse.Group.SkillId[1], bsonInverse.Id, "BSON round-trip preserves selected alternate");
             AssertEqual(7, bsonInverse.Level, "BSON round-trip preserves alternate level");
-            reloaded.NormalizeCharactersForCurrentTables();
+            reloaded.NormalizeCharactersForCurrentTables(harness.Session.player.GatherRewards);
             CharacterSkill normalizedInverse = reloaded.Characters.Single(data => data.Id == inverseData.Id)
                 .SkillList.Single(skill => inverse.Group.SkillId.Contains((int)skill.Id));
             AssertEqual((uint)inverse.Group.SkillId[1], normalizedInverse.Id,
@@ -26540,11 +26751,14 @@ namespace AscNet.Test
             PreFightResponse.PreFightResponseFightData directSecond = new();
             AssertEqual(true, (bool)hydrateArenaStage.Invoke(null, [14, 30_080_425u, 4, areaStages[14].Desc, directFirst])!, "War Zone direct first hydration");
             AssertEqual(true, (bool)hydrateArenaStage.Invoke(null, [14, 30_080_425u, 4, areaStages[14].Desc, directSecond])!, "War Zone direct second hydration");
-            List<Dictionary<string, object>> directGroups = (List<Dictionary<string, object>>)directFirst.NpcGroupList;
+            List<Dictionary<string, object>> directGroups = (List<Dictionary<string, object>>)(directFirst.NpcGroupList
+                ?? throw new InvalidDataException("War Zone direct NpcGroupList is nil."));
             List<object?> directNpcs = (List<object?>)directGroups[0]["NpcList"];
             ((Dictionary<string, object?>)directNpcs[0]!)["NpcId"] = -1L;
-            ((Dictionary<string, object?>)directFirst.Records)["69"] = 1L;
-            ((Dictionary<string, object?>)directFirst.StageParams)["WaveCostTimes"] = "mutated";
+            ((Dictionary<string, object?>)(directFirst.Records
+                ?? throw new InvalidDataException("War Zone direct Records is nil.")))["69"] = 1L;
+            ((Dictionary<string, object?>)(directFirst.StageParams
+                ?? throw new InvalidDataException("War Zone direct StageParams is nil.")))["WaveCostTimes"] = "mutated";
             JObject directSecondJson = JObject.FromObject(directSecond);
             AssertEqual(90_340, directSecondJson["NpcGroupList"]![0]!["NpcList"]![0]!.Value<int>("NpcId"), "War Zone direct NPC freshness");
             AssertEqual(-7000, directSecondJson["Records"]!.Value<int>("69"), "War Zone direct Records freshness");
@@ -26557,8 +26771,8 @@ namespace AscNet.Test
             AssertEqual(true, firstGroups.All(group => group["NpcList"]?.Count() == 2), "War Zone every captured group has two NPCs");
             AssertIntegerList([90_340, 90_340], firstGroups[0]!["NpcList"]!.Select(npc => npc.Value<long>("NpcId")).ToArray(), "War Zone first normalized group NPC order");
             AssertIntegerList([90_420, 90_340], firstGroups[firstGroups.Count - 1]!["NpcList"]!.Select(npc => npc.Value<long>("NpcId")).ToArray(), "War Zone last normalized group NPC order");
-            AssertIntegerList([760_261], firstGroups[0]!["NpcList"]![0]!["BufferIds"]!.Values<long>().ToArray(), "War Zone first normalized NPC buffers");
-            AssertIntegerList([760_261], firstGroups[firstGroups.Count - 1]!["NpcList"]![0]!["BufferIds"]!.Values<long>().ToArray(), "War Zone last normalized NPC buffers");
+            AssertIntegerList([760_261], firstGroups[0]!["NpcList"]![0]!["BufferIds"]!.Select(value => value.Value<long>()).ToArray(), "War Zone first normalized NPC buffers");
+            AssertIntegerList([760_261], firstGroups[firstGroups.Count - 1]!["NpcList"]![0]!["BufferIds"]!.Select(value => value.Value<long>()).ToArray(), "War Zone last normalized NPC buffers");
             AssertEqual(520, firstGroups[0]!["NpcList"]![0]!.Value<int>("Level"), "War Zone first normalized NPC level");
             AssertEqual(509, firstGroups[firstGroups.Count - 1]!["NpcList"]![0]!.Value<int>("Level"), "War Zone last normalized NPC level");
             AssertEqual(0, firstGroups[0]!["NpcList"]![0]!["MagicInfos"]?.Count() ?? -1, "War Zone normalized NPC empty magic info");
@@ -26583,8 +26797,10 @@ namespace AscNet.Test
                 .GetValueOrDefault(selectedAreaStage.DistributeTypes.First());
             AssertEqual(expectedStageDistributionMaximum.ToString(), firstStageParams.Value<string>("DistributeMaxScore"),
                 "War Zone dynamic distribution maximum");
-            ((Dictionary<object, object>)capturedStageFirst.Records)["69"] = 1;
-            ((Dictionary<object, object>)capturedStageFirst.StageParams)["WaveCostTimes"] = "mutated";
+            ((Dictionary<object, object>)(capturedStageFirst.Records
+                ?? throw new InvalidDataException("War Zone captured Records is nil.")))["69"] = 1;
+            ((Dictionary<object, object>)(capturedStageFirst.StageParams
+                ?? throw new InvalidDataException("War Zone captured StageParams is nil.")))["WaveCostTimes"] = "mutated";
             AssertEqual(-7000, secondRecords.Value<int>("69"), "War Zone repeated Records independent materialization");
             AssertEqual("[]", secondStageParams.Value<string>("WaveCostTimes"), "War Zone repeated StageParams independent materialization");
             AssertEqual(firstGroups.ToString(Formatting.None), secondGroups.ToString(Formatting.None), "War Zone repeated payload equivalence");
@@ -27158,7 +27374,7 @@ namespace AscNet.Test
             AssertIntegerList(
                 Enumerable.Repeat(301_104L, 6).ToArray(),
                 battlefieldNpcGroups.SelectMany(group => group["NpcList"]!)
-                    .SelectMany(npc => npc["BufferIds"]!.Values<long>()).ToArray(),
+                    .SelectMany(npc => npc["BufferIds"]!.Select(value => value.Value<long>())).ToArray(),
                 "Simulated Battlefield NPC buffers");
 
             const int repeatChallengeSettlePacketId = 81_006;
@@ -28063,16 +28279,32 @@ namespace AscNet.Test
             AssertEqual(true, intensivePushes.Contains(nameof(NotifyBossSingleRankInfo)), "Pain Cage intensive rank push");
             AssertEqual(intensiveResult.TotalScore, player.SimulatedBattlefield.BossChallengeHistory.Single(row => row.StageId == challengeStageId).Score, "Pain Cage intensive history");
             dynamic intensiveHistoryBuffGroup = BuildLogin(player, null).FubenBossSingleData
-                .ChallengeStageHistoryList.Single(row => row.StageId == challengeStageId).BuffGroup;
+                .ChallengeStageHistoryList.Single(row => row.StageId == challengeStageId).BuffGroup
+                ?? throw new InvalidDataException("Pain Cage intensive history BuffGroup is nil.");
             AssertEqual(challengeBuffGroup, (int)intensiveHistoryBuffGroup["BuffGroupId"],
                 "Pain Cage intensive history emits the client BuffGroup object");
             AssertEqual(0, ((Dictionary<int, int>)intensiveHistoryBuffGroup["BuffChoices"]).Count,
                 "Pain Cage direct BuffGroup keeps empty choice map");
-            player.SimulatedBattlefield.BossChallengeHistory.Add(new AscNet.Common.Database.BossSingleChallengeHistoryRecordState { StageId = challengeStageId + 1, Score = intensiveResult.TotalScore + 1 });
-            player.SimulatedBattlefield.BossChallengeHistory.Add(new AscNet.Common.Database.BossSingleChallengeHistoryRecordState { StageId = challengeStageId + 2, Score = intensiveResult.TotalScore - 1 });
-            int[] intensiveScores = player.SimulatedBattlefield.BossChallengeHistory.Select(row => row.Score).ToArray();
+            player.SimulatedBattlefield.BossChallengeHistory.Add(new AscNet.Common.Database.BossSingleChallengeHistoryRecordState { StageId = challengeSection.StageId[1], Score = intensiveResult.TotalScore + 1 });
+            player.SimulatedBattlefield.BossChallengeHistory.Add(new AscNet.Common.Database.BossSingleChallengeHistoryRecordState { StageId = challengeSection.StageId[2], Score = intensiveResult.TotalScore - 1 });
+            int unrelatedChallengeStageId = sections
+                .SelectMany(row => row.StageId)
+                .First(stageId => !challengeSection.StageId.Contains(stageId));
+            player.SimulatedBattlefield.BossChallengeHistory.Add(
+                new AscNet.Common.Database.BossSingleChallengeHistoryRecordState
+                {
+                    StageId = unrelatedChallengeStageId,
+                    Score = intensiveResult.TotalScore + 100
+                });
+            int[] intensiveScores = player.SimulatedBattlefield.BossChallengeHistory
+                .Where(row => challengeSection.StageId.Contains(row.StageId))
+                .Select(row => row.Score)
+                .ToArray();
             AssertEqual(3, intensiveScores.Distinct().Count(), "Pain Cage intensive regression uses three distinct scores");
-            AssertEqual(intensiveScores.Sum(), BuildLogin(player, null).FubenBossSingleData.ChallengeTotalScore, "Pain Cage intensive display total sums all stages");
+            AssertEqual(intensiveScores.Sum(), BuildLogin(player, null).FubenBossSingleData.ChallengeTotalScore,
+                "Pain Cage intensive display total sums only current-section stages");
+            player.SimulatedBattlefield.BossChallengeHistory.RemoveAll(
+                row => row.StageId == unrelatedChallengeStageId);
             const int intensiveRankPacketId = 82_036;
             InvokeRegisteredRequestHandler(
                 nameof(BossSingleGetChallengeRankRequest),
@@ -28114,7 +28346,8 @@ namespace AscNet.Test
             _ = SettleFight(82_034, clientShapedPreFight, intensiveStage, 100, 0, fightSeconds: 8);
             _ = SaveScore(82_035, challengeStageId, "Pain Cage client-shaped intensive save", out _);
             dynamic persistedChoiceHistory = BuildLogin(player, null).FubenBossSingleData
-                .ChallengeStageHistoryList.Single(row => row.StageId == challengeStageId).BuffGroup;
+                .ChallengeStageHistoryList.Single(row => row.StageId == challengeStageId).BuffGroup
+                ?? throw new InvalidDataException("Pain Cage intensive choice history BuffGroup is nil.");
             Dictionary<int, int> persistedChoices = (Dictionary<int, int>)persistedChoiceHistory["BuffChoices"];
             AssertEqual(1, persistedChoices[challengeBuffChoice.Index],
                 "Pain Cage intensive history persists selected BuffChoices");
@@ -28957,6 +29190,8 @@ namespace AscNet.Test
             AssertEqual(1, bossSingleData.AfreshId, "NotifyFubenBossSingleData FubenBossSingleData.AfreshId");
             AssertEqual(8, bossSingleData.LevelType, "NotifyFubenBossSingleData FubenBossSingleData.LevelType");
             AssertEqual(8, bossSingleData.OldLevelType, "NotifyFubenBossSingleData FubenBossSingleData.OldLevelType");
+            if (roundTrip.BossListDict is null)
+                throw new InvalidDataException("NotifyFubenBossSingleData BossListDict serialized as nil.");
             AssertEqual(2, roundTrip.BossListDict.Count, "NotifyFubenBossSingleData BossListDict section count");
             AssertBossListDictValues(roundTrip.BossListDict, 7, [102, 104, 109]);
             AssertBossListDictValues(roundTrip.BossListDict, 8, [2030, 2034, 2038]);
@@ -33495,66 +33730,6 @@ namespace AscNet.Test
                 throw new InvalidDataException($"{name}: expected an empty list, got {values.Count} entries.");
         }
 
-        class PropertyCompareResult
-        {
-            public string Name { get; private set; }
-            public object OldValue { get; private set; }
-            public object NewValue { get; private set; }
-
-            public PropertyCompareResult(string name, object oldValue, object newValue)
-            {
-                Name = name;
-                OldValue = oldValue;
-                NewValue = newValue;
-            }
-        }
-
-        class IgnorePropertyCompareAttribute : Attribute { }
-
-        private static List<PropertyCompareResult> Compare<T>(T oldObject, T newObject, Type typecast = null)
-        {
-            PropertyInfo[] properties = null;
-            if (typecast != null)
-            {
-                properties = typecast.GetProperties();
-            }
-            else
-            {
-                properties = typeof(T).GetProperties();
-            }
-            List<PropertyCompareResult> result = new List<PropertyCompareResult>();
-
-            foreach (PropertyInfo pi in properties)
-            {
-                if (pi.CustomAttributes.Any(ca => ca.AttributeType == typeof(IgnorePropertyCompareAttribute)))
-                {
-                    continue;
-                }
-
-                object oldValue = pi.GetValue(oldObject), newValue = pi.GetValue(newObject);
-                if (oldValue is null || newValue is null)
-                {
-                    if (!object.Equals(oldValue, newValue))
-                        result.Add(new PropertyCompareResult(pi.Name, oldValue, newValue));
-                    continue;
-                }
-
-                if (!object.Equals(oldValue, newValue))
-                {
-                    PropertyInfo[] propertyInfos = oldValue.GetType().GetProperties();
-                    if (propertyInfos.Length > 1 && oldValue.GetType().IsClass && !oldValue.GetType().IsArray && !oldValue.GetType().IsGenericType)
-                    {
-                        result.AddRange(Compare(oldValue, newValue, oldValue.GetType()));
-                    }
-                    else
-                    {
-                        result.Add(new PropertyCompareResult(pi.Name, oldValue, newValue));
-                    }
-                }
-            }
-
-            return result;
-        }
 
     }
 }

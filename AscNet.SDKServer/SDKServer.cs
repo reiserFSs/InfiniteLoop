@@ -76,16 +76,13 @@ namespace AscNet.SDKServer
                 }
                 catch (Exception ex)
                 {
-#if DEBUG
-                    log.Error($"{ex} Request below:");
-#else
-                    log.Error($"{ex.Message} Request below:");
-#endif
+                    log.Error($"Request failed: {ex.GetType().Name}");
+                    throw;
                 }
                 finally
                 {
                     if (!suppressedRoutes.Any(route => context.Request.Path == route))
-                        log.Info($"{context.Response.StatusCode} {context.Request.Method} {context.Request.Path + context.Request.QueryString}");
+                        log.Info($"{context.Response.StatusCode} {context.Request.Method} {context.Request.Path}");
                 }
             }
         }

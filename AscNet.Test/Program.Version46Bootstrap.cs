@@ -578,7 +578,9 @@ internal partial class Program
     private static void ValidateVersion46PlayerMarks()
     {
         long functional = TableReaderV2.Parse<FunctionalOpenTable>().Select(row => (long)row.Id).First(id => id > 0);
-        long skipped = TableReaderV2.Parse<SkipFunctionalTable>().Select(row => (long)row.FunctionalId).First(id => id > 0 && id != functional);
+        long skipped = TableReaderV2.Parse<SkipFunctionalTable>()
+            .Select(row => (long)(row.FunctionalId ?? throw new InvalidDataException("SkipFunctional row has no FunctionalId.")))
+            .First(id => id > 0 && id != functional);
         const long uid = 46_003;
         AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(uid);
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> saves, out _, out _);

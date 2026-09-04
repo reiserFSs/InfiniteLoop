@@ -9,7 +9,7 @@
         private readonly LogLevel _logLevel = LogLevel.ALL;
         private readonly LogLevel _fileLogLevel = LogLevel.ALL;
         private bool _disposed;
-        private Type _loggerType;
+        private Type? _loggerType;
 
         #endregion
 
@@ -34,7 +34,7 @@
         public Logger(Type loggerType, string logFilePath, LogLevel logLevel) : this(logFilePath, logLevel)
         {
             _loggerType = loggerType;
-            _loggerName = loggerType.Namespace.RemoveBefore('.');
+            _loggerName = (loggerType.Namespace ?? throw new ArgumentException("The logger type must have a namespace.", nameof(loggerType))).RemoveBefore('.');
         }
 
         public Logger(Type loggerType, LogLevel logLevel, LogLevel fileLogLevel)
@@ -57,7 +57,7 @@
 
         #region Methods
 
-        public void Debug(string message, string memberName = "")
+        public void Debug(string? message, string? memberName = "")
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -71,7 +71,7 @@
             GC.SuppressFinalize(this);
         }
 
-        public void Error(string message, Exception ex = null, string memberName = "")
+        public void Error(string? message, Exception? ex = null, string? memberName = "")
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -87,7 +87,7 @@
             }
         }
 
-        public void Fatal(string message, Exception ex = null, string memberName = "")
+        public void Fatal(string? message, Exception? ex = null, string? memberName = "")
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -103,7 +103,7 @@
             }
         }
 
-        public void Info(string message, string memberName = "")
+        public void Info(string? message, string? memberName = "")
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -117,7 +117,7 @@
             throw new NotImplementedException();
         }
 
-        public void Warn(string message, Exception ex = null, string memberName = "")
+        public void Warn(string? message, Exception? ex = null, string? memberName = "")
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -147,7 +147,7 @@
             }
         }
 
-        private void Append(string message, string memberName, LogLevel logLevel)
+        private void Append(string message, string? memberName, LogLevel logLevel)
         {
             string prefixedMessage = !string.IsNullOrWhiteSpace(memberName)
                 ? $"[{memberName}][{_loggerName}]: {message}"
@@ -178,7 +178,7 @@
         private void AppendToFile(string message, LogLevel logLevel)
         {
             if (EnableFileLogging && logLevel <= _fileLogLevel)
-                ThreadSafeStreamWriter.Instance.AppendLine($"[{DateTime.Now:dd.MM.yyyy HH:mm:ss.fff}][{_loggerType.Namespace}][{_loggerName}][{logLevel}]{message}");
+                ThreadSafeStreamWriter.Instance.AppendLine($"[{DateTime.Now:dd.MM.yyyy HH:mm:ss.fff}][{(_loggerType ?? throw new InvalidOperationException("File logging requires a logger type that has not been disposed.")).Namespace}][{_loggerName}][{logLevel}]{message}");
         }
 
         #endregion

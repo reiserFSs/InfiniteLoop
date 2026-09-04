@@ -679,7 +679,7 @@ namespace AscNet.GameServer.Handlers
 
                     character.Star = 0;
                     character.Quality++;
-                    session.character.UnlockQualityGatedSkills(character);
+                    session.character.UnlockQualityGatedSkills(character, session.player.GatherRewards);
                 }
                 else
                 {
@@ -726,7 +726,8 @@ namespace AscNet.GameServer.Handlers
                 : null;
             if (character is null || defaultSkillId <= 0
                 || initialUpgrade is not null
-                    && !Character.MeetsCharacterSkillCondition(character, initialUpgrade.ConditionId, session.player.PlayerData.Level))
+                    && !Character.MeetsCharacterSkillCondition(character, initialUpgrade.ConditionId,
+                        session.player.GatherRewards, session.player.PlayerData.Level))
             {
                 session.SendResponse(new CharacterUnlockSkillGroupResponse { Code = 20009021 }, packet.Id);
                 return;
@@ -774,7 +775,7 @@ namespace AscNet.GameServer.Handlers
             UpgradeCharacterSkillResult upgradeResult;
             try
             {
-                upgradeResult = session.character.UpgradeCharacterSkillGroup(request.SkillGroupId, request.Count);
+                upgradeResult = session.character.UpgradeCharacterSkillGroup(request.SkillGroupId, request.Count, session.player.GatherRewards);
             }
             catch (ServerCodeException ex)
             {
@@ -851,7 +852,8 @@ namespace AscNet.GameServer.Handlers
             // Unlock exactly the table-defined default active skill (one active per enhance group).
             List<EnhanceSkillUpgradeTable> defaultRows = Character.OrderedEnhanceSkillUpgrades(defaultSkillId);
             if (defaultRows.Count == 0
-                || !Character.MeetsCharacterSkillCondition(character, defaultRows[0].ConditionId, session.player.PlayerData.Level))
+                || !Character.MeetsCharacterSkillCondition(character, defaultRows[0].ConditionId,
+                    session.player.GatherRewards, session.player.PlayerData.Level))
             {
                 // CharacterSkillConditionNotMet
                 session.SendResponse(new CharacterUnlockEnhanceSkillResponse() { Code = 20009021 }, packet.Id);
@@ -938,7 +940,8 @@ namespace AscNet.GameServer.Handlers
                     session.SendResponse(new CharacterUpgradeEnhanceSkillResponse() { Code = 20009014 }, packet.Id);
                     return;
                 }
-                if (!Character.MeetsCharacterSkillCondition(character, upgrade.ConditionId, session.player.PlayerData.Level))
+                if (!Character.MeetsCharacterSkillCondition(character, upgrade.ConditionId,
+                    session.player.GatherRewards, session.player.PlayerData.Level))
                 {
                     // CharacterSkillConditionNotMet
                     session.SendResponse(new CharacterUpgradeEnhanceSkillResponse() { Code = 20009021 }, packet.Id);

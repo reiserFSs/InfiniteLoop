@@ -1,5 +1,5 @@
 import os
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 from mitmproxy import http
 from mitmproxy import ctx
 from mitmproxy.proxy import layer
@@ -45,14 +45,11 @@ def _flow_log_path():
     return os.environ.get("ASCNET_PROXY_LOG")
 
 
-def _redact_url(url):
+def _diagnostic_url(url):
     parsed = urlparse(url)
-    query = []
-    for key, value in parse_qsl(parsed.query, keep_blank_values=True):
-        if key.lower() in {"token", "access_token", "accesstoken", "refresh_token", "code", "password", "pwd"}:
-            value = "<redacted>"
-        query.append((key, value))
-    return urlunparse(parsed._replace(query=urlencode(query)))
+    return urlunparse(parsed._replace(
+        netloc=parsed.netloc.rsplit("@", 1)[-1], params="", query="", fragment="",
+    ))
 
 
 def _log_flow(prefix, flow):
@@ -60,7 +57,7 @@ def _log_flow(prefix, flow):
     if not path:
         return
     status = getattr(flow.response, "status_code", "-") if getattr(flow, "response", None) else "-"
-    line = f"{prefix} {flow.request.method} {_redact_url(flow.request.pretty_url)} -> {status}\n"
+    line = f"{prefix} {flow.request.method} {_diagnostic_url(flow.request.pretty_url)} -> {status}\n"
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(line)
 

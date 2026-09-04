@@ -52,6 +52,8 @@ internal partial class Program
             AssertEqual(activity.Id, teaching.ActivityId, $"BossInshot activity {activity.Id} is table-authorized");
             AssertEqual(0, teaching.CharacterDatas.Count, $"BossInshot activity {activity.Id} hides ordinary character state before teaching");
 
+            if (player.BossInshot is null)
+                throw new InvalidDataException($"BossInshot activity {activity.Id} login did not initialize player state.");
             player.BossInshot.IsPassTeach = true;
             BossInshotData ordinary = ((NotifyBossInshotData)InvokePrivateStatic<object>(bossModule, "BuildNotifyBossInshotData", player)).BossInshotData;
             int[] expectedCharacters = activity.CharacterIds
@@ -80,6 +82,8 @@ internal partial class Program
 
         BossInshotStageTable lockedStage = TableReaderV2.Parse<BossInshotStageTable>()
             .First(x => x.StageId != active.TeachStageId && active.BossIds.Contains(x.BossId) && x.UnlockConditionId is > 0);
+        if (settlePlayer.BossInshot is null)
+            throw new InvalidDataException("BossInshot settlement login did not initialize player state.");
         settlePlayer.BossInshot.IsPassTeach = true;
         object?[] unlockGateArgs =
         [

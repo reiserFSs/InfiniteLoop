@@ -219,7 +219,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SendChatRequest")]
         public static void SendChatRequestHandler(Session session, Packet.Request packet)
         {
-            SendChatRequest request = MessagePackSerializer.Deserialize<SendChatRequest>(packet.Content);
+            SendChatRequest request = packet.Deserialize<SendChatRequest>();
             string? content = request.ChatData.Content?.TrimStart('\r', '\n');
             request.ChatData.Content = content;
 
@@ -314,7 +314,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SelectChatChannelRequest")]
         public static void SelectChatChannelRequestHandler(Session session, Packet.Request packet)
         {
-            // SelectChatChannelRequest request = MessagePackSerializer.Deserialize<SelectChatChannelRequest>(packet.Content);
+            // SelectChatChannelRequest request = packet.Deserialize<SelectChatChannelRequest>();
 
             // disabling channel switching because the game is cringe and we don't need it anyway.
             session.SendResponse(new SelectChatChannelResponse()

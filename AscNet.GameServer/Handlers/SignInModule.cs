@@ -26,7 +26,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SignInRequest")]
         public static void SignInRequestHandler(Session session, Packet.Request packet)
         {
-            SignInRequest request = MessagePackSerializer.Deserialize<SignInRequest>(packet.Content);
+            SignInRequest request = packet.Deserialize<SignInRequest>();
             SignInResponse response = ProcessSignInRequest(session, request.Id, DateTimeOffset.UtcNow);
             session.SendResponse(response, packet.Id);
         }
@@ -84,7 +84,7 @@ namespace AscNet.GameServer.Handlers
                 if (!IsSignInOpen(sign, player, now))
                     continue;
 
-                bool got = HasSignedToday(player, sign.Id, now);
+                bool got = HasSignedToday(player, sign.Id, now) || IsSignInComplete(sign, player, sign.Id);
                 GetSignProgress(sign, player, sign.Id, got, out int round, out int day);
                 infos.Add(new SignInfo
                 {

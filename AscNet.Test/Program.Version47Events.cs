@@ -239,7 +239,8 @@ internal static partial class Program
         AssertEqual(videoRows.Count, video.ConcertVideoConfigs.Count, "Concert video map row count matches table");
         foreach (ConcertVideoConfigTable row in videoRows)
         {
-            AssertEqual(true, video.ConcertVideoConfigs.TryGetValue(row.Id, out ConcertVideoConfigEntry entry), $"Concert video config row {row.Id} present");
+            if (!video.ConcertVideoConfigs.TryGetValue(row.Id, out ConcertVideoConfigEntry? entry) || entry is null)
+                throw new InvalidDataException($"Concert video config row {row.Id} missing.");
             AssertEqual(row.LiveUrl, entry.LiveUrl, $"Concert video config row {row.Id} live url from table");
             AssertEqual(row.RecordUrl, entry.RecordUrl, $"Concert video config row {row.Id} record url from table");
             AssertEqual(row.LiveTimeId, entry.LiveTimeId, $"Concert video config row {row.Id} live time id");

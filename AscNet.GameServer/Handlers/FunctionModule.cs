@@ -24,7 +24,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("PlayerCostTimeUploadRequest")]
         public static void PlayerCostTimeUploadRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<PlayerCostTimeUploadRequest>(packet.Content);
+            _ = packet.Deserialize<PlayerCostTimeUploadRequest>();
 
             session.SendResponse(new PlayerCostTimeUploadResponse
             {

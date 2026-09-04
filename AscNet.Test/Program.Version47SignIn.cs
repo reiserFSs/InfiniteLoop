@@ -133,8 +133,8 @@ internal partial class Program
         // 05:00 UTC business-day boundary (pure login-builder, no harness needed).
         ValidateVersion47SignInBusinessDayBoundary(signInModule, buildLoginAt);
 
-        // Completion: after all 7 event days are claimed, further claims are rejected with no mutation.
-        ValidateVersion47SignInCompletion(signInModule, buildLoginAt, processRequest, windowStart115);
+        // Completed events stay claimed after the business-day boundary, including after relogin.
+        ValidateVersion47SignInCompletion(buildLoginAt, processRequest, buildResetPush, [sign115]);
 
         ValidateVersion47SignInPushes(signInModule, processRequest, buildLoginAt, buildResetPush, now115);
 
@@ -188,44 +188,86 @@ internal partial class Program
     }
 
     private static void ValidateVersion47SignInCompletion(
-        Type signInModule, MethodInfo buildLoginAt, MethodInfo processRequest, long windowStart115)
+        MethodInfo buildLoginAt, MethodInfo processRequest, MethodInfo buildResetPush, SignInTable[] events)
     {
-        List<SignInfo> Build(Player player, DateTimeOffset now) =>
-            (List<SignInfo>)(buildLoginAt.Invoke(null, [player, now])
-                ?? throw new InvalidDataException("BuildLoginSignInfos returned no sign-in data."));
         SignInResponse Claim(Session session, int signId, DateTimeOffset now) =>
             (SignInResponse)(processRequest.Invoke(null, [session, signId, now])
                 ?? throw new InvalidDataException("ProcessSignInRequest returned no response."));
-
-        int totalDays = TableReaderV2.Parse<SignInTable>().Single(row => row.Id == 115).RoundDays.Sum();
-        using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
-            out RecordingMongoCollectionProxy<Player> playerCollection, out _, out _);
-        Player player = CreateDrawCompatibilityPlayer(47_115);
-        Inventory inventory = CreateDrawCompatibilityInventory(47_115, []);
-        using LoopbackSessionHarness harness = new(
-            CreateDrawCompatibilityCharacter(47_115), player, inventory, "v47-sign-in-completion");
-        harness.Session.stage = CreateLoginAccountCompatibilityStage(47_115);
-
-        for (int day = 1; day <= totalDays; day++)
+        void AssertProgress(Player player, DateTimeOffset now, int signId, long round, long day, bool got, string name)
         {
-            DateTimeOffset now = DateTimeOffset.FromUnixTimeSeconds(windowStart115 + ((day - 1) * 86_400L) + 3_600L);
-            SignInResponse response = Claim(harness.Session, 115, now);
-            AssertEqual(0, response.Code, $"Id115 day {day} claim Code");
-            AssertEqual(1, response.RewardGoodsList.Count, $"Id115 day {day} reward count");
+            List<SignInfo> login = (List<SignInfo>)(buildLoginAt.Invoke(null, [player, now])
+                ?? throw new InvalidDataException("BuildLoginSignInfos returned no sign-in data."));
+            NotifySignInData reset = (NotifySignInData)(buildResetPush.Invoke(null, [player, now])
+                ?? throw new InvalidDataException("BuildNotifySignInData returned no push."));
+            foreach (var (infos, surface) in new[] { (login, "login"), (reset.SignInfos, "reset push") })
+            {
+                SignInfo info = infos.Single(info => info.Id == signId);
+                AssertEqual(round, info.Round, $"{name} {surface} Round");
+                AssertEqual(day, info.Day, $"{name} {surface} Day");
+                AssertEqual(got, info.Got, $"{name} {surface} Got");
+            }
         }
-        AssertEqual(totalDays, (int)player.SignInStates.Single(s => s.Id == 115).ClaimCount, "Id115 completed claim count");
-        AssertEqual(7L, Build(player, DateTimeOffset.FromUnixTimeSeconds(windowStart115 + (7 * 86_400L) + 3_600L))
-            .Single(i => i.Id == 115).Day, "Id115 completed login Day capped at last day");
 
-        // Post-completion claim is rejected and does not mutate state.
-        int savesBefore = playerCollection.ReplaceOneCalls;
-        long countBefore = player.SignInStates.Single(s => s.Id == 115).ClaimCount;
-        SignInResponse over = Claim(harness.Session, 115,
-            DateTimeOffset.FromUnixTimeSeconds(windowStart115 + (totalDays * 86_400L) + 3_600L));
-        AssertEqual(true, over.Code != 0, "Id115 completed claim rejected");
-        AssertEmptyList(over.RewardGoodsList, "Id115 completed claim RewardGoodsList");
-        AssertEqual(savesBefore, playerCollection.ReplaceOneCalls, "Id115 completed claim does not persist");
-        AssertEqual(countBefore, player.SignInStates.Single(s => s.Id == 115).ClaimCount, "Id115 completed claim count unchanged");
+        using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
+        SignInTable daily = TableReaderV2.Parse<SignInTable>().Single(row => row.Type == 1);
+        foreach (SignInTable sign in events)
+        {
+            int totalDays = sign.RoundDays.Sum();
+            long windowStart = TableReaderV2.Parse<ActivityScheduleTable>()
+                .Single(row => row.Id == sign.TimeId).StartTime;
+            DateTimeOffset firstDay = DateTimeOffset.FromUnixTimeSeconds(windowStart + 3_600L);
+            Player player = CreateDrawCompatibilityPlayer(47_000 + sign.Id);
+            Inventory inventory = CreateDrawCompatibilityInventory(player.PlayerData.Id, []);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(player.PlayerData.Id), player, inventory, $"v47-sign-in-completion-{sign.Id}");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(player.PlayerData.Id);
+
+            for (int day = 1; day <= totalDays; day++)
+            {
+                DateTimeOffset now = firstDay.AddDays(day - 1);
+                if (day == totalDays)
+                    AssertProgress(BsonSerializer.Deserialize<Player>(player.ToBson()), now,
+                        sign.Id, 1, totalDays, false, $"Id{sign.Id} unclaimed final day");
+                SignInResponse response = Claim(harness.Session, sign.Id, now);
+                AssertEqual(0, response.Code, $"Id{sign.Id} day {day} claim Code");
+                SignInRewardTable reward = TableReaderV2.Parse<SignInRewardTable>()
+                    .Single(row => row.SignId == sign.Id && row.Round == 1 && row.Day == day);
+                RewardTable rewardTable = TableReaderV2.Parse<RewardTable>().Single(row => row.Id == reward.RewardId);
+                List<RewardGoodsTable> goods = rewardTable.SubIds.Select(id =>
+                    TableReaderV2.Parse<RewardGoodsTable>().Single(row => row.Id == id)).ToList();
+                AssertEqual(goods.Count, response.RewardGoodsList.Count, $"Id{sign.Id} day {day} reward count");
+                for (int index = 0; index < goods.Count; index++)
+                {
+                    AssertEqual(goods[index].TemplateId, response.RewardGoodsList[index].TemplateId, $"Id{sign.Id} day {day} reward template");
+                    AssertEqual(goods[index].Count, response.RewardGoodsList[index].Count, $"Id{sign.Id} day {day} reward quantity");
+                }
+            }
+
+            DateTimeOffset finalDay = firstDay.AddDays(totalDays - 1);
+            player.SignInStates.Add(new PlayerSignInState
+            {
+                Id = daily.Id, ClaimCount = daily.RoundDays.Sum(), LastSignInTime = finalDay.ToUnixTimeSeconds()
+            });
+            Player reloaded = BsonSerializer.Deserialize<Player>(player.ToBson());
+            harness.Session.player = reloaded;
+            AssertEqual((long)totalDays, reloaded.SignInStates.Single(s => s.Id == sign.Id).ClaimCount,
+                $"Id{sign.Id} completed persisted claim count");
+            AssertProgress(reloaded, finalDay, sign.Id, 1, totalDays, true, $"Id{sign.Id} claimed final day");
+            DateTimeOffset resetTime = firstDay.AddDays(totalDays).AddHours(-1);
+            AssertProgress(reloaded, resetTime, sign.Id, 1, totalDays, true, $"Id{sign.Id} completed next business day");
+            AssertProgress(reloaded, resetTime, daily.Id, 2, 1, false, "daily next round remains claimable");
+
+            string inventoryBefore = Convert.ToHexString(inventory.ToBson());
+            string playerBefore = Convert.ToHexString(reloaded.ToBson());
+            foreach (DateTimeOffset retryTime in new[] { finalDay, resetTime })
+            {
+                SignInResponse retry = Claim(harness.Session, sign.Id, retryTime);
+                AssertEqual(retryTime == finalDay, retry.Code == 0, $"Id{sign.Id} completed retry Code");
+                AssertEmptyList(retry.RewardGoodsList, $"Id{sign.Id} completed retry rewards");
+                AssertEqual(inventoryBefore, Convert.ToHexString(inventory.ToBson()), $"Id{sign.Id} completed retry grants nothing");
+                AssertEqual(playerBefore, Convert.ToHexString(reloaded.ToBson()), $"Id{sign.Id} completed retry leaves progress unchanged");
+            }
+        }
     }
 
     private static void ValidateVersion47SignInPushes(

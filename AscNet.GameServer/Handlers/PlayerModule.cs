@@ -331,7 +331,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ChangePlayerMarkRequest")]
         public static void ChangePlayerMarkRequestHandler(Session session, Packet.Request packet)
         {
-            ChangePlayerMarkRequest request = MessagePackSerializer.Deserialize<ChangePlayerMarkRequest>(packet.Content);
+            ChangePlayerMarkRequest request = packet.Deserialize<ChangePlayerMarkRequest>();
 
             if (!ValidPlayerMarkIds.Value.Contains(request.MaskId))
             {
@@ -352,7 +352,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ChangeCommunicationRequest")]
         public static void ChangeCommunicationRequestHandler(Session session, Packet.Request packet)
         {
-            ChangeCommunicationRequest request = MessagePackSerializer.Deserialize<ChangeCommunicationRequest>(packet.Content);
+            ChangeCommunicationRequest request = packet.Deserialize<ChangeCommunicationRequest>();
             session.player.PlayerData.Communications.Add(request.Id);
 
             session.SendResponse(new ChangeCommunicationResponse(), packet.Id);
@@ -361,7 +361,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("TouchBoardMutualRequest")]
         public static void TouchBoardMutualRequestHandler(Session session, Packet.Request packet)
         {
-            TouchBoardMutualRequest request = MessagePackSerializer.Deserialize<TouchBoardMutualRequest>(packet.Content);
+            TouchBoardMutualRequest request = packet.Deserialize<TouchBoardMutualRequest>();
 
             session.SendResponse(new TouchBoardMutualResponse(), packet.Id);
             TaskModule.RecordConditionType(session, 13212);
@@ -370,7 +370,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ChangePlayerNameRequest")]
         public static void ChangePlayerNameRequestHandler(Session session, Packet.Request packet)
         {
-            ChangePlayerNameRequest request = MessagePackSerializer.Deserialize<ChangePlayerNameRequest>(packet.Content);
+            ChangePlayerNameRequest request = packet.Deserialize<ChangePlayerNameRequest>();
             session.player.PlayerData.Name = request.Name;
             session.player.PlayerData.ChangeNameTime = DateTimeOffset.Now.ToUnixTimeSeconds();
 
@@ -382,7 +382,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ChangePlayerSignRequest")]
         public static void ChangePlayerSignRequestHandler(Session session, Packet.Request packet)
         {
-            ChangePlayerSignRequest request = MessagePackSerializer.Deserialize<ChangePlayerSignRequest>(packet.Content);
+            ChangePlayerSignRequest request = packet.Deserialize<ChangePlayerSignRequest>();
             session.player.PlayerData.Sign = request.Msg;
 
             session.SendResponse(new ChangePlayerSignResponse(), packet.Id);
@@ -391,7 +391,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SetHeadPortraitRequest")]
         public static void SetHeadPortraitRequestHandler(Session session, Packet.Request packet)
         {
-            SetHeadPortraitRequest request = MessagePackSerializer.Deserialize<SetHeadPortraitRequest>(packet.Content);
+            SetHeadPortraitRequest request = packet.Deserialize<SetHeadPortraitRequest>();
             const int invalidRequestCode = 20012001;
             if (!CanEquipHead(session, request.Id, type: 1, DateTimeOffset.Now.ToUnixTimeSeconds()))
             {
@@ -410,7 +410,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SetHeadFrameRequest")]
         public static void SetHeadFrameRequestHandler(Session session, Packet.Request packet)
         {
-            SetHeadFrameRequest request = MessagePackSerializer.Deserialize<SetHeadFrameRequest>(packet.Content);
+            SetHeadFrameRequest request = packet.Deserialize<SetHeadFrameRequest>();
             const int invalidRequestCode = 20012001;
             if (!CanEquipHead(session, request.Id, type: 2, DateTimeOffset.Now.ToUnixTimeSeconds()))
             {
@@ -523,7 +523,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SetCurrentMedalRequest")]
         public static void SetCurrentMedalRequestHandler(Session session, Packet.Request packet)
         {
-            SetCurrentMedalRequest request = MessagePackSerializer.Deserialize<SetCurrentMedalRequest>(packet.Content);
+            SetCurrentMedalRequest request = packet.Deserialize<SetCurrentMedalRequest>();
             session.player.PlayerData.CurrMedalId = request.Id;
             session.player.Save();
             session.SendPush(new NotifyPlayerCurrMedalId
@@ -536,7 +536,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SetCurChatBoardRequest")]
         public static void SetCurChatBoardRequestHandler(Session session, Packet.Request packet)
         {
-            SetCurChatBoardRequest request = MessagePackSerializer.Deserialize<SetCurChatBoardRequest>(packet.Content);
+            SetCurChatBoardRequest request = packet.Deserialize<SetCurChatBoardRequest>();
             session.player.PlayerData.CurrentChatBoardId = request.ChatBoardId;
             session.player.Save();
             session.SendPush(new NotifyCurChatBoardId
@@ -549,7 +549,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("GetPlayerInfoListRequest")]
         public static void GetPlayerInfoListRequestHandler(Session session, Packet.Request packet)
         {
-            GetPlayerInfoListRequest request = MessagePackSerializer.Deserialize<GetPlayerInfoListRequest>(packet.Content);
+            GetPlayerInfoListRequest request = packet.Deserialize<GetPlayerInfoListRequest>();
             GetPlayerInfoListResponse response = new();
             HashSet<uint> emittedPlayerIds = new();
 
@@ -609,7 +609,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ChangePlayerBirthdayRequest")]
         public static void ChangePlayerBirthdayRequestHandler(Session session, Packet.Request packet)
         {
-            ChangePlayerBirthdayRequest request = MessagePackSerializer.Deserialize<ChangePlayerBirthdayRequest>(packet.Content);
+            ChangePlayerBirthdayRequest request = packet.Deserialize<ChangePlayerBirthdayRequest>();
             session.player.PlayerData.Birthday = request;
             session.SendPush(new NotifyBirthdayPlot() { IsChange = 1 });
 
@@ -619,7 +619,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("ChangePlayerGenderRequest")]
         public static void ChangePlayerGenderRequestHandler(Session session, Packet.Request packet)
         {
-            ChangePlayerGenderRequest request = MessagePackSerializer.Deserialize<ChangePlayerGenderRequest>(packet.Content);
+            ChangePlayerGenderRequest request = packet.Deserialize<ChangePlayerGenderRequest>();
             if (request.Gender is < 1 or > 3)
             {
                 // PlayerGenderCfgNotExist
@@ -672,7 +672,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("UpdatePlayerDisplayCharIdRequest")]
         public static void UpdatePlayerDisplayCharIdRequestHandler(Session session, Packet.Request packet)
         {
-            UpdatePlayerDisplayCharIdRequest request = MessagePackSerializer.Deserialize<UpdatePlayerDisplayCharIdRequest>(packet.Content);
+            UpdatePlayerDisplayCharIdRequest request = packet.Deserialize<UpdatePlayerDisplayCharIdRequest>();
             if (session.player.PlayerData.DisplayCharIdList.Contains(request.OldCharId))
             {
                 session.player.PlayerData.DisplayCharIdList[session.player.PlayerData.DisplayCharIdList.IndexOf(request.OldCharId)] = request.NewCharId;
@@ -684,7 +684,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("AddPlayerDisplayCharIdRequest")]
         public static void AddPlayerDisplayCharIdRequestHandler(Session session, Packet.Request packet)
         {
-            AddPlayerDisplayCharIdRequest request = MessagePackSerializer.Deserialize<AddPlayerDisplayCharIdRequest>(packet.Content);
+            AddPlayerDisplayCharIdRequest request = packet.Deserialize<AddPlayerDisplayCharIdRequest>();
             session.player.PlayerData.DisplayCharIdList.Add(request.CharId);
 
             session.SendResponse(new AddPlayerDisplayCharIdResponse() { DisplayCharIdList = session.player.PlayerData.DisplayCharIdList }, packet.Id);
@@ -693,7 +693,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("RemovePlayerDisplayCharIdRequest")]
         public static void RemovePlayerDisplayCharIdRequestHandler(Session session, Packet.Request packet)
         {
-            RemovePlayerDisplayCharIdRequest request = MessagePackSerializer.Deserialize<RemovePlayerDisplayCharIdRequest>(packet.Content);
+            RemovePlayerDisplayCharIdRequest request = packet.Deserialize<RemovePlayerDisplayCharIdRequest>();
             session.player.PlayerData.DisplayCharIdList.Remove(request.CharId);
 
             session.SendResponse(new RemovePlayerDisplayCharIdResponse() { DisplayCharIdList = session.player.PlayerData.DisplayCharIdList }, packet.Id);
@@ -702,7 +702,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SetDisplayCharIdFirstRequest")]
         public static void SetDisplayCharIdFirstRequestHandler(Session session, Packet.Request packet)
         {
-            SetDisplayCharIdFirstRequest request = MessagePackSerializer.Deserialize<SetDisplayCharIdFirstRequest>(packet.Content);
+            SetDisplayCharIdFirstRequest request = packet.Deserialize<SetDisplayCharIdFirstRequest>();
             session.player.PlayerData.DisplayCharIdList.Remove(request.CharId);
             session.player.PlayerData.DisplayCharIdList.Insert(0, request.CharId);
 
@@ -726,21 +726,21 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("RecordPlayerPointRequest")]
         public static void RecordPlayerPointRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<RecordPlayerPointRequest>(packet.Content);
+            _ = packet.Deserialize<RecordPlayerPointRequest>();
             session.SendResponse(new RecordPlayerPointResponse(), packet.Id);
         }
 
         [RequestPacketHandler("SyncPlayerKeyPadSettingRequest")]
         public static void SyncPlayerKeyPadSettingRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<SyncPlayerKeyPadSettingRequest>(packet.Content);
+            _ = packet.Deserialize<SyncPlayerKeyPadSettingRequest>();
             session.SendResponse(new SyncPlayerKeyPadSettingResponse(), packet.Id);
         }
 
         [RequestPacketHandler("RecordPlayerKeyPadSettingRequest")]
         public static void RecordPlayerKeyPadSettingRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<RecordPlayerKeyPadSettingRequest>(packet.Content);
+            _ = packet.Deserialize<RecordPlayerKeyPadSettingRequest>();
             session.SendResponse(new RecordPlayerKeyPadSettingResponse(), packet.Id);
         }
     }

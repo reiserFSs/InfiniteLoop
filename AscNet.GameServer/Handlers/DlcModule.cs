@@ -253,7 +253,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("BigWorldEnterWorldRequest")]
         public static void BigWorldEnterWorldRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<BigWorldEnterWorldRequest>(packet.Content);
+            _ = packet.Deserialize<BigWorldEnterWorldRequest>();
             ResetBigWorldSelfRuntimeId(session);
             session.SendResponse(nameof(BigWorldEnterWorldResponse), BuildBigWorldEnterWorldPayload(session), packet.Id);
             session.SendPush(nameof(NotifyBigWorldAlbumUpdate), BigWorldAlbumUpdatePayload.Value);
@@ -291,7 +291,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("BigWorldCourseCoreSetReadRequest")]
         public static void BigWorldCourseCoreSetReadRequestHandler(Session session, Packet.Request packet)
         {
-            BigWorldCourseCoreSetReadRequest request = MessagePackSerializer.Deserialize<BigWorldCourseCoreSetReadRequest>(packet.Content);
+            BigWorldCourseCoreSetReadRequest request = packet.Deserialize<BigWorldCourseCoreSetReadRequest>();
             bool sendTaskProgress = PersistBigWorldCourseCoreReadElements(session, request);
             session.SendResponse(new BigWorldCourseCoreSetReadResponse
             {
@@ -318,7 +318,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("DlcWorldSaveDataRequest")]
         public static void DlcWorldSaveDataRequestHandler(Session session, Packet.Request packet)
         {
-            _ = MessagePackSerializer.Deserialize<DlcWorldSaveDataRequest>(packet.Content);
+            _ = packet.Deserialize<DlcWorldSaveDataRequest>();
             session.SendResponse(nameof(DlcWorldSaveDataResponse), BuildBigWorldSaveDataPayload(session), packet.Id);
             session.PendingBigWorldLoadCompleteXRpc = true;
             session.PendingBigWorldStartFightNotify = true;
@@ -344,7 +344,7 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("EnterInstLevelRequest")]
         public static void EnterInstLevelRequestHandler(Session session, Packet.Request packet)
         {
-            EnterInstLevelRequest request = MessagePackSerializer.Deserialize<EnterInstLevelRequest>(packet.Content);
+            EnterInstLevelRequest request = packet.Deserialize<EnterInstLevelRequest>();
             PersistBigWorldEnterInstLevelRequest(session, request);
             session.log.Info($"BigWorld EnterInstLevelRequest WorldId={request.WorldId} InstLevelId={request.InstLevelId}");
             session.SendResponse(nameof(EnterInstLevelResponse), BuildEnterInstLevelResponsePayload(session), packet.Id);
@@ -521,11 +521,11 @@ namespace AscNet.GameServer.Handlers
             targetLevelId = 0;
             optionId = 0;
 
-            object?[] rpc = MessagePackSerializer.Deserialize<object?[]>(payload);
+            object?[] rpc = MessagePackSerializer.Deserialize<object?[]>(payload, Packet.InboundOptions);
             if (rpc.Length < 2 || rpc[0] is not string rpcName || rpcName != "RpcPlayerInteractRequest" || rpc[1] is not byte[] argsPayload)
                 return false;
 
-            object?[] args = MessagePackSerializer.Deserialize<object?[]>(argsPayload);
+            object?[] args = MessagePackSerializer.Deserialize<object?[]>(argsPayload, Packet.InboundOptions);
             if (args.Length < 8)
                 return false;
 
@@ -1491,7 +1491,7 @@ namespace AscNet.GameServer.Handlers
         {
             try
             {
-                Dictionary<string, object?> request = MessagePackSerializer.Deserialize<Dictionary<string, object?>>(requestContent);
+                Dictionary<string, object?> request = MessagePackSerializer.Deserialize<Dictionary<string, object?>>(requestContent, Packet.InboundOptions);
                 if (request.TryGetValue("LevelId", out object? levelId))
                     return ReadBigWorldXRpcInt32(levelId);
                 if (request.TryGetValue("InstLevelId", out object? instLevelId))
@@ -1814,7 +1814,7 @@ namespace AscNet.GameServer.Handlers
         {
             try
             {
-                object?[] rpc = MessagePackSerializer.Deserialize<object?[]>(payload);
+                object?[] rpc = MessagePackSerializer.Deserialize<object?[]>(payload, Packet.InboundOptions);
                 if (rpc.Length == 0 || rpc[0] is not string rpcName)
                     return;
 
@@ -1837,7 +1837,7 @@ namespace AscNet.GameServer.Handlers
         {
             try
             {
-                object?[] rpc = MessagePackSerializer.Deserialize<object?[]>(payload);
+                object?[] rpc = MessagePackSerializer.Deserialize<object?[]>(payload, Packet.InboundOptions);
                 if (rpc.Length < 6
                     || rpc[0] is not string rpcName
                     || rpcName != "XRpcNpcPositionAndRotation"

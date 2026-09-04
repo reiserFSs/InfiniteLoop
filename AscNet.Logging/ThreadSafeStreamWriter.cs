@@ -4,7 +4,7 @@
     {
         private static ThreadSafeStreamWriter? _instance;
 
-        private static StreamWriter _writer;
+        private readonly StreamWriter _writer;
 
         private bool disposedValue;
 

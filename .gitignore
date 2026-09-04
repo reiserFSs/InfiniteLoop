@@ -375,22 +375,12 @@ Scripts/table
 .DS_Store
 
 # ignore packet captures
-*.pcap
+*.[pP][cC][aA][pP]
+*.[pP][cC][aA][pP][nN][gG]
+*.[cC][aA][pP]
 
 # ignore proxylog
 proxylog
-
-# ignore clanker memory
-*.md
-
-# ignore test scripts
-test_proxy.py
- 
-# ignore internal scripts
-/scripts
-
-# internal protocol gap script
-test_protocol_gap.py 
 
 # protocol gap tables
 Resources/table.pre-4.7.7/
