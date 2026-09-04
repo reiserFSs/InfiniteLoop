@@ -166,6 +166,89 @@ internal partial class DormModule
     private const int DormRequestDataInvalid = 20060040;
     private const int PutCharacterRecoveryChangeType = 2;
 
+    internal static bool IsDormRewardCharacter(uint characterId)
+    {
+        return TableReaderV2.Parse<DormCharacterRewardTable>()
+            .Any(row => row.CharacterId == characterId);
+    }
+
+    internal static bool TryGrantDormCharacterReward(Session session, int rewardId)
+    {
+        DormCharacterRewardTable? reward = TableReaderV2.Parse<DormCharacterRewardTable>()
+            .FirstOrDefault(row => row.Id == rewardId);
+        if (reward is null || reward.CharacterId <= 0)
+            return false;
+
+        uint characterId = checked((uint)reward.CharacterId);
+        if (session.player.Dorm.Characters.Any(character => character.CharacterId == characterId))
+            return false;
+
+        Dictionary<string, int> config = Config();
+        DormCharacterFondleTable? fondle = TableReaderV2.Parse<DormCharacterFondleTable>()
+            .FirstOrDefault(row => row.CharacterId == characterId);
+        uint now = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        session.player.Dorm.Characters.Add(new PlayerDormCharacter
+        {
+            CharacterId = characterId,
+            DormitoryId = -1,
+            Mood = config.GetValueOrDefault("DormMoodInitValue"),
+            Vitality = config.GetValueOrDefault("DormVitalityInitValue"),
+            LeftFondleCount = fondle?.MaxCount ?? 0,
+            LastFondleRecoveryTime = now,
+            LastRecoveryTime = now
+        });
+        return true;
+    }
+
+    private static bool EnsureAllFurniture(PlayerDormState dorm)
+    {
+        const int DesiredCopiesPerFurniture = 7;
+        FurnitureTables tables = FurnitureData.Value;
+        Dictionary<uint, int> ownedCounts = dorm.Furniture
+            .GroupBy(furniture => furniture.ConfigId)
+            .ToDictionary(group => group.Key, group => group.Count());
+        bool changed = false;
+
+        foreach (FurnitureTable config in tables.Furniture)
+        {
+            uint configId = checked((uint)config.Id);
+            if (!dorm.FurnitureUnlocks.Contains(configId))
+            {
+                dorm.FurnitureUnlocks.Add(configId);
+                changed = true;
+            }
+
+            ownedCounts.TryGetValue(configId, out int currentCount);
+            if (currentCount >= DesiredCopiesPerFurniture)
+                continue;
+
+            FurnitureRewardTable? reward = tables.Rewards.FirstOrDefault(row => row.FurnitureId == config.Id);
+            FurnitureExtraAttrTable? extra = reward is null ? null : tables.ExtraAttrs.FirstOrDefault(row => row.Id == reward.ExtraAttrId);
+            FurnitureBaseAttrTable? baseAttr = extra is null ? null : tables.BaseAttrs.FirstOrDefault(row => row.Id == extra.BaseAttrId);
+            List<int> bases = extra?.AttrIds.Take(3).Concat(Enumerable.Repeat(0, 3)).Take(3).ToList() ?? [0, 0, 0];
+            List<int> attrs = baseAttr is null ? [0, 0, 0] : Split(baseAttr.Value, bases).ToList();
+
+            while (currentCount < DesiredCopiesPerFurniture)
+            {
+                dorm.Furniture.Add(new PlayerDormFurniture
+                {
+                    Id = dorm.NextFurnitureId++,
+                    ConfigId = configId,
+                    DormitoryId = -1,
+                    Addition = reward?.AdditionId ?? 0,
+                    AttrList = new List<int>(attrs),
+                    BaseAttrList = new List<int>(bases),
+                    IsLocked = false
+                });
+                currentCount++;
+                changed = true;
+            }
+            ownedCounts[configId] = currentCount;
+        }
+
+        return changed;
+    }
+
     public static NotifyDormitoryData BuildLoginData(Session session)
     {
         Dictionary<string, int> config = Config();
@@ -174,6 +257,10 @@ internal partial class DormModule
         Dictionary<uint, DormCharacterFondleTable> fondles = TableReaderV2.Parse<DormCharacterFondleTable>()
             .ToDictionary(row => (uint)row.CharacterId);
         uint now = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+        foreach (int rewardId in ShopModule.GetPurchasedDormCharacterRewardIds(session.player))
+            changed |= TryGrantDormCharacterReward(session, rewardId);
+
         foreach (uint characterId in session.character.Characters.Select(character => character.Id).Distinct())
         {
             PlayerDormCharacter? character = session.player.Dorm.Characters.FirstOrDefault(saved => saved.CharacterId == characterId);
@@ -196,6 +283,7 @@ internal partial class DormModule
                 changed |= NormalizeFondle(character, fondles.GetValueOrDefault(characterId), now);
         }
         changed |= NormalizeFreeRooms(session.player.Dorm);
+        changed |= EnsureAllFurniture(session.player.Dorm);
         changed |= session.player.Dorm.NormalizeFurnitureIds();
         changed |= NormalizeWorkRefresh(session.player.Dorm, now);
         changed |= EvaluateEvents(session, now);
@@ -275,7 +363,7 @@ internal partial class DormModule
         bool valid = room is not null && config is not null && request.CharacterIds.Count > 0
             && request.CharacterIds.Distinct().Count() == request.CharacterIds.Count
             && characters.Count == request.CharacterIds.Count
-            && request.CharacterIds.All(owned.Contains)
+            && request.CharacterIds.All(id => owned.Contains(id) || IsDormRewardCharacter(id))
             && characters.All(character => character.DormitoryId == -1)
             && characters.All(character => session.player.Dorm.WorkList.All(work =>
                 work.WorkEndTime == 0 || work.CharacterId != character.CharacterId))

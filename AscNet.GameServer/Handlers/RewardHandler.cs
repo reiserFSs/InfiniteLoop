@@ -1,4 +1,4 @@
-using AscNet.Common;
+﻿using AscNet.Common;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
@@ -42,6 +42,7 @@ namespace AscNet.GameServer.Handlers
         internal NotifyWeaponFashionInfo WeaponFashionData { get; } = new();
         internal NotifyHeadPortraitInfos HeadPortraitData { get; } = new();
         internal bool DormFurnitureChanged { get; set; }
+        internal bool DormCharacterChanged { get; set; }
         internal List<int> GatherRewardIds { get; } = [];
 
 
@@ -63,6 +64,8 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(new NotifyGatherReward { Id = id });
             if (HeadPortraitData.Heads.Count > 0)
                 session.SendPush(HeadPortraitData);
+            if (DormCharacterChanged)
+                session.SendPush(DormModule.BuildLoginData(session));
         }
 
         internal void AddPushes(RewardApplicationResult source)
@@ -99,6 +102,7 @@ namespace AscNet.GameServer.Handlers
                     HeadPortraitData.Heads.Add(head);
             }
             DormFurnitureChanged |= source.DormFurnitureChanged;
+            DormCharacterChanged |= source.DormCharacterChanged;
 
         }
     }
@@ -512,7 +516,7 @@ namespace AscNet.GameServer.Handlers
             Session session)
         {
             RewardApplicationResult result = ApplyRewards(rewardGoods, session);
-            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
+            if (result.DormFurnitureChanged || result.DormCharacterChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
                 session.player.Save();
             result.SendPushes(session);
             return result.RewardGoods;
@@ -521,7 +525,7 @@ namespace AscNet.GameServer.Handlers
         public static void GiveRewards(IEnumerable<Reward> rewards, Session session)
         {
             RewardApplicationResult result = ApplyRewards(rewards, session);
-            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
+            if (result.DormFurnitureChanged || result.DormCharacterChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
                 session.player.Save();
             result.SendPushes(session);
         }
@@ -813,6 +817,7 @@ namespace AscNet.GameServer.Handlers
                     UnlockHeadPortraitReward(reward.Id, session, headPortraits);
                     break;
                 case RewardType.DormCharacter:
+                    result.DormCharacterChanged |= DormModule.TryGrantDormCharacterReward(session, reward.Id);
                     break;
                 case RewardType.ChatEmoji:
                     break;
