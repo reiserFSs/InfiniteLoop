@@ -1527,6 +1527,9 @@ namespace AscNet.Common.Database
 
         [BsonElement("partners")]
         public List<PartnerData> Partners { get; set; } = new();
+
+        [BsonElement("score_titles")]
+        public List<NotifyScoreTitleData.NotifyScoreTitleDataTitleInfo> ScoreTitles { get; set; } = new();
     }
 
     public struct UpgradeCharacterSkillResult

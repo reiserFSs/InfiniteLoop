@@ -1356,7 +1356,7 @@ namespace AscNet.GameServer.Handlers
             TaskModule.SendTaskSync(session);
             session.SendPush(BuildRegressionLoginData());
             session.SendPush(new NotifyAllRedEnvelope());
-            session.SendPush(new NotifyScoreTitleData());
+            session.SendPush(new NotifyScoreTitleData { TitleInfos = session.character.ScoreTitles });
             session.SendPush(BuildBfrtLoginData(session.player));
             session.SendPush(new NotifyBiancaTheatreActivityData());
             SendEmptyStartupPush(session, "NotifyTheatre3ActivityData");

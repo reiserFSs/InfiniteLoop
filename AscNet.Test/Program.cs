@@ -475,6 +475,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--boss-activity-compat-only"))
+                {
+                    ValidateBossActivityCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--boss-single-compat-only"))
                 {
                     ValidateBossSingleCompatibility();
@@ -805,6 +811,7 @@ namespace AscNet.Test
                 ValidateEquipGuideGoalCompatibility();
                 ValidateStrongholdSweepCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
+                ValidateBossActivityCompatibility();
                 ValidateBossSingleCompatibility();
                 ValidateBossSingleIntensiveStageHydration();
                 ValidateSimulatedBattlefieldCompatibility();
@@ -27871,6 +27878,273 @@ namespace AscNet.Test
             AssertEqual(expectedDeathPoint, deathResult.Point, "War Zone death request/table-derived Point");
             AssertEqual(null, harness.Session.fight, "War Zone death clears fight");
 
+        }
+
+        private static void ValidateBossActivityCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForBossCompatibility(
+                out _,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Stage> stageCollection);
+            using MongoCollectionOverride rewardOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out _, out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
+            BossActivityTable activity = TableReaderV2.Parse<BossActivityTable>()
+                .Where(row => row.ActivityTimeId is > 0 && ActivityScheduleService.TryGet(row.ActivityTimeId.Value, out _))
+                .OrderByDescending(row => row.Id).First();
+            ActivityScheduleEntry[] schedules = (ActivityScheduleEntry[])ActivityScheduleService.All;
+            int scheduleIndex = Array.FindIndex(schedules, row => row.Id == activity.ActivityTimeId);
+            ActivityScheduleEntry originalSchedule = schedules[scheduleIndex];
+            schedules[scheduleIndex] = originalSchedule with { StartTime = 0, EndTime = 0 };
+            try
+            {
+            const long playerId = 99_711;
+            const uint characterId = 1_021_001;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            character.Characters.Add(CreateLoginAccountCompatibilityCharacter(characterId, 3_021_001));
+            using LoopbackSessionHarness harness = new(character, player,
+                CreateDrawCompatibilityInventory(playerId, []), "boss-activity-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+            MethodInfo buildSnapshot = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule"), "BuildActivityLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session), typeof(DateTimeOffset?)]);
+            JObject Snapshot() => JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerialize(
+                typeof(NotifyBossActivityData), buildSnapshot.Invoke(null, [harness.Session, null])
+                    ?? throw new InvalidDataException("Boss activity regression requires an open table-backed activity."))));
+            JObject initial = Snapshot();
+            MethodInfo getRewardType = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler"), "GetRewardType",
+                BindingFlags.Static | BindingFlags.Public, [typeof(RewardGoodsTable)]);
+            RewardType GoodsType(RewardGoodsTable goods) => (RewardType)(getRewardType.Invoke(null, [goods])
+                ?? throw new InvalidDataException($"Unclassified Boss activity reward {goods.Id}."));
+            BossSectionTable section = TableReaderV2.Parse<BossSectionTable>()
+                .Single(row => row.Id == initial.Value<int>("SectionId"));
+            Dictionary<int, BossChallengeTable> challenges = TableReaderV2.Parse<BossChallengeTable>()
+                .ToDictionary(row => row.Id);
+            int[] stageIds = section.ChallengeId.Where(id => id > 0).Select(id => challenges[id].StageId).ToArray();
+            BossStarRewardTable[] tiers = TableReaderV2.Parse<BossStarRewardTable>()
+                .Where(row => section.StarRewardId.Contains(row.Id)).OrderBy(row => row.RequireStar).Take(2).ToArray();
+            AssertEqual(2, tiers.Length, "Boss activity has two table-derived reward tiers");
+            AssertEqual(true, stageIds.Length >= 2, "Boss activity has consecutive challenges");
+            AssertEqual(0, initial.Value<int>("Schedule"), "Boss activity fresh schedule");
+            List<RewardGoodsTable> goodsRows = TableReaderV2.Parse<RewardGoodsTable>();
+            int packetId = 82_100;
+            List<JObject> titlePushes = [];
+            JArray Titles(AscNet.Common.Database.Character value) => RequiredValue<JArray>(
+                JObject.FromObject(value), "ScoreTitles", JTokenType.Array, "Boss activity score titles");
+
+            (JObject Response, List<JObject> Snapshots) ReadResult(string responseName)
+            {
+                titlePushes.Clear();
+                List<JObject> snapshots = [];
+                for (int index = 0; index < 64; index++)
+                {
+                    Packet packet = harness.ReadPacket($"{responseName} packet {index}");
+                    if (packet.Type == Packet.ContentType.Push)
+                    {
+                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                        if (push.Name == nameof(NotifyBossActivityData))
+                            snapshots.Add(JObject.Parse(MessagePackSerializer.ConvertToJson(push.Content)));
+                        if (push.Name == "NotifyScoreTitleInfo")
+                            titlePushes.Add(JObject.Parse(MessagePackSerializer.ConvertToJson(push.Content)));
+                        continue;
+                    }
+                    AssertEqual(Packet.ContentType.Response, packet.Type, $"{responseName} packet type");
+                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                    AssertEqual(packetId, response.Id, $"{responseName} correlation");
+                    AssertEqual(responseName, response.Name, $"{responseName} name");
+                    if (harness.TryReadAvailablePacket($"{responseName} unexpected packet", out _))
+                        throw new InvalidDataException($"{responseName}: unexpected packet after response.");
+                    return (JObject.Parse(MessagePackSerializer.ConvertToJson(response.Content)), snapshots);
+                }
+                throw new InvalidDataException($"Missing {responseName}.");
+            }
+
+            void Claim(int id, bool succeeds, bool alreadyCredited = false)
+            {
+                byte[] beforePlayer = harness.Session.player.ToBson();
+                byte[] beforeInventory = harness.Session.inventory.ToBson();
+                byte[] beforeCharacter = harness.Session.character.ToBson();
+                InvokeRegisteredRequestHandler("BossActivityStarRewardRequest", harness.Session, ++packetId,
+                    new Dictionary<string, int> { ["Id"] = id });
+                (JObject response, _) = ReadResult("BossActivityStarRewardResponse");
+                AssertEqual(succeeds, response.Value<int>("Code") == 0, $"Boss activity claim {id} success");
+                JArray rewards = RequiredValue<JArray>(response, "RewardGoodsList", JTokenType.Array, "Boss activity claim");
+                if (!succeeds)
+                {
+                    AssertEqual(0, rewards.Count, "Boss activity rejected claim grants nothing");
+                    AssertEqual(true, beforePlayer.SequenceEqual(harness.Session.player.ToBson()),
+                        "Boss activity rejected claim preserves player");
+                    AssertEqual(true, beforeInventory.SequenceEqual(harness.Session.inventory.ToBson()),
+                        "Boss activity rejected claim preserves inventory");
+                    AssertEqual(true, beforeCharacter.SequenceEqual(harness.Session.character.ToBson()),
+                        "Boss activity rejected claim preserves score titles");
+                    AssertEqual(0, titlePushes.Count, "Boss activity rejected claim has no title push");
+                    return;
+                }
+                List<RewardGoodsTable> expected = ResolveRewardGoods(tiers.Single(row => row.Id == id).RewardId,
+                    goodsRows, "Boss activity star reward");
+                AssertEqual(expected.Count, rewards.Count, "Boss activity exact reward count");
+                Dictionary<int, long> beforeCounts = MongoDB.Bson.Serialization.BsonSerializer
+                    .Deserialize<AscNet.Common.Database.Inventory>(beforeInventory).Items.ToDictionary(item => item.Id, item => item.Count);
+                foreach (RewardGoodsTable goods in expected)
+                {
+                    JObject actual = rewards.OfType<JObject>().Single(row => row.Value<int>("Id") == goods.Id);
+                    AssertEqual(goods.TemplateId, actual.Value<int>("TemplateId"), "Boss activity reward template");
+                    AssertEqual(goods.Count, actual.Value<int>("Count"), "Boss activity reward amount");
+                    AssertEqual((int)GoodsType(goods), actual.Value<int>("RewardType"), "Boss activity reward type");
+                }
+                foreach (IGrouping<int, RewardGoodsTable> group in expected
+                    .Where(row => GoodsType(row) == RewardType.Item).GroupBy(row => row.TemplateId))
+                    AssertEqual(beforeCounts.GetValueOrDefault(group.Key) + (alreadyCredited ? 0 : group.Sum(row => (long)row.Count)),
+                        harness.Session.inventory.Items.Single(item => item.Id == group.Key).Count,
+                        "Boss activity exact inventory delta");
+                harness.Session.inventory = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                    (inventoryCollection.LastReplacement ?? throw new InvalidDataException("Boss activity inventory was not saved.")).ToBson());
+                harness.Session.character = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    (characterCollection.LastReplacement ?? throw new InvalidDataException("Boss activity character was not saved.")).ToBson());
+                JArray previousTitles = Titles(MongoDB.Bson.Serialization.BsonSerializer
+                    .Deserialize<AscNet.Common.Database.Character>(beforeCharacter));
+                RewardGoodsTable[] collections = expected.Where(row => GoodsType(row) == RewardType.Collection).ToArray();
+                AssertEqual(collections.Length == 0 ? 0 : 1, titlePushes.Count,
+                    "Boss activity title update precedes successful claim response");
+                foreach (RewardGoodsTable collection in collections)
+                {
+                    JObject? previous = previousTitles.OfType<JObject>()
+                        .SingleOrDefault(row => row.Value<int>("Id") == collection.TemplateId);
+                    JObject persisted = Titles(harness.Session.character).OfType<JObject>()
+                        .Single(row => row.Value<int>("Id") == collection.TemplateId);
+                    int expectedScore = (previous?.Value<int>("Score") ?? 0) + collection.Count;
+                    AssertEqual(expectedScore, persisted.Value<int>("Score"),
+                        "Boss activity collection cumulative score persists exactly once");
+                    AscNet.Table.V2.share.scoretitle.ScoreTitleTable title = TableReaderV2
+                        .Parse<AscNet.Table.V2.share.scoretitle.ScoreTitleTable>().Single(row => row.Id == collection.TemplateId);
+                    Dictionary<int, AscNet.Table.V2.share.condition.ConditionTable> conditions = TableReaderV2
+                        .Parse<AscNet.Table.V2.share.condition.ConditionTable>().ToDictionary(row => row.Id);
+                    int expectedQuality = title.InitQuality;
+                    for (int index = 0; index < title.QualityConditions.Count; index++)
+                    {
+                        AscNet.Table.V2.share.condition.ConditionTable condition = conditions[title.QualityConditions[index]];
+                        AssertEqual(15103, condition.Type, "Boss activity collection quality uses score condition");
+                        AssertEqual(collection.TemplateId, condition.Params[0], "Boss activity collection condition title");
+                        if (expectedScore >= condition.Params[1])
+                            expectedQuality = Math.Max(expectedQuality, title.Qualities[index]);
+                    }
+                    AssertEqual(expectedQuality, persisted.Value<int>("Quality"),
+                        "Boss activity collection quality follows authoritative score thresholds");
+                    if (previous is not null)
+                        AssertEqual(previous.Value<long>("Time"), persisted.Value<long>("Time"),
+                            "Boss activity collection repeat preserves acquisition time");
+                    JObject titlePush = titlePushes.Single();
+                    AssertEqual(true, titlePush.Value<bool>("IsLogined"), "Boss activity incremental title update flag");
+                    JObject notified = RequiredValue<JArray>(titlePush, "Titles", JTokenType.Array, "Boss activity title push")
+                        .OfType<JObject>().Single(row => row.Value<int>("Id") == collection.TemplateId);
+                    AssertEqual(true, JToken.DeepEquals(persisted, notified),
+                        "Boss activity title push matches durable reloaded collection state");
+                }
+                AssertEqual(true, Snapshot()["StarRewardIds"]!.Values<int>().Contains(id),
+                    "Boss activity reloaded snapshot retains claimed ID");
+            }
+
+            JObject? FightStage(int stageId, bool win, bool expectsActivity)
+            {
+                InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, ++packetId, new PreFightRequest
+                {
+                    PreFightData = new()
+                    {
+                        StageId = (uint)stageId, ChallengeCount = 1, CardIds = [characterId],
+                        RobotIds = [], FirstFightPos = 1, CaptainPos = 1
+                    }
+                });
+                (JObject preFight, List<JObject> deploySnapshots) = ReadResult(nameof(PreFightResponse));
+                AssertEqual(0, preFight.Value<int>("Code"), "Boss activity same-session deployment accepted");
+                AssertEqual(0, deploySnapshots.Count, "Boss activity deployment does not manufacture progress");
+                FightSettleRequest settle = CreateMissingStageSettleRequest((uint)stageId,
+                    preFight["FightData"]!.Value<long>("FightId"), playerId);
+                settle.Result.IsWin = win;
+                settle.Result.IsForceExit = !win;
+                InvokeRegisteredRequestHandler(nameof(FightSettleRequest), harness.Session, ++packetId, settle);
+                (JObject response, List<JObject> snapshots) = ReadResult(nameof(FightSettleResponse));
+                AssertEqual(0, response.Value<int>("Code"), "Boss activity fight settlement accepted");
+                AssertEqual(expectsActivity ? 1 : 0, snapshots.Count,
+                    "Boss activity progress snapshot count before settlement response");
+                if (win)
+                    AssertEqual(true, (stageCollection.LastReplacement
+                        ?? throw new InvalidDataException("Fight did not persist stage data.")).Stages.Values
+                        .Any(row => row.StageId == stageId && row.Passed), "Fight clear persisted");
+                return snapshots.SingleOrDefault();
+            }
+
+            Claim(tiers[0].Id, false);
+            Claim(int.MaxValue, false);
+            FightStage(stageIds[0], false, false);
+            AssertEqual(0, Snapshot().Value<int>("Schedule"), "Failed challenge does not advance schedule");
+            for (int stageIndex = 0; stageIndex < stageIds.Length && stageIndex * 3 < tiers[1].RequireStar; stageIndex++)
+            {
+                JObject progress = FightStage(stageIds[stageIndex], true, true)!;
+                AssertEqual(stageIndex + 1, progress.Value<int>("Schedule"),
+                    "Boss activity immediately unlocks next challenge without login");
+                JArray stars = RequiredValue<JArray>(progress, "StageStarInfos", JTokenType.Array, "Boss activity live progress");
+                AssertIntegerList(stageIds.Select(id => (long)id).ToArray(),
+                    stars.OfType<JObject>().Select(row => row.Value<long>("StageId")).ToArray(),
+                    "Boss activity live stage stars retain challenge order");
+                for (int index = 0; index < stageIds.Length; index++)
+                    AssertEqual(index <= stageIndex ? 7L : 0L, stars[index]!.Value<long>("StarsMark"),
+                        "Boss activity live stars reflect only saved clears");
+                foreach (BossStarRewardTable tier in tiers.Where(row =>
+                    row.RequireStar > stageIndex * 3 && row.RequireStar <= (stageIndex + 1) * 3))
+                {
+                    if (tier.Id == tiers[0].Id)
+                    {
+                        Claim(tiers[1].Id, false);
+                        Dictionary<int, long> beforeFailure = harness.Session.inventory.Items.ToDictionary(row => row.Id, row => row.Count);
+                        byte[] characterBeforeFailure = harness.Session.character.ToBson();
+                        characterCollection.ThrowOnReplaceOne = true;
+                        bool failedSave = false;
+                        try
+                        {
+                            InvokeRegisteredRequestHandler("BossActivityStarRewardRequest", harness.Session, ++packetId,
+                                new Dictionary<string, int> { ["Id"] = tier.Id });
+                        }
+                        catch (InvalidDataException exception) when (exception.InnerException is MongoException)
+                        {
+                            failedSave = true;
+                        }
+                        finally { characterCollection.ThrowOnReplaceOne = false; }
+                        AssertEqual(true, failedSave, "Boss activity injected partial save failure reached persistence");
+                        AssertEqual(true, characterBeforeFailure.SequenceEqual(harness.Session.character.ToBson()),
+                            "Boss activity failed character save leaves collection retryable");
+                        if (harness.TryReadAvailablePacket("Boss activity failed save unexpected packet", out _))
+                            throw new InvalidDataException("Boss activity failed save must not report success.");
+                        AssertEqual(false, Snapshot()["StarRewardIds"]!.Values<int>().Contains(tier.Id),
+                            "Boss activity partial save remains retryable");
+                        harness.Session.inventory = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                            (inventoryCollection.LastReplacement ?? throw new InvalidDataException("Partial reward inventory was not saved.")).ToBson());
+                        foreach (IGrouping<int, RewardGoodsTable> group in ResolveRewardGoods(tier.RewardId, goodsRows,
+                            "Boss activity failed-save rewards").Where(row => GoodsType(row) == RewardType.Item)
+                            .GroupBy(row => row.TemplateId))
+                            AssertEqual(beforeFailure.GetValueOrDefault(group.Key) + group.Sum(row => (long)row.Count),
+                                harness.Session.inventory.Items.Single(row => row.Id == group.Key).Count,
+                                "Boss activity partial save durably credits goods exactly once");
+                    }
+                    Claim(tier.Id, true, alreadyCredited: tier.Id == tiers[0].Id);
+                    Claim(tier.Id, false);
+                }
+            }
+            AssertIntegerList(tiers.Select(row => (long)row.Id).Order().ToArray(),
+                RequiredValue<JArray>(Snapshot(), "StarRewardIds", JTokenType.Array, "Boss activity claims")
+                    .Select(id => id.Value<long>()).Order().ToArray(),
+                "Boss activity both reward claims survive reload");
+            int unrelatedStageId = TableReaderV2.Parse<StageTable>()
+                .Where(row => row.StageId >= 10010000 && row.StageId < 10100000)
+                .OrderBy(row => row.StageId).First(row => !stageIds.Contains(row.StageId)).StageId;
+            FightStage(unrelatedStageId, true, false);
+            Console.WriteLine("Boss activity compatibility passed: registered claims, partial-save retry, persisted rewards, and live next-stage progression.");
+            }
+            finally
+            {
+                schedules[scheduleIndex] = originalSchedule;
+            }
         }
 
         private static void ValidateBossSingleCompatibility()

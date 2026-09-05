@@ -11,6 +11,8 @@ using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.fashion;
 using AscNet.Table.V2.share.headportrait;
+using AscNet.Table.V2.share.condition;
+using AscNet.Table.V2.share.scoretitle;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 
@@ -42,6 +44,7 @@ namespace AscNet.GameServer.Handlers
         internal NotifyWeaponFashionInfo WeaponFashionData { get; } = new();
         internal NotifyHeadPortraitInfos HeadPortraitData { get; } = new();
         internal bool DormFurnitureChanged { get; set; }
+        internal NotifyScoreTitleInfo ScoreTitleData { get; } = new() { IsLogined = true };
         internal List<int> GatherRewardIds { get; } = [];
 
 
@@ -66,6 +69,8 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(new NotifyGatherReward { Id = id });
             if (HeadPortraitData.Heads.Count > 0)
                 session.SendPush(HeadPortraitData);
+            if (ScoreTitleData.Titles.Count > 0)
+                session.SendPush(ScoreTitleData);
         }
 
         internal void AddPushes(RewardApplicationResult source)
@@ -101,6 +106,11 @@ namespace AscNet.GameServer.Handlers
                 if (!HeadPortraitData.Heads.Any(existing => existing.Id == head.Id))
                     HeadPortraitData.Heads.Add(head);
             }
+            foreach (NotifyScoreTitleData.NotifyScoreTitleDataTitleInfo title in source.ScoreTitleData.Titles)
+            {
+                if (ScoreTitleData.Titles.All(existing => existing.Id != title.Id))
+                    ScoreTitleData.Titles.Add(title);
+            }
             DormFurnitureChanged |= source.DormFurnitureChanged;
 
         }
@@ -108,6 +118,10 @@ namespace AscNet.GameServer.Handlers
 
     internal class RewardHandler
     {
+        private static readonly Lazy<Dictionary<int, ScoreTitleTable>> ScoreTitles = new(() =>
+            TableReaderV2.Parse<ScoreTitleTable>().ToDictionary(row => row.Id));
+        private static readonly Lazy<Dictionary<int, ConditionTable>> ScoreTitleConditions = new(() =>
+            TableReaderV2.Parse<ConditionTable>().Where(row => row.Type == 15103).ToDictionary(row => row.Id));
         private static readonly Lazy<IReadOnlyDictionary<int, IReadOnlyList<RewardGoodsTable>>> RewardGoodsByRewardId = new(() =>
         {
             Dictionary<int, List<RewardGoodsTable>> goodsByRewardId = [];
@@ -365,7 +379,8 @@ namespace AscNet.GameServer.Handlers
                 or RewardType.WeaponFashion
                 or RewardType.FashionColor
                 or RewardType.Furniture
-                or RewardType.HeadPortrait;
+                or RewardType.HeadPortrait
+                or RewardType.Collection;
 
         private static void AddCurrentStatePush(
             Reward reward,
@@ -431,6 +446,12 @@ namespace AscNet.GameServer.Handlers
                             entry => entry.Id != weaponFashion.Id))
                         result.WeaponFashionData.WeaponFashionDataList.Add(weaponFashion);
                     break;
+                case RewardType.Collection:
+                    NotifyScoreTitleData.NotifyScoreTitleDataTitleInfo? title = session.character.ScoreTitles
+                        .FirstOrDefault(entry => entry.Id == (uint)reward.Id);
+                    if (title is not null && result.ScoreTitleData.Titles.All(entry => entry.Id != title.Id))
+                        result.ScoreTitleData.Titles.Add(title);
+                    break;
             }
         }
         private static void AddCurrentHeadPortraitPush(
@@ -468,6 +489,7 @@ namespace AscNet.GameServer.Handlers
             target.Partners = source.Partners;
             target.AppliedRewardClaims = source.AppliedRewardClaims;
             target.FashionColors = source.FashionColors;
+            target.ScoreTitles = source.ScoreTitles;
         }
 
         private static void ApplyRewards(
@@ -744,6 +766,41 @@ namespace AscNet.GameServer.Handlers
                 pushedColors.Add(color.Id);
         }
 
+        private static void GrantScoreTitle(Reward reward, Session session, RewardApplicationResult result)
+        {
+            if (reward.Count <= 0 || !ScoreTitles.Value.TryGetValue(reward.Id, out ScoreTitleTable? config)
+                || config.QualityConditions.Count != config.Qualities.Count)
+                throw new InvalidDataException($"Invalid score title reward {reward.Id}.");
+
+            session.character.ScoreTitles ??= [];
+            NotifyScoreTitleData.NotifyScoreTitleDataTitleInfo? title = session.character.ScoreTitles
+                .FirstOrDefault(entry => entry.Id == (uint)reward.Id);
+            int score = checked((title?.Score ?? 0) + reward.Count);
+            int quality = config.InitQuality;
+            for (int i = 0; i < config.QualityConditions.Count; i++)
+            {
+                if (!ScoreTitleConditions.Value.TryGetValue(config.QualityConditions[i], out ConditionTable? condition)
+                    || condition.Params.Count < 2 || condition.Params[0] != reward.Id)
+                    throw new InvalidDataException($"Unsupported score title condition {config.QualityConditions[i]}.");
+                if (score >= condition.Params[1])
+                    quality = Math.Max(quality, config.Qualities[i]);
+            }
+
+            if (title is null)
+            {
+                title = new()
+                {
+                    Id = checked((uint)reward.Id),
+                    Time = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+                };
+                session.character.ScoreTitles.Add(title);
+            }
+            title.Score = score;
+            title.Quality = quality;
+            if (result.ScoreTitleData.Titles.All(entry => entry.Id != title.Id))
+                result.ScoreTitleData.Titles.Add(title);
+        }
+
 
         private static void HandleReward(
             Reward reward,
@@ -808,6 +865,7 @@ namespace AscNet.GameServer.Handlers
                     UnlockFashionColorReward(reward.Id, session, fashionData);
                     break;
                 case RewardType.Collection:
+                    GrantScoreTitle(reward, session, result);
                     break;
                 case RewardType.Background:
                     break;

@@ -2726,6 +2726,7 @@ namespace AscNet.GameServer.Handlers
             session.inventory.Save();
             session.character.Save();
             session.stage.Save();
+            BossModule.PushActivityProgress(session, stageData.StageId);
             CourseModule.RecordBattleResult(session, req.Result);
             foreach (RewardApplicationResult application in deferredRewardApplications)
                 application.SendPushes(session);

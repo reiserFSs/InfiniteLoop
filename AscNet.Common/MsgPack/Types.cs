@@ -965,6 +965,13 @@ namespace AscNet.Common.MsgPack
         public List<UInt32> UnlockedDecorationIds { get; set; } = new();
     }
 
+    [global::MessagePack.MessagePackObject(true)]
+    public class NotifyScoreTitleInfo
+    {
+        public List<NotifyScoreTitleData.NotifyScoreTitleDataTitleInfo> Titles { get; set; } = new();
+        public Boolean IsLogined { get; set; }
+    }
+
 
 [global::MessagePack.MessagePackObject(true)]
 public sealed class BfrtTeamInfo

@@ -180,6 +180,19 @@ namespace AscNet.GameServer.Handlers
     {
         public int Code { get; set; }
     }
+
+    [MessagePackObject(true)]
+    public class BossActivityStarRewardRequest
+    {
+        public int Id { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class BossActivityStarRewardResponse
+    {
+        public int Code { get; set; }
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
+    }
 #pragma warning restore CS8618
     #endregion
 
@@ -232,6 +245,8 @@ namespace AscNet.GameServer.Handlers
             TableReaderV2.Parse<BossSectionTable>());
         private static readonly Lazy<Dictionary<int, BossChallengeTable>> ActivityBossChallenges = new(() =>
             TableReaderV2.Parse<BossChallengeTable>().ToDictionary(row => row.Id));
+        private static readonly Lazy<Dictionary<int, BossStarRewardTable>> ActivityBossStarRewards = new(() =>
+            TableReaderV2.Parse<BossStarRewardTable>().ToDictionary(row => row.Id));
 
         [RequestPacketHandler("BossSingleRankInfoRequest")]
         public static void BossSingleRankInfoRequestHandler(Session session, Packet.Request packet)
@@ -456,6 +471,76 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(data);
 
             session.SendResponse(new GetActivityBossDataResponse { Code = data is null ? 1 : 0 }, packet.Id);
+        }
+
+        [RequestPacketHandler("BossActivityStarRewardRequest")]
+        public static void BossActivityStarRewardRequestHandler(Session session, Packet.Request packet)
+        {
+            BossActivityStarRewardRequest request = packet.Deserialize<BossActivityStarRewardRequest>();
+            NotifyBossActivityData? data = BuildActivityLoginData(session);
+            BossSectionTable? section = data is null ? null : ActivityBossSections.Value
+                .FirstOrDefault(row => row.Id == data.SectionId && row.ActivityId == data.ActivityId);
+            if (section is null
+                || !section.StarRewardId.Contains(request.Id)
+                || !ActivityBossStarRewards.Value.TryGetValue(request.Id, out BossStarRewardTable? reward)
+                || IsActivityRewardClaimed(session, data!.ActivityId, section.Id, request.Id))
+            {
+                session.SendResponse(new BossActivityStarRewardResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            int stars = 0;
+            foreach (int challengeId in section.ChallengeId.Where(id => id > 0))
+            {
+                int stageId = ActivityBossChallenges.Value[challengeId].StageId;
+                if (session.stage.Stages.TryGetValue(stageId, out StageDatum? stage))
+                    stars += System.Numerics.BitOperations.PopCount((uint)(stage.StarsMark & 7));
+            }
+            if (stars < reward.RequireStar)
+            {
+                session.SendResponse(new BossActivityStarRewardResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            List<RewardGoodsTable> goods = RewardHandler.GetRewardGoods(reward.RewardId);
+            if (goods.Count == 0)
+            {
+                session.SendResponse(new BossActivityStarRewardResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            RewardApplicationResult application = RewardHandler.ApplyRewardsOnceAndPersist(
+                [new RewardGrant(ActivityRewardClaimKey(session, data!.ActivityId, section.Id, reward.Id), goods)], session);
+            application.SendPushes(session);
+            session.SendResponse(new BossActivityStarRewardResponse
+            {
+                Code = 0,
+                RewardGoodsList = application.RewardGoods
+            }, packet.Id);
+        }
+
+        private static string ActivityRewardClaimKey(Session session, int activityId, int sectionId, int rewardId) =>
+            $"boss-activity:{activityId}:{sectionId}:{session.player.PlayerData.Id}:{rewardId}";
+
+        private static bool IsActivityRewardClaimed(Session session, int activityId, int sectionId, int rewardId)
+        {
+            string key = ActivityRewardClaimKey(session, activityId, sectionId, rewardId);
+            return session.inventory.AppliedRewardClaims?.Contains(key, StringComparer.Ordinal) == true
+                && session.character.AppliedRewardClaims?.Contains(key, StringComparer.Ordinal) == true;
+        }
+
+        internal static void PushActivityProgress(Session session, long completedStageId)
+        {
+            NotifyBossActivityData? data = BuildActivityLoginData(session);
+            if (data is null)
+                return;
+
+            BossSectionTable? section = ActivityBossSections.Value
+                .FirstOrDefault(row => row.Id == data.SectionId && row.ActivityId == data.ActivityId);
+            if (section is not null && section.ChallengeId.Any(id => id > 0
+                && ActivityBossChallenges.Value.TryGetValue(id, out BossChallengeTable? challenge)
+                && challenge.StageId == completedStageId))
+                session.SendPush(data);
         }
 
         internal static bool IsStage(uint stageId) => Stages.Value.ContainsKey(checked((int)stageId));
@@ -850,6 +935,9 @@ namespace AscNet.GameServer.Handlers
                 ActivityId = activity.Id,
                 SectionId = section.Id,
                 Schedule = schedule,
+                StarRewardIds = section.StarRewardId
+                    .Where(id => id > 0 && IsActivityRewardClaimed(session, activity.Id, section.Id, id))
+                    .Select(id => (dynamic)id).ToList(),
                 StageStarInfos = stageIds.Select(stageId =>
                 {
                     persistedStages.TryGetValue(stageId, out StageDatum? stage);
