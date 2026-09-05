@@ -9,6 +9,18 @@ namespace AscNet.GameServer.Handlers
     #region MsgPackScheme
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     [MessagePackObject(true)]
+    public class ReportBanChatRequest
+    {
+        public int Times { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class ReportBanChatResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class EnterWorldChatRequest
     {
     }
@@ -142,6 +154,31 @@ namespace AscNet.GameServer.Handlers
 
     internal class ChatModule
     {
+        [RequestPacketHandler("ReportBanChatRequest")]
+        public static void ReportBanChatRequestHandler(Session session, Packet.Request packet)
+        {
+            ReportBanChatRequest? request;
+            try
+            {
+                request = packet.Deserialize<ReportBanChatRequest>();
+            }
+            catch (MessagePackSerializationException)
+            {
+                session.SendResponse(new ReportBanChatResponse { Code = 5 }, packet.Id); // ParamsError
+                return;
+            }
+
+            // Private-server policy: accept positive report counts as telemetry, never mute.
+            if (request is null || request.Times <= 0)
+            {
+                session.SendResponse(new ReportBanChatResponse { Code = 5 }, packet.Id); // ParamsError
+                return;
+            }
+
+            session.log.Info($"Repeated chat report uid={session.player.PlayerData.Id} Times={request.Times}");
+            session.SendResponse(new ReportBanChatResponse { Code = 0 }, packet.Id);
+        }
+
         [RequestPacketHandler("EnterWorldChatRequest")]
         public static void EnterWorldChatRequestHandler(Session session, Packet.Request packet)
         {

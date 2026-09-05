@@ -220,7 +220,7 @@ namespace AscNet.GameServer
                                         else
                                         {
                                             if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
-                                                log.Warn($"Request handler not found: nameLength={request.Name?.Length ?? 0}, contentBytes={request.Content?.Length ?? 0}, id={request.Id}");
+                                                log.Warn($"Request handler not found: name={System.Text.Json.JsonSerializer.Serialize(request.Name is { Length: > 128 } ? request.Name[..128] : request.Name)}, nameLength={request.Name?.Length ?? 0}, contentBytes={request.Content?.Length ?? 0}, id={request.Id}");
                                         }
                                         break;
 

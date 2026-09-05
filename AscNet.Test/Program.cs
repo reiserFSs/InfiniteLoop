@@ -81,6 +81,11 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--chat-report-compat-only"))
+                {
+                    ValidateReportBanChatCompatibility();
+                    return;
+                }
                 if (args.Contains("--first-batch-safety-only"))
                 {
                     ValidatePacketInputSafety();
@@ -773,6 +778,7 @@ namespace AscNet.Test
                 ValidateUltimaAwakenCompatibility();
                 ValidateDormDispatchAllCompatibility();
                 ValidatePacketInputSafety();
+                ValidateReportBanChatCompatibility();
                 ValidateSdkInputSafety().GetAwaiter().GetResult();
                 ValidateTablePerformanceCompatibility();
                 _ = JsonConvert.DeserializeObject<NotifyLogin>(File.ReadAllText(ResourcePath("Data", "NotifyLogin.json")))!;
