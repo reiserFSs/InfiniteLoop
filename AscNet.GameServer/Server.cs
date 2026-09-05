@@ -13,6 +13,7 @@ namespace AscNet.GameServer
         public readonly ConcurrentDictionary<string, Session> Sessions = new();
         private static Server? _instance;
         private readonly TcpListener listener;
+        private volatile bool isListening;
 
         public static Server Instance
         {
@@ -21,6 +22,8 @@ namespace AscNet.GameServer
                 return _instance ??= new Server();
             }
         }
+
+        public bool IsListening => isListening;
 
         static Server()
         {
@@ -32,7 +35,8 @@ namespace AscNet.GameServer
 
         public Server()
         {
-            listener = new(IPAddress.Parse("0.0.0.0"), Common.Common.config.GameServer.Port);
+            string bindAddress = Environment.GetEnvironmentVariable("ASCNET_GAME_BIND_ADDRESS") ?? "0.0.0.0";
+            listener = new(IPAddress.Parse(bindAddress), Common.Common.config.GameServer.Port);
         }
 
         public void Start()
@@ -48,6 +52,7 @@ namespace AscNet.GameServer
                     TableReaderV2.Parse<ConditionTable>();
                     TableReaderV2.Parse<TaskTable>();
                     listener.Start();
+                    isListening = true;
                     log.Info($"{nameof(GameServer)} started and listening on port {Common.Common.config.GameServer.Port}");
 
                     while (true)
@@ -65,6 +70,7 @@ namespace AscNet.GameServer
                 }
                 catch (Exception ex)
                 {
+                    isListening = false;
                     log.Error("TCP listener error: " + ex.Message);
                     log.Info("Waiting 3 seconds before restarting...");
                     Thread.Sleep(3000);

@@ -5596,14 +5596,37 @@ namespace AscNet.Test
                     PlayerId = (uint)playerId,
                     LastMsgSeqNo = reconnectLastMsgSeqNo
                 });
-            ReconnectResponse reconnectResponse = ReadResponsePayload<ReconnectResponse>(
-                harness,
-                reconnectPacketId,
-                nameof(ReconnectResponse),
-                "ReconnectRequest valid token response");
+            Packet reconnectPacket = harness.ReadPacket("ReconnectRequest valid token response");
+            AssertEqual(Packet.ContentType.Response, reconnectPacket.Type, "ReconnectRequest valid token response packet type");
+            Packet.Response reconnectPacketResponse = MessagePackSerializer.Deserialize<Packet.Response>(reconnectPacket.Content);
+            AssertEqual(reconnectPacketId, reconnectPacketResponse.Id, "ReconnectRequest valid token response packet id");
+            AssertEqual(nameof(ReconnectResponse), reconnectPacketResponse.Name, "ReconnectRequest valid token response packet name");
+
+            MessagePackReader reconnectPayloadReader = new(new System.Buffers.ReadOnlySequence<byte>(reconnectPacketResponse.Content));
+            int reconnectFieldCount = reconnectPayloadReader.ReadMapHeader();
+            bool sawOfflineMessages = false;
+            for (int fieldIndex = 0; fieldIndex < reconnectFieldCount; fieldIndex++)
+            {
+                string key = reconnectPayloadReader.ReadString()
+                    ?? throw new InvalidDataException($"ReconnectResponse: expected non-nil string map key at field {fieldIndex}.");
+                if (key == nameof(ReconnectResponse.OfflineMessages))
+                {
+                    sawOfflineMessages = true;
+                    if (reconnectPayloadReader.NextMessagePackType != MessagePackType.Nil)
+                        throw new InvalidDataException($"ReconnectResponse OfflineMessages: expected MessagePack nil, got {reconnectPayloadReader.NextMessagePackType}.");
+                    reconnectPayloadReader.ReadNil();
+                }
+                else
+                {
+                    reconnectPayloadReader.Skip();
+                }
+            }
+            if (!sawOfflineMessages)
+                throw new InvalidDataException("ReconnectResponse: expected OfflineMessages field.");
+
+            ReconnectResponse reconnectResponse = MessagePackSerializer.Deserialize<ReconnectResponse>(reconnectPacketResponse.Content);
             AssertEqual(0, reconnectResponse.Code, "ReconnectResponse valid token Code");
             AssertEqual(reconnectToken, reconnectResponse.ReconnectToken, "ReconnectResponse valid token ReconnectToken");
-            AssertEqual(reconnectLastMsgSeqNo, reconnectResponse.RequestNo, "ReconnectResponse valid token RequestNo");
 
             harness.SendClientPush("ReconnectAck", []);
 

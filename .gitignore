@@ -370,6 +370,10 @@ Scripts/table
 
 # Local runtime/test artifacts
 .runtime/
+AscNet.Launcher/target/
+AscNet.Patch/target/
+AscNet.Patch/VersionShim/bin/
+AscNet.Patch/VersionShim/obj/
 
 # macOS metadata
 .DS_Store

@@ -1,0 +1,16 @@
+[package]
+name = "KRSDK"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+libloading.workspace = true
+once_cell.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+uuid.workspace = true
+windows.workspace = true

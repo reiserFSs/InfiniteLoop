@@ -1,0 +1,20 @@
+{
+  "certGuarIdcard": [],
+  "certIdcard": [],
+  "content": "",
+  "gameInit": [],
+  "init": [
+    { "link": "http://127.0.0.1:8080/terms.html", "title": "Terms of Service" },
+    { "link": "http://127.0.0.1:8080/privacy.html", "title": "Privacy Policy" }
+  ],
+  "login": [
+    { "link": "http://127.0.0.1:8080/terms.html", "title": "Terms of Service" },
+    { "link": "http://127.0.0.1:8080/privacy.html", "title": "Privacy Policy" }
+  ],
+  "privacy": [
+    { "link": "http://127.0.0.1:8080/terms.html", "title": "Terms of Service" },
+    { "link": "http://127.0.0.1:8080/privacy.html", "title": "Privacy Policy" }
+  ],
+  "timestamp": 1763673533455,
+  "version": 0
+}

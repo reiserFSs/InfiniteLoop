@@ -18,13 +18,10 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 	<ItemGroup>
-		<Analyzer Include="../AscNet.Table/bin/$(Configuration)/netstandard2.0/AscNet.Table.dll" />
+		<ProjectReference Include="..\AscNet.Table\AscNet.Table.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
         <AdditionalFiles Include="../Resources/table/**/*.tsv" />
         <ProjectReference Include="..\AscNet.Logging\AscNet.Logging.csproj" />
 	</ItemGroup>
 
 
-  <Target Name="BuildTableGenerator" BeforeTargets="CoreCompile">
-    <MSBuild Projects="../AscNet.Table/AscNet.Table.csproj" Targets="Build" Properties="Configuration=$(Configuration);TargetFramework=netstandard2.0" />
-  </Target>
 </Project>

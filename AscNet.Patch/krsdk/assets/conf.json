@@ -1,0 +1,102 @@
+{
+  "data": {
+    "thirdLogin": {
+      "preambleCodeLogin": { "enabled": 0 },
+      "wechat": { "enabled": 0 },
+      "qq": { "enabled": 0 },
+      "phone": { "enabled": 0 },
+      "phoneQk": { "enabled": 0 },
+      "tourist": { "enabled": 0 },
+      "accLogin": { "enabled": 1 },
+      "accReg": { "enabled": 1 },
+      "apple": { "enabled": 0 },
+      "qrLogin": { "enabled": 0 },
+      "emailLogin": { "enabled": 0 },
+      "emailReg": { "enabled": 0 },
+      "fbLogin": { "enabled": 0 },
+      "gcLogin": { "enabled": 0 },
+      "googleLogin": { "enabled": 0 },
+      "lineLogin": { "enabled": 0 },
+      "twitterLogin": { "enabled": 0 },
+      "naverLogin": { "enabled": 0 },
+      "psnLogin": { "enabled": 0 },
+      "steamLogin": { "enabled": 0 }
+    },
+    "heartFreq": 5,
+    "heartEnable": 1,
+    "uagr": "http://127.0.0.1:8080/p/agreement_public.html",
+    "pagr": "http://127.0.0.1:8080/p/personal_privacy.html",
+    "childArgUrl": "http://127.0.0.1:8080/p/child_privacy.html",
+    "pwdLife": "30d",
+    "clientUrl": {
+      "googlePcAuthResultUrl": "http://127.0.0.1:8080/pro/sdk_personal/oauth-result.html",
+      "accCenterUrl": "http://127.0.0.1:8080/pro/sdk_personal/account-center.html",
+      "sobot": "http://127.0.0.1:8080/shared/zhichi-cs/index.html",
+      "bizsiren": "http://127.0.0.1:8080/pro/kr-auth",
+      "emailSystemUrl": "http://127.0.0.1:8080/account-service/email-system",
+      "kefuServ": "http://127.0.0.1:8080/notice/",
+      "kefu": "http://127.0.0.1:8080/shared/cs/index.html",
+      "pcGeetestUrl": "http://127.0.0.1:8080/pro/sdk_personal/geetest-oversea.html",
+      "sobotRedDotUrl": "http://127.0.0.1:8080/notice/sobot/client/red-dot",
+      "pcThirdLoginUrl": "http://127.0.0.1:8080/pro/login/index.html#/login"
+    },
+    "clientSwitch": {
+      "td": true,
+      "PayEventFixedForPCSteam": true,
+      "webAccelerated": true,
+      "sobot": true,
+      "marketAppsFlyer": true,
+      "kefu": false,
+      "marketFirebase": true,
+      "marketFacebook": true,
+      "didGt": false,
+      "clientFocus": true,
+      "useGoogleSDKForWin": false
+    },
+    "kefuInterval": 300,
+    "kefuSessionExpireHour": 1,
+    "thirdShareParams": {
+      "facebook": {
+        "apiKey": "1730178714166576",
+        "appSecret": "04ec97aaa96b45b34c9950c0b8892932",
+        "displayName": "Wuthering Waves"
+      },
+      "ins": {
+        "clientId": "1686591225152495",
+        "clientSecret": "c034fa88b7bbed321f53ceb1f90ed216"
+      },
+      "kakao": {
+        "nativeAppKey": "6f66d6dfc5acca4e55208b9c15a21203",
+        "restApiKey": "a4bfd10714aae0f85f8d991b13115365",
+        "javaScriptKey": "3c21d046ebabb67ff639ba8bb1d6e7a9",
+        "adminKey": "be17ac6e32e589c0303206921b185d47"
+      },
+      "tiktok": {
+        "appId": "7289280038549243910",
+        "appKey": "jZNKK6mBhW26xHJ8uWeoMQBzPd5PQJ54"
+      },
+      "x": {
+        "consumerKey": "D4CgQWdDComVMZlKknOBLWTBI",
+        "consumerSecret": "aFwuSz5KvXCg9z9ptN539f2NXm8a6zoHoda5TJJSu5ExxeNEqv",
+        "clientId": "YnBZdkxWdkdvRVEwM3F6NWpZQzE6MTpjaQ",
+        "clientSecret": "T-uGeCoYCYbO689eLtwmxXdxiuMRTLczWBRQxknLbwsiy9Z4XY"
+      },
+      "sharesdk": {
+        "appKey": "389f38fed78b3",
+        "appSecret": "c7972aaae75922b180b81478f7be7b0f"
+      }
+    },
+    "regionMinAge": 13,
+    "ageCheckBox": false,
+    "didSmSwitch": false,
+    "didTxSwitch": false,
+    "geetestSwitch": true,
+    "audioSwitch": false,
+    "iosCrossDistrict": false,
+    "googleCrossDistrict": false,
+    "googlePcConsumeIntervalSec": 180
+  },
+  "code": 0,
+  "msg": "success.",
+  "timestamp": 1763673486158
+}

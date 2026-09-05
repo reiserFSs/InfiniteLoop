@@ -2872,7 +2872,7 @@ public sealed class NotifyBfrtProgressInfo
         public Int32 Code { get; set; }
         public String ReconnectToken { get; set; }
         public Int32 RequestNo { get; set; }
-        public List<Int32> OfflineMessages { get; set; } = new();
+        public Byte[]? OfflineMessages { get; set; }
     }
 
 

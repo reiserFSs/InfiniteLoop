@@ -13,6 +13,9 @@ namespace AscNet.Common
         [Option]
         IDatabase Database { get; set; }
 
+        [Option]
+        ILauncher Launcher { get; set; }
+
         [Option(DefaultValue = false)]
         bool SaveClientLogs { get; set; }
 
@@ -42,6 +45,21 @@ namespace AscNet.Common
 
             [Option(DefaultValue = "asc_net")]
             string Name { get; set; }
+        }
+
+        interface ILauncher
+        {
+            [Option(DefaultValue = false)]
+            bool Maintenance { get; set; }
+
+            [Option(DefaultValue = "")]
+            string Message { get; set; }
+
+            [Option]
+            string? MinimumPatchVersion { get; set; }
+
+            [Option]
+            string? MinimumLauncherVersion { get; set; }
         }
 
     }

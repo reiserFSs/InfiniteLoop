@@ -1,0 +1,15 @@
+[package]
+name = "lucia"
+edition.workspace = true
+version.workspace = true
+
+[lib]
+name = "lucia"
+crate-type = ["cdylib"]
+
+[dependencies]
+ilhook.workspace = true
+anyhow.workspace = true
+lazy_static.workspace = true
+libloading.workspace = true
+windows.workspace = true
