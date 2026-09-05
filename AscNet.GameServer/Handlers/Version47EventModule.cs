@@ -333,13 +333,11 @@ namespace AscNet.GameServer.Handlers
             int businessDay = BusinessDay(now);
             if (state.LastDailyGrantBusinessDay != businessDay)
             {
-                List<RewardGoods> grant = RewardHandler.GiveRewards(
+                RewardApplicationResult result = RewardHandler.ApplyRewards(
                     RewardHandler.GetRewardGoods(activity.DailyTicketRewardId), session);
-                if (grant.Count > 0)
+                if (result.RewardGoods.Count > 0)
                 {
-                    // GiveRewards already pushed the NotifyItemDataList item grant; the exact
-                    // response follows it (retail order: item push then EnvelopeEnterResponse).
-                    response.RewardGoodsList.AddRange(grant);
+                    response.RewardGoodsList.AddRange(result.RewardGoods);
                     state.LastDailyGrantBusinessDay = businessDay;
                     session.inventory.Save();
                     session.character.Save();
@@ -347,9 +345,12 @@ namespace AscNet.GameServer.Handlers
                 }
                 else
                 {
+                    if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
+                        session.player.Save();
                     session.log.Error(
                         $"No reward is configured for Envelope daily ticket reward {activity.DailyTicketRewardId}.");
                 }
+                result.SendPushes(session);
             }
 
             response.OpenedCharacterIds = state.OpenedCharacterIds.Distinct().Order().ToList();

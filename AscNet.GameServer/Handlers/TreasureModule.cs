@@ -62,15 +62,16 @@ namespace AscNet.GameServer.Handlers
                 return new TreasureRewardResponse { Code = 20003010 };
             }
 
-            List<RewardGoods> rewardGoodsList = RewardHandler.GiveRewards(rewardGoods, session);
+            RewardApplicationResult result = RewardHandler.ApplyRewards(rewardGoods, session);
             session.player.Save();
             session.inventory.Save();
             session.character.Save();
+            result.SendPushes(session);
 
             return new TreasureRewardResponse
             {
                 Code = 0,
-                RewardGoodsList = rewardGoodsList
+                RewardGoodsList = result.RewardGoods
             };
         }
 

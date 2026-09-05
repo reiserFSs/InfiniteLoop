@@ -32,6 +32,7 @@ namespace AscNet.GameServer
         public readonly Dictionary<(uint EquipId, int Slot), ResonanceInfo> PendingEquipResonances = new();
         public int? AppliedTeamPrefabId;
         public readonly Dictionary<uint, (uint FashionId, int WeaponFashionId)> RandomFashionRolls = new();
+        internal Dictionary<int, (int Value, int State)>? TaskSnapshotProgress;
         public readonly Logger log;
         private int startState;
         private int packetNo = 0;
@@ -77,14 +78,27 @@ namespace AscNet.GameServer
             if (currentPlayer is null)
             {
                 if (Volatile.Read(ref disconnectState) == 0)
+                {
                     requestPacketHandler.Invoke(this, request);
+                    if (player is not null && Volatile.Read(ref disconnectState) == 0)
+                    {
+                        lock (GetPlayerOperationLock(player.PlayerData.Id))
+                            Handlers.TaskModule.SendSnapshotTaskSync(this);
+                    }
+                }
                 return;
             }
 
             lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
             {
                 if (Volatile.Read(ref disconnectState) == 0)
+                {
+                    if (character is not null && inventory is not null && stage is not null)
+                        Handlers.TaskModule.EnsureMissionResets(this);
                     requestPacketHandler.Invoke(this, request);
+                    if (Volatile.Read(ref disconnectState) == 0)
+                        Handlers.TaskModule.SendSnapshotTaskSync(this);
+                }
             }
         }
 

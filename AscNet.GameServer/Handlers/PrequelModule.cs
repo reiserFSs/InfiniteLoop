@@ -108,10 +108,13 @@ namespace AscNet.GameServer.Handlers
                 return new ReceivePrequelRewardResponse { Code = 0, StageId = stageId };
             }
 
-            RewardHandler.GiveRewards(rewards, session);
+            RewardApplicationResult rewardResult = RewardHandler.ApplyRewards(rewards, session);
             session.inventory.Save();
             session.character.Save();
             session.stage.Save();
+            if (rewardResult.DormFurnitureChanged || rewardResult.GatherRewardIds.Count > 0 || rewardResult.HeadPortraitData.Heads.Count > 0)
+                session.player.Save();
+            rewardResult.SendPushes(session);
 
             return new ReceivePrequelRewardResponse
             {

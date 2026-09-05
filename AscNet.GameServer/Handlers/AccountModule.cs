@@ -342,6 +342,8 @@ namespace AscNet.GameServer.Handlers
                     ReconnectToken = request.Token,
                     RequestNo = request.LastMsgSeqNo
                 }, packet.Id);
+                PartnerModule.SyncArchive(session);
+                TaskModule.SendTaskSync(session);
             }
         }
 
@@ -1223,7 +1225,9 @@ namespace AscNet.GameServer.Handlers
                     .Distinct()
                     .Order()
                     .ToList(),
-                UnlockComics = unlockComics
+                UnlockComics = unlockComics,
+                PartnerUnlockIds = player.ArchivePartnerUnlockIds.ToList(),
+                PartnerSettings = player.ArchivePartnerSettings.ToList()
             };
         }
 
@@ -1254,19 +1258,7 @@ namespace AscNet.GameServer.Handlers
             long currentTime = DateTimeOffset.Now.ToUnixTimeSeconds();
             long previousLastLoginTime = session.player.PlayerData.LastLoginTime;
             if (updateLoginAccounting)
-            {
-                bool isNewDay = currentTime / 86_400 > session.player.PlayerData.LastLoginTime / 86_400;
-                if (session.player.PlayerData.NewPlayerTaskActiveDay <= 0)
-                {
-                    session.player.PlayerData.NewPlayerTaskActiveDay = 1;
-                }
-                else if (isNewDay)
-                {
-                    session.player.PlayerData.NewPlayerTaskActiveDay += 1;
-                }
-
-                session.player.PlayerData.LastLoginTime = currentTime;
-            }
+                TaskModule.RecordLoginDay(session, currentTime);
             ReconcileGatherRewardBaselines(session);
             RepairProfileCosmeticRewards(session);
             session.player.NormalizeTeamPrefabs();
@@ -1274,6 +1266,8 @@ namespace AscNet.GameServer.Handlers
             Theatre6Module.ReconcileAvailability(session.player, DateTimeOffset.UtcNow);
             (ActivityResultNotify? arenaResult, NotifyArenaActivity arenaActivity) = ArenaModule.ReconcileLogin(session);
             StrongholdModule.PrepareLogin(session.player);
+            if (PartnerModule.RefreshArchive(session.player, session.character))
+                session.player.SaveChecked();
 
 
             // Reconcile before NotifyLogin so repaired equipped head ids are present in the login
@@ -1421,7 +1415,7 @@ namespace AscNet.GameServer.Handlers
             SendEmptyStartupPush(session, "NotifyCommunityData");
             Version47EventModule.SendLoginPushes(session, DateTimeOffset.UtcNow);
             SendEmptyStartupPush(session, "NotifyCoupletData");
-            SendEmptyStartupPush(session, "NotifyCourseData");
+            session.SendPush(CourseModule.BuildLoginData(session.player));
             SendEmptyStartupPush(session, "NotifyDoomsdayDbChange");
             session.SendPush(BuildActivityDrawListPayload(session.player));
             session.SendPush(BuildActivityDrawGroupCountPayload(session.player));

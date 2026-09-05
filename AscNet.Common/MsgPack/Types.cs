@@ -686,8 +686,8 @@ namespace AscNet.Common.MsgPack
         public List<UInt32> MonsterSkills { get; set; } = new();
         public List<UInt32> UnlockCgs { get; set; } = new();
         public List<dynamic> UnlockStoryDetails { get; set; } = new();
-        public List<dynamic> PartnerUnlockIds { get; set; } = new();
-        public List<dynamic> PartnerSettings { get; set; } = new();
+        public List<Int32> PartnerUnlockIds { get; set; } = new();
+        public List<Int32> PartnerSettings { get; set; } = new();
         public List<UInt32> UnlockPvDetails { get; set; } = new();
         public List<Int32> UnlockMails { get; set; } = new();
         public List<Int32> UnlockComics { get; set; } = new();
@@ -1653,12 +1653,12 @@ public sealed class NotifyBfrtProgressInfo
         {
             public Int32 TotalLessonPoint { get; set; }
             public Int32 MaxTotalLessonPoint { get; set; }
-            public List<dynamic> ChapterDataList { get; set; } = new();
-            public dynamic? StageDataDict { get; set; }
-            public List<dynamic> RewardIds { get; set; } = new();
+            public List<CourseChapterData> ChapterDataList { get; set; } = new();
+            public Dictionary<int, CourseStageData> StageDataDict { get; set; } = new();
+            public List<int> RewardIds { get; set; } = new();
         }
 
-        public NotifyCourseDataData Data { get; set; }
+        public NotifyCourseDataData Data { get; set; } = new();
     }
 
 

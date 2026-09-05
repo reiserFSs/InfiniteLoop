@@ -162,15 +162,17 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            ApplyShopCosts(session, goods, request.Count);
-            ApplyShopReward(session, rewardGoods);
+            List<(int ConditionType, int? Parameter, int Amount)> progress = ApplyShopCosts(session, goods, request.Count);
+            RewardApplicationResult? result = ApplyShopReward(session, rewardGoods);
             session.player.ShopBuyTimes ??= new();
             session.player.ShopBuyTimes[goods.Id] = checked(
                 session.player.ShopBuyTimes.GetValueOrDefault(goods.Id) + request.Count);
             session.inventory.Save();
             session.character.Save();
             session.player.Save();
-            TaskModule.RecordConditionType(session, 20201);
+            result?.SendPushes(session);
+            progress.Add((20201, checked((int)request.ShopId), request.Count));
+            TaskModule.RecordTableDrivenProgress(session, progress);
 
             response.Code = 0;
             response.GoodList.Add(rewardGoods);
@@ -519,27 +521,34 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
-        private static void ApplyShopCosts(Session session, ClientShopGoods goods, int count)
+        private static List<(int ConditionType, int? Parameter, int Amount)> ApplyShopCosts(Session session, ClientShopGoods goods, int count)
         {
             NotifyItemDataList notifyItemDataList = new();
+            List<(int ConditionType, int? Parameter, int Amount)> progress = new(goods.ConsumeList.Count + 1);
             foreach (ClientShopConsume consume in goods.ConsumeList)
             {
                 int totalCost = checked((int)((long)consume.Count * count));
-                notifyItemDataList.ItemDataList.Add(session.inventory.Do(consume.Id, -totalCost));
+                long before = session.inventory.Items.FirstOrDefault(item => item.Id == consume.Id)?.Count ?? 0;
+                Item updated = session.inventory.Do(consume.Id, -totalCost);
+                notifyItemDataList.ItemDataList.Add(updated);
+                int paid = checked((int)Math.Min(totalCost, Math.Max(0, before - updated.Count)));
+                if (paid > 0)
+                    progress.Add((11202, consume.Id, paid));
             }
 
             if (notifyItemDataList.ItemDataList.Count > 0)
             {
                 session.SendPush(notifyItemDataList);
             }
+            return progress;
         }
 
-        private static void ApplyShopReward(Session session, RewardGoods reward)
+        private static RewardApplicationResult? ApplyShopReward(Session session, RewardGoods reward)
         {
             if (!Enum.IsDefined(typeof(RewardType), reward.RewardType))
-                return;
+                return null;
 
-            RewardHandler.GiveRewards(new[]
+            return RewardHandler.ApplyRewards(new[]
             {
                 new Reward
                 {

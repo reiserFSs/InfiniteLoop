@@ -53,26 +53,33 @@ internal partial class Program
             out RecordingMongoCollectionProxy<Player> saves, out _, out _);
         using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(playerId), player,
             CreateDrawCompatibilityInventory(playerId, []), $"portrait-compat-{name}");
-        MethodInfo giveRewards = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler"),
-            "GiveRewards", BindingFlags.Static | BindingFlags.Public,
+        MethodInfo applyRewards = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler"),
+            "ApplyRewards", BindingFlags.Static | BindingFlags.Public,
             [typeof(IEnumerable<RewardGoodsTable>), typeof(Session)]);
 
-        giveRewards.Invoke(null, [new[] { reward }, harness.Session]);
+        Grant();
         NotifyHeadPortraitInfos push = ReadPushPayload<NotifyHeadPortraitInfos>(harness,
             nameof(NotifyHeadPortraitInfos), $"{name} RewardGoods portrait push");
         AssertIntegerList([reward.TemplateId], push.Heads.Select(head => head.Id).ToArray(),
             $"{name} RewardGoods exact Heads");
         AssertIntegerList([reward.TemplateId], player.HeadPortraits.Select(head => head.Id).ToArray(),
             $"{name} RewardGoods stored heads");
-        AssertEqual(1, saves.ReplaceOneCalls, $"{name} RewardGoods saves player once");
         Player persisted = BsonSerializer.Deserialize<Player>((saves.LastReplacement
             ?? throw new InvalidDataException($"{name} RewardGoods did not persist player.")).ToBson());
         AssertIntegerList([reward.TemplateId], persisted.HeadPortraits.Select(head => head.Id).ToArray(),
             $"{name} RewardGoods BSON heads");
 
-        giveRewards.Invoke(null, [new[] { reward }, harness.Session]);
-        AssertEqual(1, saves.ReplaceOneCalls, $"duplicate {name} RewardGoods does not save");
+        Grant();
         AssertNoAvailablePacket(harness, $"duplicate {name} RewardGoods");
+
+        void Grant()
+        {
+            object application = applyRewards.Invoke(null, [new[] { reward }, harness.Session])
+                ?? throw new InvalidDataException($"{name} RewardGoods application returned null.");
+            player.SaveChecked();
+            application.GetType().GetMethod("SendPushes", BindingFlags.Instance | BindingFlags.Public)!
+                .Invoke(application, [harness.Session]);
+        }
     }
 
     private static void ValidateFashionGiftRepair(IReadOnlyCollection<HeadPortraitTable> heads)
@@ -268,14 +275,14 @@ internal partial class Program
         const long playerId = 46_999;
         Player player = CreateDrawCompatibilityPlayer(playerId);
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
-            out RecordingMongoCollectionProxy<Player> saves, out _, out _);
+            out _, out _, out _);
         using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(playerId), player,
             CreateDrawCompatibilityInventory(playerId, []), "portrait-compat-malformed");
-        MethodInfo giveRewards = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler"),
-            "GiveRewards", BindingFlags.Static | BindingFlags.Public,
+        MethodInfo applyRewards = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler"),
+            "ApplyRewards", BindingFlags.Static | BindingFlags.Public,
             [typeof(IEnumerable<Reward>), typeof(Session)]);
 
-        giveRewards.Invoke(null,
+        object application = applyRewards.Invoke(null,
         [
             new Reward[]
             {
@@ -283,9 +290,10 @@ internal partial class Program
                 new() { Id = int.MaxValue, Type = RewardType.HeadPortrait }
             },
             harness.Session
-        ]);
+        ]) ?? throw new InvalidDataException("Malformed portrait reward application returned null.");
+        application.GetType().GetMethod("SendPushes", BindingFlags.Instance | BindingFlags.Public)!
+            .Invoke(application, [harness.Session]);
         AssertEqual(0, player.HeadPortraits.Count, "malformed portrait IDs do not mutate player");
-        AssertEqual(0, saves.ReplaceOneCalls, "malformed portrait IDs do not persist player");
         AssertNoAvailablePacket(harness, "malformed portrait IDs");
     }
 

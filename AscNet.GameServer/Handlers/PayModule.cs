@@ -141,10 +141,11 @@ namespace AscNet.GameServer.Handlers
                 response.RewardList = ReadPurchaseRewards(purchaseInfo, count);
 
                 ApplyPurchaseCost(session, purchaseInfo, count);
-                ApplyPurchaseRewards(session, response.RewardList);
-                session.inventory.Save();
-                session.character.Save();
-                session.player.Save();
+                RewardApplicationResult rewards = ApplyPurchaseRewards(session, response.RewardList);
+                session.inventory.SaveChecked();
+                session.character.SaveChecked();
+                session.player.SaveChecked();
+                rewards.SendPushes(session);
             }
             else
             {
@@ -244,7 +245,7 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyItemDataList);
         }
 
-        private static void ApplyPurchaseRewards(Session session, IEnumerable<RewardGoods> rewardGoodsList)
+        private static RewardApplicationResult ApplyPurchaseRewards(Session session, IEnumerable<RewardGoods> rewardGoodsList)
         {
             List<Reward> rewards = [];
             foreach (RewardGoods rewardGoods in rewardGoodsList)
@@ -261,7 +262,7 @@ namespace AscNet.GameServer.Handlers
                 });
             }
 
-            RewardHandler.GiveRewards(rewards, session);
+            return RewardHandler.ApplyRewards(rewards, session);
         }
 
         private static int ReadDynamicInt(Dictionary<dynamic, dynamic> data, string name)

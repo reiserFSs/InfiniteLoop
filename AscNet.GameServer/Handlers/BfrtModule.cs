@@ -149,9 +149,56 @@ internal static class BfrtModule
         BfrtChapterTable? chapter = TableReaderV2.Parse<BfrtChapterTable>().FirstOrDefault(row => row.ChapterId == request.BfrtChapterId && row.GroupId.Contains(request.BfrtGroupId));
         BfrtGroupTable? group = Groups.FirstOrDefault(row => row.GroupId == request.BfrtGroupId);
         BfrtTeamState? team = State(session).Teams.FirstOrDefault(value => value.Id == request.BfrtGroupId);
-        uint[] characterIds = team?.FightTeamList.Concat(team.LogisticsTeamList).SelectMany(row => row ?? []).Where(id => id > 0).Distinct().ToArray() ?? [];
-        int averageAbility = characterIds.Length == 0 ? 0 : (int)characterIds.Average(id => session.character.Characters.First(character => character.Id == id).Ability);
-        bool valid = chapter is not null && group is not null && team is not null && averageAbility >= group.NeedPoint;
+        // CodeText identities, not its offset English translations. Retail failure precedence
+        // is unobserved; validate configuration, formation/ownership, then computed power.
+        const int FubenManagerBfrtNotGroup = 20003028;
+        const int FubenBfrtChapterNotOpen = 20003159;
+        const int FubenManagerBfrtClearIsNotOpen = 20003168;
+        const int FubenManagerBfrtNotSetTeam = 20003169;
+        const int FubenManagerBfrtTeamError = 20003033;
+        const int CharacterManagerGetCharacterByIdNotFound = 20009011;
+        const int FubenManagerBfrtTeamFightNotEnough = 20003171;
+        int code = group is null ? FubenManagerBfrtNotGroup
+            : chapter is null ? FubenBfrtChapterNotOpen
+            : group.ClearOpen <= 0 ? FubenManagerBfrtClearIsNotOpen
+            : team is null ? FubenManagerBfrtNotSetTeam : 0;
+        if (code == 0)
+        {
+            List<EchelonInfoTable> echelons = TableReaderV2.Parse<EchelonInfoTable>();
+            int requiredMembers = group!.FightInfoId.Sum(id => echelons.Single(row => row.Id == id).NeedCharacter);
+            bool validTeams = team!.FightTeamList.Count == group.FightInfoId.Count
+                && team.CaptainPosList.Count == team.FightTeamList.Count
+                && team.FirstFightPosList.Count == team.FightTeamList.Count
+                && team.FightTeamList.Concat(team.LogisticsTeamList).All(row => row is not null
+                    && row.Count <= 3 && row.Where(id => id > 0).Distinct().Count() == row.Count(id => id > 0))
+                && team.FightTeamList.Select((row, index) =>
+                    team.CaptainPosList[index] > 0 && team.CaptainPosList[index] <= row.Count
+                    && row[team.CaptainPosList[index] - 1] > 0
+                    && team.FirstFightPosList[index] > 0 && team.FirstFightPosList[index] <= row.Count
+                    && row[team.FirstFightPosList[index] - 1] > 0).All(valid => valid);
+            // The client counts occupied slots across both formations, not distinct IDs.
+            uint[] characterIds = team.FightTeamList.Concat(team.LogisticsTeamList)
+                .SelectMany(row => row ?? []).Where(id => id > 0).ToArray();
+            if (!validTeams || characterIds.Length == 0 || characterIds.Length != requiredMembers)
+                code = FubenManagerBfrtTeamError;
+            else
+            {
+                long totalAbility = 0;
+                foreach (uint id in characterIds)
+                {
+                    CharacterData? character = session.character.Characters.FirstOrDefault(character => character.Id == id);
+                    if (character is null)
+                    {
+                        code = CharacterManagerGetCharacterByIdNotFound;
+                        break;
+                    }
+                    totalAbility += CharacterPower.Calculate(session, character);
+                }
+                if (code == 0 && totalAbility / characterIds.Length < group.NeedPoint)
+                    code = FubenManagerBfrtTeamFightNotEnough;
+            }
+        }
+        bool valid = code == 0;
         BfrtGroupState? record = null;
         if (valid)
         {
@@ -159,7 +206,7 @@ internal static class BfrtModule
             if (!State(session).Groups.Contains(record)) State(session).Groups.Add(record);
             CompleteGroup(session, group!, record);
         }
-        session.SendResponse(new BfrtOneKeyPassGroupResponse { Code = valid ? 0 : Invalid, BfrtGroupRecord = valid ? new BfrtGroupRecord { Id = record!.Id, Count = record.Count, IsRecvReward = record.IsRecvReward } : null }, packet.Id);
+        session.SendResponse(new BfrtOneKeyPassGroupResponse { Code = code, BfrtGroupRecord = valid ? new BfrtGroupRecord { Id = record!.Id, Count = record.Count, IsRecvReward = record.IsRecvReward } : null }, packet.Id);
     }
 
     [RequestPacketHandler("BfrtResetGroupStageRequest")]

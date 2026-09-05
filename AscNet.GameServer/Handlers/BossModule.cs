@@ -904,19 +904,20 @@ namespace AscNet.GameServer.Handlers
             if (eligible.Count > 0 && goods.Count == 0)
                 throw new InvalidDataException($"Pain Cage reward rows {string.Join(",", rewardIds)} resolve to no goods.");
 
-            List<RewardGoods> responseGoods = RewardHandler.GiveRewards(goods, session);
+            RewardApplicationResult rewardResult = RewardHandler.ApplyRewards(goods, session);
             state.BossClaimedRewardIds.AddRange(eligible.Select(row => row.Id));
             state.BossClaimedRewardIds = state.BossClaimedRewardIds.Distinct().OrderBy(id => id).ToList();
             session.inventory.Save();
             session.character.Save();
             session.player.Save();
+            rewardResult.SendPushes(session);
             session.SendPush(BuildLoginData(session.player));
             if (requestedId is null)
             {
                 session.SendResponse(new BossSingleGetAllRewardResponse
                 {
                     Code = 0,
-                    RewardGoodsList = responseGoods
+                    RewardGoodsList = rewardResult.RewardGoods
                 }, packetId);
             }
             else
@@ -924,7 +925,7 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new BossSingleGetRewardResponse
                 {
                     Code = 0,
-                    RewardGoodsList = responseGoods
+                    RewardGoodsList = rewardResult.RewardGoods
                 }, packetId);
             }
         }

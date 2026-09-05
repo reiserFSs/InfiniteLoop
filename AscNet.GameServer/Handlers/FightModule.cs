@@ -443,6 +443,16 @@ namespace AscNet.GameServer.Handlers
         public static void PreFightRequestHandler(Session session, Packet.Request packet)
         {
             PreFightRequest req = packet.Deserialize<PreFightRequest>();
+            bool isCourseStage = CourseModule.IsStage(req.PreFightData.StageId);
+            int courseCode = isCourseStage
+                && (req.PreFightData.ChallengeCount != 1 || req.PreFightData.SpeedrunStageId != 0)
+                    ? CourseModule.InvalidStage
+                    : CourseModule.ValidatePreFight(session, req.PreFightData.StageId);
+            if (courseCode != 0)
+            {
+                session.SendResponse(new PreFightResponse { Code = courseCode }, packet.Id);
+                return;
+            }
             int explorePreFightCode = ExploreModule.ValidatePreFight(session, req.PreFightData);
             if (explorePreFightCode != 0)
             {
@@ -836,6 +846,8 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
+            if (isCourseStage)
+                CourseModule.CancelPendingResult(session);
             session.fight = new(req, rsp.FightData.FightId);
             session.SendResponse(rsp, packet.Id);
         }
@@ -1054,7 +1066,8 @@ namespace AscNet.GameServer.Handlers
             EnterStoryRequest req = packet.Deserialize<EnterStoryRequest>();
             EnterStoryResponse response = new();
 
-            if (req.StageId <= 0 || !TableReaderV2.Parse<StageTable>().Any(stage => stage.StageId == req.StageId))
+            StageTable? stageTable = TableReaderV2.Parse<StageTable>().FirstOrDefault(stage => stage.StageId == req.StageId);
+            if (req.StageId <= 0 || stageTable is null)
             {
                 response.Code = FashionStoryModule.StageNotFound;
                 session.SendResponse(response, packet.Id);
@@ -1066,6 +1079,19 @@ namespace AscNet.GameServer.Handlers
                 && (validationCode != 0 || FashionStoryModule.IsTrialStage(session, req.StageId)))
             {
                 response.Code = validationCode != 0 ? validationCode : FashionStoryModule.StageLocked;
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
+            // MainLine2 routes by detail type; other story UIs use STORY = 2 / STORYEGG = 3.
+            MainLine2StageTable? mainLineStage = TableReaderV2.Parse<MainLine2StageTable>()
+                .FirstOrDefault(stage => stage.Id == req.StageId);
+            bool isStoryStage = mainLineStage is not null
+                ? mainLineStage.StageDetailType is 1 or 2
+                : stageTable.StageType is 2 or 3;
+            if (!isStoryStage)
+            {
+                response.Code = FashionStoryModule.StageNotFound;
                 session.SendResponse(response, packet.Id);
                 return;
             }
@@ -1082,6 +1108,7 @@ namespace AscNet.GameServer.Handlers
                 };
                 session.stage.AddStage(stageData);
                 session.stage.Save();
+                TaskModule.RecordStageClear(session, req.StageId, 1, 0, true);
             }
 
             session.SendPush(new NotifyStageData { StageList = [stageData] });
@@ -2384,20 +2411,15 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new FightSettleResponse { Code = FightAuthorizationError }, packet.Id);
                 return;
             }
+            bool isCourseStage = CourseModule.IsStage(req.Result.StageId);
+            int courseCode = CourseModule.ValidateBattleResult(req.Result);
+            if (courseCode != 0)
+            {
+                session.SendResponse(new FightSettleResponse { Code = courseCode }, packet.Id);
+                return;
+            }
             if (session.player.Stronghold.PendingStageId == (int)req.Result.StageId)
             {
-                if (req.Result.IsWin && session.stage is not null)
-                {
-                    StageDatum strongholdStageDatum = session.stage.Stages.GetValueOrDefault(req.Result.StageId) ?? new StageDatum
-                    {
-                        StageId = req.Result.StageId,
-                        CreateTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-                    };
-                    strongholdStageDatum.Passed = true;
-                    strongholdStageDatum.StarsMark |= 7;
-                    session.stage.AddStage(strongholdStageDatum);
-                    session.stage.Save();
-                }
                 StrongholdFightResult strongholdResult = StrongholdModule.Settle(session.player, req.Result.IsWin, session);
                 StrongholdGroupInfo? groupInfo = session.player.Stronghold.GroupInfos
                     .FirstOrDefault(group => group.Id == strongholdResult.GroupFightResultInfos.FirstOrDefault()?.GroupId);
@@ -2579,12 +2601,7 @@ namespace AscNet.GameServer.Handlers
 
 
             List<List<RewardGoods>> multiRewards = new();
-            List<RewardApplicationResult>? deferredRewardApplications = null;
-            bool deferFashionFirstClearPushes = isFashionStage
-                && isFirstClear
-                && FashionStoryModule.IsTrialStage(session, (int)req.Result.StageId);
-            if (deferFashionFirstClearPushes)
-                deferredRewardApplications = [];
+            List<RewardApplicationResult> deferredRewardApplications = [];
             List<RewardTable> rewardTables = TableReaderV2.Parse<RewardTable>()
                 .Where(x => rewardIds.Contains(x.Id))
                 .ToList();
@@ -2623,23 +2640,11 @@ namespace AscNet.GameServer.Handlers
                         .Select(x => TableReaderV2.Parse<RewardGoodsTable>().FirstOrDefault(y => y.Id == x))
                         .OfType<RewardGoodsTable>();
 
-                if (deferredRewardApplications is not null)
-                {
-                    RewardApplicationResult application = RewardHandler.ApplyRewards(rewardGoods, session);
-                    deferredRewardApplications.Add(application);
-                    multiRewards.Add(new List<RewardGoods>(application.RewardGoods));
-                }
-                else
-                {
-                    List<RewardGoods> rewards = RewardHandler.GiveRewards(rewardGoods, session);
-                    multiRewards.Add(new List<RewardGoods>(rewards));
-                }
+                RewardApplicationResult application = RewardHandler.ApplyRewards(rewardGoods, session);
+                deferredRewardApplications.Add(application);
+                multiRewards.Add(new List<RewardGoods>(application.RewardGoods));
             }
 
-            if (notifyItemData.ItemDataList.Count > 0 && !deferFashionFirstClearPushes)
-            {
-                session.SendPush(notifyItemData);
-            }
             session.ExpSanityCheck();
             NotifyCharacterDataList? deferredCharacterData = null;
 
@@ -2658,10 +2663,7 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
                 
-                if (!deferFashionFirstClearPushes)
-                    session.SendPush(charData);
-                if (deferFashionFirstClearPushes)
-                    deferredCharacterData = charData;
+                deferredCharacterData = charData;
             }
 
             List<long> bestCardIds = req.Result.NpcDpsTable?
@@ -2671,7 +2673,9 @@ namespace AscNet.GameServer.Handlers
             int requestedAchievement = IsMainLine2AchievementStage(req.Result.StageId) || IsMainLine2AchievementStage(responseStageId)
                 ? Math.Max(0, req.Result.Achievement)
                 : 0;
-            long stageStarsMark = (previousStageData?.StarsMark ?? 0L) | (isQuickClear ? 0L : 7L);
+            long stageStarsMark = isCourseStage
+                ? req.Result.AddStars
+                : (previousStageData?.StarsMark ?? 0L) | (isQuickClear ? 0L : 7L);
             long stageAchievement = (previousStageData?.Achievement ?? 0L) | (long)requestedAchievement;
             StageDatum stageData = BuildFightSettleStageDatum(
                 responseStageId,
@@ -2722,17 +2726,15 @@ namespace AscNet.GameServer.Handlers
             session.inventory.Save();
             session.character.Save();
             session.stage.Save();
-            if (deferredRewardApplications is not null)
+            CourseModule.RecordBattleResult(session, req.Result);
+            foreach (RewardApplicationResult application in deferredRewardApplications)
+                application.SendPushes(session);
+            if (notifyItemData.ItemDataList.Count > 0)
+                session.SendPush(notifyItemData);
+            if (deferredCharacterData is not null
+                && deferredCharacterData.CharacterDataList.Count > 0)
             {
-                foreach (RewardApplicationResult application in deferredRewardApplications)
-                    application.SendPushes(session);
-                if (notifyItemData.ItemDataList.Count > 0)
-                    session.SendPush(notifyItemData);
-                if (deferredCharacterData is not null
-                    && deferredCharacterData.CharacterDataList.Count > 0)
-                {
-                    session.SendPush(deferredCharacterData);
-                }
+                session.SendPush(deferredCharacterData);
             }
 
             FightSettleResponse fightSettleResponse = new()
@@ -2770,6 +2772,7 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(RepeatChallengeModule.BuildExpChange(session.player));
             if (updatedTrial)
                 session.SendPush(TrialModule.BuildLoginData(session.player));
+            // Generic fights do not deduct ActionPoint; sweep and special-mode owners record their own costs.
             TaskModule.RecordStageClear(session, (int)req.Result.StageId, challengeCount, 0, isFirstClear);
             GuideModule.CompleteOpenedGuideOnStageSettle(session, [req.Result.StageId, responseStageId]);
             session.SendResponse(fightSettleResponse, packet.Id);

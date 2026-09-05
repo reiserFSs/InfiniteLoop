@@ -129,9 +129,12 @@ namespace AscNet.GameServer.Handlers
             {
                 ItemDataList = { session.inventory.Do(itemId, -count) }
             });
-            RewardHandler.GiveRewards(rewards, session);
+            RewardApplicationResult result = RewardHandler.ApplyRewards(rewards, session);
             session.inventory.Save();
             session.character.Save();
+            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
+                session.player.Save();
+            result.SendPushes(session);
             session.SendResponse(response, packet.Id);
         }
 

@@ -4,6 +4,8 @@ using AscNet.Common.Util;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.partner;
 using AscNet.Table.V2.share.partner.leveluptemplate;
+using AscNet.Table.V2.share.archive;
+using ArchiveCondition = AscNet.Table.V2.share.condition.ConditionTable;
 using MessagePack;
 
 namespace AscNet.GameServer.Handlers
@@ -157,6 +159,18 @@ namespace AscNet.GameServer.Handlers
         public int Code;
     }
 
+    [MessagePackObject(true)]
+    public class NotifyArchivePartners
+    {
+        public List<int> PartnerUnlockIds { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
+    public class NotifyPartnerSettings
+    {
+        public List<int> PartnerSettings { get; set; } = new();
+    }
+
 
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
@@ -164,6 +178,85 @@ namespace AscNet.GameServer.Handlers
     internal class PartnerModule
     {
         private const int ErrorCode = 1;
+        private static readonly Lazy<Dictionary<int, ArchiveCondition>> ArchiveConditions = new(() =>
+            TableReaderV2.Parse<ArchiveCondition>().ToDictionary(row => row.Id));
+
+        internal static bool RefreshArchive(Player player, Character character)
+        {
+            bool changed = false;
+            foreach (PartnerData partner in character.Partners)
+            {
+                if (!player.ArchivePartnerUnlockIds.Contains(partner.TemplateId))
+                {
+                    player.ArchivePartnerUnlockIds.Add(partner.TemplateId);
+                    changed = true;
+                }
+            }
+            foreach (PartnerSettingTable setting in TableReaderV2.Parse<PartnerSettingTable>())
+            {
+                if (player.ArchivePartnerSettings.Contains(setting.Id)
+                    || !player.ArchivePartnerUnlockIds.Contains(setting.GroupId)
+                    || !MeetsArchiveCondition(character, setting.Condition))
+                    continue;
+                player.ArchivePartnerSettings.Add(setting.Id);
+                changed = true;
+            }
+            return changed;
+        }
+
+        private static bool MeetsArchiveCondition(Character character, int conditionId)
+        {
+            if (conditionId == 0)
+                return true;
+            if (!ArchiveConditions.Value.TryGetValue(conditionId, out ArchiveCondition? condition))
+                return false;
+            List<int> parameters = condition.Params;
+            return character.Partners.Any(partner => parameters.Count > 0
+                && partner.TemplateId == parameters[0]
+                && (condition.Type switch
+                {
+                    // An overclock resets level; a later overclock has already passed the earlier tier.
+                    10136 => parameters.Count >= 3 && (partner.BreakThrough > parameters[1]
+                        || partner.BreakThrough == parameters[1] && partner.Level >= parameters[2]),
+                    10137 => parameters.Count >= 2 && partner.Quality >= parameters[1],
+                    // XPartner:GetTotalSkillLevel counts one shared main level and every passive.
+                    10138 => parameters.Count >= 2
+                        && (partner.SkillList.FirstOrDefault(skill => skill.Type == 1)?.Level ?? 0)
+                            + partner.SkillList.Where(skill => skill.Type == 2).Sum(skill => skill.Level) >= parameters[1],
+                    _ => false
+                }));
+        }
+
+        internal static void SyncArchive(Session session)
+        {
+            int partnerCount = session.player.ArchivePartnerUnlockIds.Count;
+            int settingCount = session.player.ArchivePartnerSettings.Count;
+            if (!RefreshArchive(session.player, session.character))
+                return;
+            try
+            {
+                session.player.Save();
+            }
+            catch
+            {
+                session.player.ArchivePartnerUnlockIds.RemoveRange(partnerCount,
+                    session.player.ArchivePartnerUnlockIds.Count - partnerCount);
+                session.player.ArchivePartnerSettings.RemoveRange(settingCount,
+                    session.player.ArchivePartnerSettings.Count - settingCount);
+                throw;
+            }
+            if (session.player.ArchivePartnerUnlockIds.Count > partnerCount)
+                session.SendPush(new NotifyArchivePartners
+                {
+                    PartnerUnlockIds = session.player.ArchivePartnerUnlockIds.Skip(partnerCount).ToList()
+                });
+            if (session.player.ArchivePartnerSettings.Count > settingCount)
+                session.SendPush(new NotifyPartnerSettings
+                {
+                    PartnerSettings = session.player.ArchivePartnerSettings.Skip(settingCount).ToList()
+                });
+        }
+
 
         [RequestPacketHandler("PartnerComposeRequest")]
         public static void PartnerComposeRequestHandler(Session session, Packet.Request packet)
@@ -213,6 +306,7 @@ namespace AscNet.GameServer.Handlers
                 PartnerDataList = partners,
                 OperateTypes = Enumerable.Repeat(1, partners.Count).ToList()
             });
+            SyncArchive(session);
             session.SendResponse(new PartnerComposeResponse(), packet.Id);
         }
 
@@ -267,6 +361,7 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyItems);
             session.inventory.Save();
             session.character.Save();
+            SyncArchive(session);
             session.SendResponse(new PartnerLevelUpResponse
             {
                 Level = partner.Level,
@@ -298,6 +393,7 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyItems);
             session.inventory.Save();
             session.character.Save();
+            SyncArchive(session);
             session.SendResponse(new PartnerBreakThroughResponse
             {
                 BreakTimes = partner.BreakThrough
@@ -347,9 +443,10 @@ namespace AscNet.GameServer.Handlers
                 notifyItems.ItemDataList.Add(session.inventory.Do(itemId, -count));
             skill.Level = checked(skill.Level + times);
             session.SendPush(notifyItems);
-            SendPartnerUpdate(session, partner);
             session.inventory.Save();
             session.character.Save();
+            SendPartnerUpdate(session, partner);
+            SyncArchive(session);
             session.SendResponse(new PartnerSkillUpResponse
             {
                 SkillUpInfo =
@@ -540,9 +637,10 @@ namespace AscNet.GameServer.Handlers
             notifyItems.ItemDataList.Add(session.inventory.Do(evolutionItemId, -evolutionItemCount));
             partner.Quality++;
             session.SendPush(notifyItems);
-            SendPartnerUpdate(session, partner);
             session.inventory.Save();
             session.character.Save();
+            SendPartnerUpdate(session, partner);
+            SyncArchive(session);
             session.SendResponse(new PartnerEvolutionResponse(), packet.Id);
         }
 

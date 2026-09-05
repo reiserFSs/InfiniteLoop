@@ -408,18 +408,20 @@ namespace AscNet.GameServer.Handlers
             rsp.RewardGoodsList = rewards.Select(ToDrawRewardGoods).ToList();
 
             DrawInfo? drawInfo = DrawManager.ApplyDrawProgress(session.player, request.DrawId, drawCount);
-            if (drawInfo is not null)
+            if (drawInfo is null)
             {
-                rsp.ClientDrawInfo = drawInfo;
-                if (requiredCost > 0)
+                session.SendResponse(new DrawDrawCardResponse { Code = 1 }, packet.Id);
+                return;
+            }
+            rsp.ClientDrawInfo = drawInfo;
+            if (requiredCost > 0)
+            {
+                rewards.Add(new Reward
                 {
-                    rewards.Add(new Reward
-                    {
-                        Id = costItemId,
-                        Count = -(int)requiredCost,
-                        Type = RewardType.Item,
-                    });
-                }
+                    Id = costItemId,
+                    Count = -(int)requiredCost,
+                    Type = RewardType.Item,
+                });
             }
 
             for (int rewardIndex = 0; rewardIndex < rsp.RewardGoodsList.Count; rewardIndex++)
@@ -451,10 +453,13 @@ namespace AscNet.GameServer.Handlers
 
             DrawManager.RecordDrawHistory(session.player, request.DrawId, rsp.RewardGoodsList);
 
-            RewardHandler.GiveRewards(rewards, session);
+            RewardApplicationResult result = RewardHandler.ApplyRewards(rewards, session);
             session.inventory.Save();
             session.character.Save();
             session.player.Save();
+            result.SendPushes(session);
+            if (requiredCost > 0)
+                TaskModule.RecordTableDrivenProgress(session, [(11202, costItemId, (int)requiredCost)]);
             session.SendResponse(rsp, packet.Id);
         }
 

@@ -26,6 +26,7 @@ namespace AscNet.GameServer.Commands
             switch (Op)
             {
                 case "add":
+                    RewardApplicationResult result;
                     if (Target == "all")
                     {
                         HashSet<uint> ownedCharacterIds = session.character.Characters
@@ -36,12 +37,17 @@ namespace AscNet.GameServer.Commands
                                 && !ownedCharacterIds.Contains((uint)character.Id))
                             .Select(character => new Reward { Id = character.Id, Type = RewardType.Character });
 
-                        RewardHandler.GiveRewards(rewards, session);
+                        result = RewardHandler.ApplyRewards(rewards, session);
                     }
                     else
                     {
-                        RewardHandler.GiveRewards([ new Reward() { Id = id, Type = RewardType.Character } ], session);
+                        result = RewardHandler.ApplyRewards([ new Reward() { Id = id, Type = RewardType.Character } ], session);
                     }
+                    session.inventory.SaveChecked();
+                    session.character.SaveChecked();
+                    if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
+                        session.player.SaveChecked();
+                    result.SendPushes(session);
                     break;
                 default:
                     throw new InvalidOperationException("Invalid operation!");

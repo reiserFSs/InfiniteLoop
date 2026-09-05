@@ -222,9 +222,12 @@ internal partial class Program
             AssertEqual(config.InitQuality, partner.Quality, $"composed partner {templateId} initial quality");
             AssertEqual(1, partner.Level, $"composed partner {templateId} level");
             AssertEqual(1, character.Partners.Count, $"composed partner {templateId} persisted count");
-            AssertEqual(0, ReadResponsePayload<PartnerComposeResponse>(
-                harness.ReadPacket("PartnerComposeResponse"), nameof(PartnerComposeResponse)).Code,
+            AssertEqual(0, ((PartnerComposeResponse)ReadResponsePayload(
+                harness, 19_001, nameof(PartnerComposeResponse), "PartnerComposeResponse",
+                typeof(PartnerComposeResponse), maxPacketsToRead: 16)).Code,
                 $"composed partner {templateId} code");
+            AssertEqual(true, harness.Session.player.ArchivePartnerUnlockIds.Contains(templateId),
+                $"composed partner {templateId} archive membership");
         }
     }
 
@@ -278,10 +281,13 @@ internal partial class Program
             AssertIntegerList([1], partnerPush.OperateTypes.Select(v => (long)v).ToArray(),
                 $"draw attempt {attempt} obtain operation");
 
-            DrawDrawCardResponse rsp = ReadResponsePayload<DrawDrawCardResponse>(
-                harness, packetId++, nameof(DrawDrawCardResponse), $"draw attempt {attempt} response");
+            DrawDrawCardResponse rsp = (DrawDrawCardResponse)ReadResponsePayload(
+                harness, packetId++, nameof(DrawDrawCardResponse), $"draw attempt {attempt} response",
+                typeof(DrawDrawCardResponse), maxPacketsToRead: 16);
             AssertEqual(0, rsp.Code, $"draw attempt {attempt} code");
             AssertEqual(before + 1, character.Partners.Count, $"draw attempt {attempt} persisted partner count");
+            AssertEqual(true, harness.Session.player.ArchivePartnerUnlockIds.Contains(acquired.TemplateId),
+                $"draw attempt {attempt} archive membership");
         }
 
         if (character.Partners.Select(p => p.Id).Distinct().Count() != 2)
@@ -351,9 +357,9 @@ internal partial class Program
         using LoopbackSessionHarness poorHarness = new(poorCharacter, inventory: poorInventory, sessionId: "partner-poor-test");
         InvokeRequestHandler(poorHarness, nameof(PartnerLevelUpRequest), 19_201,
             new PartnerLevelUpRequest { PartnerId = partner.Id, UseItems = new() { [30113] = 1 } });
-        AssertEqual(1, ReadResponsePayload<PartnerLevelUpResponse>(
-            poorHarness.ReadPacket("insufficient PartnerLevelUpResponse"),
-            nameof(PartnerLevelUpResponse)).Code,
+        AssertEqual(1, ((PartnerLevelUpResponse)ReadResponsePayload(
+            poorHarness, 19_201, nameof(PartnerLevelUpResponse), "insufficient PartnerLevelUpResponse",
+            typeof(PartnerLevelUpResponse), maxPacketsToRead: 16)).Code,
             "insufficient partner level-up rejected");
 
         PartnerBreakThroughTable breakthrough = TableReaderV2.Parse<PartnerBreakThroughTable>()
@@ -361,8 +367,9 @@ internal partial class Program
         InvokeRequestHandler(harness, nameof(PartnerLevelUpRequest), 19_202,
             new PartnerLevelUpRequest { PartnerId = partner.Id, UseItems = new() { [30113] = 1 } });
         harness.ReadPacket("level-up item push");
-        PartnerLevelUpResponse levelUp = ReadResponsePayload<PartnerLevelUpResponse>(
-            harness.ReadPacket("PartnerLevelUpResponse"), nameof(PartnerLevelUpResponse));
+        PartnerLevelUpResponse levelUp = (PartnerLevelUpResponse)ReadResponsePayload(
+            harness, 19_202, nameof(PartnerLevelUpResponse), "PartnerLevelUpResponse",
+            typeof(PartnerLevelUpResponse), maxPacketsToRead: 16);
         AssertEqual(0, levelUp.Code, "partner level-up code");
         AssertEqual(true, partner.Level > 1, "partner level advanced");
         AssertEqual(savesBefore + 1, characterCollection.ReplaceOneCalls, "partner level-up persists Character");

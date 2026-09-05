@@ -58,7 +58,10 @@ namespace AscNet.GameServer.Handlers
             if (CharacterData.CharacterDataList.Count > 0)
                 session.SendPush(CharacterData);
             if (PartnerData.PartnerDataList.Count > 0)
+            {
                 session.SendPush(PartnerData);
+                PartnerModule.SyncArchive(session);
+            }
             foreach (int id in GatherRewardIds)
                 session.SendPush(new NotifyGatherReward { Id = id });
             if (HeadPortraitData.Heads.Count > 0)
@@ -507,24 +510,6 @@ namespace AscNet.GameServer.Handlers
             }
         }
 
-        public static List<RewardGoods> GiveRewards(
-            IEnumerable<RewardGoodsTable> rewardGoods,
-            Session session)
-        {
-            RewardApplicationResult result = ApplyRewards(rewardGoods, session);
-            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
-                session.player.Save();
-            result.SendPushes(session);
-            return result.RewardGoods;
-        }
-
-        public static void GiveRewards(IEnumerable<Reward> rewards, Session session)
-        {
-            RewardApplicationResult result = ApplyRewards(rewards, session);
-            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
-                session.player.Save();
-            result.SendPushes(session);
-        }
 
         public static List<Reward> ResolveRewards(IEnumerable<Reward> rewards, Session session)
         {

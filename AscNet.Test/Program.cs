@@ -134,6 +134,56 @@ namespace AscNet.Test
                     ValidateGoldenVortexCompatibility();
                     return;
                 }
+                if (args.Contains("--task-progress-only"))
+                {
+                    ValidateTaskProgressCompatibility();
+                    return;
+                }
+                if (args.Contains("--character-task-progress-only"))
+                {
+                    ValidateCharacterTaskProgressCompatibility();
+                    return;
+                }
+                if (args.Contains("--equip-task-progress-only"))
+                {
+                    ValidateEquipTaskProgressCompatibility();
+                    return;
+                }
+                if (args.Contains("--sweep-task-progress-only"))
+                {
+                    ValidateSweepTaskProgressCompatibility();
+                    return;
+                }
+                if (args.Contains("--shop-task-progress-only"))
+                {
+                    ValidateShopTaskProgressCompatibility();
+                    return;
+                }
+                if (args.Contains("--draw-task-progress-only"))
+                {
+                    ValidateDrawTaskProgressCompatibility();
+                    return;
+                }
+                if (args.Contains("--partner-story-only"))
+                {
+                    ValidatePartnerStoryCompatibility();
+                    return;
+                }
+                if (args.Contains("--course-only"))
+                {
+                    ValidateCourseCompatibility();
+                    return;
+                }
+                if (args.Contains("--equip-guide-goal-only"))
+                {
+                    ValidateEquipGuideGoalCompatibility();
+                    return;
+                }
+                if (args.Contains("--stronghold-sweep-only"))
+                {
+                    ValidateStrongholdSweepCompatibility();
+                    return;
+                }
                 if (args.Contains("--stronghold-compat-only"))
                 {
                     ValidateStrongholdCompatibility();
@@ -738,6 +788,16 @@ namespace AscNet.Test
                 ValidateMainLineLuosaitaEnterCompatibility();
                 ValidateMainLineTreasureRewardCompatibility();
                 ValidateGatherAwakenRewardCompatibility();
+                ValidateTaskProgressCompatibility();
+                ValidateCharacterTaskProgressCompatibility();
+                ValidateEquipTaskProgressCompatibility();
+                ValidateSweepTaskProgressCompatibility();
+                ValidateShopTaskProgressCompatibility();
+                ValidateDrawTaskProgressCompatibility();
+                ValidatePartnerStoryCompatibility();
+                ValidateCourseCompatibility();
+                ValidateEquipGuideGoalCompatibility();
+                ValidateStrongholdSweepCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
                 ValidateBossSingleCompatibility();
                 ValidateBossSingleIntensiveStageHydration();
@@ -2063,7 +2123,7 @@ namespace AscNet.Test
                         Slot = 1
                     });
                 NotifyArchiveEquip archivePush = ReadPushPayload<NotifyArchiveEquip>(
-                    capturedHarness, nameof(NotifyArchiveEquip), "captured stale-table archive push");
+                    capturedHarness, nameof(NotifyArchiveEquip), "captured stale-table archive push", maxPacketsToRead: 8);
                 NotifyArchiveEquip.NotifyArchiveEquipEquip archiveEquip = archivePush.Equips.Single();
                 AssertEqual(3_016_036L, Convert.ToInt64(archiveEquip.Id), "captured stale-table archive template");
                 AssertEqual(45, archiveEquip.Level, "captured stale-table archive level");
@@ -2073,8 +2133,8 @@ namespace AscNet.Test
                     capturedHarness, nameof(NotifyItemDataList), "captured stale-table material push");
                 AssertEqual(0L, itemPush.ItemDataList.Single().Count, "captured item 3005 deduction");
                 EquipQuickResonanceChipResponse response = ReadResponsePayload<EquipQuickResonanceChipResponse>(
-                    capturedHarness.ReadPacket("captured stale-table response"),
-                    nameof(EquipQuickResonanceChipResponse));
+                    capturedHarness, 16_086, nameof(EquipQuickResonanceChipResponse),
+                    "captured stale-table response", maxPacketsToRead: 8);
                 AssertEqual(0, response.Code, "captured stale-table response code");
                 AssertIntegerList([1361], response.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
                     "captured stale-table success ids");
@@ -2100,13 +2160,13 @@ namespace AscNet.Test
                         Slot = 2
                     });
                 _ = ReadPushPayload<NotifyArchiveEquip>(
-                    capturedHarness, nameof(NotifyArchiveEquip), "lower-slot quick archive push");
+                    capturedHarness, nameof(NotifyArchiveEquip), "lower-slot quick archive push", maxPacketsToRead: 8);
                 NotifyItemDataList lowerItemPush = ReadPushPayload<NotifyItemDataList>(
                     capturedHarness, nameof(NotifyItemDataList), "lower-slot quick material push");
                 AssertEqual(0L, lowerItemPush.ItemDataList.Single().Count, "lower-slot item 3005 deduction");
                 AssertEqual(0, ReadResponsePayload<EquipQuickResonanceChipResponse>(
-                    capturedHarness.ReadPacket("lower-slot quick response"),
-                    nameof(EquipQuickResonanceChipResponse)).Code, "lower-slot quick response code");
+                    capturedHarness, 16_086, nameof(EquipQuickResonanceChipResponse),
+                    "lower-slot quick response", maxPacketsToRead: 8).Code, "lower-slot quick response code");
                 AssertEqual(126316, capturedEquip.ResonanceInfo.Single(value => value.Slot == 1).TemplateId,
                     "lower-slot quick resonance preserves upper slot");
                 AssertEqual(126323, capturedEquip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
@@ -2182,7 +2242,7 @@ namespace AscNet.Test
 
             InvokeRequestHandler(harness, nameof(EquipQuickResonanceChipRequest), 16_087, captured);
             NotifyArchiveEquip singleArchivePush = ReadPushPayload<NotifyArchiveEquip>(
-                harness, nameof(NotifyArchiveEquip), "single quick resonance archive push");
+                harness, nameof(NotifyArchiveEquip), "single quick resonance archive push", maxPacketsToRead: 8);
             AssertEqual(3_046_011L, Convert.ToInt64(singleArchivePush.Equips.Single().Id),
                 "single quick resonance archive template");
             AssertEqual(45, singleArchivePush.Equips.Single().Level,
@@ -2195,7 +2255,7 @@ namespace AscNet.Test
                 harness, nameof(NotifyItemDataList), "single quick resonance material push");
             AssertEqual(3L, singleItemPush.ItemDataList.Single().Count, "single quick resonance material cost");
             EquipQuickResonanceChipResponse singleResponse = ReadResponsePayload<EquipQuickResonanceChipResponse>(
-                harness.ReadPacket("single quick resonance response"), nameof(EquipQuickResonanceChipResponse));
+                harness, 16_087, nameof(EquipQuickResonanceChipResponse), "single quick resonance response", maxPacketsToRead: 8);
             AssertEqual(0, singleResponse.Code, "single quick resonance response code");
             AssertIntegerList([497], singleResponse.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
                 "single quick resonance successful equipment ids");
@@ -2215,7 +2275,7 @@ namespace AscNet.Test
                     CharacterId = 1021007
                 });
             NotifyArchiveEquip multiArchivePush = ReadPushPayload<NotifyArchiveEquip>(
-                harness, nameof(NotifyArchiveEquip), "multi quick resonance archive push");
+                harness, nameof(NotifyArchiveEquip), "multi quick resonance archive push", maxPacketsToRead: 8);
             AssertIntegerList([3046011, 3026001],
                 multiArchivePush.Equips.Select(value => (long)value.Id).ToArray(),
                 "multi quick resonance archive templates");
@@ -2226,7 +2286,7 @@ namespace AscNet.Test
                 harness, nameof(NotifyItemDataList), "multi quick resonance material push");
             AssertEqual(1L, multiItemPush.ItemDataList.Single().Count, "multi quick resonance total material cost");
             EquipQuickResonanceChipResponse multiResponse = ReadResponsePayload<EquipQuickResonanceChipResponse>(
-                harness.ReadPacket("multi quick resonance response"), nameof(EquipQuickResonanceChipResponse));
+                harness, 16_088, nameof(EquipQuickResonanceChipResponse), "multi quick resonance response", maxPacketsToRead: 8);
             AssertEqual(0, multiResponse.Code, "multi quick resonance response code");
             AssertIntegerList([497, 498], multiResponse.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
                 "multi quick resonance successful equipment ids");
@@ -2386,13 +2446,13 @@ namespace AscNet.Test
                 InvokeRequestHandler(singleHarness, nameof(EquipQuickResonanceChipRequest), 16_092,
                     Request([singleEquip.Id]));
                 _ = ReadPushPayload<NotifyArchiveEquip>(
-                    singleHarness, nameof(NotifyArchiveEquip), "single attribute archive push");
+                    singleHarness, nameof(NotifyArchiveEquip), "single attribute archive push", maxPacketsToRead: 8);
                 _ = ReadPushPayload<NotifyItemDataList>(
                     singleHarness, nameof(NotifyItemDataList), "single attribute material push");
                 EquipQuickResonanceChipResponse response =
                     ReadResponsePayload<EquipQuickResonanceChipResponse>(
-                        singleHarness.ReadPacket("single attribute response"),
-                        nameof(EquipQuickResonanceChipResponse));
+                        singleHarness, 16_092, nameof(EquipQuickResonanceChipResponse),
+                        "single attribute response", maxPacketsToRead: 8);
                 AssertEqual(0, response.Code, "single attribute response code");
                 AssertIntegerList([singleEquip.Id], response.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
                     "single attribute success ids");
@@ -2420,7 +2480,7 @@ namespace AscNet.Test
             InvokeRequestHandler(batchHarness, nameof(EquipQuickResonanceChipRequest), 16_093,
                 Request(batchEquips.Select(equip => equip.Id)));
             NotifyArchiveEquip archive = ReadPushPayload<NotifyArchiveEquip>(
-                batchHarness, nameof(NotifyArchiveEquip), "five-target attribute archive push");
+                batchHarness, nameof(NotifyArchiveEquip), "five-target attribute archive push", maxPacketsToRead: 8);
             AssertIntegerList([2, 1, 1, 1, 1],
                 archive.Equips.Select(value => (long)value.ResonanceCount).ToArray(),
                 "five-target attribute archive resonance counts");
@@ -2430,8 +2490,8 @@ namespace AscNet.Test
                 "five-target aggregate selected-material cost");
             EquipQuickResonanceChipResponse batchResponse =
                 ReadResponsePayload<EquipQuickResonanceChipResponse>(
-                    batchHarness.ReadPacket("five-target attribute response"),
-                    nameof(EquipQuickResonanceChipResponse));
+                    batchHarness, 16_093, nameof(EquipQuickResonanceChipResponse),
+                    "five-target attribute response", maxPacketsToRead: 8);
             AssertEqual(0, batchResponse.Code, "five-target attribute response code");
             AssertIntegerList(batchEquips.Select(equip => (long)equip.Id).ToArray(),
                 batchResponse.SuccessEquipIds.Select(Convert.ToInt64).ToArray(),
@@ -2624,7 +2684,7 @@ namespace AscNet.Test
                 harness, nameof(NotifyItemDataList), "memory resonance item push");
             AssertEqual(1_170L, firstPush.ItemDataList.Single().Count, "captured first memory resonance cost");
             EquipResonanceResponse response = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("memory EquipResonanceResponse"), nameof(EquipResonanceResponse));
+                harness, 16_076, nameof(EquipResonanceResponse), "memory EquipResonanceResponse", maxPacketsToRead: 8);
             AssertEqual(characterId, response.ResonanceDatas.Single().CharacterId,
                 "memory resonance preserves request CharacterId for hypertune eligibility");
             AssertEqual(1, equip.ResonanceInfo.Count,
@@ -2643,14 +2703,14 @@ namespace AscNet.Test
             _ = ReadPushPayload<NotifyItemDataList>(
                 harness, nameof(NotifyItemDataList), "captured second-roll item push");
             _ = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("captured second EquipResonanceResponse"), nameof(EquipResonanceResponse));
+                harness, 16_077, nameof(EquipResonanceResponse), "captured second EquipResonanceResponse", maxPacketsToRead: 8);
             AssertEqual(1, harness.Session.PendingEquipResonances.Count,
                 "captured second roll against active is provisional");
 
             InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_078,
                 new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 1, IsUse = false });
             AssertEqual(0, ReadResponsePayload<EquipResonanceConfirmResponse>(
-                harness.ReadPacket("discarded memory resonance"), nameof(EquipResonanceConfirmResponse)).Code,
+                harness, 16_078, nameof(EquipResonanceConfirmResponse), "discarded memory resonance", maxPacketsToRead: 8).Code,
                 "discarded memory resonance response");
             AssertEqual(0, harness.Session.PendingEquipResonances.Count,
                 "discard removes reroll provisional");
@@ -2663,11 +2723,11 @@ namespace AscNet.Test
                 harness, nameof(NotifyItemDataList), "captured third-roll item push");
             AssertEqual(0L, secondPush.ItemDataList.Single().Count, "captured third resonance cost");
             _ = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("captured third EquipResonanceResponse"), nameof(EquipResonanceResponse));
+                harness, 16_079, nameof(EquipResonanceResponse), "captured third EquipResonanceResponse", maxPacketsToRead: 8);
             InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_080,
                 new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 1, IsUse = true });
             _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
-                harness.ReadPacket("accepted memory resonance"), nameof(EquipResonanceConfirmResponse));
+                harness, 16_080, nameof(EquipResonanceConfirmResponse), "accepted memory resonance", maxPacketsToRead: 8);
             AssertEqual(1, equip.ResonanceInfo.Count, "accepted memory resonance becomes active");
             AssertEqual(0, equip.UnconfirmedResonanceInfo.Count, "accepted memory resonance clears pending");
             inventory.Items.Add(new Item { Id = 62738, Count = 613 });
@@ -2690,11 +2750,11 @@ namespace AscNet.Test
                 harness, nameof(NotifyItemDataList), "150-token memory resonance item push");
             AssertEqual(0L, tokenPush.ItemDataList.Single().Count, "selected token resonance cost");
             _ = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("150-token memory resonance"), nameof(EquipResonanceResponse));
+                harness, 16_080, nameof(EquipResonanceResponse), "150-token memory resonance", maxPacketsToRead: 8);
             InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_081,
                 new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 2, IsUse = false });
             _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
-                harness.ReadPacket("discarded 150-token resonance"), nameof(EquipResonanceConfirmResponse));
+                harness, 16_081, nameof(EquipResonanceConfirmResponse), "discarded 150-token resonance", maxPacketsToRead: 8);
 
             inventory.Items.Single(item => item.Id == 62738).Count = 612;
             InvokeRequestHandler(harness, nameof(EquipResonanceRequest), 16_082,
@@ -2881,11 +2941,11 @@ namespace AscNet.Test
                 harness, nameof(NotifyItemDataList), "configured memory resonance item push");
             AssertEqual(0L, configuredPush.ItemDataList.Single().Count, "table-backed resonance cost");
             _ = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("configured memory resonance"), nameof(EquipResonanceResponse));
+                harness, 16_085, nameof(EquipResonanceResponse), "configured memory resonance", maxPacketsToRead: 8);
             InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), 16_086,
                 new EquipResonanceConfirmRequest { EquipId = 2970, Slot = 2, IsUse = false });
             _ = ReadResponsePayload<EquipResonanceConfirmResponse>(
-                harness.ReadPacket("discarded configured resonance"), nameof(EquipResonanceConfirmResponse));
+                harness, 16_086, nameof(EquipResonanceConfirmResponse), "discarded configured resonance", maxPacketsToRead: 8);
 
         }
 
@@ -2968,7 +3028,7 @@ namespace AscNet.Test
             AssertEqual(10L - selectCost, characterItemPush.ItemDataList.Single().Count,
                 "manual character-skill configured select cost");
             EquipResonanceResponse characterResponse = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("manual character-skill response"), nameof(EquipResonanceResponse));
+                harness, testUid, nameof(EquipResonanceResponse), "manual character-skill response", maxPacketsToRead: 8);
             ResonanceInfo selectedCharacterSkill = characterResponse.ResonanceDatas.Single();
             AssertEqual(2, selectedCharacterSkill.Slot, "manual lower character-skill response slot");
             AssertEqual((int)EquipResonanceType.CharacterSkill, (int)selectedCharacterSkill.Type,
@@ -2988,8 +3048,8 @@ namespace AscNet.Test
             InvokeRequestHandler(harness, nameof(EquipResonanceConfirmRequest), testUid,
                 new EquipResonanceConfirmRequest { EquipId = Convert.ToInt32(equip.Id), Slot = 2, IsUse = true });
             AssertEqual(0, ReadResponsePayload<EquipResonanceConfirmResponse>(
-                harness.ReadPacket("manual lower character-skill confirm"),
-                nameof(EquipResonanceConfirmResponse)).Code, "manual lower character-skill confirm code");
+                harness, testUid, nameof(EquipResonanceConfirmResponse),
+                "manual lower character-skill confirm", maxPacketsToRead: 8).Code, "manual lower character-skill confirm code");
             AssertEqual(selectedLowerSkillId, equip.ResonanceInfo.Single(value => value.Slot == 2).TemplateId,
                 "manual lower character-skill commits on confirm");
             AssertEqual(0, harness.Session.PendingEquipResonances.Count,
@@ -3011,7 +3071,7 @@ namespace AscNet.Test
             AssertEqual(10L - selectCost * 2, attributeItemPush.ItemDataList.Single().Count,
                 "manual attribute configured select cost");
             ResonanceInfo selectedAttributeResult = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket("manual attribute response"), nameof(EquipResonanceResponse))
+                harness, testUid, nameof(EquipResonanceResponse), "manual attribute response", maxPacketsToRead: 8)
                 .ResonanceDatas.Single();
             AssertEqual(1, selectedAttributeResult.Slot, "manual attribute response slot");
             AssertEqual((int)EquipResonanceType.Attrib, (int)selectedAttributeResult.Type,
@@ -3152,12 +3212,12 @@ namespace AscNet.Test
 
             InvokeRequestHandler(harness, nameof(EquipAwakeRequest), 16_072, capturedRequest);
             NotifyItemDataList itemPush = ReadPushPayload<NotifyItemDataList>(
-                harness, nameof(NotifyItemDataList), "EquipAwakeRequest item push");
+                harness, nameof(NotifyItemDataList), "EquipAwakeRequest item push", maxPacketsToRead: 8);
             AssertEqual(50_000L, itemPush.ItemDataList.Single(item => item.Id == Inventory.Coin).Count, "EquipAwakeRequest coin balance");
             AssertEqual(8_119L, itemPush.ItemDataList.Single(item => item.Id == 70001).Count, "EquipAwakeRequest alpha balance");
             AssertEqual(1_853L, itemPush.ItemDataList.Single(item => item.Id == 70002).Count, "EquipAwakeRequest beta balance");
             EquipAwakeResponse response = ReadResponsePayload<EquipAwakeResponse>(
-                harness.ReadPacket("EquipAwakeResponse"), nameof(EquipAwakeResponse));
+                harness, 16_072, nameof(EquipAwakeResponse), "EquipAwakeResponse", maxPacketsToRead: 8);
             AssertEqual(0, response.Code, "EquipAwakeResponse captured response code");
             AssertIntegerList([1], equip.AwakeSlotList.Select(Convert.ToInt64).ToArray(), "EquipAwakeRequest awake slots");
 
@@ -3263,7 +3323,7 @@ namespace AscNet.Test
             {
                 InvokeRequestHandler(harness, nameof(EquipQuickAwakeRequest), 18_370, captured);
                 NotifyItemDataList push = ReadPushPayload<NotifyItemDataList>(
-                    harness, nameof(NotifyItemDataList), "captured EquipQuickAwakeRequest item push");
+                    harness, nameof(NotifyItemDataList), "captured EquipQuickAwakeRequest item push", maxPacketsToRead: 8);
                 AssertIntegerList([Inventory.Coin, 70002, 70001],
                     push.ItemDataList.Select(item => (long)item.Id).ToArray(),
                     "captured quick awake item push order");
@@ -3274,7 +3334,7 @@ namespace AscNet.Test
                 AssertEqual(840L, push.ItemDataList.Single(item => item.Id == 70002).Count,
                     "quick awake multiplied beta cost");
                 AssertEqual(0, ReadResponsePayload<EquipQuickAwakeResponse>(
-                    harness.ReadPacket("captured EquipQuickAwakeResponse"), nameof(EquipQuickAwakeResponse)).Code,
+                    harness, 18_370, nameof(EquipQuickAwakeResponse), "captured EquipQuickAwakeResponse", maxPacketsToRead: 8).Code,
                     "captured EquipQuickAwakeResponse code");
                 AssertIntegerList([1, 2], capturedEquip.AwakeSlotList.Select(Convert.ToInt64).ToArray(),
                     "quick awake slot persistence");
@@ -3317,9 +3377,9 @@ namespace AscNet.Test
                         ]
                     });
                 _ = ReadPushPayload<NotifyItemDataList>(
-                    harness, nameof(NotifyItemDataList), "multiple EquipQuickAwakeRequest item push");
+                    harness, nameof(NotifyItemDataList), "multiple EquipQuickAwakeRequest item push", maxPacketsToRead: 8);
                 AssertEqual(0, ReadResponsePayload<EquipQuickAwakeResponse>(
-                    harness.ReadPacket("multiple EquipQuickAwakeResponse"), nameof(EquipQuickAwakeResponse)).Code,
+                    harness, 18_410, nameof(EquipQuickAwakeResponse), "multiple EquipQuickAwakeResponse", maxPacketsToRead: 8).Code,
                     "multiple EquipQuickAwakeResponse code");
                 AssertIntegerList([1], first.AwakeSlotList.Select(Convert.ToInt64).ToArray(),
                     "multiple quick awake first equip");
@@ -3493,9 +3553,9 @@ namespace AscNet.Test
 
             Packet initialPushPacket = harness.ReadPacket("EquipResonanceRequest material push");
             AssertEqual(Packet.ContentType.Push, initialPushPacket.Type, "EquipResonanceRequest material push type");
-            EquipResonanceResponse initialResponse = ReadEquipResonanceResponse(
-                harness.ReadPacket("EquipResonanceRequest selected response"),
-                "EquipResonanceRequest selected response");
+            EquipResonanceResponse initialResponse = (EquipResonanceResponse)ReadResponsePayload(
+                harness, 16_071, nameof(EquipResonanceResponse),
+                "EquipResonanceRequest selected response", typeof(EquipResonanceResponse), maxPacketsToRead: 8);
             AssertEqual(0, initialResponse.Code, "EquipResonanceRequest selected response code");
             ResonanceInfo initialResonance = initialResponse.ResonanceDatas.Single();
             AssertEqual(firstSelectedSkillId, initialResonance.TemplateId, "EquipResonanceRequest selected skill");
@@ -3521,9 +3581,9 @@ namespace AscNet.Test
                     Name = nameof(EquipResonanceRequest),
                     Content = MessagePackSerializer.Serialize(swapRequest)
                 });
-            EquipResonanceResponse swapResponse = ReadEquipResonanceResponse(
-                harness.ReadPacket("EquipResonanceRequest swap response"),
-                "EquipResonanceRequest swap response");
+            EquipResonanceResponse swapResponse = (EquipResonanceResponse)ReadResponsePayload(
+                harness, 16_073, nameof(EquipResonanceResponse),
+                "EquipResonanceRequest swap response", typeof(EquipResonanceResponse), maxPacketsToRead: 8);
             ResonanceInfo swappedResonance = swapResponse.ResonanceDatas.Single();
             AssertEqual(0, swapResponse.Code, "EquipResonanceRequest swap response code");
             AssertEqual(swappedSkillId, swappedResonance.TemplateId, "EquipResonanceRequest exact swapped skill");
@@ -3534,13 +3594,6 @@ namespace AscNet.Test
             AssertEqual(1L, inventory.Items.Single(item => item.Id == materialId).Count, "EquipResonanceRequest swap does not consume material");
         }
 
-        private static EquipResonanceResponse ReadEquipResonanceResponse(Packet packet, string name)
-        {
-            AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} packet type");
-            Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
-            AssertEqual(nameof(EquipResonanceResponse), response.Name, $"{name} packet name");
-            return MessagePackSerializer.Deserialize<EquipResonanceResponse>(response.Content);
-        }
 
 
         private static void ValidateNotifyLoginCurrentClientCompatibilityShape()
@@ -6538,8 +6591,8 @@ namespace AscNet.Test
             DrawAdjustActivityInfo adjustment = groups.DrawAdjustActivityInfoList.Single();
             AssertEqual(1, adjustment.DrawGroupId, "DrawGetDrawGroupListResponse captured adjustment group");
             long drawNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            DrawPredictTable? activeRotation = TableReaderV2.Parse<DrawPredictTable>()
-                .SingleOrDefault(x => x.StartTime <= drawNow && drawNow < x.EndTime);
+            List<DrawPredictTable> activeRotations = TableReaderV2.Parse<DrawPredictTable>()
+                .Where(x => x.StartTime <= drawNow && drawNow < x.EndTime).ToList();
             foreach (DrawGroupInfo advertisedGroup in groups.DrawGroupInfoList)
             {
                 InvokeRegisteredRequestHandler(
@@ -6555,10 +6608,11 @@ namespace AscNet.Test
                 AssertEqual(0, advertisedDraws.Code, "advertised draw group response Code");
                 if (advertisedDraws.DrawInfoList.Count == 0 || advertisedDraws.DrawInfoList.Any(draw => draw.GroupId != advertisedGroup.Id))
                     throw new InvalidDataException($"Draw group {advertisedGroup.Id} was advertised without a matching active draw.");
-                if (advertisedGroup.Id is 12 or 13 && activeRotation is not null)
+                if (advertisedGroup.Id is 12 or 13 && activeRotations.Count > 0)
                 {
-                    AssertEqual(activeRotation.StartTime, advertisedGroup.BannerBeginTime, $"Draw group {advertisedGroup.Id} banner begin");
-                    AssertEqual(activeRotation.EndTime, advertisedGroup.BannerEndTime, $"Draw group {advertisedGroup.Id} banner end");
+                    DrawPredictTable activeRotation = activeRotations.FirstOrDefault(rotation =>
+                        rotation.StartTime == advertisedGroup.BannerBeginTime && rotation.EndTime == advertisedGroup.BannerEndTime)
+                        ?? throw new InvalidDataException($"Draw group {advertisedGroup.Id} banner does not match an active rotation.");
                     AssertIntegerList(
                         activeRotation.CharacterId.Select(Convert.ToInt64).Order().ToArray(),
                         advertisedDraws.DrawInfoList.Select(draw => (long)draw.ResourceIds.GetValueOrDefault(1)).Order().ToArray(),
@@ -13800,16 +13854,19 @@ namespace AscNet.Test
             }
 
             Type rewardHandlerType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
-            MethodInfo giveRewards = RequiredMethod(
+            MethodInfo applyRewards = RequiredMethod(
                 rewardHandlerType,
-                "GiveRewards",
+                "ApplyRewards",
                 BindingFlags.Static | BindingFlags.Public,
                 [typeof(IEnumerable<Reward>), typeof(Session)]);
-            giveRewards.Invoke(null,
+            object duplicateApplication = applyRewards.Invoke(null,
             [
                 new Reward[] { new() { Id = weaponFashionId, Count = 1, Type = RewardType.WeaponFashion } },
                 harness.Session
-            ]);
+            ]) ?? throw new InvalidDataException("Weapon fashion reward application returned null.");
+            MethodInfo sendRewardPushes = RequiredMethod(duplicateApplication.GetType(),
+                "SendPushes", BindingFlags.Instance | BindingFlags.Public, [typeof(Session)]);
+            sendRewardPushes.Invoke(duplicateApplication, [harness.Session]);
             AssertEqual(1, character.WeaponFashions.Count, "duplicate permanent weapon fashion is idempotent");
             if (harness.TryReadAvailablePacket("duplicate permanent unexpected packet", out Packet duplicatePacket))
                 throw new InvalidDataException($"Duplicate permanent weapon fashion emitted {duplicatePacket.Type} packet.");
@@ -13824,7 +13881,7 @@ namespace AscNet.Test
                 ExpireTime = DateTimeOffset.UtcNow.AddDays(1).ToUnixTimeSeconds(),
                 UseCharacterList = []
             });
-            giveRewards.Invoke(null,
+            object upgradeApplication = applyRewards.Invoke(null,
             [
                 new Reward[]
                 {
@@ -13832,7 +13889,9 @@ namespace AscNet.Test
                     new() { Id = weaponFashionId, Count = 1, Type = RewardType.WeaponFashion }
                 },
                 harness.Session
-            ]);
+            ]) ?? throw new InvalidDataException("Weapon fashion upgrade application returned null.");
+            character.SaveChecked();
+            sendRewardPushes.Invoke(upgradeApplication, [harness.Session]);
             NotifyWeaponFashionInfo upgradePush = ReadPushPayload<NotifyWeaponFashionInfo>(
                 harness, nameof(NotifyWeaponFashionInfo), "temporary weapon fashion upgrade push");
             AssertEqual(1, upgradePush.WeaponFashionDataList.Count, "direct reward changed-only batch count");
@@ -14976,7 +15035,7 @@ namespace AscNet.Test
                 harness,
                 71_042,
                 nameof(EquipResonanceResponse),
-                "regular resonance after preset").Code,
+                "regular resonance after preset", maxPacketsToRead: 8).Code,
                 "regular resonance after preset Code");
             AssertEqual(true, harness.Session.AppliedTeamPrefabId is null,
                 "regular resonance clears applied preset");
@@ -19714,6 +19773,7 @@ namespace AscNet.Test
                 CreateDrawCompatibilityInventory(playerId, []),
                 "equip-guide-set-target-compat-test"))
             {
+                harness.Session.character.AddCharacter(checked((uint)validTarget.CharacterId));
                 InvokeRegisteredRequestHandler(requestName, harness.Session, packetId,
                     new EquipGuideSetTargetRequest { TargetId = validTarget.Id, PutOnPosList = [1, 3, 6] });
                 EquipGuideSetTargetResponse response = ReadResponsePayload<EquipGuideSetTargetResponse>(
@@ -19723,10 +19783,13 @@ namespace AscNet.Test
                 AssertEqual(validTarget.CharacterId, response.EquipGuideData.CharacterId, $"{responseName} valid set CharacterId");
                 AssertIntegerList([1, 3, 6], response.EquipGuideData.PutOnPosList.Select(pos => (long)pos).ToArray(), $"{responseName} valid set PutOnPosList");
                 AssertEmptyList(response.EquipGuideData.FinishedTargets, $"{responseName} valid set FinishedTargets");
-                if (harness.TryReadAvailablePacket($"{requestName} valid set extra packet", out Packet extra))
-                    throw new InvalidDataException($"{requestName} valid set: unexpected extra {extra.Type} packet (expected response only, no push).");
+                while (harness.TryReadAvailablePacket($"{requestName} task update", out Packet extra))
+                {
+                    AssertEqual(Packet.ContentType.Push, extra.Type, $"{requestName} task update packet type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(extra.Content);
+                    AssertEqual(nameof(NotifyTask), push.Name, $"{requestName} task update name");
+                }
 
-                AssertEqual(1, playerCollection.ReplaceOneCalls, $"{requestName} valid set player save count");
                 AssertEqual(validTarget.Id, player.EquipGuideData.TargetId, $"{requestName} valid set persisted TargetId");
                 AssertEqual(validTarget.CharacterId, player.EquipGuideData.CharacterId, $"{requestName} valid set persisted CharacterId");
                 AssertIntegerList([1, 3, 6], player.EquipGuideData.PutOnPosList.Select(pos => (long)pos).ToArray(), $"{requestName} valid set persisted PutOnPosList");
@@ -21369,9 +21432,9 @@ namespace AscNet.Test
                 $"{name} persisted login replacement ids");
 
             Type rewardHandlerType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
-            MethodInfo giveRewards = RequiredMethod(
+            MethodInfo applyRewards = RequiredMethod(
                 rewardHandlerType,
-                "GiveRewards",
+                "ApplyRewards",
                 BindingFlags.Static | BindingFlags.Public,
                 [typeof(IEnumerable<Reward>), typeof(Session)]);
             AscNet.Common.Database.Player grantPlayer = CreateDrawCompatibilityPlayer(grantPlayerId);
@@ -21381,15 +21444,19 @@ namespace AscNet.Test
                 grantPlayer,
                 CreateDrawCompatibilityInventory(grantPlayerId, []),
                 $"{name} character grant");
-            int savesBeforeGrant = playerCollection.ReplaceOneCalls;
-            giveRewards.Invoke(null,
+            object grantApplication = applyRewards.Invoke(null,
             [
                 new Reward[] { new() { Id = baselineRows[2].CharacterId, Count = 1, Level = 1, Type = RewardType.Character } },
                 grantHarness.Session
-            ]);
+            ]) ?? throw new InvalidDataException("Character reward application returned null.");
+            grantHarness.Session.inventory.SaveChecked();
+            grantCharacter.SaveChecked();
+            grantPlayer.SaveChecked();
+            RequiredMethod(grantApplication.GetType(), "SendPushes",
+                BindingFlags.Instance | BindingFlags.Public, [typeof(Session)])
+                .Invoke(grantApplication, [grantHarness.Session]);
             AssertEqual(true, grantPlayer.GatherRewards.Contains(baselineRows[2].Id), $"{name} granted character baseline id");
             AssertEqual(1, grantPlayer.GatherRewards.Count(id => id == baselineRows[2].Id), $"{name} granted character baseline id count");
-            AssertEqual(savesBeforeGrant + 1, playerCollection.ReplaceOneCalls, $"{name} granted character player persistence");
 
             int characterPushIndex = -1;
             int gatherPushIndex = -1;
@@ -22700,6 +22767,15 @@ namespace AscNet.Test
                 long expectedSkillPointCount = initialSkillPointCount - expectedSkillPointCost;
                 AssertEqual(expectedCoinCount, pushedCoin.Count, "CharacterUpgradeSkillGroupRequest table-backed NotifyItemDataList coin count");
                 AssertEqual(expectedSkillPointCount, pushedSkillPoint.Count, "CharacterUpgradeSkillGroupRequest table-backed NotifyItemDataList skill point count");
+                NotifyTask spendingNotify = ReadPushPayload<NotifyTask>(
+                    harness, nameof(NotifyTask), "Skill upgrade spending progress");
+                Dictionary<uint, int> expectedCoinProgress = TableReaderV2.Parse<CurrentConditionTable>()
+                    .Where(condition => condition.Type == 11202 && condition.Params.Count == 2
+                        && condition.Params[1] == AscNet.Common.Database.Inventory.Coin)
+                    .ToDictionary(condition => checked((uint)condition.Id), condition => Math.Min(expectedCoinCost, condition.Params[0]));
+                AssertEqual(true, spendingNotify.Tasks.Tasks.Any(task => task.Schedule.Any(schedule =>
+                    expectedCoinProgress.TryGetValue(schedule.Id, out int expected) && schedule.Value == expected)),
+                    "Skill upgrade credits actual coin spending");
 
                 CharacterUpgradeSkillGroupResponse upgradeResponse = (CharacterUpgradeSkillGroupResponse)ReadResponsePayload(
                     harness,
@@ -25418,13 +25494,31 @@ namespace AscNet.Test
                 "story-deploy-version-gap-mainline2-enter-story-test");
             enterStoryHarness.Session.stage = enterStoryStage;
 
+            var mainLineStages = TableReaderV2.Parse<AscNet.Table.V2.share.fuben.mainline2.MainLine2StageTable>()
+                .ToDictionary(row => row.Id);
             foreach (uint stageId in capturedVersionGapStageIds)
             {
-                AssertCapturedMainLine2StageEnterStoryPlayable(
-                    enterStoryHarness,
-                    enterStoryStage,
-                    stageId,
-                    enterStoryPacketId);
+                if (mainLineStages[checked((int)stageId)].StageDetailType is 1 or 2)
+                {
+                    AssertMainLine2StoryPlayable(enterStoryHarness, enterStoryStage, stageId, enterStoryPacketId);
+                    continue;
+                }
+                InvokeRegisteredRequestHandler(nameof(EnterStoryRequest), enterStoryHarness.Session,
+                    enterStoryPacketId, new EnterStoryRequest { StageId = checked((int)stageId) });
+                EnterStoryResponse rejected = ReadResponsePayload<EnterStoryResponse>(enterStoryHarness,
+                    enterStoryPacketId, nameof(EnterStoryResponse), "Combat stage cannot be cleared through EnterStory");
+                AssertEqual(true, rejected.Code != 0, "Combat stage story request is rejected");
+                AssertEqual(false, enterStoryStage.Stages.ContainsKey(stageId), "Rejected story request grants no combat clear");
+            }
+            var stageRows = TableReaderV2.Parse<StageTable>().ToDictionary(row => row.StageId);
+            foreach (bool ordinaryStoryType in new[] { true, false })
+            {
+                var story = mainLineStages.Values.First(row => row.StageDetailType is 1 or 2
+                    && stageRows.TryGetValue(row.Id, out StageTable? stageRow)
+                    && (stageRow.StageType is 2 or 3) == ordinaryStoryType);
+                uint storyId = checked((uint)story.Id);
+                enterStoryStage.Stages.Remove(storyId);
+                AssertMainLine2StoryPlayable(enterStoryHarness, enterStoryStage, storyId, enterStoryPacketId);
             }
         }
 
@@ -25986,13 +26080,13 @@ namespace AscNet.Test
         }
 
 
-        private static void AssertCapturedMainLine2StageEnterStoryPlayable(
+        private static void AssertMainLine2StoryPlayable(
             LoopbackSessionHarness harness,
             AscNet.Common.Database.Stage stage,
             uint stageId,
             int packetId)
         {
-            string name = $"retail MainLine2 capture missing Stage.tsv stage {stageId} EnterStory";
+            string name = $"MainLine2 table-backed story stage {stageId} EnterStory";
             if (stage.Stages.ContainsKey(stageId))
                 throw new InvalidDataException($"{name}: test setup expected EnterStory to be the first writer for this stage.");
 
@@ -26014,7 +26108,7 @@ namespace AscNet.Test
             NotifyStageData? stagePush = null;
             EnterStoryResponse? enterStoryResponse = null;
 
-            for (int packetIndex = 0; packetIndex < 3 && (stagePush is null || enterStoryResponse is null); packetIndex++)
+            for (int packetIndex = 0; packetIndex < 8 && (stagePush is null || enterStoryResponse is null); packetIndex++)
             {
                 Packet packet = packetIndex == 0
                     ? harness.ReadPacket($"{name} first packet")
@@ -26286,9 +26380,17 @@ namespace AscNet.Test
                     }
                 }
             };
+            CurrentConditionTable characterLevelCondition = TableReaderV2.Parse<CurrentConditionTable>()
+                .Single(condition => condition.Id == 3300);
             session.character = new AscNet.Common.Database.Character
             {
-                Characters = [new CharacterData { Id = 1011002, Level = 10, Quality = 2 }],
+                Characters = [new CharacterData
+                {
+                    Id = checked((uint)characterLevelCondition.Params[0]),
+                    Quality = characterLevelCondition.Params[1],
+                    Level = characterLevelCondition.Params[2],
+                    Grade = characterLevelCondition.Params[3]
+                }],
                 Equips = Enumerable.Range(1, 24)
                     .Select(id => new EquipData
                     {
@@ -26312,7 +26414,13 @@ namespace AscNet.Test
                 Course = new(),
                 FinishedTasks = new()
             };
-            foreach (uint stageId in new uint[] { 10010101, 10020101, 10030101, 10040101, 10050101, 10060101, 10070101 })
+            var chapterRows = TableReaderV2.Parse<AscNet.Table.V2.share.fuben.mainline.ChapterTable>()
+                .ToDictionary(row => row.ChapterId);
+            foreach (uint stageId in TableReaderV2.Parse<AscNet.Table.V2.share.fuben.mainline.ChapterMainTable>()
+                .Select(row => row.ChapterId.FirstOrDefault())
+                .Where(id => chapterRows.TryGetValue(id, out var chapter) && chapter.StageId.Count > 0)
+                .Distinct().Take(7).SelectMany(id => chapterRows[id].StageId)
+                .Where(id => id > 0).Distinct().Select(id => checked((uint)id)))
             {
                 session.stage.AddStage(new StageDatum
                 {
@@ -26351,11 +26459,11 @@ namespace AscNet.Test
             AssertEqual(taskStateAchieved, achievementCharacterTask.State, "Achievement character level state");
             AssertEqual(1, achievementCharacterTask.Schedule[0].Value, "Achievement character level progress");
             LoginTask phantomPainCageTask = RequiredStoryLoginTask(tasks, 3040);
-            AssertEqual(taskStateActive, phantomPainCageTask.State, "Unsupported Phantom Pain Cage achievement state");
-            AssertEqual(0, phantomPainCageTask.Schedule[0].Value, "Unsupported Phantom Pain Cage achievement progress");
+            AssertEqual(taskStateActive, phantomPainCageTask.State, "Unplayed Phantom Pain Cage achievement state");
+            AssertEqual(0, phantomPainCageTask.Schedule[0].Value, "Unplayed Phantom Pain Cage achievement progress");
             LoginTask warZoneTask = RequiredStoryLoginTask(tasks, 3050);
-            AssertEqual(taskStateActive, warZoneTask.State, "Unsupported War Zone achievement state");
-            AssertEqual(0, warZoneTask.Schedule[0].Value, "Unsupported War Zone achievement progress");
+            AssertEqual(taskStateActive, warZoneTask.State, "Unplayed War Zone achievement state");
+            AssertEqual(0, warZoneTask.Schedule[0].Value, "Unplayed War Zone achievement progress");
             LoginTask leveledMemoryTask = RequiredStoryLoginTask(tasks, 7865);
             AssertEqual(taskStateActive, leveledMemoryTask.State, "Unleveled Memory mission state");
             AssertEqual(0, leveledMemoryTask.Schedule[0].Value, "Unleveled Memory mission progress");
@@ -29590,14 +29698,15 @@ namespace AscNet.Test
             }
         }
 
-        private static TResponse ReadResponsePayload<TResponse>(LoopbackSessionHarness harness, int expectedPacketId, string expectedResponseName, string name)
+        private static TResponse ReadResponsePayload<TResponse>(
+            LoopbackSessionHarness harness,
+            int expectedPacketId,
+            string expectedResponseName,
+            string name,
+            int maxPacketsToRead = 1)
         {
-            Packet packet = harness.ReadPacket(name);
-            AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} packet type");
-            Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
-            AssertEqual(expectedPacketId, response.Id, $"{name} packet id");
-            AssertEqual(expectedResponseName, response.Name, $"{name} packet name");
-            return MessagePackSerializer.Deserialize<TResponse>(response.Content);
+            return (TResponse)ReadResponsePayload(
+                harness, expectedPacketId, expectedResponseName, name, typeof(TResponse), maxPacketsToRead);
         }
 
         private static object ReadResponsePayload(
@@ -29626,13 +29735,21 @@ namespace AscNet.Test
         }
 
 
-        private static TPush ReadPushPayload<TPush>(LoopbackSessionHarness harness, string expectedPushName, string name)
+        private static TPush ReadPushPayload<TPush>(
+            LoopbackSessionHarness harness, string expectedPushName, string name, int maxPacketsToRead = 1)
         {
-            Packet packet = harness.ReadPacket(name);
-            AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
-            Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
-            AssertEqual(expectedPushName, push.Name, $"{name} packet name");
-            return MessagePackSerializer.Deserialize<TPush>(push.Content);
+            for (int packetIndex = 0; packetIndex < maxPacketsToRead; packetIndex++)
+            {
+                Packet packet = harness.ReadPacket(packetIndex == 0 ? name : $"{name} packet {packetIndex + 1}");
+                AssertEqual(Packet.ContentType.Push, packet.Type, $"{name} packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                if (maxPacketsToRead > 1 && push.Name == nameof(NotifyTask) && expectedPushName != nameof(NotifyTask))
+                    continue;
+                AssertEqual(expectedPushName, push.Name, $"{name} packet name");
+                return MessagePackSerializer.Deserialize<TPush>(push.Content);
+            }
+
+            throw new InvalidDataException($"{name}: expected {expectedPushName} push within {maxPacketsToRead} packets.");
         }
 
         private static JObject ReadPushMapPayload(LoopbackSessionHarness harness, string expectedPushName, string name)

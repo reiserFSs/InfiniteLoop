@@ -404,16 +404,17 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            List<RewardGoods> rewardGoodsList = RewardHandler.GiveRewards(rewardGoods, session);
+            RewardApplicationResult rewardResult = RewardHandler.ApplyRewards(rewardGoods, session);
             session.player.Save();
             session.inventory.Save();
             session.character.Save();
+            rewardResult.SendPushes(session);
 
             return new MainLine2ReceiveMainTreasureResponse
             {
                 Code = 0,
                 RewardIdxs = rewardIdxs,
-                RewardGoodsList = rewardGoodsList
+                RewardGoodsList = rewardResult.RewardGoods
             };
         }
 

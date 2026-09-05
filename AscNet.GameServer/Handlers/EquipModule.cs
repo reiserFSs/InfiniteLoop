@@ -357,6 +357,19 @@ namespace AscNet.GameServer.Handlers
         public int Code;
         public EquipGuideData EquipGuideData { get; set; } = new();
     }
+
+    [MessagePackObject(true)]
+    public class EquipGuideTargetFinishRequest
+    {
+        public int CharacterId;
+    }
+
+    [MessagePackObject(true)]
+    public class EquipGuideTargetFinishResponse
+    {
+        public int Code;
+        public EquipGuideData EquipGuideData { get; set; } = new();
+    }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
@@ -380,6 +393,7 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
             EquipTable? targetEquipTable = Character.ResolveEquipTemplate(targetEquip.TemplateId);
+            (int Level, int Exp) beforeEnhancement = (targetEquip.Level, targetEquip.Exp);
             NotifyEquipDataList notifyEquipDataList = new();
             Dictionary<int, int> equipItemDeltas = new();
             if (!TryConsumeValidatedFeedEquips(
@@ -397,6 +411,9 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
+            var balancesBefore = (request.UseItems?.Keys.AsEnumerable() ?? Enumerable.Empty<int>())
+                .Append(Inventory.Coin).Distinct()
+                .ToDictionary(id => id, id => session.inventory.Items.Find(item => item.Id == id)?.Count ?? 0);
             NotifyItemDataList notifyItemData = new();
             int totalExp = 0;
             int totalCost = 0;
@@ -437,6 +454,11 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(notifyEquipDataList);
                 session.character.Save();
                 session.inventory.Save();
+            TaskModule.RecordTableDrivenProgress(session, balancesBefore.Select(balance =>
+                (11202, (int?)balance.Key, (int)Math.Clamp(balance.Value -
+                    (session.inventory.Items.Find(item => item.Id == balance.Key)?.Count ?? 0), 0, int.MaxValue))));
+            if (totalExp > 0 && (targetEquip.Level, targetEquip.Exp) != beforeEnhancement)
+                TaskModule.RecordEquipmentProgress(session, 12202, [targetEquip]);
 
             session.SendResponse(rsp, packet.Id);
         }
@@ -474,9 +496,18 @@ namespace AscNet.GameServer.Handlers
                     return;
                 }
                 characterId = target.CharacterId;
+                if (!session.character.Characters.Any(character => character.Id == characterId))
+                {
+                    response.Code = 20021098; // EquipGuideCharacterIdInvalid
+                    session.SendResponse(response, packet.Id);
+                    return;
+                }
             }
 
             EquipGuideData original = session.player.EquipGuideData ?? new EquipGuideData();
+            Dictionary<int, int>? originalCounters = request.TargetId > 0 && request.TargetId != original.TargetId
+                ? new(session.player.MissionProgress.ConditionCounters)
+                : null;
             session.player.EquipGuideData = new EquipGuideData
             {
                 TargetId = request.TargetId,
@@ -486,16 +517,22 @@ namespace AscNet.GameServer.Handlers
             };
             try
             {
+                if (originalCounters is not null)
+                    TaskModule.AddConditionTypeProgress(session, 12208, 1);
                 session.player.SaveChecked();
             }
             catch (Exception exception)
             {
                 session.player.EquipGuideData = original;
+                if (originalCounters is not null)
+                    session.player.MissionProgress.ConditionCounters = originalCounters;
                 session.log.Error($"Failed to persist equip guide set target: {exception}");
                 response.Code = 1;
             }
             response.EquipGuideData = session.player.EquipGuideData;
             session.SendResponse(response, packet.Id);
+            if (response.Code == 0 && originalCounters is not null)
+                TaskModule.SendConditionTypeSync(session, 12208);
         }
 
         [RequestPacketHandler("EquipGuideAddOrClearPutOnPosRequest")]
@@ -591,6 +628,104 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(response, packet.Id);
         }
 
+        internal static bool IsCurrentGoalComplete(Session session) =>
+            GetEquipGuideFinishCode(session, session.player.EquipGuideData.CharacterId) == 0;
+
+        private static int GetEquipGuideFinishCode(Session session, int characterId)
+        {
+            EquipGuideData guide = session.player.EquipGuideData;
+            // EN CodeText supplies the named failures; their precedence is not a retail oracle.
+            if (guide.TargetId <= 0)
+                return 20021096; // EquipGuideNotSetTargetId
+            EquipTargetTable? target = TableReaderV2.Parse<EquipTargetTable>()
+                .FirstOrDefault(row => row.Id == guide.TargetId);
+            if (target is null)
+                return 20021097;
+            if (characterId != target.CharacterId || characterId != guide.CharacterId
+                || !session.character.Characters.Any(character => character.Id == characterId))
+                return 20021098;
+            EquipRecommendTable? recommendation = TableReaderV2.Parse<EquipRecommendTable>()
+                .FirstOrDefault(row => row.Id == target.EquipRecommendId);
+            if (recommendation is null)
+                return 20021099;
+            EquipJudgeTable? judge = TableReaderV2.Parse<EquipJudgeTable>().FirstOrDefault(row => row.Id == 1);
+            if (judge is null)
+                return 20021100;
+            if (recommendation.SuitId.Count != recommendation.Number.Count
+                || recommendation.Number.Sum() != 6)
+                return 20021102;
+
+            List<EquipTable> templates = TableReaderV2.Parse<EquipTable>();
+            int[] suitCounts = new int[recommendation.SuitId.Count];
+            HashSet<int> sites = [];
+            long score = 0;
+            foreach (EquipData equip in session.character.Equips)
+            {
+                if (equip.CharacterId != characterId)
+                    continue;
+                EquipTable? template = templates.FirstOrDefault(row => row.Id == equip.TemplateId);
+                if (template is null || template.Site is < 0 or > 6 || !sites.Add(template.Site))
+                    return 20021105;
+                // XEquipTarget.UpdateProgress scores only the matching template worn at its site.
+                if (template.Site == 0)
+                {
+                    if (template.Id != recommendation.EquipRecomend)
+                        return 20021103;
+                    score += judge.WeaponPutOnScore + (long)equip.Breakthrough * judge.WeaponBreakThroughScore
+                        + (long)equip.Level * judge.WeaponUpLevelScore;
+                }
+                else
+                {
+                    int suitIndex = recommendation.SuitId.IndexOf(template.SuitId);
+                    if (suitIndex < 0)
+                        return 20021102;
+                    suitCounts[suitIndex]++;
+                    score += judge.ChipPutOnScore + (long)equip.Breakthrough * judge.ChipBreakThroughScore
+                        + (long)equip.Level * judge.ChipUpLevelScore;
+                }
+            }
+            for (int index = 0; index < suitCounts.Length; index++)
+                if (suitCounts[index] != recommendation.Number[index])
+                    return 20021102;
+            return score >= judge.GrossScore ? 0 : 20021103;
+        }
+
+        [RequestPacketHandler("EquipGuideTargetFinishRequest")]
+        public static void EquipGuideTargetFinishRequestHandler(Session session, Packet.Request packet)
+        {
+            EquipGuideTargetFinishRequest request = packet.Deserialize<EquipGuideTargetFinishRequest>();
+            EquipGuideData original = session.player.EquipGuideData;
+            EquipGuideTargetFinishResponse response = new()
+            {
+                Code = GetEquipGuideFinishCode(session, request.CharacterId),
+                EquipGuideData = original
+            };
+            if (response.Code != 0)
+            {
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+
+            List<int> finished = new(original.FinishedTargets);
+            if (!finished.Contains(original.TargetId))
+                finished.Add(original.TargetId);
+            // Retail 20260715: completing/re-completing a selected target clears active fields,
+            // preserves previous finishes, and never appends the same target twice.
+            session.player.EquipGuideData = new EquipGuideData { FinishedTargets = finished };
+            try
+            {
+                session.player.SaveChecked();
+            }
+            catch (Exception exception)
+            {
+                session.player.EquipGuideData = original;
+                session.log.Error($"Failed to persist equip guide completion: {exception}");
+                response.Code = 2; // ServerInternalError; persistence failure is not observed in retail.
+            }
+            response.EquipGuideData = session.player.EquipGuideData;
+            session.SendResponse(response, packet.Id);
+        }
+
         [RequestPacketHandler("EquipOneKeyFeedRequest")]
         public static void EquipOneKeyFeedRequestHandler(Session session, Packet.Request packet)
         {
@@ -624,7 +759,7 @@ namespace AscNet.GameServer.Handlers
             Dictionary<int, int> itemDeltas = new();
             NotifyEquipDataList notifyEquipDataList = new();
 
-            ApplyFeedOperations(
+            int enhancementCount = ApplyFeedOperations(
                 session,
                 request,
                 targetEquip,
@@ -650,6 +785,8 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyArchiveEquip);
 
             NotifyItemDataList notifyItemDataList = new();
+            var balancesBefore = itemDeltas.Where(delta => delta.Value < 0)
+                .ToDictionary(delta => delta.Key, delta => session.inventory.Items.Find(item => item.Id == delta.Key)?.Count ?? 0);
             ApplyItemDeltas(session, itemDeltas, notifyItemDataList);
             if (notifyItemDataList.ItemDataList.Count > 0)
                 session.SendPush(notifyItemDataList);
@@ -659,11 +796,16 @@ namespace AscNet.GameServer.Handlers
 
             session.character.Save();
             session.inventory.Save();
+            TaskModule.RecordTableDrivenProgress(session, balancesBefore.Select(balance =>
+                (11202, (int?)balance.Key, (int)Math.Clamp(balance.Value -
+                    (session.inventory.Items.Find(item => item.Id == balance.Key)?.Count ?? 0), 0, int.MaxValue))));
+            if (enhancementCount > 0)
+                TaskModule.RecordEquipmentProgress(session, 12202, Enumerable.Repeat(targetEquip, enhancementCount).ToArray());
 
             session.SendResponse(response, packet.Id);
         }
 
-        private static void ApplyFeedOperations(
+        private static int ApplyFeedOperations(
             Session session,
             EquipOneKeyFeedRequest request,
             EquipData targetEquip,
@@ -674,16 +816,20 @@ namespace AscNet.GameServer.Handlers
             Dictionary<int, int> itemDeltas,
             NotifyEquipDataList notifyEquipDataList)
         {
+            int enhancementCount = 0;
             foreach (EquipFeedOperationInfo operationInfo in request.OperationInfos ?? [])
             {
                 switch (operationInfo.OperationType)
                 {
                     case EquipFeedOperationTypeLevelUp:
                     {
+                        (int Level, int Exp) beforeEnhancement = (targetEquip.Level, targetEquip.Exp);
                         int targetLevel = GetOperationTargetLevel(targetEquip, request.TargetBreakthrough, request.TargetLevel, equipBreakThroughTables);
 
                         ConsumeFeedItems(session, itemTables, request.EquipId, targetLevel, operationInfo, itemDeltas);
                         ConsumeFeedEquips(session, targetEquip, targetEquipTable, equipTables, equipBreakThroughTables, targetLevel, operationInfo, itemDeltas, notifyEquipDataList);
+                        if ((targetEquip.Level, targetEquip.Exp) != beforeEnhancement)
+                            enhancementCount++;
                         break;
                     }
                     case EquipFeedOperationTypeBreakthrough:
@@ -693,6 +839,7 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
             }
+            return enhancementCount;
         }
 
         private static int ConsumeFeedItems(Session session, List<ItemTable> itemTables, int targetEquipId, int targetLevel, EquipFeedOperationInfo operationInfo, Dictionary<int, int> itemDeltas)
@@ -977,6 +1124,9 @@ namespace AscNet.GameServer.Handlers
                     }
 
                     NotifyItemDataList notifyItemData = new();
+                    var balancesBefore = equipBreakThrough.ItemId.Append(equipBreakThrough.UseItemId)
+                        .Where(id => id > 0).Distinct()
+                        .ToDictionary(id => id, id => session.inventory.Items.Find(item => item.Id == id)?.Count ?? 0);
 
                     for (int i = 0; i < Math.Min(equipBreakThrough.ItemId.Count, equipBreakThrough.ItemCount.Count); i++)
                     {
@@ -995,6 +1145,9 @@ namespace AscNet.GameServer.Handlers
                     session.SendPush(notifyEquipDataList);
                     session.character.Save();
                     session.inventory.Save();
+                    TaskModule.RecordTableDrivenProgress(session, balancesBefore.Select(balance =>
+                        (11202, (int?)balance.Key, (int)Math.Clamp(balance.Value -
+                            (session.inventory.Items.Find(item => item.Id == balance.Key)?.Count ?? 0), 0, int.MaxValue))));
                 }
                 else if (equipBreakThrough is not null)
                 {
@@ -1479,6 +1632,10 @@ namespace AscNet.GameServer.Handlers
             }
             if (hasMaterial)
                 session.inventory.Save();
+            if (hasMaterial)
+                TaskModule.RecordTableDrivenProgress(session, [(11202, (int?)request.UseItemId, materialCost)]);
+            if (commitsImmediately && hasMaterial)
+                TaskModule.RecordEquipmentProgress(session, 12205, [equip]);
             session.SendResponse(new EquipResonanceResponse() { ResonanceDatas = [resonance] }, packet.Id);
         }
 
@@ -1650,6 +1807,8 @@ namespace AscNet.GameServer.Handlers
             itemPush.ItemDataList.Add(session.inventory.Do(request.UseItemId, -totalMaterialCost));
             session.character.Save();
             session.inventory.Save();
+            TaskModule.RecordTableDrivenProgress(session, [(11202, (int?)request.UseItemId, totalMaterialCost)]);
+            TaskModule.RecordEquipmentProgress(session, 12205, equips);
             session.AppliedTeamPrefabId = null;
 
             session.SendPush(archivePush);
@@ -1847,6 +2006,8 @@ namespace AscNet.GameServer.Handlers
             equip.AwakeSlotList.Add(request.Slot);
             session.character.Save();
             session.inventory.Save();
+            TaskModule.RecordTableDrivenProgress(session, costs.Select(cost => (11202, (int?)cost.Id, checked((int)cost.Count))));
+            TaskModule.RecordEquipmentProgress(session, 12203, [equip]);
             session.SendPush(notifyItemData);
             session.SendResponse(new EquipAwakeResponse(), packet.Id);
         }
@@ -1930,6 +2091,8 @@ namespace AscNet.GameServer.Handlers
             }
             session.character.Save();
             session.inventory.Save();
+            TaskModule.RecordTableDrivenProgress(session, costs.Select(cost => (11202, (int?)cost.Id, checked((int)cost.Count))));
+            TaskModule.RecordEquipmentProgress(session, 12203, targets.Select(target => target.Equip).ToArray());
             session.SendPush(notifyItemData);
             session.SendResponse(new EquipQuickAwakeResponse(), packet.Id);
         }
@@ -1963,6 +2126,7 @@ namespace AscNet.GameServer.Handlers
             if (request.IsUse)
             {
                 session.character.Save();
+                TaskModule.RecordEquipmentProgress(session, 12205, [equip]);
                 session.AppliedTeamPrefabId = null;
             }
 
@@ -1979,7 +2143,7 @@ namespace AscNet.GameServer.Handlers
                 : TableReaderV2.Parse<WeaponOverrunTable>()
                     .Where(row => row.WeaponId == equip.TemplateId
                         && row.Level == equip.WeaponOverrunData.Level + 1)
-                    .OrderByDescending(row => (row.CharacterId ?? 0) > 0)
+                    .OrderByDescending(row => row.CharacterId > 0)
                     .FirstOrDefault();
             int itemId = progression?.ConsumeItemIds ?? 0;
             int itemCount = progression?.ConsumeItemCounts ?? 0;
@@ -2002,6 +2166,7 @@ namespace AscNet.GameServer.Handlers
             equip.WeaponOverrunData.Level = progression.Level;
             session.character.Save();
             session.inventory.Save();
+            TaskModule.RecordTableDrivenProgress(session, [(11202, (int?)itemId, itemCount)]);
             session.SendPush(notifyItems);
             session.SendResponse(new EquipWeaponOverrunLevelUpResponse
             {
@@ -2043,6 +2208,7 @@ namespace AscNet.GameServer.Handlers
             equip.WeaponOverrunData.ActiveSuits.Add(request.SuitId);
             session.character.Save();
             session.inventory.Save();
+            TaskModule.RecordTableDrivenProgress(session, [(11202, (int?)suitItemId, suitItemCount)]);
             session.SendPush(notifyItems);
             session.SendResponse(new EquipWeaponActiveOverrunSuitResponse
             {
@@ -2140,6 +2306,7 @@ namespace AscNet.GameServer.Handlers
 
             session.character.Save();
             session.inventory.Save();
+            TaskModule.RecordEquipmentProgress(session, 12206, chips);
             if (notifyItems.ItemDataList.Count > 0)
                 session.SendPush(notifyItems);
             session.SendPush(notifyEquips);
@@ -2319,6 +2486,8 @@ namespace AscNet.GameServer.Handlers
                 session.character = originalCharacter;
                 session.inventory = originalInventory;
             }
+
+            TaskModule.RecordEquipmentProgress(session, 12206, sourceEquips);
 
             if (notifyItemData.ItemDataList.Count > 0)
                 session.SendPush(notifyItemData);

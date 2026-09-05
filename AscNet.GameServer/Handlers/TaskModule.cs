@@ -15,6 +15,11 @@ using SyncTaskSchedule = AscNet.Common.MsgPack.NotifyTask.NotifyTaskTasks.Notify
 using LifeTreeTask = AscNet.Table.V2.share.task.TaskTable;
 using LifeTreeTaskCondition = AscNet.Table.V2.share.task.ConditionTable;
 using AscNet.Table.V2.share.guild.boss;
+using AscNet.Table.V2.share.fuben.mainline;
+using AscNet.Table.V2.share.fuben.extrachapter;
+using AscNet.Table.V2.share.fuben.shortstory;
+using AscNet.Table.V2.share.fuben;
+using AscNet.Table.V2.share.equip.equipguide;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -106,24 +111,84 @@ namespace AscNet.GameServer.Handlers
         private const string CurrentTaskTimeFormat = "yyyy/M/d H:mm";
         private const int DormNormalTaskType = 12;
         private const int DormDailyTaskType = 13;
+        private static readonly HashSet<int> SnapshotConditionTypes =
+            [10101, 10102, 10202, 11201, 12201, 12208, 12209, 12211, 13101, 13102, 13104, 13105, 13106, 13107, 13213, 13214, 15101, 15201, 15207, 15220, 15225, 15226, 15227, 19002, 76100, 76101, 76102, 76103, 89001];
         private static readonly Lazy<IReadOnlyDictionary<int, CurrentConditionTable>> CurrentConditionsById = new(() =>
             TableReaderV2.Parse<CurrentConditionTable>().ToDictionary(condition => condition.Id));
         private static readonly Lazy<IReadOnlyList<CurrentTaskTable>> CurrentTasksByPriority = new(() =>
             TableReaderV2.Parse<CurrentTaskTable>().OrderByDescending(task => task.Priority).ToArray());
+        private static readonly Lazy<IReadOnlyList<CurrentTaskTable>> SnapshotTasksByPriority = new(() =>
+            CurrentTasksByPriority.Value.Where(task => CurrentConditionsById.Value.TryGetValue(task.Condition, out CurrentConditionTable? condition)
+                && SnapshotConditionTypes.Contains(condition.Type)
+                && (condition.Type != 15201 || condition.Params.Count > 1 && condition.Params[0] == 1)).ToArray());
+        private static readonly Lazy<IReadOnlySet<int>> SnapshotTaskIds = new(() =>
+            SnapshotTasksByPriority.Value.Select(task => task.Id).ToHashSet());
         private static readonly Lazy<IReadOnlySet<int>> CurrentTaskIds = new(() =>
             CurrentTasksByPriority.Value.Select(task => task.Id).ToHashSet());
         private static readonly Lazy<IReadOnlyDictionary<uint, EquipTable>> EquipRowsById = new(() =>
             TableReaderV2.Parse<EquipTable>().ToDictionary(equip => (uint)equip.Id));
+        private static readonly Lazy<IReadOnlyDictionary<int, EquipTargetTable>> EquipGuideTargetsById = new(() =>
+            TableReaderV2.Parse<EquipTargetTable>().ToDictionary(target => target.Id));
+        private static readonly Lazy<IReadOnlyDictionary<int, List<List<int>>>> StoryChapterStages = new(BuildStoryChapterStages);
+        private static readonly Lazy<IReadOnlyDictionary<int, int>> StageTypesById = new(() =>
+        {
+            Dictionary<int, int> types = new();
+            foreach (StageTable stage in TableReaderV2.Parse<StageTable>())
+                if (stage.Type is int type and > 0)
+                    types.Add(stage.StageId, type);
+            return types;
+        });
         private static readonly Lazy<IReadOnlyDictionary<int, int>> GuildBossStageTypes = new(() =>
             TableReaderV2.Parse<GuildBossStageCatalogTable>().ToDictionary(stage => stage.StageId, stage => stage.StageType));
 
         [RequestPacketHandler("DoClientTaskEventRequest")]
         public static void DoClientTaskEventRequestHandler(Session session, Packet.Request packet)
         {
-            _ = packet.Deserialize<DoClientTaskEventRequest>();
+            DoClientTaskEventRequest request = packet.Deserialize<DoClientTaskEventRequest>();
             EnsureMissionResets(session);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            List<CurrentTaskTable> tasks = CurrentTasksByPriority.Value.Where(task =>
+                request.ClientTaskType > 0 && task.Result == 1 && IsCurrentTaskVisibleAtLogin(task, now)
+                && (task.PreTaskId == 0 || session.player.MissionProgress.ClaimedTaskIds.Contains(task.PreTaskId))
+                && CurrentConditionsById.Value.TryGetValue(task.Condition, out CurrentConditionTable? condition)
+                && condition.Type == 45000 && condition.Params.Count == 2
+                && condition.Params[0] == 1 && condition.Params[1] == request.ClientTaskType).ToList();
+            if (tasks.Count == 0)
+            {
+                session.SendResponse(new DoClientTaskEventResponse { Code = 20026007 }, packet.Id);
+                return;
+            }
+            Dictionary<int, int> counters = session.player.MissionProgress.ConditionCounters;
+            Dictionary<int, int?> previous = tasks
+                .Where(task => !session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id))
+                .Select(task => task.Condition).Distinct()
+                .Where(conditionId => counters.GetValueOrDefault(conditionId) != 1)
+                .ToDictionary(conditionId => conditionId, conditionId =>
+                    counters.TryGetValue(conditionId, out int value) ? (int?)value : null);
+            if (previous.Count > 0)
+            {
+                foreach (int conditionId in previous.Keys)
+                    counters[conditionId] = 1;
+                try
+                {
+                    session.player.SaveChecked();
+                }
+                catch (Exception exception)
+                {
+                    foreach ((int conditionId, int? value) in previous)
+                    {
+                        if (value.HasValue)
+                            counters[conditionId] = value.Value;
+                        else
+                            counters.Remove(conditionId);
+                    }
+                    session.log.Error($"Failed to persist client task event: {exception}");
+                    session.SendResponse(new DoClientTaskEventResponse { Code = 2 }, packet.Id);
+                    return;
+                }
+            }
             session.SendResponse(new DoClientTaskEventResponse(), packet.Id);
-            SendTaskSync(session);
+            SendCurrentTaskBatch(session, tasks.Select(task => task.Id).ToArray());
         }
 
         [RequestPacketHandler("FinishTaskRequest")]
@@ -268,6 +333,7 @@ namespace AscNet.GameServer.Handlers
                 return new GetActivenessRewardResponse { Code = 20026011 };
             }
 
+            EnsureMissionResets(session);
             CurrentTaskActivenessTable? rewards = TableReaderV2.Parse<CurrentTaskActivenessTable>().FirstOrDefault(x => x.Type == rewardType);
             if (rewards is null)
             {
@@ -302,11 +368,11 @@ namespace AscNet.GameServer.Handlers
                 return new GetActivenessRewardResponse { Code = 20026010 };
             }
 
-            List<RewardGoods> grantedRewards = new();
+            List<RewardApplicationResult> applications = new();
             foreach ((int rewardIndex, List<RewardGoodsTable> rewardGoods) in rewardIndexes.Zip(configuredRewards))
             {
                 claimedStatus |= 1L << rewardIndex;
-                grantedRewards.AddRange(RewardHandler.GiveRewards(rewardGoods, session));
+                applications.Add(RewardHandler.ApplyRewards(rewardGoods, session));
             }
             if (rewardType == 1)
             {
@@ -319,10 +385,12 @@ namespace AscNet.GameServer.Handlers
             session.inventory.Save();
             session.character.Save();
             session.player.Save();
+            foreach (RewardApplicationResult application in applications)
+                application.SendPushes(session);
             return new GetActivenessRewardResponse
             {
                 Code = 0,
-                RewardGoodsList = grantedRewards
+                RewardGoodsList = applications.SelectMany(application => application.RewardGoods).ToList()
             };
         }
 
@@ -389,21 +457,23 @@ namespace AscNet.GameServer.Handlers
                 return new GetNewPlayerRewardResponse { Code = 20026003 };
             }
 
-            List<RewardGoods> grantedRewards = new();
+            List<RewardApplicationResult> applications = new();
             for (int index = 0; index < rewardIndexes.Count; index++)
             {
                 int rewardIndex = rewardIndexes[index];
                 session.player.MissionProgress.NewPlayerRewardRecords.Add(rewards.Activeness[rewardIndex]);
-                grantedRewards.AddRange(RewardHandler.GiveRewards(configuredRewards[index], session));
+                applications.Add(RewardHandler.ApplyRewards(configuredRewards[index], session));
             }
             session.player.MissionProgress.NewPlayerRewardRecords.Sort();
             session.inventory.Save();
             session.character.Save();
             session.player.Save();
+            foreach (RewardApplicationResult application in applications)
+                application.SendPushes(session);
             return new GetNewPlayerRewardResponse
             {
                 Code = 0,
-                RewardGoodsList = grantedRewards
+                RewardGoodsList = applications.SelectMany(application => application.RewardGoods).ToList()
             };
         }
 
@@ -452,20 +522,22 @@ namespace AscNet.GameServer.Handlers
             }
 
             List<int> claimedMilestones = rewardIndexes.Select(index => rewards.Activeness[index]).ToList();
-            List<RewardGoods> grantedRewards = new();
+            List<RewardApplicationResult> applications = new();
             for (int index = 0; index < rewardIndexes.Count; index++)
             {
                 session.player.MissionProgress.NewbieRewardRecords.Add(claimedMilestones[index]);
-                grantedRewards.AddRange(RewardHandler.GiveRewards(configuredRewards[index], session));
+                applications.Add(RewardHandler.ApplyRewards(configuredRewards[index], session));
             }
             session.player.MissionProgress.NewbieRewardRecords.Sort();
             session.inventory.Save();
             session.character.Save();
             session.player.Save();
+            foreach (RewardApplicationResult application in applications)
+                application.SendPushes(session);
             return new GetNewbieRewardResponse
             {
                 Code = 0,
-                RewardGoodsList = grantedRewards,
+                RewardGoodsList = applications.SelectMany(application => application.RewardGoods).ToList(),
                 NewbieRecvProgress = claimedMilestones
             };
         }
@@ -505,14 +577,15 @@ namespace AscNet.GameServer.Handlers
             }
 
             session.player.MissionProgress.NewbieHonorReward = true;
-            List<RewardGoods> grantedRewards = RewardHandler.GiveRewards(configuredRewards, session);
+            RewardApplicationResult application = RewardHandler.ApplyRewards(configuredRewards, session);
             session.inventory.Save();
             session.character.Save();
             session.player.Save();
+            application.SendPushes(session);
             return new GetNewbieHonorRewardResponse
             {
                 Code = 0,
-                RewardGoodsList = grantedRewards
+                RewardGoodsList = application.RewardGoods
             };
         }
 
@@ -548,15 +621,18 @@ namespace AscNet.GameServer.Handlers
                 return new GetCourseRewardResponse { Code = 20026014 };
             }
 
-            List<RewardGoods> rewardGoodsList = RewardHandler.GiveRewards(rewardGoods, session);
+            RewardApplicationResult application = RewardHandler.ApplyRewards(rewardGoods, session);
             session.inventory.Save();
             session.character.Save();
             session.stage.Save();
+            if (application.DormFurnitureChanged || application.GatherRewardIds.Count > 0 || application.HeadPortraitData.Heads.Count > 0)
+                session.player.Save();
+            application.SendPushes(session);
 
             return new GetCourseRewardResponse
             {
                 Code = 0,
-                RewardGoodsList = rewardGoodsList
+                RewardGoodsList = application.RewardGoods
             };
         }
 
@@ -598,18 +674,22 @@ namespace AscNet.GameServer.Handlers
             tasks.AddRange(BuildPassportTaskProgress(session)
                 .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
+            session.TaskSnapshotProgress = tasks.Where(task => SnapshotTaskIds.Value.Contains((int)task.Id))
+                .ToDictionary(task => (int)task.Id, task => (task.Schedule[0].Value, task.State));
             return tasks;
         }
 
         public static void SendTaskSync(Session session)
         {
             EnsureMissionResets(session);
-            session.SendPush(new NotifyTask
+            NotifyTask notification = new()
             {
                 Tasks = new()
                 {
                     Tasks = BuildStoryTaskProgress(session)
                         .Select(ToSyncTask)
+                        .Concat(BuildDormTaskProgress(session).Select(ToSyncTask))
+                        .Concat(BuildLifeTreeTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildCurrentTaskProgress(session, loginOnly: true).Select(ToSyncTask))
                         .Concat(BuildPassportTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildTransfiniteTaskProgress(session).Select(ToSyncTask))
@@ -617,7 +697,43 @@ namespace AscNet.GameServer.Handlers
                         .Select(x => x.First())
                         .ToList()
                 }
-            });
+            };
+            session.SendPush(notification);
+            session.TaskSnapshotProgress ??= new();
+            foreach (SyncTask task in notification.Tasks.Tasks.Where(task => SnapshotTaskIds.Value.Contains((int)task.Id)))
+                session.TaskSnapshotProgress[(int)task.Id] = (task.Schedule[0].Value, task.State);
+        }
+
+        internal static void SendSnapshotTaskSync(Session session)
+        {
+            if (session.player is null || session.character is null || session.inventory is null || session.stage is null
+                || session.TaskSnapshotProgress is null)
+                return;
+            EnsureMissionResets(session);
+            List<SyncTask>? changed = null;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            foreach (CurrentTaskTable task in SnapshotTasksByPriority.Value)
+            {
+                if (!IsCurrentTaskVisibleAtLogin(task, now))
+                    continue;
+                (int conditionId, int count, int state) = EvaluateCurrentTask(session, task, now);
+                (int Value, int State) value = (count, state);
+                if (session.TaskSnapshotProgress.TryGetValue(task.Id, out var previous) && previous == value)
+                    continue;
+                session.TaskSnapshotProgress[task.Id] = value;
+                (changed ??= []).Add(ToSyncTask(new MissionTaskProgress(task.Id, conditionId, count, state)));
+            }
+            if (changed is not null)
+                session.SendPush(new NotifyTask { Tasks = new() { Tasks = changed } });
+        }
+
+        private static void RememberSnapshotTaskProgress(Session session, IEnumerable<MissionTaskProgress> progress)
+        {
+            if (session.TaskSnapshotProgress is null)
+                return;
+            foreach (MissionTaskProgress task in progress)
+                if (SnapshotTaskIds.Value.Contains(task.TaskId))
+                    session.TaskSnapshotProgress[task.TaskId] = (task.Value, task.State);
         }
 
         public static void SendCurrentTaskBatch(Session session, IReadOnlyCollection<int> taskIds)
@@ -638,6 +754,7 @@ namespace AscNet.GameServer.Handlers
                     Tasks = progress.Select(ToSyncTask).ToList()
                 }
             });
+            RememberSnapshotTaskProgress(session, progress);
         }
         private static bool IsDormTask(int taskId) =>
             TableReaderV2.Parse<TaskTable>().Any(task => task.Id == taskId && IsDormTask(task));
@@ -949,19 +1066,10 @@ namespace AscNet.GameServer.Handlers
             EnsureMissionResets(session);
             foreach (CurrentConditionTable condition in TableReaderV2.Parse<CurrentConditionTable>())
             {
-                bool matches = condition.Type switch
-                {
-                    15101 or 15220 or 15225 => condition.Params.Contains(stageId),
-                    15201 when condition.Params.Count > 1 => condition.Params.Skip(1).Contains(stageId),
-                    15201 or 15217 or 15227 => true,
-                    15202 => condition.Params.Count <= 1
-                        || condition.Params[1] == 1 && stageId is >= 10_000_000 and < 20_000_000,
-                    _ => false
-                };
+                bool matches = MatchesStageClearCondition(condition.Type, condition.Params, stageId);
                 if (matches)
                 {
-                    int increment = condition.Type == 15201 && condition.Params.Count > 1 ? 1 : count;
-                    AddConditionProgress(session, condition.Id, increment);
+                    AddConditionProgress(session, condition.Id, count);
                 }
             }
             HashSet<int> passportTaskIds = BuildPassportTaskProgress(session)
@@ -974,26 +1082,27 @@ namespace AscNet.GameServer.Handlers
             foreach (ConditionTable condition in TableReaderV2.Parse<ConditionTable>()
                 .Where(condition => passportConditionIds.Contains(condition.Id)))
             {
-                bool matches = condition.Type switch
-                {
-                    15101 or 15220 or 15225 => condition.Params.Contains(stageId),
-                    15201 when condition.Params.Count > 1 => condition.Params.Skip(1).Contains(stageId),
-                    15201 or 15217 or 15227 => true,
-                    15202 => condition.Params.Count <= 1
-                        || condition.Params[1] == 1 && stageId is >= 10_000_000 and < 20_000_000,
-                    _ => false
-                };
+                bool matches = MatchesStageClearCondition(condition.Type, condition.Params, stageId);
                 if (matches)
-                    AddConditionProgress(session, condition.Id,
-                        condition.Type == 15201 && condition.Params.Count > 1 ? 1 : count);
+                    AddConditionProgress(session, condition.Id, count);
             }
             if (isFirstClear)
                 RecordFirstClearProgress(session, stageId);
             if (actionPointCost > 0)
-                AddConditionTypeProgress(session, 11202, actionPointCost);
+                AddConditionTypeProgress(session, 11202, actionPointCost, Inventory.ActionPoint);
             session.player.Save();
             SendTaskSync(session);
         }
+
+        private static bool MatchesStageClearCondition(int? type, IReadOnlyList<int> parameters, int stageId) => type switch
+        {
+            15101 or 15220 or 15225 => parameters.Contains(stageId),
+            15201 when parameters.Count > 1 => parameters.Skip(1).Contains(stageId),
+            15201 or 15217 or 15227 => true,
+            15202 => parameters.Count <= 1 || StageTypesById.Value.TryGetValue(stageId, out int stageType)
+                && parameters.Skip(1).Contains(stageType),
+            _ => false
+        };
 
         private static void RecordFirstClearProgress(Session session, int stageId)
         {
@@ -1147,28 +1256,57 @@ namespace AscNet.GameServer.Handlers
         }
         internal static void RecordTableDrivenProgress(Session session, IEnumerable<(int ConditionType, int? Parameter, int Amount)> increments)
         {
-            EnsureMissionResets(session);
-            DateTimeOffset now = DateTimeOffset.UtcNow;
             Dictionary<(int ConditionType, int? Parameter), int> amounts = increments
                 .Where(increment => increment.Amount > 0)
                 .GroupBy(increment => (increment.ConditionType, increment.Parameter))
                 .ToDictionary(group => group.Key, group => group.Sum(increment => increment.Amount));
             if (amounts.Count == 0) return;
 
+            int Amount(int? type, IReadOnlyList<int> parameters)
+            {
+                if (type is not int conditionType || parameters.Count > 2)
+                    return 0;
+                if (parameters.Count >= 2)
+                    return amounts.GetValueOrDefault((conditionType, parameters[1]));
+                // Dorm producers supply an overall amount plus per-furniture-type subtotals.
+                return amounts.TryGetValue((conditionType, null), out int total)
+                    ? total
+                    : amounts.Where(increment => increment.Key.ConditionType == conditionType).Sum(increment => increment.Value);
+            }
             Dictionary<int, int> conditionAmounts = TableReaderV2.Parse<ConditionTable>()
-                .Where(condition => amounts.Any(increment => condition.Type == increment.Key.ConditionType
-                    && (increment.Key.Parameter is null ? condition.Params.Count < 2 : condition.Params.Count > 1 && condition.Params[1] == increment.Key.Parameter)))
-                .ToDictionary(condition => condition.Id, condition => amounts.Single(increment => condition.Type == increment.Key.ConditionType
-                    && (increment.Key.Parameter is null ? condition.Params.Count < 2 : condition.Params.Count > 1 && condition.Params[1] == increment.Key.Parameter)).Value);
+                .Select(condition => (condition.Id, Amount: Amount(condition.Type, condition.Params)))
+                .Where(condition => condition.Amount > 0)
+                .ToDictionary(condition => condition.Id, condition => condition.Amount);
+            Dictionary<int, int> currentAmounts = CurrentConditionsById.Value.Values
+                .Select(condition => (condition.Id, Amount: Amount(condition.Type, condition.Params)))
+                .Where(condition => condition.Amount > 0)
+                .ToDictionary(condition => condition.Id, condition => condition.Amount);
+            RecordConditionAmounts(session, conditionAmounts, currentAmounts);
+        }
+
+        private static void RecordConditionAmounts(Session session, Dictionary<int, int> conditionAmounts, Dictionary<int, int> currentAmounts)
+        {
+            if (conditionAmounts.Count == 0 && currentAmounts.Count == 0)
+                return;
+            EnsureMissionResets(session);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
             List<TaskTable> tasks = TableReaderV2.Parse<TaskTable>()
                 .Where(task => conditionAmounts.ContainsKey(task.Condition)
                     && IsTaskActive(task, now)
                     && (task.Type != 51 || PassportModule.IsActivePassportTask(session, task.Id)))
                 .ToList();
-            if (tasks.Count == 0) return;
+            List<CurrentTaskTable> currentTasks = CurrentTasksByPriority.Value
+                .Where(task => currentAmounts.ContainsKey(task.Condition) && IsCurrentTaskVisibleAtLogin(task, now)).ToList();
+            HashSet<int> visibleCurrentConditions = currentTasks.Select(task => task.Condition).ToHashSet();
+            foreach (int conditionId in currentAmounts.Keys.Where(id => !visibleCurrentConditions.Contains(id)).ToArray())
+                currentAmounts.Remove(conditionId);
+            if (tasks.Count == 0 && currentAmounts.Count == 0) return;
 
             foreach ((int conditionId, int amount) in conditionAmounts.Where(entry => tasks.Any(task => task.Condition == entry.Key)))
                 AddConditionProgress(session, conditionId, amount);
+            foreach ((int conditionId, int amount) in currentAmounts)
+                if (!tasks.Any(task => task.Condition == conditionId))
+                    AddConditionProgress(session, conditionId, amount);
 
             session.player.Save();
             session.SendPush(new NotifyTask
@@ -1183,9 +1321,35 @@ namespace AscNet.GameServer.Handlers
                             ? TaskStateFinish
                             : value >= result ? TaskStateAchieved : TaskStateActive;
                         return ToSyncTask(new MissionTaskProgress(task.Id, task.Condition, value, state));
-                    }).ToList()
+                    }).Concat(currentTasks.Select(task =>
+                    {
+                        (int conditionId, int value, int state) = EvaluateCurrentTask(session, task, now);
+                        return ToSyncTask(new MissionTaskProgress(task.Id, conditionId, value, state));
+                    })).DistinctBy(task => task.Id).ToList()
                 }
             });
+        }
+
+        internal static void RecordEquipmentProgress(Session session, int conditionType, IReadOnlyCollection<EquipData> equipment)
+        {
+            if (equipment.Count == 0)
+                return;
+            int Count(IReadOnlyList<int> parameters) => equipment.Count(equip =>
+                EquipRowsById.Value.TryGetValue(equip.TemplateId, out EquipTable? row)
+                && (parameters.Count < 2 || parameters[1] <= 0 || equip.TemplateId == parameters[1])
+                && (parameters.Count < 3 || parameters[2] < 0 || parameters[2] == 0 && row.Site is >= 1 and <= 6)
+                && (parameters.Count < 4 || parameters[3] < 0 || parameters[3] == 0 && row.Site == 0));
+            Dictionary<int, int> conditionAmounts = TableReaderV2.Parse<ConditionTable>()
+                .Where(condition => condition.Type == conditionType)
+                .Select(condition => (condition.Id, Amount: Count(condition.Params)))
+                .Where(condition => condition.Amount > 0)
+                .ToDictionary(condition => condition.Id, condition => condition.Amount);
+            Dictionary<int, int> currentAmounts = CurrentConditionsById.Value.Values
+                .Where(condition => condition.Type == conditionType)
+                .Select(condition => (condition.Id, Amount: Count(condition.Params)))
+                .Where(condition => condition.Amount > 0)
+                .ToDictionary(condition => condition.Id, condition => condition.Amount);
+            RecordConditionAmounts(session, conditionAmounts, currentAmounts);
         }
         private static bool IsTaskActive(TaskTable task, DateTimeOffset now) =>
             (string.IsNullOrWhiteSpace(task.StartTime) || TryParseCurrentTaskTime(task.StartTime, out DateTimeOffset start) && now >= start)
@@ -1205,18 +1369,23 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(new NotifyTask { Tasks = new() { Tasks = tasks } });
         }
 
-        private static bool AddConditionTypeProgress(Session session, int conditionType, int amount)
+        internal static bool AddConditionTypeProgress(Session session, int conditionType, int amount, int? parameter = null)
         {
             List<int> conditionIds = TableReaderV2.Parse<CurrentConditionTable>()
-                .Where(x => x.Type == conditionType)
+                .Where(x => x.Type == conditionType
+                    && (parameter is null || x.Params.Count > 1 && x.Params[1] == parameter))
                 .Select(x => x.Id)
                 .ToList();
             HashSet<int> activePassportConditions = BuildPassportTaskProgress(session)
                 .Select(task => task.ConditionId)
                 .ToHashSet();
+            activePassportConditions.UnionWith(TableReaderV2.Parse<TaskTable>()
+                .Where(task => IsDormTask(task) && IsTaskActive(task, DateTimeOffset.UtcNow))
+                .Select(task => task.Condition));
             conditionIds.AddRange(TableReaderV2.Parse<ConditionTable>()
                 .Where(condition => activePassportConditions.Contains(condition.Id)
-                    && condition.Type == conditionType)
+                    && condition.Type == conditionType
+                    && (parameter is null || condition.Params.Count > 1 && condition.Params[1] == parameter))
                 .Select(condition => condition.Id));
             conditionIds = conditionIds.Distinct().ToList();
             foreach (int conditionId in conditionIds)
@@ -1225,7 +1394,7 @@ namespace AscNet.GameServer.Handlers
             }
             return conditionIds.Count > 0;
         }
-        private static void SendConditionTypeSync(Session session, int conditionType)
+        internal static void SendConditionTypeSync(Session session, int conditionType)
         {
             SendConditionTypesSync(session, [conditionType]);
         }
@@ -1242,6 +1411,9 @@ namespace AscNet.GameServer.Handlers
                     && selectedTypes.Contains(condition.Type))
                 .Concat(BuildPassportTaskProgress(session)
                     .Where(task => passportConditionIds.Contains(task.ConditionId)))
+                .Concat(BuildDormTaskProgress(session)
+                    .Where(task => passportConditionIds.Contains(task.ConditionId)))
+                .DistinctBy(task => task.TaskId)
                 .ToList();
             session.SendPush(new NotifyTask
             {
@@ -1250,6 +1422,7 @@ namespace AscNet.GameServer.Handlers
                     Tasks = progress.Select(ToSyncTask).ToList()
                 }
             });
+            RememberSnapshotTaskProgress(session, progress);
         }
 
         private static FinishTaskResponse ClaimTaskReward(
@@ -1261,6 +1434,7 @@ namespace AscNet.GameServer.Handlers
         {
             transfiniteApplication = null;
             passportApplication = null;
+            EnsureMissionResets(session);
             FinishTaskResponse? transfiniteTaskResponse = ClaimTransfiniteTaskReward(session, taskId, out transfiniteApplication);
             if (transfiniteTaskResponse is not null)
             {
@@ -1285,7 +1459,6 @@ namespace AscNet.GameServer.Handlers
                 return ClaimLifeTreeTaskReward(session, taskId, pushSync);
             }
 
-            EnsureMissionResets(session);
             if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
             {
                 return new FinishTaskResponse { Code = 20026006 };
@@ -1303,11 +1476,34 @@ namespace AscNet.GameServer.Handlers
                 return new FinishTaskResponse { Code = 20026003 };
             }
 
-            session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
-            List<RewardGoods> rewardGoodsList = RewardHandler.GiveRewards(rewardGoods, session);
-            session.inventory.Save();
-            session.character.Save();
-            session.player.Save();
+            RewardApplicationResult application;
+            try
+            {
+                string claimKey = currentTask.Type switch
+                {
+                    2 => $"current-task:{taskId}:{session.player.MissionProgress.DailyResetDay}",
+                    3 => $"current-task:{taskId}:{session.player.MissionProgress.WeeklyResetWeek}",
+                    10 => $"current-task:{taskId}:{session.player.SimulatedBattlefield.ArenaActivityNo}",
+                    _ => $"current-task:{taskId}"
+                };
+                application = RewardHandler.ApplyRewardsOnceAndPersist([new RewardGrant(claimKey, rewardGoods)], session);
+                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
+                try
+                {
+                    session.player.SaveChecked();
+                }
+                catch
+                {
+                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
+                    throw;
+                }
+            }
+            catch (Exception exception)
+            {
+                session.log.Error($"Failed to persist current task reward {taskId}: {exception}");
+                return new FinishTaskResponse { Code = 20026003 };
+            }
+            application.SendPushes(session);
             if (pushSync)
             {
                 SendTaskSync(session);
@@ -1316,7 +1512,7 @@ namespace AscNet.GameServer.Handlers
             return new FinishTaskResponse
             {
                 Code = 0,
-                RewardGoodsList = rewardGoodsList
+                RewardGoodsList = application.RewardGoods
             };
         }
 
@@ -1333,12 +1529,9 @@ namespace AscNet.GameServer.Handlers
             if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
                 return new FinishTaskResponse { Code = 20026006 };
 
-            ConditionTable? condition = TableReaderV2.Parse<ConditionTable>()
-                .FirstOrDefault(candidate => candidate.Id == task.Condition);
-            int value = condition?.Type == 10101
-                ? 1
-                : session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition);
-            if (condition is null || value < (task.Result ?? 1))
+            MissionTaskProgress? progress = BuildPassportTaskProgress(session)
+                .FirstOrDefault(candidate => candidate.TaskId == taskId);
+            if (progress is null || progress.State != TaskStateAchieved)
                 return new FinishTaskResponse { Code = 20026007 };
 
             List<RewardGoodsTable> goods = task.RewardId is > 0
@@ -1538,10 +1731,13 @@ namespace AscNet.GameServer.Handlers
                 return new FinishTaskResponse { Code = 20026006 };
             }
 
-            List<RewardGoods> rewardGoodsList = RewardHandler.GiveRewards(rewardGoods, session);
+            RewardApplicationResult application = RewardHandler.ApplyRewards(rewardGoods, session);
             session.inventory.Save();
             session.character.Save();
             session.stage.Save();
+            if (application.DormFurnitureChanged || application.GatherRewardIds.Count > 0 || application.HeadPortraitData.Heads.Count > 0)
+                session.player.Save();
+            application.SendPushes(session);
 
             if (pushSync)
             {
@@ -1551,7 +1747,7 @@ namespace AscNet.GameServer.Handlers
             return new FinishTaskResponse
             {
                 Code = 0,
-                RewardGoodsList = rewardGoodsList
+                RewardGoodsList = application.RewardGoods
             };
         }
 
@@ -1633,24 +1829,14 @@ namespace AscNet.GameServer.Handlers
                 });
         }
 
-        private static bool IsCurrentTaskVisibleAtLogin(CurrentTaskTable task, DateTimeOffset now)
-        {
-            if (task.LoginVisible == 1 || task.Type is 4 or 6 or 7 or 71 or 91)
-                return true;
-            if (string.IsNullOrWhiteSpace(task.StartTime) && string.IsNullOrWhiteSpace(task.EndTime))
-                return false;
-            if (!string.IsNullOrWhiteSpace(task.StartTime)
-                && (!TryParseCurrentTaskTime(task.StartTime, out DateTimeOffset startTime) || now < startTime))
-            {
-                return false;
-            }
-            if (!string.IsNullOrWhiteSpace(task.EndTime)
-                && (!TryParseCurrentTaskTime(task.EndTime, out DateTimeOffset endTime) || now >= endTime))
-            {
-                return false;
-            }
-            return true;
-        }
+        private static bool IsCurrentTaskVisibleAtLogin(CurrentTaskTable task, DateTimeOffset now) =>
+            IsTaskActive(task, now)
+            && (task.LoginVisible == 1 || task.Type is 4 or 5 or 6 or 7 or 71 or 91
+                || !string.IsNullOrWhiteSpace(task.StartTime) || !string.IsNullOrWhiteSpace(task.EndTime));
+
+        private static bool IsTaskActive(CurrentTaskTable task, DateTimeOffset now) =>
+            (string.IsNullOrWhiteSpace(task.StartTime) || TryParseCurrentTaskTime(task.StartTime, out DateTimeOffset start) && now >= start)
+            && (string.IsNullOrWhiteSpace(task.EndTime) || TryParseCurrentTaskTime(task.EndTime, out DateTimeOffset end) && now < end);
 
         private static bool TryParseCurrentTaskTime(string value, out DateTimeOffset result)
         {
@@ -1666,33 +1852,37 @@ namespace AscNet.GameServer.Handlers
         {
             IReadOnlyDictionary<int, CurrentConditionTable> conditions = CurrentConditionsById.Value;
             IEnumerable<CurrentTaskTable> tasks = CurrentTasksByPriority.Value;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
             if (conditionTypes is not null)
                 tasks = tasks.Where(task => conditions.TryGetValue(task.Condition, out CurrentConditionTable? condition) && conditionTypes.Contains(condition.Type));
             if (loginOnly)
             {
-                DateTimeOffset now = DateTimeOffset.UtcNow;
                 tasks = tasks.Where(task => IsCurrentTaskVisibleAtLogin(task, now));
             }
 
             return tasks
                 .Select(task =>
                 {
-                    CurrentConditionTable? condition = conditions.GetValueOrDefault(task.Condition);
-                    int conditionId = condition?.Id ?? task.Id;
-                    int value = condition is null ? 0 : EvaluateCurrentCondition(session, condition);
-                    if (condition?.Type is not (28003 or 28006))
-                    {
-                        value = Math.Min(value, task.Result);
-                    }
-                    bool prerequisiteSatisfied = task.PreTaskId == 0
-                        || session.player.MissionProgress.ClaimedTaskIds.Contains(task.PreTaskId)
-                        || !CurrentTaskIds.Value.Contains(task.PreTaskId);
-                    int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
-                        ? TaskStateFinish
-                        : prerequisiteSatisfied && value >= task.Result ? TaskStateAchieved : TaskStateActive;
+                    (int conditionId, int value, int state) = EvaluateCurrentTask(session, task, now);
                     return new MissionTaskProgress(task.Id, conditionId, value, state);
                 })
                 .ToList();
+        }
+
+        private static (int ConditionId, int Value, int State) EvaluateCurrentTask(Session session, CurrentTaskTable task, DateTimeOffset now)
+        {
+            CurrentConditionTable? condition = CurrentConditionsById.Value.GetValueOrDefault(task.Condition);
+            int conditionId = condition?.Id ?? task.Id;
+            int value = condition is null ? 0 : EvaluateCurrentCondition(session, condition);
+            if (condition?.Type is not (28003 or 28006))
+                value = Math.Min(value, task.Result);
+            bool prerequisiteSatisfied = task.PreTaskId == 0
+                || session.player.MissionProgress.ClaimedTaskIds.Contains(task.PreTaskId)
+                || !CurrentTaskIds.Value.Contains(task.PreTaskId);
+            int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
+                ? TaskStateFinish
+                : IsTaskActive(task, now) && prerequisiteSatisfied && value >= task.Result ? TaskStateAchieved : TaskStateActive;
+            return (conditionId, value, state);
         }
 
         private static int EvaluateCurrentCondition(Session session, CurrentConditionTable condition)
@@ -1703,21 +1893,55 @@ namespace AscNet.GameServer.Handlers
             {
                 10101 => (int)session.player.PlayerData.Level,
                 10102 => 1,
-                10202 => Math.Max(1, session.player.PlayerData.NewPlayerTaskActiveDay),
+                10202 => Math.Max(0, session.player.PlayerData.NewPlayerTaskActiveDay),
                 11201 => (int)Math.Min(int.MaxValue, session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.Coin)?.Count ?? 0),
                 12201 => CountQualifyingEquipment(session, parameters),
-                13101 => CharacterMeets(session, parameters[0], character => character.Level >= parameters[2]),
+                12208 => Math.Max(stored, session.player.EquipGuideData.FinishedTargets.Any(EquipGuideTargetsById.Value.ContainsKey)
+                    || EquipGuideTargetsById.Value.TryGetValue(session.player.EquipGuideData.TargetId, out EquipTargetTable? target)
+                        && target.CharacterId == session.player.EquipGuideData.CharacterId ? 1 : 0),
+                12209 => session.player.EquipGuideData.FinishedTargets.Any(EquipGuideTargetsById.Value.ContainsKey)
+                    || EquipModule.IsCurrentGoalComplete(session) ? 1 : 0,
+                12211 when parameters.Count >= 3 => session.player.EquipGuideData.FinishedTargets.Any(targetId =>
+                    parameters.Skip(2).Contains(targetId) && EquipGuideTargetsById.Value.TryGetValue(targetId, out EquipTargetTable? goal)
+                        && goal.CharacterId == parameters[1]) ? 1 : 0,
+                // Task-condition extra filters have no executable rule in the supplied client sources.
+                13101 when parameters.Count > 5 => 0,
+                13101 when parameters.Count >= 3 => CharacterMeets(session, parameters[0], character =>
+                    character.Quality >= parameters[1] && character.Level >= parameters[2]
+                    && (parameters.Count < 4 || character.Grade >= parameters[3])
+                    && (parameters.Count < 5 || character.Ability >= parameters[4])),
                 13102 => CountCharactersAtQuality(session, parameters),
                 13104 => CharacterMeets(session, parameters[0], character => character.TrustLv >= parameters[1]),
                 13105 => CountCharactersAtTrust(session, parameters),
                 13106 => CharacterMeets(session, parameters[1], character => character.Quality >= parameters[0]),
                 13107 => CharacterMeets(session, parameters[1], character => character.LiberateLv >= parameters[0]),
+                13213 when parameters.Count > 1 => session.character.Characters.Sum(character =>
+                    character.SkillList.Count(skill => skill.Level >= parameters[1])),
+                13214 when parameters.Count > 1 => session.character.Characters.Any(character =>
+                    character.EnhanceSkillList.Any(skill => parameters.Skip(1).Contains((int)skill.Id) && skill.Level >= parameters[0])) ? 1 : 0,
                 15101 or 15220 or 15225 => parameters.Any(stageId => HasPassedStage(session, stageId)) ? 1 : stored,
-                15201 when parameters.Count > 1 => parameters.Skip(1).Count(stageId => HasPassedStage(session, stageId)),
-                15202 when parameters.Count > 1 && parameters[1] == 1 => Math.Max(stored, CountPassedMainStoryStages(session)),
-                15226 => CountPassedMainStoryChapters(session),
-                15227 => CountPassedMainStoryStages(session),
+                15201 when parameters.Count > 1 && parameters[0] == 1 => Math.Max(stored,
+                    parameters.Skip(1).Any(stageId => HasPassedStage(session, stageId)) ? 1 : 0),
+                15207 => parameters.Skip(1).Sum(stageId => session.stage.Stages.TryGetValue(stageId, out StageDatum? stage)
+                    ? System.Numerics.BitOperations.PopCount((ulong)stage.StarsMark) : 0),
+                15226 => StoryChapters(parameters).Count(stages => stages.Count > 0 && stages.All(stageId => HasPassedStage(session, stageId))),
+                15227 => session.stage.Stages.Values.Count(stage => stage.Passed
+                    && StageTypesById.Value.TryGetValue((int)stage.StageId, out int stageType)
+                    && parameters.Skip(1).Contains(stageType)),
+                19002 when parameters.Count > 1 => 0,
                 19002 => session.character.Fashions.Count,
+                76100 when parameters.Count >= 3 => session.character.Partners.Any(partner =>
+                    partner.TemplateId == parameters[2] && (partner.BreakThrough > parameters[0]
+                        || partner.BreakThrough == parameters[0] && partner.Level >= parameters[1])) ? 1 : 0,
+                76101 when parameters.Count >= 2 => session.character.Partners.Count(partner => partner.Quality >= parameters[0]),
+                76102 when parameters.Count >= 2 => session.character.Partners.Any(partner =>
+                    partner.TemplateId == parameters[1] && partner.Quality >= parameters[0]) ? 1 : 0,
+                76103 => session.character.Partners.Sum(partner =>
+                    (partner.SkillList.FirstOrDefault(skill => skill.Type == 1)?.Level ?? 0)
+                    + partner.SkillList.Where(skill => skill.Type == 2).Sum(skill => skill.Level)),
+                89001 => parameters.Count > 0
+                    && CourseModule.TryGetChapterComplete(session.player, parameters[0], out bool complete)
+                    && complete ? 1 : 0,
                 _ => stored
             };
         }
@@ -1732,17 +1956,18 @@ namespace AscNet.GameServer.Handlers
             int memoryTypeFilter = parameters[2];
             int weaponTypeFilter = parameters[3];
             int requiredQuality = parameters[4];
-            int progressionMode = parameters[5];
+            int requiredBreakthrough = parameters[5];
             int requiredLevel = parameters[6];
             IReadOnlyDictionary<uint, EquipTable> equipment = EquipRowsById.Value;
             return session.character.Equips.Count(equip =>
                 !equip.IsRecycle
+                && (parameters[1] <= 0 || equip.TemplateId == parameters[1])
                 && equipment.TryGetValue(equip.TemplateId, out EquipTable? row)
-                && (memoryTypeFilter < 0 || memoryTypeFilter == 0 && row.Type == 0)
-                && (weaponTypeFilter < 0 || weaponTypeFilter == 0 && row.Type == 1)
+                && (memoryTypeFilter < 0 || memoryTypeFilter == 0 && row.Site is >= 1 and <= 6)
+                && (weaponTypeFilter < 0 || weaponTypeFilter == 0 && row.Site == 0)
                 && row.Quality >= requiredQuality
-                && equip.Level >= requiredLevel
-                && (progressionMode != 1 || equip.Breakthrough > 0));
+                && (equip.Breakthrough > requiredBreakthrough
+                    || equip.Breakthrough == requiredBreakthrough && equip.Level >= requiredLevel));
         }
 
         private static int CharacterMeets(
@@ -1764,7 +1989,9 @@ namespace AscNet.GameServer.Handlers
             int requiredQuality = parameters[1];
             int requiredLevel = parameters[2];
             return session.character.Characters.Count(character =>
-                character.Quality >= requiredQuality && character.Level >= requiredLevel);
+                character.Quality >= requiredQuality && character.Level >= requiredLevel
+                && (parameters.Count < 4 || character.Grade >= parameters[3])
+                && (parameters.Count < 5 || character.Ability >= parameters[4]));
         }
 
         private static int CountCharactersAtTrust(Session session, IReadOnlyList<int> parameters)
@@ -1778,19 +2005,25 @@ namespace AscNet.GameServer.Handlers
             return session.character.Characters.Count(character => character.TrustLv >= requiredTrust);
         }
 
-        private static int CountPassedMainStoryStages(Session session)
+        private static IReadOnlyDictionary<int, List<List<int>>> BuildStoryChapterStages()
         {
-            return session.stage.Stages.Values.Count(x => x.Passed && x.StageId is >= 10_000_000 and < 20_000_000);
+            Dictionary<int, ChapterTable> main = TableReaderV2.Parse<ChapterTable>().ToDictionary(chapter => chapter.ChapterId);
+            Dictionary<int, ChapterExtraDetailsTable> extra = TableReaderV2.Parse<ChapterExtraDetailsTable>().ToDictionary(chapter => chapter.ChapterId);
+            Dictionary<int, ShortStoryDetailsTable> shortStory = TableReaderV2.Parse<ShortStoryDetailsTable>().ToDictionary(chapter => chapter.ChapterId);
+            return new Dictionary<int, List<List<int>>>
+            {
+                [1] = TableReaderV2.Parse<ChapterMainTable>().Select(chapter => chapter.ChapterId.FirstOrDefault())
+                    .Where(main.ContainsKey).Select(chapterId => main[chapterId].StageId).ToList(),
+                [25] = TableReaderV2.Parse<ChapterExtraTable>().Select(chapter => chapter.ChapterId.FirstOrDefault())
+                    .Where(extra.ContainsKey).Select(chapterId => extra[chapterId].StageId).ToList(),
+                [57] = TableReaderV2.Parse<ShortStoryChapterTable>().Select(chapter => chapter.ChapterId)
+                    .Where(shortStory.ContainsKey).Select(chapterId => shortStory[chapterId].StageId).ToList()
+            };
         }
 
-        private static int CountPassedMainStoryChapters(Session session)
-        {
-            return session.stage.Stages.Values
-                .Where(x => x.Passed && x.StageId is >= 10_000_000 and < 20_000_000)
-                .Select(x => x.StageId / 10_000)
-                .Distinct()
-                .Count();
-        }
+        private static IEnumerable<List<int>> StoryChapters(IReadOnlyList<int> parameters) =>
+            parameters.Skip(1).Distinct().Where(StoryChapterStages.Value.ContainsKey)
+                .SelectMany(type => StoryChapterStages.Value[type]);
 
         private static bool HasPassedStage(Session session, int stageId)
         {
@@ -1821,7 +2054,33 @@ namespace AscNet.GameServer.Handlers
             return checked(nextWeekStartDay * 86_400 - timestamp);
         }
 
-        private static void EnsureMissionResets(Session session)
+        internal static void RecordLoginDay(Session session, long? timestamp = null)
+        {
+            long now = timestamp ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long previousLogin = session.player.PlayerData.LastLoginTime;
+            int previousCount = session.player.PlayerData.NewPlayerTaskActiveDay;
+            int count = previousCount <= 0 ? 1 : previousCount;
+            if (previousCount > 0 && previousLogin > 0
+                && CurrentDailyResetPeriod(now) > CurrentDailyResetPeriod(previousLogin))
+                count = checked(previousCount + 1);
+            long lastLogin = Math.Max(previousLogin, now);
+            if (count == previousCount && lastLogin == previousLogin)
+                return;
+            session.player.PlayerData.NewPlayerTaskActiveDay = count;
+            session.player.PlayerData.LastLoginTime = lastLogin;
+            try
+            {
+                session.player.SaveChecked();
+            }
+            catch
+            {
+                session.player.PlayerData.NewPlayerTaskActiveDay = previousCount;
+                session.player.PlayerData.LastLoginTime = previousLogin;
+                throw;
+            }
+        }
+
+        internal static void EnsureMissionResets(Session session)
         {
             session.player.MissionProgress ??= new MissionProgressState();
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();

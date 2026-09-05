@@ -528,6 +528,8 @@ namespace AscNet.GameServer.Handlers
         {
             CharacterPromoteGradeRequest req = packet.Deserialize<CharacterPromoteGradeRequest>();
             CharacterData? character = session.character.Characters.Find(c => c.Id == req.TemplateId);
+            int costItemId = 0;
+            int costCount = 0;
 
 
             try
@@ -562,7 +564,10 @@ namespace AscNet.GameServer.Handlers
                 NotifyItemDataList notifyItemData = new();
                 if (currentGrade.UseItemKey is not null && currentGrade.UseItemCount is not null && currentGrade.UseItemCount > 0)
                 {
+                    costItemId = currentGrade.UseItemKey.Value;
+                    long balanceBefore = session.inventory.Items.FirstOrDefault(item => item.Id == costItemId)?.Count ?? 0;
                     notifyItemData.ItemDataList.Add(session.inventory.Do(currentGrade.UseItemKey.Value, currentGrade.UseItemCount.Value * -1));
+                    costCount = checked((int)(balanceBefore - notifyItemData.ItemDataList[^1].Count));
                     session.SendPush(notifyItemData);
                 }
 
@@ -580,6 +585,9 @@ namespace AscNet.GameServer.Handlers
             });
 
             SaveCharacterProgress(session);
+            TaskModule.RecordConditionType(session, 13206);
+            if (costCount > 0)
+                TaskModule.RecordTableDrivenProgress(session, [(11202, costItemId, costCount)]);
 
             session.SendResponse(new CharacterPromoteGradeResponse(), packet.Id);
         }
@@ -649,6 +657,7 @@ namespace AscNet.GameServer.Handlers
             var character = session.character.Characters.Find(c => c.Id == req.TemplateId);
             var characterData = TableReaderV2.Parse<CharacterTable>().Find(x => x.Id == req.TemplateId);
             var characterQualityFragment = TableReaderV2.Parse<CharacterQualityFragmentTable>().Find(x => x.Type == characterData?.Type && x.Quality == character?.Quality);
+            int currencySpent = 0;
 
             try
             {
@@ -672,8 +681,11 @@ namespace AscNet.GameServer.Handlers
                 {
                     if (characterQualityFragment.PromoteUseCoin is not null && characterQualityFragment.PromoteUseCoin > 0)
                     {
+                        long balanceBefore = session.inventory.Items.FirstOrDefault(item =>
+                            item.Id == (characterQualityFragment.PromoteItemId ?? Inventory.Coin))?.Count ?? 0;
                         NotifyItemDataList notifyItemData = new();
                         notifyItemData.ItemDataList.Add(session.inventory.Do(characterQualityFragment.PromoteItemId ?? 1, (characterQualityFragment.PromoteUseCoin ?? 0) * -1));
+                        currencySpent = checked((int)(balanceBefore - notifyItemData.ItemDataList[^1].Count));
                         session.SendPush(notifyItemData);
                     }
 
@@ -699,6 +711,10 @@ namespace AscNet.GameServer.Handlers
             });
 
             SaveCharacterProgress(session);
+            TaskModule.RecordConditionType(session, 13205);
+            if (currencySpent > 0)
+                TaskModule.RecordTableDrivenProgress(session,
+                    [(11202, characterQualityFragment!.PromoteItemId ?? Inventory.Coin, currencySpent)]);
 
             session.SendResponse(new CharacterPromoteQualityResponse(), packet.Id);
         }
@@ -811,6 +827,8 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyItemData);
 
             SaveCharacterProgress(session);
+            TaskModule.RecordTableDrivenProgress(session,
+                [(11202, Inventory.Coin, upgradeResult.CoinCost), (11202, Inventory.SkillPoint, upgradeResult.SkillPointCost)]);
 
             session.SendResponse(new CharacterUpgradeSkillGroupResponse() { Level = upgradeResult.Level }, packet.Id);
         }
@@ -883,6 +901,8 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(new NotifyCharacterDataList { CharacterDataList = { character } });
 
             SaveCharacterProgress(session);
+            TaskModule.RecordTableDrivenProgress(session,
+                costs.Select(cost => (11202, (int?)cost.Key, cost.Value)));
 
             session.SendResponse(new CharacterUnlockEnhanceSkillResponse(), packet.Id);
         }
@@ -967,6 +987,8 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(new NotifyCharacterDataList { CharacterDataList = { character } });
 
             SaveCharacterProgress(session);
+            TaskModule.RecordTableDrivenProgress(session,
+                costs.Select(cost => (11202, (int?)cost.Key, cost.Value)));
 
             session.SendResponse(new CharacterUpgradeEnhanceSkillResponse(), packet.Id);
         }
@@ -1178,9 +1200,10 @@ namespace AscNet.GameServer.Handlers
             notifyItemData.ItemDataList.Add(session.inventory.Do(characterData.ItemId, composeCount * -1));
             session.SendPush(notifyItemData);
 
+            RewardApplicationResult result;
             try
             {
-                RewardHandler.GiveRewards([ new Reward() { Id = request.TemplateId, Type = RewardType.Character } ], session);
+                result = RewardHandler.ApplyRewards([ new Reward() { Id = request.TemplateId, Type = RewardType.Character } ], session);
             }
             catch (ServerCodeException ex)
             {
@@ -1190,6 +1213,9 @@ namespace AscNet.GameServer.Handlers
             }
 
             SaveCharacterProgress(session);
+            if (result.DormFurnitureChanged || result.GatherRewardIds.Count > 0 || result.HeadPortraitData.Heads.Count > 0)
+                session.player.Save();
+            result.SendPushes(session);
 
             session.SendResponse(new CharacterExchangeResponse(), packet.Id);
         }

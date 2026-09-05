@@ -211,10 +211,10 @@ internal partial class Program
         InvokeRegisteredRequestHandler(nameof(QuestAcceptRequest), harness.Session, 46_995_028,
             new QuestAcceptRequest { QuestAcceptParams = [new QuestAcceptParam { Index = questBoard.Index, TeamCharacter = questTeam }] });
         NotifyTask questTask = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm quest accept task push");
-        AssertEqual(1, questTask.Tasks.Tasks.Count, "Dorm quest accept task count");
-        AssertEqual((uint)activeQuestTasks.Single().Id, questTask.Tasks.Tasks.Single().Id, "Dorm quest task row is active");
-        AssertEqual(true, questTask.Tasks.Tasks.Single().Schedule.Any(schedule => schedule.Id == questCondition.Id && schedule.Value == 1),
-            "Dorm quest accept task schedule");
+        AssertEqual(1, questTask.Tasks.Tasks.Single(task => task.Id == (uint)activeQuestTasks.Single().Id)
+            .Schedule.Single(schedule => schedule.Id == questCondition.Id).Value, "Dorm quest accept task schedule");
+        AssertEqual(1, player.MissionProgress.ConditionCounters.GetValueOrDefault(questCondition.Id),
+            "Dorm quest accept counts shared condition once");
         QuestAcceptResponse questAccept = ReadResponsePayload<QuestAcceptResponse>(harness, 46_995_028, nameof(QuestAcceptResponse), "Dorm quest accept response");
         AssertEqual(0, questAccept.Code, "Dorm quest accept code");
         AssertEqual(questBoard.Index, player.Dorm.Quest.QuestAccept.Single().Index, "Dorm quest accept persists board index");
@@ -574,10 +574,10 @@ internal partial class Program
         AssertEqual(work.ItemId, resumedDormReward.ItemDataList.Single().Id, "Dorm enter pending reward item");
         AssertEqual(0, player.Dorm.PendingRewards.Count, "Dorm enter clears restored pending reward");
         NotifyTask enterTask = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm enter task progress push");
-        AssertEqual(1, enterTask.Tasks.Tasks.Count, "Dorm enter task count");
-        AssertEqual((uint)activeEnterTasks.Single().Id, enterTask.Tasks.Tasks.Single().Id, "Dorm enter task row is active");
-        AssertEqual(true, enterTask.Tasks.Tasks.Single().Schedule.Any(schedule => schedule.Id == enterCondition.Id && schedule.Value == 1),
-            "Dorm enter task schedule");
+        AssertEqual(1, enterTask.Tasks.Tasks.Single(task => task.Id == (uint)activeEnterTasks.Single().Id)
+            .Schedule.Single(schedule => schedule.Id == enterCondition.Id).Value, "Dorm enter task schedule");
+        AssertEqual(1, player.MissionProgress.ConditionCounters.GetValueOrDefault(enterCondition.Id),
+            "Dorm enter counts shared condition once");
         DormEnterResponse enter = ReadResponsePayload<DormEnterResponse>(harness, 46_995_001, nameof(DormEnterResponse), "Dorm enter response");
         NotifyCharacterAttr enterAttrs = ReadPushPayload<NotifyCharacterAttr>(harness, nameof(NotifyCharacterAttr), "Dorm enter character attr push");
         AssertEqual(2, enterAttrs.AttrList.Count, "Dorm enter character attr count");
@@ -592,6 +592,8 @@ internal partial class Program
         AssertEqual(2, enter.CharacterEvents.Count, "Dorm enter character events");
         InvokeRegisteredRequestHandler(nameof(DormEnterRequest), harness.Session, 46_995_038, new DormEnterRequest());
         _ = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm reenter task progress push");
+        AssertEqual(2, player.MissionProgress.ConditionCounters.GetValueOrDefault(enterCondition.Id),
+            "Dorm reenter increments shared condition once");
         DormEnterResponse reenter = ReadResponsePayload<DormEnterResponse>(harness, 46_995_038, nameof(DormEnterResponse), "Dorm reenter response");
         AssertEqual(0, reenter.Code, "Dorm reenter code");
         AssertEqual(eventCount, expiredEventCharacter.EventList.Count, "Dorm reenter does not duplicate event");

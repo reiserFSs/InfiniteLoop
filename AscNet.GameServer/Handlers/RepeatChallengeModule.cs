@@ -219,6 +219,7 @@ namespace AscNet.GameServer.Handlers
             {
                 throw;
             }
+            TaskModule.RecordStageClear(session, data.Stage.Id, count, totalCost, false);
             for (int i = 0; i < count; i++)
                 rewards.Add(new SweepReward { RewardGoods = application.RewardGoods.Skip(i * configured.Count).Take(configured.Count).ToList() });
             return true;

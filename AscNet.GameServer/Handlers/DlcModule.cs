@@ -501,9 +501,12 @@ namespace AscNet.GameServer.Handlers
             {
                 try
                 {
-                    RewardHandler.GiveRewards(rewardGoodsTables, session);
+                    RewardApplicationResult rewardResult = RewardHandler.ApplyRewards(rewardGoodsTables, session);
                     session.inventory.Save();
                     session.character.Save();
+                    if (rewardResult.DormFurnitureChanged || rewardResult.GatherRewardIds.Count > 0 || rewardResult.HeadPortraitData.Heads.Count > 0)
+                        session.player.Save();
+                    rewardResult.SendPushes(session);
                 }
                 catch (Exception ex)
                 {

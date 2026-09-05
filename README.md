@@ -75,6 +75,15 @@ This branch adds or fixes current-client server behavior for:
 - Character/frame experience rollover and commandant-level caps.
 - Fight settlement commandant EXP and character/card EXP.
 - Current-client first-clear fields such as `FirstTeamExp` and `FirstCardExp`.
+- Mission snapshots refresh after authenticated requests; supported character, equipment, draw, shop, stage, and client-event progress uses current task tables, persisted state, and committed actions. Overlapping task catalogs emit one update per task ID. Historical cumulative events are not fabricated.
+- CUB archive stories derive unlocks from owned partners and their progression, persist newly unlocked entries, and synchronize after committed changes and login.
+- Norman sweep (`SweepStrongholdStageRequest`) resolves the configured group and its stages, handles already-paid partial clears, and shares normal-clear progression and reward settlement.
+- Legacy Stronghold quick clear (`BfrtOneKeyPassGroupRequest`) validates the formation and computes battle power from character progression, equipment, skills, and authoritative tables instead of the uncomputed persisted `Ability` field. Attribute tables preserve original Q32.32 values as hexadecimal strings for client-compatible rounding.
+- F.O.S. course battle results, exam scoring, rewards, and saved state have compatibility coverage. Lesson result saving remains explicitly blocked because the authoritative lesson-clear rule is missing; no inferred lesson completion or mission credit is awarded.
+
+Mission coverage is not complete: Basic Research category `27000`, extended character/fashion task filters, and standard client-event subsystem eligibility still need authoritative rules. Unsupported predicates do not receive guessed completion credit.
+
+The legacy power calculation follows the supplied tables, where `PartnerAbilityConvert` is zero. A nonzero future coefficient is rejected explicitly until partner power calculation is implemented; it is not silently omitted.
 
 ### Gender setup fix
 

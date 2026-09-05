@@ -125,16 +125,17 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            List<RewardGoods> rewardGoods = RewardHandler.GiveRewards(rewardGoodsTables, session);
+            RewardApplicationResult rewardResult = RewardHandler.ApplyRewards(rewardGoodsTables, session);
             character!.LiberateLv = Math.Max(character.LiberateLv, exhibitionReward.LevelId);
             session.player.Save();
             session.inventory.Save();
             session.character.Save();
+            rewardResult.SendPushes(session);
 
             GatherRewardResponse rsp = new()
             {
                 Code = 0,
-                RewardGoods = rewardGoods
+                RewardGoods = rewardResult.RewardGoods
             };
 
             session.SendPush(new NotifyCharacterDataList()
