@@ -20,6 +20,7 @@ internal static class DrawManager
     private static readonly List<DrawPreviewTable> DrawPreviews = TableReaderV2.Parse<DrawPreviewTable>();
     private static readonly List<DrawPredictTable> DrawPredictions = TableReaderV2.Parse<DrawPredictTable>();
     private static readonly Dictionary<int, DrawSceneTable> DrawScenesById = DrawScenes.ToDictionary(x => x.Id);
+    private static readonly Dictionary<int, DrawProbShowTable> DrawProbShowsById = TableReaderV2.Parse<DrawProbShowTable>().ToDictionary(x => x.DrawId);
     private static readonly List<CharacterTable> Characters = TableReaderV2.Parse<CharacterTable>();
     private static readonly List<CharacterQualityTable> CharacterQualities = TableReaderV2.Parse<CharacterQualityTable>();
     private static readonly List<EquipTable> Equips = TableReaderV2.Parse<EquipTable>();
@@ -146,8 +147,6 @@ internal static class DrawManager
             Id = 12,
             Priority = 14000,
             ResetTime = 0.0,
-            StartTime = 1575540000,
-            EndTime = 1788418740,
             Order = 1002,
             SwitchDrawIdActivityId = 0,
             MaxSwitchDrawIdCount = 0,
@@ -178,8 +177,6 @@ internal static class DrawManager
             Id = 13,
             Priority = 13000,
             ResetTime = 0.0,
-            StartTime = 1575540000,
-            EndTime = 1788418740,
             Order = 1001,
             SwitchDrawIdActivityId = 0,
             MaxSwitchDrawIdCount = 0,
@@ -4953,7 +4950,9 @@ internal static class DrawManager
 
         foreach (DrawRotationWindow window in ResolveRotationWindows())
         {
-            if (!TryResolveRotationDraws(window, out DrawPreviewTable[] normal, out DrawPreviewTable[] fate))
+            if (!DrawProbShowsById.TryGetValue(normalTemplate.Id, out DrawProbShowTable? normalProfile)
+                || !DrawProbShowsById.TryGetValue(fateTemplate.Id, out DrawProbShowTable? fateProfile)
+                || !TryResolveRotationDraws(window, normalProfile, fateProfile, out DrawPreviewTable[] normal, out DrawPreviewTable[] fate))
                 continue;
 
             foreach (DrawPreviewTable preview in normal)
@@ -5021,9 +5020,18 @@ internal static class DrawManager
 
     private static bool TryResolveRotationDraws(
         DrawRotationWindow window,
+        DrawProbShowTable normalProfile,
+        DrawProbShowTable fateProfile,
         out DrawPreviewTable[] normal,
         out DrawPreviewTable[] fate)
     {
+        if (normalProfile.Name.SequenceEqual(fateProfile.Name)
+            && normalProfile.ProbShow.SequenceEqual(fateProfile.ProbShow))
+        {
+            normal = fate = [];
+            return false;
+        }
+
         HashSet<int> targets = window.CharacterIds.ToHashSet();
         var candidates = DrawPreviews
             .Where(preview => preview.UpGoodsId.Count == 1
@@ -5033,12 +5041,17 @@ internal static class DrawManager
                 && scene.ModelId == preview.UpGoodsId[0])
             .ToArray();
 
+        // DrawProbShow defines the banner's probability profile; scene prefabs may be shared by both variants.
         normal = candidates
-            .Where(preview => DrawScenesById[preview.Id].UiModelPath.EndsWith("UiNewDrawMainRoleDescending.prefab", StringComparison.Ordinal))
+            .Where(preview => DrawProbShowsById.TryGetValue(preview.Id, out DrawProbShowTable? profile)
+                && profile.Name.SequenceEqual(normalProfile.Name)
+                && profile.ProbShow.SequenceEqual(normalProfile.ProbShow))
             .OrderBy(preview => Array.IndexOf(window.CharacterIds, preview.UpGoodsId[0]))
             .ToArray();
         fate = candidates
-            .Where(preview => DrawScenesById[preview.Id].UiModelPath.EndsWith("UiNewDrawMainRolePredestined.prefab", StringComparison.Ordinal))
+            .Where(preview => DrawProbShowsById.TryGetValue(preview.Id, out DrawProbShowTable? profile)
+                && profile.Name.SequenceEqual(fateProfile.Name)
+                && profile.ProbShow.SequenceEqual(fateProfile.ProbShow))
             .OrderBy(preview => Array.IndexOf(window.CharacterIds, preview.UpGoodsId[0]))
             .ToArray();
 
@@ -5076,6 +5089,12 @@ internal static class DrawManager
         {
             group.BottomTimes = 0;
             group.SwitchDrawIdCount = 0;
+            if (group.Id is 12 or 13)
+            {
+                List<DrawInfo> draws = DrawsByGroup[group.Id];
+                group.StartTime = draws.Min(draw => draw.StartTime);
+                group.EndTime = draws.Max(draw => draw.EndTime);
+            }
         }
 
         foreach (DrawInfo draw in DrawTemplates)
@@ -5102,6 +5121,8 @@ internal static class DrawManager
             {
                 value.BannerBeginTime = activeDraws.Min(x => x.StartTime);
                 value.BannerEndTime = activeDraws.Max(x => x.EndTime);
+                value.StartTime = value.BannerBeginTime;
+                value.EndTime = value.BannerEndTime;
                 value.OptionalDrawIdList = activeDraws.Select(x => x.Id).ToList();
             }
             value.UseDrawIdDict = GetSelections(player, group);

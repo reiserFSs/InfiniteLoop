@@ -6523,20 +6523,26 @@ namespace AscNet.Test
                 .GetField("DrawTemplates", BindingFlags.Static | BindingFlags.NonPublic)?
                 .GetValue(null) as DrawInfo[]
                 ?? throw new MissingFieldException(drawManagerType.FullName, "DrawTemplates");
-            DrawInfo[] rotations = templates
-                .Where(draw => draw.GroupId is 12 or 13
-                    && draw.StartTime > 0
-                    && draw.EndTime > draw.StartTime)
-                .ToArray();
-            if (rotations.Length == 0)
-                throw new InvalidDataException("DrawPredict produced no rotation draws.");
-            if (!rotations.Any(draw =>
-                    predictions.Any(prediction =>
-                        prediction.StartTime == draw.StartTime
-                        && prediction.EndTime == draw.EndTime
-                        && prediction.CharacterId.Contains(draw.ResourceIds.GetValueOrDefault(1)))))
-                throw new InvalidDataException(
-                    "No rotation draw is backed by its DrawPredict window and target.");
+            foreach (DrawPredictTable prediction in predictions.Where(row => row.Id is 7 or 8))
+            {
+                foreach (int groupId in new[] { 12, 13 })
+                {
+                    DrawInfo[] choices = templates.Where(draw => draw.GroupId == groupId
+                        && draw.StartTime == prediction.StartTime
+                        && draw.EndTime == prediction.EndTime).ToArray();
+                    AssertIntegerList(
+                        prediction.CharacterId.Select(Convert.ToInt64).Order().ToArray(),
+                        choices.Select(draw => (long)draw.ResourceIds.GetValueOrDefault(1)).Order().ToArray(),
+                        $"DrawPredict {prediction.Id} group {groupId} complete target choices");
+                    if (prediction.Id == 8)
+                    {
+                        AssertIntegerList(
+                            groupId == 12 ? new long[] { 1510, 1511, 1512 } : new long[] { 2504, 2505, 2506 },
+                            choices.OrderBy(draw => draw.ResourceIds.GetValueOrDefault(1)).Select(draw => (long)draw.Id).ToArray(),
+                            $"DrawPredict {prediction.Id} group {groupId} normal/fate target identities");
+                    }
+                }
+            }
         }
 
 
@@ -6559,7 +6565,7 @@ namespace AscNet.Test
                 CreateDrawCompatibilityCharacter(playerId),
                 CreateDrawCompatibilityPlayer(playerId),
                 inventory,
-                "draw-catalog-unavailable-compat-test");
+                "draw-catalog-compat-test");
 
             InvokeRegisteredRequestHandler(
                 nameof(DrawGetHistoryGroupListRequest),
@@ -6593,6 +6599,13 @@ namespace AscNet.Test
             long drawNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             List<DrawPredictTable> activeRotations = TableReaderV2.Parse<DrawPredictTable>()
                 .Where(x => x.StartTime <= drawNow && drawNow < x.EndTime).ToList();
+            foreach (int rerunGroupId in new[] { 12, 13 })
+                AssertEqual(activeRotations.Count > 0, groups.DrawGroupInfoList.Any(group => group.Id == rerunGroupId),
+                    $"Draw group {rerunGroupId} visibility matches active DrawPredict schedule");
+            if (activeRotations.Count > 0)
+                AssertEqual(false, groups.DrawGroupInfoList.Single(group => group.Id == 12).OptionalDrawIdList
+                    .Intersect(groups.DrawGroupInfoList.Single(group => group.Id == 13).OptionalDrawIdList).Any(),
+                    "normal and fate rerun draw identities are distinct");
             foreach (DrawGroupInfo advertisedGroup in groups.DrawGroupInfoList)
             {
                 InvokeRegisteredRequestHandler(
@@ -6610,6 +6623,16 @@ namespace AscNet.Test
                     throw new InvalidDataException($"Draw group {advertisedGroup.Id} was advertised without a matching active draw.");
                 if (advertisedGroup.Id is 12 or 13 && activeRotations.Count > 0)
                 {
+                    AssertEqual(true, advertisedGroup.StartTime <= drawNow
+                        && (advertisedGroup.EndTime == 0 || drawNow < advertisedGroup.EndTime),
+                        $"Draw group {advertisedGroup.Id} parent window admits current schedule");
+                    AssertEqual(true, advertisedDraws.DrawInfoList.All(draw =>
+                        draw.StartTime <= drawNow && (draw.EndTime == 0 || drawNow < draw.EndTime)),
+                        $"Draw group {advertisedGroup.Id} excludes inactive choices");
+                    AssertEqual(advertisedDraws.DrawInfoList.Min(draw => draw.StartTime), advertisedGroup.StartTime,
+                        $"Draw group {advertisedGroup.Id} cache window starts with active choices");
+                    AssertEqual(advertisedDraws.DrawInfoList.Max(draw => draw.EndTime), advertisedGroup.EndTime,
+                        $"Draw group {advertisedGroup.Id} cache expires with active choices");
                     DrawPredictTable activeRotation = activeRotations.FirstOrDefault(rotation =>
                         rotation.StartTime == advertisedGroup.BannerBeginTime && rotation.EndTime == advertisedGroup.BannerEndTime)
                         ?? throw new InvalidDataException($"Draw group {advertisedGroup.Id} banner does not match an active rotation.");
