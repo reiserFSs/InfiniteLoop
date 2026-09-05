@@ -2056,6 +2056,7 @@ namespace AscNet.Test
             }
 
             ValidateEquipResonanceSelectionAndSwapBehavior();
+            ValidateWeaponResonanceMaterialBehavior();
             ValidateMemoryResonanceCharacterBinding();
             ValidateEquipAwakeBehavior();
             ValidateEquipQuickAwakeBehavior();
@@ -3598,6 +3599,125 @@ namespace AscNet.Test
             AssertEqual(swappedSkillId, equip.ResonanceInfo.Single().TemplateId, "EquipResonanceRequest immediately activates swapped skill");
             AssertEqual(0, equip.UnconfirmedResonanceInfo.Count, "EquipResonanceRequest swap has no confirmation state");
             AssertEqual(1L, inventory.Items.Single(item => item.Id == materialId).Count, "EquipResonanceRequest swap does not consume material");
+        }
+
+        private static void ValidateWeaponResonanceMaterialBehavior()
+        {
+            using MongoCollectionOverride collections = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out _, out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
+            EquipTable targetRow = TableReaderV2.Parse<EquipTable>().Single(row => row.Id == 2016001);
+            List<EquipTable> spareRows = TableReaderV2.Parse<EquipTable>()
+                .Where(row => row.Site == 0 && row.Star == targetRow.Star && row.Type != targetRow.Type)
+                .GroupBy(row => row.Type).Take(2).Select(group => group.First()).ToList();
+            AssertEqual(2, spareRows.Count, "weapon material distinct eligible weapon types");
+            EquipData target = new() { Id = 92_001, TemplateId = (uint)targetRow.Id };
+            List<EquipData> spares = spareRows.Select((row, index) =>
+                new EquipData { Id = (uint)(92_002 + index), TemplateId = (uint)row.Id }).ToList();
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 92_001, Characters = [new CharacterData { Id = 1021007 }],
+                Equips = [target, .. spares], Fashions = []
+            };
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(character.Uid);
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(character.Uid,
+                [new Item { Id = 3002, Count = 7, CreateTime = 1, RefreshTime = 1 }]);
+            using LoopbackSessionHarness harness = new(character, player, inventory);
+            string originalInventory = Convert.ToHexString(inventory.ToBson());
+
+            // A wire map also runs against the old DTO, which silently discarded UseEquipId.
+            Dictionary<string, object> Request(uint sourceId, int slot = 1, int itemId = 0) => new()
+            {
+                ["EquipId"] = (int)target.Id, ["UseEquipId"] = (int)sourceId,
+                ["UseItemId"] = itemId, ["Slots"] = new[] { slot },
+                ["SelectType"] = (int)EquipResonanceType.WeaponSkill,
+                ["SelectSkillIds"] = new[] { slot == 1 ? 102 : 101 }, ["CharacterId"] = 1021007
+            };
+            void Reject(string name, Dictionary<string, object> request)
+            {
+                string before = Convert.ToHexString(character.ToBson());
+                InvokeRegisteredRequestHandler(nameof(EquipResonanceRequest), harness.Session, 16_110, request);
+                EquipResonanceResponse response = ReadResponsePayload<EquipResonanceResponse>(
+                    harness.ReadPacket(name), nameof(EquipResonanceResponse));
+                AssertEqual(true, response.Code != 0, $"{name} rejected");
+                AssertEqual(before, Convert.ToHexString(character.ToBson()), $"{name} preserves equipment");
+                AssertEqual(originalInventory, Convert.ToHexString(inventory.ToBson()), $"{name} preserves items");
+                if (harness.TryReadAvailablePacket(name, out Packet unexpected))
+                    throw new InvalidDataException($"{name} emitted unexpected {unexpected.Type} packet.");
+            }
+
+            Reject("self weapon material", Request(target.Id));
+            spares[0].IsLock = true;
+            Reject("locked weapon material", Request(spares[0].Id));
+            spares[0].IsLock = false;
+            spares[0].CharacterId = 1021007;
+            Reject("equipped weapon material", Request(spares[0].Id));
+            spares[0].CharacterId = 0;
+            player.TeamPrefabs =
+            [
+                new TeamPrefabData
+                {
+                    EquipData = new()
+                    {
+                        [1] = new TeamPrefabEquipData
+                        {
+                            EquipDataDict = new() { [0] = new TeamPrefabEquipEntry { EquipId = spares[0].Id } }
+                        }
+                    }
+                }
+            ];
+            Reject("prefab weapon material", Request(spares[0].Id));
+            player.TeamPrefabs = [];
+            AssertEqual(0, characterCollection.ReplaceOneCalls, "ineligible material never saves equipment");
+
+            characterCollection.ThrowOnReplaceOne = true;
+            try
+            {
+                Reject("weapon material persistence failure", Request(spares[0].Id));
+            }
+            finally
+            {
+                characterCollection.ThrowOnReplaceOne = false;
+            }
+
+            for (int index = 0; index < spares.Count; index++)
+            {
+                EquipData source = spares[index];
+                int slot = index + 1;
+                InvokeRegisteredRequestHandler(nameof(EquipResonanceRequest), harness.Session,
+                    16_111 + index, Request(source.Id, slot));
+                NotifyEquipDataList deletion = ReadPushPayload<NotifyEquipDataList>(
+                    harness, nameof(NotifyEquipDataList), "weapon material deletion", maxPacketsToRead: 8);
+                AssertIntegerList([source.Id], deletion.DeletedEquipIdList.Select(Convert.ToInt64).ToArray(),
+                    "weapon material client deletion");
+                EquipResonanceResponse response = ReadResponsePayload<EquipResonanceResponse>(
+                    harness, 16_111 + index, nameof(EquipResonanceResponse),
+                    "weapon material success", maxPacketsToRead: 8);
+                AssertEqual(0, response.Code, "weapon material success code");
+                ResonanceInfo applied = response.ResonanceDatas.Single();
+                AssertEqual(slot, applied.Slot, "weapon material selected slot");
+                AssertEqual(slot == 1 ? 102 : 101, applied.TemplateId, "weapon material selected skill");
+                AssertEqual(true, applied.IsUseEquip, "weapon material response marks equipment consumption");
+                AssertEqual(0, applied.UseItemId, "weapon material response has no consumable");
+                AssertEqual(1021007, applied.CharacterId, "weapon material selected character");
+                AscNet.Common.Database.Character reloaded =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                        (characterCollection.LastReplacement
+                            ?? throw new InvalidDataException("Weapon material change was not saved.")).ToBson());
+                AssertEqual(false, reloaded.Equips.Any(equip => equip.Id == source.Id),
+                    "consumed weapon absent after saved BSON reload");
+                EquipData savedTarget = reloaded.Equips.Single(equip => equip.Id == target.Id);
+                AssertEqual(slot, savedTarget.ResonanceInfo.Count, "saved target retains all purchased slots");
+                ResonanceInfo saved = savedTarget.ResonanceInfo.Single(value => value.Slot == slot);
+                AssertEqual(slot == 1 ? 102 : 101, saved.TemplateId, "saved target selected skill");
+                AssertEqual(true, saved.IsUseEquip, "saved target retains weapon material mode");
+                AssertEqual(originalInventory, Convert.ToHexString(inventory.ToBson()),
+                    "weapon material never changes consumable inventory");
+                harness.Session.character = character = reloaded;
+                if (index == 0)
+                    Reject("mixed weapon and item material", Request(spares[1].Id, slot: 2, itemId: 3002));
+            }
+            AssertEqual(0, inventoryCollection.ReplaceOneCalls, "weapon material never saves consumable inventory");
         }
 
 

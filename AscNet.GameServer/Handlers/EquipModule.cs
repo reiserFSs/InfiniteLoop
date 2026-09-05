@@ -49,6 +49,7 @@ namespace AscNet.GameServer.Handlers
         public int EquipId;
         public List<int> Slots = new();
         public int UseItemId;
+        public int UseEquipId;
         public List<int>? SelectSkillIds;
         public EquipResonanceType? SelectType;
         public int? CharacterId;
@@ -1398,7 +1399,7 @@ namespace AscNet.GameServer.Handlers
             EquipResonanceRequest request = packet.Deserialize<EquipResonanceRequest>();
             session.log.Info(
                 $"EquipResonanceRequest received: EquipId={request.EquipId} Slot={request.Slots.FirstOrDefault()} " +
-                $"UseItemId={request.UseItemId} CharacterId={request.CharacterId ?? 0} " +
+                $"UseItemId={request.UseItemId} UseEquipId={request.UseEquipId} CharacterId={request.CharacterId ?? 0} " +
                 $"SelectType={(int?)request.SelectType} SelectSkillCount={request.SelectSkillIds?.Count ?? 0}.");
 
             var equip = session.character.Equips.Find(x => x.Id == request.EquipId);
@@ -1427,6 +1428,30 @@ namespace AscNet.GameServer.Handlers
             }
 
             bool isMemory = equipTable.Site > 0;
+            bool usesEquipMaterial = request.UseEquipId != 0;
+            EquipData? materialEquip = null;
+            if (request.UseEquipId < 0 || request.UseItemId < 0
+                || (usesEquipMaterial && request.UseItemId != 0))
+            {
+                session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
+                return;
+            }
+            if (usesEquipMaterial)
+            {
+                materialEquip = session.character.Equips.Find(candidate => candidate.Id == request.UseEquipId);
+                EquipTable? materialTable = equipTables.Find(row => row.Id == materialEquip?.TemplateId);
+                if (isMemory || equip.IsRecycle
+                    || request.Slots.Count != 1 || slot is < 1 or > 3
+                    || materialEquip is null || materialEquip.Id == equip.Id
+                    || materialEquip.IsLock || materialEquip.IsRecycle || materialEquip.CharacterId != 0
+                    || session.player.IsEquipInTeamPrefab(materialEquip.Id)
+                    || materialTable is null || materialTable.Site != 0
+                    || materialTable.Star != equipTable.Star)
+                {
+                    session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
+                    return;
+                }
+            }
             bool hasSelectionFields = request.SelectSkillIds is not null;
             bool usesSelectMaterial = configuredUseItem?.SelectSkillItemId == request.UseItemId;
             bool isSelectedMemoryRequest = isMemory && usesSelectMaterial;
@@ -1461,6 +1486,21 @@ namespace AscNet.GameServer.Handlers
                 (equipResonance?.CharacterSkillPoolId.Count ?? 0) > 0;
             bool isSelectedWeaponSkillRequest = usesWeaponSkillResonance
                 && request.SelectSkillIds is { Count: > 0 };
+            if (usesEquipMaterial
+                && (usesWeaponSkillResonance
+                    ? request.SelectSkillIds is not { Count: 1 }
+                        || request.SelectType != EquipResonanceType.WeaponSkill
+                        || request.CharacterId is not int weaponCharacterId
+                        || !session.character.Characters.Any(character => character.Id == weaponCharacterId)
+                        || !TableReaderV2.Parse<WeaponSkillPoolTable>().Any(row =>
+                            row.PoolId == equipResonance?.WeaponSkillPoolId.ElementAtOrDefault(slot - 1)
+                            && row.CharacterId == weaponCharacterId
+                            && row.SkillId.Contains(request.SelectSkillIds[0]))
+                    : hasSelectionFields || request.SelectType is not (null or EquipResonanceType.Attrib)))
+            {
+                session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
+                return;
+            }
 
             if (isSelectedMemoryRequest)
             {
@@ -1589,18 +1629,18 @@ namespace AscNet.GameServer.Handlers
             {
                 session.log.Warn(
                     $"EquipResonanceRequest rejected: resonance pool empty; EquipId={request.EquipId} " +
-                    $"TemplateId={equip.TemplateId} Slot={slot} UseItemId={request.UseItemId} " +
+                    $"TemplateId={equip.TemplateId} Slot={slot} UseItemId={request.UseItemId} UseEquipId={request.UseEquipId} " +
                     $"SelectType={(int?)request.SelectType} SelectSkillCount={request.SelectSkillIds?.Count ?? 0}.");
                 session.SendResponse(new EquipResonanceResponse { Code = 20021038 }, packet.Id);
                 return;
             }
-            if (!hasMaterial && !isSkillSwap)
+            if (!usesEquipMaterial && !hasMaterial && !isSkillSwap)
             {
                 long availableMaterial = session.inventory.Items
                     .Find(item => item.Id == request.UseItemId)?.Count ?? 0;
                 session.log.Warn(
                     $"EquipResonanceRequest rejected: resonance material unavailable; EquipId={request.EquipId} " +
-                    $"TemplateId={equip.TemplateId} Slot={slot} UseItemId={request.UseItemId} " +
+                    $"TemplateId={equip.TemplateId} Slot={slot} UseItemId={request.UseItemId} UseEquipId={request.UseEquipId} " +
                     $"MaterialCost={materialCost} AvailableMaterial={availableMaterial} " +
                     $"SelectType={(int?)request.SelectType} SelectSkillCount={request.SelectSkillIds?.Count ?? 0}.");
                 session.SendResponse(new EquipResonanceResponse { Code = 20012004 }, packet.Id);
@@ -1608,6 +1648,50 @@ namespace AscNet.GameServer.Handlers
             }
 
             ResonanceInfo resonance = resonancePool[Random.Shared.Next(resonancePool.Count)];
+            if (usesEquipMaterial)
+            {
+                resonance.IsUseEquip = true;
+                List<ResonanceInfo>? originalResonances = equip.ResonanceInfo;
+                List<ResonanceInfo>? originalUnconfirmed = equip.UnconfirmedResonanceInfo;
+                int materialIndex = session.character.Equips.IndexOf(materialEquip!);
+                bool commitsWeaponResonance = isSelectedWeaponSkillRequest || !hasActiveResonance;
+                try
+                {
+                    if (commitsWeaponResonance)
+                    {
+                        Character.NormalizeEquipResonances(equip);
+                        equip.ResonanceInfo ??= [];
+                        equip.ResonanceInfo.RemoveAll(candidate => candidate.Slot == resonance.Slot);
+                        equip.ResonanceInfo.Add(resonance);
+                    }
+                    session.character.Equips.RemoveAt(materialIndex);
+                    session.character.SaveChecked();
+                }
+                catch (Exception exception)
+                {
+                    equip.ResonanceInfo = originalResonances!;
+                    equip.UnconfirmedResonanceInfo = originalUnconfirmed!;
+                    if (!session.character.Equips.Contains(materialEquip!))
+                        session.character.Equips.Insert(materialIndex, materialEquip!);
+                    session.log.Error($"EquipResonanceRequest save failed: EquipId={request.EquipId} " +
+                        $"UseItemId={request.UseItemId} UseEquipId={request.UseEquipId}; {exception}");
+                    session.SendResponse(new EquipResonanceResponse { Code = 1 }, packet.Id);
+                    return;
+                }
+                if (commitsWeaponResonance)
+                {
+                    session.PendingEquipResonances.Remove((equip.Id, resonance.Slot));
+                    session.AppliedTeamPrefabId = null;
+                    TaskModule.RecordEquipmentProgress(session, 12205, [equip]);
+                }
+                else
+                {
+                    session.PendingEquipResonances[(equip.Id, resonance.Slot)] = resonance;
+                }
+                session.SendPush(new NotifyEquipDataList { DeletedEquipIdList = [materialEquip!.Id] });
+                session.SendResponse(new EquipResonanceResponse { ResonanceDatas = [resonance] }, packet.Id);
+                return;
+            }
             if (hasMaterial)
             {
                 NotifyItemDataList notifyItemData = new();
