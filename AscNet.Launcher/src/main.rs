@@ -1,5 +1,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+#[cfg(windows)]
+mod animation;
 mod steam;
 #[cfg(windows)]
 mod ui;
