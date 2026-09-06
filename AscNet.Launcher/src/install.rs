@@ -74,13 +74,8 @@ pub fn inspect(client: &Path, package: &PatchPackage) -> Result<PatchState> {
         ));
     }
     for key in [ORIGINAL_KEYS[0], ORIGINAL_KEYS[1]] {
-        let expected = package
-            .manifest
-            .originals
-            .get(key)
-            .context("release is missing required original hash")?;
         let actual = file_hash(&client.join(key))?;
-        if actual.as_deref() != Some(expected) {
+        if !package.manifest.accepts_original(key, actual.as_deref()) {
             return Ok(PatchState::Unsupported(format!(
                 "{key} does not match supported application version"
             )));
@@ -95,7 +90,11 @@ pub fn inspect(client: &Path, package: &PatchPackage) -> Result<PatchState> {
         }
         if ORIGINAL_KEYS
             .iter()
-            .any(|key| state.originals.get(*key) != package.manifest.originals.get(*key))
+            .any(|key| {
+                !package
+                    .manifest
+                    .accepts_original(key, state.originals.get(*key).map(String::as_str))
+            })
         {
             return Ok(PatchState::Unsupported(
                 "saved retail originals do not match this release".into(),
@@ -161,12 +160,10 @@ pub fn inspect(client: &Path, package: &PatchPackage) -> Result<PatchState> {
     }
 
     let krsdk = ORIGINAL_KEYS[2];
-    let expected = package
+    if !package
         .manifest
-        .originals
-        .get(krsdk)
-        .context("release is missing KRSDK original hash")?;
-    if file_hash(&client.join(krsdk))?.as_deref() != Some(expected) {
+        .accepts_original(krsdk, file_hash(&client.join(krsdk))?.as_deref())
+    {
         return Ok(PatchState::Unsupported(
             "KRSDK.dll is neither a supported retail original nor a verified managed patch".into(),
         ));
@@ -237,6 +234,13 @@ pub fn install(
         progress("Adopted verified existing patch".into());
         return Ok(state_path);
     }
+    let originals = match &prior {
+        Some(state) => state.originals.clone(),
+        None => ORIGINAL_KEYS
+            .iter()
+            .map(|key| Ok(((*key).to_owned(), sha256_file(&client.join(key))?)))
+            .collect::<Result<BTreeMap<_, _>>>()?,
+    };
     let id = Uuid::new_v4().to_string();
     let backup_parent = state_root.join("backups");
     fs::create_dir_all(&backup_parent)?;
@@ -288,7 +292,7 @@ pub fn install(
     let state = State {
         schema_version: 1,
         release_version: package.manifest.version.clone(),
-        originals: package.manifest.originals.clone(),
+        originals,
         files,
     };
     verify_saved_backups_at(&client, &state, &state_root)?;
@@ -833,7 +837,11 @@ fn find_legacy(client: &Path, package: &PatchPackage) -> Result<Option<(PathBuf,
         }
         if ORIGINAL_KEYS
             .iter()
-            .any(|key| manifest.pinned_client.get(*key) != package.manifest.originals.get(*key))
+            .any(|key| {
+                !package
+                    .manifest
+                    .accepts_original(key, manifest.pinned_client.get(*key).map(String::as_str))
+            })
         {
             continue;
         }
@@ -1081,16 +1089,23 @@ mod tests {
     }
     #[test]
     fn retained_legacy_restore_and_local_update_preserve_retail_originals() {
+        for assembly in [b"assembly-stock".as_slice(), b"assembly-wine".as_slice()] {
+            check_retail_originals(assembly);
+        }
+    }
+
+    fn check_retail_originals(assembly: &[u8]) {
         use crate::package::{File, Manifest};
+        use sha2::Digest;
         let root = temp();
         let client = root.join("game");
         let payload = root.join("release");
         fs::create_dir_all(client.join("PGR_Data/Plugins")).unwrap();
         fs::create_dir_all(&payload).unwrap();
         fs::write(client.join("PGR.exe"), b"exe").unwrap();
-        fs::write(client.join("GameAssembly.dll"), b"assembly").unwrap();
+        fs::write(client.join("GameAssembly.dll"), assembly).unwrap();
         fs::write(client.join("PGR_Data/Plugins/KRSDK.dll"), b"retail-sdk").unwrap();
-        let originals = BTreeMap::from([
+        let originals: BTreeMap<String, String> = BTreeMap::from([
             (
                 "PGR.exe".into(),
                 sha256_file(&client.join("PGR.exe")).unwrap(),
@@ -1158,11 +1173,29 @@ mod tests {
                 schema_version: 1,
                 version: "1.0.0".into(),
                 application_version: "test".into(),
-                originals,
+                originals: originals
+                    .clone()
+                    .into_iter()
+                    .map(|(key, hash)| {
+                        let hashes = if key == "GameAssembly.dll" {
+                            [b"assembly-stock", b"assembly-wine".as_slice()]
+                                .iter()
+                                .map(|bytes| format!("{:x}", sha2::Sha256::digest(bytes)))
+                                .collect()
+                        } else {
+                            vec![hash]
+                        };
+                        (key, hashes)
+                    })
+                    .collect(),
                 files,
             },
             directory: payload,
         };
+        fs::write(client.join("GameAssembly.dll"), b"unknown").unwrap();
+        assert!(matches!(inspect(&client, &package).unwrap(), PatchState::Unsupported(_)));
+        fs::write(client.join("GameAssembly.dll"), assembly).unwrap();
+        assert_eq!(inspect(&client, &package).unwrap(), PatchState::Unpatched);
         for file in &package.manifest.files {
             let target = client.join(&file.path);
             fs::create_dir_all(target.parent().unwrap()).unwrap();
@@ -1174,10 +1207,15 @@ mod tests {
         );
         install(&client, &package, &mut |_| {}).unwrap();
         assert_eq!(inspect(&client, &package).unwrap(), PatchState::Current);
+        assert_eq!(read_state(&client).unwrap().unwrap().originals, originals);
         restore(&client, &mut |_| {}).unwrap();
+        assert_eq!(inspect(&client, &package).unwrap(), PatchState::Unpatched);
+        fs::remove_dir_all(client.join(STATE_DIR)).unwrap();
+        fs::remove_dir_all(&legacy).unwrap();
         assert_eq!(inspect(&client, &package).unwrap(), PatchState::Unpatched);
         install(&client, &package, &mut |_| {}).unwrap();
         assert_eq!(inspect(&client, &package).unwrap(), PatchState::Current);
+        assert_eq!(read_state(&client).unwrap().unwrap().originals, originals);
         let payload_v2 = root.join("package-v2");
         fs::create_dir_all(&payload_v2).unwrap();
         let mut manifest_v2 = package.manifest.clone();
@@ -1202,7 +1240,7 @@ mod tests {
         assert_eq!(fs::read(client.join("PGR.exe")).unwrap(), b"exe");
         assert_eq!(
             fs::read(client.join("GameAssembly.dll")).unwrap(),
-            b"assembly"
+            assembly
         );
         assert_eq!(
             fs::read(client.join("PGR_Data/Plugins/KRSDK.dll")).unwrap(),

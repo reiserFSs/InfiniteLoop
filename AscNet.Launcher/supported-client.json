@@ -1,8 +1,11 @@
 {
   "applicationVersion": "4.7.0",
   "originals": {
-    "PGR.exe": "56c02821711675403ffbd8a40c3bad0f4217b5adc30eb33c652379a8fda66f76",
-    "GameAssembly.dll": "7dbdbc91ea9952b3e1d37b65817152326287c36e1cf82f6a83ad33d37c5d5eab",
-    "PGR_Data/Plugins/KRSDK.dll": "2a1d8f5def0e3a0ccb712a471d7f0b2097d6444d701e399524663c87c1d34c88"
+    "PGR.exe": ["56c02821711675403ffbd8a40c3bad0f4217b5adc30eb33c652379a8fda66f76"],
+    "GameAssembly.dll": [
+      "036b2f823e89465cd0542c7736e9d763ef880d9a791c19d412dfe1f4d8fd5ed0",
+      "7dbdbc91ea9952b3e1d37b65817152326287c36e1cf82f6a83ad33d37c5d5eab"
+    ],
+    "PGR_Data/Plugins/KRSDK.dll": ["2a1d8f5def0e3a0ccb712a471d7f0b2097d6444d701e399524663c87c1d34c88"]
   }
 }

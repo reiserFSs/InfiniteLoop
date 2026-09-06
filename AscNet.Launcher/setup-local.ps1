@@ -291,11 +291,12 @@ try {
             Invoke-Checked $msbuild @((Join-Path $checkout 'AscNet.Patch\VersionShim\src\VersionShim.vcxproj'), '/m:1', '/p:Configuration=Release', '/p:Platform=x64', "/p:OutDir=$loaderOut\", "/p:IntDir=$(Join-Path $stage 'loader-obj')\") 'Building version loader'
             Copy-Item -LiteralPath (Join-Path $loaderOut 'VersionShim.dll') -Destination (Join-Path $patch 'version.dll')
             [IO.File]::WriteAllText((Join-Path $patch 'libraries.txt'), "*PGR.exe`nlucia.dll`n", (New-Object Text.UTF8Encoding($false)))
-            Copy-Item -LiteralPath (Join-Path $checkout 'AscNet.Launcher\supported-client.json') -Destination (Join-Path $patch 'supported-client.json')
+            Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'supported-client.json') -Destination (Join-Path $patch 'supported-client.json')
             if (Test-Path -LiteralPath $final) { Remove-Item -LiteralPath $final -Recurse -Force }
             Move-Item -LiteralPath $stage -Destination $final
         } catch { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue; throw }
     }
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'supported-client.json') -Destination (Join-Path $final 'patch\supported-client.json') -Force
 
     $serverDirectory = Join-Path $final 'server'
     $resourceDirectory = $serverDirectory
