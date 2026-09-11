@@ -118,6 +118,11 @@ namespace AscNet.Test
                     ValidateLoadingOptionCompatibility();
                     return;
                 }
+                if (args.Contains("--store-purchases-only"))
+                {
+                    ValidateStorePurchases();
+                    return;
+                }
                 if (args.Contains("--wheelchair-manual-compat-only"))
                 {
                     ValidateWheelchairManualFullCompatibility();

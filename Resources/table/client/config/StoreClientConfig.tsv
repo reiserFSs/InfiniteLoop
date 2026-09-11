@@ -1,0 +1,6 @@
+Key	Type	Value
+PurchaseYKLimtCount	int	30
+PurchaseYKTotalCount	int	6
+PurchaseYKTotalCountWeek	int	1
+PurchaseYKTotalCountDay	int	1
+PurchaseYKLimtCountWeek	int	7

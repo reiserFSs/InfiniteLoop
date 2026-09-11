@@ -637,21 +637,90 @@ namespace AscNet.GameServer.Handlers
         public static void ItemBuyAssetRequestHandler(Session session, Packet.Request packet)
         {
             ItemBuyAssetRequest request = packet.Deserialize<ItemBuyAssetRequest>();
-            int count = Math.Max(0, request.Times);
-
-            Item consumedItem = session.inventory.Do(request.ConsumeId, -count);
-            Item boughtItem = session.inventory.Do(request.ItemId, count);
-
-            session.SendPush(new NotifyItemDataList
+            lock (session.player)
             {
-                ItemDataList = { consumedItem, boughtItem }
-            });
-            session.inventory.Save();
-            session.SendResponse(new ItemBuyAssetResponse
-            {
-                Count = count,
-                IsCrit = false
-            }, packet.Id);
+                // Resolve the requested conversion from the installed client's recipe table.
+                BuyAssetTable? asset = TableReaderV2.Parse<BuyAssetTable>().Find(row => row.Id == request.ItemId);
+                if (asset is null || request.Times <= 0 || asset.Config.Count == 0
+                    || asset.TimeId > 0
+                    || (asset.BuyLimit > 0 && request.Times > asset.BuyLimit))
+                {
+                    session.SendResponse(new ItemBuyAssetResponse { Code = 20012001 }, packet.Id);
+                    return;
+                }
+                Item? owned = session.inventory.Items.FirstOrDefault(i => i.Id == request.ItemId);
+                int bought = owned is not null && PayModule.PurchaseDay(owned.LastBuyTime) == PayModule.PurchaseDay() ? owned.BuyTimes : 0;
+                if ((asset.DailyLimit > 0 && (long)bought + request.Times > asset.DailyLimit)
+                    || (asset.TotalLimit > 0 && (long)(owned?.TotalBuyTimes ?? 0) + request.Times > asset.TotalLimit)
+                    || (long)(owned?.TotalBuyTimes ?? 0) + request.Times > int.MaxValue)
+                {
+                    session.SendResponse(new ItemBuyAssetResponse { Code = 20012001 }, packet.Id);
+                    return;
+                }
+                var recipes = TableReaderV2.Parse<BuyAssetConfigTable>().Where(row => asset.Config.Contains(row.Id)).OrderBy(row => row.Times).ToArray();
+                if (recipes.Length != asset.Config.Count || recipes.Any(row => row.ConsumeId.Count == 0))
+                {
+                    session.SendResponse(new ItemBuyAssetResponse { Code = 20012001 }, packet.Id);
+                    return;
+                }
+                int currency = request.ConsumeId == 0 ? recipes[0].ConsumeId[0] : request.ConsumeId;
+                long cost = 0, count = 0;
+                // Unlimited exchanges have a fixed price; capped daily resources use a price ladder.
+                int iterations = recipes.Length == 1 ? 1 : request.Times;
+                if (iterations > 1000) { session.SendResponse(new ItemBuyAssetResponse { Code = 20012001 }, packet.Id); return; }
+                for (int i = 0; i < iterations; i++)
+                {
+                    var recipe = recipes.LastOrDefault(row => row.Times <= (long)bought + i + 1) ?? recipes[0];
+                    int index = recipe.ConsumeId.IndexOf(currency);
+                    if (index < 0 || index >= recipe.ConsumeCount.Count || recipe.GainCount <= 0
+                        || !Inventory.IsValidClientItemId(request.ItemId))
+                    {
+                        session.SendResponse(new ItemBuyAssetResponse { Code = 20012001 }, packet.Id);
+                        return;
+                    }
+                    int multiplier = recipes.Length == 1 ? request.Times : 1;
+                    cost += (long)recipe.ConsumeCount[index] * multiplier;
+                    count += (long)recipe.GainCount * multiplier;
+                }
+                if (request.ItemId == Inventory.Coin)
+                {
+                    var configs = TableReaderV2.Parse<AscNet.Table.V2.share.config.ConfigTable>();
+                    long factor = long.Parse(configs.Single(c => c.Key == "BuyAssetCoinBase").Value)
+                        + session.player.PlayerData.Level * long.Parse(configs.Single(c => c.Key == "BuyAssetCoinMul").Value);
+                    count = checked(count * factor);
+                }
+                ItemTable? item = TableReaderV2.Parse<ItemTable>().Find(row => row.Id == request.ItemId);
+                if (cost <= 0 || cost > int.MaxValue || count > int.MaxValue
+                    || session.inventory.SpendableCount(currency) < cost
+                    || session.inventory.Items.Where(i => i.Id == request.ItemId).Sum(i => i.Count) + count > Inventory.GetMaxCount(item))
+                {
+                    session.SendResponse(new ItemBuyAssetResponse { Code = 20012004 }, packet.Id);
+                    return;
+                }
+                var before = session.inventory.Items.Select(i => new Item { Id = i.Id, Count = i.Count,
+                    CreateTime = i.CreateTime, RefreshTime = i.RefreshTime, BuyTimes = i.BuyTimes,
+                    TotalBuyTimes = i.TotalBuyTimes, LastBuyTime = i.LastBuyTime }).ToList();
+                List<Item> changed;
+                try
+                {
+                    changed = session.inventory.Spend(currency, (int)cost);
+                    Item updated = session.inventory.Do(request.ItemId, (int)count);
+                    updated.BuyTimes = checked(bought + request.Times);
+                    updated.TotalBuyTimes = checked(updated.TotalBuyTimes + request.Times);
+                    updated.LastBuyTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                    changed.Add(updated);
+                    session.inventory.SaveChecked();
+                }
+                catch (Exception error)
+                {
+                    session.inventory.Items = before;
+                    session.log.Error("Asset conversion failed", error);
+                    session.SendResponse(new ItemBuyAssetResponse { Code = 2 }, packet.Id);
+                    return;
+                }
+                session.SendPush(new NotifyItemDataList { ItemDataList = changed });
+                session.SendResponse(new ItemBuyAssetResponse { Count = (int)count }, packet.Id);
+            }
         }
      }
 }
