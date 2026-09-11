@@ -1,0 +1,550 @@
+Id	FightEvents[1]	FightEvents[2]	SystemEvents[1]	SystemEvents[2]	SystemEvents[3]	Note
+10001			10001			Item Effect - Overlord's Goldfinger
+10002	2251102					Item Effect - Golden Wrench of King Wrench XIV
+10003			10003			Item Effect - Gold Kuroro Specimen
+10004	2251104					Item Effect - Chef Shark
+10005	2251105					Item Effect - Equipment Collector
+10006	2251106					Item Effect - Lone Walker
+10007	2251107					Item Effect - Rain of Cubes
+10008			10008	100081		Item Effect - Discount Voucher
+10009			10009			Item Effect - Social Master
+10010			10010			Item Effect - Solo Operation
+10011	2251111					Item Effect - Combo - Ping Boost
+10012	2251112					Item Effect - Combo - Signature Boost
+10013	2251113					Item Effect - Combo - Basic Attack Boost
+10014	2251114					Item Effect - Combo - Injury Boost
+10015	2251115					Item Effect - Combo - HP Lost Boost
+10016	2251116					Item Effect - Combo - Poisonous Healing
+10017	2251117					Item Effect - Combo - Extra DMG
+10018	2251118					Item Effect - Combo - QTE Boost
+10019	2251119					Item Effect - Combo - Switch Boost
+10020	2251120					Item Effect - Combo - Background Buff
+10021	2251121					Item Effect - Riot Shield
+10022			10022			Item Effect - Brand Fusion
+10023	2251123					Item Effect - Branded in Red
+10024	2251124					Item Effect - Branded in White
+10025	2251125					Item Effect - Loudspeaker
+10026	2251126					Item Effect - Radar Interference
+10027	2251127					Item Effect - Signal Orb A
+10028	2251128					Item Effect - Signal Orb B
+10029	2251129					Item Effect - Signal Orb C
+10030	2251130					Item Effect - Signal Orb D
+10031	2251131					Item Effect - Signal Orb Bonus
+10032	2251132					Item Effect - Energy Gain
+10033	2251133					Item Effect - Weakened Enemy
+10034	2251134					Item Effect - Frontline
+10035	2251135					Item Effect - Switch
+10036	2251136					Item Effect - Matrix
+10037	2251137					Item Effect - Last Stand
+10038	2251138					Item Effect - ATK Bonus
+10039	2251139					Item Effect - DMG Bonus
+10040	2251140					Item Effect - Elemental DMG -1
+10041	2251141					Item Effect - Elemental DMG -2
+10042	2251142					Item Effect - Elemental DMG -3
+10043	2251143					Item Effect - Elemental DMG -4
+10044	2251144					Item Effect - Elemental DMG -5
+10045	2251145					Item Effect - Resistance Reduction
+10046	2251146					Item Effect - HP Boost
+10047	2251147					Item Effect - HP Recovery
+10048	2251148					Item Effect - Dodge Boost
+10049	2251149					Item Effect - Dodge Recovery
+10050	2251150					Item Effect - DEF Boost
+10051	2251151					Item Effect - Stacking Dolls A
+10052	2251152					Item Effect - Stacking Dolls A
+10053	2251153					Item Effect - Stacking Dolls A
+10054	2251154					Item Effect - Stacking Dolls B
+10055	2251155					Item Effect - Stacking Dolls B
+10056	2251156					Item Effect - Stacking Dolls B
+10057	2251157					Item Effect - Orb Recovery Speed
+10058	2251158					Item Effect - Energy Boost
+10059	2251159					Item Effect - Movement Speed Boost
+10060	2251160					Item Effect - First Action
+10061	2251179					Item Effect - +30% Nihil DMG
+10062			10062			Item Effect - Quantum Value α +10
+11001			11001			Item Effect - Recruit Energy +1
+11002			11002			Item Effect - Recruit Energy +2
+11003			11003			Item Effect - Recruit Energy +3
+11004			11004			Item Effect - Weight Carrying Limit +1
+11005			11005			Item Effect - Weight Carrying Limit +2
+11006			11006			Item Effect - Gold +250
+12001	2251166					Item Effect - All Elemental DMG +200%
+12002	2251167					Item Effect - ATK +6000
+12003	2251168					Item Effect - No QTE cooldown, gain a set of 3-Ping Orbs upon each QTE triggered
+12004	2251161					Item Effect - Red/Blue Capsules
+12005	2251162					Item Effect - Access Key
+12006	2251163					Item Effect - Beam Sword
+12007	2251164					Item Effect - Abandoned Laser Gun
+12008	2251165					Item Effect - "Phantom G720" Strobe Light
+12009	2251169					Item Effect - Gospel Fragment I
+12010	2251170					Item Effect - Gospel Fragment II
+12011						Item Effect - Orphanage Employee ID Card
+12012	2251171					Item Effect - Gospel Fragment III
+12013	2251172					Item Effect - Gospel Fragment IV
+12014						Item Effect - Full Serum Tube
+12015	2251173					Item Effect - Empty Serum Tube
+12016	2251174					Item Effect - Lab Employee ID Card
+12017			11006			Item Effect - Research Journal I
+12018	2251175					Item Effect - Research Journal II
+12019						Item Effect - Bloodstone
+12020	2251176					Item Effect - Data Crystal I
+12021	2251177					Item Effect - Data Crystal II
+12022	2251178					Item Effect - 100 Wishes
+110001	2252141		110001	110013		Roguelike 3.0 DLC - 5★ Item - Change to obtain extra Artifact when buying Artifacts
+110002	2252101	2252141	110013			Roguelike 3.0 DLC - 5★ Item - Recruit Energy used to increase ATK
+110003	2252102	2252141	110013			Roguelike 3.0 DLC - 5★ Item - Quantum Value increases DMG
+110004	2252103	2252141	110013			Roguelike 3.0 DLC - 5★ Item - Quantum Value threshold provides enhancement
+110005	2252141		110003	110004	110013	Roguelike 3.0 DLC - 5★ Item - Battle Results gives Quantum Value
+110006	2252141		110005	110013		Roguelike 3.0 DLC - 5★ Item - Gains 3 Gold Boxes instantly
+110007	2252104	2252141	110013			Roguelike 3.0 DLC - 5★ Item - Recovers HP for the whole team when dodging
+110008	2252105	2252141	110013			Roguelike 3.0 DLC - 5★ Item - Receives 100% Shield upon entering the battlefield
+110009	2252106	2252141	110013			Roguelike 3.0 DLC - 5★ Item - Inflicts Extra 30% True DMG upon dealing DMG
+110010	2252107	2252141	110013			Roguelike 3.0 DLC - 5★ Item - Inflicts Extra Elemental DMG based on DMG dealt
+110011	2252108	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Character DMG increases when in Matrix
+110012	2252109	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Enemy Resistance decreases when in Matrix
+110013	2252142		110006	110012		Roguelike 3.0 DLC - 4★ Item - Rest Node Equipment Swap attempts
+110014	2252142		110012			Roguelike 3.0 DLC - 4★ Item - Gashapon Machine Event Probability
+110015	2252110	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Greatly increases Movement Speed when dodging
+110016	2252111	2252142	110012			Roguelike 3.0 DLC - 4★ Item - DMG increases
+110017	2252112	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Increases DMG Bonus upon taking DMG
+110018	2252113	2252142	110012			Roguelike 3.0 DLC - 4★ Item - DMG increases after dodging
+110019	2252114	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Greatly increases ATK when both Quantum Values are equal
+110020	2252115	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Enhances when Quantum Value α is greater than threshold
+110021	2252116	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Enhances when Quantum Value β is greater than threshold
+110022	2252142		110008	110012		Roguelike 3.0 DLC - 4★ Item - Gains 1 Gold Box instantly
+110023	2252142		110009	110010	110012	Roguelike 3.0 DLC - 4★ Item - Gains 1 Red Box and 1 Blue Box instantly
+110024	2252117	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Movement Speed of attacking enemies decreases
+110025	2252118	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Receives 50% Shield upon entering the battlefield
+110026	2252119	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Inflicts Extra 20% Elemental DMG upon dealing DMG
+110027	2252120	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Inflicts Extra Elemental DMG based on DMG dealt
+110028	2252121	2252142	110012			Roguelike 3.0 DLC - 4★ Item - Increases DMG by 50% when attacking quantized enemies
+110029	2252122	2252143				Roguelike 3.0 DLC - 3★ Item - Slightly increases Movement Speed when dodging
+110030	2252123	2252143				Roguelike 3.0 DLC - 3★ Item - Enemy Resistance decreases when in Matrix
+110031	2252124	2252143				Roguelike 3.0 DLC - 3★ Item - DMG increases
+110032	2252125	2252143				Roguelike 3.0 DLC - 3★ Item - Increases DMG Bonus upon taking DMG
+110033	2252126	2252143				Roguelike 3.0 DLC - 3★ Item - Receives a small shield when dodging
+110034	2252127	2252143				Roguelike 3.0 DLC - 3★ Item - Gains Super Armor and DMG Reduction when not moving
+110035	2252128	2252143				Roguelike 3.0 DLC - 3★ Item - Gains 30% DMG Reduction when dodging
+110036	2252143		110011			Roguelike 3.0 DLC - 3★ Item - Gains 1 random Box instantly
+110037	2252129	2252143				Roguelike 3.0 DLC - 3★ Item - Recovers self HP when dodging
+110038	2252130	2252143				Roguelike 3.0 DLC - 3★ Item - Enters Matrix when taking DMG
+110039	2252131	2252143				Roguelike 3.0 DLC - 3★ Item - Receives 20% Shield upon entering the battlefield
+110040	2252132	2252143				Roguelike 3.0 DLC - 3★ Item - DMG Effect - Physical DMG
+110041	2252133	2252143				Roguelike 3.0 DLC - 3★ Item - DMG Effect - Lightning DMG
+110042	2252134	2252143				Roguelike 3.0 DLC - 3★ Item - DMG Effect - Ice DMG
+110043	2252135	2252143				Roguelike 3.0 DLC - 3★ Item - DMG Effect - Dark DMG
+110044	2252136	2252143				Roguelike 3.0 DLC - 3★ Item - DMG Effect - Fire DMG
+110045	2252137	2252143				Roguelike 3.0 DLC - 3★ Item - DMG Effect - Nihil DMG
+110046	2252138	2252143				Roguelike 3.0 DLC - 3★ Item - Max HP +100 per second when not moving
+110047	2252139	2252143				Roguelike 3.0 DLC - 3★ Item - ATK +50 per second when not moving
+110048	2252140	2252143				Roguelike 3.0 DLC - 3★ Item - Receives shield based on the Elemental DMG dealt
+110049			110049			Roguelike 3.0 DLC - 5★ Item - β Value +10
+110050	2252141	2252145	110013			Roguelike 3.0 DLC - 5★ Item - Each Dual Blades Artifact increases Extra DMG Bonus by 20%
+110051	2252141	2252146	110013			Roguelike 3.0 DLC - 5★ Item - Each Dual Blades Artifact increases HP by 15%
+110052	2252142	2252147	110012			Roguelike 3.0 DLC - 4★ Item - Inflicts additional Physical and Nihil DMG equal to 10% of DMG when dealing DMG, with a 1s cooldown
+110053	2252142	2252148	110012			Roguelike 3.0 DLC - 4★ Item - Inflicts additional Lightning and Dark DMG equal to 10% of DMG when dealing DMG, with a 1s cooldown
+110054	2252142	2252149	110012			Roguelike 3.0 DLC - 4★ Item - Inflicts additional Ice and Fire DMG equal to 10% of DMG when dealing DMG, with a 1s cooldown
+110055	2252142	2252150	110012			Roguelike 3.0 DLC - 4★ Item - Physical DMG +60%
+110056	2252142	2252151	110012			Roguelike 3.0 DLC - 4★ Item - Fire DMG +60%
+110057	2252142	2252152	110012			Roguelike 3.0 DLC - 4★ Item - Lightning DMG +60%
+110058	2252142	2252153	110012			Roguelike 3.0 DLC - 4★ Item - Ice DMG +60%
+110059	2252142	2252154	110012			Roguelike 3.0 DLC - 4★ Item - Dark DMG +60%
+110060	2252142	2252155				Roguelike 3.0 DLC - 4★ Item - Nihil DMG +60%
+110061	2252143	2252156				Roguelike 3.0 DLC - 3★ Item - HP +45% when Quantum Value α is larger or equal to Quantum Value β
+110062	2252143	2252157				Roguelike 3.0 DLC - 3★ Item - ATK +45% when Quantum Value α is larger or equal to Quantum Value β
+210001	2252161					Add Fire Item - 6★ -<color=#b73a3a>Shield 4</color>
+210002	2252162					Add Fire Item - 6★ -<color=#b73a3a>Overload</color>
+210003	2252163					Add Fire Item - 6★ -<color=#b73a3a>Absorption</color>
+210004	2252164					Add Fire Item - 6★ -<color=#b73a3a>First-Aid</color>
+210005	2252165					Add Fire Item - 6★ -<color=#b73a3a>Stall</color>
+210006	2252166					Add Fire Item - 5★ -<color=#FC8B1E>Assault</color>
+210007	2252167					Add Fire Item - 5★ -<color=#FC8B1E>Freeze</color>
+210008	2252168					Add Fire Item - 5★ -<color=#FC8B1E>Adaptable Armor</color>
+210009	2252169					Add Fire Item - 5★ -<color=#FC8B1E>Rigid Body</color>
+210010	2252170					Add Fire Item - 5★ -<color=#FC8B1E>Shatter</color>
+210011	2252171					Add Fire Item - 5★ -<color=#FC8B1E>Shield 3</color>
+210012	2252172					Add Fire Item - 4★ -<color=#CC68C1>Critical 2</color>
+210013	2252173					Add Fire Item - 4★ -<color=#CC68C1>Speed Down</color>
+210014	2252174					Add Fire Item - 4★ -<color=#CC68C1>Attack 2</color>
+210015	2252175					Add Fire Item - 4★ -<color=#CC68C1>Deterioration</color>
+210016	2252176					Add Fire Item - 4★ -<color=#CC68C1>Diffusion</color>
+210017	2252177					Add Fire Item - 4★ -<color=#CC68C1>Energy Loss</color>
+210018	2252178					Add Fire Item - 4★ -<color=#CC68C1>Berserk 3</color>
+210019	2252179					Add Fire Item - 4★ -<color=#CC68C1>Shield 2</color>
+210020	2252180					Add Fire Item - 4★ -<color=#CC68C1>Health 2</color>
+210021	2252181					Add Fire Item - 3★ -<color=#3E70BB>Lightning Shield</color>
+210022	2252182					Add Fire Item - 3★ -<color=#3E70BB>Critical 1</color>
+210023	2252183					Add Fire Item - 3★ -<color=#3E70BB>Agility 3</color>
+210024	2252184					Add Fire Item - 3★ -<color=#3E70BB>Self-Destruction Bug</color>
+210025	2252185					Add Fire Item - 3★ -<color=#3E70BB>Immovable</color>
+210026	2252186					Add Fire Item - 3★ -<color=#3E70BB>Imbalance</color>
+210027	2252187					Add Fire Item - 3★ -<color=#3E70BB>HP 1</color>
+210028	2252188					Add Fire Item - 3★ -<color=#3E70BB>Shield 1</color>
+20011	2251001					Roguelike 3.0 - Physical Equipment 1
+20012	2251002					Roguelike 3.0 - Physical Equipment 2
+20013	2251003					Roguelike 3.0 - Physical Equipment 3
+20014						Roguelike 3.0 - Physical Equipment (abandoned, configured to external Globle)
+20021	2251005					Roguelike 3.0 - Fire Equipment 1
+20022	2251006					Roguelike 3.0 - Fire Equipment 2
+20023	2251007					Roguelike 3.0 - Fire Equipment 3
+20024						Roguelike 3.0 - Fire Equipment (abandoned, configured to external Globle)
+20031	2251009					Roguelike 3.0 - Lightning Equipment 1
+20032	2251010					Roguelike 3.0 - Lightning Equipment 2
+20033	2251011					Roguelike 3.0 - Lightning Equipment 3
+20034						Roguelike 3.0 - Lightning Equipment (abandoned, configured to external Globle)
+20041	2251013					Roguelike 3.0 - Ice Equipment 1
+20042	2251014					Roguelike 3.0 - Ice Equipment 2
+20043	2251015					Roguelike 3.0 - Ice Equipment 3
+20044						Roguelike 3.0 - Ice Equipment (abandoned, configured to external Globle)
+20051	2251017					Roguelike 3.0 - Dark Equipment 1
+20052	2251018					Roguelike 3.0 - Dark Equipment 2
+20053	2251019					Roguelike 3.0 - Dark Equipment 3
+20054						Roguelike 3.0 - Dark Equipment (abandoned, configured to external Globle)
+20061	2251021					Roguelike 3.0 - Ping Boost Equipment 1
+20062	2251022					Roguelike 3.0 - Ping Boost Equipment 2
+20063	2251023					Roguelike 3.0 - Ping Boost Equipment 3
+20064	2251024					Roguelike 3.0 - Ping Boost Set
+20071	2251025					Roguelike 3.0 - Signature Boost Equipment 1
+20072	2251026					Roguelike 3.0 - Signature Boost Equipment 2
+20073	2251027					Roguelike 3.0 - Signature Boost Equipment 3
+20074	2251028					Roguelike 3.0 - Signature Boost Set
+20081	2251029					Roguelike 3.0 - Basic Attack Boost Equipment 1
+20082	2251030					Roguelike 3.0 - Basic Attack Boost Equipment 2
+20083	2251031					Roguelike 3.0 - Basic Attack Boost Equipment 3
+20084	2251032					Roguelike 3.0 - Basic Attack Boost Set
+20091	2251033					Roguelike 3.0 - CRIT Boost Equipment 1
+20092	2251034					Roguelike 3.0 - CRIT Boost Equipment 2
+20093	2251035					Roguelike 3.0 - CRIT Boost Equipment 3
+20094	2251036					Roguelike 3.0 - CRIT Boost Set
+20101	2251037		20101			Roguelike 3.0 - Gold Boost Equipment 1
+20102	2251038					Roguelike 3.0 - Gold Boost Equipment 2
+20103	2251039					Roguelike 3.0 - Gold Boost Equipment 3
+20104	2251040		20104			Roguelike 3.0 - Gold Boost Set
+20111	2251041					Roguelike 3.0 - Injury Boost Equipment 1
+20112	2251042					Roguelike 3.0 - Injury Boost Equipment 2
+20113	2251043					Roguelike 3.0 - Injury Boost Equipment 3
+20114	2251044					Roguelike 3.0 - Injury Boost Set
+20121	2251045					Roguelike 3.0 - HP Lost Boost Equipment 1
+20122	2251046					Roguelike 3.0 - HP Lost Boost Equipment 2
+20123	2251047					Roguelike 3.0 - HP Lost Boost Equipment 3
+20124	2251048					Roguelike 3.0 - HP Lost Boost Set
+20131	2251049					Roguelike 3.0 - Poisonous Healing Equipment 1
+20132	2251050					Roguelike 3.0 - Poisonous Healing Equipment 2
+20133	2251051					Roguelike 3.0 - Poisonous Healing Equipment 3
+20134	2251052					Roguelike 3.0 - Poisonous Healing Equipment Set
+20141	2251053					Roguelike 3.0 - Dodge Boost Equipment 1
+20142	2251054					Roguelike 3.0 - Dodge Boost Equipment 2
+20143	2251055					Roguelike 3.0 - Dodge Boost Equipment 3
+20144	2251056					Roguelike 3.0 - Dodge Boost Set
+20151	2251057		20151			Roguelike 3.0 - Single Game Growth Equipment 1
+20152	2251058		20152			Roguelike 3.0 - Single Game Growth Equipment 2
+20153	2251059		20153			Roguelike 3.0 - Single Game Growth Equipment 3
+20154	2251060		20154	20155		Roguelike 3.0 - Single Game Growth Set
+20161	2251099					Roguelike 3.0 - Poisoned Set Equipment 1 - [External Globe effect required when poisoned upon entrance]
+20162	2251062					Roguelike 3.0 - Poisoned Set Equipment 2
+20163	2251063					Roguelike 3.0 - Poisoned Set Equipment 3
+20164	2251064					Roguelike 3.0 - Poisoned Set
+20171	2251065					Roguelike 3.0 - Normal QTE Equipment 1
+20172	2251066	2251067				Roguelike 3.0 - Normal QTE Equipment 2
+20173	2251065					Roguelike 3.0 - Normal QTE Equipment 3
+20174	2251068					Roguelike 3.0 - Normal QTE Set
+20181	2251069					Roguelike 3.0 - Healing QTE Equipment 1
+20182	2251070	2251071				Roguelike 3.0 - Healing QTE Equipment 2
+20183	2251071					Roguelike 3.0 - Healing QTE Equipment 3
+20184	2251072					Roguelike 3.0 - Healing QTE Set
+20191	2251074					Roguelike 3.0 - Burst Switch Equipment 1
+20192	2251073	2251075				Roguelike 3.0 - Burst Switch Equipment 2
+20193	2251075					Roguelike 3.0 - Burst Switch Equipment 3
+20194	2251076					Roguelike 3.0 - Burst Switch Set
+20201	2251077					Roguelike 3.0 - Tool Switch Equipment 1
+20202	2251079					Roguelike 3.0 - Tool Switch Equipment 2
+20203	2251078					Roguelike 3.0 - Tool Switch Equipment 3
+20204	2251080					Roguelike 3.0 - Tool Switch Set
+20211	2251081	2251082				Roguelike 3.0 - Background Buff Equipment 1
+20212	2251083					Roguelike 3.0 - Background Buff Equipment 2
+20213	2251082					Roguelike 3.0 - Background Buff Equipment 3
+20214	2251084					Roguelike 3.0 - Background Buff Set
+20221	2251085	2251086				Roguelike 3.0 - Class Buff Equipment 1
+20222	2251087					Roguelike 3.0 - Class Buff Equipment 2
+20223	2251086					Roguelike 3.0 - Class Buff Equipment 3
+20224	2251088					Roguelike 3.0 - Class Buff Set
+20231	2251089					Roguelike 3.0 - Bomber Equipment 1
+20232	2251090					Roguelike 3.0 - Bomber Equipment 2
+20233	2251091					Roguelike 3.0 - Bomber Equipment 3
+20234	2251092					Roguelike 3.0 - Bomber Set
+20241	2251093					Roguelike 3.0 - Nanami Support Equipment 1
+20242	2251095					Roguelike 3.0 - Nanami Support Equipment 2
+20243	2251094					Roguelike 3.0 - Nanami Support Equipment 3
+20244	2251096					Roguelike 3.0 - Nanami Support Set
+20251	2251408					Roguelike 3.0 - Last Stand Equipment 1
+20252	2251409					Roguelike 3.0 - Last Stand Equipment 2
+20253	2251410					Roguelike 3.0 - Last Stand Equipment 3
+20254	2251411					Roguelike 3.0 - Last Stand Set
+20261	2251412					Roguelike 3.0 - Single Set 1
+20262	2251413					Roguelike 3.0 - Single Set 2
+20263	2251414					Roguelike 3.0 - Single Equipment 3
+20264	2251415					Roguelike 3.0 - Single Set
+20271	2251416					Roguelike 3.0 - Background Switch Bonus ATK Equipment 1
+20272	2251417					Roguelike 3.0 - Background Switch Bonus ATK Equipment 2
+20273	2251418					Roguelike 3.0 - Background Switch Bonus ATK Set
+20281	2251419					Roguelike 3.0 - Background Warm-Up Equipment 1
+20282	2251420					Roguelike 3.0 - Background Warm-Up Equipment 2
+20283	2251421					Roguelike 3.0 - Background Warm-Up Set
+20291	2253097					Roguelike 3.0 - DLC - Nihil Set 1 - Nihil DMG increases
+20292	2253098					Roguelike 3.0 - DLC - Nihil Set 2 - Additional Nihil DMG
+20293	2253099					Roguelike 3.0 - DLC - Nihil Set 3 - Dealing DMG reduces Nihil Resistance
+20294						Roguelike 3.0 - DLC - Nihil Set - Set Bonus - Reduces enemy's Nihil Weakness [deployed to external globe]
+20301	2252001		20301			Roguelike 3.0 - DLC - Solo Set 1 - Recruit Energy Bonus DMG
+20302	2252002		20302			Roguelike 3.0 - DLC - Solo Set 2 - Recruit Energy Bonus HP
+20303	2252003		20303			Roguelike 3.0 - DLC - Solo Set 3 - Recruit Energy Bonus Enemy Element Weakness
+20304	2252004					Roguelike 3.0 - DLC - Solo Set - Set Mark - Single Piece Effect High Boost
+20311	2252008					Roguelike 3.0 - DLC - Shield Set 1 - Hit Generates Shield
+20312	2252009					Roguelike 3.0 - DLC - Shield Set 2 - Hit Shatters Shield Adds Bonus Shield DMG
+20313	2252010					Roguelike 3.0 - DLC - Shield Set 3 - Taking Hit Adds Bonus Shield DMG
+20314	2252011					Roguelike 3.0 - DLC - Shield Set - Set Bonus - Shield Efficiency Increase
+20321	2252012		20321			Roguelike 3.0 - DLC - Summon Set 1 - Summon Mechanoid Aura Bonus Attack
+20322	2252013		20322			Roguelike 3.0 - DLC - Summon Set 2 - Summon Mechanoid Aura DMG Reduction
+20323	2252014		20323			Roguelike 3.0 - DLC - Summon Set 3 - Summon Mechanoid Immortal Program
+20324	2252015					Roguelike 3.0 - DLC - Summon Set - Set Bonus - Mechanoid Bonus Upgrade Mechanism
+20331	2252016					Roguelike 3.0 - DLC - Phaseshift Set 1 - Phaseshift Restores HP and Converts HP into Shield
+20332	2252017					Roguelike 3.0 - DLC - Phaseshift Set 2 - Phaseshift Deals DMG Based on Distance
+20333	2252018					Roguelike 3.0 - DLC - Phaseshift Set 3 - Phaseshift Grants DMG Bonus
+20334	2252019					Roguelike 3.0 - DLC - Phaseshift Set - Set Bonus - Phaseshift Leaves Ring of Flame
+20341	2252005					Roguelike 3.0 - DLC - Slow Set 1 - QTE Deploys Domain
+20342	2252006					Roguelike 3.0 - DLC - Slow Set 2 - Hit Within Domain Reduces QTE CD
+20343	2252007					Roguelike 3.0 - DLC - Slow Set - Set Bonus - Domain Bonus Percentage DMG
+21011	2253077					Roguelike 3.0 - DLC - Physical Set 1 - Equipment Value Increases - Physical DMG increases
+21012	2253078					Roguelike 3.0 - DLC - Physical Set 2 - Equipment Value Increases - Additional DMG
+21013	2253079					Roguelike 3.0 - DLC - Physical Set 3 - Equipment Value Increases - Dealing DMG reduces Physical Resistance
+21014	2253080					Roguelike 3.0 - DLC - Physical Set - Set Bonus - Sharp Lance Performance [also requires external globe to reduce weakness]
+21021	2253081					Roguelike 3.0 - DLC - Fire Set 1 - Equipment Value Increases - Physical DMG increases
+21022	2253082					Roguelike 3.0 - DLC - Fire Set 2 - Equipment Value Increases - Additional DMG
+21023	2253083					Roguelike 3.0 - DLC - Fire Set 3 - Equipment Value Increases - Dealing DMG reduces Physical Resistance
+21024	2253084					Roguelike 3.0 - DLC - Fire Set - Set Bonus - Meteor Performance [also requires external globe to reduce weakness]
+21031	2253085					Roguelike 3.0 - DLC - Lightning Set 1 - Equipment Value Increases - Physical DMG increases
+21032	2253086					Roguelike 3.0 - DLC - Lightning Set 2 - Equipment Value Increases - Additional DMG
+21033	2253087					Roguelike 3.0 - DLC - Lightning Set 3 - Equipment Value Increases - Dealing DMG reduces Physical Resistance
+21034	2253088					Roguelike 3.0 - DLC - Lightning Set - Set Bonus - Lightning Strike Performance [also requires external globe to reduce weakness]
+21041	2253089					Roguelike 3.0 - DLC - Ice Set 1 - Equipment Value Increases - Physical DMG increases
+21042	2253090					Roguelike 3.0 - DLC - Ice Set 2 - Equipment Value Increases - Additional DMG
+21043	2253091					Roguelike 3.0 - DLC - Ice Set 3 - Equipment Value Increases - Dealing DMG reduces Physical Resistance
+21044	2253092					Roguelike 3.0 - DLC - Ice Set - Set Bonus - Ice Circle Performance [also requires external globe to reduce weakness]
+21051	2253093					Roguelike 3.0 - DLC - Dark Set 1 - Equipment Value Increases - Physical DMG increases
+21052	2253094					Roguelike 3.0 - DLC - Dark Set 2 - Equipment Value Increases - Additional DMG
+21053	2253095					Roguelike 3.0 - DLC - Dark Set 3 - Equipment Value Increases - Dealing DMG reduces Physical Resistance
+21054	2253096					Roguelike 3.0 - DLC - Dark Set - Set Bonus - Black Hole Performance [also requires external globe to reduce weakness]
+21061	2253001					Roguelike 3.0 - DLC - Ping Set 1 - Equipment Mechanism Upgrade - Rearrange Orbs on 3-Ping
+21062	2253002					Roguelike 3.0 - DLC - Ping Set 2 - Equipment Value Increases - Bonus DMG on Ping
+21063	2253003					Roguelike 3.0 - DLC - Ping Set 3 - Equipment Mechanism Upgrade - Auto Generate Orbs when No. of Orbs below threshold
+21064	2253004					Roguelike 3.0 - DLC - Ping Set - Set Bonus - Equipment Mechanism Upgrade - Bonus DMG on 3-Ping
+21071	2253005					Roguelike 3.0 - DLC - Signature Set 1 - Equipment Value Increases - Lower Energy Cost
+21072	2253006					Roguelike 3.0 - DLC - Signature Set 2 - Equipment Value Increases - Casting Signature increases Signature DMG
+21073	2253007					Roguelike 3.0 - DLC - Signature Set 3 - Equipment Mechanism Upgrade - Entering battle grants all team Energy
+21074	2253008					Roguelike 3.0 - DLC - Signature Set - Set Bonus - Equipment Mechanism Upgrade - Signature DMG increases based on Energy Cost
+21081	2253009					Roguelike 3.0 - DLC - Basic Attack Set 1 - Equipment Value Increases - Wound DMG Bonus increases
+21082	2253010					Roguelike 3.0 - DLC - Basic Attack Set 2 - Equipment Value Increases - Basic Attack increases Wound DMG Bonus
+21083	2253011					Roguelike 3.0 - DLC - Basic Attack Set 3 - Equipment Value Increases - Basic Attack Crits periodically
+21084	2253012					Roguelike 3.0 - DLC - Basic Attack Set - Set Bonus - Equipment Value Increases - Wound Limit increases
+21091	2253013					Roguelike 3.0 - DLC - Crit Set 1 - Equipment Value Increases - Crit Rate increases with Combo
+21092	2253014					Roguelike 3.0 - DLC - Crit Set 2 - Equipment Value Increases - Crit DMG increases with Combo
+21093	2253015					Roguelike 3.0 - DLC - Crit Set 3 - Equipment Value Increases - Crit Rate increases with attacks
+21094	2253016					Roguelike 3.0 - DLC - Crit Set - Set Bonus - Equipment Value Increases - Excess Crit Rate converted into Crit DMG
+21101			21101			Roguelike 3.0 - DLC - Coin Set 2 - Equipment Value Increases - Percentage of Coins obtained increases
+21102	2253017					Roguelike 3.0 - DLC - Coin Set 2 - Equipment Value Increases - Bonus DMG with Coins
+21103	2253018					Roguelike 3.0 - DLC - Coin Set 3 - Equipment Value Increases - Bonus HP with Coins
+21104	2253019		21104			Roguelike 3.0 - DLC - Coin Set - Set Bonus - Equipment Value Increases - Double Buff Stacks
+21111	2253020					Roguelike 3.0 - DLC - Take DMG Set 1 - Equipment Value Increases - Bonus DMG Reduction after taking DMG
+21112	2253021					Roguelike 3.0 - DLC - Take DMG Set 2 - Equipment Value Increases - Bonus DMG after taking DMG
+21113	2253022					Roguelike 3.0 - DLC - Take DMG Set 3 - Equipment Value Increases - Bonus Aura DMG after taking DMG
+21114	2253023					Roguelike 3.0 - DLC - Take DMG Set - Set Bonus - Equipment Value Increases - Stack Limit increases
+21121	2253024					Roguelike 3.0 - DLC - Bloodburn Set 1 - Equipment Value Increases - Matrix Bloodburn DMG
+21122	2253025					Roguelike 3.0 - DLC - Bloodburn Set 2 - Equipment Value Increases - 3-Ping Bloodburn DMG
+21123	2253026					Roguelike 3.0 - DLC - Bloodburn Set 3 - Equipment Value Increases - Signature Bloodburn DMG
+21124	2253027					Roguelike 3.0 - DLC - Bloodburn Set - Set Bonus - Equipment Value Increases - Max HP stacks up after losing HP
+21131	2253028					Roguelike 3.0 - DLC - Poisonous Healing Set 1 - Equipment Value Increases - Poisonous Healing damages opponent
+21132	2253029					Roguelike 3.0 - DLC - Poisonous Healing Set 2 - Equipment Value Increases - Bonus Healing
+21133	2253030					Roguelike 3.0 - DLC - Poisonous Healing Set 3 - Equipment Mechanism Upgrade - Excess Healing converted into Shield
+21134	2253031					Roguelike 3.0 - DLC - Poisonous Healing Set - Set Bonus - Equipment Value Increases - Set Mark
+21141	2253039					Roguelike 3.0 - DLC - Dodge Set 1 - Equipment Value Increases - Slashes on Dodge
+21142	2253040					Roguelike 3.0 - DLC - Dodge Set 2 - Equipment Value Increases - Slashes on Dodge
+21143	2253041					Roguelike 3.0 - DLC - Dodge Set 3 - Equipment Value Increases - Slashes on Dodge
+21144	2253042					Roguelike 3.0 DLC - Dodge Set - Set - Equipment Value Increases - Does not consume Dodge
+21151	2253032		21151			Roguelike 3.0 - DLC - RPG Growth Set 1 - Equipment Value Increases - Heals at Nodes
+21152	2253033		21152			Roguelike 3.0 - DLC - RPG Growth Set 2 - Equipment Value Increases - Increases ATK at Nodes
+21153			21153			Roguelike 3.0 - DLC - RPG Growth Set 2 - Equipment Value Increases - Bonus Coins at Nodes
+21154	2253034		21154	21155		Roguelike 3.0 - DLC - RPG Growth Set - Set Bonus - Equipment Value Increases - Bonus Execution at Nodes
+21161	2253035					Roguelike 3.0 - DLC - Poison Set 1 - Equipment Value Increases - Poison stacks upon entrance - [globe external effect required upon entrance]
+21162	2253036					Roguelike 3.0 - DLC - Poison Set 2 - Equipment Value Increases - Matrix creates poison circle
+21163	2253037					Roguelike 3.0 - DLC - Poison Set 3 - Equipment Value Increases - Dealing DMG stacks poison
+21164	2253038					Roguelike 3.0 - DLC - Poison Set - Set Bonus - Equipment Value Increases - Set Mark
+21171	2253043					Roguelike 3.0 - DLC - QTE Set 1 - Equipment Value Increases - QTE reduces Resistance
+21172	2253044	2253045				Roguelike 3.0 - DLC - QTE Set 2 - Equipment Value Increases - QTE triggers Matrix
+21173	2253045					Roguelike 3.0 - DLC - QTE Set 3 - Equipment Value Increases - QTE pulls in enemies
+21174	2253046					Roguelike 3.0 - DLC - QTE Set - Set Bonus - QTE removes weakness
+21181	2253047					Roguelike 3.0 - DLC - Healing QTE Set 1 - Equipment Value Increases - Bonus DMG on Healing
+21182	2253048	2253049				Roguelike 3.0 - DLC - Healing QTE Set 2 - Equipment Value Increases - Healing restores orbs
+21183	2253049					Roguelike 3.0 - DLC - Healing QTE Set 3 - Equipment Value Increases - Healing restores Dodge Gauge
+21184	2253050					Roguelike 3.0 - DLC - Healing QTE Set - Set Bonus - Bonus ATK on Healing
+21191	2253052					Roguelike 3.0 - DLC - Burst Switch Set 1 - Equipment Value Increases - Bonus Energy on Switch
+21192	2253051	2253053				Roguelike 3.0 - DLC - Burst Switch Set 2 - Equipment Mechanism Upgrade - Bonus orb & DMG on Switch
+21193	2253053					Roguelike 3.0 - DLC - Burst Switch Set 3 - Equipment Value Increases - Bonus DMG on Switch
+21194	2253054					Roguelike 3.0 - DLC - Burst Switch Set - Set Bonus - Switch buff can be inherited
+21201	2253074					Roguelike 3.0 - DLC - Tactical Switch Set 1 - Equipment Mechanism Upgrade - Increases standby characters' Energy gain and limit
+21202	2253075					Roguelike 3.0 - DLC - Tactical Switch Set 2 - Equipment Mechanism Upgrade - Entrance/leaving battle triggers Matrix and QTE
+21203						Roguelike 3.0 - DLC - Tactical Switch Set 3 - Equipment Mechanism Upgrade - Combined & scrapped
+21204	2253076					Roguelike 3.0 - DLC - Tactical Switch Set - Set Bonus - Leaving battle resets cooldown, bonus DMG on Matrix
+21211	2253055	2253056				Roguelike 3.0 - DLC - Standby Buff Set 1 - Equipment Value Increases - Bonus ATK & HP on standby
+21212	2253057					Roguelike 3.0 - DLC - Standby Buff Set 2 - Equipment Value Increases - Takes DMG on standby
+21213	2253057					Roguelike 3.0 - DLC - Standby Buff Set 3 - Equipment Value Increases - Takes DMG on standby
+21214	2253058					Roguelike 3.0 - DLC - Standby Buff Set - Set Bonus - Bonus buff & die for the character in battle on standby
+21221	2253059	2253060				Roguelike 3.0 - DLC - Class Buff Set 1 - Equipment Value Increases - Class Bonus ATK & HP
+21222	2253061					Roguelike 3.0 - DLC - Class Buff Set 2 - Equipment Value Increases - Class Bonus Energy
+21223	2253061					Roguelike 3.0 - DLC - Class Buff Set 3 - Equipment Value Increases - Class Bonus Energy
+21224	2253062					Roguelike 3.0 - DLC - Class Buff Set - Set Bonus - Bonus increases
+21231	2253063					Roguelike 3.0 - DLC - Bomb Set 1 - Equipment Value Increases - Entrance/QTE explodes, heals standby characters
+21232	2253064					Roguelike 3.0 - DLC - Bomb Set 2 - Equipment Value Increases - Entrance/QTE explodes, heals standby characters
+21233	2253065					Roguelike 3.0 - DLC - Bomb Set 3 - Equipment Value Increases - Entrance/QTE explodes, heals standby characters
+21234	2253066					Roguelike 3.0 - DLC - Bomb Set - Set Bonus - Bonus HP for standby characters
+21241	2253067					Roguelike 3.0 - DLC - 777 Set 1 - Equipment Value Increases - Ping 7 orbs to summon assist
+21242	2253068					Roguelike 3.0 - DLC - 777 Set 2 - Equipment Value Increases - Dodge to summon assist - Scrapped
+21243	2253069					Roguelike 3.0 - DLC - 777 Set 3 - Equipment Value Increases - Consume 70 Energy to summon assist
+21244	2253070					Roguelike 3.0 - DLC - 777 Set - Set Bonus - Assist DMG increases
+21251	2253105					Roguelike 3.0 - DLC - Last Stand Set 1 - Equipment Value Increases - Bonus ATK when low HP
+21252	2253106					Roguelike 3.0 - DLC - Last Stand Set 2 - Equipment Value Increases - DMG Reduction increases when low HP
+21253	2253107					Roguelike 3.0 - DLC - Last Stand Set 3 - Equipment Value Increases - Receives shield when low HP
+21254	2253108					Roguelike 3.0 - DLC - Last Stand Set - Set - Value Increases
+21261	2253109					Roguelike 3.0 - DLC - Single DMG Set 1 - Equipment Value Increases - Inflicts Extra DMG when a 3-Ping crosses DMG threshold
+21262	2253110					Roguelike 3.0 - DLC - Single DMG Set 2 - Equipment Value Increases - Inflicts Extra DMG when a Basic Attack crosses DMG threshold
+21263	2253111					Roguelike 3.0 - DLC - Single DMG Set 3 - Equipment Value Increases - Inflicts Extra DMG when a Signature Move crosses DMG threshold
+21264	2253112					Roguelike 3.0 - DLC - Single DMG Set - Set Bonus - Inflicts Extra DMG when any attack crosses DMG threshold
+21271	2253113					Roguelike 3.0 - DLC - Rotation Switch Set 1 - Equipment Value Increases - Bonus ATK on Switch
+21272	2253114					Roguelike 3.0 - DLC - Rotation Switch Set 2 - Equipment Value Increases - 3-Ping/Signature reduces Switch Cooldown
+21273	2253115					Roguelike 3.0 - DLC - Rotation Switch Set - Set Bonus - Bonus ATK for the whole team
+21281	2253071					Roguelike 3.0 - DLC - Warm-Up Set 1 - Equipment Value Increases - Gain in-battle stats on standby
+21282	2253072					Roguelike 3.0 - DLC - Warm-Up Set 2 - Equipment Value Increases - QTE entrance records DMG and unleashes in addition
+21283	2253073					Roguelike 3.0 - DLC - Warm-Up Set - Set Bonus - Also records DMG when entering battle, unleashes DMG when leaving battle
+21291	2253101					Roguelike 3.0 - DLC - Nihil Set 1 - Equipment Value Increases - Nihil DMG increases
+21292	2253102					Roguelike 3.0 - DLC - Nihil Set 2 - Equipment Value Increases - Additional Nihil DMG
+21293	2253103					Roguelike 3.0 - DLC - Nihil Set 3 - Equipment Value Increases - Dealing DMG reduces Nihil Resistance
+21294	2253104					Roguelike 3.0 - DLC - Nihil Set - Set Bonus - Reduces enemy's Nihil Weakness
+21301	2252020		21301			Roguelike 3.0 - DLC - Solo Set 1 - Equipment Upgrade - Recruit Energy Bonus DMG
+21302	2252021		21302			Roguelike 3.0 - DLC - Solo Set 2 - Equipment Upgrade - Recruit Energy Bonus HP
+21303	2252022		21303			Roguelike 3.0 - DLC - Solo Set 3 - Equipment Upgrade - Recruit Energy Bonus Enemy Element Weakness
+21304	2252023					Roguelike 3.0 - DLC - Solo Set - Equipment Upgrade - Set Mark - Single Piece Effect High Boost
+21311	2252027					Roguelike 3.0 - DLC - Shield Set 1 - Equipment Upgrade - Hit Generates Shield
+21312	2252028					Roguelike 3.0 - DLC - Shield Set 2 - Equipment Upgrade - Hit Shatters Shield Adds Bonus Shield DMG
+21313	2252029					Roguelike 3.0 - DLC - Shield Set 3 - Equipment Upgrade - Taking Hit Adds Bonus Shield DMG
+21314	2252030					Roguelike 3.0 - DLC - Shield Set - Equipment Upgrade - Set Bonus - Shield Efficiency Increase
+21321	2252031		21321			Roguelike 3.0 - DLC - Summon Set 1 - Equipment Upgrade - Summon Mechanoid Aura Bonus Attack
+21322	2252032		21322			Roguelike 3.0 - DLC - Summon Set 2 - Equipment Upgrade - Summon Mechanoid Aura DMG Reduction
+21323	2252033		21323			Roguelike 3.0 - DLC - Summon Set 3 - Equipment Upgrade - Summon Mechanoid Immortal Program
+21324	2252034					Roguelike 3.0 - DLC - Summon Set - Equipment Upgrade - Set Bonus - Mechanoid Bonus Upgrade Mechanism - Stacking Replacement Enemy
+21331	2252035					Roguelike 3.0 - DLC - Phaseshift Set 1 - Equipment Upgrade - Phaseshift Restores HP and Converts HP into Shield
+21332	2252036					Roguelike 3.0 - DLC - Phaseshift Set 2 - Equipment Upgrade - Phaseshift Deals DMG Based on Distance
+21333	2252037					Roguelike 3.0 - DLC - Phaseshift Set 3 - Equipment Upgrade - Phaseshift Grants DMG Bonus
+21334	2252038					Roguelike 3.0 - DLC - Phaseshift Set - Equipment Upgrade - Set Bonus - Phaseshift Leaves Ring of Flame
+21341	2252024					Roguelike 3.0 - DLC - Slow Set 1 - Equipment Upgrade - QTE Deploys Domain
+21342	2252025					Roguelike 3.0 - DLC - Slow Set 2 - Equipment Upgrade - Hit Within Domain Reduces QTE CD - Bonus Acceleration
+21343	2252026					Roguelike 3.0 - DLC - Slow Set - Equipment Upgrade - Set Bonus - Domain Bonus Percentage DMG
+30001	2251304					Roguelike 3.0 Outer Loop - HP +5%
+30002			30002			Roguelike 3.0 Outer Loop - Starting Gold +50
+30003	2251301					Roguelike 3.0 Outer Loop - ATK +50
+30004			30004			Roguelike 3.0 Outer Loop - Starting Gold +50
+30005	2251305					Roguelike 3.0 Outer Loop - DEF +500
+30006			30006			Roguelike 3.0 Outer Loop - Starting Recruit Energy +1
+30007	2251301					Roguelike 3.0 Outer Loop - ATK +50
+30008	2251303					Roguelike 3.0 Outer Loop - HP +500
+30009	2251305					Roguelike 3.0 Outer Loop - DEF +500
+30010	2251301					Roguelike 3.0 Outer Loop - ATK +50
+30011			30011			Roguelike 3.0 Outer Loop - Starting Gold +50
+30012			300121	300122	300123	Roguelike 3.0 Outer Loop - Gain an additional random item at the start of the game
+30013	2251304					Roguelike 3.0 Outer Loop - HP +5%
+30014	2251307					Roguelike 3.0 Outer Loop - ATK +5%
+30015			30015			Roguelike 3.0 Outer Loop - Shop Discount Slots +1
+30016	2251301					Roguelike 3.0 Outer Loop - ATK +50
+30017			30017			Roguelike 3.0 Outer Loop - All Member Equipment Weight Carrying Limit +1
+30018	2251301					Roguelike 3.0 Outer Loop - ATK +50
+30019	2251305					Roguelike 3.0 Outer Loop - DEF +500
+30020	2251303					Roguelike 3.0 Outer Loop - HP +500
+30021	2251302					Roguelike 3.0 Outer Loop - All Elemental DMG +15%
+30022	2251304					Roguelike 3.0 Outer Loop - HP +5%
+30023			30023			Roguelike 3.0 Outer Loop - Starting Gold +50
+30025			30025			Roguelike 3.0 Outer Loop - Starting Gold +50
+30026	2251306					Roguelike 3.0 Outer Loop - Extra DMG Bonus +5%
+30027	2251301					Roguelike 3.0 Outer Loop - ATK +50
+30028			30028			Roguelike 3.0 Outer Loop - Starting Gold +50
+30029	2251303					Roguelike 3.0 Outer Loop - HP +500
+30030			30030			Roguelike 3.0 Outer Loop - Starting Recruit Energy +1
+30101	2251316					Roguelike 3.0 Outer Loop - HP +3%
+30102			30102			Roguelike 3.0 Outer Loop - Starting Gold +30
+30103	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30104			30104			Roguelike 3.0 Outer Loop - Starting Gold +30
+30105	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30106	2251311					Roguelike 3.0 Outer Loop - HP +8%
+30107	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30108	2251315					Roguelike 3.0 Outer Loop - HP +250
+30109	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30110	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30111			30111			Roguelike 3.0 Outer Loop - Starting Gold +30
+30112			30112			Roguelike 3.0 Outer Loop - Equipment Box Free Refreshes +1
+30113	2251316					Roguelike 3.0 Outer Loop - HP +3%
+30114	2251319					Roguelike 3.0 Outer Loop - ATK +3%
+30115						Roguelike 3.0 Outer Loop - Quantum Equipment spawn weight increased
+30116	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30117	2251320					Roguelike 3.0 Outer Loop - Quantization buff duration -10s, Dequantization buff duration +10s
+30118	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30119	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30120	2251315					Roguelike 3.0 Outer Loop - HP +250
+30121	2251314					Roguelike 3.0 Outer Loop - All Elemental DMG +10%
+30122	2251316					Roguelike 3.0 Outer Loop - HP +3%
+30123			30123			Roguelike 3.0 Outer Loop - Starting Gold +30
+30125			30125			Roguelike 3.0 Outer Loop - Starting Gold +30
+30126	2251318					Roguelike 3.0 Outer Loop - Extra DMG Bonus +3%
+30127	2251313					Roguelike 3.0 Outer Loop - ATK +30
+30128			30128			Roguelike 3.0 Outer Loop - Starting Gold +30
+30129	2251315					Roguelike 3.0 Outer Loop - HP +250
+30130	2251312					Roguelike 3.0 Outer Loop - HP +600
+30131			30131			Roguelike 3.0 Outer Loop - Equipment Box Paid Refresh Price -50%
+31001	2251308					Roguelike 3.0 Outer Loop - Character Advanced - Ending 1 - ATK +10%
+31002	2251309					Roguelike 3.0 Outer Loop - Character Advanced - Ending 2 - Extra DMG Bonus +10%
+31003	2251321					Roguelike 3.0 Outer Loop - Character Advanced - Ending 3 - Enemy Elemental Vulnerability Rate +10%
+31004	2251322					Roguelike 3.0 Outer Loop - Character Advanced - Ending 4 - Enemy Elemental Resistance -10%
+31005	2251323					Roguelike 3.0 Outer Loop - Character Advanced - Ending 5 - Physical & All Elemental DMG +10%
+40001	2251250					Roguelike 3.0 - DLC - Quantum Effect α - Armor-Piercing CRIT
+40002	2251251					Roguelike 3.0 - DLC - Quantum Effect α - Quantization Affix
+40003	2251252					Roguelike 3.0 - DLC - Quantum Effect β - Armor-Piercing Resistance Increases
+40004	2251253					Roguelike 3.0 - DLC - Quantum Effect β - Dequantization Affix
+99001			99001	99002	99003	10 Two-Value Points, Recruit Energy +1
+99002	2252144		99995			Remove Negative Artifacts
+99004			99004			5-10 Quantum Value α
+99005			99005			5-10 Quantum Value β
+99006			99006			10-15 Quantum Value α
+99007			99007			10-15 Quantum Value β
+99017	2251254					Upon taking DMG, Movement Speed -30%
+99018			110054			Workshop Reforging Attempts +1
+99019	2251256					DMG taken does not exceed 40% of max HP
+99020	2251257					Enemy ATK -30% when enemy HP is above 50%
+99021	2251258					DMG taken by enemy +50% when enemy HP is below 50%
+99022	2251259					Upon dealing DMG, inflicts Extra Elemental DMG equal to 1000% of ATK, with a 2s cooldown
+99023			99008			Obtain 500 Processing Units
+99024	2251261					When attacked, heals 5% of the team's max HP, with a 2s cooldown
+99025	2251262					Upon entering Matrix, Movement Speed +40%, stacking up to 200%
+99026	2251263					Upon entering Matrix, receives a shield equal to 20% of max HP for 10s
+99027	2251264					Upon entering Matrix, ATK +30%, stacking up to 120%
+99028	2251265					Upon entering Matrix, inflicts True DMG equal to 20% of HP lost to the enemy, with a 8s cooldown
+99029	2251266					You can use it to cheat in [Rooftop Gashapon Machine]
+99030	2251267					QTE DMG +1000%
+99991			99991	99993		Unlocks and switches to Roguelike route β
+99992			99992			Closes Roguelike route β
+99993			99993			Switches the current route
+99994			99994			Increases value of quantized sets
+99995	2251427					Roguelike Audio Filter Effect
+99996			110052	99992		Switch Route and Then Disable Route
+99031			99001	99002		Projector Upgrade Add Value
+99032			110051			Invitation Add Value
+99033			110050			Stamp Add Value
+99034			110050	110051		Bicolor Key Add Value
+99035			110050	110051		Greatsword Add Value
+99036	2251428					Black Die - Enhanced Attack
+99037	2251429					Equilibrium Pointer - Heal
+99038			110053			High-dimensional Anchor
+99039	2251247					Streak Mark

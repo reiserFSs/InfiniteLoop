@@ -1219,10 +1219,10 @@ public sealed class NotifyBfrtProgressInfo
 
 
     [global::MessagePack.MessagePackObject(true)]
-    public class NotifyGuildDormPlayerData
+    public partial class NotifyGuildDormPlayerData
     {
         [global::MessagePack.MessagePackObject(true)]
-        public class NotifyGuildDormPlayerDataGuildDormData
+        public partial class NotifyGuildDormPlayerDataGuildDormData
         {
             public UInt32 CurrentCharacterId { get; set; }
             public Int32 DailyInteractRewardTotalTimes { get; set; }
@@ -1984,9 +1984,28 @@ public sealed class NotifyBfrtProgressInfo
 
 
     [global::MessagePack.MessagePackObject(true)]
+    public class LoadingOptionData
+    {
+        public int LoadingType { get; set; } = 1;
+        public List<int> CgIds { get; set; } = new();
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class SettingLoadingOptionRequest
+    {
+        public LoadingOptionData? LoadingData { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
+    public class SettingLoadingOptionResponse
+    {
+        public int Code { get; set; }
+    }
+
+    [global::MessagePack.MessagePackObject(true)]
     public class NotifySettingLoadingOption
     {
-        public dynamic? LoadingData { get; set; }
+        public LoadingOptionData LoadingData { get; set; } = new();
     }
 
 
@@ -2124,79 +2143,6 @@ public sealed class NotifyBfrtProgressInfo
     }
 
 
-    [global::MessagePack.MessagePackObject(true)]
-    public class NotifyTheatreData
-    {
-        public Int32 CurChapterId { get; set; }
-        public Int32 CurRoleLv { get; set; }
-        public Int32 DifficultyId { get; set; }
-        public Int32 KeepsakeId { get; set; }
-        public List<dynamic> UnlockPowerIds { get; set; } = new();
-        public List<dynamic> UnlockPowerFavorIds { get; set; } = new();
-        public List<dynamic> EffectPowerFavorIds { get; set; } = new();
-        public List<Int32> Skills { get; set; } = new();
-        public List<UInt32> RecruitRole { get; set; } = new();
-        public List<dynamic> Keepsakes { get; set; } = new();
-        public List<dynamic> Decorations { get; set; } = new();
-        [global::MessagePack.MessagePackObject(true)]
-        public class NotifyTheatreDataCurChapterDb
-        {
-            public Int32 ChapterId { get; set; }
-            public List<UInt32> RefreshRole { get; set; } = new();
-            public Int32 RefreshRoleCount { get; set; }
-            [global::MessagePack.MessagePackObject(true)]
-            public class NotifyTheatreDataCurChapterDbCurNodeDb
-            {
-                public Int32 NodeId { get; set; }
-                [global::MessagePack.MessagePackObject(true)]
-                public class NotifyTheatreDataCurChapterDbCurNodeDbSlot
-                {
-                    public Int32 SlotId { get; set; }
-                    public Int32 RewardType { get; set; }
-                    public Int32 PowerId { get; set; }
-                    public Int32 TheatreStageId { get; set; }
-                    public Int32 SlotType { get; set; }
-                    public Int32 ConfigId { get; set; }
-                    public dynamic? StoryId { get; set; }
-                    public Int32 Selected { get; set; }
-                    public List<UInt32> StageIds { get; set; } = new();
-                    public List<dynamic> PassedStageIds { get; set; } = new();
-                    public List<dynamic> PassedStageIndexs { get; set; } = new();
-                    public List<dynamic> ShopItems { get; set; } = new();
-                    public Int32 CurStepId { get; set; }
-                    public List<dynamic> PassedStepId { get; set; } = new();
-                }
-
-                public List<NotifyTheatreDataCurChapterDbCurNodeDbSlot> Slots { get; set; } = new();
-            }
-
-            public NotifyTheatreDataCurChapterDbCurNodeDb CurNodeDb { get; set; }
-            public List<dynamic> SkillToSelect { get; set; } = new();
-        }
-
-        public NotifyTheatreDataCurChapterDb CurChapterDb { get; set; }
-        public Int32 ReopenCount { get; set; }
-        public List<Int32> SkillIllustratedBook { get; set; } = new();
-        [global::MessagePack.MessagePackObject(true)]
-        public class NotifyTheatreDataSingleTeamData
-        {
-            public Int32 TeamIndex { get; set; }
-            public Int32 CaptainPos { get; set; }
-            public Int32 FirstFightPos { get; set; }
-            public List<Int32> CardIds { get; set; } = new();
-            public List<UInt32> RobotIds { get; set; } = new();
-        }
-
-        public NotifyTheatreDataSingleTeamData SingleTeamData { get; set; }
-        public List<dynamic> MultiTeamDatas { get; set; } = new();
-        public Int32 UseOwnCharacter { get; set; }
-        public Int32 FavorCoin { get; set; }
-        public Int32 DecorationCoin { get; set; }
-        public List<Int32> PassChapterId { get; set; } = new();
-        public Dictionary<dynamic, dynamic> PassEventRecord { get; set; }
-        public Int32 PassNodeCount { get; set; }
-        public List<dynamic> EndingRecord { get; set; } = new();
-    }
 
 
     [global::MessagePack.MessagePackObject(true)]
@@ -2266,26 +2212,29 @@ public sealed class NotifyBfrtProgressInfo
         public Int32 CurChapterId { get; set; }
         public Int32 DifficultyId { get; set; }
         public Int32 CurTeamId { get; set; }
-        public dynamic? CurChapterDb { get; set; }
-        public List<dynamic> Characters { get; set; } = new();
-        public List<dynamic> Items { get; set; } = new();
+        public BiancaTheatreChapterDb? CurChapterDb { get; set; }
+        public Int32 CurRoleLv { get; set; }
+        public List<BiancaTheatreCharacter> Characters { get; set; } = new();
+        public List<BiancaTheatreItem> Items { get; set; } = new();
         public Int32 TotalExp { get; set; }
-        public List<dynamic> GetRewardIds { get; set; } = new();
-        public List<dynamic> StrengthenDbs { get; set; } = new();
-        public dynamic? SingleTeamData { get; set; }
-        public List<dynamic> UnlockItemId { get; set; } = new();
-        public List<dynamic> UnlockTeamId { get; set; } = new();
-        public List<dynamic> UnlockDifficultyId { get; set; } = new();
-        public List<dynamic> TeamRecords { get; set; } = new();
-        public List<dynamic> PassChapterIds { get; set; } = new();
+        public List<int> GetRewardIds { get; set; } = new();
+        public List<int> StrengthenDbs { get; set; } = new();
+        public BiancaTheatreTeamData? SingleTeamData { get; set; }
+        public List<int> UnlockItemId { get; set; } = new();
+        public List<int> UnlockTeamId { get; set; } = new();
+        public List<int> UnlockDifficultyId { get; set; } = new();
+        public List<BiancaTheatreTeamRecord> TeamRecords { get; set; } = new();
+        public List<int> PassChapterIds { get; set; } = new();
         public Int32 IsOpenVision { get; set; }
-        public List<dynamic> GetAchievementRecords { get; set; } = new();
+        public List<BiancaTheatreAchievementRecord> GetAchievementRecords { get; set; } = new();
         public Int32 TeamCountEffect { get; set; }
         public Int32 HistoryTotalItemCount { get; set; }
         public Int32 HistoryTotalPassFightNodeCount { get; set; }
-        public dynamic? HistoryItemObtainRecords { get; set; } = new Dictionary<int, int>();
+        [MongoDB.Bson.Serialization.Attributes.BsonDictionaryOptions(MongoDB.Bson.Serialization.Options.DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> HistoryItemObtainRecords { get; set; } = new();
         public Int32 GamePassNodeCount { get; set; }
-        public dynamic? PassedEventRecord { get; set; } = new Dictionary<int, object>();
+        [MongoDB.Bson.Serialization.Attributes.BsonDictionaryOptions(MongoDB.Bson.Serialization.Options.DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, List<int>> PassedEventRecord { get; set; } = new();
         public Int32 AchievementCondition { get; set; }
         public Int32 NewStage { get; set; }
     }
@@ -2459,22 +2408,22 @@ public sealed class NotifyBfrtProgressInfo
 
 
     [global::MessagePack.MessagePackObject(true)]
-    public class NotifyGuildWarActivityData
+    public partial class NotifyGuildWarActivityData
     {
         public Int32 ActivityNo { get; set; }
         [global::MessagePack.MessagePackObject(true)]
-        public class NotifyGuildWarActivityDataActivityData
+        public partial class NotifyGuildWarActivityDataActivityData
         {
             public Int32 CurRoundId { get; set; }
             public Int32 RestRoundId { get; set; }
             [global::MessagePack.MessagePackObject(true)]
-            public class NotifyGuildWarActivityDataActivityDataRoundData
+            public partial class NotifyGuildWarActivityDataActivityDataRoundData
             {
                 public Int32 RoundId { get; set; }
                 public Int32 SkipRound { get; set; }
                 public Int32 DifficultyId { get; set; }
                 [global::MessagePack.MessagePackObject(true)]
-                public class NotifyGuildWarActivityDataActivityDataRoundDataNodeData
+                public partial class NotifyGuildWarActivityDataActivityDataRoundDataNodeData
                 {
                     public Int32 Uid { get; set; }
                     public Int32 NodeId { get; set; }
@@ -2494,7 +2443,7 @@ public sealed class NotifyBfrtProgressInfo
 
                 public List<NotifyGuildWarActivityDataActivityDataRoundDataNodeData> NodeData { get; set; } = new();
                 [global::MessagePack.MessagePackObject(true)]
-                public class NotifyGuildWarActivityDataActivityDataRoundDataMonsterData
+                public partial class NotifyGuildWarActivityDataActivityDataRoundDataMonsterData
                 {
                     public Int32 Uid { get; set; }
                     public Int32 MonsterId { get; set; }
@@ -2515,7 +2464,7 @@ public sealed class NotifyBfrtProgressInfo
 
             public List<NotifyGuildWarActivityDataActivityDataRoundData> RoundData { get; set; } = new();
             [global::MessagePack.MessagePackObject(true)]
-            public class NotifyGuildWarActivityDataActivityDataAction
+            public partial class NotifyGuildWarActivityDataActivityDataAction
             {
                 public Int32 ActionId { get; set; }
                 public UInt32 CreateTime { get; set; }
@@ -2561,7 +2510,7 @@ public sealed class NotifyBfrtProgressInfo
 
         public NotifyGuildWarActivityDataActivityData ActivityData { get; set; }
         [global::MessagePack.MessagePackObject(true)]
-        public class NotifyGuildWarActivityDataMyRoundData
+        public partial class NotifyGuildWarActivityDataMyRoundData
         {
             public UInt32 GuildId { get; set; }
             public Int32 RoundId { get; set; }
@@ -2774,10 +2723,6 @@ public sealed class NotifyBfrtProgressInfo
     }
 
 
-    [global::MessagePack.MessagePackObject(true)]
-    public class GuildWarOpenSupportPanelRequest
-    {
-    }
 
 
     [global::MessagePack.MessagePackObject(true)]
@@ -2857,24 +2802,6 @@ public sealed class NotifyBfrtProgressInfo
     }
 
 
-    [global::MessagePack.MessagePackObject(true)]
-    public class GuildWarOpenSupportPanelResponse
-    {
-        public Int32 Code { get; set; }
-        [global::MessagePack.MessagePackObject(true)]
-        public class GuildWarOpenSupportPanelResponseSupportDetail
-        {
-            public Int32 CharacterId { get; set; }
-            public Int32 SupportSupply { get; set; }
-            public List<dynamic> ToAssistRecords { get; set; } = new();
-            public List<dynamic> MyLogs { get; set; } = new();
-            public List<dynamic> GetAssistRecords { get; set; } = new();
-            public List<dynamic> MyAssistRecords { get; set; } = new();
-            public Int32 LastRecvTime { get; set; }
-        }
-
-        public GuildWarOpenSupportPanelResponseSupportDetail SupportDetail { get; set; }
-    }
 
 
     [global::MessagePack.MessagePackObject(true)]
@@ -3192,10 +3119,10 @@ public sealed class NotifyBfrtProgressInfo
 
 
     [global::MessagePack.MessagePackObject(true)]
-    public class PreFightRequest
+    public partial class PreFightRequest
     {
         [global::MessagePack.MessagePackObject(true)]
-        public class PreFightRequestPreFightData
+        public partial class PreFightRequestPreFightData
         {
             [global::MessagePack.MessagePackObject(true)]
             public class SimulateTrainInfoData
@@ -3210,6 +3137,7 @@ public sealed class NotifyBfrtProgressInfo
 
             public Int32 ChallengeCount { get; set; }
             public UInt32 StageId { get; set; }
+            public Int32 TeamIndex { get; set; }
             public Int32 ArenaSelectIndex { get; set; }
             public Int32 SelectAreaId { get; set; }
             public List<UInt32>? CardIds { get; set; } = new();
@@ -3247,6 +3175,7 @@ public sealed class NotifyBfrtProgressInfo
             public UInt32 Seed { get; set; }
             public UInt32 StageId { get; set; }
             public Int32 RebootId { get; set; }
+            public Int32 RebootType { get; set; }
             public Int32 PassTimeLimit { get; set; }
             public Int32 FightCheckType { get; set; }
             public Int32 SegmentFightCheckSecond { get; set; }

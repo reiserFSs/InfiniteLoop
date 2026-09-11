@@ -1,0 +1,390 @@
+Id	GroupId	OptionDesc	OptionDownDesc	OptionIcon	OptionType	OptionItemType	OptionItemId[1]	OptionItemId[2]	OptionItemCount[1]	OptionItemCount[2]	OptionNextStepGroupId	OptionCondition	OptionShowCondition	QuantumEffectShowType
+1	101	Take the heavy big package			3						10101			
+2	101	Take the delicate small package			3						10102			
+3	101	The strong don't need pity			3						10103			
+4	201	Open the box			3						20101			
+5	201	Let her return it to its owner			3						20102			
+6	302	In break (adjust equipment positions)			3						30201			
+7	302	Depart directly			3						30202			
+8	402	In break (adjust equipment positions)			3						40201			
+9	402	Depart directly			3						40202			
+10	502	Enter the workshop (reforge specified equipment)			3						50201			
+11	502	Take a break on the spot (adjust equipment positions)			3						50202			
+12	601	Insert Processing Units			1	1	96189		50		60101			
+13	601	Actually, never mind			3						60102			
+14	601	Cheat			2	2	9029		1		60103		1020285	
+15	609	Continue operating			1	1	96189		50		60901			
+16	609	Actually, never mind			3						60902			
+17	609	Continue cheating			2	2	9029		1		60903		1020285	
+18	617	Continue operating			1	1	96189		50		61701			
+19	617	Actually, never mind			3						61702			
+20	617	Continue cheating			2	2	9029		1		61703		1020285	
+21	625	Continue operating			1	1	96189		50		62501			
+22	625	Actually, never mind			3						62502			
+23	625	Continue cheating			2	2	9029		1		62503		1020285	
+24	701	Accept			3						70101			
+25	701	Leave			3						70102			
+26	703	<color=#EA4323>"Queen"</color>			3						70301			
+27	703	<color=#FBBC05>"Maid"</color>			3						70302			
+28	703	<color=#34A853>"Catgirl"</color>			3						70303			
+29	713	Continue			1	1	96189		50		71301			
+30	713	Leave the table			3						71302			
+31	714	<color=#EA4323>"Queen"</color>			3						71401			
+32	714	<color=#FBBC05>"Maid"</color>			3						71402			
+33	714	<color=#34A853>"Catgirl"</color>			3						71403			
+34	724	Continue			1	1	96189		100		72401			
+35	724	Leave the table			3						72402			
+36	725	<color=#EA4323>"Queen"</color>			3						72501			
+37	725	<color=#FBBC05>"Maid"</color>			3						72502			
+38	725	<color=#34A853>"Catgirl"</color>			3						72503			
+39	735	Stud Poker			1	1	96189		150		73501			
+40	735	Leave the table			3						73502			
+41	736	<color=#EA4323>"Queen"</color>			3						73601			
+42	736	<color=#FBBC05>"Maid"</color>			3						73602			
+43	736	<color=#34A853>"Catgirl"</color>			3						73603			
+44	30102	Call out to Jetavie to dodge			3						3010201			
+45	30202	Examine Jetavie's body			3						3020201			
+46	30202	Ask how Jetavie is doing			3						3020202			
+47	30203	Ask about the brand			3						3020301			
+48	30203	Ask her if it hurts			3						3020302			
+49	30208	In break (adjust equipment positions)			3						3020801			
+50	30208	Depart directly			3						3020802			
+51	30302	Push Jetavie away			3						3030201			
+52	30403	Ask her why she hits you			3						3040301			
+53	30403	Ask her why she hugs you			3						3040302			
+54	30409	In break (adjust equipment positions)			3						3040901			
+55	30409	Depart directly			3						3040902			
+56	50102	Hold Jetavie's hand firmly			3						5010201			
+57	50201	Take out the <color=#b73a3a>Access Key</color>			2	2	2005		1		5020101			
+58	60102	Press on together			3						6010201			
+59	100101	Venture toward the source of the sound			3						10010101			
+60	100101	Recycle the toolbox			3						10010102			
+61	100102	Remove its monitor			3						10010201			
+62	100102	Return the way you came			3						10010202			
+63	100201	Head to the garden to water flowers			3						10020101			
+64	100201	Take the chip and leave			3						10020102			
+65	100201	Check out the study			3						10020103			
+66	101101	Admire Venus de Milo closely			3						10110101			
+67	101101	Admire the replica of David closely			3						10110102			
+68	101103	Take the capsule			3						10110301			
+69	101103	Don't do anything			3						10110302			
+70	200103	Inspect the huge plush bear			3						20010301			
+71	200103	Inspect the humanoid in a nurse uniform			3						20010302			
+72	200103	Turn around to look behind yourself			3						20010303			
+73	200201	Offer him some Processing Units			1	1	96189		70		20020101			
+74	200201	Refuse to exchange and leave			3						20020102			
+75	201101	Refuse to show the capsule			3						20110101			
+76	201101	Show the capsule			3						20110102			
+77	201102	Put away the capsule and leave			3						20110201			
+78	201102	Take the water and swallow the capsule			1	2	2004		1		20110202			
+79	201202	Help him			3						20120201			
+80	201202	Leave him			3						20120202			
+81	201302	Take the girl to look for her brother			3						20130201			
+82	201302	Ask the girl about the insect			3						20130202			
+83	300101	Cut the power cord and save it			3						30010101			
+84	300101	Prioritize activating the archive			3						30010102			
+85	300201	Connect to the gaming terminal			3						30020101			
+86	300201	Take the chip from the gaming machine			3						30020102			
+87	300301	Read the experiment journal			3						30030101			
+88	300301	Take the gold from the pocket			3						30030102			
+89	301103	Engage in battle			3						30110301			
+90	301103	Escape			3						30110302			
+91	301202	Tear the huge oil painting			3						30120201			
+92	301202	Sleep on the spot first			3						30120202			
+93	301302	Ignore the pitiful man			3						30130201			
+94	301302	Ask him about the monster			3						30130202			
+95	301304	Track down the monster for him			3						30130401			
+96	301304	Briefly comfort him and leave			3						30130402			
+97	301402	Investigate the gray-haired boy with a butterfly knife			3						30140201			
+98	301402	Investigate the purple-haired girl cowering in the corner			3						30140202			
+99	301402	Investigate Lily, the cheerful pink-haired girl			3						30140203			
+100	301502	Reject Lily's request			3						30150201			
+101	301502	Accept Lily's request			1	1	96189		150		30150202			
+102	400101	Accept her offer			3						40010101			
+103	400101	Lift the girl's veil			3						40010102			
+104	400101	Mention the death of the tree			3						40010103		1020229	
+105	400105	Ask her about what happened			3						40010501			
+106	400105	Stop asking and leave			3						40010502			
+107	400106	Accept prayer			3						40010601			
+108	400106	Reject her			3						40010602			
+109	400111	Subdue			3						40011101			
+110	400111	Apologize			3						40011102			
+111	400202	Let her try			3						40020201			
+112	400202	Move away			3						40020202			
+113	400203	Pull back the rope with all strength			3						40020301			
+114	400203	Trust Jetavie's ability to handle it alone			3						40020302			
+115	400302	Story about a traveler			3						40030201			
+116	400302	Story about a traitor			3						40030202			
+117	400302	Refuse to listen			3						40030203			
+118	400401	Offer him some Processing Units			1	1	96189		100		40040101			
+119	400401	Refuse to exchange and leave			3						40040102			
+120	401102	Apologize to her			3						40110201			
+121	401102	Throw a punch at her			3						40110202			
+122	401202	Accept her blessing			3						40120201			
+123	401202	Reject her offer			3						40120202			
+124	401302	Accept Jetavie's suggestion			3						40130201			
+125	401302	Immediately turn around and leave			3						40130202			
+126	401402	The best way to overcome fear is to confront it!			3						40140201			
+127	401402	Toss the treasure aside			1	2	2007		1		40140202			
+128	500102	Investigate the robot's chip			3						50010201			
+129	500102	Investigate the stargazer's system			3						50010202			
+130	500202	Accept his request			3						50020201			
+131	500202	Reject his request			3						50020202			
+132	500202	Tell Robert the truth			3						50020203		1020228	
+133	500302	Buy a poem from him			3						50030201			
+134	500302	Sell poems to him for money			3						50030202			
+135	501102	No matter how many times... this is why I'm standing here.			3						50110201			
+136	501102	Repeated failure will not create a miracle. Give up on entering the door			3						50110202			
+137	501202	Confront the formidable enemy			3						50120201			
+138	501202	Run away			3						50120202			
+139	100302	The oil painting's fragrance			3						10030201			
+140	100302	Songs played in the museum			3						10030202			
+141	100302	The moonlight that comes in at night			3						10030203			
+142	101203	A silver lining			3						10120301			
+143	101203	The end of a fairytale			3						10120302			
+144	101204	Go up and take the note down			3						10120401			
+145	101204	Go after the woman			3						10120402			
+146	200302	Check the safe			3						20030201			
+147	200302	Investigate the storage room			3						20030202			
+148	200402	Dig			3						20040201			
+149	200402	Leave			3						20040202			
+150	200404	Search around the cemetery			3						20040401			
+151	200404	Search the cemetery's backyard			3						20040402			
+152	200404	Search the well			3						20040403			
+153	200405	Bury the bones			3						20040501			
+154	200405	Continue searching			3						20040502			
+155	200503	Have the purple-red rabbit hotpot first			3						20050301			
+156	200503	Have the colorful mushroom platter first			3						20050302			
+157	200503	Have the indescribable stir-fried vegetables first			3						20050303			
+158	201402	Face up to it			3						20140201			
+159	201402	Turn around and run			3						20140202			
+160	201402	Take out the Orphanage Employee ID Card			2	2	2011		1		20140203			
+161	201407	Give her the employee ID card.			1	2	2011		1		20140701			
+162	201407	Remain silent			3						20140702			
+163	300402	This is a stupid mistake of the staff			3						30040201			
+164	300402	This is a carefully planned murder			3						30040202			
+165	301603	Find the safe zone			3						30160301			
+166	301603	Inject the serum (enter a battle)			1	2	2015		1		30160302			
+167	301604	Show the Lab Employee ID Card			2	2	2017		1		30160401			
+168	301604	Turn around and prepare to fight			3						30160402			
+169	301702	Go inside			3						30170201			
+170	301702	Turn to leave			3						30170202			
+171	301703	Take the materials at all costs			3						30170301			
+172	301703	Wait for the fire to die out			3						30170302			
+173	401502	Venture into it			3						40150201			
+174	401502	Throw a stone at it			3						40150202			
+175	401503	Rush over and grab it			3						40150301			
+176	401503	Get Jetavie running			1	2	2018		1		40150302		1020112	
+177	500402	Ask the refugee about Jetavie's weapon			3						50040201			
+178	500402	Ask the refugee what Jetavie said			3						50040202			
+179	500403	Offer supplies			1	1	96189		100		50040301			
+180	500403	Turn to leave			3						50040302			
+181	501302	Put the data crystal in your hand before the mirror			1	2	2021		1		50130201		1020113	
+182	501302	Put the bloodstone in the slot of the mirror			1	2	2020		1		50130202			
+183	501302	Let Jetavie to have a look			3						50130203			
+184	501309	Supply			3						50130901			
+185	501309	Remain silent			3						50130902			
+186	501309	100 Wishes			3						50130903			
+187	9000102	Continue to approach			3						900010201			2
+188	9000102	Think about quitting			3						900010202			
+189	9000103	Forced activation (skip story)			3						900010301		1020224	2
+190	9000103	Observe			3						900010302			2
+191	9000203	Take a break (adjust equipment positions)			3						900020301			
+192	9000203	Depart directly			3						900020302			
+193	9000303	In break (adjust equipment positions)			3						900030301			
+194	9000303	Leave			3						900030302			
+195	9000402	Enter the workshop (reforge specified equipment)			3						900040201			
+196	9000402	Take a break on the spot (adjust equipment positions)			3						900040202			
+197	9000503	Read the data			3						900050301		1020232	2
+198	9000503	Read the data			3						900050302		1020233	
+199	9000503	Decline			3						900050303			
+200	9000603	Read the data			3						900060301		1020232	2
+201	9000603	Read the data			3						900060302		1020233	
+202	9000603	Decline			3						900060303			
+203	9000703	Read the data			3						900070301			1
+204	9000703	Decline			3						900070302			
+205	9001003	Open Fire			3						900100301			
+206	9001105	In break (adjust equipment positions)			3						900110501			
+207	9001105	Depart directly			3						900110502			
+208	9001202	Use the weapon			3						900120201			
+209	9001202	Take out the <color=#ff6767>Ultralimit Key</color>			2	2	9005		1		900120202			
+210	9001203	High-speed dash			3						900120301			
+211	9001204	Throw the key			3						900120401			
+212	9001204	Put away the key			3						900120402			
+213	30502	Take out the <color=#b73a3a>"Queen of Spades"</color>			2	2	9003		1		3050201			
+214	30502	Call out to Jetavie to dodge			3						3050202			
+215	30507	Who are you really, Lily?			3						3050203			
+216	30606	In break (adjust equipment positions)			3						3060601			
+217	30606	Depart directly			3						3060602			
+218	70104	Don't block the way			3						7010401			
+219	70104	The central area is behind that door?			3						7010402			
+220	9001302	Accept the trade			3						900130201			2
+221	9001302	Decline the trade			3						900130202			
+222	9001303	Lend it to the merchant			1	2	9003		1		900130301			2
+223	9001303	Trade for a reward			1	2	9003		1		900130302		1020235	
+224	9001303	Decline the request			3						900130303			
+225	30703	Take the card			3						3070301			
+226	30703	Take out the projector			1	2	9001		1		3070302		1020341	
+227	30703	Move away			3						3070303			
+228	9001403	Hand in the "Queen of Hearts" and the "Queen of Spades"			1	2	9004	9003	1	1	900140301			2
+229	9001403	Hand in two "Queen of Spades"			1	2	9003		2		900140302			2
+230	9001403	Decline the trade			3						900140303			
+231	9210002	Launch an ambush			3						921000201			
+232	9210002	Invite the monster to fight you			3						921000202			2
+233	9210005	Strike first (<color=#ff6767>a small chance of success</color>)			3						921000501			2
+234	9210005	Fair Fight			3						921000502			2
+235	210002	Wind up the clockwork			3						21000201			1
+236	210002	Move away			3						21000202			
+237	9310001	Choose Door Three			3						931000101			
+238	9310001	Choose Door Seven			3						931000102			
+239	9310001	Choose Door Nine			3						931000103			2
+240	9310002	Promise to hand over the chips			1	1	96189		50		931000201			
+241	9310002	Open the door with force			3						931000202			
+242	9310006	Agree			1	1	96189		50		931000601			
+243	9310006	Give up the weapon			3						931000602			
+244	9310009	Release the monster			3						931000901			2
+245	9310009	Reject the monster			3						931000902			
+246	9410002	Stop, count, and turn around			3						941000201			
+247	9410002	Do as promised and finish counting			3						941000202			2
+248	9410003	Fire at the sky			3						941000301			
+249	9410003	Put away the gun quietly			3						941000302			
+250	9510002	Wind up the clockwork			3						951000201			2
+251	9510002	Move away			3						951000202			
+252	310002	Enter the mansion			3						31000201			
+253	310002	Chase after the flame			3						31000202			1
+254	310004	Place the luminous pearl			3						31000401			
+255	310004	Place the gem			3						31000402			
+256	310007	Observe the direction of the moon			3						31000701			
+257	310007	Observe the direction of the mansion			3						31000702			1
+258	410001	Use the compound bow			3						41000101			
+259	410001	Find something to eat			3						41000102			1
+260	410003	Use the compound bow			3						41000301			
+261	410003	Stop and admire			3						41000302			1
+262	510001	Enter the center of the arena			3						51000102			1
+263	510001	Leave quickly			3						51000101			
+264	510005	Strike first (<color=#b73a3a>a small chance of success</color>)			3						51000501			1
+265	510005	Wait for the right moment			3						51000502			1
+266	9200102	Prioritize defeating the cultists			3						920010201			
+267	9200102	Prioritize saving the trapped girl			3						920010202			
+268	9200105	Take the girl and leave			3						920010501			
+269	9200105	Let the girl be embraced by the cultists			3						920010502			
+270	9200202	Investigate the robot's chip			3						920020201			
+271	9200202	Investigate the stargazer's system			3						920020202			
+272	9200203	Insert the new chip			3						920020303			
+273	9200203	Remove the damaged chip			3						920020304			
+274	9200302	Spend time to defeat the monsters			3						920030201			
+275	9200302	Convince the refugees to move			3						920030202			
+276	9300101	Kill the giant tree			3						930010101			
+277	9300101	Mentor the girl			3						930010102			
+278	9300201	Offer the giant rat some food			3						930020101			
+279	9300201	Aim at the giant rat			3						930020102			
+280	9300201	Try to communicate with it			3						930020103			
+281	9300302	Encountering the Chosen One			3						930030201			
+282	9300302	Disappearance of the Chosen One			3						930030202			
+283	9300302	Close the diary			3						930030203			
+284	9400101	Connect to the console and play			3						940010101			
+285	9400101	Try to program the console			3						940010102			
+286	9400201	Fire and defeat the two-headed Corrupted			3						940020101			
+287	9400201	Ask the scientist what he is doing			3						940020102			
+288	9400301	Ask for a reward			3						940030101			
+289	9400301	Refuse			3						940030102			
+290	9500101	Fire and take care of the Corrupted			3						950010101			
+291	9500101	Increase the weapon voltage			3						950010102			
+292	9500102	Check the guide robot			3						950010201			
+293	9500102	Recycle the Corrupted parts			3						950010202			
+294	9500201	Look at the giant bear puppet			3						950020101			
+295	9500201	Look at the nurse automaton			3						950020102			
+296	9500201	Turn around to look behind yourself			3						950020103			
+297	9500302	Investigate the garden			3						950030201			
+298	9500302	Investigate the library			3						950030202			
+299	9500304	Enter a random passcode			3						950030401			
+300	9500304	Rely on the sixth sense			3						950030402		1020231	
+301	9500401	Shoot the large pitcher			3						950040101			
+302	9500401	Shoot the small pitcher			3						950040102			
+303	9500401	Kill the pitcher plant directly			3						950040103			
+304	9500502	Let him hand over his supplies			3						950050201			
+305	9500502	Let him lead the way			3						950050202			
+306	9201101	Open the door and enter			3						920110101			
+307	9201101	Ask the girl			3						920110102			
+308	9201102	Offer the sacrifice			3						920110201			
+309	9201102	Destroy the altar			3						920110202			
+310	9301102	Attack the source of the signal directly			3						930110201			
+311	9301102	Stay quiet			3						930110202			
+312	9401101	Advance.			3						940110101			
+313	9401101	Rest			3						940110102			
+314	9401102	Look around			3						940110201			
+315	9401102	Use the weapon			3						940110202			
+316	9401103	Offer the "eyes"			1	2	9017		2		940110301			
+317	9401103	Tear down the painting			3						940110302			
+318	9201202	Help the black-clad figures			3						920120201			
+319	9201202	Charge into the temple from the front			3						920120202			
+320	9201203	Punch a way in			3						920120301			
+321	9201203	Fire at the sky			3						920120302			
+322	9201207	Exit the temple			3						920120701			
+323	9201207	Open Fire			3						920120702			
+324	9301201	Save the sheep			3						930120101			
+325	9301201	Catch the sheep			3						930120102			
+326	9301202	Buy the sheep			1	1	96189		100		930120201			
+327	9301202	Take out the weapon			3						930120202			
+328	9301207	Eden			3						930120701			
+329	9301207	Serpent			3						930120702			
+330	9401203	Show the tokens			2	2	9020	9021	1	1	940120301			
+331	9401203	Refuse			3						940120302			
+332	9301302	Shoot the monster			3						930130201			
+333	9301302	Continue observing			3						930130202			
+334	9401301	Agree to help			3						940130101			
+335	9401301	Leave the weapon			3						940130102			
+336	9401302	Take out the "blood sample"			1	2	9023		1		940130201			
+337	9401302	Try to prepare it yourself			3						940130202			
+338	9501101	Investigate the sculpture area			3						950110101			
+339	9501101	Investigate the gallery			3						950110102			
+340	9501107	Prepare for Battle			3						950110701			
+341	9501107	Use the staff ID			2	2	9024		1		950110702			
+342	9301402	Accept the challenge			3						930140201			
+343	9301402	Refuse the challenge			3						930140202			
+344	9401402	Hello			3						940140201			
+345	9401402	Ask about the exit			3						940140202			
+346	9401403	Yes			1	1	96189		100		940140301			
+347	9401403	No			3						940140302			
+348	9501202	Issue a challenge			3						950120201			
+349	9501202	Refuse the challenge			3						950120202			
+350	9201302	Find the Void Merchant			3						920130201			
+351	9201302	Find the otherworld communication point			3						920130202			
+352	9201304	Pay the demanded chips			1	1	96189		100		920130401			
+353	9201304	Leave			3						920130402			
+354	301802	Accept			3						30180201			
+355	301802	Leave			3						30180202			
+356	9401501	Open Fire			3						940150101			
+357	9401501	Protect the machine			3						940150102			
+358	9001501	Enter the fissure			3						900150101			
+359	9001501	Leave			3						900150102			
+360	9001503	Query key variables			3						900150301			
+361	9001503	Check the exit			3						900150302			
+362	9001601	Try to activate			2	2	9034		1		900160101			
+363	9001602	Open Fire			3						900160201			
+364	9001602	Try to communicate			3						900160202			
+365	9001705	In break (adjust equipment positions)			3						900170501			
+366	9001705	Depart directly			3						900170502			
+367	30802	Observing cautiously			2	2	2005		1		3080201			
+368	30802	Venture into it			2	2	9031		1		3080202			
+369	30802	Leave			3						3080203			
+370	30804	Decline.			3						3080401			
+371	50302	Take out the key			1	2	2005	9005	1	1	5030201			
+372	80102	Stop Jetavie			2	2	9035		1		8010201			
+373	9001904	In break (adjust equipment positions)			3						900190401			
+374	9001904	Depart directly			3						900190402			
+375	9002002	Check the invitation			2	2	9032	9033	1	1	900200201			
+376	9002002	Hand over the invitation			2	2	9032		1		900200202			
+377	9002002	Offer some Processing Units			1	1	96189		100		900200203			
+378	9201403	The Flawless			3						920140301			
+379	9201403	The Inferior			3						920140302			
+380	9201403	The Defective			3						920140303			
+381	9201406	The Flawless			3						920140601			
+382	9201406	The Inferior			3						920140602			
+383	9201406	The Defective			3						920140603			
+384	9301502	Add dice			2	2	9037		1		930150201			
+385	9301502	Turn to leave			3						930150202			
+386	9401602	Pick up the flowers			3						940160201			
+387	9401602	Tidy up the area			3						940160202			
+388	9401605	Put the photo away			3						940160501			
+389	9401605	Take out the other half			2	2	9038		1		940160502			

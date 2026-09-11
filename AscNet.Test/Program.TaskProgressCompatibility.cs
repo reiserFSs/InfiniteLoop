@@ -22,7 +22,7 @@ internal static partial class Program
         MethodInfo dispatch = typeof(Session).GetMethod("InvokeRequestHandler", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new MissingMethodException(typeof(Session).FullName, "InvokeRequestHandler");
         MethodInfo record = RequiredMethod(taskModule, "RecordTableDrivenProgress", BindingFlags.Static | BindingFlags.NonPublic,
-            [typeof(Session), typeof(IEnumerable<(int ConditionType, int? Parameter, int Amount)>), typeof(bool)]);
+            [typeof(Session), typeof(IEnumerable<(int ConditionType, int? Parameter, int Amount)>), typeof(bool), RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TheatreModule+Mutation")]);
         int packetId = 47_600;
         ValidateLoginDays();
 
@@ -83,13 +83,13 @@ internal static partial class Program
             Check(BuildTaskData(harness.Session), 7866, rosterIndex + 2, 1);
             player.MissionProgress.ConditionCounters.Remove(7866);
 
-            record.Invoke(null, [harness.Session, new (int, int?, int)[] { (11202, 4, 17) }, true]);
+            record.Invoke(null, [harness.Session, new (int, int?, int)[] { (11202, 4, 17) }, true, null]);
             CheckDelta(Drain(harness), 50046, 17, 1);
             AssertEqual(17, player.MissionProgress.ConditionCounters[50046], "Serum spending remains cumulative");
 
             LoginTask dispatchTask = BuildTaskData(harness.Session)
                 .Single(task => task.Schedule.Any(schedule => schedule.Id == 2022));
-            record.Invoke(null, [harness.Session, new (int, int?, int)[] { (29018, null, 1), (29004, null, 1) }, true]);
+            record.Invoke(null, [harness.Session, new (int, int?, int)[] { (29018, null, 1), (29004, null, 1) }, true, null]);
             List<SyncTask> dormDelta = Drain(harness);
             CheckDelta(dormDelta, (int)dispatchTask.Id, 1, 3);
             CheckDelta(dormDelta, 8019, 1, 3);
@@ -460,14 +460,24 @@ internal static partial class Program
         static List<SyncTask> Drain(LoopbackSessionHarness harness)
         {
             List<SyncTask> tasks = [];
-            while (harness.TryReadAvailablePacket("Task progress trailing push", out Packet? packet))
+            // A completed server write need not yet be visible to DataAvailable on the peer.
+            // Read through an ordered marker so no task push leaks into the next operation.
+            harness.Session.SendResponse(new FightHeartbeatResponse(), -1);
+            while (true)
             {
-                AssertEqual(Packet.ContentType.Push, packet!.Type, "Task progress trailing packet type");
+                Packet packet = harness.ReadPacket("Task progress trailing push");
+                if (packet.Type == Packet.ContentType.Response)
+                {
+                    Packet.Response marker = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                    AssertEqual(-1, marker.Id, "Task progress drain marker id");
+                    AssertEqual(nameof(FightHeartbeatResponse), marker.Name, "Task progress drain marker name");
+                    return tasks;
+                }
+                AssertEqual(Packet.ContentType.Push, packet.Type, "Task progress trailing packet type");
                 Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
                 if (push.Name == nameof(NotifyTask))
                     tasks.AddRange(MessagePackSerializer.Deserialize<NotifyTask>(push.Content).Tasks.Tasks);
             }
-            return tasks;
         }
 
         (TResponse Response, List<SyncTask> Tasks) Dispatch<TRequest, TResponse>(LoopbackSessionHarness harness, string requestName, TRequest request)

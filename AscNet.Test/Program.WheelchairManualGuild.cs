@@ -45,7 +45,12 @@ internal static partial class Program
         LoopbackSessionHarness NewPlayer(bool funded = true, bool stagePassed = true, int playerLevel = 40)
         {
             long uid = firstUid + ownedPlayers.Count;
-            ownedPlayers.Add(uid);
+            if (Player.collection.Find(row => row.PlayerData.Id == uid).Any()
+                || Inventory.collection.Find(row => row.Uid == uid).Any()
+                || Character.collection.Find(row => row.Uid == uid).Any()
+                || Stage.collection.Find(row => row.Uid == uid).Any()
+                || Server.Instance.SessionFromUID(uid) is not null)
+                throw new InvalidDataException("Manual guild fixture UID is already in use.");
             Player player = CreateDrawCompatibilityPlayer(uid);
             player.PlayerData.Level = playerLevel;
             player.MissionProgress = new();
@@ -53,6 +58,7 @@ internal static partial class Program
             Inventory inventory = CreateDrawCompatibilityInventory(uid,
                 costs.Select(cost => new Item { Id = cost.Key, Count = funded ? cost.Value * 3 : 0 }));
             Player.collection.InsertOne(player);
+            ownedPlayers.Add(uid);
             Inventory.collection.InsertOne(inventory);
             Character.collection.InsertOne(character);
             LoopbackSessionHarness harness = new(character, player, inventory, $"manual-guild-{uid}");
@@ -63,6 +69,7 @@ internal static partial class Program
                 int stageId = TableReaderV2.Parse<ConditionTable>().Single(row => row.Id == 70124).Params[0];
                 harness.Session.stage.Stages[stageId] = new StageDatum { StageId = stageId, Passed = true };
             }
+            Stage.collection.InsertOne(harness.Session.stage);
             return harness;
         }
         T Request<T>(LoopbackSessionHarness harness, string name, object request)
@@ -261,7 +268,8 @@ internal static partial class Program
             Guild interruptedGuild = Guild.FindByMember(interrupted.Session.player.PlayerData.Id)!;
             Reload(interrupted);
             string interruptedInventory = interrupted.Session.inventory.ToJson();
-            Guild.collection.UpdateOne(row => row.Id == interruptedGuild.Id, Builders<Guild>.Update.Set(row => row.Active, false));
+            Guild.collection.UpdateOne(row => row.Id == interruptedGuild.Id, Builders<Guild>.Update
+                .Set(row => row.Active, false).Set(row => row.CreationReserved, true));
             interrupted.Session.player.GuildProgressRecordedId = 0;
             interrupted.Session.player.MissionProgress = new();
             interrupted.Session.player.SaveChecked();
@@ -299,7 +307,7 @@ internal static partial class Program
             _ = State(failedRecord); // Prepare reset state before injecting the recording save failure.
             MethodInfo record = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule"),
                 "RecordTableDrivenProgress", BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(Session), typeof(IEnumerable<(int ConditionType, int? Parameter, int Amount)>), typeof(bool)]);
+                [typeof(Session), typeof(IEnumerable<(int ConditionType, int? Parameter, int Amount)>), typeof(bool), RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TheatreModule+Mutation")]);
             using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
                 out RecordingMongoCollectionProxy<Player> saves, out _, out _))
             {
@@ -309,7 +317,7 @@ internal static partial class Program
                     bool failed = false;
                     try
                     {
-                        record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true]);
+                        record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true, null]);
                     }
                     catch (TargetInvocationException)
                     {
@@ -325,7 +333,7 @@ internal static partial class Program
                     AssertEqual(before > 0, failedRecord.Session.player.MissionProgress.ConditionCounters.ContainsKey(task.Condition),
                         "Failed guild task recording preserves counter absence");
                     AssertNoAvailablePacket(failedRecord, "Failed guild task recording cannot notify uncommitted progress");
-                    record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true]);
+                    record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true, null]);
                     AssertEqual(before + 1, failedRecord.Session.player.MissionProgress.ConditionCounters[task.Condition],
                         "Successful retry records the membership increment exactly once");
                     NotifyTask notification = ReadPushPayload<NotifyTask>(failedRecord, nameof(NotifyTask), "Durable guild task retry notification");
@@ -345,6 +353,7 @@ internal static partial class Program
             Player.collection.DeleteMany(Builders<Player>.Filter.In(row => row.PlayerData.Id, ownedPlayers));
             Inventory.collection.DeleteMany(Builders<Inventory>.Filter.In(row => row.Uid, ownedPlayers));
             Character.collection.DeleteMany(Builders<Character>.Filter.In(row => row.Uid, ownedPlayers));
+            Stage.collection.DeleteMany(Builders<Stage>.Filter.In(row => row.Uid, ownedPlayers));
             AscNet.Common.Common.db.GetCollection<BsonDocument>("guild_counters").UpdateMany(
                 Builders<BsonDocument>.Filter.Regex("_id", new BsonRegularExpression("^creation:")),
                 Builders<BsonDocument>.Update.PullAll("founder_ids", ownedPlayers));

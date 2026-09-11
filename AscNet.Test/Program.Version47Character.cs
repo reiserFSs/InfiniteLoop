@@ -16,6 +16,7 @@ using MessagePack;
 using AscNet.Table.V2.share.exhibition;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using Newtonsoft.Json.Linq;
 
 namespace AscNet.Test;
 
@@ -213,96 +214,175 @@ internal partial class Program
             "conditionless ordinary skill is preserved");
     }
 
-    private static void ValidateVersion47ObserverPreFightCompatibility()
+    private static void ValidateVersion47ObserverPreFightCompatibility(bool includeGuild = false)
     {
-        CharacterCareerTable observerCareer = TableReaderV2.Parse<CharacterCareerTable>()
-            .First(row => row.Name == "Observer");
-        CharacterTable observerRow = TableReaderV2.Parse<CharacterTable>()
-            .First(row => row.Career == observerCareer.Type);
-        CharacterObsTriggerMagicTable observationRow = TableReaderV2.Parse<CharacterObsTriggerMagicTable>().First();
-        int maxLevel = TableReaderV2.Parse<CharacterSkillLevelEffectTable>()
-            .Where(row => row.SkillId == observationRow.SkillId)
-            .Max(row => row.Level);
-        MethodInfo buildMagicIds = RequiredMethod(
-            RequiredAscNetGameServerType("AscNet.GameServer.Handlers.FightModule"),
-            "BuildObservationMagicIds", BindingFlags.Static | BindingFlags.NonPublic,
-            [typeof(IEnumerable<CharacterData>), typeof(CharacterData)]);
-
-        CharacterData locked = new() { Id = (uint)observerRow.Id, SkillList = [] };
-        Dictionary<int, int> lockedMagic = (Dictionary<int, int>)buildMagicIds.Invoke(
-            null, [new[] { locked }, locked])!;
-        AssertEqual(0, lockedMagic.Count, "locked Observer skill omits observation activation");
-
-        CharacterData unlocked = new()
+        var characters = TableReaderV2.Parse<CharacterTable>();
+        var rows = TableReaderV2.Parse<CharacterObsTriggerMagicTable>();
+        var careers = TableReaderV2.Parse<CharacterCareerTable>().ToDictionary(row => row.Name, row => row.Type);
+        var observerRow = characters.First(row => row.Career == careers["Observer"]);
+        Type fightModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.FightModule");
+        MethodInfo buildMagic = RequiredMethod(fightModule, "BuildObservationMagicIds",
+            BindingFlags.Static | BindingFlags.NonPublic, [typeof(IEnumerable<CharacterData>), typeof(CharacterData)]);
+        MethodInfo buildRobot = RequiredMethod(fightModule, "BuildRobotDeployment",
+            BindingFlags.Static | BindingFlags.NonPublic, [typeof(RobotTable)]);
+        Character roster = CreateDrawCompatibilityCharacter(48_108);
+        roster.Characters.Clear();
+        CharacterData observer = roster.AddCharacter((uint)observerRow.Id, 1).Character;
+        var robot = TableReaderV2.Parse<RobotTable>().First(row => row.CharacterId == observerRow.Id
+            && row.Id == 1194);
+        var trial = ((CharacterData Character, List<EquipData> Equips))buildRobot.Invoke(null, [robot])!;
+        CharacterData Character(int id) => roster.Characters.FirstOrDefault(row => row.Id == (uint)id)
+            ?? roster.AddCharacter((uint)id, 1).Character;
+        string Signature(IEnumerable<KeyValuePair<int, int>> magic) =>
+            string.Join(",", magic.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value}"));
+        Dictionary<int, int> Actual(CharacterData subject, params CharacterData[] team) =>
+            (Dictionary<int, int>)buildMagic.Invoke(null, [team, subject])!;
+        Dictionary<int, int> Expected(CharacterData subject, int career, int element)
         {
-            Id = (uint)observerRow.Id,
-            SkillList = [new CharacterSkill { Id = (uint)observationRow.SkillId, Level = maxLevel }]
-        };
-        Dictionary<string, int> careerTypes = TableReaderV2.Parse<CharacterCareerTable>()
-            .ToDictionary(row => row.Name, row => row.Type);
-        Dictionary<int, string> careerNames = careerTypes.ToDictionary(pair => pair.Value, pair => pair.Key);
-        int tankType = careerTypes["Tank"];
-        int amplifierType = careerTypes["Amplifier"];
-        int[] supportElements = observationRow.ObservationCareer
-            .Select((career, index) => (career, element: observationRow.ObservationElement[index]))
-            .Where(value => value.career == tankType)
-            .Select(value => value.element)
-            .Distinct()
-            .ToArray();
-        int[] tankElements = observationRow.ObservationCareer
-            .Select((career, index) => (career, element: observationRow.ObservationElement[index]))
-            .Where(value => value.career == amplifierType)
-            .Select(value => value.element)
-            .Distinct()
-            .ToArray();
-        CharacterTable support = TableReaderV2.Parse<CharacterTable>().First(row =>
-            row.Id != observerRow.Id
-            && (careerNames[row.Career] is "Support" or "Amplifier")
-            && supportElements.Contains(row.Element));
-        CharacterTable tank = TableReaderV2.Parse<CharacterTable>().First(row =>
-            row.Id != observerRow.Id
-            && (careerNames[row.Career] is "Tank" or "Breaker")
-            && tankElements.Contains(row.Element));
+            var effects = from skill in subject.SkillList
+                          from row in rows.Where(row => row.SkillId == skill.Id)
+                          let eligible = Enumerable.Range(0, row.MagicList.Count)
+                              .Where(index => row.ObservationCareer[index] == career
+                                  && row.ObservationElement[index] == element
+                                  && row.Level[index] <= skill.Level && !string.IsNullOrWhiteSpace(row.MagicList[index]))
+                              .OrderByDescending(index => row.Level[index]).Take(1)
+                          from index in eligible
+                          from magic in row.MagicList[index].Split('|', StringSplitOptions.RemoveEmptyEntries)
+                          select new { Id = int.Parse(magic), skill.Level };
+            return effects.GroupBy(effect => effect.Id).ToDictionary(group => group.Key, group => group.Max(effect => effect.Level));
+        }
+        void Check(CharacterData subject, int career, CharacterData partner, CharacterData? third = null)
+        {
+            int element = characters.Single(row => row.Id == partner.Id).Element;
+            CharacterData[] team = third is null ? [subject, partner] : [subject, partner, third];
+            string expected = Signature(Expected(subject, career, element));
+            AssertEqual(expected, Signature(Actual(subject, team)), $"Observer complete career {career} magic union");
+            subject.SkillList.Reverse();
+            try { AssertEqual(expected, Signature(Actual(subject, team)), $"Observer career {career} is skill-order independent"); }
+            finally { subject.SkillList.Reverse(); }
+        }
+        // These are the three compositions executed against the authoritative EN XTeam selector.
+        AssertEqual("123001:1,123006:1,123027:1", Signature(Expected(observer, 5, 3)), "Owned full skills include both authored ice Amplifier effect rows");
+        AssertEqual("100086:1,123001:1,123005:1", Signature(Expected(observer, 2, 3)), "Owned full skills include both authored ice Tank effect rows");
+        AssertEqual("123000:1,123005:1,200450:1", Signature(Expected(observer, 8, 2)), "Owned full skills include both authored fire Breaker effect rows");
+        CharacterData tank = Character(1121003), support = Character(1211002), fireSupport = Character(1031004);
+        CharacterData attacker = Character(1021006);
+        foreach (CharacterData subject in new[] { observer, trial.Character })
+        {
+            Check(subject, 5, tank, attacker);
+            Check(subject, 2, support, attacker);
+            Check(subject, 8, fireSupport, attacker);
+            CharacterData physicalSupport = Character(characters.First(row => row.Element == 1 && row.Career == 3).Id);
+            Check(subject, 5, tank, physicalSupport);
+            AssertEqual("", Signature(Actual(subject, subject, tank, support)), "Two elemental role candidates cannot activate Observer");
+            AssertEqual("", Signature(Actual(subject, subject, observer == subject ? trial.Character : observer, tank)),
+                "Multiple Observers cannot activate");
+            CharacterData physicalOther = Character(characters.First(row => row.Element == 1
+                && row.Id != physicalSupport.Id && row.Career != 7).Id);
+            AssertEqual("", Signature(Actual(subject, subject, physicalSupport, physicalOther)),
+                "Two physical characters cannot activate Observer");
+        }
+        AssertEqual("", Signature(Actual(tank, tank, support)), "Unrelated character never receives observation effects");
+        CharacterData locked = new() { Id = observer.Id, SkillList = [] };
+        AssertEqual("", Signature(Actual(locked, locked, tank)), "Locked observation skill cannot activate");
+        AssertEqual(observerRow.Career, (int)RequiredMethod(fightModule, "ResolveCharacterCareer",
+            BindingFlags.Static | BindingFlags.NonPublic, [typeof(int)]).Invoke(null, [observerRow.Id])!,
+            "Observation effects preserve authoritative base career");
 
-        Dictionary<int, int> supportMagic = (Dictionary<int, int>)buildMagicIds.Invoke(
-            null, [new[]
+        void AssertWire(PreFightResponse response, CharacterData subject, int career, int element, int robotId, string label) =>
+            AssertWirePayload(JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerializer.Serialize(response))),
+                subject, career, element, robotId, label);
+        void AssertWirePayload(JObject payload, CharacterData subject, int career, int element, int robotId, string label)
+        {
+            AssertEqual(0, payload.Value<int>("Code"), $"{label} succeeds");
+            var npcs = payload["FightData"]!["RoleData"]!.Single()!["NpcData"]!.Children<Newtonsoft.Json.Linq.JProperty>()
+                .Select(property => property.Value).ToList();
+            var npc = npcs.Single(value => value["Character"]!.Value<uint>("Id") == subject.Id);
+            var magic = npc["MagicIds"]!.Children<Newtonsoft.Json.Linq.JProperty>()
+                .ToDictionary(property => int.Parse(property.Name), property => property.Value.Value<int>());
+            AssertEqual(Signature(Expected(subject, career, element)), Signature(magic), $"{label} serializes complete observation effects");
+            AssertEqual(observerRow.Career, npc.Value<int>("CharacterCareer"), $"{label} preserves base career");
+            AssertEqual(robotId, npc.Value<int>("RobotId"), $"{label} preserves deployment identity");
+            foreach (var other in npcs.Where(value => value["Character"]!.Value<uint>("Id") != subject.Id))
+                AssertEqual("{}", other["MagicIds"]!.ToString(Newtonsoft.Json.Formatting.None), $"{label} does not affect other characters");
+        }
+        int packetId = 12_710;
+        foreach (var composition in new[] { (Partner: tank, Career: 5), (Partner: support, Career: 2), (Partner: fireSupport, Career: 8) })
+        {
+            foreach (bool useTrial in new[] { false, true })
             {
-                unlocked,
-                new CharacterData { Id = (uint)support.Id }
-            }, unlocked])!;
-        Dictionary<int, int> tankMagic = (Dictionary<int, int>)buildMagicIds.Invoke(
-            null, [new[]
+                using LoopbackSessionHarness harness = new(roster, CreateDrawCompatibilityPlayer(roster.Uid),
+                    CreateDrawCompatibilityInventory(roster.Uid, []), "v47-observer-prefight");
+                var request = new PreFightRequest
+                {
+                    PreFightData = new()
+                    {
+                        StageId = 0,
+                        CaptainPos = 1,
+                        FirstFightPos = 1,
+                        CardIds = useTrial ? [composition.Partner.Id, attacker.Id] : [observer.Id, composition.Partner.Id, attacker.Id],
+                        RobotIds = useTrial ? [robot.Id] : []
+                    }
+                };
+                InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, ++packetId, request);
+                var response = ReadResponsePayload<PreFightResponse>(harness, packetId, nameof(PreFightResponse), "Observer registered PreFight");
+                AssertWire(response, useTrial ? trial.Character : observer, composition.Career,
+                    characters.Single(row => row.Id == composition.Partner.Id).Element, useTrial ? robot.Id : 0,
+                    $"Ordinary {(useTrial ? "trial" : "owned")} career {composition.Career}");
+            }
+        }
+        roster.Characters.Remove(fireSupport);
+        using (LoopbackSessionHarness harness = new(roster, CreateDrawCompatibilityPlayer(roster.Uid),
+            CreateDrawCompatibilityInventory(roster.Uid, []), "v47-observer-unowned-prefight"))
+        {
+            InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, ++packetId, new PreFightRequest
             {
-                unlocked,
-                new CharacterData { Id = (uint)tank.Id }
-            }, unlocked])!;
-        AssertEqual(true, supportMagic.Count > 0 && tankMagic.Count > 0,
-            "unlocked Observer emits table-selected observation MagicIds");
-        AssertEqual(true, !supportMagic.Keys.SequenceEqual(tankMagic.Keys),
-            "Observer team compositions select different MagicIds");
-        AssertEqual(true, supportMagic.Values.All(value => value == maxLevel), "Observer MagicIds preserve skill level");
-        AssertEqual(true, tankMagic.Values.All(value => value == maxLevel), "Observer tank-form MagicIds preserve skill level");
-        AssertEqual(observerRow.Career, (int)RequiredMethod(
-            RequiredAscNetGameServerType("AscNet.GameServer.Handlers.FightModule"),
-            "ResolveCharacterCareer", BindingFlags.Static | BindingFlags.NonPublic,
-            [typeof(int)]).Invoke(null, [observerRow.Id])!,
-            "ordinary career resolver is table-backed");
-        int physicalElement = TableReaderV2.Parse<CharacterElementTable>()
-            .First(row => row.ElementName == "Physical").Id;
-        CharacterTable[] physicalCharacters = TableReaderV2.Parse<CharacterTable>()
-            .Where(row => row.Id != observerRow.Id && row.Element == physicalElement)
-            .Take(2)
-            .ToArray();
-        AssertEqual(2, physicalCharacters.Length, "authoritative table provides multiple Physical characters");
-        Dictionary<int, int> duplicatePhysicalMagic = (Dictionary<int, int>)buildMagicIds.Invoke(
-            null, [new[]
+                PreFightData = new()
+                {
+                    StageId = 0,
+                    CaptainPos = 1,
+                    FirstFightPos = 1,
+                    CardIds = [observer.Id, tank.Id, fireSupport.Id],
+                    RobotIds = []
+                }
+            });
+            var response = ReadResponsePayload<PreFightResponse>(harness, packetId, nameof(PreFightResponse), "Observer unowned requested support");
+            AssertPreFightDeployedCharacterIds(response, roster.Uid, [(long)observer.Id, (long)tank.Id],
+                "Unowned requested Amplifier is not deployed");
+            AssertWire(response, observer, 5, characters.Single(row => row.Id == tank.Id).Element, 0,
+                "Unowned requested Amplifier cannot cancel actual deployed observation");
+        }
+        if (!includeGuild) return;
+        using GuildTestScope guildScope = new();
+        LoopbackSessionHarness leader = guildScope.CreatePlayer();
+        LoopbackSessionHarness member = guildScope.CreatePlayer();
+        guildScope.SeedGuild(leader, member);
+        leader.Session.character.Characters = [observer, tank, attacker];
+        leader.Session.character.SaveChecked();
+        JObject activity = GuildRpc(leader, "GuildBossActivityRequest", new GuildEmptyRequest());
+        AssertEqual(0, activity.Value<int>("Code"), "Observer guild boss activity succeeds");
+        int bossStage = activity["BossList"]!.ToObject<List<GuildBossStageInfo>>()!.Single(row => row.Type == 3).StageId;
+        var bossRequest = new PreFightRequest
+        {
+            PreFightData = new()
             {
-                unlocked,
-                new CharacterData { Id = (uint)physicalCharacters[0].Id },
-                new CharacterData { Id = (uint)physicalCharacters[1].Id }
-            }, unlocked])!;
-        AssertEqual(0, duplicatePhysicalMagic.Count,
-            "Observer rejects teams containing multiple table-selected Physical characters");
+                StageId = (uint)bossStage,
+                ChallengeCount = 1,
+                CaptainPos = 1,
+                FirstFightPos = 1,
+                CardIds = [observer.Id, tank.Id, attacker.Id],
+                RobotIds = [0, 0, 0]
+            }
+        };
+        long bossFightId = 0;
+        foreach (string label in new[] { "GuildBoss intercepted owned PreFight", "GuildBoss cached PreFight" })
+        {
+            JObject payload = GuildRpc(leader, nameof(PreFightRequest), bossRequest);
+            AssertWirePayload(payload, observer, 5, characters.Single(row => row.Id == tank.Id).Element, 0, label);
+            long fightId = payload["FightData"]!.Value<long>("FightId");
+            if (bossFightId != 0) AssertEqual(bossFightId, fightId, "GuildBoss retry returns the authorized cached fight");
+            bossFightId = fightId;
+        }
     }
 
     private static void ValidateVersion47GeneralSkillPreFightCompatibility()

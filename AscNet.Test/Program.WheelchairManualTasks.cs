@@ -677,7 +677,7 @@ internal static partial class Program
         AssertEqual(3, Task().State, "6000 inclusive table threshold achieves8031");
         int EvaluatePrefix(List<int> parameters) => InvokePrivateStaticWithArgs<int>(
             RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule"), "EvaluateCurrentCondition",
-            [harness.Session, new CurrentConditionTable { Id = 987_631, Type = condition.Type ?? throw new InvalidDataException("Missing character condition type."), Params = parameters }]);
+            [harness.Session, new CurrentConditionTable { Id = 987_631, Type = condition.Type ?? throw new InvalidDataException("Missing character condition type."), Params = parameters }, null]);
         List<int> prefix = [(int)member.Id, member.Quality, member.Level, member.Grade, threshold];
         AssertEqual(1, EvaluatePrefix(prefix), "Generic five-field predicate accepts exact known thresholds");
         AssertEqual(1, EvaluatePrefix([.. prefix, 1]), "Sixth field does not reject an otherwise matching known prefix");

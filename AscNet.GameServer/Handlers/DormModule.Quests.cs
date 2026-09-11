@@ -114,7 +114,7 @@ internal partial class DormModule
         PlayerDormQuestState state = session.player.Dorm.Quest;
         QuestTerminalTable? terminal = Terminal(state.TerminalLv);
         int code = terminal is null ? QuestTerminalCfgError
-            : terminal.NeedTime <= 0 ? QuestTerminalMaxLv
+            : terminal.NeedTime is not > 0 || Terminal(state.TerminalLv + 1) is null ? QuestTerminalMaxLv
             : state.TerminalUpgradeStatus != 0 ? QuestTerminalUpgradeOngoing
             : state.TerminalUpgradeExp < terminal.NeedFinishQuest ? QuestFinishQuestNotEnough
             : !CanPay(session, terminal) ? 20060003 : 0;
@@ -128,6 +128,7 @@ internal partial class DormModule
                 NotifyItemDataList items = Pay(session, terminal!);
                 session.inventory.SaveChecked();
                 state.TerminalUpgradeTime = now;
+                state.TerminalUpgradeStatus = 1;
                 session.player.SaveChecked();
                 if (items.ItemDataList.Count > 0) session.SendPush(items);
             }
@@ -303,15 +304,23 @@ internal partial class DormModule
         if (Terminal(state.TerminalLv) is null) { state.TerminalLv = 1; changed = true; }
         QuestTerminalTable? terminal = Terminal(state.TerminalLv);
         if (terminal is null) return false;
-        bool completedUpgrade = state.TerminalUpgradeStatus != 0 && terminal.NeedTime > 0 && now >= state.TerminalUpgradeTime + terminal.NeedTime;
-        if (completedUpgrade)
+        // AscNet only writes a positive start for paid upgrades and clears it on completion;
+        // repair its legacy missing status, not retail's retained completion timestamps.
+        if (state.TerminalUpgradeTime > 0 && terminal.NeedTime is int duration && duration > 0 && Terminal(state.TerminalLv + 1) is not null)
         {
-            QuestTerminalTable? next = Terminal(state.TerminalLv + 1);
-            state.TerminalUpgradeStatus = 0;
-            state.TerminalUpgradeTime = 0;
-            state.TerminalUpgradeExp = 0;
-            if (next is not null) state.TerminalLv++;
-            changed = true;
+            if ((ulong)now >= (ulong)state.TerminalUpgradeTime + (uint)duration)
+            {
+                state.TerminalLv++;
+                state.TerminalUpgradeStatus = 0;
+                state.TerminalUpgradeTime = 0;
+                state.TerminalUpgradeExp = 0;
+                changed = true;
+            }
+            else if (state.TerminalUpgradeStatus == 0)
+            {
+                state.TerminalUpgradeStatus = 1;
+                changed = true;
+            }
         }
         terminal = Terminal(state.TerminalLv)!;
         if (state.NextRefreshTime == 0)
@@ -342,7 +351,6 @@ internal partial class DormModule
             boardChanged = true;
         }
         if (changed) session.player.SaveChecked();
-        if (completedUpgrade) session.SendPush(new NotifyDormQuestTerminalInit { TerminalLv = state.TerminalLv, TotalQuest = state.TotalQuest.Select(Quest).ToList() });
         return boardChanged;
     }
 

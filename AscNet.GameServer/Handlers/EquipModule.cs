@@ -2689,27 +2689,27 @@ namespace AscNet.GameServer.Handlers
                     || levelUpTemplate is null
                     || equip.Exp < 0
                     || (levelUpTemplate.Exp > 0 && equip.Exp > levelUpTemplate.Exp)
-                    || !decimal.TryParse(
-                        decomposeTable.ExpToOneCoin,
-                        NumberStyles.Float,
-                        CultureInfo.InvariantCulture,
-                        out decimal expToOneCoin)
-                    || expToOneCoin <= 0)
+                    || !double.IsFinite(decomposeTable.ExpToOneCoin)
+                    || decomposeTable.ExpToOneCoin <= 0)
                 {
                     return false;
                 }
 
                 decimal totalExp;
+                decimal coinCountDecimal;
                 try
                 {
+                    decimal expToOneCoin = checked((decimal)decomposeTable.ExpToOneCoin);
+                    if (expToOneCoin <= 0)
+                        return false;
                     totalExp = checked((decimal)equip.Exp + levelUpTemplate.AllExp + breakthroughTable.Exp);
+                    coinCountDecimal = totalExp / expToOneCoin;
                 }
                 catch (OverflowException)
                 {
                     return false;
                 }
 
-                decimal coinCountDecimal = totalExp / expToOneCoin;
                 if (coinCountDecimal > int.MaxValue)
                     return false;
 

@@ -1,0 +1,9 @@
+EffectGroupId	Type	DescList[1]	DescList[2]	BaseValueList[1]	BaseValueList[2]
+20151	1	\n<color=#A0AABA>· Total: {0}</color>		300	
+20152	1	\n<color=#A0AABA>· Total: {0}</color>		200	
+20153	1	\n<color=#A0AABA>· Total: {0}</color>		10	
+10004	2	\n<color=#A0AABA>Total: {0}%</color>		10	
+10005	4	\n<color=#A0AABA>Total: {0}%</color>		20	
+10024	3	\n<color=#A0AABA>Total: {0}%</color>		10	
+10023	3	\n<color=#A0AABA>Total: {0}%</color>		10	
+20154	5	\n<color=#A0AABA>· Total: {0}</color>		1|4	

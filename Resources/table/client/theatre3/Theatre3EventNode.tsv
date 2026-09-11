@@ -1,0 +1,134 @@
+EventId	NodeName	NodeIcon	NodeBg	NodeDesc	NodeEffectUrl	UnDefeatNode
+1	Thoughtful Partner	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story1.png			
+2	New Owner	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story2.png			
+3	Secret Workshop	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story3.png			
+4	Place to Rest	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story4.png			
+5	Auto Workshop	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story41.png			
+6	Rooftop Gashapon Machine	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story44.png	Collect lovely icons of three colors!		
+301	Chain Disaster	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story5.png	To the destined future.<color=#808080><size=20>[4:21:20]</size></color>		
+302	Ominous Branding	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story6.png	A destined bell toll.\n<color=#808080><size=20>[4:16:31]</size></color>		
+303	Silver Lining	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story7.png	To an uncertain future.\n<color=#808080><size=20>[4:42:20]</size></color>		
+304	Flickering Light	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story8.png	Dawn Mirage\n<color=#808080><size=20>[4:07:20]</size></color>		
+501	Abyssal Echos	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story9.png	Meeting a tragic end.\n<color=#808080><size=20>[0:03:11]</size></color>		
+502	Alternate Route	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story40.png	A new path with uncertainty.		
+601	Reverb Beyond	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story10.png	Things out of reach.\n<color=#808080><size=20>[0:02:03]</size></color>		
+1001	Industrial Mystery	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story11.png	A folklorist in the new age.		
+1002	Little Favor	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story12.png	What is the owner of the mansion up to?		
+1011	Flawed Creation	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story13.png	The topic of true or false.		
+2001	Jetavie's Game	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story14.png	Take a breather.		
+2002	Impoverished Collector	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story15.png	Becoming impoverished for the passion.		
+2011	Kind Induction	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story16.png	Doctor Who Looks Like a Patient\n<color=#808080><size=20>[Flawed Creatioin] Series</size></color>		
+2012	House of the Lost	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story17.png	From a young requester.		
+2013	Wild Forest	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story18.png	A lost girl who loves insects.		
+3001	Cold-Hearted	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story19.png	Do souls weigh the same?		
+3002	Top Player	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story20.png	Let start a game first.		
+3003	Lethal Mistake	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story21.png	A story about a dumb scientist.		
+3011	Silent Catastrophe	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story22.png	Danger Only You Know About\n<color=#808080><size=20>[Flawed Creation] Series</size></color>		
+3012	Endless Corridor	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story23.png	An endless path.		
+3013	Inheritance	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story24.png	Fighting spirit is an undyng flame.		
+3014	Failed Creation	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story25.png	Hidden in the forest.		
+3015	Old Friendship	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story26.png	As sweet as nectar.		
+4001	Witch Under the Tree	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story27.png	A wound that can never heal.		
+4002	Escape Unscathed	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story28.png	A useful maid.		
+4003	Story Told by Jetavie	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story29.png	A long, long time ago...		
+4004	Machine Technician	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story39.png	Can't resist the temptation of tearing things apart.		
+4011	Mobius	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story30.png	Method of Telling True and False\n<color=#808080><size=20>[Endless Corridor]</size></color>		
+4012	Noble Heart	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story31.png	Trust is a Part of the Trial\n<color=#808080><size=20>[Inheritance] Series</size></color>		
+4013	Multiple Choice	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story32.png	Can we trust Jetavie's suggestions...?		
+4014	Good or Bad	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent05.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story33.png	Taking away something important from that guy.		
+5001	Fake Knowledge	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story34.png	Machines are not reliable.		
+5002	Fake Hero	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story35.png	Detective Robert's redemption.		
+5003	Fake Talent	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story36.png	A talented poet with twin tails.		
+5011	Sisyphus	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story37.png	Repeated Scenery\n<color=#808080><size=20>[Endless Corridor] Series</size></color>		
+5012	Sword of the Brave	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story38.png	The End of the Hero's Journey\n<color=#808080><size=20>[Inheritance] Series</size></color>		
+1003	Art Forger	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story45.png	Can't be the truth itself		
+1012	False Reality	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story13.png	The observer exists within the false reality of the mirror		
+2003	The Staggerer	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story46.png	Death is equal for the good and the evil		
+2004	Animal Cemetery	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story47.png	Here lie humble souls		
+2005	Jetavie's Ingredients	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story48.png	Life is dear...		
+2014	Demihuman Girl	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story35.png	An Old Echo From the Future\n<color=#808080><size=20>[False Reality] Series</size></color>		
+3004	Fire Scene	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story3.png	The righteous man falls when isolated		
+3016	Forbidden Verification	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story49.png	If the Wrong Force is Used\n<color=#808080><size=20>[False Reality] Series</size></color>		
+3017	Blue Crack	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story50.png	An unnoticeable crack		
+4015	Crimson Monster	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story51.png	Monster Without a Name\n<color=#808080><size=20>[Blue Crack] Series</size></color>		
+5004	False Memory	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story52.png	A time disorder syndrome		
+5013	White Illusion	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story53.png	Message from Outside the Matrix\n<color=#808080><size=20>[Blue Crack] Series</size></color>		
+90001	Alternative Projection	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story54.png	Overlapping timespaces.	QuantumBlueCardEx	
+90002	Unsuccessful Rescue	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story52.png			
+90003	Hacker's Challenge	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story55.png			
+90004	Auto Workshop	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png		B.E.T.A. Workshop		
+90005	Crimson Core	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon2.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story63.png	Void Link Protocol β\n<color=#808080><size=20>Appears when Entropy β is high</size></color>	QuantumRedCardEx	
+90006	Crimson Core	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon2.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story63.png	Void Link Protocol β\n<color=#808080><size=20>Appears when Entropy β is high</size></color>	QuantumRedCardEx	
+90007	Cobalt Core	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon1.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story62.png	Void Link Protocol α\n<color=#808080><size=20>Appears when Entropy α is high</size></color>	QuantumBlueCardEx	
+90010	Chance Encounter	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story57.png	Old Enemy From the Abyss\n<color=#808080><size=20>[8:17:35]</size></color>	QuantumRedCardEx	
+90011	Illusory Verses	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story58.png	Gate to Truth\n<color=#808080><size=20>[8:49:20]</size></color>		
+90012	The Space Between Fates	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story61.png	A Wise Man Never Stands Under a Crumbling Wall\n<color=#808080><size=20>[23:55:23]</size></color>	QuantumRedCardEx	
+90013	Void Merchant	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story64.png	The Construction of a Trust Relationship. \n<color=#808080><size=20>Appears when Entropy β is high</size></color>		
+90014	Void Merchant	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story64.png	Secret Place of Exchange		
+305	Cage of Love and Hatred	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story5.png	Sacrifice of Loyal Servant Lily\n<color=#808080><size=20>[4:31:13]</size></color>	QuantumBlueCardEx	
+306	End of Love and Hatred	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story59.png	An Illusion Born From Whispers\n<color=#808080><size=20>[4:01:02]</size></color>		
+307	Void Merchant	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story65.png	Realization Across Time and Space		
+701	Court of Truth	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story60.png	Unstoppable Resolve\n<color=#808080><size=20>[0:00:59]</size></color>	QuantumBlueCardEx	
+95100	Paused Pendulum	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon2.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story69.png	The activation of Protocol β.	QuantumRedCard	
+93100	Multiple Doors	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon2.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story32.png	There is no optimal choice.	QuantumRedCard	
+92100	Uninvited Guest	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon2.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story38.png	Interference of a powerful mediator.	QuantumRedCard	
+94100	Children's Game	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon2.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story18.png	The Dark Forest Theory	QuantumRedCard	
+2100	Paused Pendulum	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon1.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story68.png	The activation of Protocol α.	QuantumBlueCard	
+3100	Mystery of the Night Flame	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon1.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story46.png	Tracking down the mysterious flame.	QuantumBlueCard	
+4100	Crystalline Feather	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon1.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story66.png	How to obtain the treasure?	QuantumBlueCard	
+5100	Hell Angel	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon1.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story67.png	Escape is not the cure for fear.	QuantumBlueCard	
+92001	Truth of the Hero	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story82.png	The inverse victim belief.		
+92002	Truth of the Stars	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story83.png	A functional syndrome.		
+92003	Truth of the Memories	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story52.png	Merciless act of kindness.		
+93001	Daughter of the Tree God	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story84.png	Plant hate here.		
+93002	Escape Unscathed	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story28.png	A desparate choice.		
+93003	Story of the Chosen One	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story29.png	When bygones become bygones.		
+94001	Weapon Technician	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story85.png	Archive sent to the future.		
+94002	Deadly Hazard	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story7.png	Silent and lethal.		
+94003	Corruption Scandal	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story86.png	The price of being a righteous person.		
+95001	Industrial Ghost	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story11.png	Survivor of the disaster.		
+95002	Jetavie's Battle	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story87.png	Where I am.		
+95003	Ten Thousand Gold	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story88.png	A timeless treasure.		
+95004	Midway Stash	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story56.png			
+95005	Walking Into a Trap	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story39.png			
+92011	Sisyphus	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story37.png	An altar-destroyer.		
+92012	Temple War	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story71.png	The arrival of the "fallen angel."		
+93011	Mobius	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story30.png	Trapped Truth\n<color=#808080><size=20>[Sisyphus] Series</size></color>		
+93012	Festival Travel Notes	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story72.png	Piety Toward Hell\n<color=#808080><size=20>[Temple War] Series</size></color>		
+93013	Forbidden Experiment	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story49.png	Break the enemy's will with violence.		
+93014	Chessboard Puzzle	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story73.png	A new chess enthusiast.		
+94011	Endless Corridor	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story23.png	Sinful Nun\n<color=#808080><size=20>[Sisyphus] Series</size></color>		
+94012	Cult of the Abyss	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story113.png	Echoes of the Fallen Angel\n<color=#808080><size=20>[Temple War] Series</size></color>		
+94013	Demihuman Girl	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story35.png	Sleeping Demon\n<color=#808080><size=20>[Forbidden Experiment] Series</size></color>		
+94014	Mirror World	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story74.png	Student Who Outshines the Teacher\n<color=#808080><size=20>[Chessboard Puzzle] Series</size></color>		
+95011	False Reality	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story13.png	Gospel from a Serpent\n<color=#808080><size=20>[Forbidden Experiment] Series</size></color>		
+95012	Chessboard Redux	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story75.png	Almost Perfect Dialogue\n<color=#808080><size=20>[Chessboard Puzzle] Series</size></color>		
+92013	Otherworld Comms I	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story76.png	The missing weapon parts.		
+3018	Otherworld Comms II	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story77.png	Request from the other side.		
+94015	Otherworld Comms III	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story78.png	Longings in the mirror.		
+7	Queen's Gambit	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story70.png	Elektra the master of cards.		
+90015	Void Fissure	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story89.png	Alarming Threat		
+90016	Collection	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story90.png	Eerie Anomaly\n<color=#808080><size=20>[8:12:13]</size></color>	QuantumRedCardEx	
+90017	Reverse Observation	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story54.png	Mysterious Coordinates\n<color=#808080><size=20>[8:51:18]</size></color>		
+308	Void's End	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story91.png	The Final Stand Ends	QuantumBlueCard	
+503	Destined Dawnlight	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story92.png	Light in the Darkness		
+90018	Existing Obstacles	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story94.png	Stubborn Justice Guardian\n<color=#808080><size=20>[8:15:44]</size></color>	QuantumRedCardEx	
+90019	Fate's Invitation	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story60.png	Hard-earned Invitation\n<color=#808080><size=20>[8:49:49]</size></color>		
+90020	Central Gate	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story95.png	Critical Duel\n<color=#808080><size=20>[23:51:15]</size></color>	QuantumRedCardEx	
+90021	Core Forbidden Zone	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story96.png	Stronger Than Strong\n<color=#808080><size=20>[23:59:59]</size></color>		
+90022	Truth Journey	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story97.png	End of Oblivion and Void	QuantumRedCardEx	
+801	Final Journey	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story93.png	Before Dawn	QuantumBlueCardEx	
+90051	Wisdom Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story61.png	End of Knowledge\n<color=#808080><size=20>[Lesson One]</size></color>	QuantumRedCard	1
+90052	Tactics Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story7.png	Emperor and Slave\n<color=#808080><size=20>[Lesson Two]</size></color>	QuantumRedCard	1
+90053	Power Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story9.png	Faded Fighting Spirit\n<color=#808080><size=20>[Lesson Three]</size></color>	QuantumRedCard	1
+90054	Desire Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story57.png	God of Wine's Song\n<color=#808080><size=20>[Lesson Four]</size></color>	QuantumRedCard	1
+90055	Fondness Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story5.png	Honey vs. Poison\n<color=#808080><size=20>[Lesson Five]</size></color>	QuantumRedCard	1
+90056	Ambition Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story60.png	Arrogant Trailblazer\n<color=#808080><size=20>[Lesson Six]</size></color>	QuantumRedCard	1
+90057	Obsession Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story94.png	Boundless Vision\n<color=#808080><size=20>[Lesson Seven]</size></color>	QuantumRedCard	1
+90058	Extreme Palace	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story95.png	Ego's Peak\n<color=#808080><size=20>[Lesson Eight]</size></color>	QuantumRedCard	1
+90023	Final Lesson	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story98.png	Before Dawn	QuantumRedCardEx	
+90024	Final Lesson	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon3.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story98.png	Before Dawn	QuantumRedCardEx	
+90025	Skip Trial	Assets/Product/Texture/Image/UiBiancaTheatre/UiBiancaIconEvent04.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story9.png	Face the Ending		
+92014	Abandoned Scroll	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story37.png	About the Rules		
+93015	Abandoned Castle	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon4.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story107.png	Past Scare		
+94016	Abandoned Graveyard	Assets/Product/Texture/Image/UiTheatre3/Theatre3EventTypeIcon5.png	Assets/Product/Texture/Image/UiTheatre3/Theatre3Story47.png	Farewell for the Past		

@@ -67,6 +67,8 @@ internal partial class Program
         using LoopbackSessionHarness harness = new(character, player,
             CreateDrawCompatibilityInventory(uid, [new Item { Id = Inventory.Coin, Count = 100_000 }, new Item { Id = 30113, Count = 1 }]), "partner-story-loopback");
         harness.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+        // An authenticated session has already persisted its initial default/time-earned CGs.
+        ArchiveCgModule.Reconcile(harness.Session, notify: false);
         typeof(Session).GetMethod("InvokeRequestHandler", BindingFlags.NonPublic | BindingFlags.Instance)!
             .Invoke(harness.Session, [GetRegisteredRequestHandler(nameof(PartnerLevelUpRequest)), new Packet.Request
             {

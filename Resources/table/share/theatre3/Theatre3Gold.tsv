@@ -1,0 +1,36 @@
+Id	Count	Name	Desc	Icon	Tag
+1	600	Advanced Boxed Unit	Claim to obtain 600 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseI003.png	
+2	250	Normal Boxed Unit	Claim to obtain 250 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseI001.png	
+11	70	Packed Unit (S)	Claim to obtain 70 Processing Units.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	
+12	150	Packed Unit (M)	Claim to obtain 150 Processing Units.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	
+13	300	Packed Unit (L)	Claim to obtain 300 Processing Units.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	
+21	10	Processing Unit (Extra)	Obtain additional Processing Units based on the nodes cleared.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	
+22	150	Processing Unit (Interference)	A little gift of interference from the other shore that grants 150 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	5
+23	300	Processing Unit (Interference)	A little gift of interference from the other shore that grants 300 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	5
+24	20	Processing Unit (Extra)	Obtain additional Processing Units based on the nodes cleared.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	
+51	150	Misplaced Unit Crate	Claim to obtain 150-500 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW002.png	
+52	200	Misplaced Unit Crate	Claim to obtain 150-500 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW002.png	
+53	250	Misplaced Unit Crate	Claim to obtain 150-500 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW002.png	
+54	300	Misplaced Unit Crate	Claim to obtain 150-500 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW002.png	
+55	400	Misplaced Unit Crate	Claim to obtain 150-500 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW002.png	
+56	500	Misplaced Unit Crate	Claim to obtain 150-500 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW002.png	
+57	400	Disruptive Unit Crate	Claim to obtain 400-1000 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW003.png	
+58	500	Disruptive Unit Crate	Claim to obtain 400-1000 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW003.png	
+59	600	Disruptive Unit Crate	Claim to obtain 400-1000 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW003.png	
+60	700	Disruptive Unit Crate	Claim to obtain 400-1000 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW003.png	
+61	800	Disruptive Unit Crate	Claim to obtain 400-1000 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW003.png	
+62	900	Disruptive Unit Crate	Claim to obtain 400-1000 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW003.png	
+63	1000	Disruptive Unit Crate	Claim to obtain 400-1000 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/IconTools/ItCaseW003.png	
+101	100	Processing Unit (Interference)	A little gift of interference from the other shore that grants 100-180 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+102	120	Processing Unit (Interference)	A little gift of interference from the other shore that grants 100-180 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+103	140	Processing Unit (Interference)	A little gift of interference from the other shore that grants 100-180 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+104	150	Processing Unit (Interference)	A little gift of interference from the other shore that grants 100-180 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+105	160	Processing Unit (Interference)	A little gift of interference from the other shore that grants 100-180 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+106	180	Processing Unit (Interference)	A little gift of interference from the other shore that grants 100-180 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+111	200	Processing Unit (Interference)	A little gift of interference from the other shore that grants 200-350 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+112	240	Processing Unit (Interference)	A little gift of interference from the other shore that grants 200-350 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+113	250	Processing Unit (Interference)	A little gift of interference from the other shore that grants 200-350 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+114	280	Processing Unit (Interference)	A little gift of interference from the other shore that grants 200-350 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+115	300	Processing Unit (Interference)	A little gift of interference from the other shore that grants 200-350 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+116	320	Processing Unit (Interference)	A little gift of interference from the other shore that grants 200-350 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4
+117	350	Processing Unit (Interference)	A little gift of interference from the other shore that grants 200-350 Processing Units (bonus not applicable).	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem003.png	4

@@ -1,0 +1,39 @@
+Key	Values[1]	Values[2]	Values[3]	Values[4]	Values[5]	Values[6]	Values[7]
+NodeTypeName	Interpretation	Interval Preparation	Rehearsal	Conflict	Climax		
+NodeTypeIcon	Assets/Product/Texture/Image/UiTheatre/UiTheatreStageTypeIcon05.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreStageTypeIcon06.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreStageTypeIcon03.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreStageTypeIcon02.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreStageTypeIcon04.png		
+NodeTypeDesc	An excellent choice that leads to another scene.	The beginning of an Act. Marg will be of great use here.	Even a well-rehearsed script may face unexpected events.	A conflict is imminent. Defeat the enemies to win rewards.	The crossing point of different futures. <color=#FF3F3F>School abilities are limited</color>.		
+DifficultyTitleIcon	Assets/Product/Texture/Image/UiTheatre/UiTheatreIconDifficulty01.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreIconDifficulty02.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreIconDifficulty03.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreIconDifficulty04.png			
+DifficultyButtonIcon	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty01.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty02.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty03.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty04.png			
+SpecialRewardIcon	%s	Assets/Product/Texture/Image/IconTools/IconTheatre07.png	Assets/Product/Texture/Image/IconTools/IconTheatre04.png	Assets/Product/Texture/Image/IconTools/IconTheatre03.png			
+SpecialRewardName	%s	Script	Inspiration	Cadenza			
+EventNodeIcon							
+SkillPosDesc	Class Skill	Signal Orb	Signature Move	Core Passive			
+SkillQualityIcon	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffGuang1.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffGuang2.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffGuang3.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffGuang4.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffGuang5.png		
+SkillLevelQualityIcon	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreBuffEquip1.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreBuffEquip2.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreBuffEquip3.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreBuffEquip4.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreBuffEquip5.png		
+HelpKey	TheTheatreFightGuide						
+SpecialRewardDesc	Select to gain unique School Skills that significantly boost your power.	Obtain this to increase the level, rating, Memory level and weapon level of all trial characters.	Enhances the bonuses in Behind the Curtain.	Increases the familiarity with Schools, unlocks more skills and provides unique buffs.			
+SkillPowerIcon	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig6.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig4.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig5.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig3.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig7.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig2.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig1.png
+SkillPowerTitle	Impressionism	Nationalism	Realism	Romanticism	Expressionism	Classicism	Baroque
+ReopenHelpKey	TheTheatreFightGuide						
+RoleDetailLevelIcon	Assets/Product/Texture/Image/IconTools/IconTheatre07.png						
+RoleDetailLevelDesc	Script	Team Level					
+RoleDetailEquipIcon	Assets/Product/Texture/Image/IconTools/IconTheatre07.png						
+RoleDetailEquiupDesc	Script	Weapon & Memory Level					
+RoleDetailSkillIcon	Assets/Product/Texture/Image/IconTools/IconTheatre06.png						
+RoleDetailSkillDesc	Chord	Skill Level					
+UnlockOwnRole	Unlock own characters	Assets/Product/Texture/Image/IconTools/IconTheatre07.png					
+UnlockFavor	Rehearsal	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreMainIcon4.png					
+UnlockDecoration	Behind the Curtain	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreMainIcon3.png					
+UnlockNewDecoration	New content unlocked in Behind the Curtain	Go to Behind the Curtain					
+DifficultyButtonTextIcon	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty1.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty2.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty3.png	Assets/Product/Texture/Atlas/UiTheatre/UiTheatreTxtDifficulty4.png			
+SpecialRewardSkillIcon	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffType6.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffType4.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffType5.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffType3.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffType7.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffType2.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffType1.png
+SpecialRewardSkillName	Impressionism	Nationalism	Realism	Romanticism	Expressionism	Classicism	Baroque
+SelectSkillDetail	%s	School Description	%s				
+LevelUpDetail	Assets/Product/Texture/Image/IconTools/IconTheatre07.png	Script	Increases the level, rating, Memory level and weapon level of all trial characters.				
+SkillPosIcon	Assets/Product/Texture/Image/UiTheatre/UiTheatreKuangIconType1.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreKuangIconType2.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreKuangIconType3.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreKuangIconType4.png			
+SelectSkillDetailIcon	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig6.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig4.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig5.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig3.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig7.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig2.png	Assets/Product/Texture/Image/UiTheatre/UiTheatreBuffTypeBig1.png
+SelectSkillDetailDesc	In opposition to conventional art schools, this school captures human perception and experience in a particular moment with light and shadow. Teaches <color=#fa5826>fire-related</color> abilities.	An expression of ethnic cultures. The scripts and music contain ethnic music elements. Teaches <color=#168eec>lightning-related</color> abilities.	Represents subject matter truthfully and scientifically. Teaches <color=#13cfb7>ice-related</color> abilities.	Depicts the subjective world through objective, passionate and exaggerated methods. Teaches abilities <color=#f13c3c>related to Sharp Lance</color>.	Expresses the eternal nature of subjects through abstract and distorting depictions of reality. Teaches abilities <color=#cc68c1>related to pulling and black hole</color>.	Pays tribute to the principles based in the historical cultures with emphasis on historical reference. Respects the reign of monarch. Teaches <color=#ff8d1e>energy-related</color> abilities.	The passionate, vibrant movements of this school laid the foundation of many culture forms in later generations. Teaches abilities <color=#8fcf06>related to levitating machines</color>.
+FirstStoryId							
+CheckDecorationGroupIndex	1						
+SPModeOpenTile	Adventure Mode is on: Story nodes will be hidden. (You will not be able to complete the related ending missions in this mode.)						
+SPModeCloseTile	Adventure Mode is off: Story nodes will be displayed.						

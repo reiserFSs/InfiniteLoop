@@ -1,0 +1,5 @@
+Id	Max	Name	EffectGroupId	SoundFilterOpenCueId	SoundFilterCloseCueId	DescShakeGroupId	RecordDescShakeGroupId	Min
+1	29	Insight Phase 1	110001	2833	2837	1	2	
+2	59	Insight Phase 2	110002	2834	2837	3	4	30
+3	99	Insight Phase 3	110003	2835	2837	5	6	60
+4	100	Insight Phase 4	110004	2835	2837	7	8	100

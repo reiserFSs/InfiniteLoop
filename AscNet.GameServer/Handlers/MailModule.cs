@@ -334,6 +334,7 @@ namespace AscNet.GameServer.Handlers
                     && TableReaderV2.Parse<FashionColorTable>().Any(row => row.Id == candidate.TemplateId),
                 RewardType.HeadPortrait => candidate.Count == 1
                     && TableReaderV2.Parse<HeadPortraitTable>().Any(row => row.Id == candidate.TemplateId),
+                RewardType.ChatEmoji => Character.GetChatEmojiConfig(candidate.TemplateId) is not null,
                 _ => false
             };
             if (!supported)
@@ -358,7 +359,7 @@ namespace AscNet.GameServer.Handlers
             return true;
         }
 
-        private static NotifyMails.NotifyMailsNewMailList ToNotify(PlayerMail mail) => new()
+        internal static NotifyMails.NotifyMailsNewMailList ToNotify(PlayerMail mail) => new()
         {
             Id = mail.Id, GroupId = mail.GroupId, BatchId = mail.BatchId, Type = mail.Type, Status = mail.Status,
             SendName = mail.SendName, Title = mail.Title, Content = mail.Content, CreateTime = mail.CreateTime,

@@ -1140,10 +1140,10 @@ namespace AscNet.GameServer.Handlers
             int stageStatus)
         {
             int coefficientIndex = Math.Clamp(levelType - 1, 0, rule.BossLoseHp.Count - 1);
-            double bossStep = ParseCoefficient(rule.BossLoseHp, coefficientIndex);
+            double bossStep = Coefficient(rule.BossLoseHp, coefficientIndex);
             double bossPoints = rule.BossLoseHpScore[coefficientIndex];
-            double timeCoefficient = ParseCoefficient(rule.LeftTimeScore, coefficientIndex);
-            double hpCoefficient = ParseCoefficient(rule.CharLeftHpSocre, coefficientIndex);
+            double timeCoefficient = Coefficient(rule.LeftTimeScore, coefficientIndex);
+            double hpCoefficient = Coefficient(rule.CharLeftHpSocre, coefficientIndex);
 
             NpcHp? boss = settle.NpcHpInfo?.Values
                 .Where(npc => npc.Type == 2)
@@ -1781,14 +1781,13 @@ namespace AscNet.GameServer.Handlers
             return Math.Min(maximum, checked((int)Math.Floor(value / step * points)));
         }
 
-        private static double ParseCoefficient(IReadOnlyList<string> values, int index)
+        private static double Coefficient(IReadOnlyList<double> values, int index)
         {
-            if (index < 0 || index >= values.Count
-                || !double.TryParse(values[index], NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+            if (index < 0 || index >= values.Count || !double.IsFinite(values[index]))
             {
                 throw new InvalidDataException($"Pain Cage score coefficient index {index} is invalid.");
             }
-            return value;
+            return values[index];
         }
 
 

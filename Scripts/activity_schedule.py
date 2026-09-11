@@ -767,6 +767,36 @@ def _main_panel_window(
     }
 
 
+def _theatre_decoration_windows(source: Path) -> dict[int, tuple[int, int, str]]:
+    """Release only the user-approved original Theatre decoration calendars."""
+    conditions = {row["Id"]: row for row in _rows(source, "share/condition/Condition.json")}
+    pending = [
+        row["ConditionId"]
+        for row in _rows(source, "share/theatre/TheatreDecoration.json")
+        if row.get("DecorationId") in (20003, 20004, 20005) and _int(row.get("ConditionId"))
+    ]
+    seen: set[int] = set()
+    output: dict[int, tuple[int, int, str]] = {}
+    while pending:
+        condition_id = pending.pop()
+        if condition_id in seen:
+            continue
+        seen.add(condition_id)
+        condition = conditions[condition_id]
+        if condition.get("Formula"):
+            pending.extend(map(int, re.findall(r"\d+", condition["Formula"])))
+        elif condition.get("Type") == 23001:
+            time_id = condition["Params"][0]
+            if time_id in (803, 804, 805):
+                output[time_id] = (
+                    0, 0,
+                    "feature-window:Theatre:permanent-decoration-release:"
+                    "user-approved:EN:share/theatre/TheatreDecoration.json:DecorationId=20003,20004,20005:"
+                    f"share/condition/Condition.json:Id={condition_id}:TimeId={time_id}",
+                )
+    return output
+
+
 def build_schedule(
     catalog: list[dict[str, str]],
     notices: Iterable[dict[str, Any]],
@@ -817,6 +847,38 @@ def build_schedule(
         main_panel = _main_panel_window(source, output, notice_list, login_notice_path)
         output.update(main_panel)
         output.update(_fuben_activity_time_tip_windows(source, output, main_panel))
+        for row in _rows(source, "share/biancatheatre/BiancaTheatreActivity.json"):
+            time_id = _int(row.get("TimeId"))
+            if time_id is not None:
+                output[time_id] = (
+                    0,
+                    0,
+                    "feature-window:BiancaTheatre:permanent-mode:"
+                    "official-Punishing-Gray-Raven:https://www.youtube.com/watch?v=a8O7YqA4FLQ:"
+                    "published=2023-09-20:new permanent roguelite mode - Cursed Waves:"
+                    f"EN:share/biancatheatre/BiancaTheatreActivity.json:Id={row.get('Id')}:TimeId={time_id}",
+                )
+        for row in _rows(source, "share/theatre3/Theatre3Activity.json"):
+            time_id = _int(row.get("TimeId"))
+            if time_id is not None and time_id > 0:
+                output[time_id] = (
+                    0,
+                    0,
+                    "local-policy:Theatre3:permanent-mode:"
+                    f"EN:share/theatre3/Theatre3Activity.json:Id={row.get('Id')}:TimeId={time_id}",
+                )
+        output.update(_theatre_decoration_windows(source))
+        # User-approved permanent tower openings only; chapter promotion times stay independently authored.
+        for row in _rows(source, "share/fuben/charactertower/CharacterTower.json"):
+            time_id = _int(row.get("OpenTimeId"))
+            if time_id is not None and time_id > 0:
+                output[time_id] = (
+                    0,
+                    0,
+                    "feature-window:ArcadeAnima:permanent-mode; "
+                    f"EN share/fuben/charactertower/CharacterTower.json Id={row.get('Id')} OpenTimeId={time_id}; "
+                    "unbounded availability policy, no promotional window authored",
+                )
     return [(time_id, *output[time_id]) for time_id in sorted(output)]
 
 

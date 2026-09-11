@@ -1,5 +1,7 @@
 using AscNet.Logging;
 using System.Collections.Concurrent;
+using System.Collections;
+using System.Globalization;
 using System.Reflection;
 
 namespace AscNet.Common.Util
@@ -63,8 +65,11 @@ namespace AscNet.Common.Util
                         // Read the header line to get column names
                         string headerLine = reader.ReadLine()!;
                         string[] columnNames = headerLine.Split('\t');
-                        PropertyInfo?[] properties = columnNames
-                            .Select(columnName => typeof(T).GetProperty(columnName.Split('[').First()))
+                        var properties = columnNames
+                            .Select((columnName, index) => (Property: typeof(T).GetProperty(columnName.Split('[').First()), Index: index))
+                            .Where(column => column.Property != null)
+                            .GroupBy(column => column.Property!)
+                            .Select(group => (Property: group.Key, Columns: group.Select(column => column.Index).ToArray()))
                             .ToArray();
 
                         // Read data lines and parse them into objects
@@ -94,43 +99,45 @@ namespace AscNet.Common.Util
         }
 
 
-        static T MapToObject<T>(PropertyInfo?[] properties, string[] values) where T : ITable
+        static T MapToObject<T>((PropertyInfo Property, int[] Columns)[] properties, string[] values) where T : ITable
         {
             T obj = Activator.CreateInstance<T>();
 
-            for (int i = 0; i < Math.Min(properties.Length, values.Length); i++)
+            foreach ((PropertyInfo prop, int[] columns) in properties)
             {
-                PropertyInfo? prop = properties[i];
-                if (prop != null)
+                int i = columns[0];
+                if (i < values.Length)
                 {
-                    if (prop.PropertyType == typeof(List<int>))
+                    if (prop.PropertyType == typeof(List<int>) || prop.PropertyType == typeof(List<double>)
+                        || prop.PropertyType == typeof(List<string>))
                     {
-                        if (prop.GetValue(obj) is null)
+                        int last = columns.Length - 1;
+                        while (last >= 0 && (columns[last] >= values.Length || string.IsNullOrEmpty(values[columns[last]])))
+                            last--;
+                        IList list = (IList)Activator.CreateInstance(prop.PropertyType)!;
+                        for (int column = 0; column <= last; column++)
                         {
-                            prop.SetValue(obj, new List<int>());
+                            string value = values[columns[column]];
+                            if (list is List<int> integers)
+                                integers.Add(string.IsNullOrEmpty(value) ? 0 : int.Parse(value, CultureInfo.InvariantCulture));
+                            else if (list is List<double> numbers)
+                                numbers.Add(string.IsNullOrEmpty(value) ? 0 : double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture));
+                            else
+                                list.Add(value);
                         }
-                        string value = values[i];
-                        if (!string.IsNullOrEmpty(value))
-                        {
-                            prop.PropertyType.GetMethod("Add").Invoke(prop.GetValue(obj), new object[] { int.Parse(value) });
-                        }
-                    }
-                    else if (prop.PropertyType == typeof(List<string>))
-                    {
-                        if (prop.GetValue(obj) is null)
-                        {
-                            prop.SetValue(obj, new List<string>());
-                        }
-                        string value = values[i];
-                        if (!string.IsNullOrEmpty(value))
-                        {
-                            prop.PropertyType.GetMethod("Add").Invoke(prop.GetValue(obj), new object[] { value });
-                        }
+                        prop.SetValue(obj, list);
                     }
                     else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(int?))
                     {
                         if (!string.IsNullOrEmpty(values[i]))
-                            prop.SetValue(obj, int.Parse(values[i]));
+                            prop.SetValue(obj, int.Parse(values[i], CultureInfo.InvariantCulture));
+                        else
+                            prop.SetValue(obj, null);
+                    }
+                    else if (prop.PropertyType == typeof(double) || prop.PropertyType == typeof(double?))
+                    {
+                        if (!string.IsNullOrEmpty(values[i]))
+                            prop.SetValue(obj, double.Parse(values[i], NumberStyles.Float, CultureInfo.InvariantCulture));
                         else
                             prop.SetValue(obj, null);
                     }

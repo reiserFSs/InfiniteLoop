@@ -6,6 +6,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using MessagePack;
 using Newtonsoft.Json.Linq;
+using AscNet.Table.V2.share.guild;
 using ClientShop = AscNet.Common.MsgPack.GetShopInfoResponse.GetShopInfoResponseClientShop;
 using ClientShopConsume = AscNet.Common.MsgPack.GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods.GetShopInfoResponseClientShopGoodsConsume;
 using ClientShopGoods = AscNet.Common.MsgPack.GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods;
@@ -59,9 +60,8 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
-    public class BuyResponse
+    public class BuyResponse : GuildResponse
     {
-        public int Code { get; set; }
         public bool IsShowBuyResult { get; set; }
         public List<RewardGoods> GoodList { get; set; } = new();
     }
@@ -71,6 +71,37 @@ namespace AscNet.GameServer.Handlers
     internal class ShopModule
     {
         private const string ShopSnapshotPath = "Configs/client_shops.json";
+        private static readonly Lazy<ClientShop> GuildProcurementShop = new(BuildGuildProcurementShop);
+
+        // Explicit local-server procurement policy, not a retail price or captured offer.
+        internal static class LocalGuildProcurementPolicy
+        {
+            public static int Price { get; } = ReadPrice();
+            private static int ReadPrice()
+            {
+                string? value = Environment.GetEnvironmentVariable("ASCNET_GUILD_PROCUREMENT_PRICE");
+                if (value is null) return 100;
+                return int.TryParse(value, out int price) && price > 0 ? price
+                    : throw new InvalidDataException("ASCNET_GUILD_PROCUREMENT_PRICE must be a positive integer.");
+            }
+        }
+
+        private static ClientShop BuildGuildProcurementShop()
+        {
+            ClientShop shop = new() { Id = 9998, Name = "Guild Procurement", ShowIds = [62723] };
+            foreach (GuildGoodsTable row in TableReaderV2.Parse<GuildGoodsTable>().OrderBy(row => row.Id))
+                shop.GoodsList.Add(new()
+                {
+                    Id = checked((uint)row.Id), BuyTimesLimit = 1,
+                    RewardGoods = new() { TemplateId = checked((uint)row.Id), Count = 1, RewardType = 23 },
+                    ConsumeList = [new() { Id = 62723, Count = checked((uint)LocalGuildProcurementPolicy.Price) }]
+                });
+            return shop;
+        }
+
+        private static ClientShop? ShopCatalog(uint shopId) => shopId == 9998
+            ? GuildProcurementShop.Value : RetailShopSnapshot.Value.GetValueOrDefault(shopId);
+
         private const string ShopBaseInfoSnapshotPath = "Configs/shop_base_infos.json";
         private static readonly Lazy<Dictionary<uint, ClientShop>> RetailShopSnapshot = new(LoadShopSnapshot);
         private static readonly Lazy<Dictionary<int, AlarmClockTable>> AlarmClocks = new(() =>
@@ -80,6 +111,12 @@ namespace AscNet.GameServer.Handlers
         public static void GetShopInfoRequestHandler(Session session, Packet.Request packet)
         {
             GetShopInfoRequest request = packet.Deserialize<GetShopInfoRequest>();
+            int guildCode = GuildShopInfoCode(session.player, request.Id);
+            if (guildCode != 0)
+            {
+                session.SendResponse(new GetShopInfoResponse { Code = guildCode }, packet.Id);
+                return;
+            }
             session.SendResponse(new GetShopInfoResponse
             {
                 Code = 0,
@@ -108,6 +145,8 @@ namespace AscNet.GameServer.Handlers
 
             foreach (uint shopId in request.IdList.Distinct())
             {
+                int code = GuildShopInfoCode(session.player, shopId);
+                if (code != 0) { response.Code = code; continue; }
                 response.ClientShopList.Add(BuildClientShop(shopId, session.player));
             }
 
@@ -130,7 +169,7 @@ namespace AscNet.GameServer.Handlers
                     Id = shopId,
                     StartTime = 0,
                     EndTime = 0,
-                    IsUnShelve = false
+                    IsUnShelve = GuildShopInfoCode(session.player, shopId) != 0
                 });
             }
 
@@ -141,6 +180,16 @@ namespace AscNet.GameServer.Handlers
         public static void BuyRequestHandler(Session session, Packet.Request packet)
         {
             BuyRequest request = packet.Deserialize<BuyRequest>();
+            if (TheatreModule.IsCommonShop(request.ShopId))
+            {
+                BuyTheatreGoods(session, packet);
+                return;
+            }
+            if (request.ShopId is 4001 or 9998)
+            {
+                BuyGuildGoods(session, packet);
+                return;
+            }
             BuyResponse response = new()
             {
                 Code = 1,
@@ -195,18 +244,39 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
+        private static int GuildShopInfoCode(Player player, uint shopId)
+        {
+            if (shopId is not (4001 or 9998)) return 0;
+            Guild? guild = GuildModule.FindMembership(player.PlayerData.Id);
+            if (guild is null || GuildModule.Rank(guild, player.PlayerData.Id) is not (>= 1 and <= 4))
+                return 20063226;
+            if (shopId == 9998 && GuildModule.Rank(guild, player.PlayerData.Id) is not (1 or 2))
+                return 20063224;
+            return ShopCatalog(shopId) is not null ? 0 : 20063227;
+        }
+
         private static ClientShop BuildClientShop(uint shopId, Player player)
         {
-            if (RetailShopSnapshot.Value.TryGetValue(shopId, out ClientShop? snapshot))
+            if (ShopCatalog(shopId) is { } snapshot)
             {
                 ClientShop shop = MessagePackSerializer.Deserialize<ClientShop>(
                     MessagePackSerializer.Serialize(snapshot));
-                if (ReconcileShopResetPeriods(player, shop.GoodsList))
+                if (shopId is not (4001 or 9998) && ReconcileShopResetPeriods(player, shop.GoodsList))
                     player.Save();
                 player.ShopBuyTimes ??= new();
+                Guild? guild = shopId == 9998 ? GuildModule.FindMembership(player.PlayerData.Id) : null;
                 foreach (ClientShopGoods goods in shop.GoodsList)
                 {
                     goods.TotalBuyTimes = player.ShopBuyTimes.GetValueOrDefault(goods.Id);
+                    if (shopId is 4001 or 9998)
+                    {
+                        goods.TotalBuyTimes = player.GuildState.GuildShopBuyTimes.GetValueOrDefault(checked((int)goods.Id), goods.TotalBuyTimes);
+                        if (TryGetAlarmWindow(goods.AutoResetClockId, DateTimeOffset.UtcNow, out long period, out _)
+                            && player.GuildState.GuildShopResetPeriods.GetValueOrDefault(goods.AutoResetClockId) != period)
+                            goods.TotalBuyTimes = 0;
+                        if (guild is not null)
+                            goods.TotalBuyTimes = OwnsProcurementGoods(guild, checked((int)goods.RewardGoods.TemplateId)) ? 1 : 0;
+                    }
                     goods.RefreshTime = TryGetAlarmWindow(goods.AutoResetClockId, DateTimeOffset.UtcNow, out _, out long next)
                         ? checked((int)next)
                         : 0;
@@ -429,9 +499,97 @@ namespace AscNet.GameServer.Handlers
 
         private static ClientShopGoods? FindShopGoods(uint shopId, uint goodsId)
         {
-            return RetailShopSnapshot.Value.TryGetValue(shopId, out ClientShop? shop)
-                ? shop.GoodsList.FirstOrDefault(goods => goods.Id == goodsId)
-                : null;
+            return ShopCatalog(shopId)?.GoodsList.FirstOrDefault(goods => goods.Id == goodsId);
+        }
+
+        private static bool OwnsProcurementGoods(Guild guild, int itemId)
+        {
+            GuildGoodsTable row = TableReaderV2.Parse<GuildGoodsTable>().Single(row => row.Id == itemId);
+            return (row.Type == 1 ? guild.DormThemes : guild.DormBgms).Contains(row.TargetId);
+        }
+
+        private static void BuyTheatreGoods(Session session, Packet.Request packet)
+        {
+            if (session.player.Theatre.PendingMutation is null)
+                TaskModule.EnsureMissionResets(session);
+            TheatreModule.Handle<BuyRequest, BuyResponse>(session, packet, (mutation, request, response) =>
+            {
+                ClientShop? shop = ShopCatalog(request.ShopId);
+                ClientShopGoods? goods = FindShopGoods(request.ShopId, request.GoodsId);
+                if (shop is null || goods is null || goods.AutoResetClockId != 0
+                    || shop.ConditionIds.Any(id => !TheatreModule.IsConditionSatisfied(mutation, id))
+                    || goods.ConditionIds.Any(id => !TheatreModule.IsConditionSatisfied(mutation, id))
+                    || !TryPreparePurchase(session, goods, request.Count, out RewardGoods reward))
+                    throw new AscNet.Common.ServerCodeException("Original Theatre purchase is unavailable.", 1);
+                int previous = mutation.GetShopBuyTimes(goods.Id);
+                if (goods.BuyTimesLimit > 0 && (long)previous + request.Count > goods.BuyTimesLimit)
+                    throw new AscNet.Common.ServerCodeException("Original Theatre purchase limit reached.", 1);
+                foreach (ClientShopConsume consume in goods.ConsumeList)
+                    mutation.Cost(consume.Id, checked((int)((long)consume.Count * request.Count)), 1);
+                mutation.Grant(new RewardGrant($"theatre-shop:{request.ShopId}:{goods.Id}:{previous}",
+                    [new AscNet.Table.V2.share.reward.RewardGoodsTable
+                    {
+                        TemplateId = reward.TemplateId, Count = reward.Count, Params = [reward.Level]
+                    }], EventCause: TheatreModule.GetCommonShopEventCause(request.ShopId)));
+                mutation.RecordShopPurchase(goods.Id, request.Count);
+                TaskModule.RecordTableDrivenProgress(session,
+                    goods.ConsumeList.Select(consume => (11202, (int?)consume.Id, checked((int)((long)consume.Count * request.Count))))
+                        .Append((20201, (int?)checked((int)request.ShopId), request.Count)), theatre: mutation);
+                response.GoodList.Add(reward);
+            }, static (response, code) => response.Code = code, afterCommit: TaskModule.SendTaskSync);
+        }
+
+        private static void BuyGuildGoods(Session session, Packet.Request packet)
+        {
+            GuildModule.Handle<BuyRequest, BuyResponse>(session, packet, (mutation, request, response) =>
+            {
+                long uid = session.player.PlayerData.Id;
+                GuildModule.PrepareEconomy(mutation);
+                if (request.ShopId == 9998 && GuildModule.Rank(mutation.Guild, uid) is not (1 or 2))
+                    throw new AscNet.Common.ServerCodeException("Insufficient guild purchase authority.", 20063224);
+                ClientShopGoods goods = FindShopGoods(request.ShopId, request.GoodsId)
+                    ?? throw new AscNet.Common.ServerCodeException("Guild shop offer is not configured.", 20030008);
+                if (request.Count <= 0 || goods.RewardGoods.Count <= 0)
+                    throw new AscNet.Common.ServerCodeException("Invalid purchase count.", 20030016);
+                GuildPlayerState state = mutation.Player(uid);
+                if (TryGetAlarmWindow(goods.AutoResetClockId, DateTimeOffset.UtcNow, out long period, out _)
+                    && state.GuildShopResetPeriods.GetValueOrDefault(goods.AutoResetClockId) != period)
+                {
+                    foreach (ClientShopGoods entry in RetailShopSnapshot.Value.Values.SelectMany(shop => shop.GoodsList)
+                        .Where(entry => entry.AutoResetClockId == goods.AutoResetClockId))
+                        state.GuildShopBuyTimes[checked((int)entry.Id)] = 0;
+                    state.GuildShopResetPeriods[goods.AutoResetClockId] = period;
+                }
+                int previous = state.GuildShopBuyTimes.GetValueOrDefault(checked((int)goods.Id),
+                    session.player.ShopBuyTimes?.GetValueOrDefault(goods.Id) ?? 0);
+                if (request.ShopId == 9998)
+                    previous = OwnsProcurementGoods(mutation.Guild, checked((int)goods.RewardGoods.TemplateId)) ? 1 : 0;
+                if (goods.BuyTimesLimit > 0 && (long)previous + request.Count > goods.BuyTimesLimit)
+                    throw new AscNet.Common.ServerCodeException("Purchase limit reached.", 20030012);
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                if (goods.OnSaleTime > now || goods.SelloutTime > 0 && now >= goods.SelloutTime)
+                    throw new AscNet.Common.ServerCodeException("Product is no longer sold.", 20030015);
+                foreach (int condition in goods.ConditionIds)
+                    if (!GuildModule.ConditionSatisfied(session, condition, []))
+                        throw new AscNet.Common.ServerCodeException("Purchase condition is not satisfied.", 20063229);
+                foreach (ClientShopConsume consume in goods.ConsumeList)
+                {
+                    int count = checked((int)((long)consume.Count * request.Count));
+                    if (consume.Id <= 0 || count <= 0)
+                        throw new AscNet.Common.ServerCodeException("Invalid purchase currency.", 20063357);
+                    TaskModule.RecordTableDrivenProgress(mutation, 11202, count, consume.Id);
+                    GuildModule.AddEconomyCost(mutation, uid, consume.Id, count);
+                }
+                RewardGoods reward = ToRewardGoods(goods.RewardGoods, request.Count);
+                mutation.AddRewardGrant(uid, $"guild-shop:{mutation.Guild.Id}:{request.GoodsId}:{goods.AutoResetClockId}:{state.GuildShopResetPeriods.GetValueOrDefault(goods.AutoResetClockId)}:{previous}",
+                    [new AscNet.Table.V2.share.reward.RewardGoodsTable
+                    {
+                        TemplateId = reward.TemplateId, Count = reward.Count, Params = [reward.Level]
+                    }]);
+                state.GuildShopBuyTimes[checked((int)goods.Id)] = checked(previous + request.Count);
+                TaskModule.RecordTableDrivenProgress(mutation, 20201, request.Count, checked((int)request.ShopId));
+                response.GoodList.Add(reward);
+            }, membershipCode: 20063228, fallbackCode: 20063229);
         }
 
         private static bool TryPreparePurchase(

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.IO;
+using System.Globalization;
 // using Newtonsoft.Json;
 
 namespace AscNet.Table
@@ -30,33 +31,15 @@ namespace AscNet.Table
 
                     foreach (var head in headLine.Split('\t'))
                     {
-                        if (head.Contains('['))
+                        string name = head.Split('[').First();
+                        MemberType? member = members.FirstOrDefault(x => x.Name == name);
+                        if (member == null)
                         {
-                            if (members.Any(x => x.Name == head.Split('[').First()))
-                            {
-                                MemberType memberType = members.First(x => x.Name == head.Split('[').First());
-                                memberType.Span++;
-                            }
-                            else
-                            {
-                                members.Add(new MemberType
-                                {
-                                    Name = head.Split('[').First(),
-                                    Nullable = false,
-                                    Span = 1
-                                });
-                            }
+                            member = new MemberType { Name = name };
+                            members.Add(member);
                         }
-                        else
-                        {
-                            members.Add(new MemberType
-                            {
-                                Name = head,
-                                Nullable = false,
-                                Span = 1
-                            });
-                        }
-                        membersRealCount.Add(members.First(x => x.Name == head.Split('[').First()));
+                        // Indexed columns share inference so later cells can promote the element type.
+                        membersRealCount.Add(member);
                     }
 
                     for (int x = 0; x < lines.Count; x++)
@@ -73,10 +56,20 @@ namespace AscNet.Table
                             }
                             else
                             {
-                                if (int.TryParse(value, out int intVal))
+                                if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+                                {
+                                    if (memberType.Type == null)
+                                        memberType.Type = typeof(int).FullName;
+                                }
+                                else if ((value.IndexOf('.') >= 0 || value.IndexOf('e') >= 0 || value.IndexOf('E') >= 0)
+                                    // Q32.32 authority uses unprefixed 16-digit hex words, including E-only words.
+                                    && !(value.Length == 16 && ulong.TryParse(value, NumberStyles.AllowHexSpecifier,
+                                        CultureInfo.InvariantCulture, out _))
+                                    && double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number)
+                                    && !double.IsNaN(number) && !double.IsInfinity(number))
                                 {
                                     if (memberType.Type != typeof(string).FullName)
-                                        memberType.Type = typeof(int).FullName;
+                                        memberType.Type = typeof(double).FullName;
                                 }
                                 else
                                 {
@@ -133,12 +126,11 @@ namespace AscNet.Table.V2{ns}
 
         public void Initialize(GeneratorInitializationContext context) { }
 
-        struct MemberType
+        class MemberType
         {
             public string Name { get; set; }
             public string Type { get; set; }
             public bool Nullable { get; set; }
-            public int Span {  get; set; }
         }
     }
 }

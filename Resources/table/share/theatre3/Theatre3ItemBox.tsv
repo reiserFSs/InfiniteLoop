@@ -1,0 +1,26 @@
+Id	BoxGroupId	Weight	ConditionId	ItemGroupId[1]	ItemGroupId[2]	ItemGroupId[3]	SafeGroupId	Name	Desc	Icon	Quality	Tag
+1	1	100		1	1	1	5	Worn Express Package	A normal package that has a slight chance to give a 5★ Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem009.png	3	
+2	2	100		2	2	2	5	Exquisite Express Package	A special package that has a certain chance to give a 5★ Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem010.png	4	
+3	3	100		3	3	3	5	Luxurious Express Package	A package of Shark-speare's that has a great chance to give a 5★ Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+201	201	100		201			5	Wrench Boy's Package	Well, since fate has brought us together through a fight, this one's for you.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+202	202	100		202			5	Kuroro's Package	Ku? Ku 0v0	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+203	203	100		203			5	Wrench Man's Package	Grab this sword and show that faker who's boss!	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+204	204	100		204			5	Kuroro(?)'s Package	Ku? Ku 0v0	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+12001	12001	100		12001			5	Prism Core	The core driver for advanced optical components.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+12002	12002	100		12002			5	Illusionary Cube	A valuable experimental mimicry component.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+12003	12003	100		12003			5	Disordered Fiber Strand	An extremely optimized scheme for vector attack components.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem011.png	5	
+30012	30012	100		1			5	Potential Alternatives Package	A normal package that has a slight chance to give a 5★ Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem009.png	3	
+4	4	100		104	104	104	5	Normal Corrupted Package	A normal corrupted package that has a high chance of dropping a 3★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem013.png	3	
+5	5	100		105	105	105	5	Rare Corrupted Package	A rare corrupted package that has a high chance of dropping a 4★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem014.png	4	
+6	6	100		106	106	106	5	Top Corrupted Package	A top corrupted package that has a high chance of dropping a 5★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem015.png	5	
+7	7	100		107			5	"Gift from Beyond"	A little bit of interference.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem010.png	5	
+1001	1001	100		104	104	104	5	Normal Corrupted Package	A normal corrupted package that has a high chance of dropping a 3★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem013.png	3	4
+1002	1002	95		105	105	105	5	Rare Corrupted Package	A rare corrupted package that has a high chance of dropping a 4★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem014.png	4	4
+1003	1002	5		106	106	106	5	Top Corrupted Package	A top corrupted package that has a high chance of dropping a 5★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem015.png	5	4
+1004	1003	80		105	105	105	5	Rare Corrupted Package	A rare corrupted package that has a high chance of dropping a 4★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem014.png	4	4
+1005	1003	20		106	106	106	5	Top Corrupted Package	A top corrupted package that has a high chance of dropping a 5★ Entropy Change Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem015.png	5	4
+1011	1011	100		107			5	Interference Data α	Cache record of the Alpha world.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem014.png	4	
+1012	1012	100		108			5	Sharp Sword	A treasure obtained from the Sword of the Brave.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem014.png	4	
+1013	1013	100		109			5	Angel's Remains	The remnant of a fallen angel.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem015.png	5	
+1014	1014	100		110			5	Sister's Hairpin	A sacrificial utensil that belongs to the Chaos Sister.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem015.png	5	
+1015	1015	100		111			5	Ingenious Core	A creation born of dark magic and alchemy.	Assets/Product/Texture/Image/UiTheatre3/Theatre3SystemItem015.png	5	

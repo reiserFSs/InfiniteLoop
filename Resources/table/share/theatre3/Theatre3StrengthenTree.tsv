@@ -1,0 +1,61 @@
+Id	NeedStrengthenPoint	PointType	EffectGroupId	Condition	Page	PreId[1]	PreId[2]	Name	Desc	Icon	Note
+1	8	1	30001		1			Optimization I	HP +5%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21133.png	Small Node
+2	16	2	30003		1	1		Infiltration I	ATK +50	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+3	24	3	30015		1	2		Synergy I	Shop Discount Slots +1	Assets/Product/Texture/Image/UiBiancaTheatre/BiancaTheatreIconSkill05.png	Large Node
+4	8	1	30002		1	1		Convolution I	Starting Processing Units +50	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+5	16	2	30007		1	4		Infiltration II	ATK +50	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+6	8	1	30004		1	5		Convolution II	Starting Processing Units +50	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+7	8	1	30005		1	6		Barrier I	DEF +500	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon32021.png	Small Node
+8	16	2	30006		1	7		Topology I	Starting Recruit Energy +1	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree004.png	Medium Node
+9	8	1	30008		1	2		Reconstruction I	HP +500	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21131.png	Small Node
+10	8	1	30009		1	9		Barrier II	DEF +500	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon32021.png	Small Node
+11	16	2	30010		1	10		Infiltration III	ATK +50	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+12	8	1	30011		1	11		Convolution III	Starting Processing Units +50	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+13	24	3	30012		1	12		Imprint I	At the start of the simulation, additionally gains a random Artifact.	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree002.png	Large Node
+14	8	1	30013		1	2		Optimization II	HP +5%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21133.png	Small Node
+15	8	1	30014		1	14		Confrontation I	ATK +5%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon10001.png	Small Node
+16	16	2	30016		1	1		Infiltration IV	ATK +50	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+17	16	2	30018		1	16		Infiltration V	ATK +50	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+18	8	1	30019		1	16		Barrier III	DEF +500	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon32021.png	Small Node
+19	8	1	30020		1	18		Reconstruction II	HP +500	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21131.png	Small Node
+20	16	2	30021		1	19		Iteration I	All Elemental DMG +15%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon1.png	Medium Node
+21	8	1	30022		1	20		Optimization III	HP +5%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21133.png	Small Node
+22	8	1	30023		1	21		Convolution IV	Starting Processing Units +50	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+23	24	3			1	22		Deployment I	After entering the simulation, the first battle additionally drops a random equipment crate.	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree003.png	Large Node
+24	24	3	30017		1	16		Load I	All members' equipment weight carrying limit +1	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree005.png	Large Node
+25	8	1	30025		1	24		Convolution V	Starting Processing Units +50	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+26	8	1	30026		1	25		Overflow I	Extra DMG Bonus +5%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon13001.png	Small Node
+27	16	2	30027		1	1		Infiltration VI	ATK +50	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+28	8	1	30028		1	27		Convolution VI	Starting Processing Units +50	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+29	8	1	30029		1	28		Reconstruction III	HP +500	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21131.png	Small Node
+30	16	2	30030		1	29		Topology II	Starting Recruit Energy +1	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree004.png	Medium Node
+31	3	1	30101		2			Optimization I	HP +3%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21133.png	Small Node
+32	5	2	30103		2	31		Infiltration I	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+33	9	3	30115	1020255	2	32		Entropy Change I	[Crimson Core] spawn weight increased	Assets/Product/Texture/Image/UiBiancaTheatre/BiancaTheatreIconSkill01.png	Large Node
+34	3	1	30102		2	31		Convolution I	Starting Processing Units +30	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+35	5	2	30107		2	34		Infiltration II	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+36	3	1	30104		2	35		Convolution II	Starting Processing Units +30	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+37	3	1	30105		2	36		Access I	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon32021.png	Small Node
+38	5	2	30106		2	37		Optimization IV	HP +8%	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree004.png	Medium Node
+39	3	1	30108		2	32		Reconstruction I	HP +250	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21131.png	Small Node
+40	3	1	30109		2	39		Access II	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon32021.png	Small Node
+41	5	2	30110		2	40		Infiltration III	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+42	3	1	30111		2	41		Convolution III	Starting Processing Units +30	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+43	9	3	30112		2	42		Iteration I	Equipment Box Free Refreshes +1	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree002.png	Large Node
+44	3	1	30113		2	32		Optimization II	HP +3%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21133.png	Small Node
+45	3	1	30114		2	44		Confrontation I	ATK +3%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon10001.png	Small Node
+46	5	2	30116		2	31		Infiltration IV	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+47	5	2	30118		2	46		Infiltration V	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+48	3	1	30119		2	46		Access III	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon32021.png	Small Node
+49	3	1	30120		2	48		Reconstruction II	HP +250	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21131.png	Small Node
+50	5	2	30121		2	49		Iteration I	All Elemental DMG +10%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon1.png	Medium Node
+51	3	1	30122		2	50		Optimization III	HP +3%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21133.png	Small Node
+52	3	1	30123		2	51		Convolution IV	Starting Processing Units +30	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+53	9	3	30131		2	52		Iteration II	Equipment Box Paid Refresh Price -50%	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree003.png	Large Node
+54	9	3	30117	1020255	2	46		Quantization I	Quantization Buffs' duration significantly shortens; Dequantization Buffs' duration significantly extends	Assets/Product/Texture/Image/UiBiancaTheatre/BiancaTheatreIconSkill02.png	Large Node
+55	3	1	30125		2	54		Convolution V	Starting Processing Units +30	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+56	3	1	30126		2	55		Overflow I	Extra DMG Bonus +3%	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon13001.png	Small Node
+57	5	2	30127		2	31		Infiltration VI	ATK +30	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21011.png	Medium Node
+58	3	1	30128		2	57		Convolution VI	Starting Processing Units +30	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree001.png	Small Node
+59	3	1	30129		2	58		Reconstruction III	HP +250	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon21131.png	Small Node
+60	5	2	30130		2	59		Reconstruction IV	HP +600	Assets/Product/Texture/Image/UiTheatre3/Theatre3StrengthenTree004.png	Medium Node

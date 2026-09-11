@@ -1,0 +1,7 @@
+Id	CharacterName	Img	Priority	OpenTimeId	ConditionId	ChapterIds[1]	ChapterIds[2]
+1001	Watanabe	Assets/Product/Texture/Image/UiFubenUiCharacterTowerBanner/CharacterTowerBanner02.png	102	13101	10436011	100111	100121
+1002	α	Assets/Product/Texture/Image/UiFubenUiCharacterTowerBanner/CharacterTowerBanner01.png	101	13102	10436021	100211	100221
+1003	Nanami	Assets/Product/Texture/Image/UiFubenUiCharacterTowerBanner/CharacterTowerBanner03.png	103	15101	10436031	100311	100321
+1004	Karenina	Assets/Product/Texture/Image/UiFubenUiCharacterTowerBanner/CharacterTowerBanner04.png	104	17101	10436041	100411	100421
+1005	Noan	Assets/Product/Texture/Image/UiFubenUiCharacterTowerBanner/CharacterTowerBanner05.png	105	20401	10436051	100511	100521
+1006	Vera	Assets/Product/Texture/Image/UiFubenUiCharacterTowerBanner/CharacterTowerBanner06.png	106	34301	10436061	100611	100621

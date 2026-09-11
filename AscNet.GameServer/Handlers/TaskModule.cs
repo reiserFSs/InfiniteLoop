@@ -83,9 +83,8 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
-    public class FinishTaskResponse
+    public class FinishTaskResponse : GuildResponse
     {
-        public int Code { get; set; }
         public List<RewardGoods> RewardGoodsList { get; set; } = new();
     }
 
@@ -112,7 +111,7 @@ namespace AscNet.GameServer.Handlers
         private const int DormNormalTaskType = 12;
         private const int DormDailyTaskType = 13;
         private static readonly HashSet<int> SnapshotConditionTypes =
-            [10101, 10102, 10202, 11201, 12201, 12208, 12209, 12211, 13101, 13102, 13104, 13105, 13106, 13107, 13213, 13214, 15101, 15201, 15207, 15220, 15225, 15226, 15227, 19002, 76100, 76101, 76102, 76103, 89001];
+            [10101, 10102, 10202, 11201, 12201, 12208, 12209, 12211, 13101, 13102, 13104, 13105, 13106, 13107, 13213, 13214, 15101, 15201, 15207, 15220, 15225, 15226, 15227, 19002, 35002, 76100, 76101, 76102, 76103, 89001];
         private static readonly Lazy<IReadOnlyDictionary<int, CurrentConditionTable>> CurrentConditionsById = new(() =>
             TableReaderV2.Parse<CurrentConditionTable>().ToDictionary(condition => condition.Id));
         private static readonly Lazy<IReadOnlyList<CurrentTaskTable>> CurrentTasksByPriority = new(() =>
@@ -195,6 +194,44 @@ namespace AscNet.GameServer.Handlers
         public static void FinishTaskRequestHandler(Session session, Packet.Request packet)
         {
             FinishTaskRequest request = packet.Deserialize<FinishTaskRequest>();
+            bool theatre = TheatreModule.IsMetaTask(request.TaskId);
+            bool theatre3 = Theatre3Module.IsMetaTask(request.TaskId);
+            bool bianca = !theatre && !theatre3 && BiancaTheatreModule.MetaTasks().Any(task => task.Id == request.TaskId);
+            PrepareTaskRequest(session, bianca, theatre);
+            if (theatre)
+            {
+                TheatreModule.Handle<FinishTaskRequest, FinishTaskResponse>(session, packet,
+                    (mutation, body, result) => result.RewardGoodsList = TheatreModule.Claim(mutation, body.TaskId),
+                    static (result, code) => result.Code = code, afterCommit: SendTaskSync);
+                return;
+            }
+            if (theatre3)
+            {
+                Theatre3Module.Handle<FinishTaskRequest, FinishTaskResponse>(session, packet,
+                    (mutation, body, result) => result.RewardGoodsList = Theatre3Module.Claim(mutation, body.TaskId),
+                    static (result, code) => result.Code = code, afterCommit: SendTaskSync);
+                return;
+            }
+            if (GuildWarModule.TryGetTaskProgress(session, request.TaskId, out _, out _))
+            {
+                GuildModule.Handle<FinishTaskRequest, FinishTaskResponse>(session, packet, (mutation, body, result) =>
+                {
+                    result.RewardGoodsList = GuildWarModule.ClaimTask(mutation, body.TaskId);
+                    mutation.Push(session.player.PlayerData.Id, new NotifyTask { Tasks = new() { Tasks = GuildWarModule.BuildTaskData(mutation) } });
+                });
+                return;
+            }
+            if (bianca)
+            {
+                BiancaTheatreModule.Handle<FinishTaskRequest, FinishTaskResponse>(session, packet, (mutation, body, result) =>
+                {
+                    FinishTaskResponse claim = BiancaTheatreModule.ClaimMetaTask(mutation, body.TaskId);
+                    if (claim.Code != 0)
+                        throw new AscNet.Common.ServerCodeException("Bianca task claim rejected.", claim.Code);
+                    result.RewardGoodsList = claim.RewardGoodsList;
+                }, static (result, code) => result.Code = code, committed => SendBiancaTaskClaimUpdates(committed, [request.TaskId]));
+                return;
+            }
             FinishTaskResponse response = ClaimTaskReward(session, request.TaskId, pushSync: false, out RewardApplicationResult? transfiniteApplication, out RewardApplicationResult? passportApplication);
             if (IsTransfiniteTask(session, request.TaskId))
             {
@@ -224,6 +261,37 @@ namespace AscNet.GameServer.Handlers
         public static void FinishMultiTaskRequestHandler(Session session, Packet.Request packet)
         {
             FinishMultiTaskRequest request = packet.Deserialize<FinishMultiTaskRequest>();
+            bool theatre = request.TaskIds.Any(TheatreModule.IsMetaTask);
+            bool theatre3 = request.TaskIds.Any(Theatre3Module.IsMetaTask);
+            bool bianca = !theatre && !theatre3 && request.TaskIds.Any(taskId => BiancaTheatreModule.MetaTasks().Any(task => task.Id == taskId));
+            PrepareTaskRequest(session, bianca, theatre);
+            if (theatre)
+            {
+                TheatreModule.Handle<FinishMultiTaskRequest, FinishMultiTaskResponse>(session, packet, (mutation, body, result) =>
+                {
+                    foreach (int taskId in body.TaskIds.Distinct())
+                    {
+                        if (!TheatreModule.IsMetaTask(taskId) || !TheatreModule.CanClaim(mutation, taskId))
+                        {
+                            result.NotDealTaskIds.Add(taskId);
+                            continue;
+                        }
+                        result.RewardGoodsList.AddRange(TheatreModule.Claim(mutation, taskId));
+                        result.SuccessTaskIds.Add(taskId);
+                    }
+                }, static (result, code) => result.Code = code, afterCommit: SendTaskSync);
+                return;
+            }
+            if (theatre3)
+            {
+                HandleTheatre3MultiTaskRequest(session, packet, request.TaskIds);
+                return;
+            }
+            if (bianca)
+            {
+                HandleBiancaMultiTaskRequest(session, packet, request.TaskIds);
+                return;
+            }
             FinishMultiTaskResponse response = new()
             {
                 Code = 0
@@ -680,6 +748,19 @@ namespace AscNet.GameServer.Handlers
             tasks.AddRange(BuildPassportTaskProgress(session)
                 .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
+            tasks.AddRange(BuildGuildAchievementProgress(session).Where(task => existingIds.Add((uint)task.TaskId)).Select(ToLoginTask));
+            tasks.AddRange(GuildWarModule.BuildTaskData(session)
+                .Where(task => existingIds.Add(task.Id))
+                .Select(task => new LoginTask
+                {
+                    Id = task.Id, State = task.State, RecordTime = task.RecordTime,
+                    Schedule = task.Schedule.Select(value => new LoginTaskSchedule { Id = value.Id, Value = value.Value }).ToList()
+                }));
+            tasks.AddRange(BuildBiancaTaskProgress(session.player.BiancaTheatre, session.player.MissionProgress.ClaimedTaskIds.Contains)
+                .Where(x => existingIds.Add((uint)x.TaskId))
+                .Select(ToLoginTask));
+            tasks.AddRange(Theatre3Module.BuildTasks(session).Where(task => existingIds.Add(task.Id)));
+            tasks.AddRange(TheatreModule.BuildTasks(session).Where(task => existingIds.Add(task.Id)));
             session.TaskSnapshotProgress = tasks.Where(task => SnapshotTaskIds.Value.Contains((int)task.Id))
                 .ToDictionary(task => (int)task.Id, task => (task.Schedule[0].Value, task.State));
             return tasks;
@@ -699,6 +780,19 @@ namespace AscNet.GameServer.Handlers
                         .Concat(BuildCurrentTaskProgress(session, loginOnly: true).Select(ToSyncTask))
                         .Concat(BuildPassportTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildTransfiniteTaskProgress(session).Select(ToSyncTask))
+                        .Concat(BuildGuildAchievementProgress(session).Select(ToSyncTask))
+                        .Concat(GuildWarModule.BuildTaskData(session))
+                        .Concat(BuildBiancaTaskProgress(session.player.BiancaTheatre, session.player.MissionProgress.ClaimedTaskIds.Contains).Select(ToSyncTask))
+                        .Concat(Theatre3Module.BuildTasks(session).Select(task => new SyncTask
+                        {
+                            Id = task.Id, State = task.State, RecordTime = task.RecordTime,
+                            Schedule = task.Schedule.Select(value => new SyncTaskSchedule { Id = value.Id, Value = value.Value }).ToList()
+                        }))
+                        .Concat(TheatreModule.BuildTasks(session).Select(task => new SyncTask
+                        {
+                            Id = task.Id, State = task.State, RecordTime = task.RecordTime,
+                            Schedule = task.Schedule.Select(value => new SyncTaskSchedule { Id = value.Id, Value = value.Value }).ToList()
+                        }))
                         .GroupBy(x => x.Id)
                         .Select(x => x.First())
                         .ToList()
@@ -714,6 +808,11 @@ namespace AscNet.GameServer.Handlers
         {
             if (session.player is null || session.character is null || session.inventory is null || session.stage is null
                 || session.TaskSnapshotProgress is null)
+                return;
+            // A rejected task intent must not consume its owner's pending claim in the post-request snapshot pass.
+            if (session.player.BiancaTheatre.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse)
+                || session.player.Theatre3.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse)
+                || session.player.Theatre.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse) or nameof(BuyResponse))
                 return;
             EnsureMissionResets(session);
             List<SyncTask>? changed = null;
@@ -762,6 +861,18 @@ namespace AscNet.GameServer.Handlers
             });
             RememberSnapshotTaskProgress(session, progress);
         }
+        private static List<MissionTaskProgress> BuildBiancaTaskProgress(BiancaTheatreState state, Func<int, bool> claimed) =>
+            BiancaTheatreModule.MetaTasks().Select(task =>
+            {
+                int target = task.Result ?? 1;
+                int value = Math.Min(state.TaskProgress.GetValueOrDefault(task.Condition), target);
+                return new MissionTaskProgress(task.Id, task.Condition, value,
+                    claimed(task.Id) ? TaskStateFinish : value >= target ? TaskStateAchieved : TaskStateActive);
+            }).ToList();
+
+        internal static NotifyTask BuildBiancaTaskSync(BiancaTheatreState state, Func<int, bool> claimed) =>
+            new() { Tasks = new() { Tasks = BuildBiancaTaskProgress(state, claimed).Select(ToSyncTask).ToList() } };
+
         private static bool IsDormTask(int taskId) =>
             TableReaderV2.Parse<TaskTable>().Any(task => task.Id == taskId && IsDormTask(task));
         private static bool IsDormTask(TaskTable task) =>
@@ -848,21 +959,24 @@ namespace AscNet.GameServer.Handlers
                 .Where(task => task.Type == 51 && PassportModule.IsActivePassportTask(session, task.Id))
                 .Select(task =>
                 {
-                    ConditionTable? condition = TableReaderV2.Parse<ConditionTable>()
-                        .FirstOrDefault(candidate => candidate.Id == task.Condition);
-                    int value = condition?.Type switch
-                    {
-                        10101 => 1,
-                        11203 => checked((int)Math.Min(
-                            int.MaxValue,
-                            session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.DailyActiveness)?.Count ?? 0)),
-                        _ => session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition)
-                    };
+                    int value = PassportTaskValue(session, task);
                     int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
                         ? TaskStateFinish
                         : value >= (task.Result ?? 1) ? TaskStateAchieved : TaskStateActive;
                     return new MissionTaskProgress(task.Id, task.Condition, value, state);
                 }).ToList();
+
+        private static int PassportTaskValue(Session session, TaskTable task, Func<int, long>? balance = null)
+        {
+            ConditionTable? condition = TableReaderV2.Parse<ConditionTable>().FirstOrDefault(row => row.Id == task.Condition);
+            return condition?.Type switch
+            {
+                10101 => 1,
+                11203 => checked((int)Math.Min(int.MaxValue, balance?.Invoke(Inventory.DailyActiveness)
+                    ?? session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.DailyActiveness)?.Count ?? 0)),
+                _ => session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition)
+            };
+        }
 
 
         private static List<MissionTaskProgress> BuildTransfiniteTaskProgress(Session session) =>
@@ -938,51 +1052,6 @@ namespace AscNet.GameServer.Handlers
         }
 
 
-        private static FinishTaskResponse? ClaimTransfiniteTaskReward(Session session, int taskId, out RewardApplicationResult? application)
-        {
-            application = null;
-            TaskTable? task = TransfiniteTasks(session).FirstOrDefault(task => task.Id == taskId);
-            if (task is null)
-            {
-                return null;
-            }
-            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
-            {
-                return new FinishTaskResponse { Code = 20026006 };
-            }
-            MissionTaskProgress? progress = BuildTransfiniteTaskProgress(session)
-                .FirstOrDefault(progress => progress.TaskId == taskId);
-            if (progress is null || progress.State != TaskStateAchieved)
-            {
-                return new FinishTaskResponse { Code = 20026007 };
-            }
-            List<RewardGoodsTable> rewards = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
-            if (rewards.Count == 0)
-            {
-                return new FinishTaskResponse { Code = 20026003 };
-            }
-            try
-            {
-                RewardApplicationResult applied = RewardHandler.ApplyRewardsOnceAndPersist(
-                    [new RewardGrant($"transfinite-task:{taskId}", rewards)], session);
-                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
-                try
-                {
-                    session.player.SaveChecked();
-                }
-                catch
-                {
-                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
-                    throw;
-                }
-                application = applied;
-                return new FinishTaskResponse { Code = 0, RewardGoodsList = applied.RewardGoods };
-            }
-            catch
-            {
-                return new FinishTaskResponse { Code = 20026003 };
-            }
-        }
 
 
 
@@ -1292,7 +1361,49 @@ namespace AscNet.GameServer.Handlers
                 }
             });
         }
-        internal static void RecordTableDrivenProgress(Session session, IEnumerable<(int ConditionType, int? Parameter, int Amount)> increments, bool sendNotification = true)
+        internal static void RecordTableDrivenProgress(GuildMutation mutation, int conditionType, int amount, int? parameter = null)
+        {
+            if (amount <= 0) return;
+            Session session = mutation.ActorSession;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            HashSet<int> active = TableReaderV2.Parse<TaskTable>().Where(task => IsTaskActive(task, now)
+                    && (task.Type != 51 || PassportModule.IsActivePassportTask(session, task.Id)))
+                .Select(task => task.Condition)
+                .Concat(CurrentTasksByPriority.Value.Where(task => IsCurrentTaskVisibleAtLogin(task, now)).Select(task => task.Condition))
+                .ToHashSet();
+            IEnumerable<int> conditions = TableReaderV2.Parse<ConditionTable>()
+                .Where(condition => condition.Type == conditionType && condition.Params.Count <= 2
+                    && (condition.Params.Count < 2 || condition.Params[1] == parameter))
+                .Select(condition => condition.Id)
+                .Concat(CurrentConditionsById.Value.Values.Where(condition => condition.Type == conditionType
+                    && condition.Params.Count <= 2 && (condition.Params.Count < 2 || condition.Params[1] == parameter))
+                    .Select(condition => condition.Id));
+            HashSet<int> changed = conditions.Where(active.Contains).ToHashSet();
+            foreach (int condition in changed)
+                mutation.AddTaskConditionProgress(session.player.PlayerData.Id, condition, amount);
+            if (changed.Count == 0) return;
+            SyncTask Progress(int id, int condition, int target)
+            {
+                int value = Math.Min(target, checked(session.player.MissionProgress.ConditionCounters.GetValueOrDefault(condition)
+                    + mutation.Participant(session.player.PlayerData.Id).ConditionCounters.GetValueOrDefault(condition)));
+                return ToSyncTask(new MissionTaskProgress(id, condition, value,
+                    mutation.IsTaskClaimed(session.player.PlayerData.Id, id) ? TaskStateFinish : value >= target ? TaskStateAchieved : TaskStateActive));
+            }
+            mutation.Push(session.player.PlayerData.Id, new NotifyTask
+            {
+                Tasks = new()
+                {
+                    Tasks = TableReaderV2.Parse<TaskTable>().Where(task => changed.Contains(task.Condition) && IsTaskActive(task, now)
+                            && (task.Type != 51 || PassportModule.IsActivePassportTask(session, task.Id)))
+                        .Select(task => Progress(task.Id, task.Condition, task.Result ?? 1))
+                        .Concat(CurrentTasksByPriority.Value.Where(task => changed.Contains(task.Condition) && IsCurrentTaskVisibleAtLogin(task, now))
+                            .Select(task => Progress(task.Id, task.Condition, task.Result)))
+                        .DistinctBy(task => task.Id).ToList()
+                }
+            });
+        }
+
+        internal static void RecordTableDrivenProgress(Session session, IEnumerable<(int ConditionType, int? Parameter, int Amount)> increments, bool sendNotification = true, TheatreModule.Mutation? theatre = null)
         {
             Dictionary<(int ConditionType, int? Parameter), int> amounts = increments
                 .Where(increment => increment.Amount > 0)
@@ -1319,14 +1430,14 @@ namespace AscNet.GameServer.Handlers
                 .Select(condition => (condition.Id, Amount: Amount(condition.Type, condition.Params)))
                 .Where(condition => condition.Amount > 0)
                 .ToDictionary(condition => condition.Id, condition => condition.Amount);
-            RecordConditionAmounts(session, conditionAmounts, currentAmounts, sendNotification);
+            RecordConditionAmounts(session, conditionAmounts, currentAmounts, sendNotification, theatre);
         }
 
-        private static void RecordConditionAmounts(Session session, Dictionary<int, int> conditionAmounts, Dictionary<int, int> currentAmounts, bool sendNotification = true)
+        private static void RecordConditionAmounts(Session session, Dictionary<int, int> conditionAmounts, Dictionary<int, int> currentAmounts, bool sendNotification = true, TheatreModule.Mutation? theatre = null)
         {
             if (conditionAmounts.Count == 0 && currentAmounts.Count == 0)
                 return;
-            EnsureMissionResets(session);
+            if (theatre is null) EnsureMissionResets(session);
             DateTimeOffset now = DateTimeOffset.UtcNow;
             List<TaskTable> tasks = TableReaderV2.Parse<TaskTable>()
                 .Where(task => conditionAmounts.ContainsKey(task.Condition)
@@ -1341,6 +1452,31 @@ namespace AscNet.GameServer.Handlers
             if (tasks.Count == 0 && currentAmounts.Count == 0) return;
 
             HashSet<int> legacyConditions = tasks.Select(task => task.Condition).ToHashSet();
+            if (theatre is not null)
+            {
+                foreach (int conditionId in legacyConditions)
+                    theatre.AddTaskConditionProgress(conditionId, conditionAmounts[conditionId]);
+                foreach ((int conditionId, int amount) in currentAmounts)
+                    if (!legacyConditions.Contains(conditionId))
+                        theatre.AddTaskConditionProgress(conditionId, amount);
+                SyncTask Progress(int id, int condition, int target)
+                {
+                    int value = Math.Min(theatre.GetTaskConditionProgress(condition), target);
+                    int state = session.player.MissionProgress.ClaimedTaskIds.Contains(id)
+                        ? TaskStateFinish : value >= target ? TaskStateAchieved : TaskStateActive;
+                    return ToSyncTask(new MissionTaskProgress(id, condition, value, state));
+                }
+                theatre.Push(new NotifyTask
+                {
+                    Tasks = new()
+                    {
+                        Tasks = tasks.Select(task => Progress(task.Id, task.Condition, task.Result ?? 1))
+                            .Concat(currentTasks.Select(task => Progress(task.Id, task.Condition, task.Result)))
+                            .DistinctBy(task => task.Id).ToList()
+                    }
+                });
+                return;
+            }
             Dictionary<int, int> counters = session.player.MissionProgress.ConditionCounters;
             Dictionary<int, int?> previous = legacyConditions.Concat(currentAmounts.Keys).Distinct()
                 .ToDictionary(id => id, id => counters.TryGetValue(id, out int value) ? (int?)value : null);
@@ -1479,341 +1615,290 @@ namespace AscNet.GameServer.Handlers
             RememberSnapshotTaskProgress(session, progress);
         }
 
-        private static FinishTaskResponse ClaimTaskReward(
-            Session session,
-            int taskId,
-            bool pushSync,
-            out RewardApplicationResult? transfiniteApplication,
-            out RewardApplicationResult? passportApplication)
+        private static IEnumerable<TaskTable> GuildAchievementTasks()
         {
-            transfiniteApplication = null;
-            passportApplication = null;
-            EnsureMissionResets(session);
-            FinishTaskResponse? transfiniteTaskResponse = ClaimTransfiniteTaskReward(session, taskId, out transfiniteApplication);
-            if (transfiniteTaskResponse is not null)
-            {
-                return transfiniteTaskResponse;
-            }
-            if (PassportModule.IsActivePassportTask(session, taskId))
-            {
-                return ClaimPassportTaskReward(session, taskId, out passportApplication);
-            }
-            CurrentTaskTable? currentTask = TableReaderV2.Parse<CurrentTaskTable>().FirstOrDefault(x => x.Id == taskId);
-            if (currentTask is null)
-            {
-                FinishTaskResponse? dormTaskResponse = ClaimDormTaskReward(session, taskId, pushSync);
-                if (dormTaskResponse is not null)
+            HashSet<int> conditions = TableReaderV2.Parse<ConditionTable>()
+                .Where(condition => condition.Type is >= 35000 and <= 35003
+                    || condition.Type == 15216 && condition.Params.Count > 1 && condition.Params[0] == 28)
+                .Select(condition => condition.Id).ToHashSet();
+            return TableReaderV2.Parse<TaskTable>().Where(task => task.Type is 6 or 23 && conditions.Contains(task.Condition));
+        }
+
+        private static IEnumerable<MissionTaskProgress> BuildGuildAchievementProgress(Session session, Func<int, bool>? claimed = null)
+        {
+            claimed ??= session.player.MissionProgress.ClaimedTaskIds.Contains;
+            Guild? guild = GuildModule.FindMembership(session.player.PlayerData.Id);
+            bool member = guild is not null && GuildModule.Rank(guild, session.player.PlayerData.Id) is >= 1 and <= 4;
+            Dictionary<int, ConditionTable> conditions = TableReaderV2.Parse<ConditionTable>().ToDictionary(condition => condition.Id);
+            return GuildAchievementTasks().Where(task => IsTaskActive(task, DateTimeOffset.UtcNow))
+                .Select(task =>
                 {
-                    return dormTaskResponse;
-                }
-                if (TableReaderV2.Parse<StoryTaskTable>().Any(task => task.Id == taskId))
-                {
-                    return ClaimStoryTaskReward(session, taskId, pushSync);
-                }
-                return ClaimLifeTreeTaskReward(session, taskId, pushSync);
-            }
+                    int value = !member ? 0 : conditions[task.Condition].Type switch
+                    {
+                        35000 => 1,
+                        35001 => checked((int)Math.Max(0, GuildModule.DailyPeriod(DateTimeOffset.UtcNow)
+                            - GuildModule.DailyPeriod(DateTimeOffset.FromUnixTimeSeconds(guild!.Members[session.player.PlayerData.Id].JoinedAt)) + 1)),
+                        35002 => guild!.Level,
+                        35003 => guild!.MemberIds.Count(uid => GuildModule.Rank(guild, uid) is >= 1 and <= 4),
+                        _ => session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition)
+                    };
+                    value = Math.Min(value, task.Result ?? 1);
+                    bool prerequisite = task.ShowAfterTaskId is not > 0 || claimed(task.ShowAfterTaskId.Value);
+                    return new MissionTaskProgress(task.Id, task.Condition, value,
+                        claimed(task.Id) ? TaskStateFinish : member && prerequisite && value >= (task.Result ?? 1) ? TaskStateAchieved : TaskStateActive);
+                });
+        }
 
-            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
-            {
-                return new FinishTaskResponse { Code = 20026006 };
-            }
+        private enum TaskClaimKind { Current, Transfinite, Passport, Dorm, Story, LifeTree, GuildAchievement }
 
-            MissionTaskProgress? progress = BuildCurrentTaskProgress(session, loginOnly: false).FirstOrDefault(x => x.TaskId == taskId);
-            if (progress is null || progress.State != TaskStateAchieved)
-            {
-                return new FinishTaskResponse { Code = 20026007 };
-            }
+        private sealed record PreparedTaskClaim(int TaskId, TaskClaimKind Kind, string ClaimKey, List<RewardGoodsTable> Goods);
 
-            List<RewardGoodsTable> rewardGoods = GetCurrentRewardGoods(currentTask.RewardId);
-            if (rewardGoods.Count == 0)
+        // Preparation is read-only. Ordinary claims and mixed mode batches share this validation order.
+        private static PreparedTaskClaim? PrepareTaskClaim(Session session, int taskId, out int code,
+            Func<int, bool>? claimed = null, Func<int, bool>? storyClaimed = null, Func<int, long>? balance = null)
+        {
+            claimed ??= session.player.MissionProgress.ClaimedTaskIds.Contains;
+            storyClaimed ??= session.stage.FinishedTasks.Contains;
+            balance ??= itemId => session.inventory.Items.Where(item => item.Id == itemId).Sum(item => (long)item.Count);
+            code = 0;
+            TaskClaimKind kind;
+            string key;
+            bool achieved;
+            List<RewardGoodsTable> goods;
+            TaskTable? task = TransfiniteTasks(session).FirstOrDefault(row => row.Id == taskId);
+            TaskTable? guildTask = GuildAchievementTasks().FirstOrDefault(row => row.Id == taskId);
+            if (guildTask is not null)
             {
-                return new FinishTaskResponse { Code = 20026003 };
+                kind = TaskClaimKind.GuildAchievement;
+                key = $"guild-achievement:{taskId}";
+                achieved = BuildGuildAchievementProgress(session, claimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
+                goods = RewardHandler.GetRewardGoods(guildTask.RewardId ?? 0);
             }
-
-            RewardApplicationResult application;
-            try
+            else if (task is not null)
             {
-                string claimKey = currentTask.Type switch
+                kind = TaskClaimKind.Transfinite;
+                key = $"transfinite-task:{taskId}";
+                achieved = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition) >= (task.Result ?? 1);
+                goods = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
+            }
+            else if (PassportModule.IsActivePassportTask(session, taskId))
+            {
+                task = TableReaderV2.Parse<TaskTable>().FirstOrDefault(row => row.Id == taskId && row.Type == 51);
+                if (task is null) { code = 20026007; return null; }
+                kind = TaskClaimKind.Passport;
+                key = PassportModule.PassportTaskClaimKey(session, taskId);
+                achieved = PassportTaskValue(session, task, balance) >= (task.Result ?? 1);
+                goods = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
+            }
+            else if (TableReaderV2.Parse<CurrentTaskTable>().FirstOrDefault(row => row.Id == taskId) is { } current)
+            {
+                kind = TaskClaimKind.Current;
+                key = current.Type switch
                 {
                     2 => $"current-task:{taskId}:{session.player.MissionProgress.DailyResetDay}",
                     3 => $"current-task:{taskId}:{session.player.MissionProgress.WeeklyResetWeek}",
                     10 => $"current-task:{taskId}:{session.player.SimulatedBattlefield.ArenaActivityNo}",
                     _ => $"current-task:{taskId}"
                 };
-                application = RewardHandler.ApplyRewardsOnceAndPersist([new RewardGrant(claimKey, rewardGoods)], session);
-                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
-                try
-                {
-                    session.player.SaveChecked();
-                }
-                catch
-                {
-                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
-                    throw;
-                }
+                achieved = EvaluateCurrentTask(session, current, DateTimeOffset.UtcNow, claimed, balance).State == TaskStateAchieved;
+                goods = GetCurrentRewardGoods(current.RewardId);
             }
-            catch (Exception exception)
+            else if (TableReaderV2.Parse<TaskTable>().FirstOrDefault(row => row.Id == taskId && IsDormTask(row)) is { } dorm)
             {
-                session.log.Error($"Failed to persist current task reward {taskId}: {exception}");
-                return new FinishTaskResponse { Code = 20026003 };
+                kind = TaskClaimKind.Dorm;
+                key = dorm.Type == DormDailyTaskType ? $"dorm-task:{taskId}:{session.player.MissionProgress.DailyResetDay}" : $"dorm-task:{taskId}";
+                ConditionTable? condition = TableReaderV2.Parse<ConditionTable>().FirstOrDefault(row => row.Id == dorm.Condition);
+                achieved = condition is not null && condition.Type is >= 29000 and < 29100
+                    && IsTaskActive(dorm, DateTimeOffset.UtcNow)
+                    && (dorm.ShowAfterTaskId is not > 0 || claimed(dorm.ShowAfterTaskId.Value))
+                    && session.player.MissionProgress.ConditionCounters.GetValueOrDefault(dorm.Condition) >= (dorm.Result ?? 1);
+                goods = RewardHandler.GetRewardGoods(dorm.RewardId ?? 0);
             }
-            application.SendPushes(session);
-            if (pushSync)
+            else if (TableReaderV2.Parse<StoryTaskTable>().FirstOrDefault(row => row.Id == taskId) is { } story)
             {
-                SendTaskSync(session);
+                kind = TaskClaimKind.Story;
+                key = $"story-task:{taskId}";
+                achieved = BuildStoryTaskProgress(session, storyClaimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
+                goods = RewardHandler.GetRewardGoods(story.RewardId);
             }
-
-            return new FinishTaskResponse
+            else
             {
-                Code = 0,
-                RewardGoodsList = application.RewardGoods
-            };
+                task = TableReaderV2.Parse<LifeTreeTask>().FirstOrDefault(row => row.Id == taskId
+                    && TableReaderV2.Parse<LifeTreeTaskCondition>().Any(condition => condition.Id == row.Condition && condition.Type == 137001));
+                if (task is null) { code = 20026005; return null; }
+                kind = TaskClaimKind.LifeTree;
+                key = $"lifetree-task:{taskId}";
+                achieved = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition) >= Math.Max(1, task.Result ?? 1);
+                goods = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
+            }
+            if (kind == TaskClaimKind.Story ? storyClaimed(taskId) : claimed(taskId)) code = 20026006;
+            else if (!achieved) code = 20026007;
+            else if (goods.Count == 0) code = 20026003;
+            return code == 0 ? new(taskId, kind, key, goods) : null;
         }
 
-        private static FinishTaskResponse ClaimPassportTaskReward(
-            Session session,
-            int taskId,
-            out RewardApplicationResult? application)
+        private static FinishTaskResponse ClaimTaskReward(Session session, int taskId, bool pushSync,
+            out RewardApplicationResult? transfiniteApplication, out RewardApplicationResult? passportApplication)
         {
-            application = null;
-            TaskTable? task = TableReaderV2.Parse<TaskTable>()
-                .FirstOrDefault(candidate => candidate.Id == taskId && candidate.Type == 51);
-            if (task is null || !PassportModule.IsActivePassportTask(session, taskId))
-                return new FinishTaskResponse { Code = 20026007 };
-            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
-                return new FinishTaskResponse { Code = 20026006 };
-
-            MissionTaskProgress? progress = BuildPassportTaskProgress(session)
-                .FirstOrDefault(candidate => candidate.TaskId == taskId);
-            if (progress is null || progress.State != TaskStateAchieved)
-                return new FinishTaskResponse { Code = 20026007 };
-
-            List<RewardGoodsTable> goods = task.RewardId is > 0
-                ? RewardHandler.GetRewardGoods(task.RewardId.Value)
-                : [];
-            if (goods.Count == 0)
-                return new FinishTaskResponse { Code = 20026003 };
-
-            int activityId = session.player.Passport.ActivityId;
-            session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
-            try
-            {
-                application = RewardHandler.ApplyRewardsOnceAndPersist(
-                    [new RewardGrant(PassportModule.PassportTaskClaimKey(session, taskId), goods)],
-                    session);
-                session.player.SaveChecked();
-            }
-            catch
-            {
-                session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
-                application = null;
-                return new FinishTaskResponse { Code = 20026003 };
-            }
-
-            if (goods.Any(good => good.TemplateId == Inventory.PassportExp))
-                session.SendPush(new NotifyPassportBaseInfo
-                {
-                    BaseInfo = PassportModule.ReadBaseInfo(session, activityId)
-                });
-            return new FinishTaskResponse
-            {
-                Code = 0,
-                RewardGoodsList = application.RewardGoods
-            };
-        }
-
-        private static FinishTaskResponse? ClaimDormTaskReward(Session session, int taskId, bool pushSync)
-        {
-            TaskTable? task = TableReaderV2.Parse<TaskTable>().FirstOrDefault(candidate =>
-                candidate.Id == taskId && IsDormTask(candidate));
-            if (task is null)
-            {
-                return null;
-            }
-
+            transfiniteApplication = null;
+            passportApplication = null;
             EnsureMissionResets(session);
-            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
+            if (GuildWarModule.TryGetTaskProgress(session, taskId, out _, out _))
             {
-                return new FinishTaskResponse { Code = 20026006 };
-            }
-
-            ConditionTable? condition = TableReaderV2.Parse<ConditionTable>().FirstOrDefault(candidate => candidate.Id == task.Condition);
-            if (condition is null
-                || condition.Type is < 29000 or >= 29100
-                || !IsTaskActive(task, DateTimeOffset.UtcNow)
-                || task.ShowAfterTaskId is > 0 && !session.player.MissionProgress.ClaimedTaskIds.Contains(task.ShowAfterTaskId.Value)
-                || session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition) < (task.Result ?? 1))
-            {
-                return new FinishTaskResponse { Code = 20026007 };
-            }
-
-            List<RewardGoodsTable> rewardGoods = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
-            if (rewardGoods.Count == 0)
-            {
-                return new FinishTaskResponse { Code = 20026003 };
-            }
-
-            RewardApplicationResult rewardApplication;
-            try
-            {
-                string claimKey = task.Type == DormDailyTaskType
-                    ? $"dorm-task:{taskId}:{session.player.MissionProgress.DailyResetDay}"
-                    : $"dorm-task:{taskId}";
-                rewardApplication = RewardHandler.ApplyRewardsOnceAndPersist(
-                    [new RewardGrant(claimKey, rewardGoods)],
-                    session);
-                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
                 try
                 {
-                    session.player.SaveChecked();
+                    List<RewardGoods> rewards = [];
+                    GuildModule.Commit(session, GuildModule.RequireMembership(session), mutation =>
+                        rewards = GuildWarModule.ClaimTask(mutation, taskId));
+                    return new() { RewardGoodsList = rewards };
                 }
-                catch
+                catch (AscNet.Common.ServerCodeException exception) { return new() { Code = exception.Code }; }
+            }
+            PreparedTaskClaim? plan = PrepareTaskClaim(session, taskId, out int code);
+            if (plan is null) return new() { Code = code };
+            RewardApplicationResult application;
+            try
+            {
+                application = RewardHandler.ApplyRewardsOnceAndPersist([new RewardGrant(plan.ClaimKey, plan.Goods)], session);
+                if (plan.Kind == TaskClaimKind.Story)
                 {
-                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
-                    throw;
+                    session.stage.FinishedTasks.Add(taskId);
+                    try { session.stage.SaveChecked(); }
+                    catch { session.stage.FinishedTasks.Remove(taskId); throw; }
+                }
+                else
+                {
+                    session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
+                    try { session.player.SaveChecked(); }
+                    catch { session.player.MissionProgress.ClaimedTaskIds.Remove(taskId); throw; }
                 }
             }
             catch (Exception exception)
             {
-                session.log.Error($"Failed to persist Dorm task reward {taskId}: {exception}");
-                return new FinishTaskResponse { Code = 20026003 };
+                session.log.Error($"Failed to persist task reward {taskId}: {exception}");
+                return new() { Code = 20026003 };
             }
-
-            rewardApplication.SendPushes(session);
-            if (pushSync)
+            if (plan.Kind == TaskClaimKind.Transfinite) transfiniteApplication = application;
+            else if (plan.Kind == TaskClaimKind.Passport)
             {
-                SendTaskSync(session);
+                passportApplication = application;
+                if (plan.Goods.Any(good => good.TemplateId == Inventory.PassportExp))
+                    session.SendPush(new NotifyPassportBaseInfo { BaseInfo = PassportModule.ReadBaseInfo(session, session.player.Passport.ActivityId) });
             }
-            return new FinishTaskResponse
+            else
             {
-                Code = 0,
-                RewardGoodsList = rewardApplication.RewardGoods
-            };
+                application.SendPushes(session);
+                if (pushSync) SendTaskSync(session);
+            }
+            return new() { RewardGoodsList = application.RewardGoods };
         }
 
-        private static FinishTaskResponse ClaimLifeTreeTaskReward(Session session, int taskId, bool pushSync)
+        private static void HandleTheatre3MultiTaskRequest(Session session, Packet.Request packet, IReadOnlyCollection<int> taskIds)
         {
-            EnsureMissionResets(session);
-            LifeTreeTask? task = TableReaderV2.Parse<LifeTreeTask>().FirstOrDefault(candidate =>
-                candidate.Id == taskId
-                && TableReaderV2.Parse<LifeTreeTaskCondition>().Any(condition =>
-                    condition.Id == candidate.Condition && condition.Type == 137001));
-            if (task is null)
+            Theatre3Module.Handle<FinishMultiTaskRequest, FinishMultiTaskResponse>(session, packet, (mutation, body, result) =>
             {
-                return new FinishTaskResponse { Code = 20026005 };
-            }
-            if (session.player.MissionProgress.ClaimedTaskIds.Contains(taskId))
-            {
-                return new FinishTaskResponse { Code = 20026006 };
-            }
-
-            MissionTaskProgress? progress = BuildLifeTreeTaskProgress(session)
-                .FirstOrDefault(candidate => candidate.TaskId == taskId);
-            if (progress is null || progress.State != TaskStateAchieved)
-            {
-                return new FinishTaskResponse { Code = 20026007 };
-            }
-
-            List<RewardGoodsTable> rewardGoods = RewardHandler.GetRewardGoods(task.RewardId ?? 0);
-            if (rewardGoods.Count == 0)
-            {
-                return new FinishTaskResponse { Code = 20026003 };
-            }
-
-            RewardApplicationResult rewardApplication;
-            try
-            {
-                rewardApplication = RewardHandler.ApplyRewardsOnceAndPersist(
-                    [new RewardGrant($"lifetree-task:{taskId}", rewardGoods)],
-                    session);
-                session.player.MissionProgress.ClaimedTaskIds.Add(taskId);
-                try
+                // Guild War claims need their own seasonal journal; never partially commit a cross-journal batch.
+                if (body.TaskIds.Any(taskId => GuildWarModule.TryGetTaskProgress(session, taskId, out _, out _)))
                 {
-                    session.player.SaveChecked();
+                    result.NotDealTaskIds.AddRange(body.TaskIds.Distinct());
+                    return;
                 }
-                catch
+                HashSet<int> biancaIds = BiancaTheatreModule.MetaTasks().Select(task => task.Id).ToHashSet();
+                foreach (int taskId in body.TaskIds.Distinct())
                 {
-                    session.player.MissionProgress.ClaimedTaskIds.Remove(taskId);
-                    throw;
+                    if (Theatre3Module.IsMetaTask(taskId))
+                    {
+                        if (!Theatre3Module.CanClaim(mutation, taskId)) { result.NotDealTaskIds.Add(taskId); continue; }
+                        result.RewardGoodsList.AddRange(Theatre3Module.Claim(mutation, taskId));
+                        result.SuccessTaskIds.Add(taskId);
+                        continue;
+                    }
+                    if (biancaIds.Contains(taskId))
+                    {
+                        BiancaTheatreModule.Mutation bianca = new(session);
+                        FinishTaskResponse claim = BiancaTheatreModule.ClaimMetaTask(bianca, taskId);
+                        if (claim.Code != 0) { result.NotDealTaskIds.Add(taskId); continue; }
+                        if (bianca.Goods.Count > 0) mutation.Grant(new RewardGrant($"bianca-task:{taskId}", bianca.Goods));
+                        mutation.MarkTaskClaimed(taskId);
+                        mutation.RecordBiancaTaskProgress(bianca.State.TaskProgress, bianca.State.ReachedChapterIds);
+                        mutation.Push(BuildBiancaTaskSync(bianca.State, mutation.IsTaskClaimed));
+                        result.SuccessTaskIds.Add(taskId);
+                        result.RewardGoodsList.AddRange(claim.RewardGoodsList);
+                        continue;
+                    }
+                    PreparedTaskClaim? plan = PrepareTaskClaim(session, taskId, out _, mutation.IsTaskClaimed, mutation.IsStoryTaskClaimed, mutation.Balance);
+                    if (plan is null) { result.NotDealTaskIds.Add(taskId); continue; }
+                    mutation.Grant(new RewardGrant(plan.ClaimKey, plan.Goods));
+                    if (plan.Kind == TaskClaimKind.Story) mutation.MarkStoryTaskClaimed(taskId);
+                    else mutation.MarkTaskClaimed(taskId);
+                    result.SuccessTaskIds.Add(taskId);
+                    result.RewardGoodsList.AddRange(plan.Goods.Select(row => new RewardGoods
+                    {
+                        Id = row.Id, TemplateId = row.TemplateId, Count = row.Count,
+                        RewardType = (int)(RewardHandler.GetRewardType(row) ?? throw new InvalidOperationException($"Unsupported task reward {row.Id}."))
+                    }));
                 }
-            }
-            catch (Exception exception)
-            {
-                session.log.Error($"Failed to persist LifeTree task reward {taskId}: {exception}");
-                return new FinishTaskResponse { Code = 20026003 };
-            }
-            rewardApplication.SendPushes(session);
-            if (pushSync)
-            {
-                SendTaskSync(session);
-            }
-
-            return new FinishTaskResponse
-            {
-                Code = 0,
-                RewardGoodsList = rewardApplication.RewardGoods
-            };
+            }, static (result, code) => result.Code = code, afterCommit: committed => SendBiancaTaskClaimUpdates(committed, taskIds));
         }
 
-        private static FinishTaskResponse ClaimStoryTaskReward(Session session, int taskId, bool pushSync)
+        private static void HandleBiancaMultiTaskRequest(Session session, Packet.Request packet, IReadOnlyCollection<int> taskIds)
         {
-            StoryTaskTable? task = TableReaderV2.Parse<StoryTaskTable>().FirstOrDefault(x => x.Id == taskId);
-            if (task is null)
+            BiancaTheatreModule.Handle<FinishMultiTaskRequest, FinishMultiTaskResponse>(session, packet, (mutation, body, result) =>
             {
-                return new FinishTaskResponse { Code = 20026005 };
-            }
-
-            if (session.stage.FinishedTasks.Contains(taskId))
-            {
-                return new FinishTaskResponse { Code = 20026006 };
-            }
-
-            StoryTaskProgress? progress = BuildStoryTaskProgress(session).FirstOrDefault(x => x.TaskId == taskId);
-            if (progress is null || progress.State != TaskStateAchieved)
-            {
-                return new FinishTaskResponse { Code = 20026007 };
-            }
-
-            List<RewardGoodsTable> rewardGoods = RewardHandler.GetRewardGoods(task.RewardId);
-            if (rewardGoods.Count == 0)
-            {
-                return new FinishTaskResponse { Code = 20026003 };
-            }
-
-            if (!session.stage.AddFinishedTask(taskId))
-            {
-                return new FinishTaskResponse { Code = 20026006 };
-            }
-
-            RewardApplicationResult application = RewardHandler.ApplyRewards(rewardGoods, session);
-            session.inventory.Save();
-            session.character.Save();
-            session.stage.Save();
-            if (application.DormFurnitureChanged || application.GatherRewardIds.Count > 0 || application.HeadPortraitData.Heads.Count > 0)
-                session.player.Save();
-            application.SendPushes(session);
-
-            if (pushSync)
-            {
-                SendTaskSync(session);
-            }
-
-            return new FinishTaskResponse
-            {
-                Code = 0,
-                RewardGoodsList = application.RewardGoods
-            };
+                HashSet<int> biancaIds = BiancaTheatreModule.MetaTasks().Select(task => task.Id).ToHashSet();
+                foreach (int taskId in body.TaskIds.Distinct())
+                {
+                    if (biancaIds.Contains(taskId))
+                    {
+                        FinishTaskResponse claim = BiancaTheatreModule.ClaimMetaTask(mutation, taskId);
+                        if (claim.Code != 0) { result.NotDealTaskIds.Add(taskId); continue; }
+                        result.SuccessTaskIds.Add(taskId);
+                        result.RewardGoodsList.AddRange(claim.RewardGoodsList);
+                        continue;
+                    }
+                    if (GuildWarModule.TryGetTaskProgress(session, taskId, out _, out _))
+                    {
+                        FinishTaskResponse claim = ClaimTaskReward(session, taskId, false, out _, out _);
+                        if (claim.Code != 0) { result.NotDealTaskIds.Add(taskId); continue; }
+                        result.SuccessTaskIds.Add(taskId);
+                        result.RewardGoodsList.AddRange(claim.RewardGoodsList);
+                        continue;
+                    }
+                    PreparedTaskClaim? plan = PrepareTaskClaim(session, taskId, out _, mutation.IsTaskClaimed, mutation.IsStoryTaskClaimed, mutation.Balance);
+                    if (plan is null) { result.NotDealTaskIds.Add(taskId); continue; }
+                    List<RewardGoods> goods = plan.Goods.Select(row => new RewardGoods
+                    {
+                        Id = row.Id, TemplateId = row.TemplateId, Count = row.Count,
+                        RewardType = (int)(RewardHandler.GetRewardType(row) ?? throw new InvalidOperationException($"Unsupported task reward {row.Id}."))
+                    }).ToList();
+                    mutation.AddRewardGrant(plan.ClaimKey, plan.Goods);
+                    if (plan.Kind == TaskClaimKind.Story) mutation.MarkStoryTaskClaimed(taskId);
+                    else mutation.MarkTaskClaimed(taskId);
+                    result.SuccessTaskIds.Add(taskId);
+                    result.RewardGoodsList.AddRange(goods);
+                }
+            }, static (result, code) => result.Code = code, committed => SendBiancaTaskClaimUpdates(committed, taskIds));
         }
 
-        private static List<StoryTaskProgress> BuildStoryTaskProgress(Session session)
+        private static void SendBiancaTaskClaimUpdates(Session session, IReadOnlyCollection<int> taskIds)
         {
+            SendTaskSync(session);
+            if (taskIds.Any(id => session.player.MissionProgress.ClaimedTaskIds.Contains(id) || session.stage.FinishedTasks.Contains(id)))
+                WheelchairManualGuideManager.SendUpdate(session);
+            if (taskIds.Any(id => PassportModule.IsActivePassportTask(session, id)))
+                session.SendPush(new NotifyPassportBaseInfo { BaseInfo = PassportModule.ReadBaseInfo(session, session.player.Passport.ActivityId) });
+        }
+
+        private static List<StoryTaskProgress> BuildStoryTaskProgress(Session session, Func<int, bool>? claimed = null)
+        {
+            claimed ??= session.stage.FinishedTasks.Contains;
             Dictionary<int, StoryTaskTable> tasks = TableReaderV2.Parse<StoryTaskTable>().ToDictionary(x => x.Id);
             Dictionary<int, StoryTaskConditionTable> conditions = TableReaderV2.Parse<StoryTaskConditionTable>().ToDictionary(x => x.Id);
             Dictionary<int, int> progressCache = new();
 
             int GetProgress(StoryTaskTable task)
             {
-                if (session.stage.FinishedTasks.Contains(task.Id))
+                if (claimed(task.Id))
                 {
                     return task.Result;
                 }
@@ -1840,7 +1925,7 @@ namespace AscNet.GameServer.Handlers
                 .Select(task =>
                 {
                     int progress = GetProgress(task);
-                    int state = session.stage.FinishedTasks.Contains(task.Id)
+                    int state = claimed(task.Id)
                         ? TaskStateFinish
                         : progress >= task.Result ? TaskStateAchieved : TaskStateActive;
                     return new StoryTaskProgress(task.Id, task.Condition, progress, state);
@@ -1923,23 +2008,25 @@ namespace AscNet.GameServer.Handlers
                 .ToList();
         }
 
-        private static (int ConditionId, int Value, int State) EvaluateCurrentTask(Session session, CurrentTaskTable task, DateTimeOffset now)
+        private static (int ConditionId, int Value, int State) EvaluateCurrentTask(Session session, CurrentTaskTable task, DateTimeOffset now,
+            Func<int, bool>? claimed = null, Func<int, long>? balance = null)
         {
+            claimed ??= session.player.MissionProgress.ClaimedTaskIds.Contains;
             CurrentConditionTable? condition = CurrentConditionsById.Value.GetValueOrDefault(task.Condition);
             int conditionId = condition?.Id ?? task.Id;
-            int value = condition is null ? 0 : EvaluateCurrentCondition(session, condition);
+            int value = condition is null ? 0 : EvaluateCurrentCondition(session, condition, balance);
             if (condition?.Type is not (28003 or 28006))
                 value = Math.Min(value, task.Result);
             bool prerequisiteSatisfied = task.PreTaskId == 0
-                || session.player.MissionProgress.ClaimedTaskIds.Contains(task.PreTaskId)
+                || claimed(task.PreTaskId)
                 || !CurrentTaskIds.Value.Contains(task.PreTaskId);
-            int state = session.player.MissionProgress.ClaimedTaskIds.Contains(task.Id)
+            int state = claimed(task.Id)
                 ? TaskStateFinish
                 : IsTaskActive(task, now) && prerequisiteSatisfied && value >= task.Result ? TaskStateAchieved : TaskStateActive;
             return (conditionId, value, state);
         }
 
-        private static int EvaluateCurrentCondition(Session session, CurrentConditionTable condition)
+        private static int EvaluateCurrentCondition(Session session, CurrentConditionTable condition, Func<int, long>? balance = null)
         {
             List<int> parameters = condition.Params;
             int stored = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(condition.Id);
@@ -1948,7 +2035,10 @@ namespace AscNet.GameServer.Handlers
                 10101 => (int)session.player.PlayerData.Level,
                 10102 => 1,
                 10202 => Math.Max(0, session.player.PlayerData.NewPlayerTaskActiveDay),
-                11201 => (int)Math.Min(int.MaxValue, session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.Coin)?.Count ?? 0),
+                35002 => GuildModule.FindMembership(session.player.PlayerData.Id) is { } guild
+                    && GuildModule.Rank(guild, session.player.PlayerData.Id) is >= 1 and <= 4 ? guild.Level : 0,
+                11201 => (int)Math.Min(int.MaxValue, balance?.Invoke(Inventory.Coin)
+                    ?? session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.Coin)?.Count ?? 0),
                 12201 => CountQualifyingEquipment(session, parameters),
                 12208 => Math.Max(stored, session.player.EquipGuideData.FinishedTargets.Any(EquipGuideTargetsById.Value.ContainsKey)
                     || EquipGuideTargetsById.Value.TryGetValue(session.player.EquipGuideData.TargetId, out EquipTargetTable? target)
@@ -2133,8 +2223,29 @@ namespace AscNet.GameServer.Handlers
             }
         }
 
+        private static void PrepareTaskRequest(Session session, bool bianca, bool theatre)
+        {
+            // A foreign task journal must commit before cloning this mode; the owning handler keeps its intent check.
+            if (!theatre && session.player.Theatre.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse) or nameof(BuyResponse))
+                TheatreModule.ReplayPending(session);
+            if (!bianca && session.player.BiancaTheatre.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse))
+                BiancaTheatreModule.ReplayPending(session);
+            if (session.player.Theatre3.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse))
+                Theatre3Module.ReplayPending(session);
+            if (!(bianca && session.player.BiancaTheatre.PendingMutation is not null)
+                && !(theatre && session.player.Theatre.PendingMutation is not null))
+                EnsureMissionResets(session);
+        }
+
         internal static void EnsureMissionResets(Session session)
         {
+            // Restore old-period claims before clearing them and recording new-period progress.
+            if (session.player.Theatre.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse) or nameof(BuyResponse))
+                TheatreModule.ReplayPending(session);
+            if (session.player.BiancaTheatre.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse))
+                BiancaTheatreModule.ReplayPending(session);
+            if (session.player.Theatre3.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse))
+                Theatre3Module.ReplayPending(session);
             session.player.MissionProgress ??= new MissionProgressState();
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             long day = CurrentDailyResetPeriod(timestamp);

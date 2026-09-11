@@ -122,7 +122,9 @@ namespace AscNet.GameServer.Handlers
         public long[] PlayerIds { get; set; }
         public dynamic[] PlayerData { get; set; }
         public dynamic? IntToIntRecord { get; set; }
-        public dynamic? StringToIntRecord { get; set; }
+        public Dictionary<string, int>? StringToIntRecord { get; set; } = new();
+        public Dictionary<int, Dictionary<int, int>> DamageSourceDic { get; set; } = new();
+        public Dictionary<string, List<int>> StringToListIntRecord { get; set; } = new();
         public Dictionary<long, Operation> Operations { get; set; }
         public long[] Codes { get; set; }
         public long LeftTime { get; set; }
@@ -157,6 +159,7 @@ namespace AscNet.GameServer.Handlers
         public uint StageId { get; set; }
         public long FightId { get; set; }
         public long LeftTime { get; set; }
+        public int RebootCount { get; set; }
     }
 
     [MessagePackObject(true)]
@@ -433,6 +436,13 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("LeaveFightRequest")]
         public static void LeaveFightRequestHandler(Session session, Packet.Request packet)
         {
+            if (TheatreModule.TryLeaveFight(session, out LeaveFightResponse theatreResponse, packet.Id)
+                || Theatre3Module.TryLeaveFight(session, out theatreResponse)
+                || BiancaTheatreModule.TryLeaveFight(session, out theatreResponse))
+            {
+                session.SendResponse(theatreResponse, packet.Id);
+                return;
+            }
             BossModule.CancelFight(session);
             session.PendingBossInshotFight = null;
             session.fight = null;
@@ -443,6 +453,29 @@ namespace AscNet.GameServer.Handlers
         public static void PreFightRequestHandler(Session session, Packet.Request packet)
         {
             PreFightRequest req = packet.Deserialize<PreFightRequest>();
+            if (TheatreModule.TryPreFight(session, req, out PreFightResponse originalTheatreResponse))
+            {
+                session.SendResponse(originalTheatreResponse, packet.Id);
+                return;
+            }
+            if (GuildBossModule.TryPreFight(session, req, out PreFightResponse guildBossResponse)
+                || GuildWarModule.TryPreFight(session, req, out guildBossResponse))
+            {
+                session.SendResponse(guildBossResponse, packet.Id);
+                return;
+            }
+            if (Theatre3Module.TryPreFight(session, req, out PreFightResponse theatreResponse)
+                || BiancaTheatreModule.TryPreFight(session, req, out theatreResponse))
+            {
+                session.SendResponse(theatreResponse, packet.Id);
+                return;
+            }
+            int towerPreFightCode = TowerModule.ValidatePreFight(session, req.PreFightData);
+            if (towerPreFightCode != 0)
+            {
+                session.SendResponse(new PreFightResponse { Code = towerPreFightCode }, packet.Id);
+                return;
+            }
             bool isCourseStage = CourseModule.IsStage(req.PreFightData.StageId);
             int courseCode = isCourseStage
                 && (req.PreFightData.ChallengeCount != 1 || req.PreFightData.SpeedrunStageId != 0)
@@ -629,18 +662,6 @@ namespace AscNet.GameServer.Handlers
                 robotIds = stageTable?.RobotId ?? requestedRobotIds;
             }
 
-            bool isTheatreFight = BiancaTheatreModule.TryGetTheatreFightDeployment(
-                session,
-                req.PreFightData.StageId,
-                req.PreFightData.CardIds,
-                req.PreFightData.RobotIds,
-                out IReadOnlyList<uint> theatreCardIds,
-                out IReadOnlyList<int> theatreRobotIds);
-            if (isTheatreFight)
-            {
-                cardIdsToDeploy = theatreCardIds;
-                robotIds = theatreRobotIds.ToList();
-            }
 
             Dictionary<int, RobotTable> robotRowsToDeploy = new();
             if (robotIds.Count > 0)
@@ -683,19 +704,9 @@ namespace AscNet.GameServer.Handlers
                     continue;
                 CharacterData? characterData = session.character.Characters.FirstOrDefault(x => x.Id == cardId);
                 bool isOwnedCharacter = characterData is not null;
-                IEnumerable<EquipData> equips;
                 if (characterData is null)
-                {
-                    if (!BiancaTheatreModule.TryBuildTheatreCharacterData(session, cardId, out CharacterData transientCharacter, out IReadOnlyList<EquipData> transientEquips))
-                        continue;
-
-                    characterData = transientCharacter;
-                    equips = transientEquips;
-                }
-                else
-                {
-                    equips = BuildTeamPrefabFightEquips(session, cardId);
-                }
+                    continue;
+                IEnumerable<EquipData> equips = BuildTeamPrefabFightEquips(session, cardId);
                 int weaponFashionId = session.character.WeaponFashions
                     .Find(fashion =>
                         (fashion.ExpireTime == 0 || fashion.ExpireTime > currentUnixTime)
@@ -717,10 +728,7 @@ namespace AscNet.GameServer.Handlers
                     RobotId = 0,
                     IsNpc = false,
                     CharacterCareer = ResolveCharacterCareer((int)characterData.Id),
-                    MagicIds = BuildObservationMagicIds(
-                        cardIdsToDeploy.Select(id => new CharacterData { Id = id })
-                            .Concat(robotRowsToDeploy.Values.Select(row => new CharacterData { Id = (uint)row.CharacterId })),
-                        characterData)
+                    MagicIds = new Dictionary<int, int>()
                 });
             }
 
@@ -741,53 +749,7 @@ namespace AscNet.GameServer.Handlers
                     while (playerNpcData.ContainsKey(npcKey))
                         npcKey++;
 
-                    CharacterSkillTable? characterSkill = TableReaderV2.Parse<CharacterSkillTable>().Find(x => x.CharacterId == robot.CharacterId);
-                    IEnumerable<int> skills = characterSkill?.SkillGroupId.SelectMany(x => TableReaderV2.Parse<CharacterSkillGroupTable>().Find(y => y.Id == x)?.SkillId ?? new List<int>()) ?? new List<int>();
-                    HashSet<int> removedSkillIds = robot.RemoveSkillId?.ToHashSet() ?? [];
-                    AscNet.Table.V2.share.character.CharacterTable? robotCharacter = TableReaderV2.Parse<AscNet.Table.V2.share.character.CharacterTable>()
-                        .Find(character => character.Id == robot.CharacterId);
-                    uint fashionId = (uint)(robotCharacter?.DefaultNpcFashtionId > 0
-                        ? robotCharacter.DefaultNpcFashtionId
-                        : robot.FashionId);
-                    List<EquipData> equips = new()
-                    {
-                        new()
-                        {
-                            TemplateId = (uint)Convert.ToInt32(robot.WeaponId),
-                            Level = Convert.ToInt32(robot.WeaponLevel),
-                            Breakthrough = Convert.ToInt32(robot.WeaponBeakThrough),
-                        }
-                    };
-
-                    int waferCount = Math.Min(robot.WaferId.Count, Math.Min(robot.WaferLevel.Count, robot.WaferBreakThrough.Count));
-                    for (int i = 0; i < waferCount; i++)
-                    {
-                        equips.Add(new()
-                        {
-                            TemplateId = (uint)Convert.ToInt32(robot.WaferId[i]),
-                            Level = Convert.ToInt32(robot.WaferLevel[i]),
-                            Breakthrough = Convert.ToInt32(robot.WaferBreakThrough[i])
-                        });
-                    }
-
-                    CharacterData robotCharacterData = new()
-                    {
-                        Id = (uint)Convert.ToInt32(robot.CharacterId),
-                        Level = Convert.ToInt32(robot.CharacterLevel),
-                        Exp = 0,
-                        Quality = Convert.ToInt32(robot.CharacterQuality),
-                        InitQuality = Convert.ToInt32(robot.CharacterQuality),
-                        Star = Convert.ToInt32(robot.CharacterStar),
-                        Grade = Convert.ToInt32(robot.CharacterGrade),
-                        SkillList = skills.Where(x => !removedSkillIds.Contains(x)).Select(x => new CharacterSkill() { Id = (uint)x, Level = Math.Min(Convert.ToInt32(robot.SkillLevel), TableReaderV2.Parse<CharacterSkillLevelEffectTable>().OrderByDescending(x => x.Level).FirstOrDefault(y => y.SkillId == x)?.Level ?? 1) }).ToList(),
-                        FashionId = fashionId,
-                        CreateTime = 0,
-                        TrustLv = 1,
-                        TrustExp = 0,
-                        Ability = robot.ShowAbility ?? 0,
-                        LiberateLv = robot.LiberateLv ?? 0,
-                        CharacterHeadInfo = new() { HeadFashionId = fashionId }
-                    };
+                    (CharacterData robotCharacterData, List<EquipData> equips) = BuildRobotDeployment(robot);
                     deployedCharacters.Add(robotCharacterData);
                     playerNpcData.Add(npcKey, new
                     {
@@ -799,22 +761,24 @@ namespace AscNet.GameServer.Handlers
                         RobotId = robotId,
                         IsNpc = false,
                         CharacterCareer = ResolveCharacterCareer(robot.CharacterId),
-                        MagicIds = BuildObservationMagicIds(
-                            cardIdsToDeploy.Select(id => new CharacterData { Id = id })
-                                .Concat(robotRowsToDeploy.Values.Select(row => new CharacterData { Id = (uint)row.CharacterId })),
-                            robotCharacterData)
+                        MagicIds = new Dictionary<int, int>()
                     });
                     npcKey++;
                 }
+            }
+            foreach (dynamic npc in playerNpcData.Values)
+            {
+                Dictionary<int, int> magicIds = npc.MagicIds;
+                foreach (var magic in BuildObservationMagicIds(deployedCharacters, (CharacterData)npc.Character))
+                    magicIds[magic.Key] = magic.Value;
             }
             if (req.PreFightData.GeneralSkill > 0
                 && IsValidGeneralSkill(req.PreFightData.GeneralSkill, deployedCharacters))
             {
                 rsp.FightData.EventIds.Add(GeneralSkillFightEventId(req.PreFightData.GeneralSkill));
             }
+            TowerModule.ApplyPreFight(session, req.PreFightData, rsp.FightData);
 
-            if (isTheatreFight)
-                BiancaTheatreModule.ApplyTheatreFightStageData(session, req.PreFightData.StageId, rsp);
 
             bool isBossInshotFight = BossInshotModule.ApplyPreFight(session, req.PreFightData, rsp, out int bossInshotCode);
             if (isBossInshotFight)
@@ -853,93 +817,168 @@ namespace AscNet.GameServer.Handlers
             session.fight = new(req, rsp.FightData.FightId);
             session.SendResponse(rsp, packet.Id);
         }
+
+        internal static (CharacterData Character, List<EquipData> Equips) BuildRobotDeployment(RobotTable robot)
+        {
+            CharacterSkillTable? characterSkill = TableReaderV2.Parse<CharacterSkillTable>().Find(x => x.CharacterId == robot.CharacterId);
+            IEnumerable<int> skills = characterSkill?.SkillGroupId.SelectMany(x => TableReaderV2.Parse<CharacterSkillGroupTable>().Find(y => y.Id == x)?.SkillId ?? new List<int>()) ?? new List<int>();
+            HashSet<int> removedSkillIds = robot.RemoveSkillId?.ToHashSet() ?? [];
+            CharacterTable? character = TableReaderV2.Parse<CharacterTable>().Find(row => row.Id == robot.CharacterId);
+            uint fashionId = (uint)(character?.DefaultNpcFashtionId > 0 ? character.DefaultNpcFashtionId : robot.FashionId);
+            List<EquipData> equips =
+            [
+                new()
+                {
+                    TemplateId = (uint)Convert.ToInt32(robot.WeaponId),
+                    Level = Convert.ToInt32(robot.WeaponLevel),
+                    Breakthrough = Convert.ToInt32(robot.WeaponBeakThrough),
+                    ResonanceInfo = BuildRobotResonance(Convert.ToString(robot.WeaponResonance), Convert.ToString(robot.WeaponResonanceType), robot.CharacterId)
+                }
+            ];
+            int waferCount = Math.Min(robot.WaferId.Count, Math.Min(robot.WaferLevel.Count, robot.WaferBreakThrough.Count));
+            for (int i = 0; i < waferCount; i++)
+            {
+                EquipData equip = new()
+                {
+                    TemplateId = (uint)Convert.ToInt32(robot.WaferId[i]),
+                    Level = Convert.ToInt32(robot.WaferLevel[i]),
+                    Breakthrough = Convert.ToInt32(robot.WaferBreakThrough[i]),
+                    ResonanceInfo = BuildRobotResonance(
+                        Convert.ToString(robot.WaferResonance.ElementAtOrDefault(i)),
+                        Convert.ToString(robot.WaferResonanceType.ElementAtOrDefault(i)),
+                        robot.CharacterId)
+                };
+                int awakeCount = Convert.ToInt32(robot.WaferAwakeCount.ElementAtOrDefault(i));
+                for (int slot = 1; slot <= awakeCount; slot++)
+                    equip.AwakeSlotList.Add(slot);
+                equips.Add(equip);
+            }
+            CharacterData data = new()
+            {
+                Id = (uint)Convert.ToInt32(robot.CharacterId),
+                Level = Convert.ToInt32(robot.CharacterLevel),
+                Quality = Convert.ToInt32(robot.CharacterQuality),
+                InitQuality = Convert.ToInt32(robot.CharacterQuality),
+                Star = Convert.ToInt32(robot.CharacterStar),
+                Grade = Convert.ToInt32(robot.CharacterGrade),
+                SkillList = skills.Where(id => !removedSkillIds.Contains(id))
+                    .Select(id => new CharacterSkill
+                    {
+                        Id = (uint)id,
+                        Level = Math.Min(Convert.ToInt32(robot.SkillLevel), TableReaderV2.Parse<CharacterSkillLevelEffectTable>()
+                            .Where(row => row.SkillId == id).Select(row => row.Level).DefaultIfEmpty(1).Max())
+                    }).ToList(),
+                FashionId = fashionId,
+                TrustLv = 1,
+                Ability = robot.ShowAbility ?? 0,
+                LiberateLv = robot.LiberateLv ?? 0,
+                CharacterHeadInfo = new() { HeadFashionId = fashionId }
+            };
+            return (data, equips);
+        }
+
+        private static List<ResonanceInfo> BuildRobotResonance(string? templates, string? types, int characterId)
+        {
+            List<ResonanceInfo> result = [];
+            if (string.IsNullOrEmpty(templates) || string.IsNullOrEmpty(types))
+                return result;
+            string[] templateIds = templates.Split('|');
+            string[] resonanceTypes = types.Split('|');
+            for (int i = 0; i < templateIds.Length; i++)
+            {
+                if (i >= resonanceTypes.Length
+                    || !int.TryParse(templateIds[i], out int templateId) || templateId <= 0
+                    || !int.TryParse(resonanceTypes[i], out int type) || type <= 0)
+                    break;
+                result.Add(new ResonanceInfo
+                {
+                    Slot = i + 1,
+                    Type = (EquipResonanceType)type,
+                    CharacterId = characterId,
+                    TemplateId = templateId
+                });
+            }
+            return result;
+        }
         private static int ResolveCharacterCareer(int characterId) =>
             TableReaderV2.Parse<CharacterTable>()
                 .FirstOrDefault(row => row.Id == characterId)?.Career ?? 0;
 
-        private static string ResolveCharacterCareerName(int characterId)
-        {
-            CharacterTable? character = TableReaderV2.Parse<CharacterTable>()
-                .FirstOrDefault(row => row.Id == characterId);
-            return TableReaderV2.Parse<CharacterCareerTable>()
-                .FirstOrDefault(row => row.Type == character?.Career)?.Name ?? string.Empty;
-        }
-
-        private static int ResolveCareerType(string name) =>
-            TableReaderV2.Parse<CharacterCareerTable>()
-                .FirstOrDefault(row => row.Name == name)?.Type ?? 0;
-
-        private static int ResolveElementType(string name) =>
-            TableReaderV2.Parse<CharacterElementTable>()
-                .FirstOrDefault(row => row.ElementName == name)?.Id ?? 0;
-
-
-        private static Dictionary<int, int> BuildObservationMagicIds(
+        internal static Dictionary<int, int> BuildObservationMagicIds(
             IEnumerable<CharacterData> team,
             CharacterData observer)
         {
-            if (ResolveCharacterCareerName((int)observer.Id) != "Observer")
+            // Native XEnumConst.CHARACTER values, also defined by CharacterCareer/CharacterElement.
+            const int tank = 2, support = 3, amplifier = 5, observation = 7, breaker = 8;
+            const int physical = 1, nihil = 6;
+            List<CharacterTable> characters = TableReaderV2.Parse<CharacterTable>();
+            if (characters.Find(row => row.Id == observer.Id)?.Career != observation)
                 return [];
 
-            List<(string Career, int Element)> members = team
-                .Where(member => member.Id > 0)
-                .Select(member => ((int)member.Id, ResolveCharacterCareerName((int)member.Id)))
-                .Select(member => (member.Item2,
-                    TableReaderV2.Parse<CharacterTable>()
-                        .FirstOrDefault(row => row.Id == member.Item1)?.Element ?? 0))
-                .ToList();
-            if (members.Count(member => member.Career == "Observer") != 1
-                || members.Count(member => member.Element == ResolveElementType("Physical")) > 1)
-                return [];
-
-            int supportCareerCount = members.Count(member => member.Career is "Support" or "Amplifier");
-            int tankCareerCount = members.Count(member => member.Career is "Tank" or "Breaker");
-            if (supportCareerCount + tankCareerCount >= 2)
-                return [];
-
-            int activeCareer = 0;
-            int activeElement = 0;
-            if (supportCareerCount == 1)
+            int observerCount = 0;
+            int physicalCount = 0;
+            int candidateCount = 0;
+            CharacterTable? candidate = null;
+            bool observerDeployed = false;
+            foreach (CharacterData member in team)
             {
-                activeElement = members.First(member => member.Career is "Support" or "Amplifier").Element;
-                activeCareer = ResolveCareerType(
-                    members.Any(member => member.Career == "Breaker" && member.Element == activeElement)
-                        ? "Breaker"
-                        : "Tank");
+                CharacterTable? character = characters.Find(row => row.Id == member.Id);
+                if (character is null)
+                    continue;
+                if (character.Career == observation)
+                {
+                    observerCount++;
+                    observerDeployed |= member.Id == observer.Id;
+                }
+                else if (character.Element == physical)
+                    physicalCount++;
+                else if (character.Career is tank or support or amplifier or breaker)
+                {
+                    candidateCount++;
+                    candidate = character;
+                }
             }
-            else if (tankCareerCount == 1)
+
+            if (!observerDeployed || observerCount != 1 || physicalCount > 1
+                || candidateCount != 1 || candidate is null)
+                return [];
+
+            int activeElement = candidate.Element;
+            int activeCareer = candidate.Career is tank or breaker
+                ? amplifier
+                : (candidate.Career == amplifier && activeElement == nihil)
+                    || characters.Any(row => row.Element == activeElement && row.Career == breaker)
+                    ? breaker
+                    : tank;
+
+            Dictionary<int, int> magicIds = new();
+            List<CharacterObsTriggerMagicTable> configs = TableReaderV2.Parse<CharacterObsTriggerMagicTable>();
+            foreach (CharacterSkill skill in observer.SkillList)
             {
-                activeElement = members.First(member => member.Career is "Tank" or "Breaker").Element;
-                activeCareer = ResolveCareerType("Amplifier");
+                foreach (CharacterObsTriggerMagicTable config in configs)
+                {
+                    if (config.SkillId != skill.Id)
+                        continue;
+                    int index = -1;
+                    for (int i = 0; i < config.Level.Count; i++)
+                    {
+                        if (config.ObservationCareer.ElementAtOrDefault(i) == activeCareer
+                            && config.ObservationElement.ElementAtOrDefault(i) == activeElement
+                            && config.Level[i] <= skill.Level
+                            && !string.IsNullOrWhiteSpace(config.MagicList.ElementAtOrDefault(i))
+                            && (index < 0 || config.Level[i] > config.Level[index]))
+                            index = i;
+                    }
+                    if (index < 0)
+                        continue;
+                    foreach (string id in config.MagicList[index].Split('|', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        if (int.TryParse(id, out int magicId) && magicId > 0)
+                            magicIds[magicId] = Math.Max(magicIds.GetValueOrDefault(magicId), skill.Level);
+                    }
+                }
             }
-            if (activeCareer == 0)
-                return [];
-
-            CharacterSkill? observationSkill = observer.SkillList
-                .FirstOrDefault(skill => TableReaderV2.Parse<CharacterObsTriggerMagicTable>()
-                    .Any(row => row.SkillId == (int)skill.Id));
-            if (observationSkill is null)
-                return [];
-
-            CharacterObsTriggerMagicTable? config = TableReaderV2.Parse<CharacterObsTriggerMagicTable>()
-                .FirstOrDefault(row => row.SkillId == (int)observationSkill.Id);
-            if (config is null)
-                return [];
-
-            int index = Enumerable.Range(0, config.Level.Count)
-                .Where(i => config.ObservationCareer.ElementAtOrDefault(i) == activeCareer
-                    && config.ObservationElement.ElementAtOrDefault(i) == activeElement
-                    && config.Level[i] <= observationSkill.Level)
-                .OrderByDescending(i => config.Level[i])
-                .FirstOrDefault(-1);
-            if (index < 0)
-                return [];
-
-            return config.MagicList.ElementAtOrDefault(index)?
-                .Split('|', StringSplitOptions.RemoveEmptyEntries)
-                .Select(id => int.TryParse(id, out int value) ? value : 0)
-                .Where(id => id > 0)
-                .ToDictionary(id => id, _ => observationSkill.Level) ?? [];
+            return magicIds;
         }
 
         private static CharacterData ApplyRandomFashion(
@@ -1042,13 +1081,31 @@ namespace AscNet.GameServer.Handlers
         public static void HandleFightRebootRequestHandler(Session session, Packet.Request packet)
         {
             FightRebootRequest req = packet.Deserialize<FightRebootRequest>();
-            session.SendResponse(new FightRebootResponse(), packet.Id);
+            if (TheatreModule.TryReboot(session, req, out FightRebootResponse theatreResponse)
+                || Theatre3Module.TryReboot(session, req, out theatreResponse)
+                || BiancaTheatreModule.TryReboot(session, req, out theatreResponse))
+            {
+                session.SendResponse(theatreResponse, packet.Id);
+                return;
+            }
+            session.SendResponse(new FightRebootResponse
+            {
+                Code = session.fight is not null && session.fight.FightId == unchecked((uint)req.FightId)
+                    ? 0 : 20003040
+            }, packet.Id);
         }
 
         [RequestPacketHandler("FightRestartRequest")]
         public static void HandleFightRestartRequestHandler(Session session, Packet.Request packet)
         {
             FightRestartRequest req = packet.Deserialize<FightRestartRequest>();
+            if (TheatreModule.TryRestart(session, req, out FightRestartResponse theatreResponse, packet.Id)
+                || Theatre3Module.TryRestart(session, req, out theatreResponse, packet.Id)
+                || BiancaTheatreModule.TryRestart(session, req, out theatreResponse))
+            {
+                session.SendResponse(theatreResponse, packet.Id);
+                return;
+            }
             if (session.fight is null || session.fight.FightId != unchecked((uint)req.FightId))
             {
                 session.SendResponse(new FightRestartResponse { Code = FightAuthorizationError }, packet.Id);
@@ -1067,6 +1124,12 @@ namespace AscNet.GameServer.Handlers
         {
             EnterStoryRequest req = packet.Deserialize<EnterStoryRequest>();
             EnterStoryResponse response = new();
+
+            if (TowerModule.TryEnterStory(session, req, out EnterStoryResponse towerResponse))
+            {
+                session.SendResponse(towerResponse, packet.Id);
+                return;
+            }
 
             StageTable? stageTable = TableReaderV2.Parse<StageTable>().FirstOrDefault(stage => stage.StageId == req.StageId);
             if (req.StageId <= 0 || stageTable is null)
@@ -1642,7 +1705,7 @@ namespace AscNet.GameServer.Handlers
             selectedEquip.CharacterId = characterId;
         }
 
-        private static IReadOnlyList<EquipData> BuildTeamPrefabFightEquips(
+        internal static IReadOnlyList<EquipData> BuildTeamPrefabFightEquips(
             Session session,
             uint characterId)
         {
@@ -2088,7 +2151,7 @@ namespace AscNet.GameServer.Handlers
                 .Any(group => group.SkillId.Count > 1 && group.SkillId.Contains(skillId));
         }
 
-        private static bool IsValidGeneralSkill(
+        internal static bool IsValidGeneralSkill(
             int generalSkillId,
             IEnumerable<CharacterData> characters)
         {
@@ -2343,9 +2406,13 @@ namespace AscNet.GameServer.Handlers
                     IsForceExit = header.IsForceExit,
                     StageId = header.StageId,
                     FightId = header.FightId,
+                    RebootCount = header.RebootCount,
                     LeftTime = header.LeftTime
                 };
-                if (!IsAuthorizedFightSettle(session, result))
+                if (!TheatreModule.IsCombatStage(result.StageId)
+                    && !TheatreModule.IsCombatStage(session.fight?.PreFight.PreFightData.StageId ?? 0)
+                    && !Theatre3Module.IsCombatStage(result.StageId)
+                    && !BiancaTheatreModule.IsCombatStage(result.StageId) && !IsAuthorizedFightSettle(session, result))
                     return false;
 
                 request = new FightSettleRequest { Result = result };
@@ -2359,6 +2426,8 @@ namespace AscNet.GameServer.Handlers
 
         private static void ClearFailedFightSettle(Session session)
         {
+            if (TheatreModule.IsCombatStage(session.fight?.PreFight.PreFightData.StageId ?? 0))
+                return;
             BossModule.CancelFight(session);
             session.PendingBossInshotFight = null;
             session.fight = null;
@@ -2376,6 +2445,25 @@ namespace AscNet.GameServer.Handlers
             {
                 if (TryRecoverFailedFightSettle(session, packet, out req))
                 {
+                    if (TheatreModule.TrySettleFight(session, req.Result, out FightSettleResponse originalTheatreFailedResponse, packet.Id))
+                    {
+                        session.SendResponse(originalTheatreFailedResponse, packet.Id);
+                        return;
+                    }
+                    if (GuildBossModule.TrySettleFight(session, req.Result, out FightSettleResponse guildFailedResponse)
+                        || GuildWarModule.TrySettleFight(session, req.Result, out guildFailedResponse))
+                    {
+                        session.fight = null;
+                        session.SendResponse(guildFailedResponse, packet.Id);
+                        return;
+                    }
+                    if (Theatre3Module.TrySettleFight(session, req.Result, out FightSettleResponse theatreFailedResponse)
+                        || BiancaTheatreModule.TrySettleFight(session, req.Result, out theatreFailedResponse))
+                    {
+                        session.fight = null;
+                        session.SendResponse(theatreFailedResponse, packet.Id);
+                        return;
+                    }
                     uint stageId = ResolveFightSettleStageId(session, req);
                     session.log.Warn($"Recovered failed fight settlement with malformed optional telemetry for stage {stageId}.");
                     ClearFailedFightSettle(session);
@@ -2390,6 +2478,25 @@ namespace AscNet.GameServer.Handlers
             {
                 ClearFailedFightSettle(session);
                 session.SendResponse(new FightSettleResponse { Code = FightAuthorizationError }, packet.Id);
+                return;
+            }
+            if (TheatreModule.TrySettleFight(session, req.Result, out FightSettleResponse originalTheatreResponse, packet.Id))
+            {
+                session.SendResponse(originalTheatreResponse, packet.Id);
+                return;
+            }
+            if (GuildBossModule.TrySettleFight(session, req.Result, out FightSettleResponse guildResponse)
+                || GuildWarModule.TrySettleFight(session, req.Result, out guildResponse))
+            {
+                session.fight = null;
+                session.SendResponse(guildResponse, packet.Id);
+                return;
+            }
+            if (Theatre3Module.TrySettleFight(session, req.Result, out FightSettleResponse theatreResponse)
+                || BiancaTheatreModule.TrySettleFight(session, req.Result, out theatreResponse))
+            {
+                session.fight = null;
+                session.SendResponse(theatreResponse, packet.Id);
                 return;
             }
             int fashionCode = 0;
@@ -2474,6 +2581,16 @@ namespace AscNet.GameServer.Handlers
                 ? !session.player.SimulatedBattlefield.ArenaStageMaxPoints.ContainsKey(req.Result.StageId)
                 : previousStageData is null || !previousStageData.Passed;
             bool isSuccessfulSettle = req.Result.IsWin && !req.Result.IsForceExit;
+            // Arcade Anima owns its star mask and its manual stage claims; everything else stays generic.
+            bool isTowerStage = TowerModule.OwnsStage(req.Result.StageId);
+            // A quick clear settles the stage named by SpeedrunStageId instead of the fought stage, so the fought
+            // and the effective stage must agree on Arcade ownership: otherwise a forged speedrun target could
+            // mark an Arcade stage passed without a fight (or clear an Arcade fight into an unrelated stage).
+            if (isTowerStage != TowerModule.OwnsStage(responseStageId))
+            {
+                session.SendResponse(new FightSettleResponse { Code = TowerModule.CombatAuthorizationError }, packet.Id);
+                return;
+            }
             if (TransfiniteModule.TrySettle(session, req.Result, out FightSettleResponse transfiniteResponse))
             {
                 session.fight = null;
@@ -2551,9 +2668,16 @@ namespace AscNet.GameServer.Handlers
 
             if (!isSuccessfulSettle)
             {
-                BiancaTheatreModule.TrySendTheatreRetreatSettle(session, req.Result.StageId);
                 ClearFailedFightSettle(session);
                 session.SendResponse(BuildFailedFightSettleResponse(responseStageId, req), packet.Id);
+                return;
+            }
+            long towerEarnedStars = 0;
+            if (isTowerStage && !TowerModule.TryReadSettleStars(req.Result, out towerEarnedStars))
+            {
+                // A payload the native result cannot produce must not rewrite stars; the accepted fight stays
+                // open so the client can retry instead of reading a fabricated success.
+                session.SendResponse(new FightSettleResponse { Code = TowerModule.CombatAuthorizationError }, packet.Id);
                 return;
             }
             if (BossInshotModule.TrySettle(session, req.Result, out FightSettleResponse bossInshotResponse))
@@ -2583,7 +2707,10 @@ namespace AscNet.GameServer.Handlers
                     rewardIds.Add(rewardId.Value);
             }
 
-            if (stageTable is not null)
+            // Arcade Anima first clears are manual claims (CharacterTowerGetStageRewardRequest) against the
+            // claim ledger, so settlement must not also deliver the stage/level-control reward ids. No Arcade
+            // row authors FinishDropId/FinishRewardShow/TeamExp/CardExp, so nothing else is withheld.
+            if (stageTable is not null && !isTowerStage)
             {
                 if (isFirstClear)
                 {
@@ -2607,7 +2734,7 @@ namespace AscNet.GameServer.Handlers
             List<RewardTable> rewardTables = TableReaderV2.Parse<RewardTable>()
                 .Where(x => rewardIds.Contains(x.Id))
                 .ToList();
-            if (stageTable is not null && rewardTables.Count == 0)
+            if (stageTable is not null && !isTowerStage && rewardTables.Count == 0)
             {
                 rewardIds.Clear();
                 if (isFirstClear)
@@ -2673,7 +2800,9 @@ namespace AscNet.GameServer.Handlers
                 : 0;
             long stageStarsMark = isCourseStage
                 ? req.Result.AddStars
-                : (previousStageData?.StarsMark ?? 0L) | (isQuickClear ? 0L : 7L);
+                : isTowerStage
+                    ? (previousStageData?.StarsMark ?? 0L) | towerEarnedStars
+                    : (previousStageData?.StarsMark ?? 0L) | (isQuickClear ? 0L : 7L);
             long stageAchievement = (previousStageData?.Achievement ?? 0L) | (long)requestedAchievement;
             StageDatum stageData = BuildFightSettleStageDatum(
                 responseStageId,
@@ -2682,7 +2811,9 @@ namespace AscNet.GameServer.Handlers
                 bestCardIds,
                 isQuickClear,
                 previousStageData);
-            session.stage.AddStage(stageData);
+            // Keep Arcade progress unpublished until the preceding document saves have succeeded.
+            if (!isTowerStage)
+                session.stage.AddStage(stageData);
 
             if (isQuickClear && MainLineLuosaitaPayloadFactory.HasCapturedStageProgress((int)req.Result.StageId))
             {
@@ -2723,7 +2854,30 @@ namespace AscNet.GameServer.Handlers
             session.player.Save();
             session.inventory.Save();
             session.character.Save();
-            session.stage.Save();
+            // Arcade Anima progress is read back by the mode claim ledger and replayed from Stage.Stages on
+            // relog, so a mode win must not be answered before that write is acknowledged. A failed write
+            // restores the pre-settle datum, so no retry can see a first-clear/pass count the database never
+            // stored and no claim can read an unsaved Passed flag; the accepted fight stays authorized.
+            if (isTowerStage)
+            {
+                try
+                {
+                    session.stage.AddStage(stageData);
+                    session.stage.SaveChecked();
+                }
+                catch
+                {
+                    if (previousStageData is null)
+                        session.stage.Stages.Remove(stageData.StageId);
+                    else
+                        session.stage.AddStage(previousStageData);
+                    throw;
+                }
+            }
+            else
+            {
+                session.stage.Save();
+            }
             BossModule.PushActivityProgress(session, stageData.StageId);
             CourseModule.RecordBattleResult(session, req.Result);
             foreach (RewardApplicationResult application in deferredRewardApplications)
@@ -2768,11 +2922,7 @@ namespace AscNet.GameServer.Handlers
             if (simulateTrainArchiveRecord is not null)
                 session.SendPush(simulateTrainArchiveRecord);
             StudyProgressModule.SendTeachingStageUpdate(session, stageData);
-            bool sentTheatreProgress = BiancaTheatreModule.TrySendTheatreFightClearProgress(session, req.Result.StageId);
-            if (!sentTheatreProgress)
-            {
-                SendMainLineLuosaitaSectionInfoIfCaptured(session, (int)req.Result.StageId);
-            }
+            SendMainLineLuosaitaSectionInfoIfCaptured(session, (int)req.Result.StageId);
             if (updatedRepeatChallenge)
                 session.SendPush(RepeatChallengeModule.BuildExpChange(session.player));
             if (updatedTrial)
@@ -2793,7 +2943,7 @@ namespace AscNet.GameServer.Handlers
                 : TableReaderV2.Parse<StageTable>().FirstOrDefault(stage => stage.StageId == stageId);
         }
 
-        private static StageLevelControlTable? ResolveStageLevelControl(uint stageId, int playerLevel)
+        internal static StageLevelControlTable? ResolveStageLevelControl(uint stageId, int playerLevel)
         {
             IEnumerable<StageLevelControlTable> controls = CurrentClientStudyTables.TryGetStageLevelControls(stageId, out IReadOnlyList<StageLevelControlTable> currentControls)
                 ? currentControls

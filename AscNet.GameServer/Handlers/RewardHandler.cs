@@ -18,6 +18,12 @@ using MongoDB.Bson.Serialization;
 
 namespace AscNet.GameServer.Handlers
 {
+    [MessagePack.MessagePackObject(true)]
+    public sealed class NotifyChatEmoji
+    {
+        public NotifyChatLoginData.NotifyChatLoginDataUnlockEmoji Emoji { get; set; } = new();
+    }
+
     public class Reward
     {
         public int Id;
@@ -27,6 +33,7 @@ namespace AscNet.GameServer.Handlers
         public bool IsRecycle;
         public bool NotifyAsRecycle;
         public int ConvertFrom;
+        internal ChatEmojiRewardOutcome? EmojiOutcome;
     }
 
     internal sealed record RewardGrant(
@@ -49,6 +56,7 @@ namespace AscNet.GameServer.Handlers
         internal NotifyScoreTitleInfo ScoreTitleData { get; } = new() { IsLogined = true };
         internal bool ManualGuideChanged { get; set; }
         internal List<int> GatherRewardIds { get; } = [];
+        internal List<NotifyChatLoginData.NotifyChatLoginDataUnlockEmoji> Emojis { get; } = [];
 
 
         public void SendPushes(Session session)
@@ -83,6 +91,8 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(HeadPortraitData);
             if (ScoreTitleData.Titles.Count > 0)
                 session.SendPush(ScoreTitleData);
+            foreach (var emoji in Emojis)
+                session.SendPush(new NotifyChatEmoji { Emoji = emoji });
             if (manualChanged || ItemData.ItemDataList.Any(item => item.Id == Inventory.TeamExp))
                 session.SendPush(WheelchairManualModule.BuildPayload(session, DateTimeOffset.UtcNow));
             else if (ManualGuideChanged)
@@ -128,6 +138,7 @@ namespace AscNet.GameServer.Handlers
                     ScoreTitleData.Titles.Add(title);
             }
             DormFurnitureChanged |= source.DormFurnitureChanged;
+            Emojis.AddRange(source.Emojis);
 
         }
     }
@@ -263,6 +274,14 @@ namespace AscNet.GameServer.Handlers
             bool playerPersisted = false;
             try
             {
+                // Completed plans are no longer needed; retain every partially saved outcome.
+                foreach (string key in stagedInventory.ChatEmojiRewardPlans.Keys.Where(key =>
+                    originalInventory.AppliedRewardClaims.Contains(key)
+                    && originalCharacter.AppliedRewardClaims.Contains(key)).ToList())
+                {
+                    stagedInventory.ChatEmojiRewardPlans.Remove(key);
+                    inventoryDirty = true;
+                }
                 RewardApplicationResult result = new();
                 foreach (RewardGrant grant in grants)
                 {
@@ -293,6 +312,27 @@ namespace AscNet.GameServer.Handlers
                     if (prepared.Count != grant.Goods.Count)
                         throw new InvalidDataException(
                             $"Reward claim {grant.ClaimKey} contains an unsupported reward type.");
+                    List<Reward> emojiRewards = prepared.Where(reward => reward.Type == RewardType.ChatEmoji).ToList();
+                    if (emojiRewards.Count > 0 && (!inventoryClaimed || !characterClaimed))
+                    {
+                        if (!stagedInventory.ChatEmojiRewardPlans.TryGetValue(grant.ClaimKey, out var emojiPlan))
+                        {
+                            long grantTime = stagedInventory.RewardClaimTimes.GetValueOrDefault(
+                                grant.ClaimKey, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                            emojiPlan = PlanChatEmojiRewards(emojiRewards, stagedCharacter, grantTime);
+                            stagedInventory.ChatEmojiRewardPlans.Add(grant.ClaimKey, emojiPlan);
+                            stagedInventory.RewardClaimTimes.TryAdd(grant.ClaimKey, grantTime);
+                            inventoryDirty = true;
+                        }
+                        if (emojiPlan.Count != emojiRewards.Count)
+                            throw new InvalidDataException("Chat emoji receipt does not match reward goods.");
+                        for (int index = 0; index < emojiRewards.Count; index++)
+                        {
+                            if (emojiPlan[index].Id != emojiRewards[index].Id)
+                                throw new InvalidDataException("Chat emoji receipt does not match reward ID.");
+                            emojiRewards[index].EmojiOutcome = emojiPlan[index];
+                        }
+                    }
                     result.RewardGoods.AddRange(grantResult.RewardGoods);
 
                     foreach (Reward reward in prepared.Where(reward =>
@@ -301,7 +341,8 @@ namespace AscNet.GameServer.Handlers
                     {
                         AddCurrentStatePush(reward, session, grantResult);
                     }
-                    List<Reward> resolved = ResolveRewards(prepared, session);
+                    List<Reward> resolved = ResolveRewards(prepared.Where(reward =>
+                        reward.Type != RewardType.ChatEmoji || !inventoryClaimed || !characterClaimed), session);
                     foreach (Reward reward in resolved.Where(reward =>
                                  (inventoryClaimed && IsInventoryDocumentReward(reward))
                                  || (characterClaimed && IsCharacterDocumentReward(reward))))
@@ -323,7 +364,7 @@ namespace AscNet.GameServer.Handlers
                     {
                         stagedInventory.AppliedRewardClaims.Add(grant.ClaimKey);
                         if (grant.EventCause.HasValue)
-                            stagedInventory.RewardClaimTimes[grant.ClaimKey] = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            stagedInventory.RewardClaimTimes.TryAdd(grant.ClaimKey, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
                         inventoryDirty = true;
                     }
                     if (!characterClaimed)
@@ -431,7 +472,63 @@ namespace AscNet.GameServer.Handlers
                 or RewardType.FashionColor
                 or RewardType.Furniture
                 or RewardType.HeadPortrait
+                or RewardType.ChatEmoji
                 or RewardType.Collection;
+
+        private static List<ChatEmojiRewardOutcome> PlanChatEmojiRewards(
+            IReadOnlyList<Reward> rewards, Character character, long now, Dictionary<int, long>? owned = null)
+        {
+            owned ??= character.ChatEmojis.ToDictionary(emoji => emoji.Id, emoji => emoji.EndTime);
+            List<ChatEmojiRewardOutcome> outcomes = [];
+            foreach (Reward reward in rewards)
+            {
+                var config = Character.GetChatEmojiConfig(reward.Id);
+                if (config is null || reward.Count <= 0)
+                    throw new InvalidDataException($"Invalid chat emoji reward {reward.Id}.");
+                ChatEmojiRewardOutcome outcome = new() { Id = reward.Id };
+                int duplicateCount = 0;
+                switch (config.TimeLimitType)
+                {
+                    case 1:
+                        duplicateCount = owned.ContainsKey(reward.Id) || Convert.ToInt32(config.IsFree) == 1
+                            ? reward.Count : reward.Count - 1;
+                        break;
+                    case 2:
+                        long duration = Convert.ToInt64(config.Duration);
+                        if (duration <= 0) throw new InvalidDataException($"Invalid emoji duration {reward.Id}.");
+                        // Approved local policy: stack duration from the later of grant time and active expiry.
+                        outcome.EndTime = checked(Math.Max(now, owned.GetValueOrDefault(reward.Id)) + duration * reward.Count);
+                        break;
+                    default:
+                        // EN currently ships only permanent and duration-based emoji rows.
+                        throw new InvalidDataException($"Unsupported emoji time limit {reward.Id}.");
+                }
+                if (outcome.EndTime > int.MaxValue)
+                    throw new InvalidDataException($"Emoji expiry exceeds client timestamp range {reward.Id}.");
+                if (duplicateCount > 0)
+                {
+                    outcome.ConvertItemId = Convert.ToInt32(config.ConvertItemId);
+                    outcome.ConvertItemCount = checked(Convert.ToInt32(config.ConvertItemCount) * duplicateCount);
+                    if (outcome.ConvertItemCount <= 0 || !Inventory.IsValidClientItemId(outcome.ConvertItemId))
+                        throw new InvalidDataException($"Invalid emoji conversion {reward.Id}.");
+                }
+                owned[reward.Id] = outcome.EndTime;
+                outcomes.Add(outcome);
+            }
+            return outcomes;
+        }
+
+        private static void AddChatEmojiPush(int id, Character character, RewardApplicationResult result)
+        {
+            OwnedChatEmoji? emoji = character.ChatEmojis.FirstOrDefault(value => value.Id == id);
+            if (emoji is null || (emoji.EndTime != 0 && emoji.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()))
+                return;
+            var existing = result.Emojis.FirstOrDefault(value => value.Id == (uint)id);
+            if (existing is null)
+                result.Emojis.Add(new() { Id = checked((uint)id), EndTime = checked((int)emoji.EndTime) });
+            else
+                existing.EndTime = checked((int)emoji.EndTime);
+        }
 
         private static void AddCurrentStatePush(
             Reward reward,
@@ -440,6 +537,9 @@ namespace AscNet.GameServer.Handlers
         {
             switch (reward.Type)
             {
+                case RewardType.ChatEmoji:
+                    AddChatEmojiPush(reward.Id, session.character, result);
+                    break;
                 case RewardType.Item:
                     Item? item = session.inventory.Items.FirstOrDefault(entry => entry.Id == reward.Id);
                     if (item is not null
@@ -528,6 +628,7 @@ namespace AscNet.GameServer.Handlers
             target.Items = source.Items;
             target.AppliedRewardClaims = source.AppliedRewardClaims;
             target.RewardClaimTimes = source.RewardClaimTimes;
+            target.ChatEmojiRewardPlans = source.ChatEmojiRewardPlans;
         }
 
         private static void CopyCharacter(Character target, Character source)
@@ -542,6 +643,7 @@ namespace AscNet.GameServer.Handlers
             target.AppliedRewardClaims = source.AppliedRewardClaims;
             target.FashionColors = source.FashionColors;
             target.ScoreTitles = source.ScoreTitles;
+            target.ChatEmojis = source.ChatEmojis;
         }
 
         private static void ApplyRewards(
@@ -589,8 +691,15 @@ namespace AscNet.GameServer.Handlers
         {
             List<Reward> resolvedRewards = [];
             HashSet<int> ownedCharacterIds = session.character.Characters.Select(x => (int)x.Id).ToHashSet();
+            Dictionary<int, long>? plannedEmojiOwnership = null;
             foreach (Reward reward in rewards)
             {
+                if (reward.Type == RewardType.ChatEmoji && reward.EmojiOutcome is null)
+                {
+                    plannedEmojiOwnership ??= session.character.ChatEmojis.ToDictionary(emoji => emoji.Id, emoji => emoji.EndTime);
+                    reward.EmojiOutcome = PlanChatEmojiRewards([reward], session.character,
+                        DateTimeOffset.UtcNow.ToUnixTimeSeconds(), plannedEmojiOwnership)[0];
+                }
                 List<Reward> resolved = ResolveReward(reward, session, ownedCharacterIds).ToList();
                 resolvedRewards.AddRange(resolved);
                 if (resolved.Count == 1 && resolved[0].Type == RewardType.Character)
@@ -604,6 +713,13 @@ namespace AscNet.GameServer.Handlers
         {
             switch (reward.Type)
             {
+                case RewardType.ChatEmoji:
+                    ChatEmojiRewardOutcome outcome = reward.EmojiOutcome
+                        ?? throw new InvalidDataException("Chat emoji reward has no planned outcome.");
+                    if (outcome.ConvertItemCount > 0)
+                        return [reward, new Reward { Id = outcome.ConvertItemId, Count = outcome.ConvertItemCount,
+                            Type = RewardType.Item, ConvertFrom = reward.Id }];
+                    break;
                 case RewardType.Item:
                     var itemData = TableReaderV2.Parse<ItemTable>().Find(x => x.Id == reward.Id);
                     if (itemData is not null)
@@ -909,6 +1025,14 @@ namespace AscNet.GameServer.Handlers
                 case RewardType.DormCharacter:
                     break;
                 case RewardType.ChatEmoji:
+                    ChatEmojiRewardOutcome emojiOutcome = reward.EmojiOutcome
+                        ?? throw new InvalidDataException("Chat emoji reward has no planned outcome.");
+                    OwnedChatEmoji? ownedEmoji = session.character.ChatEmojis.FirstOrDefault(emoji => emoji.Id == reward.Id);
+                    if (ownedEmoji is null)
+                        session.character.ChatEmojis.Add(new OwnedChatEmoji { Id = reward.Id, EndTime = emojiOutcome.EndTime });
+                    else
+                        ownedEmoji.EndTime = emojiOutcome.EndTime;
+                    AddChatEmojiPush(reward.Id, session.character, result);
                     break;
                 case RewardType.WeaponFashion:
                     UnlockWeaponFashionReward(reward.Id, session, weaponFashionDataList);

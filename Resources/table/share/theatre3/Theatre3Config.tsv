@@ -1,0 +1,27 @@
+Key	Comment	Value
+InitCharacterEnergy	Default energy stone quantity	3
+BattlePassExpItem	BP EXP Item	96188
+TalentTreePointItem	Talent Points Item	96187
+CharacterExpByNode	Character Advanced EXP conversion multiplier	40
+OpenCloseCheck	Enable Force Exit Detection	1
+CloseCheckCount	Fault-Tolerant Guaranteed Attempts	1
+FloorGoldGroupId	Guaranteed gold box after equipment is drawn out	1
+FloorWorkShopId	Guaranteed workshop ID, must be the exchangeable type	1
+InitEquipPosCapacity	Default slot capacity	3
+InitSelectedEquipSuitCount	Number of default drawn sets	20
+InitSelectedEquipSuitType	Type of the default set with a specified upper and lower limit	3
+InitSelectedEquipSuitUpLimit	Upper limit of the default drawn set with a specified upper and lower limit	7
+InitSelectedEquipSuitDownLimit	Lower limit of the default drawn set with a specified upper and lower limit	5
+InheritEquipNeedChapterCount	Number of chapter required to trigger equipment inheritance	4
+InheritEquipSelectCount	Number of inherited equipment drawn in the next round	5
+EquipSuitDuplicationRate	Set duplication check rate, more than redraw	0.6
+EquipSuitReChoiceMaxLoopCount	Max retry limit of set duplication check	3
+EquipSuitSeqDuplicationRate	Set number duplication check rate, no less than redraw	0.5
+DestinyValueThreshold	Chosen Value earning threshold	1
+DestinyValueCoefficient	Chosen Value earning coefficient	150
+DestinyValueMaxLimit	Chosen Limit	10000
+DestinyCharacterId	Version guaranteed first Chosen One character	1171004
+DestinyGuaranteeGroupId	Chosen Character Draw Group ID	0
+DestinyOpenCondition	Chosen Character unlocking condition	1020210
+MaxQubitValueA	Quantum A Maximum Limit	60
+MaxQubitValueB	Quantum B Maximum Limit	60

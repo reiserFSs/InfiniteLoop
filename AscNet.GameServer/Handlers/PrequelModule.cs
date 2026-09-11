@@ -45,6 +45,9 @@ namespace AscNet.GameServer.Handlers
 
     internal class PrequelModule
     {
+        // Client XEnumConst StageType.Prequel; matches the Stage.Type family of the EN prequel chapters.
+        private const int PrequelStageType = 11;
+
         [RequestPacketHandler("ReceivePrequelRewardRequest")]
         public static void ReceivePrequelRewardRequestHandler(Session session, Packet.Request packet)
         {
@@ -57,6 +60,15 @@ namespace AscNet.GameServer.Handlers
         {
             StageTable? stage = TableReaderV2.Parse<StageTable>().FirstOrDefault(x => x.StageId == stageId);
             if (stage is null)
+            {
+                return new ReceivePrequelRewardResponse { Code = 1, StageId = stageId };
+            }
+
+            // This protocol owns exactly the Prequel stage family (Stage.Type 11, XEnumConst StageType.Prequel,
+            // which is also the membership of the client's share/fuben/prequel chapters). Other modes claim
+            // their own first clears: Arcade Anima stage rewards are claimed through
+            // CharacterTowerGetStageRewardRequest and must not be reachable from here.
+            if (stage.Type != PrequelStageType)
             {
                 return new ReceivePrequelRewardResponse { Code = 1, StageId = stageId };
             }

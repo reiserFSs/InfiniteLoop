@@ -28,11 +28,13 @@ internal partial class Program
             AssertEqual(true, Math.Abs((double)Call("RareProbability", d)! - rate) < 1e-10, $"client probability group {d.GroupId}");
 
         Player p = new();
+        Call("GetPityRound", p, fate, new DrawFixedRandom(0));
         for (int i = 0; i < 79; i++) Roll(p, fate, new DrawFixedRandom(.999));
         AssertEqual(79, p.DrawState.PityRounds[15].Misses, "Fate misses before lower bound");
         AssertEqual(fate.ResourceIds[1], Roll(p, fate, new DrawFixedRandom(.999)).TemplateId, "Fate guarantee at 80");
         AssertEqual(0, p.DrawState.PityRounds[15].Misses, "S resets pity immediately");
         p = new();
+        Call("GetPityRound", p, fate, new DrawFixedRandom(.999, true));
         for (int i = 0; i < 99; i++) Roll(p, fate, new DrawFixedRandom(.999, true));
         AssertEqual(99, p.DrawState.PityRounds[15].Misses, "Fate upper bound accepts 99 misses");
         Roll(p, fate, new DrawFixedRandom(.999, true));
@@ -74,22 +76,66 @@ internal partial class Program
             AssertEqual(false, round.GuaranteedTarget, "calibration consumed");
         }
 
+        foreach ((int drawId, bool permitsOffTarget) in new[] { (4001, true), (7002, true), (7069, false) })
+        {
+            DrawInfo banner = Version47CatalogTemplates().Single(x => x.Id == drawId);
+            int[] rarePool = (int[])Call("RarePool", banner)!;
+            p = new();
+            var round = (PlayerDrawPityRound)Call("GetPityRound", p, banner, new DrawFixedRandom(0))!;
+            round.Misses = round.Limit - 1;
+            AssertEqual(banner.ResourceIds[1], Roll(p, banner, new DrawFixedRandom(0)).TemplateId,
+                $"banner {drawId} deterministic target");
+            p = new();
+            round = (PlayerDrawPityRound)Call("GetPityRound", p, banner, new DrawFixedRandom(.999, true))!;
+            round.Misses = round.Limit - 1;
+            int upperResult = Roll(p, banner, new DrawFixedRandom(.999, true)).TemplateId;
+            AssertEqual(permitsOffTarget, upperResult != banner.ResourceIds[1],
+                $"banner {drawId} per-banner target rate");
+            AssertEqual(true, rarePool.Contains(upperResult), $"banner {drawId} result remains in rare pool");
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out var playerSaves, out _, out _))
+        {
+            DrawGroupInfo active = ((List<DrawGroupInfo>)Call("GetDrawGroupInfos", new Player())!).First(x => x.Id != 1);
+            long uid = 47_190;
+            using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(uid), CreateDrawCompatibilityPlayer(uid),
+                CreateDrawCompatibilityInventory(uid, []), "draw-pity-initialization");
+            const int firstPacket = 47_191;
+            InvokeRegisteredRequestHandler(nameof(DrawGetDrawInfoListRequest), harness.Session, firstPacket,
+                new DrawGetDrawInfoListRequest { GroupId = active.Id });
+            DrawGetDrawInfoListResponse first = ReadResponsePayload<DrawGetDrawInfoListResponse>(harness, firstPacket,
+                nameof(DrawGetDrawInfoListResponse), "initial durable draw pity");
+            Player reloaded = BsonSerializer.Deserialize<Player>(playerSaves.LastSuccessfulReplacementBson
+                ?? throw new InvalidDataException("Draw info read did not persist newly sampled pity."));
+            int firstLimit = first.DrawInfoList.First().MaxBottomTimes;
+            AssertEqual(firstLimit, reloaded.DrawState.PityRounds[active.Id].Limit, "catalog response persisted sampled pity");
+            harness.Session.player = reloaded;
+            const int secondPacket = 47_192;
+            InvokeRegisteredRequestHandler(nameof(DrawGetDrawInfoListRequest), harness.Session, secondPacket,
+                new DrawGetDrawInfoListRequest { GroupId = active.Id });
+            DrawGetDrawInfoListResponse second = ReadResponsePayload<DrawGetDrawInfoListResponse>(harness, secondPacket,
+                nameof(DrawGetDrawInfoListResponse), "reloaded durable draw pity");
+            AssertEqual(firstLimit, second.DrawInfoList.First().MaxBottomTimes, "reload preserves sampled pity");
+        }
+
         p = new();
         Random random = new(7419);
         int rare = 0;
-        HashSet<int> thresholds = [];
-        for (int i = 0; i < 20000; i++)
+        const int attempts = 200000;
+        for (int i = 0; i < attempts; i++)
         {
-            var round = (PlayerDrawPityRound)Call("GetPityRound", p, fate, random)!;
-            thresholds.Add(round.Limit);
-            round.Misses = 0; // Isolate base rate from guarantees.
             if (Roll(p, fate, random).TemplateId == fate.ResourceIds[1]) rare++;
         }
-        AssertEqual(true, rare is > 220 and < 390, $"Fate base-rate simulation ({rare}/20000)");
-        AssertEqual(21, thresholds.Count, "all inclusive Fate thresholds sampled");
+        double fateOverall = (double)Call("OverallRareProbability", fate)!;
+        double normalOverall = (double)Call("OverallRareProbability", theme)!;
+        AssertEqual(true, Math.Abs(fateOverall - normalOverall) < 1e-12,
+            $"Fate combined rate matches normal ({fateOverall:P8})");
+        double simulatedOverall = (double)rare / attempts;
+        AssertEqual(true, Math.Abs(simulatedOverall - normalOverall) < .0015,
+            $"Fate continuous-pity simulation ({rare}/{attempts}, {simulatedOverall:P4})");
         // All currently advertised pools can produce both rare and non-rare outcomes.
         var groups = (List<DrawGroupInfo>)Call("GetDrawGroupInfos", new Player())!;
-        foreach (var group in groups)
+        foreach (var group in groups.Where(x => x.Id != 1))
         {
             var draws = (List<DrawInfo>)Call("GetDrawInfosByGroup", group.Id, new Player())!;
             foreach (var d in draws)
@@ -98,6 +144,6 @@ internal partial class Program
                 for (int i = 0; i < 20; i++) Roll(new Player(), d, new DrawFixedRandom((i + .5) / 20));
             }
         }
-        Console.WriteLine($"Draw rules passed; Fate base-rate sample {rare}/20000, 21 guarantee thresholds.");
+        Console.WriteLine($"Draw rules passed; Fate combined-rate sample {rare}/{attempts} ({simulatedOverall:P4}).");
     }
 }

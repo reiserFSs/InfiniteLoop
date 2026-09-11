@@ -33,15 +33,16 @@ namespace AscNet.GameServer
         public int? AppliedTeamPrefabId;
         public readonly Dictionary<uint, (uint FashionId, int WeaponFashionId)> RandomFashionRolls = new();
         internal Dictionary<int, (int Value, int State)>? TaskSnapshotProgress;
+        internal bool GuildIdentityReady;
         public readonly Logger log;
         private int startState;
         private int packetNo = 0;
         private int disconnectState;
-        private readonly MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block);
         private const int InitialReceiveBufferLength = 1 << 16;
-        private const int MaxReceivePacketLength = 1 << 22;
+        private const int MaxReceivePacketLength = PacketCodec.MaxFrameLength;
         private static readonly object BigWorldPacketDumpLock = new();
         private readonly object outboundLock = new();
+        private readonly PacketWriter writer;
         private static readonly ConcurrentDictionary<long, object> PlayerOperationLocks = new();
         public Task Completion { get; private set; } = Task.CompletedTask;
         private static long BigWorldPacketDumpOrdinal;
@@ -56,6 +57,12 @@ namespace AscNet.GameServer
             // TODO: add session based configuration? maybe from database?
             log = new(typeof(Session), id, LogLevel.DEBUG, LogLevel.DEBUG);
             log.LogLevelColor[LogLevel.INFO] = ConsoleColor.Cyan;
+            writer = new PacketWriter(client, exception =>
+            {
+                if (exception is not null)
+                    log.Warn("Outbound packet delivery failed; disconnecting peer.", exception);
+                DisconnectProtocol();
+            });
         }
 
         public void Start()
@@ -73,6 +80,16 @@ namespace AscNet.GameServer
             RequestPacketHandlerDelegate requestPacketHandler,
             Packet.Request request)
         {
+            // ponytail: all dispatch shares one guild gate, including login and post-hooks;
+            // replace with proven operation routing if cross-player throughput becomes a bottleneck.
+            lock (Handlers.GuildModule.MembershipLock)
+                InvokeRequestHandlerLocked(requestPacketHandler, request);
+        }
+
+        private void InvokeRequestHandlerLocked(
+            RequestPacketHandlerDelegate requestPacketHandler,
+            Packet.Request request)
+        {
             using IDisposable metrics = MongoCommandMetrics.Begin(request.Name);
             Player? currentPlayer = player;
             if (currentPlayer is null)
@@ -83,22 +100,51 @@ namespace AscNet.GameServer
                     if (player is not null && Volatile.Read(ref disconnectState) == 0)
                     {
                         lock (GetPlayerOperationLock(player.PlayerData.Id))
+                        {
                             Handlers.TaskModule.SendSnapshotTaskSync(this);
+                            ReconcileArchiveAfterRequest();
+                        }
                     }
                 }
                 return;
             }
 
+            if (Volatile.Read(ref disconnectState) != 0)
+                return;
+            Handlers.GuildModule.RecoverParticipant(this, currentPlayer.PlayerData.Id);
+
             lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
             {
                 if (Volatile.Read(ref disconnectState) == 0)
                 {
-                    if (character is not null && inventory is not null && stage is not null)
+                    // Task handlers reconcile journals after identifying the owner, preserving Bianca's pending-intent guard.
+                    // Other requests must recover and reset here before they can record new-period gameplay progress.
+                    if (character is not null && inventory is not null && stage is not null
+                        && request.Name is not ("FinishTaskRequest" or "FinishMultiTaskRequest")
+                        && !(request.Name == "BuyRequest"
+                            && currentPlayer.Theatre.PendingMutation?.ResponseName == nameof(Handlers.BuyResponse)
+                            && Handlers.TheatreModule.IsCommonShop(request.Deserialize<Handlers.BuyRequest>().ShopId)))
                         Handlers.TaskModule.EnsureMissionResets(this);
                     requestPacketHandler.Invoke(this, request);
                     if (Volatile.Read(ref disconnectState) == 0)
+                    {
                         Handlers.TaskModule.SendSnapshotTaskSync(this);
+                        ReconcileArchiveAfterRequest();
+                    }
                 }
+            }
+        }
+
+        private void ReconcileArchiveAfterRequest()
+        {
+            try
+            {
+                Handlers.ArchiveCgModule.Reconcile(this, notify: true);
+            }
+            catch (MongoDB.Driver.MongoException exception)
+            {
+                // The request has already replied; rolled-back unlocks are retried after the next request.
+                log.Warn("Archive CG reconciliation could not be saved; leaving unlocks pending.", exception);
             }
         }
 
@@ -112,11 +158,13 @@ namespace AscNet.GameServer
             catch (ObjectDisposedException)
             {
                 DisconnectProtocol();
+                await writer.CompleteAsync();
                 return;
             }
             catch (InvalidOperationException) when (!client.Connected)
             {
                 DisconnectProtocol();
+                await writer.CompleteAsync();
                 return;
             }
             int prevBuf = 0;
@@ -173,11 +221,10 @@ namespace AscNet.GameServer
                             byte[] packet = GC.AllocateUninitializedArray<byte>(packetLen);
                             Array.Copy(msg, readbytes, packet, 0, packetLen);
                             readbytes += packetLen;
-                            Crypto.HaruCrypt.Decrypt(packet);
 
                             try
                             {
-                                packets.Add(MessagePackSerializer.Deserialize<Packet>(packet, Packet.InboundOptions));
+                                packets.Add(PacketCodec.Decode(packet));
                             }
                             catch (Exception ex)
                             {
@@ -260,6 +307,7 @@ namespace AscNet.GameServer
             }
 
             DisconnectProtocol();
+            await writer.CompleteAsync();
         }
 
         private void GrowReceiveBufferForPacket(ref byte[] buffer, int packetLen)
@@ -527,16 +575,8 @@ namespace AscNet.GameServer
 
         private void Send(Packet packet)
         {
-            byte[] serializedPacket = MessagePackSerializer.Serialize(packet, lz4Options);
-            Crypto.HaruCrypt.Encrypt(serializedPacket);
-
-            byte[] sendBytes = GC.AllocateUninitializedArray<byte>(serializedPacket.Length + 4);
-
-            BinaryPrimitives.WriteInt32LittleEndian(sendBytes.AsSpan()[0..4], serializedPacket.Length);
-            Array.Copy(serializedPacket, 0, sendBytes, 4, serializedPacket.Length);
-
             lock (outboundLock)
-                client.GetStream().Write(sendBytes);
+                writer.Enqueue(packet);
         }
 
 
@@ -558,15 +598,18 @@ namespace AscNet.GameServer
 
         public void DisconnectProtocol()
         {
-            Player? currentPlayer = player;
-            if (currentPlayer is null)
+            lock (Handlers.GuildModule.MembershipLock)
             {
-                DisconnectCore();
-                return;
-            }
+                Player? currentPlayer = player;
+                if (currentPlayer is null)
+                {
+                    DisconnectCore();
+                    return;
+                }
 
-            lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
-                DisconnectCore();
+                lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
+                    DisconnectCore();
+            }
         }
 
         private void DisconnectCore()
@@ -581,6 +624,8 @@ namespace AscNet.GameServer
             using IDisposable metrics = MongoCommandMetrics.Begin("Disconnect");
             try
             {
+                if (player is not null)
+                    GuildDormRoomService.Revoke(player.PlayerData.Id);
                 Save();
             }
             catch (Exception exception)
@@ -590,7 +635,7 @@ namespace AscNet.GameServer
             finally
             {
                 log.Warn($"{id} disconnected");
-                client.Close();
+                _ = writer.CompleteAsync();
                 Server.Instance.Sessions.TryRemove(id, out _);
             }
         }

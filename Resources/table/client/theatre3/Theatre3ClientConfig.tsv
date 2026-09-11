@@ -1,0 +1,65 @@
+Key	Values[1]	Values[2]	Values[3]	Values[4]	Values[5]	Values[6]	Values[7]	Values[8]	Values[9]	Values[10]
+MainViewShowRewardId	63710									
+RewardTips	No claimable rewards found	Ongoing calculation. Unable to claim rewards.	Level limit reached							
+HelpKey	UiTheatre3									
+StrengthenTreeMaxCount	31									
+StrengthenTreeTips	Insufficient Modems.	Unfinished calculation. Unable to activate during the calculation.	Prerequisite potential locked.							
+StrengthenTreeBtnActiveName	Locked	Activated	Activate							
+CharacterLevelUpGetBuffDesc	Modem <color=#cc84d5>+%s</color>									
+CharacterLevelMaxDesc	Max level reached									
+HandbookPropDetailLockTips	Obtain the Artifact during the calculation to view details.	Obtain the equipment during the calculation to view details.								
+HandbookPropUnlockPercent	\n%d<color=#434f56>/%d</color>									
+HandbookPropLockName	Unknown									
+HandbookPropDesc	Only unlocked Artifacts will appear in the calculation.									
+Theatre3EntryProgressDesc	Current Level: %s/%s									
+Theatre3FirstEntryStoryId	RG00701BA									
+Theatre3MainTaskCompleteDesc	All mission completed									
+Theatre3MainTaskCompleteTitle	Mission									
+Theatre3EquipUseTypeIcon	Assets/Product/Texture/Image/IconType/IconZY2.png	Assets/Product/Texture/Image/IconType/IconZY6.png								
+Theatre3EquipPosTypeIcon	Assets/Product/Texture/Image/IconTools/IconDlcHunt007.png	Assets/Product/Texture/Image/IconTools/IconDlcHunt008.png	Assets/Product/Texture/Image/IconTools/IconDlcHunt009.png							
+Theatre3EquipAttTypeIcon	Assets/Product/Texture/Image/IconType/IconTypeYsWuli.png	Assets/Product/Texture/Image/IconType/IconTypeYsHuo.png	Assets/Product/Texture/Image/IconType/IconTypeYsLei.png	Assets/Product/Texture/Image/IconType/IconTypeYsBing.png	Assets/Product/Texture/Image/IconType/IconTypeYsAn.png					
+Theatre3GetRewardSound	2829	2830	2831							
+Theatre3NoneCharacterIcon										
+Theatre3CharacterEndingLock	Activated	Not Activated								
+Theatre3EquipNotLockTips	%s locked.									
+Theatre3CharacterEndingLockTips	%s not activated.									
+MainBtnIcon	Assets/Product/Texture/Image/UiTheatre3/UiTheatre3MainContinue.png	Assets/Product/Texture/Image/UiTheatre3/UiTheatre3MainStart.png	Assets/Product/Texture/Image/UiTheatre3/UiTheatre3MainContinueQuantum.png	Assets/Product/Texture/Image/UiTheatre3/UiTheatre3MainStartQuantum.png						
+Theatre3EquipCapcityDesc	<color=#FFFFFF>%s/%s</color>	<color=#FF0000>%s/%s</color>								
+Theatre3SlotEmptyIcon	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Equiptouxiang001.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Equiptouxiang002.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Equiptouxiang003.png							
+ShopItemCostColor	424b54	b73a3a	FFFFFF	ff3838	b5ee6b					
+Theatre3SlotIndexIcon	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3HeadBg01.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3HeadBg02.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3HeadBg03.png							
+Theatre3CharacterIndexIcon	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Number1.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Number2.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Number3.png							
+EquipUseTypeIcon	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Equiphong.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3Equiplv.png								
+EquipQuantumUseTypeIcon	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3CjTcRw9.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3CjTcRw10.png								
+FightRewardGetSound	0	4094	0							
+EquipWorkShopTipTitle	Selected									
+FightRewardTagIcon	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3RewardDifficulty-.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3RewardLuck.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3RewardLuck.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3RewardDifficulty-.png	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3RewardQubit.png					
+FightRewardTag	HARD	Extra	Potential	Invasion	Invasion					
+IsShowDamageStatistics	0									
+QuantumBGMCueId	385	385								
+QuantumBGMDuration	20000									
+TxtLuckCharacterDetail	· Complete the calculation to accumulate <color=#4a70b9>Overflow Value</color>.\n· The higher the <color=#4a70b9>Overflow Value</color>, the higher the possibility to trigger <color=#4a70b9>Iterative Projection</color>.\n· Once <color=#4a70b9>Iterative Projection</color> is triggered, accumulated <color=#4a70b9>Overflow Value</color> will be cleared.									
+TxtLuckCharacterSelectTip	Please select one character!									
+TxtLuckCharacterTitle1	Recruit Energy Required: 0									
+TxtLuckCharacterTitle2	Pieces of Equipment Required to Activate Set -1									
+QuantumBgmNodeUrl	Assets/Product/Ui/ComponentPrefab/UiTheatre3/QuantumBgmNode.prefab									
+ToALineCloseCondition	1020224									
+QuantumMainChangeCD	15000									
+QuantumOpenTipCondition	1020210									
+QuantumOpenTipTxt	Unknown protocol access license detected. Low possibility of virus in disguise...\nUnpacking... Target module named as Beta with Ver.Alpha assigned as the backup route.	Uploading %s%%								
+QuantumLevelUpScreenEffectMin	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainScreenBlue.prefab	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainScreenRed.prefab								
+QuantumLevelUpScreenEffectMax	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainScreenBlueEx.prefab	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainScreenRedEx.prefab								
+ShopBuyExGet	Artifact Obtained - %s	Processing Units - %s								
+AchievementShowCondition	1020210									
+QuantumEffectShowType	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3OutpostSelectBlue.prefab	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3OutpostSelectRed.prefab								
+QuantumRedCard	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainSelectRed.prefab	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3OutpostSelectRedS.prefab								
+QuantumRedCardEx	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainSelectRedEx.prefab	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3OutpostSelectRedS.prefab								
+QuantumBlueCard	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainSelectBlue.prefab	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3OutpostSelectBlueS.prefab								
+QuantumBlueCardEx	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainSelectBlueEx.prefab	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3OutpostSelectBlueS.prefab								
+QuantumGoldCard	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainSelectGold.prefab									
+QuantumGoldCardEx	Assets/Product/Effect/Prefab/FxUi/FxUiTheatre3/FxUiTheatre3PlayMainSelectGoldEx.prefab									
+ChooseItemGroupId	99999									
+PressureIconMap	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakBlue1.png	0	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakBlue2.png	100	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakBlue3.png	300	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakBlue4.png	700	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakBlue5.png	1000
+PressureRedIconMap	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakRed1.png	0	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakRed2.png	100	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakRed3.png	300	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakRed4.png	700	Assets/Product/Texture/Atlas/UiTheatre3/UiTheatre3PropChoosePeakRed5.png	1000
+HiddenEndingIndex	6									
+BgImgMap	Assets/Product/Texture/Image/UiTheatre3/UiTheatre3HandbookBg1Raw.png	Assets/Product/Texture/Image/UiTheatre3/UiTheatre3HandbookBg1QuantumRaw.png	Assets/Product/Texture/Image/UiTheatre3/UiTheatre3HandbookBg1NewRaw.png							

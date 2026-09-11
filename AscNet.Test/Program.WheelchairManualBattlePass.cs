@@ -56,6 +56,8 @@ internal static partial class Program
             "EnsureMissionResets", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session)])
             .Invoke(null, [harness.Session]);
         harness.Session.stage.Stages.Clear();
+        // An authenticated session has already persisted its initial default/time-earned CGs.
+        ArchiveCgModule.Reconcile(harness.Session, notify: false);
         using LoopbackSessionHarness other = new(CreateDrawCompatibilityCharacter(uid + 1),
             CreateDrawCompatibilityPlayer(uid + 1), CreateDrawCompatibilityInventory(uid + 1, []), "manual-bp-other");
         other.Session.stage = CreateLoginAccountCompatibilityStage(uid + 1);

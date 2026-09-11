@@ -1,7 +1,14 @@
 Id	StartTime	EndTime	Source
+28	0	0	feature-window:BiancaTheatre:permanent-mode; official Punishing Gray Raven announcement 2023-09-20 https://www.youtube.com/watch?v=a8O7YqA4FLQ; EN share/biancatheatre/BiancaTheatreActivity.json Id=2 TimeId=28
 201	0	0	SimulateTrain:permanent-practice
 716	1787115600	1787806740	version-history:EN-LIVE:4.6.6@bb3c34765c9d9c1c542079d536a17e82b27f3245/TransfiniteActivity+EN-LIVE:4.5.6@69465ac7168a8f33f517f2ffd6e366aa9f3c3357/TransfiniteActivity+LoginNotice:EndTime+GameNotice:update-note-EndTime+maintenance-duration+CycleSeconds
 717	1787806800	1789016340	version-history:EN-LIVE:4.6.6@bb3c34765c9d9c1c542079d536a17e82b27f3245/TransfiniteActivity+EN-LIVE:4.5.6@69465ac7168a8f33f517f2ffd6e366aa9f3c3357/TransfiniteActivity+LoginNotice:EndTime+GameNotice:update-note-EndTime+maintenance-duration+CycleSeconds
+13101	0	0	feature-window:ArcadeAnima:permanent-mode; EN share/fuben/charactertower/CharacterTower.json Id=1001 OpenTimeId=13101; unbounded availability policy, no promotional window authored
+13102	0	0	feature-window:ArcadeAnima:permanent-mode; EN share/fuben/charactertower/CharacterTower.json Id=1002 OpenTimeId=13102; unbounded availability policy, no promotional window authored
+15101	0	0	feature-window:ArcadeAnima:permanent-mode; EN share/fuben/charactertower/CharacterTower.json Id=1003 OpenTimeId=15101; unbounded availability policy, no promotional window authored
+17101	0	0	feature-window:ArcadeAnima:permanent-mode; EN share/fuben/charactertower/CharacterTower.json Id=1004 OpenTimeId=17101; unbounded availability policy, no promotional window authored
+20401	0	0	feature-window:ArcadeAnima:permanent-mode; EN share/fuben/charactertower/CharacterTower.json Id=1005 OpenTimeId=20401; unbounded availability policy, no promotional window authored
+34301	0	0	feature-window:ArcadeAnima:permanent-mode; EN share/fuben/charactertower/CharacterTower.json Id=1006 OpenTimeId=34301; unbounded availability policy, no promotional window authored
 48032	1787115600	1790226000	version-history:EN-LIVE:4.6.6@bb3c34765c9d9c1c542079d536a17e82b27f3245/DrawCanLiverActivity+EN-LIVE:4.5.6@0236666432b01e5469a51047f4b112068fff8763/DrawCanLiverActivity+LoginNotice:EndTime+GameNotice:update-note-EndTime+maintenance-duration
 48601	1784264400	1790139600	feature-window:Theatre6PvpActivity+Theatre6ClientConfig+Item:97090
 48602	1784264400	1790139600	feature-window:Theatre6PvpActivity+Theatre6ClientConfig+Item:97090+Theatre6PvpRank:first-positive-TimeId

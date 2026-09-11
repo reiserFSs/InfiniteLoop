@@ -1,0 +1,484 @@
+Id	Content	BehaviorId	OptionShowTime	Options[1]	Options[2]	Options[3]	SkipIds[1]	SkipIds[2]	SkipIds[3]	RepeatId	EmptySkipId
+10101	Commandant, I'm here.	Talk_Idle	1500	About Summer	About the Island	Goodbye	10102	10105	10108		
+10102	Summer? I love the warm feeling... But I'll always have this warm feeling as long as I'm with everyone in Gray Raven. What about you, Commandant? Do you feel the same?		1500	About Summer	About the Island	Goodbye	10102	10105	10108	10103	
+10103	Feeling hot? Well... I think there are chilled watermelon and cold drinks over there. Liv should also have some things to cool you down. No, I can't do that. You would be frostbitten if I cool you off.		1500	About Summer	About the Island	Goodbye	10102	10105	10108	10104	
+10104	Whew... Maybe I can have some ice cream to cool down...		1500	About Summer	About the Island	Goodbye	10102	10105	10108		
+10105	There seems to be a grill over there. It's nice to have a barbecue in an outdoor vacation like this, right? But Liv told me to be careful with it... I wonder what she meant...		1500	About Summer	About the Island	Goodbye	10102	10105	10108	10106	
+10106	Commandant, not sure if you notice it. The footprints we left when we set foot on this island were washed away by the sea... But the sea will remember them, and so will I.		1500	About Summer	About the Island	Goodbye	10102	10105	10108	10107	
+10107	Have you got a plan for our holiday, Commandant?		1500	About Summer	About the Island	Goodbye	10102	10105	10108		
+10108	I'll be here for the time being, Commandant.	SummerNpc_Luxiya_Endtalk									
+10201	Is there anything I can help with, Commandant?	Talk_Idle	1500	About the Island	About Liv	Goodbye	10202	10205	10208		
+10202	I had scanned the entire island before we landed. It's completely safe. The only hidden danger on this island is... that grill over there.		1500	About the Island	About Liv	Goodbye	10202	10205	10208	10203	
+10203	You also noticed the stage, Commandant? There are instruments on it. It's said that they were left for the visitors. Would you like to give them a try?		1500	About the Island	About Liv	Goodbye	10202	10205	10208	10204	
+10204	This island is warm enough even though it's isolated.		1500	About the Island	About Liv	Goodbye	10202	10205	10208		
+10205	Me? If I can, I would like to bring a coconut back and see if I can plant it. Not sure what kind of coconut tree it would grow into in the space... No, of course I won't plant it directly in our lounge.		1500	About the Island	About Liv	Goodbye	10202	10205	10208	10206	
+10206	I feel... secure. The wind, the sunshine, and the warm sand will always make me feel relaxed... Do you feel the same, Commandant?		1500	About the Island	About Liv	Goodbye	10202	10205	10208	10207	
+10207	I'll remember this holiday we spend together, Commandant.		1500	About the Island	About Liv	Goodbye	10202	10205	10208		
+10208	Goodbye, Commandant. I'll always be here.	SummerNpc_Lifu_Endtalk									
+10301	Hi, Commandant.	Talk_Idle	1500	About Summer	About the Sea	Goodbye	10302	10305	10308		
+10302	In my memory, summer is always full of suffocating dust or a rain that won't stop for dozens of days. It's never this clear and bright. And most importantly, it's comfortable here.		1500	About Summer	About the Sea	Goodbye	10302	10305	10308	10303	
+10303	Have you watched the Summer Brawl before? It is an anime from the Golden Age. I think it's a perfect fit for this happy and relaxing time.		1500	About Summer	About the Sea	Goodbye	10302	10305	10308	10304	
+10304	I'm already very happy to be able to pass a peaceful summer.		1500	About Summer	About the Sea	Goodbye	10302	10305	10308		
+10305	Look! Is that a seagull? I only saw its illustration before, but I can still recognize it just like that. It must be wonderful to fly freely between the sky and the sea... This is, of course, one of my wishes as well.		1500	About Summer	About the Sea	Goodbye	10302	10305	10308	10306	
+10306	I actually had a horrible first impression on the sea, but now I finally get the chance to look at it quietly... What's on the other side of the sea?		1500	About Summer	About the Sea	Goodbye	10302	10305	10308	10307	
+10307	Go and have a look. What you see is what I want to see.		1500	About Summer	About the Sea	Goodbye	10302	10305	10308		
+10308	Goodbye, Commandant.	SummerNpc_Nuoan_Endtalk									
+10401	Hmm... What's up, Commandant?	Talk_Idle	1500	About Summer	About the Island	Goodbye	10402	10405	10408		
+10402	Spring, summer, fall, and winter are all good seasons to take a sleep... Hmm? You feel the same?		1500	About Summer	About the Island	Goodbye	10402	10405	10408	10403	
+10403	Do you like this season? It is a sleepy season... Hmm? No, I don't want to go anywhere else. It's comfortable here. You go for me...		1500	About Summer	About the Island	Goodbye	10402	10405	10408	10404	
+10404	At least we have some great sunshine here, right?		1500	About Summer	About the Island	Goodbye	10402	10405	10408		
+10405	I checked the coastline, but today is the first time that I get to relax like this... What? We are on holiday? Then let me take a nap first...		1500	About Summer	About the Island	Goodbye	10402	10405	10408	10406	
+10406	Speaking of which, the beach chair is perfect to nap on, especially in the sea wind... Do you want to give it a go?		1500	About Summer	About the Island	Goodbye	10402	10405	10408	10407	
+10407	Hmm, Kamui has been asking me to play with him in the sea... What? You haven't seen him? Thank God...		1500	About Summer	About the Island	Goodbye	10402	10405	10408		
+10408	Good night... No, see you.	SummerNpc_Wanshi_Endtalk									
+10501	Hello, Commandant.	Talk_Idle	1500	About the Sea	About Bianca	Goodbye	10502	10505	10508		
+10502	In my memory, the sea means more dangerous missions, but faith and purpose are like the rocks. They are unshakable...		1500	About the Sea	About Bianca	Goodbye	10502	10505	10508	10503	
+10503	How do you feel about the sea? It won't stay calm like this forever. It can be turbulent and terrifying... But will you still feel the same way you do when it's like that?		1500	About the Sea	About Bianca	Goodbye	10502	10505	10508	10504	
+10504	I miss the sea so bad.		1500	About the Sea	About Bianca	Goodbye	10502	10505	10508		
+10505	About the frames... Do you mind it? They are part of me, but I prefer to spend my holiday in a more relaxing way.		1500	About the Sea	About Bianca	Goodbye	10502	10505	10508	10506	
+10506	For the Purifying Force, the brief moment of standby is our holiday... What about the Task Force? You don't have much time off, do you? Commandant?		1500	About the Sea	About Bianca	Goodbye	10502	10505	10508	10507	
+10507	I'll be here watching, Commandant. Both the sea and you.		1500	About the Sea	About Bianca	Goodbye	10502	10505	10508		
+10508	See ya, Commandant.	SummerNpc_Bianka_Endtalk									
+10601	Hey! Commandant! Nice to see you again!	Talk_Idle	1500	About Snacks	About the Sea	Goodbye	10602	10605	10608		
+10602	Commandant! There! Did you see the snack stand over there? Yeah, that thing called hamburger... Oh, it's fast food, right? It smells so good... I wonder how it tastes.		1500	About Snacks	About the Sea	Goodbye	10602	10605	10608	10603	
+10603	Kowloong has so many delicious foods in summer! The sweet soup, the bean jelly, the fruits, and the ice bowl. I've heard of the ice bowl, but I never had the chance to try it...		1500	About Snacks	About the Sea	Goodbye	10602	10605	10608	10604	
+10604	I've got to take you to try Kowloong's summer snacks if we have the time!		1500	About Snacks	About the Sea	Goodbye	10602	10605	10608		
+10605	I remember seeing the sea on the Nighter every day. Or the sea was all that I could see... Sounds confusing, doesn't it? Anyways, I love the sea here!		1500	About Snacks	About the Sea	Goodbye	10602	10605	10608	10606	
+10606	By the way, the stars in the night at sea are different from what we see in Babylonia. You haven't seen it before, right? Commandant? Let's look at the stars together at night!		1500	About Snacks	About the Sea	Goodbye	10602	10605	10608	10607	
+10607	Commandant, promise you'll take me when you go to the sea.		1500	About Snacks	About the Sea	Goodbye	10602	10605	10608		
+10608	Bye, Commandant.	SummerNpc_Pulao_Endtalk									
+10701	Ha! There you are.	Talk_Idle	1500	About the Island	About Summer	Goodbye	10702	10705	10708		
+10702	My experience tells me that there are a few Corrupted hidden in that beach over there. And I wouldn't be surprised if some Ascendants suddenly come down from the sky... Yeah, that look. You don't need to suppress your nervousness. It's okay. I understand.		1500	About the Island	About Summer	Goodbye	10702	10705	10708	10703	
+10703	Commandant, get me a cold drink over there. You can get yourself one too. But don't get the wrong one. For the record, I have no experience in rescuing people who drink the cooling liquid by mistake.		1500	About the Island	About Summer	Goodbye	10702	10705	10708	10704	
+10704	The island is perfect for holiday. Plus, it's not boring here.		1500	About the Island	About Summer	Goodbye	10702	10705	10708		
+10705	When was the last time when the sea, the summer, and you were together? You should remember, right? Well... You'd better remember.		1500	About the Island	About Summer	Goodbye	10702	10705	10708	10706	
+10706	Sometimes I wonder if we should change our clothes, or coatings, according to the season. After all, summer is not a calm season, right?		1500	About the Island	About Summer	Goodbye	10702	10705	10708	10707	
+10707	You'll have to make some sacrifice if you want to share this shade with me... Think about it.		1500	About the Island	About Summer	Goodbye	10702	10705	10708		
+10708	Hmm? Are you leaving already?	SummerNpc_Weila_Endtalk									
+10801	Hello, Conductor.	Talk_Idle	1500	About the Island	About the Stage	Goodbye	10802	10805	10808		
+10802	Only the smell of the sea can bring our souls back. I think you can feel it too, right? Conductor? The wind comes from the sea...		1500	About the Island	About the Stage	Goodbye	10802	10805	10808	10803	
+10803	Maybe we will only remember the summer we spent together when the horrible storm has passed and the sun casts its light on the ground.		1500	About the Island	About the Stage	Goodbye	10802	10805	10808	10804	
+10804	The storm has passed, so we can enjoy the sunshine on the island.		1500	About the Island	About the Stage	Goodbye	10802	10805	10808		
+10805	Yes, of course, we've all been on the stage and off the stage. I just miss this feeling. But these instruments... feel so strange.		1500	About the Island	About the Stage	Goodbye	10802	10805	10808	10806	
+10806	Would you like to hear something? Maybe I can play something for you. But most of the ball music can't be performed by one person... Would you like to join me, Conductor?		1500	About the Island	About the Stage	Goodbye	10802	10805	10808	10807	
+10807	A stage that I can't hide from. A stage that makes me stay.		1500	About the Island	About the Stage	Goodbye	10802	10805	10808		
+10808	Until then, Conductor.	SummerNpc_Sailinna_Endtalk									
+10901	Hello, Commandant. Is there anything I can help with?	Talk_Idle	1500	About the Holiday	About Chrome	Goodbye	10902	10905	10908		
+10902	Speaking of which, we haven't made time to have some rest for a long time. "Rest and rejuvenate is also a tactic." I remember that's what the instructors told us in F.O.S.		1500	About the Holiday	About Chrome	Goodbye	10902	10905	10908	10903	
+10903	If the holiday lasts forever, then I'm afraid it will become just like work, right? This is exactly why this holiday is so precious.		1500	About the Holiday	About Chrome	Goodbye	10902	10905	10908	10904	
+10904	I'll be around anytime if you want some rest.		1500	About the Holiday	About Chrome	Goodbye	10902	10905	10908		
+10905	The unexpected holiday caught me off guard. I don't have any plans yet... What about you, Commandant? Any suggestions?		1500	About the Holiday	About Chrome	Goodbye	10902	10905	10908	10906	
+10906	...Oh, sorry, I was lost in thought. I didn't notice that you were calling me. Sometimes I would empty my mind like this when I have the time. It's a good way to relax. You should try, Commandant.		1500	About the Holiday	About Chrome	Goodbye	10902	10905	10908	10907	
+10907	Planning holidays for you and yourself is part of your duty as a commandant and captain.		1500	About the Holiday	About Chrome	Goodbye	10902	10905	10908		
+10908	Goodbye, Commandant.	SummerNpc_Kuluomu_Endtalk									
+11001	What? Are you starting to enjoy the holiday?	Talk_Idle	1500	About the Island	About Lee	Goodbye	11002	11005	11008		
+11002	This is a nice place to take a holiday... Would you like to lie down a bit here? Just relax. You're having a holiday.		1500	About the Island	About Lee	Goodbye	11002	11005	11008	11003	
+11003	...I'm good, sitting here and enjoying the sea wind. If you want some food, there seem to be some snacks over there, but I'm not sure how it tastes.		1500	About the Island	About Lee	Goodbye	11002	11005	11008	11004	
+11004	I'm curious about where the stage gets its power. I bet it's not some mysterious summer power...		1500	About the Island	About Lee	Goodbye	11002	11005	11008		
+11005	Me? For me, it's not whether I like it or not. It's just that I feel calm staring at the sea. And it's a good time killer as well.		1500	About the Island	About Lee	Goodbye	11002	11005	11008	11006	
+11006	You are so strange. It's your holiday, but you're worrying about other people... I know. I'm fine. I can be better if you want.		1500	About the Island	About Lee	Goodbye	11002	11005	11008	11007	
+11007	You can take this holiday as our holiday, because that is what I think.		1500	About the Island	About Lee	Goodbye	11002	11005	11008		
+11008	Nothing else? Fine.	SummerNpc_Li_Endtalk									
+30001	Oh, you're here.	Stand_Idle	1500	About Celica	Goodbye		30002	30004			
+30002	Why am I here, you ask? What if I said it's to oversee the United Command Bureau's work? What's your take?	Stand_Idle	1500								30003
+30003	—Relax, it may be called "supervision," but it's really just a friendly check-in.	Stand_Happy	1500	About Celica	Goodbye		30002	30004			
+30004	I'll be sticking around, so no dodging me, okay?	CommonNpc_Sailika_Endtalk	1500								
+30101	Happy New Year, Commandant.	Stand_Happy_Idle	1500	What are you doing here, Lucia?	Care to try some local delicacies?	Goodbye	30102	30107	30110		
+30102	Today marks the start of the New Year, a day we're supposed to relax. Liv and I paid a visit to your lounge this morning, but you were already out.	Stand_Idle	1500								30103
+30103	Lee figured you'd either be networking with fellow commandants at the Bureau or honing your skills at the range. Having checked the range, I thought I'd come here to check.	Think_Idle	1500								30104
+30104	Nothing urgent. Tonight, Liv, Lee, and I plan to review Gray Raven's yearly changes. Naturally, you're essential, Commandant.	Stand_Idle	1500								30105
+30105	It's not about discussing tactics. It's a rare chance for Gray Raven folks to chill and chat. Liv and I will prep some snacks ahead of time.	Stand_Idle	1500								30106
+30106	I could've messaged you via the terminal, but inviting you in person seems more... ceremonial? Anyway, look forward to it, Commandant.	Stand_Happy	1500	What are you doing here, Lucia?	Care to try some local delicacies?	Goodbye	30102	30107	30110		
+30107	Thanks, Commandant, but no need. I'm just a bit curious about the recipes. Wish I could take some cooking lessons if I get the chance.	No_Happy	1500								30108
+30108	Recently, I realized that more seasoning doesn't necessarily make a dish tastier. But putting that insight into practice is gonna take more work.	Think_Idle	1500								30109
+30109	When I get confident in my cooking, you'll be the first to taste it, Commandant. I promise.	Stand_Happy	1500	What are you doing here, Lucia?	Care to try some local delicacies?	Goodbye	30102	30106	30110		
+30110	Alright, Commandant, you carry on.	SpringNpc_Luxiya_Endtalk									
+30201	...Happy New Year.	Stand_Idle	1500	Fancy kite-making?	A rare break...	Goodbye	30202	30206	30210		
+30202	I tried kite-making as a kid. Although I managed to create one, Murray wasn't free to play outside like other kids.	Think_Close	1500								30203
+30203	Seeing all these materials and samples here kinda makes me nostalgic.	Think_Close	1500								30204
+30204	...You're thinking of giving it a shot? I'm game, but the weather Babylonia has been snowy lately. Not exactly ideal for kite-flying.	Think_Idle	1500								30205
+30205	Good point. There's no rush. And it's not like we'll nail it on our first try. But I'll stick with you until we get it just right.	Stand_Idle	1500	Fancy kite-making?	A rare break...	Goodbye	30202	30206	30210		
+30206	Yes, it's my day off, so I'm just wandering about. Don't get it twisted, I didn't come here just to find you.	Stand_Idle	1500								30207
+30207	Chatted with Murray this morning. On my way back to the lounge, I thought of someone who's all work and no play, so I decided to swing by.	Stand_Idle	1500								30208
+30208	Knew I'd find you here. I mean, you remind everyone else to take a break today, but here you are.	Think_Close	1500								30209
+30209	...Just out for a walk...? Let's assume you're being honest.	Think_Idle	1500	Fancy kite-making?	A rare break...	Goodbye	30202	30206	30210		
+30210	Yeah.	SpringNpc_Li_Endtalk									
+30301	Seen the first snow of the new year yet, Commandant?	Talk_Happy	1500	Happy New Year, Liv.	How's your fortune today, Liv?	Goodbye	30302	30307	30310		
+30302	Happy New Year, Commandant. Oh, I should've been the one to say it first...	Stand_Happy_Idle	1500								30303
+30303	Commandant, you can't be frowning right from the start of the year. Even at the squad's late-night get-togethers recently...	No_Happy	1500								30304
+30304	I'm aware you're juggling a lot, Commandant. But remember what Lucia said? As long as we stick together, there's nothing we can't overcome.	Stand_Idle	1500								30305
+30305	If things get too much to handle, feel free to lean on me more. I'm set on being more reliable this year.	Stand_Idle	1500								30306
+30306	That's the smile we're all hoping to see. Keeping you at ease is everyone's unspoken hope.	Stand_Happy	1500	Happy New Year, Liv.	How's your fortune today, Liv?	Goodbye	30302	30307	30310		
+30307	Oops, hit a button on the device by mistake. Did you catch that, Commandant? Silly me...	Think_Cry	1500								30308
+30308	The oracle says, "Fluky". Advisable for a big cleanup, inadvisable for... wanting it all. Guess it's true, greed gets you nowhere.	Stand_Idle	1500								30309
+30309	So today, from now on, I will just focus on what's in front of me—the snowscape and everyone around.	Stand_Happy	1500	Happy New Year, Liv.	How's your fortune today, Liv?	Goodbye	30302	30307	30310		
+30310	Alright, Commandant, see you later.	SpringNpc_Lifu_Endtalk									
+30401	...Why do you look so surprised?	Stand_Idle	1500	What are you doing here?!	I never pegged you as someone into bamboo gazing.	Goodbye	30402	30407	30410		
+30402	Isn't New Year's the perfect time for connecting with loved ones in your book?	Think_Idle	1500								30403
+30403	Or did I get you all wrong, and you're not expecting any of this at all?	Stand_Idle	1500								30404
+30404	There's nothing to be nervous about. I've got my power under control for now. No plans to sink this human ark today.	Stand_Idle	1500								30405
+30405	...A scarf? Had nothing ready, so this is your New Year's gift? I didn't come to ask for anything, you know.	Think_Idle	1500								30406
+30406	But... even if you have your choices and I have mine, I still cherish the freedom to occasionally defy fate.	Stand_Idle	1500	What are you doing here?!	I never pegged you as someone into bamboo gazing.	Goodbye	30402	30407	30410		
+30407	No. It's just that everything here has this "enhanced" feel to it. The plants, the weather... they're different from what you'd find on the surface.	Think_Idle	1500								30408
+30408	Try to remember how they feel. Next time, maybe during a snowfall, if I come across a bamboo grove, I'll bring you along.	Stand_Idle	1500								30409
+30409	Then you'll see what I mean by "different."	Stand_Idle	1500	What are you doing here?!	I never pegged you as someone into bamboo gazing.	Goodbye	30402	30407	30410		
+30410	You head off. When I need to find you, I know how to track you down.	SpringNpc_LuxiyaR3_Endtalk									
+30501	Good day, Commandant—and a Happy New Year to you.	Talk_Happy	1500	Interested in fireworks?	Keeping busy during these holidays?	Goodbye	30502	30506	30509		
+30502	Karenina used to have me test some of her explosive inventions. One was pretty much like fireworks.	Think_Idle	1500								30503
+30503	It's not ground-fired, though. Karenina launches them, then I trigger them with my arrows.	Stand_Idle	1500								30504
+30504	In order to observe the range, Karenina added bright-colored powder. Although it's for weapon testing, I can't deny that the blasts are as beautiful as fireworks.	Stand_Happy	1500								30505
+30505	If you're interested, Commandant, I can recreate that colorful blaze with my arrows, festival or not. Of course, I'll ask Karenina to limit the powder amount to serve purely for the purpose of spectacle.	Stand_Idle	1500	Interested in fireworks?	Keeping busy during these holidays?	Goodbye	30502	30506	30509		
+30506	As the captain of the Purifying Force, I need to be on standby for duty. But there haven't been any assignments lately, so it's kinda like downtime.	Think_Idle	1500								30507
+30507	But in my spare time, I do some praying. After all, it's a time of renewal, right?	Stand_Idle	1500								30508
+30508	Plus, with Babylonia scheduled for snowfall these days, the snowy scenery itself brings back memories worth a prayer or two.	Stand_Happy	1500	Interested in fireworks?	Keeping busy during these holidays?	Goodbye	30502	30506	30509		
+30509	See you, Commandant.	SpringNpc_Bianka_Endtalk	1500								
+30601	Ah, Commandant! Happy New Year!	Greet_Happy	1500	What's Pulao scribbling over there?	Are you not taking the day off?	Goodbye	30602	30606	30610		
+30602	Oh, this? I was just... sketching something for fun!	Shy_Idle	1500								30603
+30603	It's definitely not because it's too messy to show!	Refuse_Concentrate	1500								30604
+30604	Ugh, you saw... Actually, I found some ink and thought I'd show off my calligraphy...	Think_Cry	1500								30605
+30605	Who knew Calligraphy was as tough as math... I've gotta practice more when I get back. If it goes well, maybe I'll gift you a handwritten spring couplet next year!	Think_Cry	1500	What's Pulao scribbling over there?	Are you not taking the day off?	Goodbye	30602	30606	30610		
+30606	Taking the day off? Absolutely! Kowloong is buzzing during these special festival days. The streets are brimming with delicious treats and fun activities!	Victory_Happy2	1500								30607
+30607	Me? I've got to be responsible during working hours! Besides, the overtime pay during the festival...	Think_Drool	1500								30608
+30608	Ahem, in any case, I need to focus on my work so everyone in Kowloong can enjoy the holiday. I won't lose sight of that!	Stand_Idle	1500								30609
+30609	Hey, the festivities in Kowloong aren't over yet. If you've got some time, Commandant, how about joining me for a trip there?	Stand_Happy	1500	What's Pulao scribbling over there?	Are you not taking the day off?	Goodbye	30602	30606	30610		
+30610	You carry on, Commandant.	SpringNpc_Pulao_Endtalk									
+30701	Oh?	Stand_Idle	1500	Craving some tanghulu?	Happy New Year!	Goodbye	30702	30706	30709		
+30702	I just figured it'd be a local delicacy worth bringing along when I report back to Jamilah.	Think_Close	1500								30703
+30703	Depending on the train's region and season, local festive items like these really catch on.	Stand_Idle	1500								30704
+30704	Let me have a taste before deciding? Fair point.	Stand_Idle	1500								30705
+30705	...Hmm, so sweet.	Stand_Happy_Idle	1500	Craving some tanghulu?	Happy New Year!	Goodbye	30702	30706	30709		
+30706	...Happy New Year. What's the proper etiquette for this moment, according to Kowloong tradition?	Stand_Idle	1500								30707
+30707	Just enjoy the vibe, you say? Got it.	Think_Idle	1500								30708
+30708	Next time you visit the Akdilek Commercial Alliance, I'll treat you to a special vibe. Consider it a return gift, no, an invitation.	Stand_Idle	1500	Craving some tanghulu?	Happy New Year!	Goodbye	30702	30706	30709		
+30709	That's about it.	SpringNpc_Sufeiya_Endtalk									
+40101	I finally meet you again, Commandant.	Stand_Happy_Idle	1500	About Sky Island	About Gray Raven	Goodbye	40102	40105	40108		
+40102	The security around here is not guaranteed, but this place has good lighting and offers a nice view. The fountain over there...	Think_Idle	1500								40103
+40103	Commandant, do you want to toss a coin into the fountain and make a wish there? I think I've heard about a tradition like that... What kind of wish do you want to make?	Stand_Idle	1500								40104
+40104	I wish I could learn to cook delicious food for everyone... Commandant, why are you giving me that look?	Stand_Happy_Cry	1500	About Sky Island	About Gray Raven	Goodbye	40102	40105	40108		
+40105	Even during my downtime, I still always think about everyone in Gray Raven first and what we can do together.	Stand_Happy	1500								40106
+40106	We've become like a family now, after all. Sometimes, I worry that it might be a burden for others, though.	Think_Idle	1500								40107
+40107	With that being said, I still want to ask for your help in considering it. But before we dive into that, shall we head to the restaurant first?	Stand_Happy	1500	About Sky Island	About Gray Raven	Goodbye	40102	40105	40108		
+40108	I'm always here, Commandant.	SkyNpc_Common_PatrolEndtalk									
+40201	Commandant, what's next?	Stand_Happy	1500	About Sky Island	About Summer	Goodbye	40202	40205	40208		
+40202	From here, you can have a clear view of the sea below... and even every subtle wave on the sea surface.	Think_Idle	1500								40203
+40203	It's like it has become part of the sky, a completely different view from what we've seen in Babylonia... Do you feel the same, Commandant?	Think_Close	1500								40204
+40204	I imagine myself becoming the sky, the sea, or as free as the wind... Ah, I guess in the end, I still want to be with you and everyone else.	Think_Close_StandHappy	1500	About Sky Island	About Summer	Goodbye	40202	40205	40208		
+40205	I don't have many childhood memories of summer, but the first thing that comes to mind is seeing a mama sheep and her lamb on a distant hillside during a family trip.	Think_Close	1500								40206
+40206	Later on, the change of seasons became a blur, and people didn't really have time to pay attention to the scenery around them.	Stand_Idle	1500								40207
+40207	Let's create more memories of summer together, Commandant.	Stand_Happy	1500	About Sky Island	About Summer	Goodbye	40202	40205	40208		
+40208	Let me know if there's anything I can help you with, Commandant!	SkyNpc_Common_Endtalk									
+40301	Do you have any plan for your vacation, Commandant?	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	40302	40305	40308		
+40302	In order to ensure a safe flight, many parameters must be carefully adjusted.	Think_Idle	1500								40303
+40303	Moreover, the island must be designed to adapt to various weather conditions, and the routes must be strategically planned to minimize the impact of extreme weather...	Think_Idle	1500								40304
+40304	There are people in charge of this? I know, but when it comes to your safety, I can only rest assured if I go through the maintenance process myself.	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	40302	40305	40308		
+40305	Feelings about summer? Nothing particularly noteworthy. After all this time fighting on the surface, I don't really feel the change of seasons.	Stand_Idle	1500								40306
+40306	But both Lucia and Liv seem excited about it. After all, summer is often associated with... precious memories.	Think_Close	1500								40307
+40307	So, if you've got some free time, want to do something together?	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	40302	40305	40308		
+40308	The weather forecast shows it will be sunny. Enjoy the rest of your vacation, Commandant.	SkyNpc_Common_PatrolEndtalk									
+40401	Want to relax for some time, Commandant?	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	40402	40405	40408		
+40402	If you're looking for some good spots where you won't be bothered, I've got some advice for you.	Talk_Idle	1500								40403
+40403	You know, for a sniper like me, finding the most hidden spot in any area... is a walk in the park.	Stand_Idle	1500								40404
+40404	No need, huh? Well, I can also tell you about the best place to hang out, the best place to eat, and the best place to read. Trust me, they've all got stellar reviews.	Think_Idle_StandIdle	1500	About Sky Island	About Summer	Goodbye	40402	40405	40408		
+40405	Things I want to do in summer? Um... you probably already have the answer in your mind before even asking me, don't you?	Think_Idle	1500								40406
+40406	But... I just had a good rest and I'm totally ready to do something else.	Stand_Idle	1500								40407
+40407	I found the best place to overlook the entire island, and I'm going to check it out... Want to come with me? Things might feel completely different from a different viewpoint.	Talk_Idle	1500	About Sky Island	About Summer	Goodbye	40402	40405	40408		
+40408	Good morning, Commandant...	SkyNpc_Common_Endtalk									
+40501	What's up?	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	40502	40505	40508		
+40502	Creating a stable island in the sky might not be too challenging, but getting the right balance between beauty and practicality can definitely be tough!	Show_Serious	1500								40503
+40503	In the resting areas, special silencing devices have to be used to dampen the noise from the flight engines... There are also gravitational forces and safety facilities to be considered...	Talk_Serious	1500								40504
+40504	—Commandant Dumbass, are you even listening? This level of intricate design can only be done by my Engineering Force! So, how about giving me a well-deserved compliment?	Refuse_Idle	1500	About Sky Island	About Summer	Goodbye	40502	40505	40508		
+40505	Every time summer arrives, I have to adjust my frame's cooling system. It's the most annoying part!	Refuse_Idle	1500								40506
+40506	Especially during summer, the building materials will all get scorching hot, not good at all for construction.	Stand_Idle	1500								40507
+40507	But since you're on vacation, fine... I'll adjust the cooling power and join you for a walk—purely because I want to see the seagulls. Who says I'm going to wear a dress?!	Show_Idle	1500	About Sky Island	About Summer	Goodbye	40502	40505	40508		
+40508	Oh, you're leaving already...? Just so you know, I'll be quite busy myself later!	SkyNpc_Common_Endtalk									
+40601	Are you going to take Nanami out? Let's go!	Greet_Happy	1500	About Sky Island	About Summer	Goodbye	40602	40605	40608		
+40602	It looks like so much fun here! Over there too! But where's the control room? Nanami wants to speed up more!	Jump_Happy	1500								40603
+40603	Adding a cannon would be great! Can we get Power one of them? Can we?	Jump_Happy	1500								40604
+40604	Reeeally... It's a pity that we can't have Power modified, but Nanami will still get the job done! Onto the next mission: Sneak into the control room!	Think_Jump_Idle	1500	About Sky Island	About Summer	Goodbye	40602	40605	40608		
+40605	Nanami likes summer because there's so much fun, but actually, Nanami thinks everything is fun.	Jump_Happy	1500								40606
+40606	Moreover, Nanami is the strongest in summer! Because Nanami is the strongest whenever! Huh? Oh, so you just like summer itself.	Show_Serious	1500								40607
+40607	Alrighty! I'm going to challenge the sun next! Power ready! Let's go! I'm just kidding. I think I'll have more fun hanging out with Commandant.	Jump_Happy	1500	About Sky Island	About Summer	Goodbye	40602	40605	40608		
+40608	No more playing? Nanami will always be here!	SkyNpc_Common_PatrolEndtalk									
+40701	Shh... Don't tell anyone I'm here. I don't want to be recognized...	Think_Scared	1500	About Sky Island	About Summer	Goodbye	40702	40705	40708		
+40702	No one would expect... to see me here, right...? It's okay. I won't let people see through my disguise...	Think_Idle	1500								40703
+40703	But... let's just talk here... You'll fall if you get too close to the edge... It's better to stay in a safe spot.	Think_Idle	1500								40704
+40704	Now that I think about it, coming all the way here and then having to figure out how to get back is a bit of a hassle... How about you give me a ride back? Then, I won't have to worry about hiding.	Think_Happy	1500	About Sky Island	About Summer	Goodbye	40702	40705	40708		
+40705	When it comes to summer, many would want to go swimming... I never had the chance to learn it before becoming like this...	Think_Idle	1500								40706
+40706	I don't need to learn it anymore. I can hide underwater whenever I want now... and no one will ever notice...	Think_Idle	1500								40707
+40707	What I'm trying to say must be different from what you think about swimming... Hm? Oh, I never really talk to fish.	Think_Cry	1500	About Sky Island	About Summer	Goodbye	40702	40705	40708		
+40708	Want to run away...	SkyNpc_Common_Endtalk									
+40801	Hello, Commandant.	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	40802	40805	40808		
+40802	This place has a lot of business potential... From my personal perspective, it appears feasible to run Akdilek stores here.	Stand_Happy_Idle	1500								40803
+40803	...Are you asking about my own feelings? I like this place. It's close to the sky, and the sky... feels free, different from the universe, and it's quiet here.	Stand_Idle	1500								40804
+40804	If we're talking about being with you, I also feel safe... Commandant, that area seems to be an ideal location for a deli.	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	40802	40805	40808		
+40805	I have hazy memories of summer. The train was always... unbearably hot, and people would often suffer from heatstroke. If it became too scorching, it would significantly impede the progress of work.	Think_Close	1500								40806
+40806	I really enjoy having ice cream. If we place the ice cream machine here, we can have some together.	Stand_Idle	1500								40807
+40807	Does this count as my attempt to learn how to take care of others...? If you come to buy ice cream, I'll offer it to you at a cost price.	Think_Idle	1500	About Sky Island	About Summer	Goodbye	40802	40805	40808		
+40808	Commandant, until next time.	SkyNpc_Common_PatrolEndtalk									
+40901	Is there anything I can help you with, Commandant?	Stand_Idle	1500	About Summer	About Rosetta	Goodbye	40902	40905	40908		
+40902	Summer in the Arctic region is not as cold as people would imagine. Have you ever walked on a tundra, Commandant?	Talk_Idle	1500								40903
+40903	There are a lot of creatures out there. Commandant, have you ever come across Arctic foxes? I once saw a pack of them while they were hunting... They looked adorable running around. Some of the braver ones would even bark in the direction of the Forest Guards.	Think_Idle	1500								40904
+40904	Whether it's on land, in the sky, or out at sea, everyone is giving their all in their own lives. When you have the time, let's visit my hometown together, Commandant.	Stand_Idle	1500	About Summer	About Rosetta	Goodbye	40902	40905	40908		
+40905	Continue to stay in mid-air in a floating place...? It feels kind of strange. The island also looks a bit lonely in the air...	Think_Idle	1500								40906
+40906	But I already got used to this kind of life. Going through hardships can make one more open-minded about life.	Stand_Idle	1500								40907
+40907	My apologies! I didn't mean to burden you with my ramblings... Commandant, what would you like to do next? Want me to give you a quick ride? It's pretty nice to fly through the sky.	Stand_Happy_Idle	1500	About Summer	About Rosetta	Goodbye	40902	40905	40908		
+40908	See you, Commandant.	SkyNpc_Common_Endtalk									
+41001	Hm? Oh, it's you, Commandant. I'm patrolling my territory.	Jump_Idle	1500	About Sky Island	About Summer	Goodbye	41002	41005	41008		
+41002	The ground is so far away... I'm not afraid of falling, but it's not safe for you to stay here.	Think_Idle	1500								41003
+41003	Where's Noctis? If it's him, I can kick his ass however I want. It would be even better if I could throw him down from here.	Show_Idle	1500								41004
+41004	I guess this counts as part of my territory patrol. I've got it all understood, Commandant.	Stand_Idle	1500	About Sky Island	About Summer	Goodbye	41002	41005	41008		
+41005	Summer means going out and having fun... but I don't know who to be with besides Vera and Noctis. Hm... I can play by myself too.	Think_Idle	1500								41006
+41006	Hm? You want to play with me, Commandant? But I don't know any games for two people. The only two-player game I'm good at is "kicking ass."	Stand_Idle	1500								41007
+41007	But I don't want to kick Commandant's ass. Commandant is a good person. A good person can share snacks with me.	Talk_Idle	1500	About Sky Island	About Summer	Goodbye	41002	41005	41008		
+41008	Time to say goodbye? Goodbye, Commandant.	SkyNpc_Common_PatrolEndtalk									
+50101	Happy New Year! Are you also here with a "mission"?	Talk_Idle	800	About New Year Purchases	About Friends	Goodbye	50102	50105	50108		
+50102	Jamilah told me about this Kowloong tradition of making "New Year Purchases". She asked me to visit you and do some shopping, then bring the goods back.		800	About New Year Purchases	Goodbye		50102	50108		50103	
+50103	But what exactly classifies as "New Year Purchases"? Food? Daily products? Is this lamp one of the New Year goods? It looks very delicate. Could it be expensive...?		800	About New Year Purchases	Goodbye		50102	50108		50104	
+50104	Oh... Are you getting it for me? Thanks.		800	About Friends	Goodbye		50105	50108			
+50105	Little League is having a gathering in a few days. I'd like to get some "New Year Purchases" for them. Could you help me pick something?		800	About Friends	Goodbye		50105	50108		50106	
+50106	Food should do the trick, right? I just realize this stall sells sweet cakes, but that stall sells spicy ones. How weird.		800	About Friends	Goodbye		50105	50108		50107	
+50107	Guess I'll just buy a little bit of everything. What flavor do you prefer? I can get one for you too.		800	About New Year Purchases	Goodbye		50102	50108			
+50108	Let's check that stall over there. What are they selling?	2024SpringNpc_Sufeiya_Endtalk									
+50201	Oh, hello. Happy New Year and wish you a great fortune!	Talk_Idle	800	About Shopping	About Eternal Engine	Goodbye	50202	50205	50208		
+50202	Shopping takes more skill than you would think. First, you need sharp eyes to pick out the best goods. Then, you also need to know how to haggle... Look, there's a stall ahead. Let me show you how it's done.		800	About Shopping	Goodbye		50202	50208		50203	
+50203	Got it? This is how you bargain: slash the price in half, then work your way up bit by bit.		800	About Shopping	Goodbye		50202	50208		50204	
+50204	You've never seen such a low price, have you? You should try bargaining next time. It saves quite a bit!		800	About Eternal Engine	Goodbye		50205	50208			
+50205	The crew members on the Eternal Engine want to celebrate the festival too. Come along!		800	About Eternal Engine	Goodbye		50205	50208		50206	
+50206	As the old saying goes, it's a fresh new start after the Spring Festival. A new year always brings new hopes, so this year is bound to be better, right?		800	About Eternal Engine	Goodbye		50205	50208		50207	
+50207	In the upcoming year, I'm sure we'll be able to establish more trade zones, connecting more people and regions together... Just thinking about it already makes me so excited!		800	About Shopping	Goodbye		50202	50208			
+50208	Oh, you're leaving already? Goodbye! Don't forget the bargaining tips I taught you!	2024SpringNpc_Changyu_Endtalk									
+50301	Hello, Commandant. Wish you all the best in the upcoming new year.	Talk_Idle	800	About Holiday	About Gifts	Goodbye	50302	50305	50308		
+50302	Commandant, I've heard of many strange things happening here—firecrackers setting off on their own, Nian beast attacks... Do Nian beasts really exist?		800	About Holiday	Goodbye		50302	50308		50303	
+50303	Whatever the case is, please follow the safety guidelines and set off firecrackers in the correct way. Also, stay alert for any unusual creatures...		800	About Holiday	Goodbye		50302	50308		50304	
+50304	Whew, I think that covers all the safety rules. Please stay safe during the holidays, Commandant.		800	About Gifts	Goodbye		50305	50308			
+50305	I bought these gifts from a stall over there. Even if I told myself that I was "just browsing," after walking around, I couldn't help but think this would be perfect for Commandant, and that one would suit my sister... Before I realized it, I had already bought a lot.		800	About Gifts	Goodbye		50305	50308		50306	
+50306	Sister is helping me carry some of the stuff. She's right behind...		800	About Gifts	Goodbye		50305	50308		50307	
+50307	Sorry, sister! I bought too much!		800	About Holiday	Goodbye		50302	50308			
+50308	Commandant, let's explore that area together when you have a break.	2024SpringNpc_Yalisha_Endtalk									
+50401	Why are you getting so close... do you have something for me?	Talk_Idle	800	About Sweet Dumplings	About Snowflakes	Goodbye	50402	50405	50408		
+50402	What are they? Sweet dumplings? Fine, I'll try one...		800	About Sweet Dumplings	Goodbye		50402	50408		50403	
+50403	Ouch, it's too hot! Get me that chilled electrolyte over there!		800	About Sweet Dumplings	Goodbye		50402	50408		50404	
+50404	...It actually tastes not bad after I let it cool. The wrapper is soft and sticky; the fillings look normal but have a unique taste... Interesting.		800	About Snowflakes	Goodbye		50405	50408			
+50405	You don't need to block them. I'm not cold. The snowflakes fall from the sky... they are clean.		800	About Snowflakes	Goodbye		50405	50408		50406	
+50406	It's a pity that they melt when they land on the table. Maybe I can make it colder to keep them longer...		800	About Snowflakes	Goodbye		50405	50408		50407	
+50407	Well, I probably should not. I'm afraid you won't be able to sustain that cold.		800	About Sweet Dumplings	Goodbye		50402	50408			
+50408	You can go first. I want to stay a little longer.	2024SpringNpc_Luna_Endtalk									
+50501	What are you doing here?	Talk_Idle	800	About Tea	About Wishes	Goodbye	50502	50505	50508		
+50502	Is this the tea you bought to celebrate New Year? Why is the lid sealed so tightly? One sec... Alright, it's open now.		800	About Tea	Goodbye		50502	50508		50503	
+50503	The Kowloong way of preparing tea can be intricate. I'm not good at it, but I wouldn't mind having tea in a simpler way here.		800	About Tea	Goodbye		50502	50508		50504	
+50504	...Not bad.		800	About Wishes	Goodbye		50505	50508			
+50505	New Year's wishes? I never make them. Wanting too many things is like holding sand—it will just slip through your fingers.		800	About Wishes	Goodbye		50505	50508		50506	
+50506	There are some things I'll never give up. As for the others, I won't go out of my way to chase them.		800	About Wishes	Goodbye		50505	50508		50507	
+50507	But if it's your wish... Maybe I'll help you make it come true if you tell me.		800	About Tea	Goodbye		50502	50508			
+50508	We will meet again.	2024SpringNpc_Luxiya_Endtalk									
+50601	What a coincidence. Fate has brought us together.	Talk_Idle	800	About the Display	About Reunion	Goodbye	50602	50605	50608		
+50602	I like the way this stall is set up. I heard there's a... festival gala tonight? Do you need me to perform onstage?		800	About the Display	Goodbye		50602	50608		50603	
+50603	I have actually prepared a stage play.		800	About the Display	Goodbye		50602	50608		50604	
+50604	Of course, if you'd like, I can also give you a private performance. What do you think?		800	About Reunion	Goodbye		50605	50608			
+50605	Family reunions? Very festive, but not for me. How about something more interesting?		800	About Reunion	Goodbye		50605	50608		50606	
+50606	For example, I could whisk you away and run to a place where no other Constructs can find us. That would be fun, don't you think?		800	About Reunion	Goodbye		50605	50608		50607	
+50607	Maybe I can perform the play I prepared? It's a dull, cliched, and meaningless comedy. Still want to see it? Hah, your choice never fails to surprise me...		800	About the Display	Goodbye		50602	50608			
+50608	Oh, what a brief encounter...	2024SpringNpc_Luolan_Endtalk									
+50701	I hope no one can find me.	Talk_Idle	800	About Companion	About Eating Fish	Goodbye	50702	50705	50708		
+50702	What are you doing? You've been all over the place. What, was I sneaking up on you? No... no way! I was just... enjoying the view! Right, the view.		800	About Companion	Goodbye		50702	50708		50703	
+50703	Why are you here alone though?		800	About Companion	Goodbye		50702	50708		50704	
+50704	I don't mind spending the time with you... if you don't have an appointment with anyone else.		800	About Eating Fish	Goodbye		50705	50708			
+50705	"Abundance of Fish"... Eek, just looking at this dish's name already makes my tail hurt...		800	About Eating Fish	Goodbye		50705	50708		50706	
+50706	That being said, these fish are so tiny. If you really want to eat fish, I can catch some big ones for you...		800	About Eating Fish	Goodbye		50705	50708		50707	
+50707	You'll owe me a favor then... Never mind. Just remember to thank me later.		800	About Companion	Goodbye		50702	50708			
+50708	Are you leaving again...? Oh, you'll be back? Then I'll wait for you here.	2024SpringNpc_Lamiya_Endtalk									
+50801	Commandant, we have stepped into another new year together.	Talk_Idle	800	About Time	About Gifts	Goodbye	50802	50805	50808		
+50802	I often hear people say that time is a continuously flowing river, so nothing will change no matter how we celebrate the New Year.		800	About Time	Goodbye		50802	50808		50803	
+50803	But right now, with you and Gray Raven around, this day is more than just a festival—it is an anniversary of our time together.		800	About Time	Goodbye		50802	50808		50804	
+50804	Gray Raven had been through a lot this year, but nothing could stop us—stop me from reaching you.		800	About Gifts	Goodbye		50805	50808			
+50805	Commandant, it's time to open gifts. The weather's still quite cold lately, so I picked a scarf for you.		800	About Gifts	Goodbye		50805	50808		50806	
+50806	I spent a long time in the store debating on the color. In the end, I chose red, because it was the warmest color.		800	About Gifts	Goodbye		50805	50808		50807	
+50807	As for the froggie on top... Sorry, it was my work...		800	About Time	About Gifts		50802	50808			
+50808	I got a box of fireworks. Shall we head to the square right now?	2024SpringNpc_LuxiyaB_Endtalk									
+50901	Commandant, over here.	Talk_Idle	800	About Entertainment	About Tea	Goodbye	50902	50906	50909		
+50902	It's your turn, Commandant.		800	About Entertainment	Goodbye		50902	50909		50903	
+50903	I bet you still have a few smaller cards in your hand. Are you sure you want to play a card this big now?		800	About Entertainment	Goodbye		50902	50909		50904	
+50904	I lost... No, I didn't go easy on you. I just didn't expect that you'd play your cards in that way.		800	About Entertainment	Goodbye		50902	50909		50905	
+50905	Wait, there's punishment? So I need to stick these papers to my forehead? Um...		800	About Tea	Goodbye		50906	50909			
+50906	One moment, Commandant. For the second time, the water needs to be boiled for fifteen seconds... Three, two, one. Alright, pass me your cup now.		800	About Tea	Goodbye		50906	50909		50907	
+50907	I've been studying Kowloong tea art. According to the book, to achieve the best flavor, I must strictly control the brewing time.		800	About Tea	Goodbye		50906	50909		50908	
+50908	Like the taste? Great, I will take note. We can replace some coffee with tea in future.		800	About Entertainment	Goodbye		50902	50909			
+50909	Come try another type of tea, Commandant.	2024SpringNpc_Li_Endtalk									
+51001	Let's have some tea together.	Talk_Idle	800	About Desserts	About Flowers	Goodbye	51002	51005	51008		
+51002	I found this little heater. We can sit around it and bake some desserts.		800	About Desserts	Goodbye		51002	51008		51003	
+51003	Hmm... This time is a little different. I didn't prepare the desserts beforehand, because I wanted to make them with you while sitting around the heater.		800	About Desserts	Goodbye		51002	51008		51004	
+51004	Making something with you has always been my wish. I wished for it last year, and this year too.		800	About Flowers	Goodbye		51005	51008			
+51005	Sitting here, we can see the blooming flowers simply by looking up.		800	About Flowers	Goodbye		51005	51008		51006	
+51006	Look, there's another white plum hidden over there.		800	About Flowers	Goodbye		51005	51008		51007	
+51007	I have always wanted to enjoy the blossoms in the courtyard with you, Commandant. Now, that wish has come true.		800	About Desserts	Goodbye		51002	51008			
+51008	Could you pick a white plum flower for me, Commandant?	2024SpringNpc_Lifu_Endtalk									
+51101	Have a seat.	Talk_Idle	800	About Spring Festival	About Holiday	Goodbye	51102	51105	51108		
+51102	Spring Festival is one of the most important festivals in Kowloong. Every year, people would return home during this time to reunite with their families and celebrate the arrival of a new year.		800	About Spring Festival	Goodbye		51102	51108		51103	
+51103	"Family" is a distant memory to me, as I can't really recall any other family members apart from you. But thinking about it, Kowloong is just like my second home.		800	About Spring Festival	Goodbye		51102	51108		51104	
+51104	This is more than enough for me.		800	About Holiday	Goodbye		51105	51108			
+51105	You're right. After dedicating so much time to the reconstruction of Kowloong, maybe it's time for me to take a break.		800	About Holiday	Goodbye		51105	51108		51106	
+51106	We sit by the pond to enjoy some tea while listening to the snowfall and appreciating the flowers. That does sound like an excellent day.		800	About Holiday	Goodbye		51105	51108		51107	
+51107	Why not relax a little with me?		800	About Spring Festival	Goodbye		51102	51108			
+51108	Have something to do? Alright, you should go then.	2024SpringNpc_Qu_Endtalk									
+51201	One, two... more stuff to put in my mini vault!	Talk_Idle	800	About Red Packets	About the Competition	Goodbye	51202	51205	51208		
+51202	This year, I received a lot of red packets again. But I'm already a grown up...		800	About Red Packets	Goodbye		51202	51208		51203	
+51203	Huh, why are you here? You didn't see anything, did you?		800	About Red Packets	Goodbye		51202	51208		51204	
+51204	Why are you holding a red packet too? Is it for me? Um... I'll still take it! Thanks, Commandant!		800	About the Competition	Goodbye		51205	51208			
+51205	Perfect timing, Commandant! There's an eating contest going on. Team up with me!		800	About the Competition	Goodbye		51205	51208		51206	
+51206	What's the contest about? Participants need to eat the food in every single stall on this street. There will be amazing prizes if we can finish the first!		800	About the Competition	Goodbye		51205	51208		51207	
+51207	Hey, don't turn me down. It's a Kowloong tradition! The more you can eat, the luckier you will be in the next year... Believe me, it's true!		800	About Red Packets	About the Competition	Goodbye	51202	51205	51208		
+51208	Bye, Commandant! Let's try other street food next time!	2024SpringNpc_Pulao_Endtalk									
+51301	Happy New Year, Commandant.	Talk_Idle	800	About Spring Festival	About Food	Goodbye	51302	51305	51308		
+51302	Ah, the Spring Festival of Kowloong... How nostalgic. It feels so wonderful to celebrate this day with you and Pulao.		800	About Spring Festival	Goodbye		51302	51308		51303	
+51303	Let's follow the tradition and set off some firecrackers! They will blast away all the bad luck in the past and bring us a brilliant new year as bright as the red wrapping.		800	About Spring Festival	Goodbye		51302	51308		51304	
+51304	The firecrackers will cast away all the gloom. Wish you all the best in the new year, Commandant.		800	About Food	Goodbye		51305	51308			
+51305	In the past, I wasn't always able to celebrate this festival in such a peaceful way. But I would always prepare some food to share with my friends.		800	About Food	Goodbye		51305	51308		51306	
+51306	It's not exactly a Kowloong tradition, more of a personal habit. I just wish everyone could live the life they want happily ever after.		800	About Food	Goodbye		51305	51308		51307	
+51307	I made this dessert myself, Commandant. Would you like to try it?		800	About Spring Festival	Goodbye		51302	51308			
+51308	May we all have a healthy and peaceful year.	2024SpringNpc_Hanying_Endtalk									
+51401	Do you have any special plans today, Commandant?	Talk_Idle	800	About Leisure	About Festivals	Goodbye	51402	51405	51408		
+51402	Commandant? I'm not on any mission right now. Balancing life and work is an essential part of our routine. During holidays like this, we must rest to live and work better.		800	About Leisure	Goodbye		51402	51408		51403	
+51403	I'm reading "An Overview of Kowloong's New Year Culture and Traditions". Would you like to read it with me? It's full of interesting festive practices and traditions. I think you'd find it just as intriguing as I do.		800	About Leisure	Goodbye		51402	51408		51404	
+51404	Can you see it from my screen? Good, we can read it together.		800	About Festivals	Goodbye		51405	51408			
+51405	We must not forget safety even on festive holidays. Are you thinking of taking a walk over there...? Would you like me to accompany you?		800	About Festivals	Goodbye		51405	51408		51406	
+51406	Before the festival, I considered many ways to protect you on such occasions, but none of them seemed as reliable as staying by your side.		800	About Festivals	Goodbye		51405	51408		51407	
+51407	We can get going if you don't mind.		800	About Leisure	Goodbye		51402	51408			
+51408	Are you leaving for now? Sure. I'll wait for you right here.	2024SpringNpc_Kuluomu_Endtalk									
+51501	Here you are, Commandant!	Talk_Idle	800	About Fireworks	About the Pond	Goodbye	51502	51505	51509		
+51502	What's the most exciting part of Kowloong's New Year? Firecrackers, of course! I've got a huge box of them ready. Come on, Commandant!		800	About Fireworks	Goodbye		51502	51509		51503	
+51503	Careful, I'm about to set them off! What did you say? I can't hear you... Opposite? What's opposite?		800	About Fireworks	Goodbye		51502	51509		51504	
+51504	Whoa! Why are all the firecrackers flying out of the box? Watch out, Commandant!		800	About the Pond	Goodbye		51505	51509			
+51505	See that pond over there? I have already checked it. There are fish inside!		800	About the Pond	Goodbye		51505	51509		51506	
+51506	But you know what? Wanshi sat there for hours but didn't catch anything! Hahaha!		800	About the Pond	Goodbye		51505	51509		51507	
+51507	He looked so pathetic, so I snuck under water, caught a big fish, and hooked it onto his line...		800	About the Pond	Goodbye		51505	51509		51508	
+51508	That still counts, right? Hehe!		800	About Fireworks	Goodbye		51502	51509			
+51509	Got something else going on? Sure. Just remember to come play with me later!	2024SpringNpc_Shenwei_Endtalk									
+51601	Hibernating. Please leave me alone... Hmm? Commandant?	Talk_Idle	800	About Making Wishes	About Fishing	Goodbye	51602	51605	51608		
+51602	Hmm, it's been quite busy these past few days. Seems like many people are making wishes here... Perhaps that's one of the Spring Festival traditions too.		800	About Making Wishes	Goodbye		51602	51608		51603	
+51603	But is it really going to bring them good luck at this point of time? I don't think I would rely on that to fulfill my own wishes.		800	About Making Wishes	Goodbye		51602	51608		51604	
+51604	Still, if you are willing to tell me your wish, it might actually come true today... Who knows?		800	About Fishing	Goodbye		51605	51608			
+51605	I just finished a mission. It completely drained me, so I was going to ask for a long-term hibernation.		800	About Fishing	Goodbye		51605	51608		51606	
+51606	Right before that, Kamui told me about some interesting activities happening here, so I thought I'd come take a look...		800	About Fishing	Goodbye		51605	51608		51607	
+51607	I like fishing because it's quiet and peaceful. But... does this pond even have fish in it?		800	About Making Wishes	Goodbye		51602	51608			
+51608	Are you leaving already? Hmm... alright then. Wake me up whenever you come back.	2024SpringNpc_Wanshi_Endtalk									
+51701	Come taste this, Commandant!	Talk_Idle	800	About Taste	About Holiday	Goodbye	51702	51705	51708		
+51702	Have you tried the fish? I cooked it. For a fish this big, I need to put extra seasonings in the dish, so I added chili peppers and fermented black beans. How was it? Pretty good, right?		800	About Taste	Goodbye		51702	51708		51703	
+51703	I read in a Kowloong book that during this festival, you must eat fish as it is a symbol of abundance...		800	About Taste	Goodbye		51702	51708		51704	
+51704	Abundance year after year... Hmm, I guess it means we will always have plenty to eat? Doesn't sound too bad, huh?		800	About Holiday	Goodbye		51705	51708			
+51705	Why do you still look so rushed...? Don't tell me you are still on missions! Does Babylonia not give commandants holidays?		800	About Holiday	Goodbye		51705	51708		51706	
+51706	No other missions, huh... Great, you really should take a rest today! Just wander around in the courtyard and slack off!		800	About Holiday	Goodbye		51705	51708		51707	
+51707	Remember, no working! I'll keep an eye on you right here!		800	About Taste	Goodbye		51702	51708			
+51708	Everyone is gathering together to celebrate... This feeling isn't too bad, I guess.	2024SpringNpc_Kamu_Endtalk									
+51801	Come play with Nanami, Commandant!	Talk_Idle	800	About Making Snowmen	About Snow Shoveling	Goodbye	51802	51805	51808		
+51802	Commandant, there was heavy snow last night. The ground is all covered in snow now, which makes it the perfect opportunity to build snowmen! Come on, I have already rolled a snowball.		800	About Making Snowmen	Goodbye		51802	51808		51803	
+51803	Eyes, nose... all set. Let's name this one "Commandant"!		800	About Making Snowmen	Goodbye		51802	51808		51804	
+51804	Wait, don't touch it yet. The carrot is still wobbly... Ah! Commandant's nose fell off!		800	About Snow Shoveling	Goodbye		51805	51808			
+51805	Behold, this is Nanami's latest invention—the Super Snow Shoveling Machine! See, it can shovel away any amount of snow, even the stone pavements!		800	About Snow Shoveling	Goodbye		51805	51808		51806	
+51806	That being said, the shoveling machine's primary mission is—to scoop up Commandant!		800	About Snow Shoveling	Goodbye		51805	51808		51807	
+51807	Let's go, Commandant! You're spending the entire day with Nanami!		800	About Making Snowmen	Goodbye		51802	51808			
+51808	Nanami will take good care of "Commandant"!	2024SpringNpc_Qishi_Endtalk									
+51901	I need to take note of more Kowloong traditions.	Talk_Idle	800	About Firecrackers	About Outfit	Goodbye	51902	51905	51908		
+51902	Here are the firecrackers I prepared. Please set them off, Commandant.		800	About Firecrackers	Goodbye		51902	51908		51903	
+51903	According to Kowloong's New Year customs, people set off firecrackers in order to drive away the Nian beast. While my database indicates no evidence of such a creature, my analysis of Kowloong's cultural traditions suggests that this activity envisions the repulsion of misfortune and the arrival of good fortune.		800	About Firecrackers	Goodbye		51902	51908		51904	
+51904	Therefore, please continue setting off the firecrackers. No need to worry about the possible debris it creates—I'll ensure the ground is promptly and thoroughly cleaned afterward.		800	About Outfit	Goodbye		51905	51908			
+51905	Rest assured that my frame is functioning normally. The low-temperature environment won't affect me.		800	About Outfit	Goodbye		51905	51908		51906	
+51906	However, I've noticed that the temperature of your extremities is quite low... Do you need to go back and change into warmer clothing?		800	About Outfit	Goodbye		51905	51908		51907	
+51907	Alternatively, you can also hold my hand. I can set the temperature of my frame a little higher... Do you feel more comfortable now?		800	About Firecrackers	Goodbye		51902	51908			
+51908	You may leave if you have other commitments. I will stay here and gather more information.	2024SpringNpc_Hakama_Endtalk									
+52001	Oh? Are you here to say happy holiday to me?	Talk_Idle	800	About the Promise	About Delicious Food	Goodbye	52002	52005	52008		
+52002	I told you I would come today. See, right on time. Where's your gratitude now?		800	About the Promise	Goodbye		52002	52008		52003	
+52003	If you let me decide... How about spending the entire day here alone with me?		800	About the Promise	Goodbye		52002	52008		52004	
+52004	Boring? Spending time with you could never be boring. Or... are you suggesting you'd rather do something more "risky"? Hmph, I don't mind that either. I'll go along with whatever you want.		800	About Delicious Food	Goodbye		52005	52008			
+52005	These desserts aren't bad at all. Especially this one... Why are you just staring at me? Take it. This one's for you.		800	About Delicious Food	Goodbye		52005	52008		52006	
+52006	Indulge yourself while you can. It's fine to be greedy. You won't have chances to enjoy delicate treats like these when you are on a mission...		800	About Delicious Food	Goodbye		52005	52008		52007	
+52007	Want another? Sure. Don't worry—no one would have the guts to mock you in front of me.		800	About the Promise	Goodbye		52002	52008			
+52008	Alright, you should take a rest inside.	2024SpringNpc_Weila_Endtalk									
+52101	I prepared a lot of great stuff. You're going to love them!	Talk_Idle	800	About Fireworks	About "Red"	Goodbye	52102	52105	52108		
+52102	I got some super amazing fireworks. Once you see them, you'll never forget them. Come on, let's give them a try!		800	About Fireworks	Goodbye		52102	52108		52103	
+52103	Cough... How was that? Awesome, right?		800	About Fireworks	Goodbye		52102	52108		52104	
+52104	These fireworks are heavily regulated because they are often mistaken for explosives... Wait, why is the edge of your clothes burnt?		800	About "Red"	Goodbye		52105	52108			
+52105	I like this Kowloong festival! It's red everywhere. Before I realize, I have bought a lot of things. My wallet's probably all empty by now... Yep, there's barely anything left.		800	About "Red"	Goodbye		52105	52108		52106	
+52106	Did I buy too many things? It's just two packs of red couplet paper, one box of red "Fortune" character stickers, one hundred red paper cutouts...		800	About "Red"	Goodbye		52105	52108		52107	
+52107	This just isn't enough no matter how I look at it! I'll need to paste it all over the lounge!		800	About Fireworks	Goodbye		52102	52108			
+52108	Haha! I've got an even more powerful firework! Come find me secretly later!	2024SpringNpc_Nuoketi_Endtalk									
+52201	Happy New Year, red packet please—Vera told me to say so.	Talk_Idle	800	About Swing	About the Festival Smell	Goodbye	52202	52205	52208		
+52202	The swing was fun, but No. 21 flew off the swing and landed on the grass across. Vera said No. 21 must not return to the lounge before cleaning the mud away... It's not that fun anymore.		800	About Swing	Goodbye		52202	52208		52203	
+52203	But if you are willing to push No. 21, No. 21 would like to play again.		800	About Swing	Goodbye		52202	52208		52204	
+52204	Higher... Higher! Roar! I'm flying!		800	About the Festival Smell	Goodbye		52205	52208			
+52205	No. 21 likes this festival. The air is filled with many comforting scents. No. 21 has collected all of them and can share with you.		800	About the Festival Smell	Goodbye		52205	52208		52206	
+52206	This is a flower, it's fragrant. This is a snowflake, it has no smell... Oh, it has disappeared.		800	About the Festival Smell	Goodbye		52205	52208		52207	
+52207	That's okay, I still have this one. It's a firecracker I just picked up... Why are you standing so far away?		800	About Swing	Goodbye		52202	52208			
+52208	There's no danger nearby. Why are you going back to get the protective suit?	2024SpringNpc_21_Endtalk									
+52301	Bambinata... likes this festival too.	Talk_Idle	800	About Snow	About Gifts	Goodbye	52302	52305	52308		
+52302	Um, Bambinata's looking at the snowflakes...		800	About Snow	Goodbye		52302	52308		52303	
+52303	Snowflakes fall from the sky onto Bambinata. They feel cold.		800	About Snow	Goodbye		52302	52308		52304	
+52304	Bambinata doesn't feel cold because it's warm near Commandant. Could you stay with Bambinata a little longer?		800	About Gifts	Goodbye		52305	52308			
+52305	Thank you for the New Year gift, Commandant. Bambinata will take good care of it...		800	About Gifts	Goodbye		52305	52308		52306	
+52306	Red packets? No, Mistress said Bambinata must not take them...		800	About Gifts	Goodbye		52305	52308		52307	
+52307	Bambinata knows this festival is a special one that only comes once a year. Bambinata will carefully preserve this memory about the New Year.		800	About Snow	Goodbye		52302	52308			
+52308	Thanks very much, Commandant.	2024SpringNpc_Bangbinata_Endtalk									
+52401	Here you are, Commandant.	Talk_Idle	800	About the Pond	About Blanket	Goodbye	52402	52405	52408		
+52402	...Commandant? No, I'm not zoning out. Just sitting here for a while to appreciate the tranquil view.		800	About the Pond	Goodbye		52402	52408		52403	
+52403	I know a little about Kowloong's culture. Festivals like this always bring joy... Me? Of course I'm happy too. Seeing you here is another pleasant surprise.		800	About the Pond	Goodbye		52402	52408		52404	
+52404	Shall we go over there to take a look? The view there is unique and innovative. I think I've seen similar scenery in a Kowloong movie before...		800	About the Blanket	Goodbye		52405	52408			
+52405	It's snowing outside, Commandant. Let's move to the corridor. It'll be warmer over there...		800	About the Blanket	Goodbye		52405	52408		52406	
+52406	Oh, is this the blanket I gave you earlier? Never thought I would see it here... Seems you like this gift.		800	About the Blanket	Goodbye		52405	52408		52407	
+52407	...Could you sit a closer, Commandant? This will do. Now we can share the warmth together.		800	About the Pond	Goodbye		52402	52408			
+52408	I look forward to seeing you again, Commandant.	2024SpringNpc_Bianka_Endtalk									
+52501	Do you like this type of lantern, Commandant?	Talk_Idle	800	About Lanterns	About Ice Cream	Goodbye	52502	52505	52508		
+52502	These floating lanterns are so delicate... Back in the Arctic, rivers were often frozen, so we never had the chance to make such beautiful lanterns.		800	About Lanterns	Goodbye		52502	52508		52503	
+52503	But we did make ice sculptures occasionally. Have you seen ice sculptures before? Some of my skillful sisters could make truly impressive ones. They even had space inside for candles.		800	About Lanterns	Goodbye		52502	52508		52504	
+52504	Hmm... If you are interested, how about I make one for you, Commandant? What shape do you like? Let me see... This piece of ice will do...		800	About Ice Cream	Goodbye		52505	52508			
+52505	Why are they all staring at me...? Is it weird to eat ice cream in this weather?		800	About Ice Cream	Goodbye		52505	52508		52506	
+52506	I don't feel that cold. The good thing about this weather is that ice cream doesn't melt easily...		800	About Ice Cream	Goodbye		52505	52508		52507	
+52507	Would you like to try it, Commandant?		800	About Lanterns	Goodbye		52502	52508			
+52508	Would you like another ice cream?	2024SpringNpc_Luosaita_Endtalk									
+52601	I didn't expect to see you here.	Talk_Idle	800	About Tea	About Staying On Duty	Goodbye	52602	52605	52608		
+52602	Not working today? Of course I won't schedule any work on festivals like this. Or rather, my "work" for today is to sit here and have tea with you.		800	About Tea	Goodbye		52602	52608		52603	
+52603	Phew... Finally, I don't have to deal with strange guys and idiots. I can just sit here with you, enjoying the snack...		800	About Tea	Goodbye		52602	52608		52604	
+52604	What a wonderful day.		800	About Staying On Duty	Goodbye		52605	52608			
+52605	The Engineering Force's roster is a hopeless mess. Just looking at it already annoys me.		800	About Staying On Duty	Goodbye		52605	52608		52606	
+52606	But it's okay. I have already reorganized all their forms. The new roster is as beautiful as my programming code. I even kicked the guy who made me work five days in a row for no reason out of the Engineering Force.		800	About Staying On Duty	Goodbye		52605	52608		52607	
+52607	Times like this are meant to be thoroughly enjoyed. Hmm... Would you like another drink?		800	About Tea	Goodbye		52602	52608			
+52608	Remember to come back later. You haven't finished your tea yet.	2024SpringNpc_Buouxiong_Endtalk									
+52701	Should I put more bait on?	Talk_Idle	800	About Fishing	About the Engineering Force	Goodbye	52702	52705	52709		
+52702	Don't ask me where the fishing rod and bait came from. They were already here when I arrived.		800	About Fishing	Goodbye		52702	52709		52703	
+52703	Fishing is a game of patience, which I really lack. But I can't give up yet. I must not!		800	About Fishing	Goodbye		52702	52709		52704	
+52704	I'm sure I can catch something... Look, it's biting!		800	About the Engineering Force	Goodbye		52705	52709			
+52705	That railing at the corner was a sharp 90-degree angle. Bumping into it will definitely hurt a lot...		800	About the Engineering Force	Goodbye		52705	52709		52706	
+52706	Good news is, the railing is gone. I just cut the corner off, and another Engineering Force member will come fix it soon.		800	About the Engineering Force	Goodbye		52705	52709		52707	
+52707	Of course, someone has to be on duty. Even on holidays, the machines need to be maintained... I originally assigned myself to work several days, but someone changed the roster I made...		800	About the Engineering Force	Goodbye		52705	52709		52708	
+52708	Well, never mind. A little rest like this feels quite good... Look! Something's biting the bait!		800	About Fishing	Goodbye		52702	52709			
+52709	Look, I just caught another fish! Hooray!	2024SpringNpc_Kalienina_Endtalk									
+52801	I can use the buildings here as background reference for my comic...	Talk_Idle	800	About Painting	About Artworks	Goodbye	52802	52805	52809		
+52802	I have captured most of the scenery here, but it still feels like something's missing on this painting...		800	About Painting	Goodbye		52802	52809		52803	
+52803	Ah, Commandant! Perfect! Just stand right there—don't worry, you won't block the view.		800	About Painting	Goodbye		52802	52809		52804	
+52804	Now the picture feels a lot more complete... This is exactly what I wanted! Next, I just need to add myself on it...		800	About Artworks	Goodbye		52805	52809			
+52805	Rest assured that this painting will remain part of my private collection. I won't show it to others easily.		800	About Artworks	Goodbye		52805	52809		52806	
+52806	As for your "modeling fee"... How about I give you my best work?		800	About Artworks	Goodbye		52805	52809		52807	
+52807	Don't worry, I never make losing deals. Still, if you think I'm getting the short end of this deal... Why don't you give me one of your works next time?		800	About Artworks	Goodbye		52805	52809		52808	
+52808	Just draw anything you like, Commandant!		800	About Painting	Goodbye		52802	52809			
+52809	Goodbye, Commandant. I'm going back to my "work mode" too!	2024SpringNpc_Aila_Endtalk									
+52901	Hello, Conductor.	Talk_Idle	800	About Flowers	About Lanterns	Goodbye	52902	52905	52908		
+52902	I have briefly visited many places and seen many flowers in bloom.		800	About Flowers	Goodbye		52902	52908		52903	
+52903	But none of them look so elegant yet simple.		800	About Flowers	Goodbye		52902	52908		52904	
+52904	Could you play a piece with me, Conductor? I want to capture this moment with you through music.		800	About Lanterns	Goodbye		52905	52908			
+52905	Are the lanterns and screen walls open for visitors to leave their messages?		800	About Lanterns	Goodbye		52905	52908		52906	
+52906	I can compose the melody we just played. Would you like to write it down?		800	About Lanterns	Goodbye		52905	52908		52907	
+52907	The ink left here is a proof of our time together. It will sway in the wind, whispering the story we left behind for many years to come.		800	About Flowers	Goodbye		52902	52908			
+52908	I wish we can linger a little longer in this serene moment...	2024SpringNpc_Sailinna_Endtalk									
+53001	There are many things to do...	Talk_Idle	800	About Supplies	About Casual Chat	Goodbye	53002	53005	53008		
+53002	The Oasis has an abundance of supplies this year. Spring Festival is an important day for many Forsakens, so we prepared a lot of "New Year goods."		800	About Supplies	Goodbye		53002	53008		53003	
+53003	While it is impossible to cater to everyone's tastes, I hope they all can leave this festival with wonderful memories.		800	About Supplies	Goodbye		53002	53008		53004	
+53004	Would you like to spend this festival with us? I can take you back to the Oasis once I finish my business here.		800	About Casual Chat	Goodbye		53005	53008			
+53005	Now is indeed a good time for a casual chat. Is there anything that troubles you, or makes you happy? Feel free to share them with me.		800	About Casual Chat	Goodbye		53005	53008		53006	
+53006	Want to hear my stories? Hmm... I don't mind, but it will probably take a long time. It's been a long journey.		800	About Casual Chat	Goodbye		53005	53008		53007	
+53007	Are you willing to take your time to listen to them?		800	About Supplies	Goodbye		53002	53008			
+53008	No need to rush. I'll wait for you here. We can continue when you come back.	2024SpringNpc_Dubian_Endtalk									
+53101	Happy New Year, Commandant.	Talk_Idle	800	About Lanterns	About Winter	Goodbye	53102	53105	53107		
+53102	They say if you write down your New Year's wish on a lantern, it might come true...		800	About Lanterns	Goodbye		53102	53107		53103	
+53103	Hmm? Curious about what I wrote?		800	About Lanterns	Goodbye		53102	53107		53104	
+53104	I can tell you my wish if you are willing to tell me yours... how about that?		800	About Winter	Goodbye		53105	53107			
+53105	The snow here has always been so tranquil. We only associate it with snowmen or New Year, nothing else.		800	About Winter	Goodbye		53105	53107		53106	
+53106	Stay here and take a walk with me if you are still curious about that question you asked me.		800	About Lanterns	Goodbye		53102	53107			
+53107	Hold on, Commandant... There's snow on your hair.	2024SpringNpc_Nuoan_Endtalk									

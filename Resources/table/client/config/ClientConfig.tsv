@@ -1,0 +1,6 @@
+Key	Type	Value
+GuildAnnouncementMaxLen	int	100
+GuildDeclarMaxLen	int	100
+GuildInterComMaxLen	int	50
+GuildNameMaxLen	int	16
+GuildNameMinLen	int	1

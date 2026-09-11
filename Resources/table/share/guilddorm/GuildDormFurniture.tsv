@@ -1,0 +1,155 @@
+Id	Name	FurnitureType	PrefabName	DontAutoCreateCollider	IsShowName	NameHeightOffset	InteractPos	SpecialUiNames[1]	SpecialUiNames[2]	UiNameProxyPaths[1]	UiNameProxyPaths[2]	SpecialUiNameHeightOffset[1]	SpecialUiNameHeightOffset[2]	UiShowDistance	ShowButtonGroupId	AnimationArg	AnimationName[1]	AnimationName[2]	IsGetReward	RewardHeightOffset	RedPointCondition	EffectGroupId	EnvironmentSound
+1	Floor	1	GuildFloor001	1																			
+2	Wall No.1	3	GuildWall001																				
+3	Wall No.2	3	GuildWall002																				
+4	Wall No.3	3	GuildWall003																				
+5	Wall No.4	3	GuildWall004																				
+6	Camera No.1	3	GuildCamera001																				
+7	Camera No.2	3	GuildCamera001_1																				
+8	Camera No.3	3	GuildCamera002																				
+9	Camera No.4	3	GuildCamera002_1																				
+10	Door No.1	3	GuildDoor001																				
+11	Door No.2	3	GuildDoor001_1																				
+12	Window No.1	3	GuildWindow001																				
+13	Window No.2	3	GuildWindow001 _1																				
+14	Wall Equipment	3	GuildPackage001																				
+15	Wall Equipment	3	GuildPackage001_1																				
+16	Ceiling	3	GuildCeiling001																				
+17	Tactical Long Table	2	GuildTable001	1																			
+18	Player	2	GuildConsole001	1	1	1.25	1	PanelMusicPlayer		XUi/XUiGuildDorm/XUiGuildDormMusicGrid		1.75		4.0	200								
+19	Info Board	2	GuildConsole001_1																				
+20	Tactical Short Table	2	GuildConsole002																				
+21	Tactical Short Table	2	GuildConsole002_1																				
+22	Info Board	2	GuildBlackboard001											4.0									
+23	Tactical Terminal	2	GuildCommand001	1			1								100	Test	Setup	Exit					
+24	Sleep Cabin No.1	2	GuildCockpit001	1			1								1				1	1.75			
+25	Sleep Cabin No.2	2	GuildCockpit001_1	1			1								1				1	1.75			
+26	Tactical Chair No.1	2	GuildChair001	1			1								3				1	1.25			
+27	Tactical Chair No.2	2	GuildChair001_1	1			1								3				1	1.25			
+28	Tactical Chair No.3	2	GuildChair001_2	1			1								3				1	1.25			
+29	Tactical Chair No.4	2	GuildChair001_3	1			1								3				1	1.25			
+30	Tactical Chair No.5	2	GuildChair001_4	1			1								3				1	1.25			
+31	Tactical Chair No.6	2	GuildChair001_5	1			1								3				1	1.25			
+32	Tactical Chair No.7	2	GuildChair001_6	1			1								3				1	1.25			
+33	Tactical Chair No.8	2	GuildChair001_7	1			1								3				1	1.25			
+34	Vending Machine No.1	2	GuildCabinet001	1			1								4				1	2.0			
+35	Vending Machine No.2	2	GuildCabinet003	1			1								4				1	2.0			
+36	Vending Machine No.3	2	GuildCabinet003_1	1			1								4				1	2.0			
+37	Fortune Machine	2	Signmodel01	1	1	2.0	1							5.0	300					2.2999	CONDITION_GUILD_SIGN_REWARD	300	
+1000	Floor	1	S03006_Terrain01	1																			
+1001	Recliner	2	S03006_11Tanyi (1)	1			1								1				1	1.25			
+1002	Recliner	2	S03006_11Tanyi (2)	1			1								1				1	1.25			
+1003	Recliner	2	S03006_11Tanyi (4)	1			1								1				1	1.25			
+1004	Recliner	2	S03006_11Tanyi (6)	1			1								1				1	1.25			
+1005	Recliner	2	S03006_11Tanyi (7)	1			1								1				1	1.25			
+1006	Recliner	2	S03006_11Tanyi (8)	1			1								1				1	1.25			
+1007	Chair	2	S03006_11yizi	1			1								2				1	1.25			
+1008	Chair	2	S03006_11yizi (1)	1			1								2				1	1.25			
+1009	Chair	2	S03006_11yizi (2)	1			1								2				1	1.25			
+1010	Chair	2	S03006_11yizi (3)	1			1								2				1	1.25			
+1011	Chair	2	S03006_11yizi (4)	1			1								2				1	1.25			
+1012	Chair	2	S03006_11yizi (5)	1			1								2				1	1.25			
+1013	Chair	2	S03006_11yizi (6)	1			1								2				1	1.25			
+1014	Chair	2	S03006_11yizi (7)	1			1								2				1	1.25			
+1015	Chair	2	S03006_11yizi (8)	1			1								2				1	1.25			
+1016	Chair	2	S03006_11yizi (9)	1			1								2				1	1.25			
+1017	Ice Cream Stool	2	S03006_10Denzi	1			1								2				1	1.25			
+1018	Ice Cream Stool	2	S03006_10Denzi (1)	1			1								2				1	1.25			
+1019	Ice Cream Stool	2	S03006_10Denzi (4)	1			1								2				1	1.25			
+1020	Ice Cream Stool	2	S03006_10Denzi (5)	1			1								2				1	1.25			
+1021	Player	2	S03006_01Tiaoyintao	1	1	1.25	1	PanelMusicPlayer		XUi/XUiGuildDorm/XUiGuildDormMusicGrid		1.75		4.0	200								
+1022	Blue Chair	2	S03006_13Yizi	1			1								2				1	1.25			
+1023	Blue Chair	2	S03006_13Yizi (1)	1			1								2				1	1.25			
+1024	Blue Chair	2	S03006_13Yizi (2)	1			1								2				1	1.25			
+1025	Blue Chair	2	S03006_13Yizi (3)	1			1								2				1	1.25			
+1026	Barbecue Grill	2	WoodenBarbecues001	1																			2636
+1027	Sea Level	2	3006_Water_01	1																			2634
+1028	Fortune Machine	2	Signmodel02	1	1	2.0	1							5.0	300					2.2999	CONDITION_GUILD_SIGN_REWARD	300	
+2000	Floor	1	Navigation	1																			
+2001	Chair	2	S03405_11Yizi	1			1								2				1	1.25			
+2002	Chair	2	S03405_11Yizi (1)	1			1								2				1	1.25			
+2003	Chair	2	S03405_11Yizi (2)	1			1								2				1	1.25			
+2004	Chair	2	S03405_11Yizi (3)	1			1								2				1	1.25			
+2005	Chair	2	S03405_11Yizi (4)	1			1								2				1	1.25			
+2006	Chair	2	S03405_11Yizi (5)	1			1								2				1	1.25			
+2007	Fireworks Device	2	S03405_06Yanhua (3)	1			1								5				1	1.25			
+2008	Fireworks Device	2	S03405_06Yanhua (4)	1			1								5				1	1.25			
+2009	Fireworks Device	2	S03405_06Yanhua (5)	1			1								5				1	1.25			
+2010	Tactical Terminal	2	S03405_22Qiandaoji	1			1								100								
+2011	Player	2	S03405_22Bofangqi	1	1	1.25	1	PanelMusicPlayer		XUi/XUiGuildDorm/XUiGuildDormMusicGrid		1.75		5.0	200								
+2012	Fortune Machine	2	S03405_13Qiandaoji	1	1	2.0	1							5.0	300					2.2999	CONDITION_GUILD_SIGN_REWARD	300	
+2013	Sky Fireworks	3	Yanhua																			1	2838
+2014	Sky Fireworks	3	Yanhua (4)																			1	2838
+3000	Floor	1	Navigation	1																			
+3001	Chair	2	S03804_10Dengzi	1			1								2				1	1.25			
+3002	Chair	2	S03804_10Dengzi (1)	1			1								2				1	1.25			
+3003	Chair	2	S03804_10Dengzi (2)	1			1								2				1	1.25			
+3004	Chair	2	S03804_10Dengzi (3)	1			1								2				1	1.25			
+3005	Chair	2	S03804_10Dengzi (4)	1			1								2				1	1.25			
+3006	Chair	2	S03804_10Dengzi (5)	1			1								2				1	1.25			
+3007	Chair	2	S03804_10Dengzi (9)	1			1								2				1	1.25			
+3008	Chair	2	S03804_10Dengzi (10)	1			1								2				1	1.25			
+3009	Chair	2	S03804_10Dengzi (11)	1			1								2				1	1.25			
+3010	Drink Machine	2	S03804_05Yinliaoji	1			1								4				1	2.0			
+3011	Tactical Terminal	2	S03804_10Zhongduan	1			1								100								
+3012	Player	2	S03804_12Bofangqi	1	1	1.25	1	PanelMusicPlayer		XUi/XUiGuildDorm/XUiGuildDormMusicGrid		1.75		5.0	200								
+3013	Fortune Machine	2	S03804_16Qiandaoji	1	1	2.0	1							5.0	300					2.2999	CONDITION_GUILD_SIGN_REWARD	300	
+4000	Floor	1	Navigation	1																			
+4001	Chair	2	Guild04_06Yizi (1)	1			1								2				1	1.25			
+4002	Chair	2	Guild04_06Yizi (2)	1			1								2				1	1.25			
+4003	Chair	2	Guild04_06Yizi (3)	1			1								2				1	1.25			
+4004	Chair	2	Guild04_06Yizi	1			1								2				1	1.25			
+4005	Chair	2	Guild04_11Qiuqian	1			1								2				1	1.25			
+4006	Chair	2	Guild04_11Qiuqian (1)	1			1								2				1	1.25			
+4007	Chair	2	Guild04_05Yizi	1			1								2				1	1.25			
+4008	Fireworks Device	2	Guild04_18Baozhu	1			1								6				1	1.25			
+4009	Fireworks Device	2	Guild04_18Baozhu (1)	1			1								6				1	1.25			
+4010	Fireworks Device	2	Guild04_18Baozhu (3)	1			1								6				1	1.25			
+4011	Fireworks Device	2	Guild04_18Baozhu (2)	1			1								6				1	1.25			
+4012	Tactical Terminal	2	Guild04_12Huodongji	1			1								100								
+4013	Player	2	Guild04_35Bofangqi	1	1	1.25	1	PanelMusicPlayer		XUi/XUiGuildDorm/XUiGuildDormMusicGrid		1.75		5.0	200								
+4014	Fortune Machine	2	Guild04_13Qiandaoji	1	1	2.0	1							5.0	300					2.2999	CONDITION_GUILD_SIGN_REWARD		
+5000	Floor	1	Navigation	1																			
+5001	Chair	2	Zhiwuyuan_23Yizi	1			1								2				1	1.25			
+5002	Chair	2	Zhiwuyuan_23Yizi (1)	1			1								2				1	1.25			
+5003	Chair	2	Zhiwuyuan_23Yizi (2)	1			1								2				1	1.25			
+5004	Chair	2	Zhiwuyuan_23Yizi (3)	1			1								2				1	1.25			
+5005	Yellow Disney	2	Zhiwuyuan_11Lajitonga (1)	1			1								7					1.25			
+5006	Eat the Double!	2	Zhiwuyuan_11Lajitongc (1)	1			1								7					1.25			
+5007	Drink it NOW!	2	Zhiwuyuan_11Lajitongb (1)	1			1								7					1.25			
+5008	Gray Nail	2	Zhiwuyuan_11Lajitongd (1)	1			1								7					1.25			
+5009	Gigantic Shark-speare	2	Zhiwuyuan_17Dx03 (1)	1			1								9					1.25			
+5010	Gluttonous Statue	2	Zhiwuyuan_17Dx03 (2)	1			1								9					1.25			
+5011	Cute Statue	2	Zhiwuyuan_17Dx01 (1)	1			1								9					1.25			
+5012	Shark-speare Butler	2	Zhiwuyuan_17Dx04 (1)	1			1								9					1.25			
+5013	Solemn Statue	2	Zhiwuyuan_17Dx02 (3)	1			1								9					1.25			
+5014	Tactical Terminal	2	Zhiwuyuan_04Weijiaoji	1			1								100								
+5015	Player	2	Zhiwuyuan_01Cd	1	1	1.25	1	PanelMusicPlayer		XUi/XUiGuildDorm/XUiGuildDormMusicGrid		1.75		5.0	200								
+5016	Fortune Machine	2	Zhiwuyuan_02Qiandaoji	1	1	2.0	1							5.0	300					2.2999	CONDITION_GUILD_SIGN_REWARD		
+5017	Cool Retreat	2	Zhiwuyuan_05Yingliaoji	1	1	2.0	1								8					1.25			
+5018	Giant Canvas	3	Zhiwuyuan_29Huajia (1)	1																			
+5019	Left 1 Canvas	3	Zhiwuyuan_29Huajia02 (4)	1																			
+5020	Left 2 Canvas	3	Zhiwuyuan_29Huajia02 (3)	1																			
+5021	Left 3 Canvas	3	Zhiwuyuan_29Huajia01 (1)	1																			
+5022	Right 1 Canvas	3	Zhiwuyuan_29Huajia02 (1)	1																			
+5023	Right 2 Canvas	3	Zhiwuyuan_29Huajia02 (2)	1																			
+5024	A Tea Table that makes you want to eat	2	Zhiwuyuan_23Zhuozi	1			1								10					1.25			
+5025	A Lotus that makes you want to bloom	2	Zhiwuyuan_24Hehuadeng (2)	1			1								11					1.25			
+6000	Floor	1	Jingluo_xingzoumian	1																			
+6001	Piano	6	Jingluo_07Gangqinzuoyi	1	1	1.25	1					1.75		5.0	400								
+6002	Tactical Terminal	2	Jingluo_31Qiandaoji	1			1								100								
+6003	Player	2	Jingluo_31Bofangqi	1	1	1.25	1	PanelMusicPlayer		XUi/XUiGuildDorm/XUiGuildDormMusicGrid		1.75		5.0	200								
+6004	Fortune Machine	2	Jingluo_47Qiandaoji	1	1	2.0	1							5.0	300					2.2999	CONDITION_GUILD_SIGN_REWARD		
+6005	Stool	2	Jingluo_11Shizhuzuoyi (1)	1			1								2				1	1.25			
+6006	Stool	2	Jingluo_11Shizhuzuoyi01	1			1								2				1	1.25			
+6007	Stool	2	Jingluo_11Shizhuzuoyi (2)	1			1								2				1	1.25			
+6008	Stool	2	Jingluo_11Shizhuzuoyi01 (1)	1			1								2				1	1.25			
+6009	Stool	2	Jingluo_11Shizhuzuoyi01 (3)	1			1								2				1	1.25			
+6010	Stool	2	Jingluo_11Shizhuzuoyi (4)	1			1								2				1	1.25			
+6011	Stool	2	Jingluo_11Shizhuzuoyi01 (2)	1			1								2				1	1.25			
+6012	Stool	2	Jingluo_11Shizhuzuoyi (3)	1			1								2				1	1.25			
+6013	Chair	2	Jingluo_08Yizi	1			1								2				1	1.25			
+6014	Chair	2	Jingluo_08Yizi (3)	1			1								2				1	1.25			
+6015	Chair	2	Jingluo_08Yizi (2)	1			1								2				1	1.25			
+6016	Chair	2	Jingluo_08Yizi (1)	1			1								2				1	1.25			
+6017	A Bouquet That Makes You Want to Sleep	2	Jingluo_36Huapanhua (18)	1			1								9					1.25			

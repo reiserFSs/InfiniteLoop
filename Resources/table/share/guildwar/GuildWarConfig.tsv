@@ -1,0 +1,31 @@
+Key	Comment	Value
+MoveCostEnergy	Movement consumes Stamina	1
+ProgressWarnAfterStart	The time of sending a progress warning mail after a round starts. (in hours) (6 days)	144
+AddEnergy	The amount of Stamina added every night at 20:00.	70
+AutoSetDifficultyDelay	(Abandoned) The latest time of auto setting of difficulty after a round starts. (in hours)	3
+MaxEnergy	Max Stamina	210
+ActivityPointItemId	Event Stamina ID	96114
+NodeRewardMailId	Night Node Reward Mail ID	0
+RoundRewardMailId	Round Reward Mail ID	0
+EntryBgPath	Entrance Picture Address	Assets/Product/Texture/Image/UiGuildWar/UiGuildWarBtn04.png
+AssistCountSupply	Supply per Support	30
+AssistTimeSupply	"Time Supply, Amount per 10 min"	1
+AssistCountSupplyLimit	Max Supply per Round	600
+AssistTimeSupplyLimit	Max Time Supply per Round	576
+UseAssistCharacterCd	Use Support Character CD. Unit: Second (1h)	3600
+AssistMaxDisplayCount	Max number of support characters in display. To avoid too much data.	40
+AssistLogMaxCount	Max Support Logs	35
+MaxBossLevel	Guild War 4.0 Boss Max Level	99
+ResourceNodeAttackedInterval	Resource Point Attack Interval (in seconds)	172800
+ResourceNodeScoreAddition	Single Resource Point Points Bonus Percentage	5
+MoneyHipLeftTime	Token Blue Point Condition - Event Remaining Time (in seconds)	259200
+RewardItemId	Token ID	96207
+RewardItemHipLimitCount	Token Blue Point Condition - Minimum	30
+BossNodeType	Current Season Boss Fight Node Type	14
+ReinforcementBuffEffectInterval	援兵Buff生效时间，单位秒	86400
+ReinforcementSupportHp	每个物资提升多少血量	25
+ExtraAddEnergyRule	额外增加体力规则	{"DifficultyIds":[1,2],"GiveDays":4,"GameThrough":2,"NodeConditions":[{"Priority":1,"NodeType":16,"EnergyAdd":70},{"Priority":2,"NodeType":5,"EnergyAdd":20}]}
+GuildWarShopId	商店id	4018
+DragonRageOpenNodeType	Cycle 1 Red Tide Point Activation Condition, Type of Node Cleared (Block Point)	16
+FullDragonRageGameThrough	Cycle 3 or above, Cycle Switch Red Tide Point Charging to Full and Stay Full	3
+DragonRageRankDifficultyId	A new cycle begins with higher Total Red Tide Level upon every clearance of Difficulty 3	3

@@ -1,0 +1,4 @@
+Id	CharacterIds[1]	CharacterIds[2]	CharacterIds[3]	CharacterIds[4]	FightEventId[1]	FightEventId[2]	EnableNum[1]	EnableNum[2]	BuffName	BuffSimpleDesc	BuffDesc	BuffIcon
+1	1061004	1131004	1021006	1081004	2240422	2240423	2	3	Blazing Bane	Increases Fire DMG of all members.	When the team includes 2/3 of the following frames, increases Fire DMG of all team members by 10%/15%	Assets/Product/Texture/Image/IconAffix/AffixIconHuoyan2.png
+2	1021007	1291003	1211003	1521004	2240415	2240416	2	3	Zero Frost	Ice DMG of all members increases.	<size=30>When the team includes 2/3 of the following frames, Ice DMG of all team members increases by 10%/15%</size>	Assets/Product/Texture/Image/IconAffix/AffixIconDongjie2.png
+3	1391003	1321003	1171004		2240420	2240421	2	3	Nightmare Reave	Increases Nihil DMG of all members.	When the team includes 2/3 of the following frames, increases Nihil DMG of all team members by 10%/15%	Assets/Product/Texture/Image/IconAffix/AffixIconNewMod1007.png

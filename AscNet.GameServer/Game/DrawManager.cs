@@ -1,3 +1,4 @@
+using System.Globalization;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
@@ -27,6 +28,13 @@ internal static partial class DrawManager
     private static readonly List<ItemTable> Items = TableReaderV2.Parse<ItemTable>();
     private static readonly HashSet<int> DrawWaferShowIds = TableReaderV2.Parse<DrawWaferShowTable>().Select(x => x.Id).ToHashSet();
     private static readonly List<PartnerTable> Partners = TableReaderV2.Parse<PartnerTable>();
+    // Explicit non-retail local policy: missing server drop/guarantee configuration.
+    private static readonly int MemberTargetAGuarantee = GetMemberTargetGuarantee("Guaranteed A-Rank");
+    private static readonly int MemberTargetSGuarantee = GetMemberTargetGuarantee("Guaranteed S-Rank");
+    private static readonly Dictionary<int, int> CharacterMinQualityById = CharacterQualities
+        .GroupBy(x => x.CharacterId).ToDictionary(x => x.Key, x => x.Min(row => row.Quality));
+    private sealed record MemberTargetPool(double[] Weights, int[][] Goods, int[] A, int[] B, int[] OtherA, int Target, double TargetChance);
+    private static readonly Lazy<Dictionary<int, MemberTargetPool>> MemberTargetPools = new(BuildMemberTargetPools);
 
     // Server-owned 4.7 draw catalog derived from the current client draw tables and the official
     // Kuro article 5308 event periods (see Scripts/sync_tables_4_7.py). Identity, target, official
@@ -5061,23 +5069,6 @@ internal static partial class DrawManager
             && fate.Select(x => x.UpGoodsId[0]).ToHashSet().SetEquals(targets);
     }
 
-    private static readonly DrawAdjustActivityInfo[] DrawAdjustTemplates =
-    [
-        new DrawAdjustActivityInfo
-        {
-            TargetTimes = 1,
-            TargetId = 1241003,
-            ActivityStatus = 0,
-            ActivityId = 3,
-            StartTime = 1763006400,
-            EndTime = 0,
-            AdjustTimes = 1,
-            DrawGroupId = 1,
-            TargetTemplateIds = [],
-            SourceTemplateIds = [],
-            EffectTargetTemplateIds = [1011003, 1031003, 1061003, 1071003, 1051003, 1021003, 1041003, 1021004, 1141003, 1171003, 1121003, 1131003, 1031004, 1531004, 1051004, 1071004, 1041004, 1011004, 1091003, 1021005, 1221003, 1261003, 1271003, 1081004, 1521004, 1171004, 1241003, 1211003, 1021006, 1051005, 1321003, 1331003, 1531005, 1131004, 1041005, 1381003, 1291003, 1141004, 1391003, 1061004],
-        }
-    ];
 
     private static readonly Dictionary<int, DrawGroupInfo> GroupsById = GroupTemplates.ToDictionary(x => x.Id);
     private static readonly Dictionary<int, DrawInfo> DrawsById = DrawTemplates.ToDictionary(x => x.Id);
@@ -5128,9 +5119,17 @@ internal static partial class DrawManager
             value.UseDrawIdDict = GetSelections(player, group);
             value.SwitchDrawIdCount = player.DrawState.SwitchCountByGroup.GetValueOrDefault(group.Id);
             DrawInfo selected = GetSelected(player, group);
-            DrawInfo status = BuildDrawInfo(selected, player);
-            value.BottomTimes = status.BottomTimes;
-            value.MaxBottomTimes = status.MaxBottomTimes;
+            if (group.Id == 1)
+            {
+                value.BottomTimes = GetPlayerBottomTimes(player, selected);
+                value.MaxBottomTimes = selected.MaxBottomTimes;
+            }
+            else
+            {
+                DrawInfo status = BuildDrawInfo(selected, player);
+                value.BottomTimes = status.BottomTimes;
+                value.MaxBottomTimes = status.MaxBottomTimes;
+            }
             return value;
         }).ToList();
     }
@@ -5141,6 +5140,7 @@ internal static partial class DrawManager
     {
         if (!GroupsById.TryGetValue(groupId, out DrawGroupInfo? group) || !IsActive(group)) return (0, 0);
         DrawInfo draw = DrawsByGroup[groupId].FirstOrDefault(x => x.GroupSubType == groupSubType) ?? GetSelected(player, group);
+        if (groupId == 1) return (GetPlayerBottomTimes(player, draw), draw.MaxBottomTimes);
         DrawInfo status = BuildDrawInfo(draw, player);
         return (status.BottomTimes, status.MaxBottomTimes);
     }
@@ -5166,7 +5166,56 @@ internal static partial class DrawManager
         if (entries.Count > 100) entries.RemoveRange(0, entries.Count - 100);
     }
 
-    public static List<DrawAdjustActivityInfo> GetDrawAdjustActivityInfos() => DrawAdjustTemplates.Select(Clone).ToList();
+    private static readonly Lazy<int> MemberTargetCalibrationActivityId = new(() =>
+        TableReaderV2.Parse<DrawActivityTargetShowTable>()
+            .Where(row => row.Id > 0 && !string.IsNullOrWhiteSpace(row.BannerPrefab))
+            .Select(row => row.Id).DefaultIfEmpty().Max());
+    private static readonly Lazy<int[]> MemberTargetCalibrationTargets = new(() =>
+        MemberTargetPools.Value.Values.SelectMany(pool => pool.Goods[0]).Distinct().Order().ToArray());
+    // Extracted from installed GuideData's UiNewDrawMain PanelBanner/<group>/PanelSwitchS targets.
+    private static readonly Lazy<int> MemberTargetCalibrationGuideId = new(() =>
+        TableReaderV2.Parse<DrawCalibrationGuideTable>().Single(row => row.DrawGroupId == 1).GuideGroupId);
+
+    public static List<DrawAdjustActivityInfo> GetDrawAdjustActivityInfos(Player player)
+    {
+        if (MemberTargetCalibrationActivityId.Value == 0 || MemberTargetCalibrationTargets.Value.Length == 0
+            || !GroupsById.TryGetValue(1, out var group) || !IsActive(group) || !HasActiveDraws(group)) return [];
+        int targetId = player.DrawState?.MemberTargetCalibrationTargetId ?? 0;
+        return [new()
+        {
+            ActivityId = MemberTargetCalibrationActivityId.Value,
+            DrawGroupId = 1,
+            ActivityStatus = 1,
+            // Explicit local lifetime entitlement, not a retail campaign or calendar reset.
+            AdjustTimes = 1,
+            TargetTimes = player.DrawState?.MemberTargetCalibrationConsumed == true ? 1 : 0,
+            TargetId = MemberTargetCalibrationTargets.Value.Contains(targetId) ? targetId : 0,
+            EffectTargetTemplateIds = [.. MemberTargetCalibrationTargets.Value]
+        }];
+    }
+
+    public static int SetMemberTargetCalibration(Player player, int activityId, int targetId)
+    {
+        if (activityId != MemberTargetCalibrationActivityId.Value || activityId == 0) return 20018027;
+        DrawAdjustActivityInfo? activity = GetDrawAdjustActivityInfos(player).FirstOrDefault();
+        if (activity is null) return 20018026;
+        if (targetId != 0 && !MemberTargetCalibrationTargets.Value.Contains(targetId)) return 20018024;
+        if (activity.TargetId == targetId) return 0;
+        if (activity.TargetTimes >= activity.AdjustTimes) return 20018025;
+        // Local tutorial-before-use policy keeps the one-shot banner available for its introduction.
+        if (targetId != 0 && player.PlayerData.GuideData?.Contains(MemberTargetCalibrationGuideId.Value) != true)
+            return 20019007;
+        EnsureState(player);
+        int previous = player.DrawState.MemberTargetCalibrationTargetId;
+        player.DrawState.MemberTargetCalibrationTargetId = targetId;
+        try { player.SaveChecked(); }
+        catch
+        {
+            player.DrawState.MemberTargetCalibrationTargetId = previous;
+            throw;
+        }
+        return 0;
+    }
     public static List<DrawInfo> GetDrawInfosByGroup(int groupId, Player player) => DrawsByGroup.TryGetValue(groupId, out List<DrawInfo>? draws) && GroupsById.TryGetValue(groupId, out DrawGroupInfo? group) && IsActive(group) ? draws.Where(IsActive).Select(x => BuildDrawInfo(x, player)).ToList() : [];
     public static DrawInfo? GetDrawInfoById(int drawId, Player player) => DrawsById.TryGetValue(drawId, out DrawInfo? draw) && IsActive(draw) ? BuildDrawInfo(draw, player) : null;
     public static int GetProgressForDrawIds(Player player, IEnumerable<int> drawIds)
@@ -5210,6 +5259,11 @@ internal static partial class DrawManager
     public static List<RewardGoods> DrawDraw(Player player, int drawId, int pullOffset = 0)
     {
         if (!DrawsById.TryGetValue(drawId, out DrawInfo? draw) || !IsActive(draw)) return [];
+        if (draw.GroupId == 1)
+        {
+            RewardGoods? member = DrawMemberReward(player, draw, Random.Shared.NextDouble(), Random.Shared.NextDouble(), Random.Shared.NextDouble(), Random.Shared.NextDouble());
+            return member is null ? [] : [member];
+        }
         // Each result advances its own pity round, including within a ten-pull.
         return [RollDraw(player, draw, Random.Shared)];
     }
@@ -5285,11 +5339,161 @@ internal static partial class DrawManager
         PlayerDrawProgress progress = GetProgress(player, template.Id);
         value.TodayCount = progress.TodayCount;
         value.TotalCount = progress.TotalCount;
+        if (template.GroupId == 1)
+        {
+            value.BottomTimes = GetPlayerBottomTimes(player, template);
+            return value;
+        }
         PlayerDrawPityRound round = GetPityRound(player, template, Random.Shared);
         value.MaxBottomTimes = round.Limit;
         value.BottomTimes = Math.Max(1, round.Limit - round.Misses);
         value.IsTriggerSpecified = round.GuaranteedTarget;
         return value;
+    }
+
+    private static int GetPlayerBottomTimes(Player player, DrawInfo draw) => draw.GroupId == 1
+        ? MemberTargetSGuarantee - GetMemberTargetPity(player).SinceS
+        : GetBottomTimes(draw, GetPityCount(player, draw.GroupId));
+
+    private static PlayerMemberTargetPity GetMemberTargetPity(Player player)
+    {
+        EnsureState(player);
+        if (player.DrawState.MemberTargetPity is not null) return player.DrawState.MemberTargetPity;
+        int oldProgress = GetPityCount(player, 1);
+        PlayerMemberTargetPity pity = new() { SinceS = Math.Max(0, oldProgress % MemberTargetSGuarantee) };
+        List<PlayerDrawHistoryRecord> history = player.DrawState.HistoryByGroup.TryGetValue(1, out var group)
+            ? group.HistoryBySubType.Values.SelectMany(x => x).OrderBy(x => x.DrawTime).ToList() : [];
+        // Replay only when complete, or when a known S anchors both since-hit counters.
+        int lastS = history.FindLastIndex(x => GetDrawCharacterQuality(x.RewardGoods) == 3);
+        if (history.Count == oldProgress || lastS >= 0)
+        {
+            pity.SinceS = 0;
+            foreach (PlayerDrawHistoryRecord entry in history.Skip(lastS >= 0 ? lastS : 0))
+                AdvanceMemberTargetPity(pity, GetDrawCharacterQuality(entry.RewardGoods));
+        }
+        // An old history can violate the new guarantee; make the next pull due, not negative.
+        pity.SinceS = Math.Min(pity.SinceS, MemberTargetSGuarantee - 1);
+        pity.SinceAOrS = Math.Min(pity.SinceAOrS, MemberTargetAGuarantee - 1);
+        return player.DrawState.MemberTargetPity = pity;
+    }
+
+    private static int GetDrawCharacterQuality(RewardGoods reward) => CharacterMinQualityById.GetValueOrDefault(
+        reward.ConvertFrom > 0 ? reward.ConvertFrom : reward.RewardType == (int)RewardType.Character ? reward.TemplateId : 0);
+
+    private static void AdvanceMemberTargetPity(PlayerMemberTargetPity pity, int quality)
+    {
+        pity.SinceAOrS = quality >= 2 ? 0 : pity.SinceAOrS + 1;
+        pity.SinceS = quality == 3 ? 0 : pity.SinceS + 1;
+    }
+
+    private static int GetMemberTargetGuarantee(string rank)
+    {
+        string rule = TableReaderV2.Parse<DrawGroupRuleTable>().Single(x => x.Id == 1).MainRules.Single(x => x.StartsWith(rank, StringComparison.Ordinal));
+        return int.Parse(System.Text.RegularExpressions.Regex.Match(rule, @"\bevery (\d+) attempts\b").Groups[1].Value, CultureInfo.InvariantCulture);
+    }
+
+    private static bool TryParseDrawPercent(string? value, out double percent)
+    {
+        percent = 0;
+        return value is not null && value.EndsWith('%')
+            && double.TryParse(value.AsSpan(0, value.Length - 1), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out percent)
+            && double.IsFinite(percent) && percent >= 0 && percent <= 100;
+    }
+
+    private static Dictionary<int, MemberTargetPool> BuildMemberTargetPools()
+    {
+        var aim = TableReaderV2.Parse<DrawAimProbabilityTable>().ToDictionary(x => x.Id);
+        var previewGoods = TableReaderV2.Parse<DrawPreviewGoodsTable>().ToDictionary(x => x.Id);
+        Dictionary<int, MemberTargetPool> result = new();
+        string[] categories = ["S-Rank Omniframe (Base Drop)", "A, B-Rank Omniframe", "Construct Shard", "4★ Equipment", "Overclock Material", "EXP Material", "Cog Box"];
+        foreach (DrawInfo draw in DrawsByGroup[1])
+        {
+            DrawPreviewTable? preview = DrawPreviews.FirstOrDefault(x => x.Id == draw.Id);
+            if (preview is null || !DrawProbShowsById.TryGetValue(draw.Id, out var probabilities)) continue;
+            double[] weights = new double[categories.Length];
+            bool valid = true;
+            for (int i = 0; i < categories.Length; i++)
+            {
+                int index = probabilities.Name.IndexOf(categories[i]);
+                if (index < 0 || index >= probabilities.ProbShow.Count || !TryParseDrawPercent(probabilities.ProbShow[index], out weights[i]) || weights[i] <= 0)
+                    valid = false;
+            }
+            if (!valid) continue;
+            int[] characters = preview.GoodsId.Concat(preview.UpGoodsId)
+                .Select(id => previewGoods.GetValueOrDefault(id)?.TemplateId ?? 0)
+                .Where(id => id > 0 && Character.IsOwnableCharacter((uint)id)).Distinct().ToArray();
+            int[] a = characters.Where(id => CharacterMinQualityById.GetValueOrDefault(id) == 2).ToArray();
+            int[] b = characters.Where(id => CharacterMinQualityById.GetValueOrDefault(id) == 1).ToArray();
+            int target = preview.UpGoodsId.Select(id => previewGoods.GetValueOrDefault(id)?.TemplateId ?? 0).FirstOrDefault();
+            double targetChance = 0;
+            if (target != 0 && (!a.Contains(target) || !aim.TryGetValue(draw.Id, out var targetRow)
+                || !TryParseDrawPercent(targetRow.UpProbabilityPercent, out targetChance))) continue;
+            int[] otherA = a.Where(id => id != target).ToArray();
+            int[][] goods =
+            [
+                characters.Where(id => CharacterMinQualityById.GetValueOrDefault(id) == 3).ToArray(),
+                a.Concat(b).ToArray(),
+                characters.Select(id => Characters.First(x => x.Id == id).ItemId).Where(Inventory.IsValidClientItemId).Distinct().ToArray(),
+                Equips.Where(x => x.Type == 0 && x.Quality == 4 && Character.IsOwnableEquipTemplate(x) && DrawWaferShowIds.Contains(x.Id)).Select(x => x.Id).ToArray(),
+                Items.Where(x => x.Id is 40110 or 40111 or 40112 or 40113 or 40114 && x.Quality >= MinDrawItemShowQuality).Select(x => x.Id).ToArray(),
+                Items.Where(x => x.Id is 30011 or 30012 or 30013 or 30014 or 31101 or 31102 or 31103 or 31104 or 31201 or 31202 or 31203 or 31204 && x.Quality >= MinDrawItemShowQuality).Select(x => x.Id).ToArray(),
+                Items.Where(x => x.Name.StartsWith("Cog Pack") && x.Quality >= MinDrawItemShowQuality).Select(x => x.Id).ToArray()
+            ];
+            if (goods.Any(x => x.Length == 0) || a.Length == 0 || b.Length == 0 || (targetChance < 100 && otherA.Length == 0)) continue;
+            // The published profile mixes base S and guarantee-inclusive totals.
+            // Local policy preserves base S exactly, then treats non-S figures as relative weights.
+            double nonSTotal = weights.Skip(1).Sum();
+            weights[0] /= 100;
+            for (int i = 1; i < weights.Length; i++) weights[i] = (1 - weights[0]) * weights[i] / nonSTotal;
+            result.Add(draw.Id, new(weights, goods, a, b, otherA, target, targetChance / 100));
+        }
+        return result;
+    }
+
+    public static bool HasRewardConfiguration(int drawId) => DrawsById.TryGetValue(drawId, out var draw)
+        && (draw.GroupId != 1 || MemberTargetPools.Value.ContainsKey(drawId));
+
+    private static RewardGoods? DrawMemberReward(Player player, DrawInfo draw, double categoryRoll, double rankRoll, double targetRoll, double itemRoll)
+    {
+        if (!MemberTargetPools.Value.TryGetValue(draw.Id, out var pool)) return null;
+        PlayerMemberTargetPity pity = GetMemberTargetPity(player);
+        int category = 0;
+        double cumulative = pool.Weights[0];
+        while (category < pool.Weights.Length - 1 && categoryRoll >= cumulative) cumulative += pool.Weights[++category];
+        if (pity.SinceS >= MemberTargetSGuarantee - 1) category = 0;
+        bool forceA = category != 0 && pity.SinceAOrS >= MemberTargetAGuarantee - 1;
+        if (forceA) category = 1;
+        int[] ids = pool.Goods[category];
+        if (category == 1)
+        {
+            // Local policy: rank odds follow the visible full-character A/B pool counts.
+            bool isA = forceA || rankRoll < (double)pool.A.Length / (pool.A.Length + pool.B.Length);
+            ids = isA ? pool.A : pool.B;
+            if (isA && pool.Target != 0)
+            {
+                if (targetRoll < pool.TargetChance)
+                {
+                    RewardGoods target = Create(RewardType.Character, pool.Target, 1, 1);
+                    AdvanceMemberTargetPity(pity, 2);
+                    return target;
+                }
+                ids = pool.OtherA;
+            }
+        }
+        RewardType type = category <= 1 ? RewardType.Character : category == 3 ? RewardType.Equip : RewardType.Item;
+        int count = category == 2 ? rankRoll switch { < .10 => 18, < .35 => 6, _ => 2 } : category == 5 ? 3 : 1;
+        int selectedS = player.DrawState.MemberTargetCalibrationTargetId;
+        if (category == 0 && !player.DrawState.MemberTargetCalibrationConsumed
+            && MemberTargetCalibrationActivityId.Value != 0
+            && selectedS != 0 && MemberTargetCalibrationTargets.Value.Contains(selectedS))
+        {
+            player.DrawState.MemberTargetCalibrationConsumed = true;
+            AdvanceMemberTargetPity(pity, 3);
+            return Create(RewardType.Character, selectedS, 1, 1);
+        }
+        RewardGoods reward = Create(type, ids[(int)(itemRoll * ids.Length)], count, type is RewardType.Character or RewardType.Equip ? 1 : 0);
+        AdvanceMemberTargetPity(pity, GetDrawCharacterQuality(reward));
+        return reward;
     }
 
     private static int GetBottomTimes(DrawInfo draw, int totalCount)
@@ -5356,5 +5560,4 @@ internal static partial class DrawManager
     private static RewardGoods Clone(RewardGoods x) => new() { RewardType = x.RewardType, TemplateId = x.TemplateId, Count = x.Count, Level = x.Level, Quality = x.Quality, Grade = x.Grade, Breakthrough = x.Breakthrough, ConvertFrom = x.ConvertFrom, ShowQuality = x.ShowQuality, Id = x.Id, IsGift = x.IsGift, RewardMulti = x.RewardMulti };
     private static DrawGroupInfo Clone(DrawGroupInfo x) => new() { BannerBeginTime=x.BannerBeginTime, BannerEndTime=x.BannerEndTime, BottomTimes=x.BottomTimes, MaxBottomTimes=x.MaxBottomTimes, UseItemId=x.UseItemId, UseTenDrawOnSaleTimes=x.UseTenDrawOnSaleTimes, Id=x.Id, Priority=x.Priority, ResetTime=x.ResetTime, StartTime=x.StartTime, EndTime=x.EndTime, Order=x.Order, SwitchDrawIdActivityId=x.SwitchDrawIdActivityId, MaxSwitchDrawIdCount=x.MaxSwitchDrawIdCount, Banner=x.Banner, UiPrefab=x.UiPrefab, UiBackGround=x.UiBackGround, Tag=x.Tag, OptionalDrawIdList=[..x.OptionalDrawIdList], TagBlackListDrawIds=[..x.TagBlackListDrawIds], TenDrawOnSales=new(x.TenDrawOnSales), TransformSuitList=[..x.TransformSuitList], ConditionId=x.ConditionId, Type=x.Type, ExtraRewardId=x.ExtraRewardId, ExtraRewardCycleTimes=x.ExtraRewardCycleTimes, ShowPredictType=x.ShowPredictType };
     private static DrawInfo Clone(DrawInfo x) => new() { TodayCount=x.TodayCount, TotalCount=x.TotalCount, BottomTimes=x.BottomTimes, MaxBottomTimes=x.MaxBottomTimes, IsTriggerSpecified=x.IsTriggerSpecified, IsShowShop=x.IsShowShop, IsShowBubble=x.IsShowBubble, UseTenDrawOnSaleTimes=x.UseTenDrawOnSaleTimes, Id=x.Id, GroupId=x.GroupId, DrawType=x.DrawType, UseItemId=x.UseItemId, UseItemCount=x.UseItemCount, DailyLimitTimes=x.DailyLimitTimes, ActivityLimitTimes=x.ActivityLimitTimes, StartTime=x.StartTime, EndTime=x.EndTime, Banner=x.Banner, Resources=new(x.Resources), ResourceIds=new(x.ResourceIds), BtnDrawCount=[..x.BtnDrawCount], ShowPriority=x.ShowPriority, PurchaseUiType=[..x.PurchaseUiType], PurchaseId=[..x.PurchaseId], ExPurchaseIds=[..x.ExPurchaseIds], CapacityCheckType=x.CapacityCheckType, UpGoodsId=x.UpGoodsId, GroupSubType=x.GroupSubType };
-    private static DrawAdjustActivityInfo Clone(DrawAdjustActivityInfo x) => new() { TargetTimes=x.TargetTimes, TargetId=x.TargetId, ActivityStatus=x.ActivityStatus, ActivityId=x.ActivityId, StartTime=x.StartTime, EndTime=x.EndTime, AdjustTimes=x.AdjustTimes, DrawGroupId=x.DrawGroupId, TargetTemplateIds=[..x.TargetTemplateIds], SourceTemplateIds=[..x.SourceTemplateIds], EffectTargetTemplateIds=[..x.EffectTargetTemplateIds] };
 }

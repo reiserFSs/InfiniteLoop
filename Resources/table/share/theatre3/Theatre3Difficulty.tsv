@@ -1,0 +1,5 @@
+Id	Name	Desc	StoryDesc	ConditionId	ChapterGroupId	FirstPassFlag	CharacterExpRate	BPExpRate	BgIcon	FightEvents[1]	FightEvents[2]	RebootId	InitialItem
+1	Lurking Stack <color=#5A80A4><size=26>Normal</size></color>	<size=25>· Battle Reboot Attempts: 8</size>	Even a semblance of tranquility is rare to have—		1	1	0.5	1.0		2251201		1	
+2	Lurking Stack <color=#5A80A4><size=26>Normal</size></color>	<size=25>· Battle Reboot Attempts: 8</size>	Even a semblance of tranquility is rare to have—		100		0.5	1.0		2251202		1	
+3	Bottom-Layer Contamination <color=#C76F3F><size=26>Hard</size></color>	<size=25>· Battle Reboot Attempts: 5\n· Reboot Cost +50%\n· Enemy morale raised</size>	With calamity looming, press on toward the end—	1020001	200		1.0	2.0		2251203		2	
+4	Leak Burst <color=#B95E5E><size=26>Nightmare</size></color>	<size=25>· Battle Reboot Attempts: 3\n· Reboot Cost +150%\n· <color=#CD5555>Enemy morale high</color>\n· <color=#CD5555>Recommended BP: 7500</color></size>	Look around, yet no foothold is in sight—	1020009	300		1.2	2.5		2251204		3	1

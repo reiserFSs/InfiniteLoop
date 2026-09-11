@@ -36,11 +36,29 @@ namespace AscNet.Common.Database
         public Dictionary<int, List<PlayerDrawHistoryRecord>> HistoryBySubType { get; set; } = new();
     }
 
+    public class PlayerMemberTargetPity
+    {
+        [BsonElement("since_a_or_s")]
+        public int SinceAOrS { get; set; }
+
+        [BsonElement("since_s")]
+        public int SinceS { get; set; }
+    }
+
     public class PlayerDrawState
     {
         [BsonElement("pity_rounds")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<int, PlayerDrawPityRound> PityRounds { get; set; } = new();
+
+        [BsonElement("member_target_calibration_target_id")]
+        public int MemberTargetCalibrationTargetId { get; set; }
+
+        [BsonElement("member_target_calibration_consumed")]
+        public bool MemberTargetCalibrationConsumed { get; set; }
+
+        [BsonElement("member_target_pity")]
+        public PlayerMemberTargetPity? MemberTargetPity { get; set; }
 
         [BsonElement("progress_by_draw_id")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]

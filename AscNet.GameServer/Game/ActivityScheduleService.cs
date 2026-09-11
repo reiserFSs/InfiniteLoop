@@ -1,6 +1,9 @@
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.activity;
+using AscNet.Table.V2.share.condition;
 using AscNet.Table.V2.share.miniactivity.dyemerge;
+using AscNet.Table.V2.share.theatre;
+using AscNet.Table.V2.share.theatre3;
 
 namespace AscNet.GameServer.Game;
 
@@ -14,12 +17,18 @@ public readonly record struct ActivityScheduleEntry(long Id, long StartTime, lon
     }
 }
 
-/// <summary>Authoritative event availability derived from version tables and public notices.</summary>
+/// <summary>Event availability derived from version tables, public notices, and documented local mode policies.</summary>
 public static class ActivityScheduleService
 {
     private static readonly Lazy<IReadOnlyList<ActivityScheduleEntry>> Entries = new(() =>
-        TableReaderV2.Parse<ActivityScheduleTable>()
-            .Select(row => new ActivityScheduleEntry(row.Id, row.StartTime, row.EndTime, row.Source))
+        TableReaderV2.Parse<Theatre3ActivityTable>()
+            .Where(row => row.TimeId > 0)
+            .Select(row => new ActivityScheduleEntry(row.TimeId, 0, 0,
+                $"local-policy:Theatre3:permanent-mode:Theatre3Activity:Id={row.Id}:TimeId={row.TimeId}"))
+            .Concat(TheatreDecorationEntries())
+            .Concat(TableReaderV2.Parse<ActivityScheduleTable>()
+                .Select(row => new ActivityScheduleEntry(row.Id, row.StartTime, row.EndTime, row.Source)))
+            .DistinctBy(row => row.Id)
             .OrderBy(row => row.Id)
             .ToArray());
 
@@ -32,6 +41,38 @@ public static class ActivityScheduleService
     {
         entry = Entries.Value.FirstOrDefault(row => row.Id == timeId);
         return entry.Id != 0;
+    }
+
+    private static IEnumerable<ActivityScheduleEntry> TheatreDecorationEntries()
+    {
+        // Only the approved decoration calendars are permanent; progression and costs remain intact.
+        Dictionary<int, ConditionTable> conditions = TableReaderV2.Parse<ConditionTable>()
+            .ToDictionary(row => row.Id);
+        Stack<int> pending = new(TableReaderV2.Parse<TheatreDecorationTable>()
+            .Where(row => row.DecorationId is 20003 or 20004 or 20005)
+            .Select(row => row.ConditionId.GetValueOrDefault())
+            .Where(conditionId => conditionId > 0));
+        HashSet<int> seen = [];
+        while (pending.TryPop(out int conditionId))
+        {
+            if (!seen.Add(conditionId))
+                continue;
+            ConditionTable condition = conditions[conditionId];
+            if (!string.IsNullOrWhiteSpace(condition.Formula))
+            {
+                foreach (System.Text.RegularExpressions.Match reference in
+                    System.Text.RegularExpressions.Regex.Matches(condition.Formula, @"\d+"))
+                    pending.Push(int.Parse(reference.Value));
+            }
+            else if (condition.Type == 23001 && condition.Params.Count > 0
+                && condition.Params[0] is 803 or 804 or 805)
+            {
+                int timeId = condition.Params[0];
+                yield return new ActivityScheduleEntry(timeId, 0, 0,
+                    $"feature-window:Theatre:permanent-decoration-release:user-approved:"
+                    + $"TheatreDecoration:DecorationId=20003,20004,20005:Condition:Id={conditionId}:TimeId={timeId}");
+            }
+        }
     }
 
     /// <summary>

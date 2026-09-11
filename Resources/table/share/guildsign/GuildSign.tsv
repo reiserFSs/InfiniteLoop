@@ -1,0 +1,35 @@
+Id	Name	Type	Weight	SignType[1]	SignType[2]	SignNum[1]	SignNum[2]	RewardId[1]	RewardId[2]	RewardWeight[1]	RewardWeight[2]
+1	Blessed	1	100	3	4	1	1	350605		10000	
+2	Favored	1	1800	1	2	3	1	350604		10000	
+3	Fluky	1	3500	1	2	2	2	350603		10000	
+4	Fair	1	4000	1	2	2	2	350602		10000	
+5	Foul	1	600	1	2	1	3	350601		10000	
+6	Birthday Sign-in	2		5	4	2	1	350606		10000	
+7	2023 Mid-Autumn Sign-in	3		7	4	2	1	350607		10000	
+8	2023: 4-Year Anniversary	3		8	4	1	1	350605		10000	
+9	2024 New Year Sign-in	3		10	4	2	1	350605		10000	
+10	2023 New Year's Eve	3		11	4	2	1	350604		10000	
+11	2024 New Year Day 1	3		12	15	2	1	350605		10000	
+12	2024 New Year Day 2	3		13	16	2	1	350604		10000	
+13	2024 New Year Day 3	3		14	17	2	1	350604		10000	
+14	2024 Dragon Boat Festival Sign-in	3		18	4	2	1	350605		10000	
+15	2024 Mid-Autumn Sign-in	3		7	4	2	1	350605		10000	
+16	2024 National Day	3		19	4	2	1	350605		10000	
+17	2024 5th Anniversary	3		20	4	1	1	350605		10000	
+18	2025 New Year Sign-in	3		10	4	2	1	350605		10000	
+19	2024 New Year's Eve	3		11	4	2	1	350604		10000	
+20	2025 New Year Day 1	3		12	15	2	1	350605		10000	
+21	2025 New Year Day 2	3		13	16	2	1	350604		10000	
+22	2024 New Year Day 3	3		14	17	2	1	350604		10000	
+23	2025 Labor Day	3		21	4	2	1	350605		10000	
+24	2025 Dragon Boat Festival Sign-in	3		18	4	2	1	350605		10000	
+25	2025 National Day	3		19	4	2	1	350605		10000	
+26	2025 Mid-Autumn Sign-in	3		7	4	2	1	350605		10000	
+27	2025 6th Anniversary	3		22	4	1	1	350605		10000	
+28	2026 New Year Sign-in	3		10	4	2	1	350605		10000	
+29	2025 New Year's Eve	3		11	4	2	1	350604		10000	
+30	2026 New Year Day 1	3		12	15	2	1	350605		10000	
+31	2026 New Year Day 2	3		13	16	2	1	350604		10000	
+32	2026 New Year Day 3	3		14	17	2	1	350604		10000	
+33	2026 Labor Day	3		21	4	2	1	350605		10000	
+34	2026 Dragon Boat Festival Sign-in	3		18	4	2	1	350605		10000	

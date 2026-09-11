@@ -285,6 +285,8 @@ internal partial class Program
             [typeof(Session), typeof(bool)]);
         doLogin.Invoke(null, [loginHarness.Session, false]);
 
+        _ = ReadPushPayload<NotifyWheelchairManualActivity>(loginHarness, nameof(NotifyWheelchairManualActivity),
+            "challenge login manual cache before login-complete");
         _ = ReadPushPayload<NotifyLogin>(loginHarness, nameof(NotifyLogin), "challenge login NotifyLogin");
         string[] required = [
             nameof(NotifyArenaActivity),

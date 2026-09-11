@@ -1,0 +1,17 @@
+Id	GroupId	TimeId	Priority	RefreshType	NpcGroupIds[1]	NpcGroupIds[2]	NpcGroupIds[3]	NpcGroupIds[4]	NpcGroupIds[5]	NpcGroupWeights[1]	NpcGroupWeights[2]	NpcGroupWeights[3]	NpcGroupWeights[4]	NpcGroupWeights[5]	Desc	RefreshInterval
+991	99	99900	1	1	3901					50					Test Configuration: Spring Festival Guild, within designated time, character refreshes with the time configured	
+992	99	99906	2	2	3902	3903	3904	3905	3906	50	50	50	50	50	Test Configuration: Spring Festival Guild, every other day, 1 set of random characters	1
+993	99		3	3	3907	3908	3909	3910	3911	50	50	50	50	50	Test Configuration: Every other day, switch to fixed characters	1
+301	3	15410	1	1	3101					50					Spring Festival Setup: Specific times (Day 1 through Day 7, one NPC appears daily)	
+302	3		2	1	3001					50					Spring Festival Setup: After the scene time, fixed NPC (Celica)	
+401	4	20021	1	1	4101					50					Sky Island Summer Event Configuration: Within the designated time (version 5 weeks) 2 NPCs each week	
+402	4		2	1	4001					50					Sky Island Summer Event Configuration: After the scene time, fixed NPC (Celica)	
+501	5	99900	1	1	5001					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+502	5	99900	2	1	5002					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+503	5	99900	3	1	5003					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+504	5	99900	4	1	5004					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+505	5	99900	5	1	5005					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+506	5	99900	6	1	5006					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+507	5	99900	7	1	5007					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+508	5	99900	8	1	5008					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	
+509	5	99900	9	1	5009					50					2024 Spring Festival Setup: Specific times (Day 1 through Day 7, one group of NPC appears daily)	

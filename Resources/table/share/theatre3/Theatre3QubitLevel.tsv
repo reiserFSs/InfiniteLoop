@@ -1,0 +1,7 @@
+Level	Exp	FightDesc	Title	LevelUpTxt	ScreenEffectUrl	IsShake
+1	20	<size=32>    # Entropy Change Rate 21.17%</size>	Phase I	Alternate inspection in progress...\nPhase I reconstruction completed. Overwriting progress: 20%	QuantumLevelUpScreenEffectMin	
+2	40	<size=32>    # Entropy Change Rate 63.24%</size>	Phase II	Alternate inspection in progress...\nPhase II reconstruction completed. Overwriting progress: 40%	QuantumLevelUpScreenEffectMin	
+3	60	<size=32>    # Entropy Change Rate 99.97%</size>	Phase III	Alternate inspection in progress...\nPhase III reconstruction completed. Overwriting progress: 60%	QuantumLevelUpScreenEffectMax	
+4	80	<size=32>    # Entropy Change Rate 121.57%</size>	Phase IV	Alternate inspection in progress...\nPhase III reconstruction completed. Overwriting progress: 80%	QuantumLevelUpScreenEffectMax	1
+5	100	<size=32>    # Entropy Change Rate 184.63%</size>	Phase V	Type-A and Type-B vaccine coverage completed...\nAcquiring core access...	QuantumLevelUpScreenEffectMax	1
+6	120	<size=32>    # Entropy Change Rate 244.13%</size>	Phase VI	Central access reading completed...\nOpening original sector. Destination: unknown. Good luck.	QuantumLevelUpScreenEffectMax	1

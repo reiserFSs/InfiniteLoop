@@ -1,0 +1,125 @@
+Id	Name	Desc	CueId	Image	Duration	BgImage	NeedBuy	ExperienceTimeId
+1	Gray Raven	G.K/Haloweak	1	Assets/Product/Texture/Image/CdPlayer/CdFace5.png	90290	Assets/Product/Texture/Image/CdPlayer/BgCdFace5.png		
+2	Revival	T-nymph	26	Assets/Product/Texture/Image/CdPlayer/CdFace6.png	118125	Assets/Product/Texture/Image/CdPlayer/BgCdFace6.png		
+3	Narwhal Pt.1	Haloweak	10	Assets/Product/Texture/Image/CdPlayer/CdFace1.png	100869	Assets/Product/Texture/Image/CdPlayer/BgCdFace1.png		
+4	C.O.R.E. Pt.1	Haloweak	12	Assets/Product/Texture/Image/CdPlayer/CdFace2.png	96000	Assets/Product/Texture/Image/CdPlayer/BgCdFace2.png		
+5	Dust Pt.1	GhostFinal	15	Assets/Product/Texture/Image/CdPlayer/CdFace3.png	116619	Assets/Product/Texture/Image/CdPlayer/BgCdFace3.png		
+6	Night Sailing	Anti-General	18	Assets/Product/Texture/Image/CdPlayer/CdFace4.png	95511	Assets/Product/Texture/Image/CdPlayer/BgCdFace4.png		
+7	Rebirth From Huaxu	Anti-General	27	Assets/Product/Texture/Image/CdPlayer/CdFace7.png	96013	Assets/Product/Texture/Image/CdPlayer/BgCdFace7.png		
+8	Waterland	RabbitJ	32	Assets/Product/Texture/Image/CdPlayer/CdFace8.png	76800	Assets/Product/Texture/Image/CdPlayer/BgCdFace8.png		
+9	Narwhal-Abysm	Moto	33	Assets/Product/Texture/Image/CdPlayer/CdFace9.png	118260	Assets/Product/Texture/Image/CdPlayer/BgCdFace9.png		
+10	Reverse	Moto	37	Assets/Product/Texture/Image/CdPlayer/CdFace10.png	120000	Assets/Product/Texture/Image/CdPlayer/BgCdFace10.png		
+11	Dis┬rient	Haloweak	45	Assets/Product/Texture/Image/CdPlayer/CdFace39.png	79000	Assets/Product/Texture/Image/CdPlayer/BgCdFace39.png		
+12	Wraith Reborn	GhostFinal	52	Assets/Product/Texture/Image/CdPlayer/CdFace13.png	127643	Assets/Product/Texture/Image/CdPlayer/BgCdFace13.png		
+13	Endless Trick	GhostFinal	55	Assets/Product/Texture/Image/CdPlayer/CdFace14.png	110400	Assets/Product/Texture/Image/CdPlayer/BgCdFace14.png		
+14	Dancing tonight	Producer: Vanguard Sound  Composer: Rabbit J  Lyrics & Vocal: Xia Tongzi	56	Assets/Product/Texture/Image/CdPlayer/CdFace15.png	108270	Assets/Product/Texture/Image/CdPlayer/BgCdFace15.png		
+15	In Scription Of Labyrinth	Haloweak	60	Assets/Product/Texture/Image/CdPlayer/CdFace16.png	110666	Assets/Product/Texture/Image/CdPlayer/BgCdFace16.png		
+16	LAMIA	GhostFinal	62	Assets/Product/Texture/Image/CdPlayer/CdFace17.png	110714	Assets/Product/Texture/Image/CdPlayer/BgCdFace17.png		
+17	Edenis	MEI	65	Assets/Product/Texture/Image/CdPlayer/CdFace19.png	140000	Assets/Product/Texture/Image/CdPlayer/BgCdFace19.png		
+18	Gaze of Wind	Composer: GhostFinal  Arranged by: MEI & GhostFinal  Lyrics: Mira.Z\nVocal: Miku Ito  Instrument: LCC & GhostFinal  Producer: Vanguard Sound	71	Assets/Product/Texture/Image/CdPlayer/CdFace20.png	169000	Assets/Product/Texture/Image/CdPlayer/BgCdFace20.png		
+19	Sie liebten sich beide	Music Composer: LCC  Arranged by: LCC ＆ moto\nLyrics: Heinrich Heine  Vocal: Ji Yunhui	83	Assets/Product/Texture/Image/CdPlayer/CdFace22.png	177198	Assets/Product/Texture/Image/CdPlayer/BgCdFace22.png		
+20	Longing	Manager: Pulao  Audio Engineer: Talic  Music Composer: Xin\nProducer: Vanguard Sound  Artist: Shan Kui You	100	Assets/Product/Texture/Image/CdPlayer/CdFace24.png	236133	Assets/Product/Texture/Image/CdPlayer/BgCdFace24.png		
+21	Against the Current	Composer: Polyblue\nLyrics & Flow: Neko, Hideyo Noguchi  Vocal: Shogo Batori	99	Assets/Product/Texture/Image/CdPlayer/CdFace23.png	171000	Assets/Product/Texture/Image/CdPlayer/BgCdFace23.png		
+22	NANAMI IKIMASU	Composer: Super.Yy & Polyblue\nProduction: Vanguard Sound & Kuro Games	124	Assets/Product/Texture/Image/CdPlayer/CdFace25.png	341450	Assets/Product/Texture/Image/CdPlayer/BgCdFace25.png		
+23	Revelation	Composer & Lyrics: GhostFinal\nVocal: Kinoko Mogu	144	Assets/Product/Texture/Image/CdPlayer/CdFace28.png	369672	Assets/Product/Texture/Image/CdPlayer/BgCdFace28.png		
+24	Last Resort	Written by GhostFinal\nPerformed by Kinoko	149	Assets/Product/Texture/Image/CdPlayer/CdFace29.png	320756	Assets/Product/Texture/Image/CdPlayer/BgCdFace29.png		
+25	Christmas Promise	Haloweak	216	Assets/Product/Texture/Image/CdPlayer/CdFace32.png	72600	Assets/Product/Texture/Image/CdPlayer/BgCdFace32.png		
+26	Teahouse Ballad	T-Nymph	11	Assets/Product/Texture/Image/CdPlayer/CdFace31.png	108979	Assets/Product/Texture/Image/CdPlayer/BgCdFace31.png		
+27	Disco Music	GhostFinal	84	Assets/Product/Texture/Image/CdPlayer/CdFace34.png	86846	Assets/Product/Texture/Image/CdPlayer/BgCdFace34.png		
+28	Summer Azure	Polyblue	159	Assets/Product/Texture/Image/CdPlayer/CdFace30.png	124102	Assets/Product/Texture/Image/CdPlayer/BgCdFace30.png		
+29	Firefly Lullaby	Composed & Arranged by: CoyDE	152	Assets/Product/Texture/Image/CdPlayer/CdFace33.png	258571	Assets/Product/Texture/Image/CdPlayer/BgCdFace33.png		
+30	LUNA	Composed by: Haloweak  Arranged by: Haloweak   Lyrics: Xia Tongzi  Vocal: Xia Tongzi	177	Assets/Product/Texture/Image/CdPlayer/CdFace39.png	278000	Assets/Product/Texture/Image/CdPlayer/BgCdFace39.png	1	
+31	Above the Summer	Composed by: ANK (Sugar & Co.)  Vocal: Sawako	1700029	Assets/Product/Texture/Image/CdPlayer/CdFaceJP01.png	204295	Assets/Product/Texture/Image/CdPlayer/BgCdFaceJP01.png	1	
+32	Hikari	Composed by: GhostFinal	134	Assets/Product/Texture/Image/CdPlayer/CdFace41.png	132650	Assets/Product/Texture/Image/CdPlayer/BgCdFace41.png	1	
+33	ECHOING	Composed and Arranged by: Zhou Chun  Lyrics: Zhou Chun, Roland L.  Vocal: Liu Zhixiao	138	Assets/Product/Texture/Image/CdPlayer/CdFace42.png	210524	Assets/Product/Texture/Image/CdPlayer/BgCdFace42.png	1	
+34	Circulation	Composed and Arranged by: Zhou Chun	137	Assets/Product/Texture/Image/CdPlayer/CdFace43.png	214615	Assets/Product/Texture/Image/CdPlayer/BgCdFace43.png	1	
+35	Akdilek	Composed by: GhostFinal	14	Assets/Product/Texture/Image/CdPlayer/CdFace44.png	147042	Assets/Product/Texture/Image/CdPlayer/BgCdFace44.png	1	
+36	Over the Glen	Composed by: LCC  Arranged by: LCC & moto	81	Assets/Product/Texture/Image/CdPlayer/CdFace45.png	86846	Assets/Product/Texture/Image/CdPlayer/BgCdFace45.png	1	
+37	Slumberland	Tony	163	Assets/Product/Texture/Image/CdPlayer/CdFace46.png	113102	Assets/Product/Texture/Image/CdPlayer/BgCdFace46.png	1	
+38	Shattered Doll	Tony	165	Assets/Product/Texture/Image/CdPlayer/CdFace47.png	82990	Assets/Product/Texture/Image/CdPlayer/BgCdFace47.png	1	
+39	New Year	T_Nymph	49	Assets/Product/Texture/Image/CdPlayer/CdFace48.png	108979	Assets/Product/Texture/Image/CdPlayer/BgCdFace48.png	1	
+40	Her Dreams	Composed by: Li Yi  Arranged by: Shan Kui You  Vocal: Mangosteen  Vocal: Sui Hua	218	Assets/Product/Texture/Image/CdPlayer/CdFace38.png	267242	Assets/Product/Texture/Image/CdPlayer/BgCdFace38.png	1	
+41	Feel The Vibe	MeLo	233	Assets/Product/Texture/Image/CdPlayer/CdFace56.png	171844	Assets/Product/Texture/Image/CdPlayer/BgCdFace56.png	1	2160253
+42	Under Dimension	Music:Super.Yy-Chan  Vocal: Kinoko Mogu	175	Assets/Product/Texture/Image/CdPlayer/CdFace49.png	107076	Assets/Product/Texture/Image/CdPlayer/BgCdFace49.png	1	
+43	Dim Light	Composed by: Vanguard Sound  Lyrics Editor: Kuroneko  Vocal: Yoshitsugu Matsuoka	217	Assets/Product/Texture/Image/CdPlayer/CdFace50.png	222058	Assets/Product/Texture/Image/CdPlayer/BgCdFace50.png	1	
+44	Overburning	Composer & lyrics: Keiki Kobayashi  Recorded and mixed by: Shigeo Sakurai  Recording & mixing studio: Onkio Haus	225	Assets/Product/Texture/Image/CdPlayer/CdFace51.png	220000	Assets/Product/Texture/Image/CdPlayer/BgCdFace51.png	1	
+45	Infinite Gallery	Composed by GhostFinal  Vocal Harmony by Kinoko	183	Assets/Product/Texture/Image/CdPlayer/CdFace54.png	233142	Assets/Product/Texture/Image/CdPlayer/BgCdFace53.png	1	
+46	To Our Destiny	Composed by Tony Yan & moto  Produced by Vanguard Sound & Kuro Game	224	Assets/Product/Texture/Image/CdPlayer/CdFace59.png	223764	Assets/Product/Texture/Image/CdPlayer/BgCdFace59.png	1	
+47	Journey Along	Composed by Tony Yan & moto  Produced by Vanguard Sound & Kuro Game	229	Assets/Product/Texture/Image/CdPlayer/CdFace60.png	153727	Assets/Product/Texture/Image/CdPlayer/BgCdFace60.png	1	
+48	Resounding Storm	Lyricist & Singer: Carolin "Wonder" Mrugala Producer: Cural	4700031	Assets/Product/Texture/Image/CdPlayer/CdFaceEN03.png	223764	Assets/Product/Texture/Image/CdPlayer/CdFaceEN03.png	1	
+49	Into My Soul	Vocal: Si Bai Composed and Arranged by: Ringo Lyrics: Hei Jinyu	236	Assets/Product/Texture/Image/CdPlayer/CdFace58.png	118168	Assets/Product/Texture/Image/CdPlayer/BgCdFace58.png	1	
+50	Secluded Temple	Composed by Tony Yan  Produced by Vanguard Sound & Kuro Game	234	Assets/Product/Texture/Image/CdPlayer/CdFace61.png	177326	Assets/Product/Texture/Image/CdPlayer/BgCdFace61.png	1	
+51	Zither's Grace	Composed by Tony Yan  Produced by Vanguard Sound & Kuro Game	242	Assets/Product/Texture/Image/CdPlayer/CdFace62.png	153373	Assets/Product/Texture/Image/CdPlayer/BgCdFace62.png	1	
+52	Unknown Territory	Composed by GhostFinal	249	Assets/Product/Texture/Image/CdPlayer/CdFace63.png	96093	Assets/Product/Texture/Image/CdPlayer/BgCdFace63.png	1	
+53	Space Odyssey	Composed by: MI	256	Assets/Product/Texture/Image/CdPlayer/CdFace64.png	174275	Assets/Product/Texture/Image/CdPlayer/BgCdFace64.png	1	
+54	Punk Dynamo	Composed by: Polyblue	258	Assets/Product/Texture/Image/CdPlayer/CdFace67.png	67933	Assets/Product/Texture/Image/CdPlayer/BgCdFace67.png	1	
+55	Crank!	Composed by: Polyblue	260	Assets/Product/Texture/Image/CdPlayer/CdFace65.png	194400	Assets/Product/Texture/Image/CdPlayer/BgCdFace65.png	1	
+56	Sands of Past	Composed by: Polyblue	261	Assets/Product/Texture/Image/CdPlayer/CdFace68.png	72820	Assets/Product/Texture/Image/CdPlayer/BgCdFace68.png	1	
+57	Sunset and Wine	Composed by: Polyblue	263	Assets/Product/Texture/Image/CdPlayer/CdFace69.png	84297	Assets/Product/Texture/Image/CdPlayer/BgCdFace69.png	1	
+58	Above the Cloud	Composed by: FLuoRiTe	298	Assets/Product/Texture/Image/CdPlayer/CdFace70.png	199000	Assets/Product/Texture/Image/CdPlayer/BgCdFace70.png	1	20020
+59	Fallen Concerto	Composed by: Tony Yan	273	Assets/Product/Texture/Image/CdPlayer/CdFace71.png	136238	Assets/Product/Texture/Image/CdPlayer/BgCdFace71.png	1	
+60	Simmer Down	Composed by: Miao	278	Assets/Product/Texture/Image/CdPlayer/CdFace72.png	116862	Assets/Product/Texture/Image/CdPlayer/BgCdFace72.png	1	
+61	Homecoming Voyage	Vocal: Shanghai Rainbow Chamber Singers  Composed by: Yuxuan  Lyrics: Xiaohuo  Arranged by: Lu Xiaoxing  Mixed by: Alie  Performed by: Hui'in International Philharmonic Orchestra	331	Assets/Product/Texture/Image/CdPlayer/CdFace79.png	191857	Assets/Product/Texture/Image/CdPlayer/BgCdFace79.png	1	
+62	Passion Call	Composed by: Vanguard-Sound  Lyrics: Vanguard-Sound, クロネコ  Vocal: Karenina (CV: Haruka Tomatsu)	286	Assets/Product/Texture/Image/CdPlayer/CdFace75.png	238000	Assets/Product/Texture/Image/CdPlayer/BgCdFace75.png	1	
+63	Passion Call - Instrumental	Composed by: Vanguard-Sound	288	Assets/Product/Texture/Image/CdPlayer/CdFace78.png	238000	Assets/Product/Texture/Image/CdPlayer/BgCdFace78.png	1	
+64	Homecoming Voyage - Inst.	Vocal: Shanghai Rainbow Chamber Singers  Composed by: Yuxuan  Lyrics: Xiaohuo  Arranged by: Lu Xiaoxing  Mixed by: Alie  Performed by: Hui'in International Philharmonic Orchestra	333	Assets/Product/Texture/Image/CdPlayer/CdFace79.png	189473	Assets/Product/Texture/Image/CdPlayer/BgCdFace79.png	1	
+65	Inheritor	Composed by: GhostFinal	359	Assets/Product/Texture/Image/CdPlayer/CdFace81.png	149069	Assets/Product/Texture/Image/CdPlayer/BgCdFace81.png	1	
+66	Fortitude	Composed by: FLuoRiTe	358	Assets/Product/Texture/Image/CdPlayer/CdFace82.png	168827	Assets/Product/Texture/Image/CdPlayer/BgCdFace82.png	1	
+67	Poetic Moment	Composed by: Tony Yan	377	Assets/Product/Texture/Image/CdPlayer/CdFace85.png	146714	Assets/Product/Texture/Image/CdPlayer/BgCdFace85.png	1	
+68	Eternal Lament	Composed by: Tony Yan	376	Assets/Product/Texture/Image/CdPlayer/CdFace86.png	152875	Assets/Product/Texture/Image/CdPlayer/BgCdFace86.png	1	
+69	Under The Banner	Composed by: Tony Yan	373	Assets/Product/Texture/Image/CdPlayer/CdFace87.png	157000	Assets/Product/Texture/Image/CdPlayer/BgCdFace87.png	1	
+70	Sunset Breaker	Composed by: Tony Yan	370	Assets/Product/Texture/Image/CdPlayer/CdFace83.png	146875	Assets/Product/Texture/Image/CdPlayer/BgCdFace83.png	1	
+71	Snowfall Blossom	Composed by: Melo	384	Assets/Product/Texture/Image/CdPlayer/CdFace89.png	196000	Assets/Product/Texture/Image/CdPlayer/BgCdFace89.png		
+72	In My Memory	Composed by: GhostFinal	381	Assets/Product/Texture/Image/CdPlayer/CdFace84.png	96000	Assets/Product/Texture/Image/CdPlayer/BgCdFace84.png	1	
+73	Verschworung	Composed by: Coyde	382	Assets/Product/Texture/Image/CdPlayer/CdFace90.png	101000	Assets/Product/Texture/Image/CdPlayer/BgCdFace90.png	1	
+74	Lightmoon	Composed by: Coyde	386	Assets/Product/Texture/Image/CdPlayer/CdFace95.png	109010	Assets/Product/Texture/Image/CdPlayer/BgCdFace95.png	1	
+75	Blue Moon	Composed by: GhostFinal	394	Assets/Product/Texture/Image/CdPlayer/CdFace94.png	130485	Assets/Product/Texture/Image/CdPlayer/BgCdFace94.png	1	
+76	To The Limit	Composed by: GhostFinal	5007	Assets/Product/Texture/Image/CdPlayer/CdFace96.png	94222	Assets/Product/Texture/Image/CdPlayer/BgCdFace96.png	1	
+77	The Sweet Jive	Composed by: LCC	5008	Assets/Product/Texture/Image/CdPlayer/CdFace97.png	90696	Assets/Product/Texture/Image/CdPlayer/BgCdFace97.png	1	
+78	Elfe de la mer	Composed by: LCC	399	Assets/Product/Texture/Image/CdPlayer/CdFace88.png	146190	Assets/Product/Texture/Image/CdPlayer/BgCdFace88.png	1	
+79	The Fall of Juggernaut	Composed by: Polyblue	5015	Assets/Product/Texture/Image/CdPlayer/CdFace100.png	120900	Assets/Product/Texture/Image/CdPlayer/BgCdFace100.png	1	
+80	Define Me	Composed by: LCC	5016	Assets/Product/Texture/Image/CdPlayer/CdFace101.png	100200	Assets/Product/Texture/Image/CdPlayer/BgCdFace101.png	1	
+81	Hide and seek	Composed by: RabbitJ	5011	Assets/Product/Texture/Image/CdPlayer/CdFace103.png	114000	Assets/Product/Texture/Image/CdPlayer/BgCdFace103.png	1	
+82	Stellarira	Composed by: MEI & Haloweak	5014	Assets/Product/Texture/Image/CdPlayer/CdFace93.png	120000	Assets/Product/Texture/Image/CdPlayer/BgCdFace93.png	1	
+83	Go Camping	Composed by: GhostFinal	5037	Assets/Product/Texture/Image/CdPlayer/CdFace102.png	117877	Assets/Product/Texture/Image/CdPlayer/BgCdFace102.png		
+84	Adversity	Composed by: FLuoRiTe & GhostFinal	5028	Assets/Product/Texture/Image/CdPlayer/CdFace99.png	120000	Assets/Product/Texture/Image/CdPlayer/BgCdFace99.png	1	
+85	Rhythmic	Composed by: RabbitJ	5033	Assets/Product/Texture/Image/CdPlayer/CdFace106.png	203870	Assets/Product/Texture/Image/CdPlayer/BgCdFace106.png	1	
+86	Interstice Oath	Composed by: FLuoRiTe	5038	Assets/Product/Texture/Image/CdPlayer/CdFace105.png	157857	Assets/Product/Texture/Image/CdPlayer/BgCdFace105.png	1	
+87	Froggie and the Four-leaf Clover	Composed by: Riichi	5047	Assets/Product/Texture/Image/CdPlayer/CdFace109.png	212816	Assets/Product/Texture/Image/CdPlayer/BgCdFace109.png	1	
+88	仰げば尊し	Composed by: FLuoRiTe	5058	Assets/Product/Texture/Image/CdPlayer/CdFace110.png	150696	Assets/Product/Texture/Image/CdPlayer/BgCdFace110.png	1	
+89	Dream	Composed by: FLuoRiTe	5059	Assets/Product/Texture/Image/CdPlayer/CdFace111.png	181571	Assets/Product/Texture/Image/CdPlayer/BgCdFace111.png	1	
+90	Daily Life	Composed by: azusaTaxhi	5061	Assets/Product/Texture/Image/CdPlayer/CdFace115.png	121935	Assets/Product/Texture/Image/CdPlayer/BgCdFace115.png	1	
+91	Crossing Eternities	Composed by: Haloweak	5065	Assets/Product/Texture/Image/CdPlayer/CdFace108.png	111600	Assets/Product/Texture/Image/CdPlayer/BgCdFace108.png	1	
+92	Pursue the Glimmer	Composed by: FLuoRiTe	5070	Assets/Product/Texture/Image/CdPlayer/CdFace118.png	118777	Assets/Product/Texture/Image/CdPlayer/BgCdFace118.png	1	
+93	The Last Witness	Composed by: FLuoRiTe	5067	Assets/Product/Texture/Image/CdPlayer/CdFace113.png	149615	Assets/Product/Texture/Image/CdPlayer/BgCdFace113.png	1	
+94	Elegy of Fate - Instrumental	Composed by: S9ryne  Lyrics: LunaSafari  Vocal: Kate Glock	6101	Assets/Product/Texture/Image/CdPlayer/CdFace119.png	278275	Assets/Product/Texture/Image/CdPlayer/BgCdFace119.png	1	
+95	Elegy of Fate	Composed by: S9ryne  Lyrics: LunaSafari  Vocal: Kate Glock	6102	Assets/Product/Texture/Image/CdPlayer/CdFace119.png	278275	Assets/Product/Texture/Image/CdPlayer/BgCdFace119.png	1	
+96	52Hz	Composed by: FLuoRiTe	6145	Assets/Product/Texture/Image/CdPlayer/CdFace120.png	203426	Assets/Product/Texture/Image/CdPlayer/BgCdFace120.png		
+97	One More Hand	Composed by: FLuoRiTe & GhostFinal Bass: AzusaTaxhi Produced by: Punishing: Gray Raven & Vanguard-sound	6164	Assets/Product/Texture/Image/CdPlayer/CdFace116.png	304758	Assets/Product/Texture/Image/CdPlayer/BgCdFace116.png	1	
+98	Eclipsed Requiem	Composed by: azusaTaxhi	6153	Assets/Product/Texture/Image/CdPlayer/CdFace122.png	123840	Assets/Product/Texture/Image/CdPlayer/BgCdFace122.png	1	
+99	Chromatic Amnesia	Composed by: azusaTaxhi	6154	Assets/Product/Texture/Image/CdPlayer/CdFace123.png	99840	Assets/Product/Texture/Image/CdPlayer/BgCdFace123.png	1	
+100	MAV-01	Composed by:CoyDe	6166	Assets/Product/Texture/Image/CdPlayer/CdFace127.png	153400	Assets/Product/Texture/Image/CdPlayer/BgCdFace127.png	1	
+101	"Je t'aime, VI"	Composed by: CoyDe	6167	Assets/Product/Texture/Image/CdPlayer/CdFace126.png	142442	Assets/Product/Texture/Image/CdPlayer/BgCdFace126.png	1	
+103	I was born for you	Composed by: Tony Yan	6159	Assets/Product/Texture/Image/CdPlayer/CdFace117.png	149905	Assets/Product/Texture/Image/CdPlayer/BgCdFace117.png	1	
+104	Canon	Composed by: Johann Pachelbel  Adapted by: REYSG	6146	Assets/Product/Texture/Image/CdPlayer/CdFace131.png	87272	Assets/Product/Texture/Image/CdPlayer/BgCdFace131.png	1	
+105	Ashes	Composed by: FLuoRiTe	6172	Assets/Product/Texture/Image/CdPlayer/CdFace132.png	172940	Assets/Product/Texture/Image/CdPlayer/BgCdFace132.png	1	
+106	Story of Hope	Composed by: azusaTaxhi	6173	Assets/Product/Texture/Image/CdPlayer/CdFace133.png	142600	Assets/Product/Texture/Image/CdPlayer/BgCdFace133.png	1	
+107	Serene Embers	Composed by: azusaTaxhi	6198	Assets/Product/Texture/Image/CdPlayer/CdFace134.png	128000	Assets/Product/Texture/Image/CdPlayer/BgCdFace134.png	1	
+108	Into the Shrouded Depths	Composed by: MeLo	6203	Assets/Product/Texture/Image/CdPlayer/CdFace135.png	140571	Assets/Product/Texture/Image/CdPlayer/BgCdFace135.png	1	
+120	Whispers of Sakura	Composed by: MeLo	6202	Assets/Product/Texture/Image/CdPlayer/CdFace130.png	110409	Assets/Product/Texture/Image/CdPlayer/BgCdFace130.png	1	
+121	Cliff, Colt And Campfire	Composed by: Polyblue	6213	Assets/Product/Texture/Image/CdPlayer/CdFace138.png	56250	Assets/Product/Texture/Image/CdPlayer/BgCdFace138.png	1	
+122	Calling Softly	Composed by: Tony Yan	6225	Assets/Product/Texture/Image/CdPlayer/CdFace141.png	126689	Assets/Product/Texture/Image/CdPlayer/BgCdFace141.png	1	
+123	A Time with You	Composed by: Tony Yan	6226	Assets/Product/Texture/Image/CdPlayer/CdFace142.png	118857	Assets/Product/Texture/Image/CdPlayer/BgCdFace142.png	1	
+124	Ascension to Freedom	Composed by: D.Yi	6235	Assets/Product/Texture/Image/CdPlayer/CdFace145.png	114230	Assets/Product/Texture/Image/CdPlayer/BgCdFace145.png	1	
+125	Fading Signal	Composer: GhostFinal	6236	Assets/Product/Texture/Image/CdPlayer/CdFace146.png	105391	Assets/Product/Texture/Image/CdPlayer/BgCdFace146.png	1	
+126	Nocturnal Lullaby	Composed by: Kinoko蘑菇	6243	Assets/Product/Texture/Image/CdPlayer/CdFace148.png	69600	Assets/Product/Texture/Image/CdPlayer/BgCdFace148.png	1	
+127	Lost Stars, Soft Hearts	Composed by: MeLo	6244	Assets/Product/Texture/Image/CdPlayer/CdFace149.png	115578	Assets/Product/Texture/Image/CdPlayer/BgCdFace149.png	1	
+128	Ticking Compassion	Composed by: D.Yi	6252	Assets/Product/Texture/Image/CdPlayer/CdFace139.png	93153	Assets/Product/Texture/Image/CdPlayer/BgCdFace139.png	1	
+129	Truth in Ashes	Composed by: Norika05	6389	Assets/Product/Texture/Image/CdPlayer/CdFace151.png	71724	Assets/Product/Texture/Image/CdPlayer/BgCdFace151.png	1	
+130	No Time to Bleed	Composed by: Norika05	6391	Assets/Product/Texture/Image/CdPlayer/CdFace152.png	69921	Assets/Product/Texture/Image/CdPlayer/BgCdFace152.png	1	
+131	Ragnarok	Composed by: azusaTaxhi	7101	Assets/Product/Texture/Image/CdPlayer/CdFace155.png	125309	Assets/Product/Texture/Image/CdPlayer/BgCdFace155.png	1	
+132	Frozen Throne	Composed by: azusaTaxhi	7102	Assets/Product/Texture/Image/CdPlayer/CdFace156.png	64363	Assets/Product/Texture/Image/CdPlayer/BgCdFace156.png	1	
+800	Wings of Destiny	Vocal：NOHC Lyrics and Music：NOHC  / 普映蒙 / N2V / xTOx Arranger：N2V Producer：N2V / xTOx  Mixing：N2V  Production Team：VISION SOUND	4700033	Assets/Product/Texture/Image/CdPlayer/CdFaceEN04.png	236210	Assets/Product/Texture/Image/CdPlayer/BgCdFaceEN04.png		
+133	The Phantom of Myself	Composed by: D.Yi	7118	Assets/Product/Texture/Image/CdPlayer/CdFace143.png	2759328	Assets/Product/Texture/Image/CdPlayer/BgCdFace143.png	1	
+134	Morrow	Composed by: FLuoRiTe	7122	Assets/Product/Texture/Image/CdPlayer/CdFace158.png	3554431	Assets/Product/Texture/Image/CdPlayer/BgCdFace158.png	1	
+135	Urgency	Composed by: Tony Yan	7123	Assets/Product/Texture/Image/CdPlayer/CdFace159.png	3600001	Assets/Product/Texture/Image/CdPlayer/BgCdFace159.png	1	

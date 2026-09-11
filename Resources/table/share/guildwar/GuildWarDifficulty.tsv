@@ -1,0 +1,4 @@
+Id	Name	BgPath	MapPath	FightEventIds[1]	FightEventIds[2]	FightEventIds[3]	SweepHpFactor	SweepPointFactor	BossSweepHpFactor	BossSweepPointFactor	RecommendActive	PreId	LockText
+1	Flat Terrain	Assets/Product/Texture/Image/UiGuildWar/UiGuildWarSelectLevel1.png	Assets/Product/Texture/Image/UiGuildWar/UiGuildWarStageMap01.png	2240394	2240392		0.85	0.85	0.6999	0.6999			
+2	Dangerous Terrain	Assets/Product/Texture/Image/UiGuildWar/UiGuildWarSelectLevel2.png	Assets/Product/Texture/Image/UiGuildWar/UiGuildWarStageMap02.png	2240394	2240392		0.85	0.85	0.6999	0.6999	11500		
+3	Rugged Terrain	Assets/Product/Texture/Image/UiGuildWar/UiGuildWarSelectLevel3.png	Assets/Product/Texture/Image/UiGuildWar/UiGuildWarStageMap03.png	2240394	2240393	2240395	0.85	0.85	0.6999	0.6999	23500	2	Clear the Dangerous Terrain to unlock

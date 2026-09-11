@@ -1,24 +1,43 @@
 using MongoDB.Bson;
+using AscNet.Common.MsgPack;
+using MongoDB.Bson.Serialization.Options;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 
 namespace AscNet.Common.Database;
 
-public sealed class Guild
+public sealed partial class Guild
 {
     public static readonly IMongoCollection<Guild> collection = Common.db.GetCollection<Guild>("guilds");
     private static readonly IMongoCollection<BsonDocument> counters = Common.db.GetCollection<BsonDocument>("guild_counters");
     private static readonly Lazy<bool> indexes = new(() =>
     {
+        // Legacy inactive documents with members are paid-creation reservations, not disposable guilds.
+        collection.UpdateMany(new BsonDocument
+        {
+            { "active", false }, { "creation_reserved", new BsonDocument("$exists", false) },
+            { "member_ids.0", new BsonDocument("$exists", true) }
+        }, Builders<Guild>.Update.Set(guild => guild.CreationReserved, true).Inc(guild => guild.Version, 1));
+        var reserved = Builders<Guild>.Filter.Eq(guild => guild.Active, true) |
+            Builders<Guild>.Filter.Eq(guild => guild.CreationReserved, true);
         collection.Indexes.CreateMany(
         [
             new CreateIndexModel<Guild>(Builders<Guild>.IndexKeys.Ascending(guild => guild.Name),
-                new CreateIndexOptions { Name = "guild_name", Unique = true }),
+                new CreateIndexOptions<Guild> { Name = "guild_reserved_name", Unique = true,
+                    PartialFilterExpression = reserved & Builders<Guild>.Filter.Gt(guild => guild.Name, "") }),
             new CreateIndexModel<Guild>(Builders<Guild>.IndexKeys.Ascending(guild => guild.MemberIds),
-                new CreateIndexOptions { Name = "guild_members", Unique = true })
+                new CreateIndexOptions<Guild> { Name = "guild_reserved_members", Unique = true,
+                    PartialFilterExpression = reserved & Builders<Guild>.Filter.Exists("member_ids.0") }),
+            new CreateIndexModel<Guild>(Builders<Guild>.IndexKeys.Ascending("pending_operation.Players.Uid"),
+                new CreateIndexOptions { Name = "guild_pending_players" }),
+            new CreateIndexModel<Guild>(Builders<Guild>.IndexKeys.Ascending(guild => guild.PendingMembershipChanges),
+                new CreateIndexOptions { Name = "guild_pending_membership_changes" })
         ]);
+        foreach (BsonDocument index in collection.Indexes.List().ToList())
+            if (index["name"].AsString is "guild_name" or "guild_members")
+                collection.Indexes.DropOne(index["name"].AsString);
         return true;
-    }, LazyThreadSafetyMode.PublicationOnly);
+    });
 
     [BsonId]
     [BsonRepresentation(BsonType.Int64)]
@@ -52,8 +71,28 @@ public sealed class Guild
     [BsonIgnoreIfNull]
     public long? CreationQuotaPeriod { get; set; }
 
+    [BsonElement("creation_costs")]
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, int> CreationCosts { get; set; } = [];
+
     [BsonElement("active")]
     public bool Active { get; set; }
+
+    [BsonElement("creation_reserved")]
+    public bool CreationReserved { get; set; }
+
+    [BsonElement("version")]
+    public long Version { get; set; }
+
+    [BsonElement("pending_operation")]
+    public GuildPendingOperation? PendingOperation { get; set; }
+
+    [BsonElement("pending_membership_changes")]
+    public List<long> PendingMembershipChanges { get; set; } = [];
+
+    [BsonElement("members")]
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<long, GuildMemberState> Members { get; set; } = [];
 
     [BsonElement("member_ids")]
     public List<long> MemberIds { get; set; } = [];
@@ -67,16 +106,70 @@ public sealed class Guild
     [BsonElement("max_tourists")]
     public int MaxTourists { get; set; }
 
+    public void Normalize()
+    {
+        foreach (long uid in MemberIds)
+        {
+            if (!Members.TryGetValue(uid, out GuildMemberState? member))
+                Members.Add(uid, member = new GuildMemberState { JoinedAt = CreatedAt, Rank = 4 });
+            if (uid == LeaderId) member.Rank = 1;
+            else if (member.Rank is < 2 or > 5) member.Rank = 4;
+        }
+    }
+
+    private static Guild? Normalized(Guild? guild)
+    {
+        guild?.Normalize();
+        return guild;
+    }
+
+    public void SaveChecked()
+    {
+        _ = indexes.Value;
+        Normalize();
+        long previous = Version;
+        var filter = Builders<Guild>.Filter;
+        var version = filter.Eq(guild => guild.Version, previous);
+        if (previous == 0) version |= filter.Exists("version", false);
+        Version = checked(previous + 1);
+        try
+        {
+            ReplaceOneResult result = collection.ReplaceOne(filter.Eq(guild => guild.Id, Id) & version, this);
+            if (!result.IsAcknowledged || result.MatchedCount != 1)
+                throw new InvalidOperationException("Guild changed concurrently or no longer exists.");
+        }
+        catch
+        {
+            Version = previous;
+            throw;
+        }
+    }
+
     public static Guild? FindByMember(long playerId) =>
-        collection.Find(guild => guild.Active && guild.MemberIds.Contains(playerId)).FirstOrDefault();
+        Normalized(collection.Find(guild => guild.Active && guild.MemberIds.Contains(playerId)).FirstOrDefault());
 
     public static Guild? FindById(uint id) =>
-        collection.Find(guild => guild.Id == id).FirstOrDefault();
+        Normalized(collection.Find(guild => guild.Id == id).FirstOrDefault());
 
-    public static Guild? FindPendingByFounder(long id) =>
-        collection.Find(guild => !guild.Active && guild.LeaderId == id).FirstOrDefault();
+    public static Guild? FindPendingByFounder(long id)
+    {
+        _ = indexes.Value;
+        return Normalized(collection.Find(guild => !guild.Active && guild.CreationReserved && guild.LeaderId == id).FirstOrDefault());
+    }
 
-    public static List<Guild> AllActive() => collection.Find(guild => guild.Active).ToList();
+    public static List<Guild> FindPendingByParticipant(long uid) =>
+        collection.Find(guild => guild.PendingOperation != null &&
+            (guild.PendingOperation.ActorId == uid || guild.PendingOperation.Players.Any(player => player.Uid == uid))).ToList();
+
+    public static List<Guild> FindPendingMembershipChanges(long uid) =>
+        collection.Find(guild => guild.PendingMembershipChanges.Contains(uid)).ToList();
+
+    public static List<Guild> AllActive()
+    {
+        List<Guild> guilds = collection.Find(guild => guild.Active).ToList();
+        foreach (Guild guild in guilds) guild.Normalize();
+        return guilds;
+    }
 
     public static Guild ReserveCreation(Guild requested)
     {
@@ -84,15 +177,18 @@ public sealed class Guild
         ArgumentException.ThrowIfNullOrWhiteSpace(requested.Name);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(requested.LeaderId);
         _ = indexes.Value;
-        Guild? existing = collection.Find(guild => guild.LeaderId == requested.LeaderId).FirstOrDefault();
+        Guild? existing = collection.Find(guild => (guild.Active || guild.CreationReserved) && guild.MemberIds.Contains(requested.LeaderId)).FirstOrDefault();
         if (existing is not null)
             return existing;
 
         requested.Id = AllocateId();
         requested.Active = false;
+        requested.CreationReserved = true;
+        requested.Version = 1;
         requested.MemberIds = [requested.LeaderId];
         requested.Applications = [];
         requested.CreationQuotaPeriod = null;
+        requested.Normalize();
         try
         {
             collection.InsertOne(requested);
@@ -101,7 +197,7 @@ public sealed class Guild
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
             // Another request may have reserved or activated this founder while we allocated an ID.
-            existing = collection.Find(guild => guild.LeaderId == requested.LeaderId).FirstOrDefault();
+            existing = collection.Find(guild => (guild.Active || guild.CreationReserved) && guild.MemberIds.Contains(requested.LeaderId)).FirstOrDefault();
             if (existing is not null)
                 return existing;
             throw;
@@ -115,7 +211,7 @@ public sealed class Guild
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(dailyLimit);
         Guild persisted = FindById(guild.Id)
             ?? throw new InvalidOperationException("Guild creation reservation is missing.");
-        if (persisted.LeaderId != guild.LeaderId)
+        if (persisted.LeaderId != guild.LeaderId || (!persisted.Active && !persisted.CreationReserved))
             throw new InvalidOperationException("Guild creation founder does not match.");
         if (persisted.CreationQuotaPeriod is not null)
         {
@@ -147,10 +243,12 @@ public sealed class Guild
         // A crash here can conservatively consume a second day's slot on retry; neither
         // day's cap can be exceeded. Never remove a slot another creator may be using.
         Guild? recorded = collection.FindOneAndUpdate(
-            Builders<Guild>.Filter.Where(value => value.Id == guild.Id && value.LeaderId == guild.LeaderId && value.CreationQuotaPeriod == null),
-            Builders<Guild>.Update.Set(value => value.CreationQuotaPeriod, (long?)resetPeriod),
+            Builders<Guild>.Filter.Where(value => value.Id == guild.Id && value.LeaderId == guild.LeaderId &&
+                (value.Active || value.CreationReserved) && value.CreationQuotaPeriod == null && value.PendingOperation == null),
+            Builders<Guild>.Update.Set(value => value.CreationQuotaPeriod, (long?)resetPeriod).Inc(value => value.Version, 1),
             new FindOneAndUpdateOptions<Guild> { ReturnDocument = ReturnDocument.After });
-        guild.CreationQuotaPeriod = recorded?.CreationQuotaPeriod ?? FindById(guild.Id)?.CreationQuotaPeriod
+        recorded ??= FindById(guild.Id);
+        guild.CreationQuotaPeriod = recorded?.CreationQuotaPeriod
             ?? throw new InvalidOperationException("Guild creation reservation is missing.");
     }
 
@@ -183,8 +281,8 @@ public sealed class Guild
         _ = indexes.Value;
         return collection.FindOneAndUpdate(
             Builders<Guild>.Filter.Where(guild => guild.Id == id && guild.LeaderId == founderId && guild.MemberIds.Contains(founderId)
-                && guild.CreationQuotaPeriod != null),
-            Builders<Guild>.Update.Set(guild => guild.Active, true),
+                && (guild.Active || guild.CreationReserved) && guild.PendingOperation == null && guild.CreationQuotaPeriod != null),
+            Builders<Guild>.Update.Set(guild => guild.Active, true).Set(guild => guild.CreationReserved, false).Inc(guild => guild.Version, 1),
             new FindOneAndUpdateOptions<Guild> { ReturnDocument = ReturnDocument.After });
     }
 
@@ -194,25 +292,28 @@ public sealed class Guild
         if (capacity <= 0)
             return null;
         _ = indexes.Value;
-        var filter = Builders<Guild>.Filter;
+        Guild? guild = FindById(id);
+        if (guild is not { Active: true, PendingOperation: null }) return null;
         // Existing membership is a successful retry even if the guild has since filled up.
-        var room = new BsonDocument("$expr", new BsonDocument("$lt", new BsonArray
+        if (!guild.MemberIds.Contains(playerId))
         {
-            new BsonDocument("$size", "$member_ids"), capacity
-        }));
-        // EN XGuildConfig.ApplySetting.NoneApply = 1; approval requires a still-live application.
-        var admission = applicationCutoff is long cutoff
-            ? filter.ElemMatch(guild => guild.Applications,
-                application => application.PlayerId == playerId && application.CreatedAt > cutoff)
-            : filter.Eq(guild => guild.Option, 1);
+            // EN XGuildConfig.ApplySetting.NoneApply = 1; approval needs a still-live application.
+            bool admitted = applicationCutoff is long cutoff
+                ? guild.Applications.Any(application => application.PlayerId == playerId && application.CreatedAt > cutoff)
+                : guild.Option == 1;
+            if (!admitted || guild.MemberIds.Count >= capacity) return null;
+            guild.MemberIds.Add(playerId);
+            guild.Members[playerId] = new GuildMemberState
+            {
+                Rank = 4, JoinedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+        }
+        guild.Applications.RemoveAll(application => application.PlayerId == playerId);
         try
         {
-            return collection.FindOneAndUpdate(
-                filter.Eq(guild => guild.Id, id) & filter.Eq(guild => guild.Active, true) &
-                (filter.AnyEq(guild => guild.MemberIds, playerId) | (admission & room)),
-                Builders<Guild>.Update.AddToSet(guild => guild.MemberIds, playerId)
-                    .PullFilter(guild => guild.Applications, application => application.PlayerId == playerId),
-                new FindOneAndUpdateOptions<Guild> { ReturnDocument = ReturnDocument.After });
+            // The version predicate guards the membership, approval and capacity snapshot together.
+            guild.SaveChecked();
+            return guild;
         }
         catch (MongoCommandException exception) when (exception.Code == 11000)
         {
@@ -248,6 +349,10 @@ public sealed class Guild
         PipelineDefinition<Guild, Guild> pipeline = new BsonDocument[]
         {
             new("$set", new BsonDocument("applications", liveApplications)),
+            new("$set", new BsonDocument("version", new BsonDocument("$add", new BsonArray
+            {
+                new BsonDocument("$ifNull", new BsonArray { "$version", 0L }), 1L
+            }))),
             new("$set", new BsonDocument("applications", new BsonDocument("$cond", new BsonArray
             {
                 new BsonDocument("$in", new BsonArray { playerId, "$applications.player_id" }),
@@ -260,7 +365,7 @@ public sealed class Guild
             })))
         };
         return collection.FindOneAndUpdate(
-            filter.Where(guild => guild.Id == id && guild.Active && !guild.MemberIds.Contains(playerId)) &
+            filter.Where(guild => guild.Id == id && guild.Active && guild.PendingOperation == null && !guild.MemberIds.Contains(playerId)) &
                 (existing | room),
             Builders<Guild>.Update.Pipeline(pipeline),
             new FindOneAndUpdateOptions<Guild> { ReturnDocument = ReturnDocument.After });
@@ -269,8 +374,8 @@ public sealed class Guild
     public static Guild? RemoveApplication(uint id, long playerId)
     {
         _ = indexes.Value;
-        return collection.FindOneAndUpdate(Builders<Guild>.Filter.Where(guild => guild.Id == id && guild.Active),
-            Builders<Guild>.Update.PullFilter(guild => guild.Applications, application => application.PlayerId == playerId),
+        return collection.FindOneAndUpdate(Builders<Guild>.Filter.Where(guild => guild.Id == id && guild.Active && guild.PendingOperation == null),
+            Builders<Guild>.Update.PullFilter(guild => guild.Applications, application => application.PlayerId == playerId).Inc(guild => guild.Version, 1),
             new FindOneAndUpdateOptions<Guild> { ReturnDocument = ReturnDocument.After });
     }
 }
@@ -282,4 +387,62 @@ public sealed class GuildApplication
 
     [BsonElement("created_at")]
     public long CreatedAt { get; set; }
+}
+
+public sealed partial class GuildMemberState
+{
+    public int Rank { get; set; } = 4;
+    public long JoinedAt { get; set; }
+    public int WeekContribute { get; set; }
+    public int TotalContribute { get; set; }
+    public int ActiveContribute { get; set; }
+    public int Popularity { get; set; }
+}
+
+public sealed class GuildPendingOperation
+{
+    public string Id { get; set; } = string.Empty;
+    public long ActorId { get; set; }
+    public int RequestId { get; set; }
+    public string RequestKey { get; set; } = string.Empty;
+    public string ResponseName { get; set; } = string.Empty;
+    public byte[] ResponseBody { get; set; } = [];
+    public byte[] GuildState { get; set; } = [];
+    public List<GuildPendingPlayer> Players { get; set; } = [];
+    public List<GuildPendingPush> Pushes { get; set; } = [];
+}
+
+public sealed class GuildPendingPlayer
+{
+    public long Uid { get; set; }
+    public GuildPlayerState State { get; set; } = new();
+    public List<GuildPendingGrant> Grants { get; set; } = [];
+    public List<int> ClaimedTasks { get; set; } = [];
+    public List<PlayerMail> Mails { get; set; } = [];
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, int> ConditionCounters { get; set; } = [];
+}
+
+public sealed class GuildPendingGrant
+{
+    public string ClaimKey { get; set; } = string.Empty;
+    public List<RewardGoods> Goods { get; set; } = [];
+    public List<List<int>> GoodsParams { get; set; } = [];
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, int> Costs { get; set; } = [];
+}
+
+public sealed class GuildPendingPush
+{
+    public long Uid { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public byte[] Body { get; set; } = [];
+}
+
+public sealed class GuildRequestReceipt
+{
+    public int RequestId { get; set; }
+    public string RequestKey { get; set; } = string.Empty;
+    public string ResponseName { get; set; } = string.Empty;
+    public byte[] ResponseBody { get; set; } = [];
 }

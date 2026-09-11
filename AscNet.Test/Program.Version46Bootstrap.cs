@@ -22,6 +22,8 @@ using AscNet.Table.V2.share.miniactivity.dyemerge;
 using AscNet.Table.V2.share.theatre6;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.draw;
+using AscNet.Table.V2.client.draw;
+using AscNet.Table.V2.share.character;
 using MessagePack;
 using Microsoft.AspNetCore.Http;
 using MongoDB.Bson;
@@ -578,6 +580,386 @@ internal partial class Program
         AssertEqual(1, unknown.Code, "unknown draw rejection");
         AssertEqual(0, unknown.SwitchDrawIdCount, "unknown draw selection unchanged count");
         AssertEqual(Convert.ToHexString(beforeUnknown), Convert.ToHexString(player.ToBson()), "unknown draw rejection state");
+    }
+
+    private static void ValidateMemberTargetLocalPolicy()
+    {
+        ValidateMemberCalibrationLocalPolicy();
+        using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out var playerSaves, out _, out _);
+        Type manager = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+        MethodInfo infos = RequiredMethod(manager, "GetDrawInfosByGroup", BindingFlags.Static | BindingFlags.Public,
+            [typeof(int), typeof(AscNet.Common.Database.Player)]);
+        MethodInfo drawPublic = RequiredMethod(manager, "DrawDraw", BindingFlags.Static | BindingFlags.Public,
+            [typeof(AscNet.Common.Database.Player), typeof(int), typeof(int)]);
+        AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(46_090);
+        player.DrawState.PityCountByGroup[1] = 59;
+        Dictionary<int, CharacterTable> characters = TableReaderV2.Parse<CharacterTable>().ToDictionary(row => row.Id);
+        Dictionary<int, int> ranks = TableReaderV2.Parse<AscNet.Table.V2.share.character.quality.CharacterQualityTable>()
+            .GroupBy(row => row.CharacterId).ToDictionary(group => group.Key, group => group.Min(row => row.Quality));
+        DrawInfo[] targets = ((List<DrawInfo>)infos.Invoke(null, [1, player])!)
+            .Where(draw => ranks.GetValueOrDefault(draw.ResourceIds.GetValueOrDefault(1)) == 2)
+            .DistinctBy(draw => draw.ResourceIds[1]).Take(2).ToArray();
+        AssertEqual(2, targets.Length, "MemberTarget distinct authoritative A targets");
+        int Rank(RewardGoods reward) => ranks.GetValueOrDefault(reward.ConvertFrom > 0
+            ? reward.ConvertFrom : reward.RewardType == (int)RewardType.Character ? reward.TemplateId : 0);
+        RewardGoods legacyBoundary = ((List<RewardGoods>)drawPublic.Invoke(null, [player, targets[0].Id, 0])!).Single();
+        AssertEqual(3, Rank(legacyBoundary), "MemberTarget legacy 60th pull awards S, never selected A");
+
+        MethodInfo roll = RequiredMethod(manager, "DrawMemberReward", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(double), typeof(double), typeof(double), typeof(double)]);
+        MethodInfo getPity = RequiredMethod(manager, "GetMemberTargetPity", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player)]);
+        MethodInfo applyProgress = RequiredMethod(manager, "ApplyDrawProgress", BindingFlags.Static | BindingFlags.Public,
+            [typeof(AscNet.Common.Database.Player), typeof(int), typeof(int)]);
+        MethodInfo select = RequiredMethod(manager, "SetUseDrawId", BindingFlags.Static | BindingFlags.Public,
+            [typeof(AscNet.Common.Database.Player), typeof(int)]);
+        void Progress(int a, int s)
+        {
+            object pity = getPity.Invoke(null, [player])!;
+            pity.GetType().GetProperty("SinceAOrS")!.SetValue(pity, a);
+            pity.GetType().GetProperty("SinceS")!.SetValue(pity, s);
+        }
+        int Since(string name) => (int)getPity.Invoke(null, [player])!.GetType().GetProperty(name)!
+            .GetValue(getPity.Invoke(null, [player]))!;
+        RewardGoods Pull(DrawInfo draw, double category, double rank = 0, double target = 0, double item = 0) =>
+            (RewardGoods)roll.Invoke(null, [player, draw, category, rank, target, item])!;
+        DrawProbShowTable profile = TableReaderV2.Parse<DrawProbShowTable>().Single(row => row.DrawId == targets[0].Id);
+        double[] weights = profile.ProbShow.Where(value => !string.IsNullOrWhiteSpace(value))
+            .Skip(1).Select(value => double.Parse(value.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        double sChance = weights[0] / 100;
+        double nonS = weights.Skip(1).Sum();
+        double Category(int index) => index == 0 ? sChance / 2
+            : sChance + (1 - sChance) * (weights.Skip(1).Take(index - 1).Sum() + weights[index] / 2) / nonS;
+        foreach (DrawInfo draw in targets)
+        {
+            DrawPreviewTable preview = TableReaderV2.Parse<DrawPreviewTable>().Single(row => row.Id == draw.Id);
+            Dictionary<int, int> previewIds = TableReaderV2.Parse<DrawPreviewGoodsTable>().ToDictionary(row => row.Id, row => row.TemplateId);
+            int[] pool = preview.GoodsId.Concat(preview.UpGoodsId).Select(id => previewIds.GetValueOrDefault(id)).Distinct()
+                .Where(id => characters.ContainsKey(id) && AscNet.Common.Database.Character.IsOwnableCharacter((uint)id)).ToArray();
+            int aCount = pool.Count(id => ranks.GetValueOrDefault(id) == 2);
+            int bCount = pool.Count(id => ranks.GetValueOrDefault(id) == 1);
+            double rankBoundary = (double)aCount / (aCount + bCount);
+            string targetPercent = TableReaderV2.Parse<DrawAimProbabilityTable>().Single(row => row.Id == draw.Id)
+                .UpProbabilityPercent ?? throw new InvalidDataException($"MemberTarget {draw.Id} has no authoritative target percentage.");
+            double targetChance = double.Parse(targetPercent.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture) / 100;
+            Progress(0, 17);
+            RewardGoods fullA = Pull(draw, Category(1), Math.BitDecrement(rankBoundary), Math.BitDecrement(targetChance));
+            AssertEqual((int)RewardType.Character, fullA.RewardType, $"MemberTarget {draw.Id} raw full A type");
+            AssertEqual(draw.ResourceIds[1], fullA.TemplateId, $"MemberTarget {draw.Id} conditional selected A");
+            AssertEqual(0, fullA.ConvertFrom, "raw A is not preconverted");
+            AssertEqual(0, Since("SinceAOrS"), "ordinary A resets ten guarantee");
+            AssertEqual(18, Since("SinceS"), "ordinary A retains S progress");
+            Progress(0, 0);
+            AssertEqual(1, Rank(Pull(draw, Category(1), rankBoundary)), "A/B count-derived rank boundary selects B");
+            if (targetChance < 1)
+            {
+                Progress(0, 0);
+                RewardGoods otherA = Pull(draw, Category(1), 0, targetChance);
+                AssertEqual(2, Rank(otherA), "conditional target miss remains A");
+                AssertEqual(false, otherA.TemplateId == draw.ResourceIds[1], "conditional target miss excludes selected A");
+            }
+            Progress(9, 20);
+            AssertEqual(2, Rank(Pull(draw, Category(6))), "tenth non-S pull forces A over materials");
+            AssertEqual(0, Since("SinceAOrS"), "guaranteed A resets ten");
+            AssertEqual(21, Since("SinceS"), "guaranteed A does not reset sixty");
+            Progress(9, 20);
+            AssertEqual(3, Rank(Pull(draw, Math.BitDecrement(sChance))), "base S precedes tenth A guarantee");
+            AssertEqual(0, Since("SinceS"), "early S resets sixty");
+            AssertEqual(0, Since("SinceAOrS"), "early S resets ten");
+            Progress(9, 59);
+            AssertEqual(3, Rank(Pull(draw, Category(6))), "sixtieth S precedes tenth A guarantee");
+            Progress(0, 0);
+            AssertEqual(2, Rank(Pull(draw, sChance)), "exact base S boundary leaves S category");
+            for (int category = 2; category < weights.Length; category++)
+            {
+                Progress(0, 0);
+                RewardGoods material = Pull(draw, Category(category));
+                AssertEqual(category == 3 ? (int)RewardType.Equip : (int)RewardType.Item, material.RewardType,
+                    $"MemberTarget category {category} reward family");
+                if (category == 2)
+                    AssertEqual(true, pool.Any(id => characters[id].ItemId == material.TemplateId), "shard category yields visible character shard");
+                if (category == 3)
+                    AssertEqual(4, TableReaderV2.Parse<EquipTable>().Single(row => row.Id == material.TemplateId).Quality, "memory category quality");
+            }
+            using LoopbackSessionHarness grantHarness = new(CreateDrawCompatibilityCharacter(46_091), player,
+                CreateDrawCompatibilityInventory(46_091, []), $"member-target-grant-{draw.Id}");
+            Type rewardHandler = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
+            MethodInfo resolve = RequiredMethod(rewardHandler, "ResolveRewards", BindingFlags.Static | BindingFlags.Public,
+                [typeof(IEnumerable<Reward>), typeof(Session)]);
+            MethodInfo apply = RequiredMethod(rewardHandler, "ApplyRewards", BindingFlags.Static | BindingFlags.Public,
+                [typeof(IEnumerable<Reward>), typeof(Session)]);
+            Reward[] raw = [new() { Id = fullA.TemplateId, Type = RewardType.Character, Count = 1, Level = 1 }];
+            List<Reward> first = (List<Reward>)resolve.Invoke(null, [raw, grantHarness.Session])!;
+            apply.Invoke(null, [first, grantHarness.Session]);
+            AssertEqual(true, grantHarness.Session.character.Characters.Any(row => row.Id == fullA.TemplateId), "new A grants owned character");
+            List<Reward> duplicate = (List<Reward>)resolve.Invoke(null, [raw, grantHarness.Session])!;
+            Reward conversion = duplicate.Single(reward => reward.ConvertFrom == fullA.TemplateId);
+            AssertEqual(characters[fullA.TemplateId].ItemId, conversion.Id, "duplicate A converts to its own shard");
+            apply.Invoke(null, [duplicate, grantHarness.Session]);
+            AssertEqual((long)conversion.Count, grantHarness.Session.inventory.Items.Single(item => item.Id == conversion.Id).Count, "duplicate A credits shard inventory");
+            AssertEqual(1, grantHarness.Session.character.Characters.Count(row => row.Id == fullA.TemplateId), "duplicate does not grant second character");
+        }
+        Progress(8, 58);
+        select.Invoke(null, [player, targets[1].Id]);
+        player = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
+        AssertEqual(targets[1].Id, player.DrawState.SelectedDrawByGroup[1].Slots[0], "target switch BSON selection");
+        AssertEqual(8, Since("SinceAOrS"), "target switch BSON ten progress");
+        AssertEqual(58, Since("SinceS"), "target switch BSON sixty progress");
+        int oldTotal = player.DrawState.PityCountByGroup[1];
+        RewardGoods[] batch = Enumerable.Range(0, 3).Select(_ => Pull(targets[1], Category(6))).ToArray();
+        AssertEqual("0,3,0", string.Join(',', batch.Select(Rank)), "batch sequential S boundary");
+        AssertEqual(1, Since("SinceAOrS"), "post-S batch ten progress");
+        AssertEqual(1, Since("SinceS"), "post-S batch sixty progress");
+        applyProgress.Invoke(null, [player, targets[1].Id, 3]);
+        AssertEqual(oldTotal + 3, player.DrawState.PityCountByGroup[1], "draw total remains cumulative");
+        Progress(8, 28);
+        RewardGoods[] aBatch = Enumerable.Range(0, 3).Select(_ => Pull(targets[0], Category(6))).ToArray();
+        AssertEqual("0,2,0", string.Join(',', aBatch.Select(Rank)), "batch sequential A boundary");
+        AssertEqual(1, Since("SinceAOrS"), "post-A batch ten progress");
+        AssertEqual(31, Since("SinceS"), "post-A batch preserves sixty progress");
+
+        player = CreateDrawCompatibilityPlayer(46_092);
+        player.DrawState.PityCountByGroup[1] = 119;
+        AssertEqual(59, Since("SinceS"), "history-free migration preserves old visible S remaining");
+        AssertEqual(0, Since("SinceAOrS"), "history-free migration starts explicit local A progress");
+        player = CreateDrawCompatibilityPlayer(46_093);
+        player.DrawState.PityCountByGroup[1] = 200;
+        int sId = legacyBoundary.TemplateId;
+        int aId = targets[0].ResourceIds[1];
+        player.DrawState.HistoryByGroup[1] = new PlayerDrawHistoryGroupState
+        {
+            HistoryBySubType = new()
+            {
+                [0] =
+                [
+                    new() { DrawTime = 4, RewardGoods = new() { RewardType = (int)RewardType.Item, TemplateId = characters[aId].ItemId, ConvertFrom = aId, Count = 18 } },
+                    new() { DrawTime = 2, RewardGoods = new() { RewardType = (int)RewardType.Character, TemplateId = sId, Count = 1 } },
+                    new() { DrawTime = 5, RewardGoods = new() { RewardType = (int)RewardType.Item, TemplateId = characters[aId].ItemId, Count = 2 } },
+                    new() { DrawTime = 3, RewardGoods = new() { RewardType = (int)RewardType.Item, TemplateId = characters[aId].ItemId, Count = 2 } }
+                ]
+            }
+        };
+        AssertEqual(1, Since("SinceAOrS"), "chronological history recognizes converted A but not raw shard");
+        AssertEqual(3, Since("SinceS"), "chronological history anchors at full S");
+        player = CreateDrawCompatibilityPlayer(46_094);
+        DrawInfo handlerDraw = targets[0];
+        using LoopbackSessionHarness handler = new(CreateDrawCompatibilityCharacter(46_094), player,
+            CreateDrawCompatibilityInventory(46_094, [new Item { Id = handlerDraw.UseItemId, Count = handlerDraw.UseItemCount * 2 }]),
+            "member-target-handler-guarantee");
+        Progress(9, 59);
+        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), handler.Session, 46_094,
+            new DrawDrawCardRequest { DrawId = handlerDraw.Id, Count = 1 });
+        DrawDrawCardResponse response = (DrawDrawCardResponse)ReadResponsePayload(handler, 46_094, nameof(DrawDrawCardResponse),
+            "MemberTarget handler S guarantee", typeof(DrawDrawCardResponse), maxPacketsToRead: 20);
+        AssertEqual(0, response.Code, "MemberTarget handler success");
+        RewardGoods granted = response.RewardGoodsList.Single();
+        AssertEqual(3, Rank(granted), "MemberTarget handler grants rank-correct S");
+        AssertEqual(true, handler.Session.character.Characters.Any(row => row.Id == granted.TemplateId), "MemberTarget handler applies new full character");
+        AssertEqual(60, response.ClientDrawInfo!.BottomTimes, "MemberTarget wire S guarantee resets");
+        Dictionary<int, int> goods = TableReaderV2.Parse<DrawPreviewGoodsTable>().ToDictionary(row => row.Id, row => row.TemplateId);
+        DrawPreviewTable handlerPreview = TableReaderV2.Parse<DrawPreviewTable>().Single(row => row.Id == handlerDraw.Id);
+        foreach (int id in handlerPreview.GoodsId.Concat(handlerPreview.UpGoodsId).Select(id => goods.GetValueOrDefault(id))
+            .Distinct().Where(id => ranks.GetValueOrDefault(id) == 3 && !handler.Session.character.Characters.Any(row => row.Id == id)))
+            handler.Session.character.Characters.Add(new CharacterData { Id = (uint)id });
+        Progress(9, 59);
+        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), handler.Session, 46_095,
+            new DrawDrawCardRequest { DrawId = handlerDraw.Id, Count = 1 });
+        DrawDrawCardResponse duplicateResponse = (DrawDrawCardResponse)ReadResponsePayload(handler, 46_095, nameof(DrawDrawCardResponse),
+            "MemberTarget handler duplicate guarantee", typeof(DrawDrawCardResponse), maxPacketsToRead: 20);
+        AssertEqual(0, duplicateResponse.Code, "MemberTarget duplicate handler success");
+        RewardGoods converted = duplicateResponse.RewardGoodsList.Single();
+        AssertEqual(3, Rank(converted), "MemberTarget duplicate retains S identity");
+        AssertEqual(characters[converted.ConvertFrom].ItemId, converted.TemplateId, "MemberTarget duplicate response uses matching shard");
+        AssertEqual((long)converted.Count, handler.Session.inventory.Items.Single(item => item.Id == converted.TemplateId).Count, "MemberTarget handler credits duplicate shards");
+        AssertEqual(0L, handler.Session.inventory.Items.Single(item => item.Id == handlerDraw.UseItemId).Count, "MemberTarget handler charges both draws");
+        player = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+            playerSaves.LastSuccessfulReplacementBson ?? throw new InvalidDataException("MemberTarget handler did not persist its draw state."));
+        AssertEqual(0, Since("SinceS"), "MemberTarget handler persisted duplicate S reset");
+        AssertEqual(0, Since("SinceAOrS"), "MemberTarget handler persisted duplicate ten reset");
+    }
+
+    private static void ValidateMemberCalibrationLocalPolicy()
+    {
+        using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out var saves, out _, out _);
+        AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(46_096);
+        using LoopbackSessionHarness first = new(CreateDrawCompatibilityCharacter(46_096), player,
+            CreateDrawCompatibilityInventory(46_096, []), "member-calibration-first");
+        using LoopbackSessionHarness second = new(CreateDrawCompatibilityCharacter(46_097), CreateDrawCompatibilityPlayer(46_097),
+            CreateDrawCompatibilityInventory(46_097, []), "member-calibration-second");
+        int packetId = 46_100;
+        DrawAdjustActivityInfo Activity(LoopbackSessionHarness harness)
+        {
+            int id = packetId++;
+            InvokeRegisteredRequestHandler(nameof(DrawGetDrawGroupListRequest), harness.Session, id, new DrawGetDrawGroupListRequest());
+            return ReadResponsePayload<DrawGetDrawGroupListResponse>(harness, id, nameof(DrawGetDrawGroupListResponse),
+                "member calibration group-list").DrawAdjustActivityInfoList.Single(info => info.DrawGroupId == 1);
+        }
+        DrawAdjustActivityInfo campaign = Activity(first);
+        // This is the EN GetTargetCount gate: zero remaining selects the old banner without BtnAdd.
+        // Keep this wire-only assertion before resolving any newly introduced runtime member.
+        AssertEqual(1, campaign.AdjustTimes - campaign.TargetTimes, "fresh member calibration opens BannerNew/BtnAdd instead of old banner");
+        AssertEqual(0, campaign.TargetId, "fresh member calibration lets player choose later");
+        AssertEqual(1, Activity(second).AdjustTimes - Activity(second).TargetTimes, "second account has independent unused calibration");
+        AssertEqual(0L, campaign.StartTime, "local permanent calibration has no start bound");
+        AssertEqual(0L, campaign.EndTime, "local permanent calibration has no expiry");
+
+        Type manager = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
+        MethodInfo infos = RequiredMethod(manager, "GetDrawInfosByGroup", BindingFlags.Static | BindingFlags.Public,
+            [typeof(int), typeof(AscNet.Common.Database.Player)]);
+        MethodInfo roll = RequiredMethod(manager, "DrawMemberReward", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(double), typeof(double), typeof(double), typeof(double)]);
+        MethodInfo getPity = RequiredMethod(manager, "GetMemberTargetPity", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player)]);
+        Dictionary<int, int> ranks = TableReaderV2.Parse<AscNet.Table.V2.share.character.quality.CharacterQualityTable>()
+            .GroupBy(row => row.CharacterId).ToDictionary(group => group.Key, group => group.Min(row => row.Quality));
+        DrawInfo draw = ((List<DrawInfo>)infos.Invoke(null, [1, player])!)
+            .First(info => ranks.GetValueOrDefault(info.ResourceIds.GetValueOrDefault(1)) == 2);
+        Dictionary<int, int> goods = TableReaderV2.Parse<DrawPreviewGoodsTable>().ToDictionary(row => row.Id, row => row.TemplateId);
+        DrawPreviewTable preview = TableReaderV2.Parse<DrawPreviewTable>().Single(row => row.Id == draw.Id);
+        int[] sPool = preview.GoodsId.Concat(preview.UpGoodsId).Select(id => goods.GetValueOrDefault(id)).Distinct()
+            .Where(id => ranks.GetValueOrDefault(id) == 3 && AscNet.Common.Database.Character.IsOwnableCharacter((uint)id)).ToArray();
+        AssertEqual(true, sPool.Length >= 2, "authoritative member pool offers distinct S choices");
+        int target = sPool[^1];
+        int alternative = sPool.First(id => id != target);
+        Type responseType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.DrawAdjustTargetResponse");
+        AssertEqual(true, sPool.All(campaign.EffectTargetTemplateIds.Contains), "client selector exposes authoritative eligible S choices");
+        int Choose(LoopbackSessionHarness harness, int activityId, int targetId)
+        {
+            int id = packetId++;
+            InvokeRegisteredRequestHandler("DrawAdjustTargetRequest", harness.Session, id, new { ActivityId = activityId, TargetId = targetId });
+            object response = ReadResponsePayload(harness, id, "DrawAdjustTargetResponse", "member calibration selection", responseType, maxPacketsToRead: 20);
+            return (int)responseType.GetProperty("Code")!.GetValue(response)!;
+        }
+        Type guideMappingType = typeof(DrawProbShowTable).Assembly.GetType("AscNet.Table.V2.client.draw.DrawCalibrationGuideTable")
+            ?? throw new InvalidDataException("Missing authoritative calibration guide mapping.");
+        var guideMappings = (System.Collections.IEnumerable)RequiredGenericMethodDefinition(typeof(TableReaderV2), nameof(TableReaderV2.Parse),
+            BindingFlags.Public | BindingFlags.Static, parameterCount: 0).MakeGenericMethod(guideMappingType).Invoke(null, null)!;
+        int guideId = (int)guideMappingType.GetProperty("GuideGroupId")!.GetValue(guideMappings.Cast<object>()
+            .Single(row => (int)guideMappingType.GetProperty("DrawGroupId")!.GetValue(row)! == 1))!;
+        void CompleteGuide(LoopbackSessionHarness harness)
+        {
+            int id = packetId++;
+            InvokeRegisteredRequestHandler(nameof(GuideCompleteRequest), harness.Session, id, new GuideCompleteRequest { GuideGroupId = guideId });
+            AssertEqual(guideId, ReadPushPayload<NotifyGuide>(harness, nameof(NotifyGuide), "calibration guide completion notification").GuideGroupId,
+                "guide completion notifies mapped calibration guide");
+            AssertEqual(0, ReadResponsePayload<GuideCompleteResponse>(harness, id, nameof(GuideCompleteResponse), "calibration guide completion").Code,
+                "actual GuideComplete accepts calibration guide");
+        }
+        AssertEqual(true, Choose(first, campaign.ActivityId, target) != 0, "calibration target choice waits for guide completion");
+        AssertEqual(0, Activity(first).TargetId, "pre-guide rejection preserves unselected calibration");
+        AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "pre-guide rejection leaves guide banner available");
+        AssertEqual(0, Choose(first, campaign.ActivityId, 0), "choose-later remains idempotent before guide");
+        CompleteGuide(first);
+        CompleteGuide(second);
+        void Progress(int a, int s)
+        {
+            object pity = getPity.Invoke(null, [first.Session.player])!;
+            pity.GetType().GetProperty("SinceAOrS")!.SetValue(pity, a);
+            pity.GetType().GetProperty("SinceS")!.SetValue(pity, s);
+        }
+        int Since(string name)
+        {
+            object pity = getPity.Invoke(null, [first.Session.player])!;
+            return (int)pity.GetType().GetProperty(name)!.GetValue(pity)!;
+        }
+        RewardGoods Pull(double category, double rank = 0) => (RewardGoods)roll.Invoke(null, [first.Session.player, draw, category, rank, 0d, 0d])!;
+        Progress(8, 58);
+        AssertEqual(0, Choose(first, campaign.ActivityId, target), "select S calibration target");
+        AssertEqual(target, Activity(first).TargetId, "group-list renders chosen S");
+        AssertEqual(0, Choose(first, campaign.ActivityId, target), "same-choice retry succeeds");
+        AssertEqual(8, Since("SinceAOrS"), "calibration selection preserves ten pity");
+        AssertEqual(58, Since("SinceS"), "calibration selection preserves sixty pity");
+        AssertEqual(0, Activity(second).TargetId, "selection does not leak to second account");
+        AssertEqual(true, Choose(first, -1, alternative) != 0, "unknown activity rejected");
+        AssertEqual(true, Choose(first, campaign.ActivityId, draw.ResourceIds[1]) != 0, "A target rejected");
+        AssertEqual(true, Choose(first, campaign.ActivityId, -1) != 0, "unknown target rejected");
+        AssertEqual(target, Activity(first).TargetId, "invalid requests preserve selected S");
+        string persistedBeforeFailure = Convert.ToHexString(saves.LastSuccessfulReplacementBson
+            ?? throw new InvalidDataException("Calibration selection was not persisted."));
+        saves.ThrowOnReplaceOne = true;
+        try
+        {
+            Choose(first, campaign.ActivityId, alternative);
+            throw new InvalidDataException("Failed calibration persistence did not surface its Mongo error.");
+        }
+        catch (InvalidDataException exception) when (exception.GetBaseException() is MongoDB.Driver.MongoException)
+        {
+        }
+        finally
+        {
+            saves.ThrowOnReplaceOne = false;
+        }
+        AssertEqual(target, Activity(first).TargetId, "failed persistence rolls selected S back");
+        AssertEqual(persistedBeforeFailure, Convert.ToHexString(saves.LastSuccessfulReplacementBson!),
+            "failed persistence leaves stored calibration unchanged");
+        AssertEqual(0, Choose(first, campaign.ActivityId, 0), "clear means choose later");
+        Progress(0, 0);
+        RewardGoods unselectedS = Pull(0);
+        AssertEqual(3, ranks[unselectedS.TemplateId], "unselected natural S still rewards S");
+        AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "unselected S does not spend entitlement");
+        AssertEqual(0, Choose(first, campaign.ActivityId, target), "reselect after clearing");
+        first.Session.player = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+            saves.LastSuccessfulReplacementBson ?? throw new InvalidDataException("Calibration selection was not persisted."));
+        AssertEqual(target, Activity(first).TargetId, "relog restores usable selection");
+        Progress(0, 0);
+        Pull(Math.BitDecrement(1d));
+        AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "material pull does not consume calibration");
+        double sChance = double.Parse(TableReaderV2.Parse<DrawProbShowTable>().Single(row => row.DrawId == draw.Id)
+            .ProbShow.Where(value => !string.IsNullOrWhiteSpace(value)).Skip(1).First().TrimEnd('%'),
+            System.Globalization.CultureInfo.InvariantCulture) / 100;
+        Progress(0, 0);
+        AssertEqual(2, ranks[Pull(sChance).TemplateId], "calibration does not replace ordinary A");
+        Progress(0, 0);
+        AssertEqual(1, ranks[Pull(sChance, Math.BitDecrement(1d)).TemplateId], "calibration does not replace ordinary B");
+        AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "A and B leave calibration unused");
+        Progress(8, 58);
+        RewardGoods[] batch = Enumerable.Range(0, 3).Select(_ => Pull(Math.BitDecrement(1d))).ToArray();
+        AssertEqual(target, batch[1].TemplateId, "sequential batch substitutes selected S on sixty guarantee");
+        AssertEqual(1, Since("SinceS"), "batch continues pity after calibrated S");
+        AssertEqual(0, Activity(first).AdjustTimes - Activity(first).TargetTimes, "calibrated S exhausts banner entitlement");
+        AssertEqual(0, Choose(first, campaign.ActivityId, target), "exhausted same-choice retry is idempotent");
+        AssertEqual(true, Choose(first, campaign.ActivityId, alternative) != 0, "exhausted target cannot rearm");
+        AssertEqual(true, Choose(first, campaign.ActivityId, 0) != 0, "exhausted clear cannot rearm");
+        first.Session.player = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(first.Session.player.ToBson());
+        AssertEqual(0, Activity(first).AdjustTimes - Activity(first).TargetTimes, "BSON relog retains consumed entitlement without reset");
+        Progress(0, 0);
+        AssertEqual(unselectedS.TemplateId, Pull(0).TemplateId, "later S returns to ordinary deterministic pool after single consumption");
+        AssertEqual(1, Activity(second).AdjustTimes - Activity(second).TargetTimes, "first account consumption leaves second unused");
+
+        // The second account owns every possible S: fulfillment must precede duplicate conversion.
+        AssertEqual(0, Choose(second, campaign.ActivityId, alternative), "second account selects independently");
+        foreach (int id in sPool)
+            second.Session.character.Characters.Add(new CharacterData { Id = (uint)id });
+        object secondPity = getPity.Invoke(null, [second.Session.player])!;
+        secondPity.GetType().GetProperty("SinceS")!.SetValue(secondPity, 59);
+        second.Session.inventory.Items.Add(new Item { Id = draw.UseItemId, Count = draw.UseItemCount });
+        int drawPacket = packetId++;
+        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), second.Session, drawPacket, new DrawDrawCardRequest { DrawId = draw.Id, Count = 1 });
+        DrawDrawCardResponse awarded = (DrawDrawCardResponse)ReadResponsePayload(second, drawPacket, nameof(DrawDrawCardResponse),
+            "calibrated duplicate draw", typeof(DrawDrawCardResponse), maxPacketsToRead: 20);
+        AssertEqual(0, awarded.Code, "calibrated duplicate draw succeeds");
+        RewardGoods duplicate = awarded.RewardGoodsList.Single();
+        AssertEqual(alternative, duplicate.ConvertFrom, "duplicate conversion retains calibrated S identity");
+        int shardId = TableReaderV2.Parse<CharacterTable>().Single(row => row.Id == alternative).ItemId;
+        AssertEqual(shardId, duplicate.TemplateId, "selected duplicate becomes its own shard");
+        AssertEqual((long)duplicate.Count, second.Session.inventory.Items.Single(item => item.Id == shardId).Count, "calibrated duplicate credits actual inventory");
+        object update = typeof(DrawDrawCardResponse).GetProperty("DrawAdjustData")!.GetValue(awarded)
+            ?? throw new InvalidDataException("Calibrated draw omitted client consumption update.");
+        AssertEqual(campaign.ActivityId, (int)update.GetType().GetProperty("ActivityId")!.GetValue(update)!, "draw update addresses displayed campaign");
+        AssertEqual(1, (int)update.GetType().GetProperty("TargetTimes")!.GetValue(update)!, "draw response tells client calibration is consumed");
+        AssertEqual(0, Activity(second).AdjustTimes - Activity(second).TargetTimes, "duplicate consumes exactly once");
+        second.Session.player = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+            saves.LastSuccessfulReplacementBson ?? throw new InvalidDataException("Calibrated duplicate draw was not persisted."));
+        AssertEqual(0, Activity(second).AdjustTimes - Activity(second).TargetTimes, "actual rewarded draw persists consumed entitlement across relog");
+        first.Session.player = CreateDrawCompatibilityPlayer(46_098);
+        first.Session.player.DrawState.PityCountByGroup[1] = 200;
+        AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "untracked legacy player retains unused permanent entitlement");
+        int naturalTarget = sPool.First(id => id != unselectedS.TemplateId);
+        CompleteGuide(first);
+        AssertEqual(0, Choose(first, campaign.ActivityId, naturalTarget), "legacy account selects natural-S target");
+        Progress(0, 0);
+        AssertEqual(naturalTarget, Pull(0).TemplateId, "base-probability S fulfills selected target without waiting for pity");
+        AssertEqual(1, Activity(first).TargetTimes, "natural S consumes calibration once");
     }
 
     private static void ValidateVersion46PlayerMarks()

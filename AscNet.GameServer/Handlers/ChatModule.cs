@@ -1,4 +1,5 @@
 ﻿using AscNet.Common.MsgPack;
+using AscNet.Common;
 using AscNet.Common.Util;
 using AscNet.GameServer.Commands;
 using AscNet.Table.V2.share.chat;
@@ -141,6 +142,7 @@ namespace AscNet.GameServer.Handlers
         RoomMsg = 5,
         System = 6,
         SpringFestival = 7,
+        DlcRoomMsg = 8,
     }
 
     public enum ChatGiftState {
@@ -257,8 +259,33 @@ namespace AscNet.GameServer.Handlers
         public static void SendChatRequestHandler(Session session, Packet.Request packet)
         {
             SendChatRequest request = packet.Deserialize<SendChatRequest>();
+            if (request.ChatData is null)
+            {
+                session.SendResponse(new SendChatResponse { Code = 5 }, packet.Id);
+                return;
+            }
+            if (request.ChatData.ChannelType == ChatChannelType.Guild
+                && GuildModule.FindMembership(session.player.PlayerData.Id) is null)
+            {
+                session.SendResponse(new SendChatResponse { Code = 20033016 }, packet.Id);
+                return;
+            }
+            if (request.ChatData.ChannelType == ChatChannelType.Guild
+                && request.ChatData.MsgType is not (ChatMsgType.Normal or ChatMsgType.Emoji or ChatMsgType.RoomMsg or ChatMsgType.DlcRoomMsg))
+            {
+                session.SendResponse(new SendChatResponse { Code = 5 }, packet.Id);
+                return;
+            }
             string? content = request.ChatData.Content?.TrimStart('\r', '\n');
             request.ChatData.Content = content;
+            if (request.ChatData.MsgType == ChatMsgType.Emoji
+                && (!int.TryParse(content, System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out int emojiId)
+                    || !session.character.CanUseChatEmoji(emojiId, DateTimeOffset.UtcNow.ToUnixTimeSeconds())))
+            {
+                session.SendResponse(new SendChatResponse { Code = 5 }, packet.Id);
+                return;
+            }
 
             NotifyChatMessage notifyChatMessage = BuildNotifyChatMessage(session, request.ChatData);
             string? commandFeedback = null;
@@ -296,15 +323,31 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            session.SendPush(notifyChatMessage);
+            if (request.ChatData.ChannelType == ChatChannelType.Guild)
+            {
+                try { GuildModule.SendGuildChat(session, notifyChatMessage); }
+                catch (ServerCodeException exception)
+                {
+                    session.SendResponse(new SendChatResponse { Code = exception.Code }, packet.Id);
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    session.log.Error($"Guild chat failed: {exception}");
+                    session.SendResponse(new SendChatResponse { Code = 1 }, packet.Id);
+                    return;
+                }
+            }
+            else session.SendPush(notifyChatMessage);
             session.SendResponse(new SendChatResponse { Code = 0, RefreshTime = 0 }, packet.Id);
             if (commandFeedback is not null)
                 session.SendPush(BuildCommandFeedback(request.ChatData.ChannelType, commandFeedback));
             session.SendPush(notifyWorldChat);
         }
 
-        private static NotifyChatMessage BuildNotifyChatMessage(Session session, ChatData chatData)
+        internal static NotifyChatMessage BuildNotifyChatMessage(Session session, ChatData chatData)
         {
+            var guild = GuildModule.FindMembership(session.player.PlayerData.Id);
             return new()
             {
                 MessageId = 0,
@@ -324,8 +367,8 @@ namespace AscNet.GameServer.Handlers
                 GiftStatus = chatData.GiftStatus,
                 CurrMedalId = (int)session.player.PlayerData.CurrMedalId,
                 BabelTowerTitleInfo = null,
-                GuildRankLevel = 1,
-                GuildName = "AscNet",
+                GuildRankLevel = guild is null ? 9 : GuildModule.Rank(guild, session.player.PlayerData.Id),
+                GuildName = guild?.Name ?? string.Empty,
                 MentorType = 1,
                 CollectWordId = chatData.CollectWordId,
                 ChatBoardId = (int)session.player.PlayerData.CurrentChatBoardId

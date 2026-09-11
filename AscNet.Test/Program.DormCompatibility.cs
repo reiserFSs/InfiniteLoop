@@ -787,6 +787,7 @@ internal partial class Program
 
     private static void ValidateDormDispatchAllCompatibility()
     {
+        ValidateDormTerminalUpgradeCompatibility();
         Dictionary<int, QuestTable> quests = TableReaderV2.Parse<QuestTable>().ToDictionary(row => row.Id);
         QuestTerminalTable[] terminals = TableReaderV2.Parse<QuestTerminalTable>().Where(row => row.Lv > 0)
             .OrderBy(row => row.Lv).Take(2).ToArray();
@@ -892,6 +893,146 @@ internal partial class Program
             InvokeRegisteredRequestHandler(nameof(HeartbeatRequest), harness.Session, ++packetId, new HeartbeatRequest());
             _ = ReadResponsePayload<HeartbeatResponse>(harness, packetId, nameof(HeartbeatResponse), "Dorm replacement steady heartbeat");
             AssertNoAvailablePacket(harness, "Dorm steady board emits no redundant replacement");
+        }
+    }
+
+    private static void ValidateDormTerminalUpgradeCompatibility()
+    {
+        QuestTerminalTable[] terminals = TableReaderV2.Parse<QuestTerminalTable>().ToArray();
+        Type module = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.DormModule");
+        MethodInfo normalize = RequiredMethod(module, "NormalizeQuestState", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(Session), typeof(uint)]);
+        MethodInfo buildLogin = RequiredMethod(module, "BuildLoginData", BindingFlags.Static | BindingFlags.Public, [typeof(Session)]);
+        foreach (QuestTerminalTable terminal in terminals.Where(row => row.Lv > 0 && row.NeedTime > 0
+            && terminals.Any(next => next.Lv == row.Lv + 1)).OrderBy(row => row.Lv).Take(2))
+        {
+            int level = terminal.Lv!.Value;
+            int duration = terminal.NeedTime!.Value;
+            int nextLevel = terminals.Single(row => row.Lv == level + 1).Lv!.Value;
+            long playerId = 47_200 + level;
+            Character roster = CreateDrawCompatibilityCharacter(playerId);
+            Player player = CreateDrawCompatibilityPlayer(playerId);
+            Inventory inventory = CreateDrawCompatibilityInventory(playerId, terminal.NeedItem is > 0
+                ? [new Item { Id = terminal.NeedItem.Value, Count = (terminal.ItemCount ?? 0) * 3L }] : []);
+            player.Dorm.Quest.TerminalLv = level;
+            player.Dorm.Quest.TerminalUpgradeExp = terminal.NeedFinishQuest ?? 0;
+            using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<Player> saves, out _, out RecordingMongoCollectionProxy<Inventory> inventorySaves);
+            using LoopbackSessionHarness harness = new(roster, player, inventory, $"dorm-terminal-{level}");
+            _ = buildLogin.Invoke(null, [harness.Session]);
+            int experience = player.Dorm.Quest.TerminalUpgradeExp;
+            long Balance() => inventory.Items.FirstOrDefault(item => item.Id == terminal.NeedItem)?.Count ?? 0;
+            long initialBalance = Balance();
+            int packetId = 47_200_000 + level * 100;
+            QuestUpgradeTerminalLvResponse Start(bool paid)
+            {
+                InvokeRegisteredRequestHandler(nameof(QuestUpgradeTerminalLvRequest), harness.Session, ++packetId,
+                    new QuestUpgradeTerminalLvRequest());
+                if (paid && terminal.NeedItem is > 0 && terminal.ItemCount is > 0)
+                    _ = ReadPushPayload<NotifyItemDataList>(harness, nameof(NotifyItemDataList), "Dorm terminal upgrade cost");
+                var response = ReadResponsePayload<QuestUpgradeTerminalLvResponse>(harness, packetId,
+                    nameof(QuestUpgradeTerminalLvResponse), "Dorm terminal upgrade response");
+                AssertNoAvailablePacket(harness, "Dorm terminal upgrade response has no completion push");
+                return response;
+            }
+            void State(int expectedLevel, int status, uint start, int exp, string name)
+            {
+                PlayerDormQuestState state = player.Dorm.Quest;
+                AssertEqual((expectedLevel, status, start, exp),
+                    (state.TerminalLv, state.TerminalUpgradeStatus, state.TerminalUpgradeTime, state.TerminalUpgradeExp), name);
+            }
+            void Reload(byte[] bson) => harness.Session.player = player = BsonSerializer.Deserialize<Player>(bson);
+            void Login(int expectedLevel, int status, uint start, int exp, string name)
+            {
+                var login = (NotifyDormitoryData)buildLogin.Invoke(null, [harness.Session])!;
+                // The full login projection resets the client's level, timer and experience together.
+                harness.Session.SendPush(login);
+                var wire = ReadPushPayload<NotifyDormitoryData>(harness, nameof(NotifyDormitoryData), name).DormQuestData;
+                AssertEqual((expectedLevel, status, start, exp),
+                    (wire.TerminalLv, wire.TerminalUpgradeStatus, wire.TerminalUpgradeTime, wire.TerminalUpgradeExp), name);
+                AssertNoAvailablePacket(harness, name);
+            }
+            saves.ThrowOnReplaceOne = true;
+            try { AssertEqual(true, Start(false).Code != 0, "Dorm terminal failed save rejects start"); }
+            finally { saves.ThrowOnReplaceOne = false; }
+            State(level, 0, 0, experience, "Dorm terminal failed start rolls back timer");
+            AssertEqual(initialBalance, Balance(), "Dorm terminal failed start refunds payment");
+            AssertEqual(initialBalance, BsonSerializer.Deserialize<Inventory>(inventorySaves.LastSuccessfulReplacementBson!)
+                .Items.FirstOrDefault(item => item.Id == terminal.NeedItem)?.Count ?? 0, "Dorm terminal refund is durable");
+
+            QuestUpgradeTerminalLvResponse started = Start(true);
+            AssertEqual(0, started.Code, "Dorm terminal starts upgrade");
+            uint startTime = started.TerminalUpgradeTime;
+            AssertEqual(true, startTime > 0, "Dorm terminal returns Unix start time");
+            byte[] pending = saves.LastSuccessfulReplacementBson
+                ?? throw new InvalidDataException("Dorm terminal start was not persisted.");
+            Reload(pending);
+            State(level, 1, startTime, experience, "Dorm terminal paid start persists pending old level");
+            long paidBalance = initialBalance - (terminal.ItemCount ?? 0);
+            AssertEqual(paidBalance, Balance(), "Dorm terminal pays once");
+            AssertEqual(true, Start(false).Code != 0, "Dorm terminal duplicate pending start rejected");
+            AssertEqual(paidBalance, Balance(), "Dorm terminal duplicate cannot repay");
+            State(level, 1, startTime, experience, "Dorm terminal duplicate cannot restart timer");
+            uint deadline = checked(startTime + (uint)duration);
+            foreach (uint now in new[] { startTime - 1, startTime, deadline - 1 })
+            {
+                Reload(pending);
+                _ = normalize.Invoke(null, [harness.Session, now]);
+                State(level, 1, startTime, experience, $"Dorm terminal retains pending before deadline {now}");
+                Login(level, 1, startTime, experience, "Dorm terminal pending login is coherent");
+            }
+            foreach (uint now in new[] { deadline, checked(deadline + 1) })
+            {
+                Reload(pending);
+                _ = normalize.Invoke(null, [harness.Session, now]);
+                // An Init push only changes client Lv, leaving its local timer able to advance again.
+                AssertNoAvailablePacket(harness, "Dorm terminal completion cannot send partial Init");
+                State(nextLevel, 0, 0, 0, "Dorm terminal advances at or after deadline");
+                byte[] completed = saves.LastSuccessfulReplacementBson!;
+                Reload(completed);
+                Login(nextLevel, 0, 0, 0, "Dorm terminal completed login is coherent");
+                _ = normalize.Invoke(null, [harness.Session, checked(deadline + (uint)duration)]);
+                State(nextLevel, 0, 0, 0, "Dorm terminal completed reload advances only once");
+                Login(nextLevel, 0, 0, 0, "Dorm terminal repeated login stays completed");
+            }
+            Reload(pending);
+            player.Dorm.Quest.TerminalUpgradeStatus = 0;
+            byte[] legacy = player.ToBson();
+            _ = normalize.Invoke(null, [harness.Session, deadline - 1]);
+            Reload(saves.LastSuccessfulReplacementBson!);
+            State(level, 1, startTime, experience, "Dorm terminal repairs durable legacy pending status");
+            Reload(legacy);
+            _ = normalize.Invoke(null, [harness.Session, deadline]);
+            State(nextLevel, 0, 0, 0, "Dorm terminal legacy paid start completes at deadline");
+            AssertNoAvailablePacket(harness, "Dorm terminal legacy completion has no partial Init");
+            Reload(pending);
+            player.Dorm.Quest.TerminalUpgradeTime = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds() - (uint)duration - 60);
+            player.Dorm.Quest.NextRefreshTime = 1;
+            Reload(player.ToBson());
+            InvokeRegisteredRequestHandler(nameof(QuestReadFileRequest), harness.Session, ++packetId, new QuestReadFileRequest());
+            var refreshed = ReadPushPayload<NotifyDormQuestData>(harness, nameof(NotifyDormQuestData),
+                "Dorm expired terminal registered refresh sends normal board");
+            AssertIntegerList(player.Dorm.Quest.TotalQuest.Select(row => (long)row.QuestId).ToArray(),
+                refreshed.TotalQuest.Select(row => (long)row.QuestId).ToArray(), "Dorm expired terminal board is current");
+            _ = ReadResponsePayload<QuestReadFileResponse>(harness, packetId, nameof(QuestReadFileResponse),
+                "Dorm expired terminal registered refresh response");
+            AssertNoAvailablePacket(harness, "Dorm expired terminal registered refresh has no partial Init");
+            Reload(saves.LastSuccessfulReplacementBson!);
+            Login(nextLevel, 0, 0, 0, "Dorm expired terminal registered completion survives reload");
+            Reload(pending);
+            player.Dorm.Quest.TerminalUpgradeTime = 0;
+            _ = normalize.Invoke(null, [harness.Session, deadline]);
+            State(level, 1, 0, experience, "Dorm terminal missing timestamp cannot originate a timer");
+            player.Dorm.Quest.TerminalLv = terminals.Max(row => row.Lv)!.Value;
+            player.Dorm.Quest.TerminalUpgradeStatus = 0;
+            _ = normalize.Invoke(null, [harness.Session, checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds())]);
+            AssertEqual(true, Start(false).Code != 0, "Dorm terminal max level rejects start");
+            AssertEqual(paidBalance, Balance(), "Dorm terminal max level does not charge");
+            State(terminals.Max(row => row.Lv)!.Value, 0, 0, experience, "Dorm terminal max level has no phantom timer");
+            player.Dorm.Quest.TerminalUpgradeStatus = 1;
+            player.Dorm.Quest.TerminalUpgradeTime = startTime;
+            _ = normalize.Invoke(null, [harness.Session, deadline]);
+            State(terminals.Max(row => row.Lv)!.Value, 1, startTime, experience, "Dorm max level stale timer cannot consume experience");
         }
     }
 

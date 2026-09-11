@@ -1,0 +1,10 @@
+Id	DifficultyId	Name	HpMax	AttackIntervalSecond	SupportCost	BornNodeId	MoveNextNodeIds[1]	MoveNextNodeIds[2]	MoveNextNodeIds[3]	MoveNextNodeIds[4]	ShowFightEventIds[1]	ShowFightEventIds[2]	FightEventIds[1]	FightEventIds[2]	Icon
+1	1	攻坚战车	5000	28800	20	104	105	106	107	110	2240410	2240411	2240401		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+2	1	攻坚战车	5000	28800	20	104	105	106	107	110	2240410	2240412	2240402		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+3	1	攻坚战车	5000	28800	20	104	105	106	107	110	2240410	2240413	2240403		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+4	2	攻坚战车	5000	28800	20	204	205	206	207	220	2240410	2240411	2240401		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+5	2	攻坚战车	5000	28800	20	204	213	214	215	220	2240410	2240412	2240402		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+6	2	攻坚战车	5000	28800	20	204	205	206	207	220	2240410	2240413	2240403		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+7	3	攻坚战车	5000	28800	20	304	305	306	307	330	2240410	2240411	2240401		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+8	3	攻坚战车	5000	28800	20	304	313	314	315	330	2240410	2240412	2240402		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png
+9	3	攻坚战车	5000	28800	20	304	323	324	325	330	2240410	2240413	2240403		Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png

@@ -146,6 +146,8 @@ internal partial class Program
             "DoLogin", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Session), typeof(bool)]);
 
         doLogin.Invoke(null, [harness.Session, false]);
+        _ = ReadPushPayload<NotifyWheelchairManualActivity>(harness, nameof(NotifyWheelchairManualActivity),
+            "claimed ExhibitionReward manual cache before login-complete");
         NotifyLogin login = ReadPushPayload<NotifyLogin>(harness, nameof(NotifyLogin),
             "claimed ExhibitionReward NotifyLogin");
         if (!login.HeadPortraitList.Any(head => head.Id == selected.Reward.TemplateId))
@@ -256,7 +258,7 @@ internal partial class Program
         object ApplyAtomic(string claimKey, RewardGoodsTable reward, Session? targetSession = null)
         {
             Array grants = Array.CreateInstance(rewardGrant, 1);
-            grants.SetValue(Activator.CreateInstance(rewardGrant, claimKey, new[] { reward }), 0);
+            grants.SetValue(Activator.CreateInstance(rewardGrant, claimKey, new[] { reward }, null, null), 0);
             return applyOnce.Invoke(null, [grants, targetSession ?? harness.Session])
                 ?? throw new InvalidDataException($"atomic reward {claimKey} returned null.");
         }

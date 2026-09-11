@@ -14,6 +14,7 @@ namespace AscNet.GameServer
         private static Server? _instance;
         private readonly TcpListener listener;
         private volatile bool isListening;
+        private volatile bool isStopping;
 
         public static Server Instance
         {
@@ -31,6 +32,7 @@ namespace AscNet.GameServer
             LogLevel logLevel = LogLevel.DEBUG;
             LogLevel fileLogLevel = LogLevel.DEBUG;
             log = new(typeof(Server), logLevel, fileLogLevel);
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => _instance?.Stop();
         }
 
         public Server()
@@ -41,7 +43,8 @@ namespace AscNet.GameServer
 
         public void Start()
         {
-            while (true)
+            isStopping = false;
+            while (!isStopping)
             {
                 try
                 {
@@ -52,10 +55,11 @@ namespace AscNet.GameServer
                     TableReaderV2.Parse<ConditionTable>();
                     TableReaderV2.Parse<TaskTable>();
                     listener.Start();
+                    GuildDormRoomService.Start();
                     isListening = true;
                     log.Info($"{nameof(GameServer)} started and listening on port {Common.Common.config.GameServer.Port}");
 
-                    while (true)
+                    while (!isStopping)
                     {
                         TcpClient tcpClient = listener.AcceptTcpClient();
                         string id = tcpClient.Client.RemoteEndPoint!.ToString()!;
@@ -71,11 +75,23 @@ namespace AscNet.GameServer
                 catch (Exception ex)
                 {
                     isListening = false;
+                    GuildDormRoomService.Stop();
+                    listener.Stop();
+                    if (isStopping) break;
                     log.Error("TCP listener error: " + ex.Message);
                     log.Info("Waiting 3 seconds before restarting...");
                     Thread.Sleep(3000);
                 }
             }
+        }
+
+        public void Stop()
+        {
+            isStopping = true;
+            isListening = false;
+            GuildDormRoomService.Stop();
+            listener.Stop();
+            foreach (Session session in Sessions.Values) session.client.Close();
         }
 
         public Session? SessionFromUID(long uid)
