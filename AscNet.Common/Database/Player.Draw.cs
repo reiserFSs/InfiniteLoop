@@ -38,6 +38,10 @@ namespace AscNet.Common.Database
 
     public class PlayerDrawState
     {
+        [BsonElement("pity_rounds")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, PlayerDrawPityRound> PityRounds { get; set; } = new();
+
         [BsonElement("progress_by_draw_id")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<int, PlayerDrawProgress> ProgressByDrawId { get; set; } = new();
@@ -57,6 +61,15 @@ namespace AscNet.Common.Database
         [BsonElement("history_by_group")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<int, PlayerDrawHistoryGroupState> HistoryByGroup { get; set; } = new();
+    }
+
+    public class PlayerDrawPityRound
+    {
+        public int Misses { get; set; }
+        public int Limit { get; set; }
+        public bool HasObtainedRare { get; set; }
+        public bool GuaranteedTarget { get; set; }
+        public int LowerMisses { get; set; }
     }
 
     public partial class Player

@@ -38,7 +38,9 @@ internal partial class Program
         AssertEqual(0, success.Code, "bulk draw succeeds");
         AssertEqual(0L, inventory.Items.Single(item => item.Id == draw.UseItemId).Count, "bulk draw consumes exact ticket cost");
         AssertEqual(count, success.ClientDrawInfo!.TotalCount, "bulk draw commits all pulls");
-        AssertEqual(count, character.Partners.Count, "bulk draw grants all CUBs");
+        int acquiredPartners = success.RewardGoodsList.Count(x => x.RewardType == (int)RewardType.Partner);
+        AssertEqual(acquiredPartners, character.Partners.Count, "bulk draw persists actual CUB outcomes");
+        AssertEqual(true, acquiredPartners > 0, "ten pulls guarantee at least an A CUB");
         AssertEqual(true, character.Partners.All(partner => harness.Session.player.ArchivePartnerUnlockIds.Contains(partner.TemplateId)),
             "acquired CUBs unlock archive membership");
         foreach (int id in otherCurrencyConditions)
@@ -51,7 +53,7 @@ internal partial class Program
             nameof(DrawDrawCardResponse), "unaffordable draw", typeof(DrawDrawCardResponse), maxPacketsToRead: 64);
         if (failure.Code == 0)
             throw new InvalidDataException("Unaffordable draw succeeded.");
-        AssertEqual(count, character.Partners.Count, "rejected draw grants no CUBs");
+        AssertEqual(acquiredPartners, character.Partners.Count, "rejected draw grants no CUBs");
         AssertEqual(count, harness.Session.player.DrawState.ProgressByDrawId[draw.Id].TotalCount,
             "rejected draw adds no pulls");
         foreach (int id in otherCurrencyConditions)

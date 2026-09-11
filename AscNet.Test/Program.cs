@@ -81,6 +81,11 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--draw-rules-only"))
+                {
+                    ValidateDrawRules();
+                    return;
+                }
                 if (args.Contains("--wheelchair-manual-compat-only"))
                 {
                     ValidateWheelchairManualFullCompatibility();
@@ -887,6 +892,7 @@ namespace AscNet.Test
                 ValidateEquipDecomposeCompatibility();
                 ValidateEquipChipRecycleCompatibility();
                 ValidateDrawCompatibility();
+                ValidateDrawRules();
                 ValidateItemUseCompatibility();
                 ValidateAutoUseGiftCompatibility();
                 ValidateItemSellCompatibility();

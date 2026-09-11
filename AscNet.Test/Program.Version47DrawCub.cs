@@ -262,6 +262,7 @@ internal partial class Program
         for (int attempt = 0; attempt < 2; attempt++)
         {
             int before = character.Partners.Count;
+            harness.Session.player.DrawState.PityRounds[cubDraw.GroupId] = new() { Limit = cubDraw.MaxBottomTimes, Misses = cubDraw.MaxBottomTimes - 1 };
             InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, packetId,
                 new DrawDrawCardRequest { DrawId = cubDraw.Id, Count = 1, UseDrawTicketId = 0 });
             Packet pushPacket = harness.ReadPacket($"draw attempt {attempt} first packet");

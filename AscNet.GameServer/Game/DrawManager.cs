@@ -12,7 +12,7 @@ using AscNet.Table.V2.share.partner;
 
 namespace AscNet.GameServer.Game;
 
-internal static class DrawManager
+internal static partial class DrawManager
 {
     internal const int CatalogUnavailableCode = 1;
     private const int MinDrawItemShowQuality = 3;
@@ -5128,8 +5128,9 @@ internal static class DrawManager
             value.UseDrawIdDict = GetSelections(player, group);
             value.SwitchDrawIdCount = player.DrawState.SwitchCountByGroup.GetValueOrDefault(group.Id);
             DrawInfo selected = GetSelected(player, group);
-            value.BottomTimes = GetBottomTimes(selected, GetPityCount(player, group.Id));
-            value.MaxBottomTimes = selected.MaxBottomTimes;
+            DrawInfo status = BuildDrawInfo(selected, player);
+            value.BottomTimes = status.BottomTimes;
+            value.MaxBottomTimes = status.MaxBottomTimes;
             return value;
         }).ToList();
     }
@@ -5140,7 +5141,8 @@ internal static class DrawManager
     {
         if (!GroupsById.TryGetValue(groupId, out DrawGroupInfo? group) || !IsActive(group)) return (0, 0);
         DrawInfo draw = DrawsByGroup[groupId].FirstOrDefault(x => x.GroupSubType == groupSubType) ?? GetSelected(player, group);
-        return (GetBottomTimes(draw, GetPityCount(player, groupId)), draw.MaxBottomTimes);
+        DrawInfo status = BuildDrawInfo(draw, player);
+        return (status.BottomTimes, status.MaxBottomTimes);
     }
 
     public static List<(RewardGoods RewardGoods, long DrawTime)> GetDrawHistory(Player player, int groupId, int groupSubType)
@@ -5208,15 +5210,8 @@ internal static class DrawManager
     public static List<RewardGoods> DrawDraw(Player player, int drawId, int pullOffset = 0)
     {
         if (!DrawsById.TryGetValue(drawId, out DrawInfo? draw) || !IsActive(draw)) return [];
-        bool forceRare = draw.MaxBottomTimes > 0 && GetBottomTimes(draw, GetPityCount(player, draw.GroupId) + pullOffset) == 1;
-        RewardGoods? reward = draw.GroupId switch
-        {
-            2 or 4 => DrawEquipReward(draw, forceRare),
-            13 => DrawLegacyCharacterReward(draw, forceRare),
-            22 => DrawPartnerReward(draw),
-            _ => DrawCharacterReward(draw, forceRare)
-        };
-        return reward is null ? [] : [reward];
+        // Each result advances its own pity round, including within a ten-pull.
+        return [RollDraw(player, draw, Random.Shared)];
     }
 
     private static void EnsureState(Player player) => player.DrawState ??= new();
@@ -5290,7 +5285,10 @@ internal static class DrawManager
         PlayerDrawProgress progress = GetProgress(player, template.Id);
         value.TodayCount = progress.TodayCount;
         value.TotalCount = progress.TotalCount;
-        value.BottomTimes = GetBottomTimes(template, GetPityCount(player, template.GroupId));
+        PlayerDrawPityRound round = GetPityRound(player, template, Random.Shared);
+        value.MaxBottomTimes = round.Limit;
+        value.BottomTimes = Math.Max(1, round.Limit - round.Misses);
+        value.IsTriggerSpecified = round.GuaranteedTarget;
         return value;
     }
 
