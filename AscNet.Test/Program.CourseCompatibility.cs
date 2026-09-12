@@ -37,6 +37,8 @@ internal partial class Program
         MethodInfo complete = RequiredMethod(module, "IsChapterComplete", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Player), typeof(int)]);
         int packetId = 49_310;
         int Mask(int stageId) => (1 << stages[stageId].StarPoint.Count) - 1;
+        int Point(int stageId, int stars) => stages[stageId].StarPoint
+            .Where((_, index) => (stars & (1 << index)) != 0).Sum();
         bool IsComplete(int chapterId) => (bool)complete.Invoke(null, [player, chapterId])!;
         NotifyCourseData Login() => (NotifyCourseData)login.Invoke(null, [player])!;
 
@@ -201,14 +203,23 @@ internal partial class Program
                 "C1 completes only after every configured stage is saved");
         }
         AssertEqual(true, IsComplete(lesson.ChapterId), "C1 completion satisfies the mission chapter predicate");
-        foreach (int stageId in secondLesson.StageIds)
+        int secondLessonPoint = 0;
+        for (int index = 0; index < secondLesson.StageIds.Count; index++)
         {
-            Fight(stageId, Mask(stageId));
+            int stageId = secondLesson.StageIds[index];
+            // Controlled 4.7.0 retail observation: a lesson clears after every stage is saved even when
+            // the final stage is not full-star. Exercise that distinction instead of assuming full stars.
+            int stars = index == secondLesson.StageIds.Count - 1 ? 1 : Mask(stageId);
+            Fight(stageId, stars);
             CourseSaveResultResponse saved = Save();
+            secondLessonPoint += Point(stageId, stars);
             AssertEqual(null, player.Course.PendingResult, "C2 stage save consumes pending result");
-            AssertEqual(stageId == secondLesson.StageIds[^1], saved.ChapterData!.IsClear,
+            AssertEqual(secondLessonPoint, saved.ChapterData!.TotalPoint, "C2 preserves partial-star points");
+            AssertEqual(index == secondLesson.StageIds.Count - 1, saved.ChapterData.IsClear,
                 "C2 completes only after every configured stage is saved");
         }
+        AssertEqual(true, secondLessonPoint < secondLesson.StageIds.Sum(id => stages[id].StarPoint.Sum()),
+            "C2 lesson completion is distinct from full-star completion");
         player = BsonSerializer.Deserialize<Player>(player.ToBson());
         harness.Session.player = player;
         AssertEqual(true, Login().Data.ChapterDataList.Single(row => row.Id == lesson.ChapterId).IsClear,
