@@ -4,6 +4,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.config;
 using AscNet.Table.V2.client.config;
+using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.pay;
 using AscNet.Table.V2.share.reward;
 using MessagePack;
@@ -144,12 +145,15 @@ internal partial class PayModule
             {
                 if (TryFindPurchaseInfo(request.Id, null, out var info) && RemainingDays(session.player, request.Id) > 0)
                 {
-                    var result = ClaimDailyRewards(session, request.Id, info!);
-                    ApplyPurchaseState([info!], session.player);
-                    response.PurchaseInfo = info;
-                    response.RewardList = result?.RewardGoods ?? [];
-                    response.Code = 0;
-                    result?.SendPushes(session);
+                    var result = ClaimDailyRewards(session, request.Id, info!, out int claimCode);
+                    response.Code = claimCode;
+                    if (claimCode == 0)
+                    {
+                        ApplyPurchaseState([info!], session.player);
+                        response.PurchaseInfo = info;
+                        response.RewardList = result?.RewardGoods ?? [];
+                        result?.SendPushes(session);
+                    }
                 }
             }
             catch (Exception error) { session.log.Error($"Daily purchase reward failed: {error}"); response.Code = 2; }
@@ -157,8 +161,10 @@ internal partial class PayModule
         }
     }
 
-    private static RewardApplicationResult? ClaimDailyRewards(Session session, uint id, Dictionary<dynamic, dynamic> info)
+    private static RewardApplicationResult? ClaimDailyRewards(Session session, uint id,
+        Dictionary<dynamic, dynamic> info, out int code)
     {
+        code = 0;
         var pass = session.player.PurchaseDailyPasses[id];
         long day = PurchaseDay();
         if (pass.LastClaimDay >= day) return null;
@@ -173,8 +179,15 @@ internal partial class PayModule
             if (index < 0 || index >= rewards.Length) throw new InvalidOperationException("Sign-in day out of range");
             rows = RewardHandler.GetRewardGoods(rewards[index]);
         }
+        string claimKey = $"purchase-daily:{session.player.PlayerData.Id}:{id}:{day}";
+        if (!session.inventory.AppliedRewardClaims.Contains(claimKey, StringComparer.Ordinal)
+            && !HasItemCapacity(session, rows))
+        {
+            code = 20027011;
+            return null;
+        }
         var result = RewardHandler.ApplyRewardsOnceAndPersist(
-            [new RewardGrant($"purchase-daily:{session.player.PlayerData.Id}:{id}:{day}", rows)], session);
+            [new RewardGrant(claimKey, rows)], session);
         long before = pass.LastClaimDay;
         pass.LastClaimDay = day;
         bool added = signPackage && !pass.RewardIndexList.Contains(index + 1);
@@ -182,6 +195,32 @@ internal partial class PayModule
         try { session.player.SaveChecked(); }
         catch { pass.LastClaimDay = before; if (added) pass.RewardIndexList.Remove(index + 1); throw; }
         return result;
+    }
+
+    private static bool HasItemCapacity(Session session, IEnumerable<RewardGoodsTable> goods)
+    {
+        foreach (IGrouping<int, RewardGoodsTable> group in goods
+                     .Where(goods => RewardHandler.GetRewardType(goods) == RewardType.Item)
+                     .GroupBy(goods => goods.TemplateId))
+        {
+            ItemTable? table = TableReaderV2.Parse<ItemTable>().FirstOrDefault(item => item.Id == group.Key);
+            if (table is null || !Inventory.IsValidClientItemId(group.Key))
+                return false;
+            long remaining = Inventory.GetMaxCount(table);
+            foreach (Item item in session.inventory.Items.Where(item => item.Id == group.Key))
+            {
+                if (item.Count < 0 || item.Count > remaining)
+                    return false;
+                remaining -= item.Count;
+            }
+            foreach (RewardGoodsTable reward in group)
+            {
+                if (reward.Count < 0 || reward.Count > remaining)
+                    return false;
+                remaining -= reward.Count;
+            }
+        }
+        return true;
     }
 
     internal static void GrantMailDailyRewards(Session session, bool sendPush = true)

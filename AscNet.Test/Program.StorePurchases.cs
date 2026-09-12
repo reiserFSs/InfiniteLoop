@@ -1,6 +1,10 @@
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
+using AscNet.Common.Util;
+using AscNet.GameServer.Game;
 using AscNet.GameServer.Handlers;
+using AscNet.Table.V2.share.item;
+using AscNet.Table.V2.share.reward;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 
@@ -106,6 +110,36 @@ internal static partial class Program
         AssertEqual(0, Exchange(4, 2).Code, "serum exchange preserves price ladder");
         AssertEqual(125L, Balance(4), "serum ladder yields 60 plus 65");
         AssertEqual(20012001, Exchange(4, 9).Code, "serum daily purchase cap enforced");
+        Dictionary<int, BuyAssetTable> dailyAssets = TableReaderV2.Parse<BuyAssetTable>()
+            .Where(row => row.Id is Inventory.Coin or Inventory.ActionPoint)
+            .ToDictionary(row => row.Id);
+        Item staleCogs = inventory.Items.Single(item => item.Id == Inventory.Coin);
+        Item staleSerum = inventory.Items.Single(item => item.Id == Inventory.ActionPoint);
+        staleCogs.BuyTimes = dailyAssets[Inventory.Coin].DailyLimit;
+        staleSerum.BuyTimes = dailyAssets[Inventory.ActionPoint].DailyLimit;
+        staleCogs.TotalBuyTimes = staleCogs.BuyTimes + 7;
+        staleSerum.TotalBuyTimes = staleSerum.BuyTimes + 11;
+        int cogsLifetimeBuys = staleCogs.TotalBuyTimes, serumLifetimeBuys = staleSerum.TotalBuyTimes;
+        long yesterday = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
+        staleCogs.LastBuyTime = yesterday;
+        staleSerum.LastBuyTime = yesterday;
+        NotifyLogin nextDayLogin = (NotifyLogin)typeof(PurchaseRequest).Assembly
+            .GetType("AscNet.GameServer.Handlers.AccountModule")!
+            .GetMethod("BuildNotifyLogin", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(null, [harness.Session])!;
+        AssertEqual(0, nextDayLogin.ItemList.Single(item => item.Id == Inventory.Coin).BuyTimes,
+            "next-day login resets exhausted Cogs purchases");
+        AssertEqual(0, nextDayLogin.ItemList.Single(item => item.Id == Inventory.ActionPoint).BuyTimes,
+            "next-day login resets exhausted serum purchases");
+        AssertEqual(cogsLifetimeBuys, staleCogs.TotalBuyTimes, "Cogs lifetime purchases survive daily reset");
+        AssertEqual(serumLifetimeBuys, staleSerum.TotalBuyTimes, "serum lifetime purchases survive daily reset");
+        Inventory persistedDailyReset = BsonSerializer.Deserialize<Inventory>(inventories.LastReplacement!.ToBson());
+        AssertEqual(0, persistedDailyReset.Items.Single(item => item.Id == Inventory.Coin).BuyTimes,
+            "next-day Cogs reset is persisted before login projection");
+        AssertEqual(0, persistedDailyReset.Items.Single(item => item.Id == Inventory.ActionPoint).BuyTimes,
+            "next-day serum reset is persisted before login projection");
+        AssertEqual(0, Exchange(1, 1).Code, "next-day login enables another Cogs purchase");
+        AssertEqual(0, Exchange(4, 1).Code, "next-day login enables another serum purchase");
         AssertEqual(20053031, Buy(90943, new Dictionary<string, object> { ["Unknown"] = 1 }).Code, "unknown metadata rejected");
         AssertEqual(0, Buy(90943).Code, "Store FromMsg permits free daily pack");
         long serum = Balance(90031);
@@ -132,7 +166,35 @@ internal static partial class Program
         AssertEqual(0, Buy(10004).Code, "beginner three-day sign-in purchase succeeds");
         AssertEqual(beforeThreeDay - 12, Balance(Inventory.HongKa), "three-day package price");
         AssertEqual(3, checked((int)(player.PurchaseDailyPasses[10004].EndDay - player.PurchaseDailyPasses[10004].StartDay)), "three-day duration");
+        Dictionary<dynamic, dynamic> signPackage = PurchaseCatalog
+            .Load(JsonSnapshot.ResolvePath("Configs/client_purchases.json")).Find(10004)!;
+        var signInfo = (Dictionary<dynamic, dynamic>)signPackage["PurchaseSignInInfo"];
+        int firstRewardId = Convert.ToInt32((object)((List<dynamic>)signInfo["PurchaseSignInRewardInfos"])[0]);
+        HashSet<int> firstRewardGoodsIds = TableReaderV2.Parse<RewardTable>()
+            .Single(reward => reward.Id == firstRewardId).SubIds.ToHashSet();
+        HashSet<int> itemIds = TableReaderV2.Parse<ItemTable>().Select(item => item.Id).ToHashSet();
+        RewardGoodsTable firstItemReward = TableReaderV2.Parse<RewardGoodsTable>()
+            .Single(reward => firstRewardGoodsIds.Contains(reward.Id) && itemIds.Contains(reward.TemplateId));
+        ItemTable firstItemTable = TableReaderV2.Parse<ItemTable>()
+            .Single(item => item.Id == firstItemReward.TemplateId);
+        Item capacityItem = inventory.Items.FirstOrDefault(item => item.Id == firstItemReward.TemplateId)
+            ?? inventory.Do(firstItemReward.TemplateId, 0);
+        capacityItem.Count = Inventory.GetMaxCount(firstItemTable) - firstItemReward.Count + 1;
+        long capacityBefore = capacityItem.Count;
+        long claimDayBefore = player.PurchaseDailyPasses[10004].LastClaimDay;
+        int claimReceiptsBefore = inventory.AppliedRewardClaims.Count;
+        AssertEqual(20027011, Claim(10004).Code, "daily claim rejects a reward that would exceed item capacity");
+        AssertEqual(capacityBefore, capacityItem.Count, "capacity rejection grants no truncated reward");
+        AssertEqual(claimDayBefore, player.PurchaseDailyPasses[10004].LastClaimDay,
+            "capacity rejection does not consume the daily entitlement");
+        AssertEqual(0, player.PurchaseDailyPasses[10004].RewardIndexList.Count,
+            "capacity rejection does not advance sign-in progress");
+        AssertEqual(claimReceiptsBefore, inventory.AppliedRewardClaims.Count,
+            "capacity rejection does not write a reward receipt");
+        capacityItem.Count--;
         AssertEqual(0, Claim(10004).Code, "first sign-in reward");
+        AssertEqual(Inventory.GetMaxCount(firstItemTable), Balance(firstItemReward.TemplateId),
+            "daily claim grants the complete reward after capacity is available");
         AssertEqual(0, Claim(10004).RewardList.Count, "same-day sign-in is idempotent");
         AssertEqual(true, player.PurchaseDailyPasses[10004].RewardIndexList.SequenceEqual(new[] { 1 }), "sign-in index saved");
         var signNotify = new PurchaseDailyNotify();

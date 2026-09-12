@@ -722,5 +722,32 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new ItemBuyAssetResponse { Count = (int)count }, packet.Id);
             }
         }
+
+        internal static void ReconcileDailyAssetPurchaseCounts(Inventory inventory)
+        {
+            long today = PayModule.PurchaseDay();
+            HashSet<int> dailyAssets = TableReaderV2.Parse<BuyAssetTable>()
+                .Where(row => row.DailyLimit > 0)
+                .Select(row => row.Id)
+                .ToHashSet();
+            List<(Item Item, int BuyTimes)> stale = inventory.Items
+                .Where(item => item.BuyTimes != 0
+                    && dailyAssets.Contains(item.Id)
+                    && PayModule.PurchaseDay(item.LastBuyTime) != today)
+                .Select(item => (item, item.BuyTimes))
+                .ToList();
+            if (stale.Count == 0)
+                return;
+
+            foreach ((Item item, _) in stale)
+                item.BuyTimes = 0;
+            try { inventory.SaveChecked(); }
+            catch
+            {
+                foreach ((Item item, int buyTimes) in stale)
+                    item.BuyTimes = buyTimes;
+                throw;
+            }
+        }
      }
 }

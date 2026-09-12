@@ -115,6 +115,19 @@ internal static partial class Program
         }
         AssertEqual(1722L, inventory.Items.Single(item => item.Id == Inventory.HongKa).Count,
             "daily-mail-only packs charge their configured 68 and 30");
+        JToken firstBonus = List(3).Single(row => row.Value<uint>("Id") == 101)["FirstRewardGoods"]!;
+        AssertEqual(true, firstBonus.Type == JTokenType.Object, "unconsumed first-purchase bonus is advertised");
+        PurchaseResponse firstExchange = Buy(101, 3);
+        AssertEqual(0, firstExchange.Code, "first exchange purchase succeeds");
+        AssertEqual(true, firstExchange.RewardList.Any(reward => reward.TemplateId == 3 && reward.Count == 50),
+            "first exchange purchase grants its first-purchase bonus");
+        JToken? consumedBonus = List(3).Single(row => row.Value<uint>("Id") == 101)["FirstRewardGoods"];
+        AssertEqual(true, consumedBonus is null || consumedBonus.Type == JTokenType.Null,
+            "consumed first-purchase bonus is no longer advertised");
+        PurchaseResponse repeatExchange = Buy(101, 3);
+        AssertEqual(0, repeatExchange.Code, "repeat exchange purchase succeeds");
+        AssertEqual(false, repeatExchange.RewardList.Any(reward => reward.TemplateId == 3),
+            "repeat exchange purchase does not grant the first-purchase bonus again");
         JArray purchased = List(5, 8);
         AssertEqual(1, purchased.Single(row => row.Value<int>("Id") == 2059).Value<int>("BuyTimes"), "buy response state persists");
         harness.Session.player = CreateDrawCompatibilityPlayer(uid + 1);

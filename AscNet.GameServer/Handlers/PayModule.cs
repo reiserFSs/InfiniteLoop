@@ -91,6 +91,8 @@ namespace AscNet.GameServer.Handlers
                 uint id = ReadDynamicUInt(data, "Id");
                 data["BuyTimes"] = player is null ? 0 : CurrentBuyTimes(player, data);
                 data["LastBuyTime"] = player?.PurchaseLastBuyTimes.GetValueOrDefault(id) ?? 0L;
+                if (player?.PurchaseBuyTimes.GetValueOrDefault(id) > 0)
+                    data["FirstRewardGoods"] = null!;
                 int days = RemainingDays(player, id);
                 if (days > 0 && player?.PurchaseBuyTimes.GetValueOrDefault(id) == 0) data["BuyTimes"] = 1;
                 data["DailyRewardRemainDay"] = days;
