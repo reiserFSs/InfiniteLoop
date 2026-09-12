@@ -1,0 +1,104 @@
+Key	Values[1]	Values[2]	Values[3]	Values[4]	Values[5]	Values[6]	Values[7]	Values[8]	Values[9]	Values[10]	Values[11]	Values[12]	Values[13]
+RankScoreLabel	{0}/{1}												
+RankDetailDesc	Start battle matchmaking to earn Points and raise your Grade												
+TopHealthLabel	{0}/{1}												
+ItemDragLimit	0.1												
+ShopBuyFaultMoneyNoEnough	Insufficient Gold Coins. Purchase failed.												
+ShopBuyFaultFullBag	Inventory is full. Purchase failed.												
+ShopBuyBagContainer2IndexIsFull	Purchase failed. The slot already has an item.												
+ShopBuyBagContainer3IndexIsFull	Purchase failed. The slot already has a skill.												
+ShopBuyBagContainer4IndexIsFull	Purchase failed. The slot already has a rune.												
+RuneToSkillContainerTips	Runes cannot be equipped to skill slots												
+SkillToRuneContainerTips	Skills cannot be equipped to rune slots												
+GoodsFreezeStateLabels	Unfreeze	Freeze											
+ShopFreezeStateLabels	Unfreeze All	Freeze All											
+ShopRefreshErrorTips	Insufficient gold												
+NewGemSlotUnlockTips	Spend {0} Gold Coin(s) to unlock the rune slot?												
+GemSlotUnlockLackGoldError	Insufficient Gold Coins. Failed to unlock.												
+RatingProcessLabel	\+{0}	\-{0}											
+GemTriggerTimesLabel	X{0}												
+RoundSettleSummaryChangeLabel	View Enemy	View Yourself											
+NoRankTips	Not Ranked												
+RankRefreshTips	Refreshes every 10 minutes												
+RankAllTabLabel	All												
+GameGiveUpContent	Abandon the ongoing game?												
+SettleRatingChangedAnimaTotalTime	1												
+BattleCheckFailRestartTips	Battle check failed. Restart battle?												
+BattleCheckFailEndGameTips	Multiple challenges failed battle check. Battle is about to end.												
+AllFreezeShopRefreshTips	All items are frozen. Unable to refresh.												
+PveChapterLevelLockText	???												
+EnterChapterStoryTips	The upcoming chapter contains \nextensive story content that requires significant time to read. Continue?												
+GoodsPriceShowOnSellout	\--												
+PveGoldLayerDesc	Basic Result Calculation Reward	Stage Clear Reward	Remaining HP Reward										
+TaskShopTagName	Shop	Mission											
+EnterDeduceTips	Incomplete simulation. Continue?												
+GemQualtyColors	#4da27b	#437cad	#d65fb3	#ee762e									
+CharacterAttribAddsShow	\+{0}												
+NoDragToTempBag	Cannot be dragged to the temporary inventory.												
+MatchLoadingDelay	2	0											
+ShopItemProbShowLabel	{0}%												
+SellSkillLabel	Scrapped												
+SellItemWithPriceShow	\+{0}												
+LockGoodsSlotClickTips	Proceed with battles to unlock more shop slots.												
+RoundSettlePassiveGemLabel	Passive												
+CharacterLock	Character stories will be available in future updates.												
+FreezeAllSellOutGoodsTips	Items have been sold out. Cannot be frozen.												
+RankPercentLabel	{0}%												
+RankListGridAnimationInterval	0.1												
+PVPTimeLabel	Remaining Time: {0}												
+RewardTimeLabel	Remaining Time: {0}												
+EntranceTimeLabel	Limited-Time Rewards expire in: {0}												
+PVPNotOpenTips	Mode is not available yet	Available in {0}											
+RepeatChapterChacterDesc	The Bloodsworn's journey continues for the stars above the Scorched Borderland are yet to be reclaimed.\n Move forward, across the cruel, bloodthirsty wilderness, to the final revelation!												
+RankRequestCd	5												
+TaskShopTimeLabel	Remaining Time: {0}												
+EventOptionIncomplete	Not enough {0} owned												
+BattleLoseLifeChangeDelay	2												
+PveVersionError	Story progress error. Please try playing through that character's current stage again.												
+AvgFinishTriggerGuideId	63915												
+DressItemFieldIsFull	All slots are occupied. Unable to equip.												
+RemoveItemBagIsFull	Inventory is full. Unable to unequip.												
+UnlockRuneSlot	Spend {0} Gold Coin(s) to unlock the rune slot?												
+NothingCanStrength	No runes available to enhance												
+RelicRefreshCountIsZero	Insufficient accessory refresh attempts												
+HammerDragFail	Cannot equip Alchemy Hammer												
+StrengthenSuccess	Enhancement successful												
+StrengthenDescAdd	<color=#D169CD>New:</color>												
+PvpPopUpTitle	Desperado Clash	{0} Apocalypse Returns											
+PvpPopUpContent1	New Commission System	Mammon Agency is preparing the commission.											
+PvpPopUpContent2	Season Limited-Time Rewards												
+PvpPopUpContent3	Upgrade & Accessory Return												
+PvpPopUpImgNameplate													
+PvpPopUpImgRune	Assets/Product/Texture/Image/IconTools/IconConsumeTicF3.png												
+CrowModelOutLineShowCondition	1050238												
+CrowModelOutLineHideCondition	1050355												
+TaskShopUpdateTips	Event shop refreshed												
+PopUpversion	2												
+MissionLevelUpCostLinks	{0}	{0}/{1}	{0}/{1}/{2}	{0}/{1}/{2}/{3}	{0}/{1}/{2}/{3}/{4}	{0}/{1}/{2}/{3}/{4}/{5}							
+MissionLevelUpCostHighLine	<color=#F9E6A5>{0}</color>												
+MissionRewardLinks	{0}	{0}/{1}	{0}/{1}/{2}	{0}/{1}/{2}/{3}	{0}/{1}/{2}/{3}/{4}	{0}/{1}/{2}/{3}/{4}/{5}							
+MissionRewardHighLine	<color=#EAC572>{0}</color>												
+MissionLvFormat	Lv.{0}	MAX											
+MissionMaxLevelLabel	Max rank reached												
+MissionCompleteLabel	Mammon's Blessing activated												
+MissionGridLevelLabel	Lv.{0}	MAX											
+MissionLevelUpNoEnoughGold	Insufficient coins to rank up												
+NoMissionTips	Commission available after 1 round	Mammon Agency is preparing the commission.											
+MissionGridTitle	Commission	Settling Commission											
+MissonIsLockInBook	Not yet found												
+MissionLevelUpNoTimes	Blessing already ranked up this round												
+PVPNotStartTips	Available in {0}	Locked											
+PVPReasonTips	Available in {0}	Faster global point gain and access to extra games											
+PVPReasonTimeDuration	{0}.{1}-{2}.{3}												
+MissionLevelUpInSkillSelectionPart	Cannot rank up Blessing before skill selection												
+MissionFinishTipsInSkillChoicePart	Commission Settling Soon												
+Theatre5MissionConditionTableDefine	Desc	ConditionTarget	TriggerCondition	IsConditionAnd	ConditionParams	ConditionCompares	ConditionCompareValues	DescShowParam					
+MissionStateLabelInRoundSettle	No Commission Accepted	Commission in Progress											
+MissionStateLabelInFinalSettle	No Commission Accepted	Commission in Progress											
+PvpRoundEndTips	{0} Points												
+PvpExtraRoundTips	{0} to {1} Points												
+PvpExMinRating	0	0	-20	-20	-20	-20	-20	-20	-20	-20	-20	-20	-20
+PvpExMaxRating	167	167	144	144	144	144	117	117	117	95	95	95	90
+PvpExtraPopupContent	You've qualified for settlement. Play {0} extra games?												
+PvpExtraPopupTxtTip	Your current points are {0}. After completing the extra games, your points will range from {1} to {2}.												
+PvpExtraPopupTxtTipColor	1F85D8												

@@ -81,7 +81,7 @@ namespace AscNet.GameServer.Handlers
         private static Dictionary<string, object?> BuildTaikoMasterPayload() => PayloadFromJson("""{"TaikoMasterData":{"ActivityId":0,"StageDataList":[],"Setting":{"AppearOffset":0,"JudgeOffset":0}}}""");
         private static Dictionary<string, object?> BuildSelfChoiceLottoPayload(Player player) => LottoManager.BuildSelfChoicePayload(player);
 
-        private static readonly int[] CurrentEventTaskBatchTheatre5 = [140107, 140108, 140109, 140110];
+        private static readonly int[] CurrentEventTaskBatchTheatre6 = [140107, 140108, 140109, 140110];
         private static readonly int[] CurrentEventTaskBatchBounty = [15001, 15002];
         private static readonly int[] RetroArcadeTaskBatchEntry = [78020, 78021, 78022, 78023, 78024, 78025, 78026, 78027, 78028, 78029, 78030, 97625, 97626, 97627, 97628, 97629, 97630, 97631, 97632, 97633, 97634, 97635, 97645, 97646, 90933, 99928, 99929, 99930];
         private static readonly int[] RetroArcadeTaskBatchPostTaikoA = [86513, 86514, 86515, 86516];

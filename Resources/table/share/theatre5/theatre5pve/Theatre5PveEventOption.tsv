@@ -1,0 +1,94 @@
+Id	GroupId	OptionDesc	OptionType	OptionCostType	OptionCostId	OptionCostCount	NextEvent	NextEventGroup
+1010101	101010	Set up an ambush ahead.	3				10102	
+1010102	101010	Tail them to find a bigger target.	3				10103	
+1020101	102010	Search the battlefield.	3				10202	
+1020102	102010	How did this place become like this?	3				10204	
+1030101	103010	Explore the factory.	3				10302	
+1030102	103010	Ask about the "Halo Cannon."	3				10303	
+1040101	104010	Try it yourself.	3				10402	
+1040102	104010	Watanabe, could you use "that"...	3				10404	
+1050101	105010	Accept their aid but politely decline their offer to join.	3				10502	
+1050102	105010	Allow them to join the team.	3				10503	
+2010101	201010	Launch the attack.	3				20105	
+2010102	201010	Buy.	3				20103	
+2020101	202010	Turn the horse around and leave the shallows.	3				20202	
+2020102	202010	What kind of creature is that?	3				20204	
+2030101	203010	Accept the feather.	3				20302	
+2030102	203010	Do not trust her.	3				20303	
+2040101	204010	Doesn't stop us from profiting.	3				20403	
+2040102	204010	The attacker might still be nearby.	3				20405	
+2050101	205010	Launch a frontal attack.	3				20502	
+2050102	205010	Circle around to observe the situation.	3				20503	
+3010101	301010	Approach the Infant With Caution	3				30102	
+3010102	301010	Rush Into the Grass and Attack	3				30103	
+3020101	302010	Clear Out the Local Living Dead	3				30202	
+3020102	302010	Reinforce the Cemetery Fence	3				30204	
+3030101	303010	Step Forward and Denounce the Quack	3				30303	
+3030102	303010	Quietly Lead the Mother Away	3				30304	
+3040201	304020	Tell the Truth	3				30403	
+3040202	304020	Hide the Truth With Good Intentions	3				30405	
+3050201	305020	Propose an Equivalent Exchange	3				30503	
+3050202	305020	Threaten the Borderlanders and Demand Them Release Him	3				30505	
+4010101	401010	Take the gold coins	3				40103	
+4010102	401010	Return the gold coins to the nearby townsfolk	3				40104	
+4020101	402010	Guide her to another town	3				40203	
+4020102	402010	Leave behind some funds	3				40205	
+4030101	403010	Put away the crystal ball	3				40302	
+4030102	403010	Press Lilith for more information	3				40303	
+4040101	404010	Endure it and finish the meal	3				40403	
+4040102	404010	Stand up and take your leave	3				40404	
+4050101	405010	Tell her the paradise doesn't exist	3				40503	
+4050102	405010	Point her toward another paradise	3				40505	
+8010201	801020	Destroy the rune first to weaken it.	3				80104	
+8010202	801020	Take the rune and spare its life.	3				80103	
+8020101	802010	I Want Them All!	1	4	1	12	80202	
+8020102	802010	Buy one to try.	1	4	1	6	80204	
+8020103	802010	Believe you? Hell no!	3				80206	
+8030101	803010	Snatch the rune and run.	3				80302	
+8030102	803010	Rescue the "sacrifices" for the ritual.	3				80304	
+8040201	804020	Take the blessing rune.	3				80403	
+8040202	804020	Take the old man and leave the place.	3				80405	
+8050301	805030	All my actions shall align with the Supreme Heaven's doctrine.	3				80504	
+8050302	805030	The Supreme Heaven's slaughter of humanity is beyond description.	3				80505	
+8060201	806020	You decide to join and help them.	3				80603	
+8060202	806020	Help search for supplies nearby.	3				80605	
+8070101	807010	Leave the place quickly.	3				80702	
+8070102	807010	Prepare for battle!	3				80704	
+8080101	808010	Hunt them right here.	3				80802	
+8080102	808010	Evacuate the townsfolk immediately.	3				80803	
+8090101	809010	You board the moving train.	3				80902	
+8090102	809010	You stop the haulers.	3				80903	
+8100101	810010	These things must be worth something, right?	3				81002	
+8100102	810010	What forbidden angel tale is this talking about?	3				81004	
+8110101	811010	We'll be rich! Take them all!	3				81103	
+8110102	811010	I'll just take a tiny bit...	3				81105	
+8110103	811010	Leave.	3				81107	
+8120101	812010	No, you must come with me.	3				81203	
+8120102	812010	Yeah, what's the point?	3				81205	
+8130101	813010	Scratch ten times!	1	4	1	12	81303	
+8130102	813010	Scratch a couple of times.	1	4	1	6	81305	
+8130103	813010	Forget it. I don't trust you.	3				81307	
+8140101	814010	Eliminate the puppets as fast as possible.	3				81404	
+8140102	814010	Search the mansion thoroughly.	3				81406	
+8150101	815010	Hunt it right here.	3				81503	
+8150102	815010	Capture it alive. It's worth studying.	3				81505	
+8160101	816010	Launch an attack to destroy the array.	3				81604	
+8160102	816010	Rescue the captives first.	3				81606	
+8170101	817010	Rescue the captives immediately.	3				81702	
+8170102	817010	Observe where they are heading.	3				81704	
+8180101	818010	Ambush the angels in the town.	3				81802	
+8180102	818010	Lead the people to fight the angels.	3				81804	
+8190101	819010	I saw a war with demons.	3				81903	
+8190102	819010	I saw the death of the Cardinal Deity.	3				81906	
+8200101	820010	I want to pull it right now!	1	4	1	6	82002	
+8200102	820010	No way I'll believe you, devil.	3				82008	
+8200201	820020	Continue	3					820011
+8200202	820020	Abandon	3				82008	
+203010101	20301010	Attack it from the back.	3				2030102	
+203010102	20301010	Destroy its light-wings.	3				2030103	
+203020101	20302010	Attack it from the back.	3				2030202	
+203020102	20302010	Destroy its light-wings.	3				2030203	
+203030101	20303010	Fire blood bullets into its mouth.	3				2030302	
+203030102	20303010	Sever its limbs.	3				2030303	
+203040101	20304010	Seize its weapon.	3				2030402	
+203040102	20304010	Eliminate it first.	3				2030403	

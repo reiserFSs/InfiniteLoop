@@ -358,9 +358,16 @@ namespace AscNet.GameServer.Handlers
             }
         }
 
+        [RequestPacketHandler("DlcSingleEnterFightRequest")]
+        public static void DlcSingleEnterFightRequestHandler(Session session, Packet.Request packet)
+        {
+            Theatre5Module.HandleDlcEnter(session, packet);
+        }
+
         [RequestPacketHandler("DlcSingleFightSettleRequest")]
         public static void DlcSingleFightSettleRequestHandler(Session session, Packet.Request packet)
         {
+            Theatre5Module.HandleDlcSettle(session, packet);
         }
 
         [RequestPacketHandler("BigWorldCurNpcPosUpdateRequest")]

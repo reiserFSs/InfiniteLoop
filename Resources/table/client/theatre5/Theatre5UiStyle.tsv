@@ -1,0 +1,5 @@
+Id	UiType	ShowCondition	Priority	UiPrefabPath
+1	1		1	Assets/Product/Ui/ComponentPrefab/UiTheatre5/UiTheatre5Main.prefab
+2	1	1050354	2	Assets/Product/Ui/ComponentPrefab/UiTheatre5/UiTheatre5MainHeroine.prefab
+3	2		1	Assets/Product/Ui/ComponentPrefab/UiTheatre5/UiTheatre5PVEGame.prefab
+4	2	1050354	2	Assets/Product/Ui/ComponentPrefab/UiTheatre5/UiTheatre5PVEGameHeroine.prefab

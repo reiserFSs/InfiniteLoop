@@ -1,0 +1,6 @@
+Id	KeyWord	Desc
+1	Spiritual Wound	Each stack of [Spiritual Wound] deals 10% <color=#e0cdad>Spirit</color> DMG every second for 5s.
+2	Bleed	Each stack of [Bleed] deals 15% <color=#e0cdad>Blood</color> DMG to the enemy every second for 3s.
+3	Blood Rain	Deals 30% <color=#e0cdad>Blood</color> DMG once every second for 3s.
+4	Shield Strength	Upon gaining a Shield, gains 1% additional Shield Points acquisition for every 1% <color=#e0cdad>Shield Strength</color>.
+5	Recovery Efficiency	During healing, gains 1% additional healing for every 1% <color=#e0cdad>Recovery Efficiency</color>.

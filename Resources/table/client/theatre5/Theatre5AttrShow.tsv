@@ -1,0 +1,8 @@
+Id	AttrType	AttrName	ShowType	IconRes
+1	Life	HP	1	
+2	Attack	Attack	1	
+3	Element1AmpP	Blood DMG Boost		Assets/Product/Texture/Image/UiTheatre5/UiTheatre5BattleShopTagIcon01.png
+4	Element2AmpP	Spirit DMG Boost		Assets/Product/Texture/Image/UiTheatre5/UiTheatre5BattleShopTagIcon02.png
+5	Element3AmpP	Holy DMG Boost		Assets/Product/Texture/Image/UiTheatre5/UiTheatre5BattleShopTagIcon03.png
+6	ShieldAmpP	Shield Strength		Assets/Product/Texture/Image/UiTheatre5/UiTheatre5BattleShopTagIcon05.png
+7	HealAmpP	Recovery Efficiency		Assets/Product/Texture/Image/UiTheatre5/UiTheatre5BattleShopTagIcon04.png

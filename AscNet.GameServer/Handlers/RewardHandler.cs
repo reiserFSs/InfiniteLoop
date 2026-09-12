@@ -34,6 +34,7 @@ namespace AscNet.GameServer.Handlers
         public bool NotifyAsRecycle;
         public int ConvertFrom;
         internal ChatEmojiRewardOutcome? EmojiOutcome;
+        internal long? NameplateGrantTime;
     }
 
     internal sealed record RewardGrant(
@@ -57,6 +58,7 @@ namespace AscNet.GameServer.Handlers
         internal bool ManualGuideChanged { get; set; }
         internal List<int> GatherRewardIds { get; } = [];
         internal List<NotifyChatLoginData.NotifyChatLoginDataUnlockEmoji> Emojis { get; } = [];
+        internal List<NameplateData> Nameplates { get; } = [];
 
 
         public void SendPushes(Session session)
@@ -93,6 +95,8 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(ScoreTitleData);
             foreach (var emoji in Emojis)
                 session.SendPush(new NotifyChatEmoji { Emoji = emoji });
+            foreach (NameplateData nameplate in Nameplates)
+                session.SendPush(new NotifyNameplateInfo { Nameplate = nameplate });
             if (manualChanged || ItemData.ItemDataList.Any(item => item.Id == Inventory.TeamExp))
                 session.SendPush(WheelchairManualModule.BuildPayload(session, DateTimeOffset.UtcNow));
             else if (ManualGuideChanged)
@@ -139,6 +143,9 @@ namespace AscNet.GameServer.Handlers
             }
             DormFurnitureChanged |= source.DormFurnitureChanged;
             Emojis.AddRange(source.Emojis);
+            foreach (NameplateData nameplate in source.Nameplates)
+                if (Nameplates.All(value => value.Id != nameplate.Id))
+                    Nameplates.Add(nameplate);
 
         }
     }
@@ -312,6 +319,16 @@ namespace AscNet.GameServer.Handlers
                     if (prepared.Count != grant.Goods.Count)
                         throw new InvalidDataException(
                             $"Reward claim {grant.ClaimKey} contains an unsupported reward type.");
+                    foreach (Reward nameplate in prepared.Where(reward => reward.Type == RewardType.Nameplate))
+                    {
+                        if (!stagedInventory.RewardClaimTimes.TryGetValue(grant.ClaimKey, out long grantTime))
+                        {
+                            grantTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            stagedInventory.RewardClaimTimes.Add(grant.ClaimKey, grantTime);
+                            inventoryDirty = true;
+                        }
+                        nameplate.NameplateGrantTime = grantTime;
+                    }
                     List<Reward> emojiRewards = prepared.Where(reward => reward.Type == RewardType.ChatEmoji).ToList();
                     if (emojiRewards.Count > 0 && (!inventoryClaimed || !characterClaimed))
                     {
@@ -349,10 +366,18 @@ namespace AscNet.GameServer.Handlers
                     {
                         AddCurrentStatePush(reward, session, grantResult);
                     }
+                    // Older Nameplate claims recorded receipts while their grant branch was a no-op.
+                    bool missingNameplates = resolved.Any(reward => reward.Type == RewardType.Nameplate
+                        && !stagedCharacter.Nameplates.Any(value =>
+                            Character.GetNameplateConfig(value.Id)?.Group == Character.GetNameplateConfig(reward.Id)?.Group));
+                    characterDirty |= missingNameplates;
                     ApplyResolvedRewards(
                         resolved.Where(reward =>
                             (!inventoryClaimed && IsInventoryDocumentReward(reward))
                             || (!characterClaimed && IsCharacterDocumentReward(reward))
+                            || (missingNameplates && reward.Type == RewardType.Nameplate
+                                && !stagedCharacter.Nameplates.Any(value =>
+                                    Character.GetNameplateConfig(value.Id)?.Group == Character.GetNameplateConfig(reward.Id)?.Group))
                             // A character receipt cannot prove the later player-owned entitlement save succeeded.
                             || (reward.Type == RewardType.HeadPortrait
                                 && !session.player.HeadPortraits.Any(head => head.Id == reward.Id))),
@@ -473,6 +498,7 @@ namespace AscNet.GameServer.Handlers
                 or RewardType.Furniture
                 or RewardType.HeadPortrait
                 or RewardType.ChatEmoji
+                or RewardType.Nameplate
                 or RewardType.Collection;
 
         private static List<ChatEmojiRewardOutcome> PlanChatEmojiRewards(
@@ -539,6 +565,12 @@ namespace AscNet.GameServer.Handlers
             {
                 case RewardType.ChatEmoji:
                     AddChatEmojiPush(reward.Id, session.character, result);
+                    break;
+                case RewardType.Nameplate:
+                    NameplateData? nameplate = session.character.Nameplates.FirstOrDefault(value =>
+                        Character.GetNameplateConfig(value.Id)?.Group == Character.GetNameplateConfig(reward.Id)?.Group);
+                    if (nameplate is not null && result.Nameplates.All(value => value.Id != nameplate.Id))
+                        result.Nameplates.Add(nameplate);
                     break;
                 case RewardType.Item:
                     Item? item = session.inventory.Items.FirstOrDefault(entry => entry.Id == reward.Id);
@@ -644,6 +676,8 @@ namespace AscNet.GameServer.Handlers
             target.FashionColors = source.FashionColors;
             target.ScoreTitles = source.ScoreTitles;
             target.ChatEmojis = source.ChatEmojis;
+            target.Nameplates = source.Nameplates;
+            target.CurrentWearNameplate = source.CurrentWearNameplate;
         }
 
         private static void ApplyRewards(
@@ -1059,6 +1093,10 @@ namespace AscNet.GameServer.Handlers
                     result.PartnerData.OperateTypes.Add(1);
                     break;
                 case RewardType.Nameplate:
+                    NameplateData grantedNameplate = session.character.GrantNameplate(
+                        reward.Id, reward.Count, reward.NameplateGrantTime ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                    if (result.Nameplates.All(value => value.Id != grantedNameplate.Id))
+                        result.Nameplates.Add(grantedNameplate);
                     break;
                 case RewardType.RankScore:
                     break;

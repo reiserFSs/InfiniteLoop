@@ -846,6 +846,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--theatre5-compat-only"))
+                {
+                    ValidateTheatre5Compatibility();
+                    return;
+                }
+
                 if (args.Contains("--big-world-enter-compat-only"))
                 {
                     ValidateBigWorldEnterCompatibility();
@@ -958,6 +964,7 @@ namespace AscNet.Test
                 ValidateMissingFeatureCompatibility();
                 ValidateBiancaTheatreCompatibility();
                 ValidateTheatreCompatibility();
+                ValidateTheatre5Compatibility();
                 ValidateCharacterTowerCompatibility();
                 ValidateShopCompatibility();
                 ValidateWheelchairManualPurchaseCompatibility();
@@ -24061,6 +24068,10 @@ namespace AscNet.Test
             AssertEqual(141, CompatibilityRows(compatibility, "StageLevelControls").Count, "Study compatibility StageLevelControl row count");
             AssertEqual(170, CompatibilityRows(compatibility, "Robots").Count, "Study compatibility Robot row count");
 
+            JArray studyRobotRows = CompatibilityRows(compatibility, "Robots");
+            JObject StudyRobotRow(int robotId) =>
+                (JObject)studyRobotRows.Single(row => row.Value<int>("Id") == robotId);
+
             AssertStudyStageRobotDeployment(
                 stageId: 30_100_000,
                 cardIds: [],
@@ -24071,7 +24082,7 @@ namespace AscNet.Test
                 "Study current-client Stage.RobotId stage 30100000",
                 expectedRebootId: 3,
                 expectedMonsterLevels: [229, 229, 229]);
-            AssertStudyStageRobotDeployment(
+            PreFightResponse practiceRobotFight = AssertStudyStageRobotDeployment(
                 stageId: 30_100_001,
                 cardIds: [],
                 robotIds: [],
@@ -24079,6 +24090,9 @@ namespace AscNet.Test
                 expectedRobotId: 2_249,
                 luciaLotusCharacterId,
                 "Study current-client Practice stage 30100001");
+            // Equipped sparse shape: six authored wafers with absent optional resonance arrays.
+            AssertStudyRobotEquipPayload(practiceRobotFight, 2_249, StudyRobotRow(2_249),
+                "Study equipped robot stage 30100001");
             AssertStudyStageRobotDeployment(
                 stageId: 30_100_001,
                 cardIds: [],
@@ -24134,9 +24148,20 @@ namespace AscNet.Test
                 expectedRobotId: 4_000,
                 luciaLotusCharacterId,
                 "Study existing stage 30100801 current-client override control");
+            PreFightResponse weaponOnlyFight = AssertStudyStageRobotDeployment(
+                stageId: 30_100_883,
+                cardIds: [],
+                robotIds: [],
+                expectedCharacterId: 1_171_003,
+                expectedRobotId: 1_142,
+                luciaLotusCharacterId,
+                "Study weapon-only robot stage 30100883");
+            // Weapon-only sparse shape: authored weapon, no core wafer arrays at all.
+            AssertStudyRobotEquipPayload(weaponOnlyFight, 1_142, StudyRobotRow(1_142),
+                "Study weapon-only robot stage 30100883");
         }
 
-        private static void AssertStudyStageRobotDeployment(
+        private static PreFightResponse AssertStudyStageRobotDeployment(
             uint stageId,
             IReadOnlyList<uint> cardIds,
             IReadOnlyList<int> robotIds,
@@ -24147,7 +24172,7 @@ namespace AscNet.Test
             int? expectedRebootId = null,
             IReadOnlyList<int>? expectedMonsterLevels = null)
         {
-            AssertStudyStageRobotDeployments(
+            return AssertStudyStageRobotDeployments(
                 stageId,
                 cardIds,
                 robotIds,
@@ -24158,7 +24183,7 @@ namespace AscNet.Test
                 expectedMonsterLevels);
         }
 
-        private static void AssertStudyStageRobotDeployments(
+        private static PreFightResponse AssertStudyStageRobotDeployments(
             uint stageId,
             IReadOnlyList<uint> cardIds,
             IReadOnlyList<int> robotIds,
@@ -24235,6 +24260,57 @@ namespace AscNet.Test
                 initialAccountRosterIds,
                 harness.Session.character.Characters.Select(accountCharacter => (long)accountCharacter.Id).Order().ToArray(),
                 $"{name} does not mutate account roster");
+            return preFightResponse;
+        }
+
+        // The compiled 4.6.0 Study robot rows are sparse: 14 weapon-only rows omit the three core wafer
+        // arrays entirely, and all 156 equipped rows omit the optional resonance arrays. Deployment must
+        // still emit the authored weapon/wafer payload instead of faulting on the absent arrays.
+        private static void AssertStudyRobotEquipPayload(
+            PreFightResponse preFightResponse,
+            int robotId,
+            JObject robotRow,
+            string name)
+        {
+            if (preFightResponse.FightData is null)
+                throw new InvalidDataException($"{name}: expected FightData.");
+            JObject npc = preFightResponse.FightData.RoleData
+                .SelectMany(role => role.NpcData.Values)
+                .Select(value => JObject.FromObject((object)value))
+                .FirstOrDefault(candidate => candidate["RobotId"]?.Value<int>() == robotId)
+                ?? throw new InvalidDataException($"{name}: no deployed NPC for study robot {robotId}.");
+
+            static int RowInt(JObject row, string property) => row[property]?.Value<int>() ?? 0;
+            static IReadOnlyList<int> RowInts(JObject row, string property) =>
+                row[property] is JArray values ? values.Values<int>().ToList() : new List<int>();
+            IReadOnlyList<int> waferTemplates = RowInts(robotRow, "WaferId");
+            IReadOnlyList<int> waferLevels = RowInts(robotRow, "WaferLevel");
+            IReadOnlyList<int> waferBreakthroughs = RowInts(robotRow, "WaferBreakThrough");
+            IReadOnlyList<int> waferAwakes = RowInts(robotRow, "WaferAwakeCount");
+            int waferCount = Math.Min(waferTemplates.Count, Math.Min(waferLevels.Count, waferBreakthroughs.Count));
+
+            List<(int TemplateId, int Level, int Breakthrough, int AwakeCount)> expected =
+            [
+                (RowInt(robotRow, "WeaponId"), RowInt(robotRow, "WeaponLevel"), RowInt(robotRow, "WeaponBeakThrough"), 0)
+            ];
+            for (int i = 0; i < waferCount; i++)
+                expected.Add((waferTemplates[i], waferLevels[i], waferBreakthroughs[i], i < waferAwakes.Count ? waferAwakes[i] : 0));
+
+            JArray equips = (JArray)(npc["Equips"] ?? throw new InvalidDataException($"{name}: deployed robot {robotId} has no Equips."));
+            AssertEqual(expected.Count, equips.Count, $"{name} study robot {robotId} deployed equipment count");
+            foreach ((int templateId, int level, int breakthrough, int awakeCount) in expected)
+            {
+                JToken equip = equips.SingleOrDefault(value => value["TemplateId"]!.Value<int>() == templateId)
+                    ?? throw new InvalidDataException($"{name}: study robot {robotId} is missing equipment {templateId}.");
+                AssertEqual(level, equip["Level"]!.Value<int>(), $"{name} equipment {templateId} level");
+                AssertEqual(breakthrough, equip["Breakthrough"]!.Value<int>(), $"{name} equipment {templateId} breakthrough");
+                AssertIntegerList(
+                    Enumerable.Range(1, awakeCount).Select(slot => (long)slot).ToArray(),
+                    equip["AwakeSlotList"]!.Values<int>().Select(slot => (long)slot).ToArray(),
+                    $"{name} equipment {templateId} awake slots");
+                AssertEqual(0, ((JArray)equip["ResonanceInfo"]!).Count,
+                    $"{name} equipment {templateId} deploys without optional resonance");
+            }
         }
 
         private static void AssertStudyRobotNpcSlot(

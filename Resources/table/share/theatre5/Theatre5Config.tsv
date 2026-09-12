@@ -1,0 +1,61 @@
+Key	Desc	Values[1]	Values[2]	Values[3]	Values[4]	Values[5]	Values[6]
+BattlePoolMaxLen	阵容池最大长度	1000					
+PvpHealth	PvP Mode Health Amount	5					
+PvpTarget	PvP Mode Target Trophy Amount	10					
+ReduceRankFailCount	连续失败3次后匹配时调低对段位	3					
+BagItemGridMaxNum	Max Inventory Slots	6					
+SkillGridMaxNum	Max Skill Slots	3					
+RuneGridMinNum	Initial Orb Slots (for PvP only; PvE initialization amount is controlled in the Theatre5PveChapter table)	2					
+RuneGridMaxNum	Max Orb Slots	10					
+ShopItemDiscountWeight	Shop Discount Weight (Weighting for X randomly discounted items)	90	10	1			
+PvpShopGridsTotalCount	商店格子总数	8					
+WDraw	战斗平局W系数（万分比）	5000					
+WLose	Battle Failure W Coefficient (Parts per 10000)	0					
+WWin	战斗胜利W系数（万分比）	10000					
+InitRating	Initial Ladder Points	0					
+RobotHeadPortraits	List of Portraits available for Robots	9000001					
+RobotHeadHeadFrames	List of Portrait Frames available for Robots	9090008					
+TeachingPveStoryLineId	Tutorial Storyline ID	1					
+TeachingPveCharacterId	Tutorial Storyline Character ID	1					
+ChapterCoin	Chapter Currency	1					
+TempItemBagGridMaxNum	Max Temporary Inventory Slots	4					
+PvpGridUnlockDiscount	PvP Inventory Round Discount (PvE configuration is in the PveChapter table)	3					
+PveHealth	Pve模式生命数量	5					
+PveBattleCheckOpen	是否开放战斗校验(0关闭)	0					
+PveBattleTimeLimit	PvE Battle Duration Limit	1					
+PveMyTotalDamageLimit	PvE Ally Total Damage Limit	1					
+PveMyTotalCureLimit	PvE Ally Total Healing Limit	1					
+PveEnemyTotalDamageLimit	PvE Enemy Total Damage Limit	1					
+PveEnemyTotalCureLimit	pve战斗敌方治疗总量限制	1					
+PvpBattleTimeLimit	pvp战斗时长限制	1					
+PvpMyTotalDamageLimit	PvP Ally Total Damage Limit	1					
+PvpMyTotalCureLimit	PvP Ally Total Healing Limit	1					
+PvpEnemyTotalDamageLimit	PvP Enemy Total Damage Limit	1					
+PvpEnemyTotalCureLimit	pvp战斗敌方治疗总量限制	1					
+PveChatWriteTime	pve对话聊天速度(毫秒)	300					
+BattleCheckFailTimesLimit	Battle validation failure limit; reaching it forces immediate settlement.	3					
+DeduceTipsTime	Deduction Tips Time, 1 is Normal Time, 2 is Correct Answer Time	1000	2000				
+ClueBoardScaleLimitPoint	Clue Board Scaling Threshold (Scale Value x1000)	650					
+MainClueBoardRect	核心线索板的外扩宽高	7500	3500				
+ClueBoardFocusTime	Tap Clue to Focus Timeline	200					
+Theatre5ShopCurrencyId	Exchange Shop ID	97054					
+KLoseMin	Minimum Restart K Value Penalty	2					
+PveTimeId	PVE Mode Starting Time	34					
+PveVersion	PVE Mode Version Number	6					
+SkipSotryPage	Codex Redirect Tag	16					
+MainVideoId	Main Screen Video ID	20004					
+ShopShowRewards	Groups of 2: The 1st part is the ID, the 2nd is the quantity.	50005	2250	32	49	11000292	1
+PveSlideButton	PVE Clue Board +/- buttons; click {参数1} times to reach max/min value.	20					
+Theatre5LimitShop	PVE limited-time shop ID corresponding to taskshop table ID	1					
+PveWorldId	PVE world ID to be loaded	200					
+ClueBoardMaskMinAndMax	PvE clue board zoom aperture configuration	1000	2000				
+PvpLevelGroup	PvP Level Configuration Set	1					
+RelicRefresh	Accessory Refresh Attempts	1					
+StrengthenRate	Enhanced Rune Price Multiplier	20000					
+MinPvpFinishScores	The guarantee system triggers after clearing with 10 wins (guarantee scores vary by remaining HP)	10	10	15	15	15	
+MissionFreshCnt	Refresh Limit per Slot in Mission Selection	1					
+CharacterInitExp	PvP/PvE Character Initial EXP	10					
+PvpMultiplierLimit	PvP Multiplier Limit	0	0	0	0	0	
+PveMultiplierLimit	PvE Multiplier Limit	0	0	0	0	0	
+MissionLevelUpForRound	Upgrades Per Turn	1					
+PvpExtraTarget	加时赛胜场杯数	13					

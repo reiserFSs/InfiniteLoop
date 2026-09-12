@@ -162,6 +162,29 @@ The local system-effect interpretation below follows numeric operands and refere
 
 Trigger and source identities are recorded before grants to prevent retry duplication and recursive grant cycles. Battle effects use authored native fight events and leveled events; currency changes use inventory receipts and mode capacity/energy/quantum notifications carry absolute values.
 
+### Godfall Revelation (Theatre5)
+
+Godfall implements separate persisted PvE and PvP adventures, mode switching and login recovery. PvE includes storyline branches/backtracking, chapters, events, clues/deduction and rewards; PvP includes persisted-player build matching with explicitly labelled authored NPC fallback, ranks, normal completion and overtime. Both modes support run shops, bags/equipment/runes, boxes, EXP/relic choices, commissions, effects, DLC world `200` entry/settlement, retries and durable task/reward receipts.
+
+First entry follows the authored PvE tutorial. The client exposes the two-mode selector after that tutorial is complete; the shared skill-choice screen is not evidence that the player entered PvP. Skill choices use flat item records, unlike priced shop goods. Existing wrapped skill choices are migrated when saved state is loaded, preserving the active run and pending rewards.
+
+**Authoritative client tables supply content, operands, conditions and rewards. User-approved `LOCAL` policies fill missing proprietary server rules; this is not a claim of retail server equivalence.** The corresponding comments in `AscNet.GameServer/Handlers/Theatre5Module.*.cs` define these boundaries:
+
+- **Generation/economy:** add satisfied condition weights to base item weights, treat positive `ExpectedNum` as an ownership/offer cap, and sample distinct goods/relic choices. PvE chapter-level order selects non-PvP shop tiers and the authored PvP income/skill curve; this shared-economy mapping is local. Unweighted event successors are uniform; backtracking selects the nearest prior branch in the same storyline without erasing completed history. Run/round encounter rotation and saved choices prevent retry rerolls.
+- **Commissions/effects:** one commission per adventure with three distinct offers; visible missions and condition kinds have equal weight. Missing mission-group composition uses round-based difficulty tiers, with groups `1003`/`1004` two tiers higher. Trigger/aggregation and zero-based effect operand decoding are local; relic subscription timing is transcribed from authored item descriptions, not parsed at runtime. Authored numeric operands take precedence over inconsistent translated text.
+- **PvP:** local matchmaking uses authored cup/defeat targets and rank-reduction rules, preferring matching persisted human builds before authored robots. The local rating ledger uses Elo expected score on a 400-point scale with authored `W`/`K` operands, final rounding, completion/overtime bonuses and rank-floor protection. These compositions are not recovered retail formulas.
+- **Permanent availability:** only Godfall calendars `34`, `35` and `46401` are user-approved permanent windows. `ActivityScheduleService` and the calendar generator use start `0` and an exclusive end of `3000-01-01 UTC`: a positive end is required by the PvP client, while year `9999` crashes its Windows `os.date` conversion. This representation stays within the Windows 64-bit CRT range with timezone margin; it is not a recovered retail date. Functional-open `10491`, storyline/chapter conditions, character access, costs and task prerequisites remain enforced; permanent calendars do not grant progression or open other seasons.
+- **Nameplates:** the shared `Character.Nameplates.cs` policy uses authored EXP thresholds in group quality order; new/expired awards start at the awarded tier and extra copies supply EXP. Timed awards refresh from the durable grant clock without shortening an active expiry; expired records reset tier, EXP and acquisition time. These timer/EXP compositions are explicitly user-approved local rules.
+- **Blocked reward shops:** authoritative goods catalogs for `1444`, `1445`, `1446`, `1449`, `1455`, `1457`, `1465` and `1467` are missing. Their ownership references do not supply goods, prices, rewards or limits. These catalogs remain a blocked prerequisite; unavailable shops reject access/purchase rather than invent products. In-run generated shops are separate.
+- **Native limits/proof:** settlement checks source-format invariants and frozen attempt identity, not a server combat simulation; the five battle-check `*Limit=1` operands have no recovered composition. The native result exposes no draw outcome (simultaneous deaths resolve as a loss), and deduction reports correctness rather than an answer ID. Synthetic transport/BSON checks and headless EN Lua replay do not prove rendered UI, movie playback or native combat.
+- **Native attributes:** expectations use the installed client's 148 attribute IDs and are rebuilt from the frozen entry response, frozen effects and authoritative tables; older saved derived snapshots are ignored. Conversion matches the shipped xLua integer boundary: fractional values become `0`, rather than being truncated. Incoming reports still require exact keys and values. Native-DLL numeric probes and handler regressions cover conversion, saved-attempt recovery and rejection of altered attributes; they do not prove native combat.
+
+Run the focused server compatibility harness:
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --theatre5-compat-only
+```
+
 ### Gender setup fix
 
 The current client needs gender selection to update both persisted player state and the live in-session player cache.

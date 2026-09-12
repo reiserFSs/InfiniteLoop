@@ -1,0 +1,21 @@
+Id	Priority	Name	Info	CharacterId	Tags[1]	Tags[2]	AttrId	TemplateId	NormalAttack	FashionIds[1]	FashionIds[2]	Index	PromotedAttrId
+1	1	Watanabe	The blades that once shielded the people and the legions that fought in Hell have collapsed and fallen beneath the shadow of the Sanctuary. The embers of the past spread with the wind as the "War Knight" gathers the flames and casts the decayed old world into the furnace. When the horns of doomsday are blown, the dead shall rise in search of vengeance, forging their final steel.	1081004	Blood DMG	Holy DMG	1011	1011	10113	1	2	1	1015
+2	2	Vera	The Scorched Borderland knows night no longer as twilight hangs eternal above the Fire Valley. The slumbering Death Knight returns from exile once more, seeking to reclaim her dominion and reforge the passage between the mortal realm and Hell. Yet, the cursed secrets within the ancient scrolls still smolder like a fire that refuses to extinguish. She lives, she blazes, she loves, and she kills—from river to sea, she will witness the destined ending with her own eyes.	1131004	Blood DMG	Spirit DMG	1013	1013	10213	3	4	2	1016
+3	3	Wanshi	The "Pestilence Knight" chases the trail of calamities, seeking the secrets buried beneath them. A shattered childhood, arcane texts of cruelty, and shadowed forests—all entwined by an uncanny dream, converging into the path to redemption. The twisted fate of the Sanctuary looms too near, yet the cure to save the world lies far beyond reach. Upon the long and dusty road, he walks alone.	1211003	Spirit DMG	Holy DMG	1010	1010	10013	5	7	3	1017
+4	4	Lilith	To reclaim the chips stolen by the Sanctuary, she took on the mantle of the Famine Knight, striding through endless wastelands. She refuses to be the loser who slips away from the spotlight, nor the nameless spirit buried in forgotten soil. Having clawed her way back from hell itself, she will roar at the three realms, howl through the blizzard, and make the world remember—"Gambler Lilith," undefeated and unyielding, has returned to the table.	1331003	Holy DMG	Spirit DMG	1012	1012	10313	6	8	4	1012
+5		Look down					8200	8200		101			8200
+6		Corrupted Construct					8201	8201		102			8201
+7		Angel Pilgrim					8202	8202	10901	103			8202
+8		Bio-Bull					8203	8203		104			8203
+9		Death of Iron					8204	8204	10902	105			8204
+10		Blood Tax Overseer					8205	8205	10903	106			8205
+11		Sanctuary Sin Eater					8206	8206	10904	107			8206
+12		Judgment Paladin					8207	8207	10905	108			8207
+13		Risen					8208	8208	10906	109			8208
+14		Retribution Angel					8209	8209	10907	110			8209
+15		Decayed					8210	8210	10908	111			8210
+16		Ruin Iron Guard					8211	8211	10909	112			8211
+17		Mammon					8212	8212	10910	113			8212
+18		Archangel					8213	8213	10911	114			8213
+19		Madam Raphael					8214	8214	10912	115			8214
+20		Night Sovereign					8215	8215	10913	116			8215

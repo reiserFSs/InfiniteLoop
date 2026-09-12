@@ -1,0 +1,2 @@
+WorldId	WorldType	Name	BgmId	LoadingType	FinishRewardShow	FinishDropId	TeamPlayerLimit	OnlinePlayerLimit	SettleLoseTipId	IsRank	MatchPlayerCountThreshold	NeedFightPower	DifficultyId	RebootId	MatchTimeoutSec
+200	5	v36自走棋魔影西部	37	10101	591003	173004	3	3	13	1	15	5000	115	1	300

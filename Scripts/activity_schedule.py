@@ -23,6 +23,14 @@ _DRAW_CAN_LIVER_TABLE = "en/bytes/share/draw/DrawCanLiverActivity.json"
 _SPECIAL_ACTIVITY_TABLE = "client/activitybrief/SpecialActivity.json"
 _FUBEN_CLIENT_CONFIG_TABLE = "client/fuben/FubenClientConfig.json"
 _FUBEN_ACTIVITY_TIME_TIPS_TABLE = "client/fuben/FubenActivityTimeTips.json"
+# Godfall's PvP timer requires a positive end. 3000-01-01 UTC is below the Windows
+# _localtime64 ceiling with enough room for every local-time-zone adjustment.
+# https://learn.microsoft.com/cpp/c-runtime-library/reference/localtime-localtime32-localtime64
+_GODFALL_CALENDAR_END = int(dt.datetime(3000, 1, 1, tzinfo=dt.timezone.utc).timestamp())
+_GODFALL_WINDOWS = {
+    time_id: (0, _GODFALL_CALENDAR_END, f"feature-window:Theatre5:unbounded-calendar:user-approved:TimeId={time_id}")
+    for time_id in (34, 35, 46401)
+}
 
 
 
@@ -879,6 +887,8 @@ def build_schedule(
                     f"EN share/fuben/charactertower/CharacterTower.json Id={row.get('Id')} OpenTimeId={time_id}; "
                     "unbounded availability policy, no promotional window authored",
                 )
+    # Only the approved Godfall calendars are unbounded, including notice-only refreshes.
+    output.update(_GODFALL_WINDOWS)
     return [(time_id, *output[time_id]) for time_id in sorted(output)]
 
 
@@ -917,6 +927,7 @@ def _preserve_refresh_derived_windows(
     for time_id, (start, end, source) in existing.items():
         if source.startswith("feature-window:") or source.startswith("version-history:"):
             output[time_id] = (start, end, source)
+    output.update(_GODFALL_WINDOWS)
     return [(time_id, *output[time_id]) for time_id in sorted(output)]
 
 

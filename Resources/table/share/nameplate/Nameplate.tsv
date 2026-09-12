@@ -1,0 +1,208 @@
+Id	Name	Title	NameplateQuality	Group	Description	NameplateGetWay	NameplateUpgradeType	DecomposeExp	UpgradeExp	ConvertItemId	ConvertItemCount	ExpireTimeStr	Duration	PlusTime	IconType	Icon	Params[1]	Params[2]	Hint[1]	Hint[2]	BackBoard	OutLineColor	QualityIcon	EffectRes
+17040101	25	25	1	401	26	29	2	0	0	0	0		0	0	2		1	10000	100000027	225000028	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040102	25	25	2	401	26	29	2	0	0	0	0		0	0	2		1	22500	100000027	225000028	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040103	25	25	3	401	26	29	2	0	0	0	0		0	0	2				100000027	225000028	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040201	30	30	1	402	31	29	2	0	0	0	0		0	0	2		2	10000	100000032	225000033	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040202	30	30	2	402	31	29	2	0	0	0	0		0	0	2		2	22500	100000032	225000033	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040203	30	30	3	402	31	29	2	0	0	0	0		0	0	2				100000032	225000033	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040301	34	34	1	403	35	29	2	0	0	0	0		0	0	2		3	10000	100000036	225000037	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040302	34	34	2	403	35	29	2	0	0	0	0		0	0	2		3	22500	100000036	225000037	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040303	34	34	3	403	35	29	2	0	0	0	0		0	0	2				100000036	225000037	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040401	38	38	1	404	39	29	2	0	0	0	0		0	0	2		4	10000	100000040	225000041	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040402	38	38	2	404	39	29	2	0	0	0	0		0	0	2		4	22500	100000040	225000041	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040403	38	38	3	404	39	29	2	0	0	0	0		0	0	2				100000040	225000041	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040501	42	42	1	405	43	29	2	0	0	0	0		0	0	2		5	10000	100000044	225000045	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040502	42	42	2	405	43	29	2	0	0	0	0		0	0	2		5	22500	100000044	225000045	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040503	42	42	3	405	43	29	2	0	0	0	0		0	0	2				100000044	225000045	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040601	46	46	1	406	47	29	2	0	0	0	0		0	0	2		6	10000	100000048	225000049	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040602	46	46	2	406	47	29	2	0	0	0	0		0	0	2		6	22500	100000048	225000049	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040603	46	46	3	406	47	29	2	0	0	0	0		0	0	2				100000048	225000049	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040701	50	50	1	407	51	29	2	0	0	0	0		0	0	2		7	10000	100000052	225000053	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040702	50	50	2	407	51	29	2	0	0	0	0		0	0	2		7	22500	100000052	225000053	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040703	50	50	3	407	51	29	2	0	0	0	0		0	0	2				100000052	225000053	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040801	54	54	1	408	55	29	2	0	0	0	0		0	0	2		8	10000	100000056	225000057	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040802	54	54	2	408	55	29	2	0	0	0	0		0	0	2		8	22500	100000056	225000057	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040803	54	54	3	408	55	29	2	0	0	0	0		0	0	2				100000056	225000057	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17040901	58	58	1	409	59	29	2	0	0	0	0		0	0	2		9	10000	100000060	225000061	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17040902	58	58	2	409	59	29	2	0	0	0	0		0	0	2		9	22500	100000060	225000061	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17040903	58	58	3	409	59	29	2	0	0	0	0		0	0	2				100000060	225000061	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041001	62	62	1	410	63	29	2	0	0	0	0		0	0	2		10	10000	100000064	225000065	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041002	62	62	2	410	63	29	2	0	0	0	0		0	0	2		10	22500	100000064	225000065	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041003	62	62	3	410	63	29	2	0	0	0	0		0	0	2				100000064	225000065	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041101	66	66	1	411	67	29	2	0	0	0	0		0	0	2		11	10000	100000068	225000069	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041102	66	66	2	411	67	29	2	0	0	0	0		0	0	2		11	22500	100000068	225000069	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041103	66	66	3	411	67	29	2	0	0	0	0		0	0	2				100000068	225000069	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041201	70	70	1	412	71	29	2	0	0	0	0		0	0	2		12	10000	100000072	225000073	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041202	70	70	2	412	71	29	2	0	0	0	0		0	0	2		12	22500	100000072	225000073	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041203	70	70	3	412	71	29	2	0	0	0	0		0	0	2				100000072	225000073	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041301	74	74	1	413	75	29	2	0	0	0	0		0	0	2		13	10000	100000076	225000077	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041302	74	74	2	413	75	29	2	0	0	0	0		0	0	2		13	22500	100000076	225000077	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041303	74	74	3	413	75	29	2	0	0	0	0		0	0	2				100000076	225000077	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041401	78	78	1	414	79	29	2	0	0	0	0		0	0	2		14	10000	100000080	225000081	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041402	78	78	2	414	79	29	2	0	0	0	0		0	0	2		14	22500	100000080	225000081	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041403	78	78	3	414	79	29	2	0	0	0	0		0	0	2				100000080	225000081	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041501	82	82	1	415	83	29	2	0	0	0	0		0	0	2		15	10000	100000084	225000085	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041502	82	82	2	415	83	29	2	0	0	0	0		0	0	2		15	22500	100000084	225000085	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041503	82	82	3	415	83	29	2	0	0	0	0		0	0	2				100000084	225000085	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041601	86	86	1	416	87	29	2	0	0	0	0		0	0	2		16	10000	100000088	225000089	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041602	86	86	2	416	87	29	2	0	0	0	0		0	0	2		16	22500	100000088	225000089	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041603	86	86	3	416	87	29	2	0	0	0	0		0	0	2				100000088	225000089	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041701	90	90	1	417	91	29	2	0	0	0	0		0	0	2		17	10000	100000092	225000093	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041702	90	90	2	417	91	29	2	0	0	0	0		0	0	2		17	22500	100000092	225000093	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041703	90	90	3	417	91	29	2	0	0	0	0		0	0	2				100000092	225000093	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041801	94	94	1	418	95	29	2	0	0	0	0		0	0	2		18	10000	100000096	225000097	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041802	94	94	2	418	95	29	2	0	0	0	0		0	0	2		18	22500	100000096	225000097	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041803	94	94	3	418	95	29	2	0	0	0	0		0	0	2				100000096	225000097	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17041901	98	98	1	419	99	29	2	0	0	0	0		0	0	2		19	10000	100000100	225000101	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17041902	98	98	2	419	99	29	2	0	0	0	0		0	0	2		19	22500	100000100	225000101	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17041903	98	98	3	419	99	29	2	0	0	0	0		0	0	2				100000100	225000101	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17042001	102	102	1	420	103	29	2	0	0	0	0		0	0	2		20	10000	100000104	225000105	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17042002	102	102	2	420	103	29	2	0	0	0	0		0	0	2		20	22500	100000104	225000105	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17042003	102	102	3	420	103	29	2	0	0	0	0		0	0	2				100000104	225000105	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17042101	106	106	1	421	107	29	2	0	0	0	0		0	0	2		21	10000	100000108	225000109	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17042102	106	106	2	421	107	29	2	0	0	0	0		0	0	2		21	22500	100000108	225000109	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17042103	106	106	3	421	107	29	2	0	0	0	0		0	0	2				100000108	225000109	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17042201	110	110	1	422	111	29	2	0	0	0	0		0	0	2		22	10000	100000112	225000113	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17042202	110	110	2	422	111	29	2	0	0	0	0		0	0	2		22	22500	100000112	225000113	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17042203	110	110	3	422	111	29	2	0	0	0	0		0	0	2				100000112	225000113	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17042301	114	114	1	423	115	29	2	0	0	0	0		0	0	2		23	10000	100000116	225000117	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17042302	114	114	2	423	115	29	2	0	0	0	0		0	0	2		23	22500	100000116	225000117	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17042303	114	114	3	423	115	29	2	0	0	0	0		0	0	2				100000116	225000117	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17042401	118	118	1	424	119	29	2	0	0	0	0		0	0	2		24	10000	100000120	225000121	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCopper.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17042402	118	118	2	424	119	29	2	0	0	0	0		0	0	2		24	22500	100000120	225000121	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSilver.png	303030	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17042403	118	118	3	424	119	29	2	0	0	0	0		0	0	2				100000120	225000121	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateGold.png	582903	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel33.png	
+17050101	122	122	1	501	123	10125	3	100	100	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT101.png			150124					Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeNameplateT101.prefab
+17050102	122	122	2	501	123	10125	3	100	100	0	0		2592000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT101.png			300124					Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeNameplateT101.prefab
+17050103	122	122	3	501	123	10125	3	100	0	0	0		3888000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT101.png			450124					Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeNameplateT101.prefab
+17050104	126	126	1	502	127	300129	3	100	100	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplatet204.png			150128					
+17050105	126	126	2	502	127	300130	3	100	100	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT202.png			150128					
+17050106	126	126	3	502	127	100130	3	100	0	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT209.png			150128					
+17050107	131	131	1	503	127	300132	3	100	100	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT207.png			150128					
+17050108	131	131	2	503	127	300133	3	100	100	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT205.png			150128					
+17050109	131	131	3	503	127	100133	3	100	0	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT201.png			150128					
+17050110	134	134	1	504	127	300135	3	100	100	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT203.png			150128					
+17050111	134	134	2	504	127	300136	3	100	100	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateT208.png			150128					
+17050112	134	134	3	504	127	100136	3	100	0	0	0		1296000	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplatet206.png			150128					
+17050113	137	137	1	601	138	140	1	0	0	0	0		604800	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSingleBossT1N1s.png			70139					Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeNameplateT1N1.prefab
+17050114	141	141	1	602	142	143	1	0	0	0	0		604800	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSingleBossT2N1s.png			70139					
+17050115	144	144	1	603	145	146	1	0	0	0	0		604800	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSingleBossT2N2s.png			70139					
+17050116	147	147	3	604	148	10149	1	0	0	0	0		604800	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSingleBossT1N2s.png			70139					Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeNameplateT1N2.prefab
+17050117	150	150	2	605	151	152	1	0	0	0	0		604800	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSingleBossT2N3s.png			70139					
+17050118	153	153	1	606	154	155	1	0	0	0	0		604800	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateSingleBossT2N4s.png			70139					
+17060101	156	156	1	701	26	29	2	0	0	0	0		0	0	2		201	20000	200000157	450000028	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060102	156	156	2	701	26	29	2	0	0	0	0		0	0	2		201	45000	200000157	450000028	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060103	156	156	3	701	26	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar08.png			200000157	450000028				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060201	158	158	1	702	31	29	2	0	0	0	0		0	0	2		202	20000	200000159	450000033	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060202	158	158	2	702	31	29	2	0	0	0	0		0	0	2		202	45000	200000159	450000033	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060203	158	158	3	702	31	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar16.png			200000159	450000033				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060301	160	160	1	703	35	29	2	0	0	0	0		0	0	2		203	20000	200000161	450000037	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060302	160	160	2	703	35	29	2	0	0	0	0		0	0	2		203	45000	200000161	450000037	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060303	160	160	3	703	35	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar23.png			200000161	450000037				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060401	162	162	1	704	39	29	2	0	0	0	0		0	0	2		204	20000	200000163	450000041	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060402	162	162	2	704	39	29	2	0	0	0	0		0	0	2		204	45000	200000163	450000041	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060403	162	162	3	704	39	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar21.png			200000163	450000041				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060501	164	164	1	705	43	29	2	0	0	0	0		0	0	2		205	20000	200000165	450000045	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060502	164	164	2	705	43	29	2	0	0	0	0		0	0	2		205	45000	200000165	450000045	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060503	164	164	3	705	43	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar05.png			200000165	450000045				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060601	166	166	1	706	47	29	2	0	0	0	0		0	0	2		206	20000	200000167	450000049	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060602	166	166	2	706	47	29	2	0	0	0	0		0	0	2		206	45000	200000167	450000049	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060603	166	166	3	706	47	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar10.png			200000167	450000049				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060701	168	168	1	707	51	29	2	0	0	0	0		0	0	2		207	20000	200000169	450000053	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060702	168	168	2	707	51	29	2	0	0	0	0		0	0	2		207	45000	200000169	450000053	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060703	168	168	3	707	51	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar13.png			200000169	450000053				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060801	170	170	1	708	55	29	2	0	0	0	0		0	0	2		208	20000	200000171	450000057	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060802	170	170	2	708	55	29	2	0	0	0	0		0	0	2		208	45000	200000171	450000057	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060803	170	170	3	708	55	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar11.png			200000171	450000057				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17060901	172	172	1	709	59	29	2	0	0	0	0		0	0	2		209	20000	200000173	450000061	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17060902	172	172	2	709	59	29	2	0	0	0	0		0	0	2		209	45000	200000173	450000061	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17060903	172	172	3	709	59	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar03.png			200000173	450000061				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061001	174	174	1	710	63	29	2	0	0	0	0		0	0	2		2010	20000	200000175	450000065	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061002	174	174	2	710	63	29	2	0	0	0	0		0	0	2		2010	45000	200000175	450000065	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061003	174	174	3	710	63	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar26.png			200000175	450000065				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061101	176	176	1	711	67	29	2	0	0	0	0		0	0	2		2011	20000	200000177	450000069	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061102	176	176	2	711	67	29	2	0	0	0	0		0	0	2		2011	45000	200000177	450000069	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061103	176	176	3	711	67	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar12.png			200000177	450000069				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061201	178	178	1	712	71	29	2	0	0	0	0		0	0	2		2012	20000	200000179	450000073	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061202	178	178	2	712	71	29	2	0	0	0	0		0	0	2		2012	45000	200000179	450000073	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061203	178	178	3	712	71	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar09.png			200000179	450000073				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061301	180	180	1	713	75	29	2	0	0	0	0		0	0	2		2013	20000	200000181	450000077	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061302	180	180	2	713	75	29	2	0	0	0	0		0	0	2		2013	45000	200000181	450000077	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061303	180	180	3	713	75	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar04.png			200000181	450000077				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061401	182	182	1	714	79	29	2	0	0	0	0		0	0	2		2014	20000	200000183	450000081	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061402	182	182	2	714	79	29	2	0	0	0	0		0	0	2		2014	45000	200000183	450000081	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061403	182	182	3	714	79	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar20.png			200000183	450000081				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061501	184	184	1	715	83	29	2	0	0	0	0		0	0	2		2015	20000	200000185	450000085	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061502	184	184	2	715	83	29	2	0	0	0	0		0	0	2		2015	45000	200000185	450000085	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061503	184	184	3	715	83	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar22.png			200000185	450000085				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061601	186	186	1	716	87	29	2	0	0	0	0		0	0	2		2016	20000	200000187	450000089	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061602	186	186	2	716	87	29	2	0	0	0	0		0	0	2		2016	45000	200000187	450000089	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061603	186	186	3	716	87	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar18.png			200000187	450000089				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061701	188	188	1	717	91	29	2	0	0	0	0		0	0	2		2017	20000	200000189	450000093	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061702	188	188	2	717	91	29	2	0	0	0	0		0	0	2		2017	45000	200000189	450000093	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061703	188	188	3	717	91	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar06.png			200000189	450000093				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061801	190	190	1	718	95	29	2	0	0	0	0		0	0	2		2018	20000	200000191	450000097	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061802	190	190	2	718	95	29	2	0	0	0	0		0	0	2		2018	45000	200000192	450000097	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061803	190	190	3	718	95	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar14.png			200000191	450000097				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17061901	193	193	1	719	99	29	2	0	0	0	0		0	0	2		2019	20000	200000194	450000101	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17061902	193	193	2	719	99	29	2	0	0	0	0		0	0	2		2019	45000	200000194	450000101	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17061903	193	193	3	719	99	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar15.png			200000194	450000101				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062001	195	195	1	720	103	29	2	0	0	0	0		0	0	2		2020	20000	200000196	450000105	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062002	195	195	2	720	103	29	2	0	0	0	0		0	0	2		2020	45000	200000196	450000105	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062003	195	195	3	720	103	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar17.png			200000196	450000105				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062101	197	197	1	721	107	29	2	0	0	0	0		0	0	2		2021	20000	200000198	450000109	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062102	197	197	2	721	107	29	2	0	0	0	0		0	0	2		2021	45000	200000198	450000109	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062103	197	197	3	721	107	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar19.png			200000198	450000109				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062201	199	199	1	722	111	29	2	0	0	0	0		0	0	2		2022	20000	200000200	450000113	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062202	199	199	2	722	111	29	2	0	0	0	0		0	0	2		2022	45000	200000200	450000113	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062203	199	199	3	722	111	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar07.png			200000200	450000113				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062301	201	201	1	723	210202	29	2	0	0	0	0		0	0	2		2023	20000	203	204	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062302	201	201	2	723	210202	29	2	0	0	0	0		0	0	2		2023	45000	203	204	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062303	201	201	3	723	210202	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar24.png			203	204				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062401	205	205	1	724	206	29	2	0	0	0	0		0	0	2		2024	20000	200000207	450000208	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062402	205	205	2	724	206	29	2	0	0	0	0		0	0	2		2024	45000	200000207	450000208	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062403	205	205	3	724	206	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar27.png			200000207	450000208				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062501	209	209	1	725	210	29	2	0	0	0	0		0	0	2		2025	20000	200000211	450000212	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062502	209	209	2	725	210	29	2	0	0	0	0		0	0	2		2025	45000	200000211	450000212	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062503	209	209	3	725	210	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar29.png			200000211	450000212				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062601	213	213	1	726	214	29	2	0	0	0	0		0	0	2		2026	20000	200000215	450000216	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062602	213	213	2	726	214	29	2	0	0	0	0		0	0	2		2026	45000	200000215	450000216	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062603	213	213	3	726	214	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar28.png			200000215	450000216				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062701	217	217	1	727	218	29	2	0	0	0	0		0	0	2		2027	20000	200000219	450000220	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar01.png	4d4d50	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel31.png	
+17062702	217	217	2	727	218	29	2	0	0	0	0		0	0	2		2027	45000	200000219	450000220	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar02.png	414c72	Assets/Product/Texture/Atlas/UiCollection/CollectionLevel32.png	
+17062703	217	217	3	727	218	29	2	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetMoeWar25.png			200000219	450000220				Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainJiangbing.prefab
+17062801	221	221	1	728	222	223	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCourseT203.png			223					
+17062802	224	224	2	729	225	226	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCourseT202.png			226					
+17062803	227	227	2	730	228	229	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCourseT201.png			229					
+17062804	230	230	3	731	231	232	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateCourse01.png			232					Assets/Product/Effect/Prefab/FxUi/FxUiCourseCombatlicense/FxUiNameplateCourse01.prefab
+17062901	233	233	2	732	234	236	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetDlcHuntT201.png			235					
+17062902	237	237	2	733	238	236	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetDlcHuntT202.png			239					
+17062903	240	240	3	734	241	236	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UINameplatetDlcHuntT301.png			242					Assets/Product/Effect/Prefab/FxUi/FxUiChatServeMain/FxUiChatServeMainDlcHunt.prefab
+17063001	243	243	2	735	244	245	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBfrt.png								
+17063101	246	246	3	736	247	200000248	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateAccumulatedPay01.png								Assets/Product/Effect/Prefab/FxUi/FxUiMain/FxUiNameplateAccumulatedPay.prefab
+17063201	249	249	3	737	250	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot01.png								
+17063301	252	252	3	738	253	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot02.png								
+17063401	254	254	3	739	255	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot03.png								
+17063501	256	256	3	740	257	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot04.png								
+17063601	258	258	3	741	259	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot05.png								
+17063701	260	260	3	742	261	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot06.png								
+17063801	262	262	3	743	263	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot07.png								
+17063901	264	264	3	747	265	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot08.png								
+17064001	266	266	3	746	267	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot09.png								
+17064101	268	268	3	748	269	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot10.png								
+17064201	270	270	1	749	271	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre501.png								
+17064202	273	273	2	750	274	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre502.png								
+17064203	275	275	3	751	276	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre503.png								
+17064301	277	277	1	752	278	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre504.png								
+17064302	279	279	2	753	280	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre505.png								
+17064303	281	281	3	754	282	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre506.png								
+17064401	286	286	3	756	287	288	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateFashionSuit1.png								Assets/Product/Effect/Prefab/FxUi/FxUiNameplateFashionSuit/FxUiNameplateFashionSuit01.prefab
+17064601	292	292	1	758	293	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre507.png								
+17064602	294	294	2	759	295	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre508.png								
+17064603	296	296	3	760	297	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre509.png								
+17064604	298	298	3	761	299	300	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre510.png								
+17064701	301	301	1	762	302	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre511.png								
+17064702	303	303	2	763	304	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre512.png								
+17064703	305	305	3	764	306	272	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateTheatre513.png								
+17064704	307	307	3	765	308	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot12.png								
+17064705	309	309	3	766	310	251	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateBossInshot11.png								
+17064706	311	311	3	767	312	313	1	0	0	0	0		0	0	1	Assets/Product/Texture/Atlas/UiNameplate/UiNameplateUnfadingCerulean01.png								Assets/Product/Effect/Prefab/FxUi/FxUiNameplateFashionSuit/FxUiNameplateFashionSuit02.prefab

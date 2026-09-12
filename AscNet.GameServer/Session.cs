@@ -111,6 +111,18 @@ namespace AscNet.GameServer
 
             if (Volatile.Read(ref disconnectState) != 0)
                 return;
+            // Dispatch already holds MembershipLock. Reject foreign progress before
+            // participant recovery or reset can change the pending owner's epoch.
+            if (request.Name is not ("LoginRequest" or "HandshakeRequest")
+                && currentPlayer.Theatre5.PendingMutation is { } pending
+                && pending.ResponseName is not (nameof(Handlers.FinishTaskResponse) or nameof(Handlers.FinishMultiTaskResponse))
+                && !Handlers.Theatre5Module.CanDispatchPendingRequest(this, request))
+            {
+                string responseName = request.Name.EndsWith("Request", StringComparison.Ordinal)
+                    ? request.Name[..^7] + "Response" : request.Name + "Response";
+                SendResponse(responseName, MessagePackSerializer.Serialize(new Dictionary<string, int> { ["Code"] = 1 }), request.Id);
+                return;
+            }
             Handlers.GuildModule.RecoverParticipant(this, currentPlayer.PlayerData.Id);
 
             lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))

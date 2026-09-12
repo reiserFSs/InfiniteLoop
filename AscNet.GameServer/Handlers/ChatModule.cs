@@ -359,7 +359,7 @@ namespace AscNet.GameServer.Handlers
                 HeadFrameId = (int)session.player.PlayerData.CurrHeadFrameId,
                 CreateTime = DateTimeOffset.Now.ToUnixTimeSeconds(),
                 NickName = session.player.PlayerData.Name,
-                NameplateId = 0,
+                NameplateId = session.character.GetCurrentWearNameplate(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
                 Content = chatData.Content?.TrimStart('\r', '\n'),
                 CustomContent = null,
                 GiftId = chatData.GiftId,

@@ -1,0 +1,42 @@
+Id	LevelGroup	Title	Desc	BgAsset	Hp	StartStory	EndStory	BaseRewardCoin	LevelRewardCoin	HpRewardCoin	LossRewardFactor	BagRuneGridInitCount	GridUnlockDiscount	CloseStoryTips
+101	101	Prelude	Prologue	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01000BA		100	10	10	5	3	3	1
+201	201	Field Investigation	Watanabe Stage 1 - Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+202	202	Field Investigation	Watanabe Stage 2 - Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+203	203	Valley Ambush	Watanabe Stage 3 - Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01002BA		100	10	10	5	3	3	
+204	204	Field Investigation	Watanabe Stage 4 - Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+205	205	Prison Riot	Watanabe Stage 5 - Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01004BA		100	10	10	5	3	3	
+206	206	Battle Against Death of Iron	Watanabe Stage 6 - Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01005BA	RG01006BA	100	10	10	5	3	3	
+207	207	Field Investigation	Watanabe Grinding Stage	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+301	301	Field Investigation	1-1 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+302	302	Voyage to Hell	2-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+303	303	Battle Against Angels	2-2 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5		RG01008EA	100	10	10	5	3	3	
+304	304	Field Investigation	3-1 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+305	305	Into the Demon Fortress	4-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+306	306	Field Investigation	4-2 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+307	307	Battle Against the Witch	5-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01011BA	RG01011EA	100	10	10	5	3	3	
+308	308	Field Investigation	Vera Grinding Stage	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+401	401	Field Investigation	Wanshi 1-1 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+402	402	Field Investigation	Wanshi 2-1 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+403	403	Field Investigation	Wanshi 2-2 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+404	404	Battle Against the Holy Maiden	Wanshi 3-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01103BA		100	10	10	5	3	3	
+405	405	Memory in Amber	Wanshi 4-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+406	406	Farewell to Uriel	Wanshi 5-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01105BA	RG01106BA	100	10	10	5	3	3	
+407	407	Field Investigation	Wanshi Grinding Stage	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+501	501	Field Investigation	Lilith 1-1 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+502	502	Field Investigation	Lilith 2-1 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+503	503	Whitehorse Siege	Lilith 2-2 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01202BA		100	10	10	5	3	3	
+504	504	City of No Return Bloodbath	Lilith 3-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01203BA		100	10	10	5	3	3	
+505	505	Raphael's Downfall	Lilith 4-1 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01204BA		100	10	10	5	3	3	
+506	506	Field Investigation	Lilith 5-1 Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01205BA		100	10	10	5	3	3	
+507	507	Collapse of the Golden Law	Lilith 5-2 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5		RG01206BA	100	10	10	5	3	3	
+508	508	Field Investigation	Lilith Multi Clear	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+601	601	Field Investigation	3.8 Common Storyline Investigation Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+602	602	Skylight Strike	3.8 Common Storyline 2 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01302BA	RG01303BA	100	10	10	5	3	3	
+603	603	Train Death Race	3.8 Common Storyline 3 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5		RG01304BA	100	10	10	5	3	3	
+604	604	Sea of Annihilation	3.8 Common Storyline 4 Custom Battle	Assets/Product/Texture/Image/BgUi/BgActive01.png	5		RG01305BA	100	10	10	5	3	3	
+605	605	Field Investigation	3.8 Common Storyline Multi Clear	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+701	701	Field Investigation	4.1女主线	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+702	702	Field Investigation	4.1女主线	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01402BA		100	10	10	5	3	3	
+703	703	Field Investigation	4.1女主线	Assets/Product/Texture/Image/BgUi/BgActive01.png	5			100	10	10	5	3	3	
+704	704	Eternal Conquest	4.1女主线	Assets/Product/Texture/Image/BgUi/BgActive01.png	5		RG01405EA	100	10	10	5	3	3	
+705	705	Scorched Borderland	4.1女主线	Assets/Product/Texture/Image/BgUi/BgActive01.png	5	RG01406BA	RG01406EA	100	10	10	5	3	3	

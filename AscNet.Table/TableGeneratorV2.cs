@@ -35,7 +35,7 @@ namespace AscNet.Table
                         MemberType? member = members.FirstOrDefault(x => x.Name == name);
                         if (member == null)
                         {
-                            member = new MemberType { Name = name };
+                            member = new MemberType(name);
                             members.Add(member);
                         }
                         // Indexed columns share inference so later cells can promote the element type.
@@ -126,10 +126,10 @@ namespace AscNet.Table.V2{ns}
 
         public void Initialize(GeneratorInitializationContext context) { }
 
-        class MemberType
+        class MemberType(string name)
         {
-            public string Name { get; set; }
-            public string Type { get; set; }
+            public string Name { get; } = name;
+            public string? Type { get; set; }
             public bool Nullable { get; set; }
         }
     }

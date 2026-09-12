@@ -1,0 +1,79 @@
+Id	GroupId	Stage	EnemyName	EnemyType	EnemyId
+1	1	1071	Angel Pilgrim	1	1
+2	1	1072	Angel Pilgrim	1	1
+3	1	1073	Angel Pilgrim	1	1
+4	1	1074	Angel Pilgrim	1	1
+5	1	1075	Angel Pilgrim	1	1
+6	1	1076	Angel Pilgrim	1	1
+7	1	1071	Blood Tax Overseer	1	2
+8	1	1072	Blood Tax Overseer	1	2
+9	1	1073	Blood Tax Overseer	1	2
+10	1	1074	Blood Tax Overseer	1	2
+11	1	1075	Blood Tax Overseer	1	2
+12	1	1076	Blood Tax Overseer	1	2
+13	1	1071	Sanctuary Sin Eater	1	3
+14	1	1072	Sanctuary Sin Eater	1	3
+15	1	1073	Sanctuary Sin Eater	1	3
+16	1	1074	Sanctuary Sin Eater	1	3
+17	1	1075	Sanctuary Sin Eater	1	3
+18	1	1076	Sanctuary Sin Eater	1	3
+19	1	1071	Judgment Paladin	1	4
+20	1	1072	Judgment Paladin	1	4
+21	1	1073	Judgment Paladin	1	4
+22	1	1074	Judgment Paladin	1	4
+23	1	1075	Judgment Paladin	1	4
+24	1	1076	Judgment Paladin	1	4
+25	2	1071	Risen	1	5
+26	2	1072	Risen	1	5
+27	2	1073	Risen	1	5
+28	2	1074	Risen	1	5
+29	2	1075	Risen	1	5
+30	2	1076	Risen	1	5
+31	2	1071	Decayed	1	7
+32	2	1072	Decayed	1	7
+33	2	1073	Decayed	1	7
+34	2	1074	Decayed	1	7
+35	2	1075	Decayed	1	7
+36	2	1076	Decayed	1	7
+37	2	1071	Ruin Iron Guard	1	8
+38	2	1072	Ruin Iron Guard	1	8
+39	2	1073	Ruin Iron Guard	1	8
+40	2	1074	Ruin Iron Guard	1	8
+41	2	1075	Ruin Iron Guard	1	8
+42	2	1076	Ruin Iron Guard	1	8
+43	2	1071	Judgment Paladin	1	4
+44	2	1072	Judgment Paladin	1	4
+45	2	1073	Judgment Paladin	1	4
+46	2	1074	Judgment Paladin	1	4
+47	2	1075	Judgment Paladin	1	4
+48	2	1076	Judgment Paladin	1	4
+10001	99999	1071	Angel Pilgrim	1	1
+10002	99999	1072	Angel Pilgrim	1	1
+10003	99999	1073	Angel Pilgrim	1	1
+10004	99999	1074	Angel Pilgrim	1	1
+10005	99999	1075	Angel Pilgrim	1	1
+10006	99999	1076	Angel Pilgrim	1	1
+11001	99999	1071	Blood Tax Overseer	1	2
+11002	99999	1072	Blood Tax Overseer	1	2
+11003	99999	1073	Blood Tax Overseer	1	2
+11004	99999	1074	Blood Tax Overseer	1	2
+11005	99999	1075	Blood Tax Overseer	1	2
+11006	99999	1076	Blood Tax Overseer	1	2
+12001	99999	1071	Sanctuary Sin Eater	1	3
+12002	99999	1072	Sanctuary Sin Eater	1	3
+12003	99999	1073	Sanctuary Sin Eater	1	3
+12004	99999	1074	Sanctuary Sin Eater	1	3
+12005	99999	1075	Sanctuary Sin Eater	1	3
+12006	99999	1076	Sanctuary Sin Eater	1	3
+13001	99999	1071	Judgment Paladin	1	4
+13002	99999	1072	Judgment Paladin	1	4
+13003	99999	1073	Judgment Paladin	1	4
+13004	99999	1074	Judgment Paladin	1	4
+13005	99999	1075	Judgment Paladin	1	4
+13006	99999	1076	Judgment Paladin	1	4
+20001	99999	1071	Death of Iron	1	201
+40001	40001	1071	Retribution Angel	1	6
+50001	50001	1071	Madam Raphael	1	11
+50002	50002	1071	"Mammon"	1	9
+50003	50003	1071	Archangel	1	10
+60001	60001	1071	Night Sovereign	1	12

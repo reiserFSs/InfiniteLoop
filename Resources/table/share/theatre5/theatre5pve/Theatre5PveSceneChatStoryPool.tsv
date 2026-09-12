@@ -1,0 +1,39 @@
+Id	Type	Param	SceneChatGroup	Characters[1]	Characters[2]	Characters[3]	Characters[4]
+201	2	Character1	10201	1			
+202	2	Character1	10202	1			
+203	1	UiTheatre5ChooseCharacter	10203	1			
+204	1	UiTheatre5ChooseCharacter	10204	1			
+205	1	UiTheatre5ChooseCharacter	10205	1			
+206	1	UiTheatre5ChooseCharacter	10206	1			
+301	2	Character2	10301	2			
+302	2	Character2	10302	2			
+303	2	Character2	10303	2			
+304	2	Character2	10304	2			
+305	2	Character2	10305	2			
+306	2	Character2	10306	2			
+307	2	Character2	10307	2			
+401	2	Character3	10401	3			
+402	2	Character3	10402	3			
+403	2	Character3	10403	3			
+404	2	Character3	10404	3			
+405	2	Character3	10405	3			
+406	2	Character3	10406	3			
+501	2	Character4	10501	4			
+502	2	Character4	10502	4			
+503	2	Character4	10503	4			
+504	2	Character4	10504	4			
+505	2	Character4	10505	4			
+506	2	Character4	10506	4			
+507	2	Character4	10507	4			
+601	1	UiTheatre5ChooseCharacter	10601	1	2	3	4
+602	1	UiTheatre5ChooseCharacter	10602	1	2	3	4
+603	1	UiTheatre5ChooseCharacter	10603	1	2	3	4
+604	1	UiTheatre5ChooseCharacter	10604	1	2	3	4
+605	1	UiTheatre5ChooseCharacter	10605	1	2	3	4
+701	1	UiTheatre5ChooseCharacter	10701	1	2	3	4
+702	1	UiTheatre5ChooseCharacter	10702	1	2	3	4
+703	1	UiTheatre5ChooseCharacter	10703	1	2	3	4
+704	1	UiTheatre5ChooseCharacter	10704	1	2	3	4
+705	1	UiTheatre5ChooseCharacter	10705	1	2	3	4
+706	1	UiTheatre5ChooseCharacter	10706	1	2	3	4
+707	1	UiTheatre5ChooseCharacter	10707	1	2	3	4

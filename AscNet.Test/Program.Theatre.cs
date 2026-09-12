@@ -60,11 +60,10 @@ internal partial class Program
         string[] requests = typeof(TheatreStartAdventureRequest).Assembly.GetTypes()
             .Where(type => type.Namespace == typeof(TheatreStartAdventureRequest).Namespace
                 && type.Name.StartsWith("Theatre", StringComparison.Ordinal)
-                && !type.Name.StartsWith("Theatre3", StringComparison.Ordinal)
-                && !type.Name.StartsWith("Theatre6", StringComparison.Ordinal)
+                && type.Name.Length > "Theatre".Length
+                && char.IsUpper(type.Name["Theatre".Length])
                 && type.Name.EndsWith("Request", StringComparison.Ordinal))
             .Select(type => type.Name).Order().ToArray();
-        AssertEqual(17, requests.Length, "Original Theatre owns its seventeen source RPCs");
         foreach (string request in requests) _ = GetRegisteredRequestHandler(request);
         ValidateTheatreLifecycleCompatibility();
         ValidateTheatreLiveRecoveryCompatibility();

@@ -1,0 +1,25 @@
+Id	MainlineFashionId	DlcModelId	DlcWeaponId[1]	DlcWeaponId[2]	Portrait	MatchImg	AnimatorController	NormalIdleAnima	ChooseAnima	DetailIdleAnima	NoChooseSwitchAnima	NoChooseAnima	ChooseSwitchAnima
+1					Assets/Product/Texture/Image/Role/RoleHeadR4Dubian3.png	Assets/Product/Texture/Image/RoleStory/V280dbNormal01.png	Assets/Product/Role/Animation/R4DubianMd010031/R4DubianMd010031Display/R4DubianMd010031Theatre5.controller	Theatre04	Theatre03	StandAct0101	Theatre04	Theatre01	Theatre02
+2	6003605	R4DubianMd019071RM	101102		Assets/Product/Texture/Image/Role/RoleHeadR4Dubian5.png	Assets/Product/Texture/Image/RoleStory/V3600DubianNormal05.png	Assets/Product/Role/Animation/R4DubianMd019071/R4DubianMd019071Display/R4DubianMd019071Theatre5.controller	Theatre04	Theatre03	StandAct0101	Theatre04	Theatre01	Theatre02
+3					Assets/Product/Texture/Image/Role/RoleHeadR4Weila3.png	Assets/Product/Texture/Image/RoleStory/V3400wlNormal12.png	Assets/Product/Role/Animation/R4WeilaMd010031/R4WeilaMd010031Display/R4WeilaMd010031Theatre5.controller	Theatre04	Theatre03	StandAct0101	Theatre04	Theatre01	Theatre02
+4	6005004	R4WeilaMd019011RM	101303	101304	Assets/Product/Texture/Image/Role/RoleHeadR4Weila5.png	Assets/Product/Texture/Image/RoleStory/V3400wlNormal013.png	Assets/Product/Role/Animation/R4WeilaMd019011/R4WeilaMd019011Display/R4WeilaMd019011Theatre5.controller	Theatre04	Theatre03	StandAct0101	Theatre04	Theatre01	Theatre02
+5					Assets/Product/Texture/Image/Role/RoleHeadR3Wanshi3.png	Assets/Product/Texture/Image/RoleStory/V2140wssNormal01.png	Assets/Product/Role/Animation/R3WanshiMd010031/R3WanshiMd010031Display/R3WanshiMd010031Theatre5.controller	Theatre01	Theatre01	StandAct0101	Theatre01	Theatre01	Theatre02
+6					Assets/Product/Texture/Image/Role/RoleHeadR3Lilith3.png	Assets/Product/Texture/Image/RoleStory/V3100llsNormal01.png	Assets/Product/Role/Animation/R3LilithMd010031/R3LilithMd010031Display/R3LilithMd010031Theatre5.controller	Theatre05	Theatre06	StandAct0101	Theatre05	Theatre05	Theatre06
+7	6004205	R3WanshiMd019281RM	101002		Assets/Product/Texture/Image/Role/RoleHeadR3Wanshi5.png	Assets/Product/Texture/Image/RoleStory/V3700WsNormal03.png	Assets/Product/Role/Animation/R3WanshiMd019281/R3WanshiMd019281Display/R3WanshiMd019281Theatre5.controller	Theatre01	Theatre01	StandAct0101	Theatre01	Theatre01	Theatre02
+8	6004706	R3LilithMd019281RM	101202		Assets/Product/Texture/Image/Role/RoleHeadR3Lilith6.png	Assets/Product/Texture/Image/RoleStory/V3700LilisNormal02.png	Assets/Product/Role/Animation/R3LilithMd019281/R3LilithMd019281Display/R3LilithMd019281Theatre5.controller	Theatre05	Theatre06	StandAct0101	Theatre05	Theatre05	Theatre06
+101													
+102													
+103					Assets/Product/Texture/Image/RoleCharacter/V130stNormal02.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster93311.png							
+104													
+105					Assets/Product/Texture/Image/RoleCharacter/V280bldNormal02.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster85650.png							
+106					Assets/Product/Texture/Image/RoleCharacter/Me1SimmoonguyMd010001.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster85300.png							
+107					Assets/Product/Texture/Image/RoleCharacter/RenzhicuoroutiNormal01.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster93501.png							
+108					Assets/Product/Texture/Image/RoleCharacter/ShengtangNormal01.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster93070.png							
+109					Assets/Product/Texture/Image/RoleCharacter/Me1ShuixingnvMd010001.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster93553.png							
+110					Assets/Product/Texture/Image/RoleCharacter/ShengtangNormal01.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster93553.png							
+111					Assets/Product/Texture/Image/RoleCharacter/Me1JiegouqiutuMd010001.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster90950.png							
+112					Assets/Product/Texture/Image/RoleCharacter/Me1HetimingyunzhilunNormal01.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster93170.png							
+113					Assets/Product/Texture/Image/RoleCharacter/V210llsNormal01.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster85570.png							
+114					Assets/Product/Texture/Image/RoleCharacter/JiabailieNormal02.png	Assets/Product/Texture/Image/RoleCharacter/JiabailieNormal02.png							
+115					Assets/Product/Texture/Image/RoleCharacter/Mb1MonzanoMd010001.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster87901.png							
+116					Assets/Product/Texture/Image/RoleCharacter/TifaNomal02.png	Assets/Product/Texture/Image/RoleMonster/RoleMonster5.png							

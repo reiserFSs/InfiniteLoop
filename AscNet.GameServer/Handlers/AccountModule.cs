@@ -1075,11 +1075,6 @@ namespace AscNet.GameServer.Handlers
             {
                 ["AssistChipId"] = 0
             }),
-            ["NotifyNameplateLoginData"] = SerializeStartupPayload(new Dictionary<string, object?>
-            {
-                ["CurrentWearNameplate"] = 0,
-                ["UnlockNameplates"] = Array.Empty<object>()
-            }),
             ["NotifyHoldRegressionIgnoreChannel"] = SerializeStartupPayload(new Dictionary<string, object?>
             {
                 ["IgnoreChannelIds"] = Array.Empty<object>()
@@ -1293,6 +1288,7 @@ namespace AscNet.GameServer.Handlers
 
             TheatreModule.PrepareLogin(session);
             Theatre3Module.PrepareLogin(session);
+            Theatre5Module.PrepareLogin(session);
             NotifyLogin notifyLogin = BuildNotifyLogin(session);
 
 
@@ -1398,12 +1394,12 @@ namespace AscNet.GameServer.Handlers
             SendEmptyStartupPush(session, "NotifyDlcFightCharacterId");
             SendEmptyStartupPush(session, "NotifyDlcChipFormDataList");
             SendEmptyStartupPush(session, "NotifyDlcChipAssistChipId");
-            SendEmptyStartupPush(session, "NotifyTheatre5ActivityData");
-            SendCurrentEventTaskBatch(session, CurrentEventTaskBatchTheatre5);
+            session.SendPush(Theatre5Module.BuildLoginData(session));
+            SendCurrentEventTaskBatch(session, CurrentEventTaskBatchTheatre6);
             NotifyTheatre6ActivityData? theatre6Data = Theatre6Module.BuildNotify(session.player);
             if (theatre6Data is not null)
                 session.SendPush(theatre6Data);
-            SendEmptyStartupPush(session, "NotifyNameplateLoginData");
+            session.SendPush(session.character.BuildNameplateLoginData());
             SendEmptyStartupPush(session, "NotifyGuildDormPlayerData");
             session.SendPush(BuildChatBoardLoginData(session.player));
             SendEmptyStartupPush(session, "NotifyHoldRegressionData");

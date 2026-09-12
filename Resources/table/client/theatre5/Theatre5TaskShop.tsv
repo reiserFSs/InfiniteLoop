@@ -1,0 +1,14 @@
+Id	Type	Name	Sort	ShopId	TaskTimeLimitId	TimeLimitId
+1	1	Limited-Time Shop	1	1445		35
+2	1	Permanent Shop	2	1444		
+3	2	Limited Mission	1		535	35
+4	2	Permanent Mission	1		536	
+5	1	Permanent Shop II	3	1446		
+6	1	Permanent Shop III	4	1449		
+7	1	Limited-Time Shop	1	1455		35
+8	2	Limited Mission	2		571	35
+9	1	Permanent Shop IV	5	1457		
+10	2	Limited Mission	3		619	35
+11	1	Limited-Time Shop	1	1465		35
+12	2	Limited Mission	4		648	35
+13	1	Limited-Time Shop	1	1467		35

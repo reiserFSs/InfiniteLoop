@@ -26,6 +26,12 @@ public static class ActivityScheduleService
             .Select(row => new ActivityScheduleEntry(row.TimeId, 0, 0,
                 $"local-policy:Theatre3:permanent-mode:Theatre3Activity:Id={row.Id}:TimeId={row.TimeId}"))
             .Concat(TheatreDecorationEntries())
+            // Godfall's PvP client requires a positive end. 3000-01-01 UTC stays within the
+            // Windows _localtime64 range even after a local-time-zone adjustment.
+            // https://learn.microsoft.com/cpp/c-runtime-library/reference/localtime-localtime32-localtime64
+            .Concat(new[] { 34, 35, 46401 }.Select(timeId => new ActivityScheduleEntry(timeId, 0,
+                32503680000,
+                $"feature-window:Theatre5:unbounded-calendar:user-approved:TimeId={timeId}")))
             .Concat(TableReaderV2.Parse<ActivityScheduleTable>()
                 .Select(row => new ActivityScheduleEntry(row.Id, row.StartTime, row.EndTime, row.Source)))
             .DistinctBy(row => row.Id)

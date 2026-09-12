@@ -835,20 +835,22 @@ namespace AscNet.GameServer.Handlers
                     ResonanceInfo = BuildRobotResonance(Convert.ToString(robot.WeaponResonance), Convert.ToString(robot.WeaponResonanceType), robot.CharacterId)
                 }
             ];
-            int waferCount = Math.Min(robot.WaferId.Count, Math.Min(robot.WaferLevel.Count, robot.WaferBreakThrough.Count));
+            int waferCount = Math.Min(
+                robot.WaferId?.Count ?? 0,
+                Math.Min(robot.WaferLevel?.Count ?? 0, robot.WaferBreakThrough?.Count ?? 0));
             for (int i = 0; i < waferCount; i++)
             {
                 EquipData equip = new()
                 {
-                    TemplateId = (uint)Convert.ToInt32(robot.WaferId[i]),
-                    Level = Convert.ToInt32(robot.WaferLevel[i]),
-                    Breakthrough = Convert.ToInt32(robot.WaferBreakThrough[i]),
+                    TemplateId = (uint)Convert.ToInt32(robot.WaferId?.ElementAtOrDefault(i) ?? 0),
+                    Level = Convert.ToInt32(robot.WaferLevel?.ElementAtOrDefault(i) ?? 0),
+                    Breakthrough = Convert.ToInt32(robot.WaferBreakThrough?.ElementAtOrDefault(i) ?? 0),
                     ResonanceInfo = BuildRobotResonance(
-                        Convert.ToString(robot.WaferResonance.ElementAtOrDefault(i)),
-                        Convert.ToString(robot.WaferResonanceType.ElementAtOrDefault(i)),
+                        Convert.ToString(robot.WaferResonance?.ElementAtOrDefault(i)),
+                        Convert.ToString(robot.WaferResonanceType?.ElementAtOrDefault(i)),
                         robot.CharacterId)
                 };
-                int awakeCount = Convert.ToInt32(robot.WaferAwakeCount.ElementAtOrDefault(i));
+                int awakeCount = Convert.ToInt32(robot.WaferAwakeCount?.ElementAtOrDefault(i) ?? 0);
                 for (int slot = 1; slot <= awakeCount; slot++)
                     equip.AwakeSlotList.Add(slot);
                 equips.Add(equip);

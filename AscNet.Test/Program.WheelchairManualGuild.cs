@@ -307,7 +307,7 @@ internal static partial class Program
             _ = State(failedRecord); // Prepare reset state before injecting the recording save failure.
             MethodInfo record = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule"),
                 "RecordTableDrivenProgress", BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(Session), typeof(IEnumerable<(int ConditionType, int? Parameter, int Amount)>), typeof(bool), RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TheatreModule+Mutation")]);
+                [typeof(Session), typeof(IEnumerable<(int ConditionType, int? Parameter, int Amount)>), typeof(bool), RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TheatreModule+Mutation"), RequiredAscNetGameServerType("AscNet.GameServer.Handlers.Theatre5Module+Mutation")]);
             using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
                 out RecordingMongoCollectionProxy<Player> saves, out _, out _))
             {
@@ -317,7 +317,7 @@ internal static partial class Program
                     bool failed = false;
                     try
                     {
-                        record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true, null]);
+                        record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true, null, null]);
                     }
                     catch (TargetInvocationException)
                     {
@@ -333,7 +333,7 @@ internal static partial class Program
                     AssertEqual(before > 0, failedRecord.Session.player.MissionProgress.ConditionCounters.ContainsKey(task.Condition),
                         "Failed guild task recording preserves counter absence");
                     AssertNoAvailablePacket(failedRecord, "Failed guild task recording cannot notify uncommitted progress");
-                    record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true, null]);
+                    record.Invoke(null, [failedRecord.Session, new (int, int?, int)[] { (35002, null, 1) }, true, null, null]);
                     AssertEqual(before + 1, failedRecord.Session.player.MissionProgress.ConditionCounters[task.Condition],
                         "Successful retry records the membership increment exactly once");
                     NotifyTask notification = ReadPushPayload<NotifyTask>(failedRecord, nameof(NotifyTask), "Durable guild task retry notification");

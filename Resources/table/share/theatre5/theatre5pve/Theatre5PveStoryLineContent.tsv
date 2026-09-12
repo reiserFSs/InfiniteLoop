@@ -1,0 +1,107 @@
+Id	StoryLineId	ContentType	ContentId	AvgContent	NextScript	ChooseConditions[1]	ChooseConditions[2]	ChooseContents[1]	ChooseContents[2]	ChooseLabels[1]	ChooseLabels[2]	CharacterStoryDesc	DisabledCharacters[1]	DisabledCharacters[2]	DisabledCharactersTips[1]	DisabledCharactersTips[2]	IsContinue	IsTickOutToTitle
+101	1	4	101															
+102	1	3		RG01000EA														
+201	2	2	201															
+202	2	5	201		2100							The earlier injuries have left your memory a bit fuzzy. Take a walk with Watanabe—maybe you'll remember something.						
+203	2	1	2100															
+204	2	2	202															
+205	2	5	202		2200							To confirm the Iron Army's location, you and Watanabe set out to investigate.						
+206	2	1	2200									All relevant clues have been gathered. Start organizing the intel and pinpoint the Iron Army's location.						
+207	2	2	203															
+208	2	4	203									The Iron Army's location has been deduced. Time to continue our journey.						
+209	2	2	204															
+210	2	3		RG01003BA								All signs suggest the Iron Army will likely pass through Rusty Yoke. Let's head there.						
+211	2	2	205															
+212	2	5	204		2300							Rusty Yoke lacks food and supplies, while the Iron Army is hiding in its impenetrable fortress. We must find a way to break their defenses.						
+213	2	1	2300									All relevant clues have been gathered. Start organizing the intel and formulate a plan to attack the Halo Fortress.						
+214	2	2	206															
+215	2	4	205									After resolving the town's crisis, you decide to use the Army's wanted posters to coordinate an attack from both the inside and outside of the fortress to seize it.						
+216	2	4	206									Watanabe starts a prison riot, and the rebel forces' final assault on the Halo Fortress is about to begin.						
+217	2	6	2															
+301	3	2	301															
+302	3	5	301		3100							The earlier injuries have left your memory a bit fuzzy. Take a walk with the Death Knight—maybe you'll remember something.						
+303	3	1	3100									Guided by the Death Knight, you start to recall how you met her.						
+305	3	2	302															
+306	3	4	302									Time to fulfill your promise. Charge into Hell with the Death Knight and settle old scores with Witch Haida.						
+307	3	2	303															
+308	3	3		RG01008BA														
+309	3	2	304															
+310	3	4	303									After entering Hell, two of you encounter Cerberus, who is fighting alone. The Death Knight immediately joins the battle and leads the demon army in a counterattack.						
+312	3	2	305															
+313	3	5	304		3200							Witch Haida summons the waters of the Acheron River to flood Gray Raven and the Death Knight. In the freezing water, bizarre and dazzling visions flash before their eyes.						
+314	3	1	3200									Countless memory fragments flood your mind. Sort through the information about the current state of Hell.						
+316	3	2	306															
+317	3	4	305									After awakening from the Acheron River, the two of you arrive beneath Atlantis, preparing to infiltrate the enemy's lair.						
+318	3	2	307															
+319	3	3		RG01010BA														
+320	3	5	306		3300							After spotting the two of you, Witch Haida begins to flee frantically through the fortress, sparking a high-speed chase.						
+321	3	1	3300									Atlantis is like an ever-shifting maze. Before pursuing further, sort through the information.						
+323	3	4	307									Witch Haida is likely waiting for the Omega Egg to hatch. Though you don't know what will come out of it, if you want to stop the angels' invasion of Hell, you must stop her here.						
+324	3	6	3															
+401	4	2	401															
+402	4	5	401		4100							The earlier injuries have left your memory a bit fuzzy. Work with Wanshi to investigate the village while organizing the intel you have on hand.						
+403	4	1	4100									With Wanshi's guidance, you recall why you signed the contract with him.						
+404	4	2	402															
+405	4	5	402		4200							After the train heist ends, you and Wanshi head to the orphanage he founded to investigate the source of the calamity.						
+406	4	1	4200									On the way to the orphanage, Wanshi shares the information he has gathered over the years of investigation.						
+407	4	2	403															
+408	4	5	403		4300							Not long after you discover the black-robed priest's corpse, swarms of Living Dead surround you in the forest. To break free and grant them release, Wanshi lifts his weapon once again.						
+409	4	1	4300									Wanshi uncovered numerous clues from the corpses of the Living Dead, all pointing toward a far greater secret lurking behind this mystery.						
+410	4	2	404															
+411	4	4	404									Wanshi begins examining the dried corpses in the forest, but in one soul he unexpectedly sees an old acquaintance.						
+412	4	3		RG01104BA														
+413	4	2	405															
+414	4	4	405									Wanshi and Gray Raven enter the cocoon woven by Uriel, where the ceaselessly pulsing amber reveals memories that once belonged to the Cardinal Deity.						
+415	4	2	406															
+416	4	4	406									Uriel hopes Wanshi will merge with the Cardinal Deity's memories and become the Sanctuary's new god. But Wanshi, having once been saved by human kindness, refuses a path that would drag the Three Realms into endless war. Enraged, Uriel reaches for the cocoon's power to crown himself, and a great battle is about to begin.						
+417	4	6	4															
+501	5	2	501															
+502	5	5	501		5100							For now, you can't recall how you first met this woman named Lilith, but she swears loyalty to the Bloodsworn. Learn more about her as you make your way toward the town.						
+503	5	1	5100									As you talk along the road, the reason you forged a covenant with Lilith gradually comes back to you.						
+504	5	2	502															
+505	5	5	502		5200							As you near Whitehorse, you find that most nearby villages have been looted by angels hunting for gold coins. To put a stop to their rampage, the two of you decide to fight.						
+506	5	1	5200									From the angels, you gather scraps of intelligence about Madam Raphael. When pieced together with what you already know, you can roughly deduce her goal and her next move.						
+507	5	2	503															
+508	5	4	503									In Whitehorse, the townsfolk have formed a militia and are clashing fiercely with the angel Executors. Lilith and Gray Raven throw themselves into the battle as well.						
+509	5	2	504															
+510	5	4	504									At the gates of City of No Return, a host of angels under Madam Raphael's command gathers. On demon soil, war between angels and demons is about to erupt.						
+511	5	2	505															
+512	5	4	505									Lilith swallows Mammon's Key and ascends as the new Golden King. In this reborn City of No Return, even an Archangel is no match for her.						
+513	5	2	506															
+514	5	5	506		5300							Gray Raven and Morigan become trapped in the Infinite Illusion Realm. Guided by a nameless ghost, they begin searching for a way out.						
+515	5	1	5300									With Morigan and the ghost's help, Gray Raven gradually begins to grasp the rules of the Infinite Illusion Realm.						
+516	5	2	507															
+517	5	4	507									After escaping the illusion, Gray Raven wagers both the crown of the Famine Knight and their very soul in one final gamble against Lilith.						
+518	5	6	5															
+601	6	2	601															
+602	6	3		RG01301BA														
+603	6	2	602															
+604	6	5	601		6100							On the eve of the final battle, everyone has their part to play.						
+605	6	1	6100									This is the final calculation. Think carefully—how will you wage the decisive battle against the Sanctuary?						
+606	6	2	603															
+607	6	4	602									A sudden blaze of heavenly light crashes down on the Mysterious Tavern. Time to strike back.						
+608	6	2	604															
+609	6	4	603									The Hell Train pushes toward the Sanctuary, but more angels swarm to intercept, blocking the path and slowing its advance.	1		Watanabe was gravely wounded in the last fight and can't take part in the battle to come.			
+610	6	2	605															
+611	6	4	604									The train keeps plummeting. Gray Raven and the two remaining knights must find safety before the final crash.	1	2	Watanabe was gravely wounded in the last fight and can't take part in the battle to come.	Vera lunges at the archangel, and together they plunge from the Sanctuary. Her fate is unknown, and she cannot join the battle ahead.		true
+700	6	2	701															
+702	6	5	701		7100							After the battle between the Four Horsemen and Nirvatia at the ruined Sanctuary, Gray Raven fell into a coma. From the darkness of that chaos, a new realm, the Scorched Borderland, was beginning to take shape.						
+703	6	1	7100									Gray Raven awoke from the void, inside what seemed to be the world of Nirvatia's memories.						
+704	6	2	702															
+705	6	5	702		7200							Within Nirvatia's memories, Gray Raven glimpsed a former self—Commander of the Iron Army. It was likely the same "old Gray Raven" that Death of Iron once spoke of.						
+706	6	1	7200									In the past, Nirvatia wasn't always so cold. Her memories show moments when she treated humans with what could only be called kindness.						
+707	6	2	703															
+708	6	3		RG01403BA														
+709	6	2	704															
+710	6	5	703		7300							After losing Gray Raven, Nirvatia slowly transformed into a true witch.						
+711	6	1	7300									With her memories laid bare, Nirvatia's motives and the reasons behind her choices are clear. Now, it's time to face the crisis ahead.					true	
+712	6	7				1050340	0	713	719	I will.	I won't.							
+713	6	2	705															
+714	6	3		RG01405BA														
+715	6	2	706															
+716	6	4	704									The Age of Eternal Night has begun. Nothing can halt the Demon Lord's advance now.						
+717	6	6	6														true	
+718	6	8										Eternal darkness has devoured the entire borderland, but... there's still a chance to turn everything around.						
+719	6	2	707															
+720	6	4	705									The turning point has come. It's time to follow through on your decision.						
+721	6	6	7															

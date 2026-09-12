@@ -77,6 +77,9 @@ public static partial class ArchiveCgModule
                 };
             case 17208:
                 return (session, _) => Theatre3Module.HasEndingRecord(session, value);
+            case 17826 when row.Params.Count >= 2:
+                bool completed = row.Params[1] == 1;
+                return (session, _) => Theatre5Module.IsStoryContentComplete(session.player, value) == completed;
             case 23201 when row.Params.Count >= 2:
                 int count = row.Params[1];
                 return (session, _) => session.player.Theatre6.PassStageRecords.TryGetValue(value, out int passed)
@@ -84,13 +87,12 @@ public static partial class ArchiveCgModule
             case 23001:
                 return ActivityScheduleService.TryGet(value, out var schedule)
                     ? (_, now) => schedule.IsOpen(now) : UnmetCondition;
-            // No durable TRPG targets/cards, birthday story unlocks, or Theatre 4/5 progress exists.
+            // No durable TRPG targets/cards, birthday story unlocks, or Theatre 4 progress exists.
             // Never substitute unrelated Explore, birthday date, or generic stage records for these modes.
             case 10119:
             case 10126:
             case 10150:
             case 17411:
-            case 17826:
             default:
                 return UnmetCondition;
         }

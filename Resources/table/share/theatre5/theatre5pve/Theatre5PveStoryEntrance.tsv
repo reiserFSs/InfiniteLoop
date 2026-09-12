@@ -1,0 +1,7 @@
+Id	SceneObject	BtnOpenCondition	BtnCloseCondition	StoryIsOpen	StoryLine	RepeatChapterCondition[1]	RepeatChapterCondition[2]	RepeatChapter[1]	RepeatChapter[2]
+1	Character1			true	2	0		207	
+2	Character2			true	3	0		308	
+3	Character3			true	4	0		407	
+4	Character4			true	5	0		508	
+5	BtnCommonStory	1050238	1050355	true	6				
+6	BtnTeaching		1050356	true	1				
