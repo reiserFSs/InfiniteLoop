@@ -766,7 +766,7 @@ namespace AscNet.GameServer.Handlers
                     })
                     .ToList(),
                 PartnerList = session.character.Partners,
-                FashionSuitList = [],
+                FashionSuitList = FashionModule.BuildClaimedFashionSuits(session),
                 FashionColors = BuildOwnedFashionColors(session.character),
                 HeadPortraitList = session.player.HeadPortraits,
                 TeamGroupData = session.player.TeamGroups,

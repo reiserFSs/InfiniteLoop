@@ -169,6 +169,13 @@ namespace AscNet.Common.MsgPack
     }
 
     [MessagePackObject(true)]
+    public class FashionSuitData
+    {
+        public int Id { get; set; }
+        public bool IsReward { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public class WeaponFashionData
     {
         public int Id { get; set; }
@@ -600,7 +607,7 @@ namespace AscNet.Common.MsgPack
         public List<LoginCharacterList> CharacterList { get; set; } = new();
         public List<EquipData> EquipList { get; set; } = new();
         public List<FashionList> FashionList { get; set; } = new();
-        public List<dynamic> FashionSuitList { get; set; } = new();
+        public List<FashionSuitData> FashionSuitList { get; set; } = new();
         public Dictionary<int, List<int>> FashionColors { get; set; } = new();
         public List<HeadPortraitList> HeadPortraitList { get; set; } = new();
         public FubenData FubenData { get; set; }

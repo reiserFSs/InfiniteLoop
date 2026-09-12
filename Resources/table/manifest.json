@@ -7485,6 +7485,17 @@
       "transformation": [
         "JSON object field order; arrays flattened to 1-based indexed columns padded to a minimum of 2; omitted/null cells blank; booleans encoded 1/0; source strings and hex retained verbatim"
       ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "2c0ad945446952e6cd53da746c90fe9bf5503f0d231fa72d23530075baf05bce",
+      "filter": "all; runtime-consumed original fields Id, IsComplete, RewardId, FashionIds only; JSON boolean transcribed verbatim (true/false) so IsComplete is a nullable string; empty cells preserve missing values; includes the incomplete source rows 1002/2001 so eligibility rejects them from real config",
+      "naturalKey": "Id",
+      "path": "share/fashion/FashionSuit.tsv",
+      "rows": 4,
+      "source": [
+        "share/fashion/FashionSuit.json"
+      ]
     }
   ],
   "validationNotes": [

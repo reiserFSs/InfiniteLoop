@@ -769,6 +769,11 @@ namespace AscNet.Test
                     ValidateFashionSuitPoolSaveCompatibility();
                     return;
                 }
+                if (args.Contains("--fashion-suit-reward-compat-only"))
+                {
+                    ValidateFashionSuitRewardCompatibility();
+                    return;
+                }
                 if (args.Contains("--fashion-color-compat-only"))
                 {
                     ValidateFashionColorCompatibility();
@@ -962,6 +967,7 @@ namespace AscNet.Test
                 ValidateCommandCompatibility();
                 ValidateSceneCommandCompatibility();
                 ValidateMissingFeatureCompatibility();
+                ValidateFashionSuitRewardCompatibility();
                 ValidateBiancaTheatreCompatibility();
                 ValidateTheatreCompatibility();
                 ValidateTheatre5Compatibility();

@@ -2,6 +2,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.fashion;
+using AscNet.Table.V2.share.reward;
 using MessagePack;
 
 namespace AscNet.GameServer.Handlers
@@ -82,6 +83,19 @@ namespace AscNet.GameServer.Handlers
     public class FashionSuitPoolSaveResponse
     {
         public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class FashionGetSuitRewardRequest
+    {
+        public int SuitId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class FashionGetSuitRewardResponse
+    {
+        public int Code { get; set; }
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
     }
 
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -381,5 +395,95 @@ namespace AscNet.GameServer.Handlers
 
             session.SendResponse(new FashionUnLockResponse(), packet.Id);
         }
+
+        // EN share/text/CodeText: Wardrobe Coating series failures, FashionSuit* (20010011..20010014).
+        // Client gates claims locally; the server re-validates config, completeness, ownership, then claim.
+        [RequestPacketHandler("FashionGetSuitRewardRequest")]
+        public static void HandleFashionGetSuitRewardRequest(Session session, Packet.Request packet)
+        {
+            const int configNotFoundCode = 20010011; // FashionSuitConfigNotFound
+            const int notCompleteCode = 20010012;    // FashionSuitIsNotComplete
+            const int notGatheredCode = 20010013;    // FashionSuitIsNotGathered
+            const int alreadyRewardCode = 20010014;  // FashionSuitIsAlreadyReward
+            const int serverInternalErrorCode = 2;   // ServerInternalError
+
+            FashionGetSuitRewardRequest request = packet.Deserialize<FashionGetSuitRewardRequest>();
+            FashionSuitTable? suit = TableReaderV2.Parse<FashionSuitTable>()
+                .Find(candidate => candidate.Id == request.SuitId);
+
+            if (suit is null)
+            {
+                session.SendResponse(new FashionGetSuitRewardResponse { Code = configNotFoundCode }, packet.Id);
+                return;
+            }
+
+            if (!string.Equals(suit.IsComplete, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                session.SendResponse(new FashionGetSuitRewardResponse { Code = notCompleteCode }, packet.Id);
+                return;
+            }
+
+            List<RewardGoodsTable> goods = suit.RewardId is int rewardId and > 0
+                ? RewardHandler.GetRewardGoods(rewardId)
+                : [];
+            if (suit.FashionIds.Count == 0 || goods.Count == 0)
+            {
+                session.SendResponse(new FashionGetSuitRewardResponse { Code = configNotFoundCode }, packet.Id);
+                return;
+            }
+
+            // Client dictionary membership only; IsLock and weapon fashion ownership are not suit requirements.
+            if (suit.FashionIds.Any(fashionId =>
+                    !session.character.Fashions.Any(fashion => fashion.Id == fashionId)))
+            {
+                session.SendResponse(new FashionGetSuitRewardResponse { Code = notGatheredCode }, packet.Id);
+                return;
+            }
+
+            string claimKey = FashionSuitClaimKey(session, suit.Id);
+            if (IsFashionSuitClaimed(session, claimKey))
+            {
+                session.SendResponse(new FashionGetSuitRewardResponse { Code = alreadyRewardCode }, packet.Id);
+                return;
+            }
+
+            RewardApplicationResult result;
+            try
+            {
+                // A single receipt is a partial save; re-running resumes the missing document idempotently.
+                result = RewardHandler.ApplyRewardsOnceAndPersist(
+                    [new RewardGrant(claimKey, goods)],
+                    session);
+            }
+            catch (Exception exception)
+            {
+                session.log.Error($"Failed to persist fashion suit reward {suit.Id}: {exception}");
+                session.SendResponse(new FashionGetSuitRewardResponse { Code = serverInternalErrorCode }, packet.Id);
+                return;
+            }
+
+            result.SendPushes(session);
+            session.SendResponse(new FashionGetSuitRewardResponse
+            {
+                RewardGoodsList = result.RewardGoods
+            }, packet.Id);
+        }
+
+        // Login projection: only fully receipted suits, deterministically ordered by table ID.
+        internal static List<FashionSuitData> BuildClaimedFashionSuits(Session session)
+        {
+            return TableReaderV2.Parse<FashionSuitTable>()
+                .Where(suit => suit.Id > 0 && IsFashionSuitClaimed(session, FashionSuitClaimKey(session, suit.Id)))
+                .OrderBy(suit => suit.Id)
+                .Select(suit => new FashionSuitData { Id = suit.Id, IsReward = true })
+                .ToList();
+        }
+
+        private static string FashionSuitClaimKey(Session session, int suitId)
+            => $"fashion-suit:{session.player.PlayerData.Id}:{suitId}";
+
+        private static bool IsFashionSuitClaimed(Session session, string claimKey)
+            => session.inventory.AppliedRewardClaims.Contains(claimKey, StringComparer.Ordinal)
+                && session.character.AppliedRewardClaims.Contains(claimKey, StringComparer.Ordinal);
     }
 }

@@ -74,6 +74,7 @@ This branch adds or fixes current-client server behavior for:
 - Player point upload.
 - PR2 quality compatibility.
 - Character progression persistence.
+- Fashion suit rewards (`FashionGetSuitRewardRequest`) require every character fashion listed in the authoritative `FashionSuit.tsv` and grant the configured reward. Login restores completed claims only after both reward-document saves succeed; interrupted saves can be retried without duplicate grants.
 - Character/frame experience rollover and commandant-level caps.
 - Fight settlement commandant EXP and character/card EXP.
 - Current-client first-clear fields such as `FirstTeamExp` and `FirstCardExp`.
@@ -363,6 +364,7 @@ Available focused switches:
 --player-gender-compat-only
 --board-mutual-push-compat-only
 --character-progression-persistence-compat-only
+--fashion-suit-reward-compat-only
 --exp-level-compat-only
 --story-course-reward-compat-only
 --pr2-quality-compat-only
