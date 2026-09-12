@@ -26,6 +26,8 @@ internal partial class Program
         List<CourseChapterTable> chapters = TableReaderV2.Parse<CourseChapterTable>();
         Dictionary<int, CourseStageTable> stages = TableReaderV2.Parse<CourseStageTable>().ToDictionary(row => row.StageId);
         CourseChapterTable lesson = chapters.First(row => row.StageType == 1 && row.StageIds.Count > 1);
+        CourseChapterTable secondLesson = chapters.Where(row => row.StageType == 1 && row.StageIds.Count > 1)
+            .OrderBy(row => row.ChapterId).Skip(1).First();
         CourseChapterTable exam = chapters.First(row => row.StageType == 2 && row.PrevChapterIds is not > 0);
         CourseRewardTable reward = TableReaderV2.Parse<CourseRewardTable>()
             .Where(row => row.ChapterId == lesson.ChapterId && row.Point > 0).OrderBy(row => row.Point).First();
@@ -35,6 +37,8 @@ internal partial class Program
         MethodInfo complete = RequiredMethod(module, "IsChapterComplete", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Player), typeof(int)]);
         int packetId = 49_310;
         int Mask(int stageId) => (1 << stages[stageId].StarPoint.Count) - 1;
+        int Point(int stageId, int stars) => stages[stageId].StarPoint
+            .Where((_, index) => (stars & (1 << index)) != 0).Sum();
         bool IsComplete(int chapterId) => (bool)complete.Invoke(null, [player, chapterId])!;
         NotifyCourseData Login() => (NotifyCourseData)login.Invoke(null, [player])!;
 
@@ -183,13 +187,48 @@ internal partial class Program
         player = BsonSerializer.Deserialize<Player>(player.ToBson());
         harness.Session.player = player;
         AssertEqual(firstStage, player.Course.PendingResult?.Id ?? 0, "Pending lesson result survives BSON relog");
-        byte[] blockedLesson = player.Course.ToBson();
-        AssertEqual(1, Save(true).Code, "Lesson save blocks while retail completion evidence is unavailable");
-        AssertEqual(Convert.ToHexString(blockedLesson), Convert.ToHexString(player.Course.ToBson()),
-            "Blocked lesson save retains pending result without mutating saved progression");
-        AssertEqual(0, Login().Data.ChapterDataList.Count, "Login does not invent lesson chapter completion");
+        CourseSaveResultResponse firstSaved = Save(true);
+        AssertEqual(0, firstSaved.Code, "C1 lesson result saves after BSON relog");
+        AssertEqual(null, player.Course.PendingResult, "C1 lesson save consumes pending result");
+        AssertEqual(false, firstSaved.ChapterData!.IsClear, "C1 remains incomplete after one distinct stage");
+        AssertEqual(false, IsComplete(lesson.ChapterId), "C1 mission predicate rejects an incomplete lesson");
+        AssertEqual(false, Login().Data.ChapterDataList.Single(row => row.Id == lesson.ChapterId).IsClear,
+            "C1 partial progress is represented in login data");
+        foreach (int stageId in lesson.StageIds.Skip(1))
+        {
+            Fight(stageId, Mask(stageId));
+            CourseSaveResultResponse saved = Save();
+            AssertEqual(null, player.Course.PendingResult, "C1 stage save consumes pending result");
+            AssertEqual(stageId == lesson.StageIds[^1], saved.ChapterData!.IsClear,
+                "C1 completes only after every configured stage is saved");
+        }
+        AssertEqual(true, IsComplete(lesson.ChapterId), "C1 completion satisfies the mission chapter predicate");
+        int secondLessonPoint = 0;
+        for (int index = 0; index < secondLesson.StageIds.Count; index++)
+        {
+            int stageId = secondLesson.StageIds[index];
+            // Controlled 4.7.0 retail observation: a lesson clears after every stage is saved even when
+            // the final stage is not full-star. Exercise that distinction instead of assuming full stars.
+            int stars = index == secondLesson.StageIds.Count - 1 ? 1 : Mask(stageId);
+            Fight(stageId, stars);
+            CourseSaveResultResponse saved = Save();
+            secondLessonPoint += Point(stageId, stars);
+            AssertEqual(null, player.Course.PendingResult, "C2 stage save consumes pending result");
+            AssertEqual(secondLessonPoint, saved.ChapterData!.TotalPoint, "C2 preserves partial-star points");
+            AssertEqual(index == secondLesson.StageIds.Count - 1, saved.ChapterData.IsClear,
+                "C2 completes only after every configured stage is saved");
+        }
+        AssertEqual(true, secondLessonPoint < secondLesson.StageIds.Sum(id => stages[id].StarPoint.Sum()),
+            "C2 lesson completion is distinct from full-star completion");
+        player = BsonSerializer.Deserialize<Player>(player.ToBson());
+        harness.Session.player = player;
+        AssertEqual(true, Login().Data.ChapterDataList.Single(row => row.Id == lesson.ChapterId).IsClear,
+            "C1 completion survives BSON relog");
+        AssertEqual(true, Login().Data.ChapterDataList.Single(row => row.Id == secondLesson.ChapterId).IsClear,
+            "C2 completion survives BSON relog");
+        AssertEqual(true, IsComplete(secondLesson.ChapterId), "C2 completion satisfies the mission chapter predicate");
 
-        // Explicit persisted earned-state fixture: lesson saving is blocked, not simulated or authorized here.
+        // Explicit persisted earned-state fixture for reward and aggregate-point validation.
         player.Course.PendingResult = null;
         player.Course.Stages = [new CourseStageState { Id = firstStage, StarsFlag = 0 }];
         Claim([reward.Id], 20175011);
@@ -201,7 +240,8 @@ internal partial class Program
         harness.Session.player = player;
         AssertEqual(expectedLesson, Login().Data.TotalLessonPoint, "Persisted lesson stars derive current points independently of completion evidence");
         AssertEqual(player.Course.Stages.Count, Login().Data.StageDataDict.Count, "Login preserves earned lesson stages");
-        AssertEqual(0, Login().Data.ChapterDataList.Count, "Login omits unsupported lesson chapter clear flags");
+        AssertEqual(chapters.Count(row => row.StageType == 1), Login().Data.ChapterDataList.Count,
+            "Login includes authoritative completion state for persisted lesson chapters");
         Claim([reward.Id, int.MaxValue], 20175008);
         CourseGetRewardResponse awarded = Claim([reward.Id], 0);
         AssertEqual(true, awarded.SuccessRewardIds.SequenceEqual([reward.Id]), "Reward response identifies exact successful claim");
@@ -279,6 +319,6 @@ internal partial class Program
         harness.Session.player = player;
         AssertEqual(true, Login().Data.ChapterDataList.Single(row => row.Id == dependentExam.ChapterId).IsClear,
             "Dependent exam completion survives BSON relog");
-        Console.WriteLine("Course compatibility: blocked unsupported lesson save, persisted lesson fixtures, real exams, pending/save, downgrade, rewards and BSON relog passed.");
+        Console.WriteLine("Course compatibility: C1/C2 lesson saves, persisted lesson state, real exams, pending/save, downgrade, rewards and BSON relog passed.");
     }
 }

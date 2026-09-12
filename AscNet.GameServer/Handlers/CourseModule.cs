@@ -41,14 +41,16 @@ internal static class CourseModule
     private static int TotalLessonPoint(Player player) => Chapters.Value.Values
         .Where(chapter => chapter.StageType == 1).Sum(chapter => ChapterPoint(player, chapter));
 
+    private static bool HasCompletionRule(CourseChapterTable chapter) =>
+        chapter.StageIds.Count > 0 && (chapter.StageType == 1 || chapter.StageType == 2 && chapter.ClearPoint is > 0);
+
     internal static bool TryGetChapterComplete(Player player, int chapterId, out bool complete)
     {
         complete = false;
         if (!Chapters.Value.TryGetValue(chapterId, out CourseChapterTable? chapter)) return true;
-        if (chapter.ClearPoint is not > 0) return false;
-        complete = chapter.StageIds.Count > 0
-            && chapter.StageIds.All(id => player.Course.Stages.Any(stage => stage.Id == id))
-            && ChapterPoint(player, chapter) >= chapter.ClearPoint.Value;
+        if (!HasCompletionRule(chapter)) return false;
+        complete = chapter.StageIds.All(id => player.Course.Stages.Any(stage => stage.Id == id))
+            && (chapter.StageType == 1 || ChapterPoint(player, chapter) >= chapter.ClearPoint!.Value);
         return true;
     }
 
@@ -72,8 +74,7 @@ internal static class CourseModule
             TotalLessonPoint = TotalLessonPoint(player),
             MaxTotalLessonPoint = player.Course.MaxTotalLessonPoint,
             ChapterDataList = Chapters.Value.Values
-                // Unknown lesson IsClear cannot be represented by the authoritative boolean wire field.
-                .Where(chapter => chapter.ClearPoint is > 0
+                .Where(chapter => HasCompletionRule(chapter)
                     && player.Course.Stages.Any(stage => chapter.StageIds.Contains(stage.Id)))
                 .Select(chapter => ChapterData(player, chapter)).ToList(),
             StageDataDict = player.Course.Stages.Where(stage => Stages.Value.ContainsKey(stage.Id))
