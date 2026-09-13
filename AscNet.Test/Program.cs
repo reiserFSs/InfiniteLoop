@@ -474,6 +474,11 @@ namespace AscNet.Test
                     ValidateLoginAccountCompatibility();
                     return;
                 }
+                if (args.Contains("--weekly-activeness-compat-only"))
+                {
+                    ValidateWeeklyActivenessRewardCompatibility();
+                    return;
+                }
                 if (args.Contains("--gate-login-compat-only"))
                 {
                     ValidateGateLoginCompatibility().GetAwaiter().GetResult();
@@ -4219,6 +4224,7 @@ namespace AscNet.Test
             ValidateNewPlayerRewardCompatibility();
             ValidateNewbieRewardCompatibility();
             ValidateActivenessRewardCompatibility();
+            ValidateWeeklyActivenessRewardCompatibility();
             ValidateAchievementRewardCompatibility();
             ValidateLoginStartupPushOrder();
             ValidateReconnectAckClientPushNoReplayStabilityCompatibility();
@@ -4875,6 +4881,107 @@ namespace AscNet.Test
                 maxPacketsToRead: 8);
             AssertEqual(20026012, duplicateResponse.Code, "GetActivenessRewardResponse duplicate Code");
             AssertEqual(0, duplicateResponse.RewardGoodsList.Count, "GetActivenessRewardResponse duplicate reward count");
+        }
+
+        private static void ValidateWeeklyActivenessRewardCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
+            const long playerId = 88_045;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            List<int> taggedTaskIds = TableReaderV2.Parse<TaskTable>()
+                .Where(task => task.Tag == 1)
+                .Select(task => task.Id)
+                .ToList();
+            if (taggedTaskIds.Count < 10)
+                throw new InvalidDataException($"Weekly-two activeness test requires at least 10 Tag=1 tasks, found {taggedTaskIds.Count}.");
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                inventory,
+                "weekly-activeness-reward-compat-test");
+            harness.Session.stage = new AscNet.Common.Database.Stage
+            {
+                Uid = playerId,
+                Stages = new(),
+                Course = new(),
+                FinishedTasks = new()
+            };
+
+            RequestPacketHandlerDelegate handler = GetRegisteredRequestHandler("GetWeeklyActivenessRewardRequest");
+
+            player.MissionProgress.ClaimedTaskIds = taggedTaskIds.Take(4).ToList();
+            const int belowPacketId = 13_210;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = belowPacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse belowResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                belowPacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest below-milestone response",
+                maxPacketsToRead: 16);
+            AssertEqual(20026010, belowResponse.Code, "GetWeeklyActivenessRewardResponse below-milestone Code");
+            AssertEqual(0, belowResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse below-milestone reward count");
+
+            long week = player.MissionProgress.WeeklyResetWeek;
+            player.MissionProgress.ClaimedTaskIds = taggedTaskIds.Take(5).ToList();
+            const int firstPacketId = 13_211;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = firstPacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse firstResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                firstPacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest first-milestone response",
+                maxPacketsToRead: 16);
+            AssertEqual(0, firstResponse.Code, "GetWeeklyActivenessRewardResponse first-milestone Code");
+            AssertEqual(1, firstResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse first-milestone reward count");
+            AssertIntegerList([5], firstResponse.WeeklyTaskActivenessProgress.Select(value => (long)value).ToArray(),
+                "GetWeeklyActivenessRewardResponse first-milestone progress");
+            AssertEqual(true, inventory.AppliedRewardClaims.Contains($"weekly-two:{week}:5", StringComparer.Ordinal),
+                "GetWeeklyActivenessRewardRequest persisted first claim key");
+
+            player.MissionProgress.ClaimedTaskIds = taggedTaskIds.Take(10).ToList();
+            const int secondPacketId = 13_212;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = secondPacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse secondResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                secondPacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest second-milestone response",
+                maxPacketsToRead: 16);
+            AssertEqual(0, secondResponse.Code, "GetWeeklyActivenessRewardResponse second-milestone Code");
+            AssertEqual(1, secondResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse second-milestone reward count");
+            AssertIntegerList([5, 10], secondResponse.WeeklyTaskActivenessProgress.Select(value => (long)value).ToArray(),
+                "GetWeeklyActivenessRewardResponse second-milestone progress");
+
+            const int duplicatePacketId = 13_213;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = duplicatePacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse duplicateResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                duplicatePacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest duplicate response");
+            AssertEqual(20026012, duplicateResponse.Code, "GetWeeklyActivenessRewardResponse duplicate Code");
+            AssertEqual(0, duplicateResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse duplicate reward count");
         }
 
         private static void ValidateAchievementRewardCompatibility()

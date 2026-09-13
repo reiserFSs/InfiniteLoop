@@ -1318,6 +1318,7 @@ namespace AscNet.GameServer.Handlers
                     FinishedTasks = session.stage.FinishedTasks,
                     NewPlayerRewardRecord = session.player.MissionProgress.NewPlayerRewardRecords,
                     NewbieRecvProgress = session.player.MissionProgress.NewbieRewardRecords,
+                    WeeklyTaskActivenessProgress = TaskModule.BuildWeeklyTwoProgress(session),
                     Tasks = TaskModule.BuildTaskData(session),
                 }
             };
