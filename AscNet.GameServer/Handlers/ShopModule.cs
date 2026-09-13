@@ -702,10 +702,11 @@ namespace AscNet.GameServer.Handlers
                 return false;
             }
 
-            foreach (ClientShopConsume consume in goods.ConsumeList)
+            foreach (ClientShopConsume consume in goods.ConsumeList.GroupBy(c => Inventory.IsBlackCard(c.Id) ? Inventory.FreeGem : c.Id)
+                .Select(g => new ClientShopConsume { Id = g.Key, Count = checked((uint)g.Sum(c => (long)c.Count)) }))
             {
                 long totalCost = (long)consume.Count * count;
-                long available = session.inventory.Items.FirstOrDefault(item => item.Id == consume.Id)?.Count ?? 0;
+                long available = session.inventory.SpendableCount(consume.Id);
                 if (consume.Id <= 0
                     || totalCost <= 0
                     || totalCost > int.MaxValue
@@ -752,12 +753,8 @@ namespace AscNet.GameServer.Handlers
             foreach (ClientShopConsume consume in goods.ConsumeList)
             {
                 int totalCost = checked((int)((long)consume.Count * count));
-                long before = session.inventory.Items.FirstOrDefault(item => item.Id == consume.Id)?.Count ?? 0;
-                Item updated = session.inventory.Do(consume.Id, -totalCost);
-                notifyItemDataList.ItemDataList.Add(updated);
-                int paid = checked((int)Math.Min(totalCost, Math.Max(0, before - updated.Count)));
-                if (paid > 0)
-                    progress.Add((11202, consume.Id, paid));
+                notifyItemDataList.ItemDataList.AddRange(session.inventory.Spend(consume.Id, totalCost));
+                progress.Add((11202, consume.Id, totalCost));
             }
 
             if (notifyItemDataList.ItemDataList.Count > 0)

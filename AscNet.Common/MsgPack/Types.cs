@@ -2645,6 +2645,7 @@ public sealed class NotifyBfrtProgressInfo
             public dynamic? FirstRewardGoods { get; set; }
             public dynamic? ExtraRewardGoods { get; set; }
             public Int32 DailyRewardRemainDay { get; set; }
+            public Int32 BuyLimitRemainDay { get; set; }
             public Boolean IsDailyRewardGet { get; set; }
             public String Name { get; set; }
             public String Desc { get; set; }
