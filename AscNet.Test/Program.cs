@@ -81,6 +81,11 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--draw-rules-only"))
+                {
+                    ValidateDrawRules();
+                    return;
+                }
                 if (args.Contains("--guild-compat-only"))
                 {
                     ValidateGuildMembershipCompatibility();
@@ -959,6 +964,7 @@ namespace AscNet.Test
                 ValidateEquipDecomposeCompatibility();
                 ValidateEquipChipRecycleCompatibility();
                 ValidateDrawCompatibility();
+                ValidateDrawRules();
                 ValidateItemUseCompatibility();
                 ValidateAutoUseGiftCompatibility();
                 ValidateItemSellCompatibility();
@@ -6765,7 +6771,7 @@ namespace AscNet.Test
 
         private static void ValidateDrawCompatibility()
         {
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
             AssertConstructShardTableCompatibility();
             AssertDataDrivenRotationCatalog();
             ValidateMemberTargetLocalPolicy();
@@ -6817,13 +6823,12 @@ namespace AscNet.Test
             long drawNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             List<DrawPredictTable> activeRotations = TableReaderV2.Parse<DrawPredictTable>()
                 .Where(x => x.StartTime <= drawNow && drawNow < x.EndTime).ToList();
-            foreach (int rerunGroupId in new[] { 12, 13 })
-                AssertEqual(activeRotations.Count > 0, groups.DrawGroupInfoList.Any(group => group.Id == rerunGroupId),
-                    $"Draw group {rerunGroupId} visibility matches active DrawPredict schedule");
-            if (activeRotations.Count > 0)
-                AssertEqual(false, groups.DrawGroupInfoList.Single(group => group.Id == 12).OptionalDrawIdList
-                    .Intersect(groups.DrawGroupInfoList.Single(group => group.Id == 13).OptionalDrawIdList).Any(),
-                    "normal and fate rerun draw identities are distinct");
+            AssertEqual(activeRotations.Count > 0, groups.DrawGroupInfoList.Any(group => group.Id == 12),
+                "Draw group 12 visibility matches active DrawPredict schedule");
+            // Fate rerun (13) shares the same schedule but its threshold law is not
+            // authoritative, so it stays unadvertised even while rotations are active.
+            AssertEqual(false, groups.DrawGroupInfoList.Any(group => group.Id == 13),
+                "Fate draw group 13 stays unadvertised without an authoritative threshold law");
             foreach (DrawGroupInfo advertisedGroup in groups.DrawGroupInfoList)
             {
                 InvokeRegisteredRequestHandler(
@@ -6839,7 +6844,7 @@ namespace AscNet.Test
                 AssertEqual(0, advertisedDraws.Code, "advertised draw group response Code");
                 if (advertisedDraws.DrawInfoList.Count == 0 || advertisedDraws.DrawInfoList.Any(draw => draw.GroupId != advertisedGroup.Id))
                     throw new InvalidDataException($"Draw group {advertisedGroup.Id} was advertised without a matching active draw.");
-                if (advertisedGroup.Id is 12 or 13 && activeRotations.Count > 0)
+                if (advertisedGroup.Id == 12 && activeRotations.Count > 0)
                 {
                     AssertEqual(true, advertisedGroup.StartTime <= drawNow
                         && (advertisedGroup.EndTime == 0 || drawNow < advertisedGroup.EndTime),
@@ -17789,6 +17794,7 @@ namespace AscNet.Test
             public TDocument? LastReplacement { get; private set; }
             public bool ThrowOnReplaceOne { get; set; }
             public Action<TDocument>? BeforeReplaceOne { get; set; }
+            public long ReplaceOneMatchedCount { get; set; } = 1;
             public byte[]? LastSuccessfulReplacementBson { get; private set; }
             public Queue<long> CountDocumentsResults { get; } = new();
             public IReadOnlyList<TDocument>? FindResults { get; set; }
@@ -17838,9 +17844,9 @@ namespace AscNet.Test
 
                     if (ThrowOnReplaceOne)
                         throw new MongoException($"Injected {typeof(TDocument).Name} ReplaceOne failure.");
-                    if (replacement is TDocument successful)
+                    if (replacement is TDocument successful && ReplaceOneMatchedCount > 0)
                         LastSuccessfulReplacementBson = successful.ToBson();
-                    return new ReplaceOneResult.Acknowledged(1, 1, null);
+                    return new ReplaceOneResult.Acknowledged(ReplaceOneMatchedCount, ReplaceOneMatchedCount, null);
                 }
 
                 return base.Invoke(targetMethod, args);
