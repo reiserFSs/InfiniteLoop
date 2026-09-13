@@ -23,7 +23,6 @@ internal static partial class DrawManager
         TableReaderV2.Parse<DrawAimProbabilityTable>()
             .Where(x => !string.IsNullOrWhiteSpace(x.UpProbabilityPercent))
             .ToDictionary(x => x.Id, x => Probability(x.UpProbabilityPercent!));
-    private static readonly Lazy<Dictionary<int, double[]>> VariablePityDistributions = new(BuildVariablePityDistributions);
 
     private static DrawServerRuleTable Rule(DrawInfo draw) => Rules.TryGetValue(draw.GroupId, out var rule)
         ? rule : throw new InvalidDataException($"Missing draw rules for group {draw.GroupId}");
@@ -40,113 +39,73 @@ internal static partial class DrawManager
         throw new InvalidDataException($"Missing base probability for draw {draw.Id}");
     }
 
+    // Fate groups publish an integer pity range but no authoritative threshold
+    // weights exist, so those groups fail closed rather than run on a substitute
+    // distribution. A group with no DrawServerRule row has no pity law at all and
+    // fails the same closed gate before Rule(draw) can throw mid-request. See
+    // Resources/Configs/draw-rules-source.md.
+    private static bool HasAvailablePityLaw(DrawInfo draw) =>
+        Rules.TryGetValue(draw.GroupId, out var rule) && rule.PityMin == rule.PityMax;
+
     private static PlayerDrawPityRound GetPityRound(Player player, DrawInfo draw, Random random)
     {
         EnsureState(player);
         var rule = Rule(draw);
+        if (!HasAvailablePityLaw(draw))
+            throw new InvalidDataException($"Draw {draw.Id} group {rule.GroupId} pity range {rule.PityMin}-{rule.PityMax} has no authoritative threshold law");
         if (player.DrawState.PityRounds.TryGetValue(rule.PityGroupId, out var round)) return round;
 
         // The old counter was lifetime progress. Preserve its current partial cycle
         // when upgrading, then maintain a separate counter since the last rare result.
         int oldCount = GetPityCount(player, draw.GroupId);
-        round = new() { HasObtainedRare = oldCount >= rule.FirstPity && oldCount > 0 };
-        round.Limit = NextLimit(draw, rule, round, random);
-        round.Misses = oldCount % (oldCount < rule.FirstPity ? rule.FirstPity : rule.PityMax);
-        // A sampled Fate limit below the inherited progress means the next pull is due.
+        round = new();
+        if (rule.PityGroupId == 1)
+        {
+            // Member draws keep their per-banner A/S target pity history.
+            PlayerMemberTargetPity member = GetMemberTargetPity(player);
+            round.HasObtainedRare = oldCount >= rule.FirstPity || MemberHistoryHasRare(player);
+            round.Misses = member.SinceS;
+            round.LowerMisses = member.SinceAOrS;
+        }
+        else
+        {
+            round.HasObtainedRare = oldCount >= rule.FirstPity && oldCount > 0;
+            round.Misses = oldCount % (oldCount < rule.FirstPity ? rule.FirstPity : rule.PityMax);
+        }
+        round.Limit = NextLimit(rule, round);
         player.DrawState.PityRounds[rule.PityGroupId] = round;
+        player.DrawState.HasUnsavedPityRounds = true;
         return round;
     }
 
     public static bool InitializePityState(Player player, int groupId = 0)
     {
         EnsureState(player);
-        int before = player.DrawState.PityRounds.Count;
         IEnumerable<DrawInfo> draws = groupId == 0
             ? DrawTemplates.Where(IsActive)
             : DrawsByGroup.GetValueOrDefault(groupId, []).Where(IsActive);
-        foreach (DrawInfo draw in draws.Where(x => x.GroupId != 1 && Rules.ContainsKey(x.GroupId))
+        foreach (DrawInfo draw in draws.Where(x => Rules.ContainsKey(x.GroupId))
                      .GroupBy(x => Rule(x).PityGroupId).Select(x => x.First()))
             GetPityRound(player, draw, Random.Shared);
-        return player.DrawState.PityRounds.Count != before;
+        // A persisted-state write is required after every call that returns true;
+        // the flag survives a failed save so the next call retries persistence.
+        return player.DrawState.HasUnsavedPityRounds;
     }
 
-    private static int NextLimit(DrawInfo draw, DrawServerRuleTable rule, PlayerDrawPityRound round, Random random)
+    private static int NextLimit(DrawServerRuleTable rule, PlayerDrawPityRound round)
     {
         if (!round.HasObtainedRare && rule.FirstPity > 0) return rule.FirstPity;
         if (rule.PityMin == rule.PityMax) return rule.PityMin;
-        double roll = random.NextDouble();
-        double cumulative = 0;
-        double[] weights = VariablePityDistributions.Value[rule.GroupId];
-        for (int i = 0; i < weights.Length; i++)
-        {
-            cumulative += weights[i];
-            if (roll < cumulative) return rule.PityMin + i;
-        }
-        return rule.PityMax;
-    }
-
-    private static Dictionary<int, double[]> BuildVariablePityDistributions()
-    {
-        Dictionary<int, DrawGroupRuleTable> clientRules = TableReaderV2.Parse<DrawGroupRuleTable>().ToDictionary(x => x.Id);
-        Dictionary<int, double[]> result = new();
-        foreach (DrawServerRuleTable rule in Rules.Values.Where(x => x.PityMin < x.PityMax && DrawTemplates.Any(d => d.GroupId == x.GroupId)))
-        {
-            DrawGroupRuleTable clientRule = clientRules[rule.GroupId];
-            string referenceTitle = clientRule.TitleCN.StartsWith("Fate ", StringComparison.Ordinal)
-                ? clientRule.TitleCN[5..] : throw new InvalidDataException($"Variable pity group {rule.GroupId} has no rate reference");
-            DrawGroupRuleTable referenceClientRule = clientRules.Values.Single(x => x.TitleCN == referenceTitle);
-            DrawServerRuleTable referenceRule = Rules[referenceClientRule.Id];
-            DrawInfo draw = DrawTemplates.First(x => x.GroupId == rule.GroupId);
-            DrawInfo referenceDraw = DrawTemplates.First(x => x.GroupId == referenceRule.GroupId);
-            double baseRate = RareProbability(draw);
-            double referenceBaseRate = RareProbability(referenceDraw);
-            double referenceOverallRate = referenceBaseRate /
-                (1 - Math.Pow(1 - referenceBaseRate, referenceRule.PityMax));
-            double requiredPowerMean = 1 - baseRate / referenceOverallRate;
-            double missRate = 1 - baseRate;
-            double minPower = Math.Pow(missRate, rule.PityMax);
-            double maxPower = Math.Pow(missRate, rule.PityMin);
-            if (requiredPowerMean < minPower || requiredPowerMean > maxPower)
-                throw new InvalidDataException($"Variable pity group {rule.GroupId} cannot match group {referenceRule.GroupId} overall rate");
-
-            // The client specifies the integer range and combined rate, but not server weights.
-            // Maximum entropy supplies the least-assumptive full-support distribution satisfying both constraints.
-            int count = rule.PityMax - rule.PityMin + 1;
-            double low = -32, high = 32;
-            for (int iteration = 0; iteration < 100; iteration++)
-            {
-                double slope = (low + high) / 2;
-                double mean = ExponentialPowerMean(rule.PityMin, count, missRate, slope);
-                if (mean > requiredPowerMean) low = slope; else high = slope;
-            }
-            double finalSlope = (low + high) / 2;
-            double[] weights = Enumerable.Range(0, count).Select(i => Math.Exp(finalSlope * (i - count + 1))).ToArray();
-            double total = weights.Sum();
-            for (int i = 0; i < weights.Length; i++) weights[i] /= total;
-            result.Add(rule.GroupId, weights);
-        }
-        return result;
-    }
-
-    private static double ExponentialPowerMean(int minimum, int count, double missRate, double slope)
-    {
-        double total = 0, weighted = 0;
-        for (int i = 0; i < count; i++)
-        {
-            double weight = Math.Exp(slope * (i - count + 1));
-            total += weight;
-            weighted += weight * Math.Pow(missRate, minimum + i);
-        }
-        return weighted / total;
+        throw new InvalidDataException($"Draw group {rule.GroupId} pity range {rule.PityMin}-{rule.PityMax} has no authoritative threshold law");
     }
 
     private static double OverallRareProbability(DrawInfo draw)
     {
         DrawServerRuleTable rule = Rule(draw);
+        if (rule.PityMin != rule.PityMax)
+            throw new InvalidDataException($"Draw group {rule.GroupId} combined rate needs the missing threshold law");
         double baseRate = RareProbability(draw);
-        double[] weights = rule.PityMin == rule.PityMax ? [1] : VariablePityDistributions.Value[rule.GroupId];
-        double missPowerMean = weights.Select((weight, index) => weight * Math.Pow(1 - baseRate, rule.PityMin + index)).Sum();
-        return baseRate / (1 - missPowerMean);
+        return baseRate / (1 - Math.Pow(1 - baseRate, rule.PityMax));
     }
 
     private static int[] PreviewIds(DrawInfo draw)
@@ -178,9 +137,29 @@ internal static partial class DrawManager
     {
         var rule = Rule(draw);
         var round = GetPityRound(player, draw, random);
-        bool rare = round.Misses + 1 >= round.Limit || random.NextDouble() < RareProbability(draw);
+        double rareRoll = random.NextDouble();
+        bool rare = round.Misses + 1 >= round.Limit || rareRoll < RareProbability(draw);
+        bool lowerDue = rule.LowerPity > 0 && round.LowerMisses + 1 >= rule.LowerPity;
         RewardGoods reward;
-        if (rare)
+        if (draw.GroupId == 1)
+        {
+            // Member draws keep their own reward composition (categories, per-banner
+            // A targets, one-time S calibration); the shared engine owns pity state.
+            reward = DrawMemberReward(player, draw, rare, lowerDue,
+                random.NextDouble(), random.NextDouble(), random.NextDouble(), random.NextDouble())
+                ?? throw new InvalidDataException($"Draw {draw.Id} has no member reward configuration");
+            if (rare)
+            {
+                round.HasObtainedRare = true;
+                round.Misses = 0;
+                round.Limit = NextLimit(rule, round);
+            }
+            else
+            {
+                round.Misses++;
+            }
+        }
+        else if (rare)
         {
             int[] pool = RarePool(draw);
             int target = draw.ResourceIds.GetValueOrDefault(1);
@@ -199,11 +178,11 @@ internal static partial class DrawManager
             round.GuaranteedTarget = rule.Calibration != 0 && hasTarget && id != target;
             round.HasObtainedRare = true;
             round.Misses = 0;
-            round.Limit = NextLimit(draw, rule, round, random);
+            round.Limit = NextLimit(rule, round);
         }
         else
         {
-            reward = RollNonRare(draw, random, rule.LowerPity > 0 && round.LowerMisses + 1 >= rule.LowerPity);
+            reward = RollNonRare(draw, random, lowerDue);
             round.Misses++;
         }
         bool lowerOrBetter = rare || (RewardKind(draw) switch

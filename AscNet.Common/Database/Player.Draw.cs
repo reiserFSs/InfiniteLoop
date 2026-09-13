@@ -79,6 +79,12 @@ namespace AscNet.Common.Database
         [BsonElement("history_by_group")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<int, PlayerDrawHistoryGroupState> HistoryByGroup { get; set; } = new();
+
+        // In-memory only: set when a pity round is created, cleared by
+        // Player.Save/SaveChecked only after an acknowledged write matched a stored
+        // document. Keeps initialization retriable after a failed or non-durable save.
+        [BsonIgnore]
+        public bool HasUnsavedPityRounds { get; set; }
     }
 
     public class PlayerDrawPityRound

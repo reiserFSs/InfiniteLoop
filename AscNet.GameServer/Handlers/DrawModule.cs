@@ -341,7 +341,7 @@ namespace AscNet.GameServer.Handlers
                 DrawAdjustActivityInfoList = DrawManager.GetDrawAdjustActivityInfos(session.player)
             };
 
-            if (initializedPity) session.player.Save();
+            if (initializedPity) session.player.SaveChecked();
             session.SendResponse(rsp, packet.Id);
         }
 
@@ -385,7 +385,7 @@ namespace AscNet.GameServer.Handlers
                 BottomTimes = bottomTimes,
                 MaxBottomTimes = maxBottomTimes
             };
-            if (initializedPity) session.player.Save();
+            if (initializedPity) session.player.SaveChecked();
             session.SendResponse(response, packet.Id);
         }
 
@@ -398,7 +398,7 @@ namespace AscNet.GameServer.Handlers
             DrawGetDrawInfoListResponse rsp = new();
             rsp.DrawInfoList.AddRange(DrawManager.GetDrawInfosByGroup(request.GroupId, session.player));
 
-            if (initializedPity) session.player.Save();
+            if (initializedPity) session.player.SaveChecked();
             session.SendResponse(rsp, packet.Id);
         }
 
@@ -435,7 +435,7 @@ namespace AscNet.GameServer.Handlers
             int drawCount = request.Count <= 0 ? 1 : Math.Min(request.Count, 10);
             int groupId = DrawManager.GetGroupByDrawId(request.DrawId);
             if (groupId > 0 && DrawManager.InitializePityState(session.player, groupId))
-                session.player.Save();
+                session.player.SaveChecked();
             DrawInfo? initialDrawInfo = DrawManager.GetDrawInfoById(request.DrawId, session.player);
             if (initialDrawInfo is null || !DrawManager.HasRewardConfiguration(request.DrawId))
             {

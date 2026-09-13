@@ -628,7 +628,11 @@ namespace AscNet.Common.Database
 
         public void Save()
         {
-            collection.ReplaceOne(Builders<Player>.Filter.Eq(x => x.Id, Id), this);
+            ReplaceOneResult result = collection.ReplaceOne(Builders<Player>.Filter.Eq(x => x.Id, Id), this);
+            // The flag means "a durable write is still owed": an unacknowledged or
+            // no-match result wrote nothing, so it must not clear the retry state.
+            if (DrawState is not null && result.IsAcknowledged && result.MatchedCount > 0)
+                DrawState.HasUnsavedPityRounds = false;
         }
 
         public void SaveChecked()
@@ -641,6 +645,7 @@ namespace AscNet.Common.Database
                 string matchCount = result.IsAcknowledged ? result.MatchedCount.ToString() : "unacknowledged";
                 throw new MongoException($"Player save for id {PlayerData.Id} matched {matchCount} documents.");
             }
+            if (DrawState is not null) DrawState.HasUnsavedPityRounds = false;
         }
 
         [BsonId]

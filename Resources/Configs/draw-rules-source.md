@@ -7,12 +7,13 @@ off-targets), Uniframes 5%, CUBs 5.82%.
 DrawServerRule.tsv transcribes guarantees and fallback target rates from DrawGroupRule.tsv.
 Per-banner target rates come from DrawAimProbability.tsv, so banners in one group
 may retain different rates. Arrival and targeted weapons calibrate after an off-target rare.
-Fate limits are sampled inclusively from 80 to 100 once per round. The client
+Fate limits are published only as an inclusive 80-100 range. The client
 specifies the range, 1.5% base rate, and equality with the corresponding normal
-pool's combined rate, but does not expose the server's threshold weights. The
-emulator therefore uses the unique maximum-entropy full-support distribution
-that satisfies those published constraints; weights are derived at runtime from
-DrawGroupRule, DrawProbShow, and DrawServerRule rather than captured values.
+pool's combined rate, but does not expose the server's threshold weights, and
+no maintainer authorization covers a substitute distribution. Fate groups whose
+rule needs the missing threshold law therefore fail closed: they are not
+advertised, their draw infos are not served, and draw requests are rejected,
+pending an authoritative weight table or explicit maintainer authorization.
 Member's initial limit is 40, then 60. Target percentages apply conditional on
 obtaining the highest rarity, not as additional independent rolls.
 

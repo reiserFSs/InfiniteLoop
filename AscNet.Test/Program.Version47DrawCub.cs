@@ -33,8 +33,10 @@ internal partial class Program
     /// draw banner from the DrawGetDrawGroupList/DrawGetDrawInfoList flow; a group is only renderable
     /// when its Tag maps to a known DrawTabs entry (the featured Current Season banner is DrawTabs Id=2)
     /// and its group resolves at least one complete active DrawInfo. This exercises the real client
-    /// handlers, asserting every advertised 4.7 banner (Themed 11/1509, Fate 15/2503, weapon 4/382,
-    /// CUB 22/7069) is present, active, tagged for a renderable tab, and backed by a complete DrawInfo.</summary>
+    /// handlers, asserting every advertised 4.7 banner (Themed 11/1509, weapon 4/382, CUB 22/7069) is
+    /// present, active, tagged for a renderable tab, and backed by a complete DrawInfo. The Fate
+    /// featured banner (15/2503) is excluded: its 80-100 threshold weights have no authoritative
+    /// source, so the group fails closed instead of advertising an unsampled guarantee.</summary>
     private static void AssertVersion47BannerCatalogRenders()
     {
         AscNet.Common.Database.Character character = new()
@@ -56,19 +58,19 @@ internal partial class Program
 
         // Every advertised 4.7 banner must be present as an active group with a renderable tab tag.
         Dictionary<int, DrawGroupInfo> groupsById = groupRsp.DrawGroupInfoList.ToDictionary(g => g.Id);
-        foreach (int groupId in new[] { 11, 15, 4, 22 })
+        foreach (int groupId in new[] { 11, 4, 22 })
             AssertEqual(true, groupsById.ContainsKey(groupId), $"banner group {groupId} advertised at current clock");
+        AssertEqual(false, groupsById.ContainsKey(15), "Fate featured banner fails closed without authoritative threshold weights");
 
-        // Tag drives which DrawTabs entry renders the banner. The featured Themed/Fate construct banner
+        // Tag drives which DrawTabs entry renders the banner. The featured Themed construct banner
         // is the "Current Season" tab (DrawTabs Id=2); routing it to another tab (e.g. Crucible Id=9)
         // leaves the featured banner slot empty and the UI on Loading.
         AssertEqual(2, groupsById[11].Tag, "Themed featured banner tab tag");
-        AssertEqual(2, groupsById[15].Tag, "Fate featured banner tab tag");
         AssertEqual(1, groupsById[4].Tag, "weapon banner tab tag");
         AssertEqual(7, groupsById[22].Tag, "CUB banner tab tag");
 
         // Each advertised group must resolve at least one complete, active DrawInfo the client renders.
-        foreach ((int groupId, int drawId) in new[] { (11, 1509), (15, 2503), (4, 382), (22, 7069) })
+        foreach ((int groupId, int drawId) in new[] { (11, 1509), (4, 382), (22, 7069) })
         {
             InvokeRequestHandler(harness, nameof(DrawGetDrawInfoListRequest), 20_001, new DrawGetDrawInfoListRequest { GroupId = groupId });
             DrawGetDrawInfoListResponse infoRsp = ReadResponsePayload<DrawGetDrawInfoListResponse>(
@@ -154,6 +156,16 @@ internal partial class Program
                 AssertEqual(true, group.MaxBottomTimes > 0, $"Version47DrawCub derived group {group.Id} guarantee");
             }
         }
+
+        // The catalog row remains authoritative for the banner's window and target, but
+        // the runtime draw fails closed: no authoritative 80-100 threshold law exists.
+        MethodInfo getDrawInfoById = RequiredMethod(
+            RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager"), "GetDrawInfoById",
+            BindingFlags.Static | BindingFlags.Public, [typeof(int), typeof(AscNet.Common.Database.Player)]);
+        AssertEqual(true, getDrawInfoById.Invoke(null, [2503, new AscNet.Common.Database.Player()]) is null,
+            "Fate draw 2503 is not served without authoritative threshold weights");
+        AssertEqual(false, getDrawInfoById.Invoke(null, [1509, new AscNet.Common.Database.Player()]) is null,
+            "Themed draw 1509 is still served");
 
         // The named targets remain present in the authoritative tables.
         AssertEqual(true, TableReaderV2.Parse<PartnerTable>().Any(p => p.Id == 16_410_000),

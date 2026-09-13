@@ -5098,7 +5098,7 @@ internal static partial class DrawManager
 
     private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     private static bool IsActive(DrawGroupInfo group) => (group.StartTime == 0 || group.StartTime <= Now()) && (group.EndTime == 0 || Now() < group.EndTime);
-    private static bool IsActive(DrawInfo draw) => GroupsById.TryGetValue(draw.GroupId, out DrawGroupInfo? group) && IsActive(group) && (draw.StartTime == 0 || draw.StartTime <= Now()) && (draw.EndTime == 0 || Now() < draw.EndTime);
+    private static bool IsActive(DrawInfo draw) => GroupsById.TryGetValue(draw.GroupId, out DrawGroupInfo? group) && IsActive(group) && HasAvailablePityLaw(draw) && (draw.StartTime == 0 || draw.StartTime <= Now()) && (draw.EndTime == 0 || Now() < draw.EndTime);
     private static bool HasActiveDraws(DrawGroupInfo group) => DrawsByGroup.TryGetValue(group.Id, out List<DrawInfo>? draws) && draws.Any(IsActive);
 
     public static List<DrawGroupInfo> GetDrawGroupInfos(Player player)
@@ -5119,17 +5119,9 @@ internal static partial class DrawManager
             value.UseDrawIdDict = GetSelections(player, group);
             value.SwitchDrawIdCount = player.DrawState.SwitchCountByGroup.GetValueOrDefault(group.Id);
             DrawInfo selected = GetSelected(player, group);
-            if (group.Id == 1)
-            {
-                value.BottomTimes = GetPlayerBottomTimes(player, selected);
-                value.MaxBottomTimes = selected.MaxBottomTimes;
-            }
-            else
-            {
-                DrawInfo status = BuildDrawInfo(selected, player);
-                value.BottomTimes = status.BottomTimes;
-                value.MaxBottomTimes = status.MaxBottomTimes;
-            }
+            DrawInfo status = BuildDrawInfo(selected, player);
+            value.BottomTimes = status.BottomTimes;
+            value.MaxBottomTimes = status.MaxBottomTimes;
             return value;
         }).ToList();
     }
@@ -5138,9 +5130,8 @@ internal static partial class DrawManager
 
     public static (int BottomTimes, int MaxBottomTimes) GetDrawHistoryStatus(Player player, int groupId, int groupSubType)
     {
-        if (!GroupsById.TryGetValue(groupId, out DrawGroupInfo? group) || !IsActive(group)) return (0, 0);
+        if (!GroupsById.TryGetValue(groupId, out DrawGroupInfo? group) || !IsActive(group) || !HasActiveDraws(group)) return (0, 0);
         DrawInfo draw = DrawsByGroup[groupId].FirstOrDefault(x => x.GroupSubType == groupSubType) ?? GetSelected(player, group);
-        if (groupId == 1) return (GetPlayerBottomTimes(player, draw), draw.MaxBottomTimes);
         DrawInfo status = BuildDrawInfo(draw, player);
         return (status.BottomTimes, status.MaxBottomTimes);
     }
@@ -5259,11 +5250,9 @@ internal static partial class DrawManager
     public static List<RewardGoods> DrawDraw(Player player, int drawId, int pullOffset = 0)
     {
         if (!DrawsById.TryGetValue(drawId, out DrawInfo? draw) || !IsActive(draw)) return [];
-        if (draw.GroupId == 1)
-        {
-            RewardGoods? member = DrawMemberReward(player, draw, Random.Shared.NextDouble(), Random.Shared.NextDouble(), Random.Shared.NextDouble(), Random.Shared.NextDouble());
-            return member is null ? [] : [member];
-        }
+        // Member draws run the shared pity engine; their per-banner reward
+        // composition stays inside the member branch of RollDraw.
+        if (draw.GroupId == 1 && !MemberTargetPools.Value.ContainsKey(drawId)) return [];
         // Each result advances its own pity round, including within a ten-pull.
         return [RollDraw(player, draw, Random.Shared)];
     }
@@ -5339,21 +5328,12 @@ internal static partial class DrawManager
         PlayerDrawProgress progress = GetProgress(player, template.Id);
         value.TodayCount = progress.TodayCount;
         value.TotalCount = progress.TotalCount;
-        if (template.GroupId == 1)
-        {
-            value.BottomTimes = GetPlayerBottomTimes(player, template);
-            return value;
-        }
         PlayerDrawPityRound round = GetPityRound(player, template, Random.Shared);
         value.MaxBottomTimes = round.Limit;
         value.BottomTimes = Math.Max(1, round.Limit - round.Misses);
         value.IsTriggerSpecified = round.GuaranteedTarget;
         return value;
     }
-
-    private static int GetPlayerBottomTimes(Player player, DrawInfo draw) => draw.GroupId == 1
-        ? MemberTargetSGuarantee - GetMemberTargetPity(player).SinceS
-        : GetBottomTimes(draw, GetPityCount(player, draw.GroupId));
 
     private static PlayerMemberTargetPity GetMemberTargetPity(Player player)
     {
@@ -5376,6 +5356,10 @@ internal static partial class DrawManager
         pity.SinceAOrS = Math.Min(pity.SinceAOrS, MemberTargetAGuarantee - 1);
         return player.DrawState.MemberTargetPity = pity;
     }
+
+    private static bool MemberHistoryHasRare(Player player) =>
+        player.DrawState.HistoryByGroup.TryGetValue(1, out var group)
+        && group.HistoryBySubType.Values.SelectMany(x => x).Any(x => GetDrawCharacterQuality(x.RewardGoods) == 3);
 
     private static int GetDrawCharacterQuality(RewardGoods reward) => CharacterMinQualityById.GetValueOrDefault(
         reward.ConvertFrom > 0 ? reward.ConvertFrom : reward.RewardType == (int)RewardType.Character ? reward.TemplateId : 0);
@@ -5451,32 +5435,41 @@ internal static partial class DrawManager
     }
 
     public static bool HasRewardConfiguration(int drawId) => DrawsById.TryGetValue(drawId, out var draw)
-        && (draw.GroupId != 1 || MemberTargetPools.Value.ContainsKey(drawId));
+        && HasAvailablePityLaw(draw) && (draw.GroupId != 1 || MemberTargetPools.Value.ContainsKey(drawId));
 
-    private static RewardGoods? DrawMemberReward(Player player, DrawInfo draw, double categoryRoll, double rankRoll, double targetRoll, double itemRoll)
+    // The shared pity engine (PityRounds[1]) decides rare/lower-rarity pulls and
+    // owns the counters; this method only resolves the member reward composition.
+    private static RewardGoods? DrawMemberReward(Player player, DrawInfo draw, bool rare, bool forceLower, double categoryRoll, double rankRoll, double targetRoll, double itemRoll)
     {
         if (!MemberTargetPools.Value.TryGetValue(draw.Id, out var pool)) return null;
-        PlayerMemberTargetPity pity = GetMemberTargetPity(player);
-        int category = 0;
-        double cumulative = pool.Weights[0];
-        while (category < pool.Weights.Length - 1 && categoryRoll >= cumulative) cumulative += pool.Weights[++category];
-        if (pity.SinceS >= MemberTargetSGuarantee - 1) category = 0;
-        bool forceA = category != 0 && pity.SinceAOrS >= MemberTargetAGuarantee - 1;
-        if (forceA) category = 1;
+        EnsureState(player);
+        int category;
+        if (rare)
+        {
+            category = 0;
+        }
+        else if (forceLower)
+        {
+            category = 1;
+        }
+        else
+        {
+            // Non-S categories roll on their conditional (non-S) share.
+            double scaled = categoryRoll * (1 - pool.Weights[0]);
+            category = 1;
+            double cumulative = pool.Weights[1];
+            while (category < pool.Weights.Length - 1 && scaled >= cumulative) cumulative += pool.Weights[++category];
+        }
         int[] ids = pool.Goods[category];
         if (category == 1)
         {
             // Local policy: rank odds follow the visible full-character A/B pool counts.
-            bool isA = forceA || rankRoll < (double)pool.A.Length / (pool.A.Length + pool.B.Length);
+            bool isA = forceLower || rankRoll < (double)pool.A.Length / (pool.A.Length + pool.B.Length);
             ids = isA ? pool.A : pool.B;
             if (isA && pool.Target != 0)
             {
                 if (targetRoll < pool.TargetChance)
-                {
-                    RewardGoods target = Create(RewardType.Character, pool.Target, 1, 1);
-                    AdvanceMemberTargetPity(pity, 2);
-                    return target;
-                }
+                    return Create(RewardType.Character, pool.Target, 1, 1);
                 ids = pool.OtherA;
             }
         }
@@ -5488,19 +5481,9 @@ internal static partial class DrawManager
             && selectedS != 0 && MemberTargetCalibrationTargets.Value.Contains(selectedS))
         {
             player.DrawState.MemberTargetCalibrationConsumed = true;
-            AdvanceMemberTargetPity(pity, 3);
             return Create(RewardType.Character, selectedS, 1, 1);
         }
-        RewardGoods reward = Create(type, ids[(int)(itemRoll * ids.Length)], count, type is RewardType.Character or RewardType.Equip ? 1 : 0);
-        AdvanceMemberTargetPity(pity, GetDrawCharacterQuality(reward));
-        return reward;
-    }
-
-    private static int GetBottomTimes(DrawInfo draw, int totalCount)
-    {
-        if (draw.MaxBottomTimes <= 0) return 0;
-        int consumed = totalCount % draw.MaxBottomTimes;
-        return consumed == 0 ? draw.MaxBottomTimes : draw.MaxBottomTimes - consumed;
+        return Create(type, ids[(int)(itemRoll * ids.Length)], count, type is RewardType.Character or RewardType.Equip ? 1 : 0);
     }
 
     private static RewardGoods? DrawCharacterReward(DrawInfo draw, bool forceRare)
