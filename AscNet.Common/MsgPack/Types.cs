@@ -810,6 +810,7 @@ namespace AscNet.Common.MsgPack
             public List<Int32> NewbieRecvProgress { get; set; } = new();
             public Boolean NewbieHonorReward { get; set; }
             public Int32 NewbieUnlockPeriod { get; set; }
+            public List<Int32> WeeklyTaskActivenessProgress { get; set; } = new();
         }
 
         public NotifyTaskDataTaskData TaskData { get; set; }
