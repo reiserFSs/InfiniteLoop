@@ -578,6 +578,7 @@ namespace AscNet.Test
                 {
                     ValidateBossSingleCompatibility();
                     ValidateBossSingleIntensiveStageHydration();
+                    ValidateBossSingleCycleStageScoreSync();
                     return;
                 }
 
@@ -951,6 +952,7 @@ namespace AscNet.Test
                 ValidateBossActivityCompatibility();
                 ValidateBossSingleCompatibility();
                 ValidateBossSingleIntensiveStageHydration();
+                ValidateBossSingleCycleStageScoreSync();
                 ValidateSimulatedBattlefieldCompatibility();
                 ValidateCurrentClientGuideTableCompatibility();
                 ValidateWheelchairManualFullCompatibility();
@@ -28471,10 +28473,10 @@ namespace AscNet.Test
             AssertEqual(0, normalSave.Code, "Pain Cage normal save-score code");
             AssertEqual(playerSavesBeforeNormalScore + 1, playerCollection.ReplaceOneCalls,
                 "Pain Cage normal save persists Player once");
-            AssertEqual(stageSavesBeforeNormalScore + 1, stageCollection.ReplaceOneCalls,
-                "Pain Cage normal save persists Stage once");
+            AssertEqual(stageSavesBeforeNormalScore + 2, stageCollection.ReplaceOneCalls,
+                "Pain Cage normal save heals the stale bestiary datum and persists the committed Stage");
             int rankPushIndex = savePushes.IndexOf(nameof(NotifyBossSingleRankInfo));
-            int stagePushIndex = savePushes.IndexOf(nameof(NotifyStageData));
+            int stagePushIndex = savePushes.IndexOf(nameof(NotifyStageData), rankPushIndex + 1);
             int loginPushIndex = savePushes.IndexOf(nameof(NotifyFubenBossSingleData));
             if (rankPushIndex < 0 || stagePushIndex <= rankPushIndex || loginPushIndex <= stagePushIndex)
                 throw new InvalidDataException(
@@ -28585,7 +28587,8 @@ namespace AscNet.Test
                 "Pain Cage stage reset",
                 out List<string> resetPushes);
             AssertEqual(0, reset.Code, "Pain Cage reset code");
-            AssertEqual(true, resetPushes.SequenceEqual([nameof(NotifyFubenBossSingleData)]),
+            AssertEqual(true,
+                resetPushes.SequenceEqual([nameof(NotifyFubenBossSingleData), nameof(NotifyStageData)]),
                 "Pain Cage reset push ordering");
             AssertEqual(0, player.SimulatedBattlefield.BossCurrentTotalScore,
                 "Pain Cage reset removes current score");

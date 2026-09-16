@@ -207,6 +207,8 @@ namespace AscNet.GameServer.Handlers
             TableReaderV2.Parse<BossSingleGroupTable>().ToDictionary(row => row.Id));
         private static readonly Lazy<List<BossSingleSectionTable>> Sections = new(() =>
             TableReaderV2.Parse<BossSingleSectionTable>());
+        private static readonly Lazy<HashSet<int>> CycleStageIds = new(() =>
+            Sections.Value.SelectMany(row => row.StageId).Where(stageId => stageId > 0).ToHashSet());
         private static readonly Lazy<List<BossSingleChallengeGradeTable>> ChallengeGrades = new(() =>
             TableReaderV2.Parse<BossSingleChallengeGradeTable>());
         private static readonly Lazy<List<BossSingleChallengeFeatureGroupTable>> ChallengeFeatureGroups = new(() =>
@@ -432,6 +434,12 @@ namespace AscNet.GameServer.Handlers
             session.PendingBossSingleScore = null;
             session.player.Save();
             session.SendPush(BuildLoginData(session.player));
+            if (session.stage is not null
+                && SyncCycleStageScores(state, session.stage) is { Count: > 0 } resetStages)
+            {
+                session.stage.Save();
+                session.SendPush(new NotifyStageData { StageList = resetStages });
+            }
             session.SendResponse(new BossSingleResetStageResponse { Code = 0 }, packet.Id);
         }
 
@@ -964,7 +972,11 @@ namespace AscNet.GameServer.Handlers
             if (Reconcile(session.player, null))
                 session.player.Save();
             if (session.stage is not null)
+            {
+                if (SyncCycleStageScores(session.player.SimulatedBattlefield, session.stage).Count > 0)
+                    session.stage.Save();
                 HydrateBossStages(session, sendPushes: false);
+            }
         }
 
         private static void ClaimRewards(Session session, int packetId, int? requestedId)
@@ -1107,6 +1119,29 @@ namespace AscNet.GameServer.Handlers
             state.BossCurrentTotalScore = currentTotal;
             state.BossTotalScore = total;
             return changed;
+        }
+
+        private static List<StageDatum> SyncCycleStageScores(SimulatedBattlefieldState state, Stage persistedStages)
+        {
+            List<StageDatum>? changed = null;
+            foreach (int stageId in CycleStageIds.Value)
+            {
+                if (!persistedStages.Stages.TryGetValue(stageId, out StageDatum? datum) || datum is null)
+                    continue;
+
+                int expected = state.BossResetStageIds.Contains(stageId)
+                    ? 0
+                    : state.BossStageRecords.Find(record => record.StageId == stageId)?.MaxScore
+                        ?? state.BossChallengeHistory.Find(record => record.StageId == stageId)?.Score
+                        ?? 0;
+                if (datum.Score == expected)
+                    continue;
+
+                datum.Score = expected;
+                (changed ??= new()).Add(datum);
+            }
+
+            return changed ?? new();
         }
 
 
@@ -1259,6 +1294,12 @@ namespace AscNet.GameServer.Handlers
             {
                 session.PendingBossSingleScore = null;
                 WheelchairManualGuideManager.SendUpdate(session);
+            }
+            if (session.stage is not null
+                && SyncCycleStageScores(session.player.SimulatedBattlefield!, session.stage) is { Count: > 0 } syncedStages)
+            {
+                session.stage.Save();
+                session.SendPush(new NotifyStageData { StageList = syncedStages });
             }
         }
 

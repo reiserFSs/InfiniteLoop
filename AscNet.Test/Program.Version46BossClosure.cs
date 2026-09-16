@@ -138,6 +138,186 @@ internal partial class Program
         AssertEqual(0, response.Code, "registered Intensive challenge PreFight is actionable");
     }
 
+    private static void ValidateBossSingleCycleStageScoreSync()
+    {
+        using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForBossCompatibility(
+            out _,
+            out RecordingMongoCollectionProxy<AscNet.Common.Database.Stage> stageCollection);
+        const long playerId = 46_800;
+        Player player = CreateDrawCompatibilityPlayer(playerId);
+        using LoopbackSessionHarness harness = new(
+            CreateDrawCompatibilityCharacter(playerId),
+            player,
+            sessionId: "v46-boss-cycle-stage-score-sync");
+        harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+        Type bossModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule");
+        InvokePrivateStaticWithArgs<object?>(bossModule, "PrepareLogin", [harness.Session]);
+
+        List<BossSingleGradeTable> grades = TableReaderV2.Parse<BossSingleGradeTable>();
+        int currentAfreshId = grades.Max(row => row.AfreshId);
+        SimulatedBattlefieldState state = player.SimulatedBattlefield;
+        AssertEqual(1, state.BossList.Count > 0 ? 1 : 0,
+            "fresh level-80 Pain Cage login selects one grade of sections");
+        BossSingleSectionTable section = TableReaderV2.Parse<BossSingleSectionTable>().Single(row =>
+            row.SectionId == state.BossList[0] && row.AfreshId == currentAfreshId);
+        int knightStageId = section.StageId[0];
+        int chaosStageId = section.StageId[1];
+        AssertEqual(true,
+            harness.Session.stage.Stages.ContainsKey(knightStageId)
+            && harness.Session.stage.Stages.ContainsKey(chaosStageId),
+            "PrepareLogin hydrates the selected section stages");
+
+        List<Packet.Push> ReadPushes(
+            int packetId,
+            string responseName,
+            string name,
+            out Packet.Response response)
+        {
+            List<Packet.Push> pushes = [];
+            for (int index = 0; index < 16; index++)
+            {
+                Packet packet = harness.ReadPacket($"{name} packet {index + 1}");
+                if (packet.Type == Packet.ContentType.Push)
+                {
+                    pushes.Add(MessagePackSerializer.Deserialize<Packet.Push>(packet.Content));
+                    continue;
+                }
+
+                response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                AssertEqual(packetId, response.Id, $"{name} response id");
+                AssertEqual(responseName, response.Name, $"{name} response name");
+                return pushes;
+            }
+
+            throw new InvalidDataException($"{name}: expected {responseName} response.");
+        }
+
+        List<Packet.Push> ReadRankInfo(int packetId, string name)
+        {
+            InvokeRegisteredRequestHandler(
+                nameof(BossSingleRankInfoRequest),
+                harness.Session,
+                packetId,
+                new BossSingleRankInfoRequest { SectionId = 0 });
+            List<Packet.Push> pushes = ReadPushes(
+                packetId, nameof(BossSingleRankInfoResponse), name, out _);
+            return pushes;
+        }
+
+        NotifyStageData SingleStagePush(List<Packet.Push> pushes, string name)
+        {
+            AssertEqual(true,
+                pushes.Select(push => push.Name).SequenceEqual([nameof(NotifyStageData)]),
+                $"{name} pushes only the resynced stage data");
+            return MessagePackSerializer.Deserialize<NotifyStageData>(pushes[0].Content);
+        }
+
+        harness.Session.stage.Stages[knightStageId] = new StageDatum
+        {
+            StageId = knightStageId,
+            Passed = true,
+            Score = 88_200
+        };
+        int savesBeforeHeal = stageCollection.ReplaceOneCalls;
+        NotifyStageData healPush = SingleStagePush(
+            ReadRankInfo(46_801, "Pain Cage stale stage score sync"),
+            "Pain Cage stale stage score sync");
+        AssertEqual(0L, harness.Session.stage.Stages[knightStageId].Score,
+            "Pain Cage stale period stage datum heals to the current period");
+        AssertEqual(savesBeforeHeal + 1, stageCollection.ReplaceOneCalls,
+            "Pain Cage stale stage datum persists once");
+        StageDatum healedStage = healPush.StageList.Single();
+        AssertEqual(checked((long)knightStageId), healedStage.StageId,
+            "Pain Cage stale sync push targets the stale stage");
+        AssertEqual(0L, healedStage.Score, "Pain Cage stale sync push clears the stale score");
+
+        state.BossStageRecords.Add(new BossSingleStageRecordState
+        {
+            StageId = chaosStageId,
+            Score = 1_000,
+            MaxScore = 87_300
+        });
+        harness.Session.stage.Stages[chaosStageId].Score = 1;
+        int savesBeforeBest = stageCollection.ReplaceOneCalls;
+        NotifyStageData bestPush = SingleStagePush(
+            ReadRankInfo(46_802, "Pain Cage live stage score sync"),
+            "Pain Cage live stage score sync");
+        AssertEqual(87_300L, harness.Session.stage.Stages[chaosStageId].Score,
+            "Pain Cage live stage datum follows the record best score");
+        AssertEqual(savesBeforeBest + 1, stageCollection.ReplaceOneCalls,
+            "Pain Cage live stage datum persists once");
+        AssertEqual(87_300L, bestPush.StageList.Single().Score,
+            "Pain Cage live sync push carries the record best score");
+
+        int savesBeforeRepeat = stageCollection.ReplaceOneCalls;
+        AssertEqual(0, ReadRankInfo(46_803, "Pain Cage repeated stage score sync").Count,
+            "Pain Cage stage score sync is idempotent");
+        AssertEqual(savesBeforeRepeat, stageCollection.ReplaceOneCalls,
+            "Pain Cage idempotent sync writes no stage save");
+
+        const int resetPacketId = 46_804;
+        InvokeRegisteredRequestHandler(
+            nameof(BossSingleResetStageRequest),
+            harness.Session,
+            resetPacketId,
+            new BossSingleResetStageRequest { StageId = chaosStageId });
+        List<Packet.Push> resetPushes = ReadPushes(
+            resetPacketId, nameof(BossSingleResetStageResponse), "Pain Cage reset stage score sync",
+            out Packet.Response resetResponse);
+        AssertEqual(0, MessagePackSerializer.Deserialize<BossSingleResetStageResponse>(resetResponse.Content).Code,
+            "Pain Cage reset stage score sync response code");
+        BossSingleStageRecordState resetRecord = state.BossStageRecords.Single(value => value.StageId == chaosStageId);
+        AssertEqual(0, resetRecord.Score, "Pain Cage reset clears current stage score");
+        AssertEqual(87_300, resetRecord.MaxScore, "Pain Cage reset retains stage best for aggregate progress");
+        AssertEqual(true, state.BossResetStageIds.Contains(chaosStageId), "Pain Cage reset marker persistence");
+        AssertEqual(true,
+            resetPushes.Select(push => push.Name)
+                .SequenceEqual([nameof(NotifyFubenBossSingleData), nameof(NotifyStageData)]),
+            "Pain Cage reset pushes login data then the reset stage datum");
+        AssertEqual(0L, harness.Session.stage.Stages[chaosStageId].Score,
+            "Pain Cage reset stage datum clears to zero");
+        AssertEqual(0L, MessagePackSerializer.Deserialize<NotifyStageData>(resetPushes[1].Content).StageList.Single().Score,
+            "Pain Cage reset sync push clears the stage datum score");
+
+        BossSingleChallengeGradeTable challengeGrade = TableReaderV2.Parse<BossSingleChallengeGradeTable>().Single();
+        state.BossLevelType = grades
+            .Where(row => row.AfreshId == currentAfreshId && row.GradeType >= challengeGrade.NeedGradeType)
+            .OrderBy(row => row.GradeType)
+            .First()
+            .LevelType;
+        state.BossResetStageIds = [];
+        state.BossStageRecords =
+        [
+            new BossSingleStageRecordState { StageId = 30303255, Score = 87_300, MaxScore = 87_300 },
+            new BossSingleStageRecordState { StageId = 30303256, Score = 178_200, MaxScore = 178_200 },
+            new BossSingleStageRecordState { StageId = 30303257, Score = 346_800, MaxScore = 346_800 },
+            new BossSingleStageRecordState { StageId = 30303249, Score = 89_250, MaxScore = 89_250 },
+            new BossSingleStageRecordState { StageId = 30303250, Score = 175_800, MaxScore = 175_800 },
+            new BossSingleStageRecordState { StageId = 30303251, Score = 348_240, MaxScore = 348_240 },
+            new BossSingleStageRecordState { StageId = 30302905, Score = 360_600, MaxScore = 360_600 }
+        ];
+        NotifyFubenBossSingleData locked = InvokePrivateStaticWithArgs<NotifyFubenBossSingleData>(
+            bossModule, "BuildLoginData", [player, null]);
+        AssertEqual(1_586_190, locked.FubenBossSingleData.TotalScore,
+            "reported Pain Cage period total excludes the archived stage scores");
+        AssertEqual(0, locked.FubenBossSingleData.ChallengeLevelType,
+            "reported Pain Cage period keeps Intensive Battle locked");
+        AssertEqual(0, locked.FubenBossSingleData.ChallengeSectionId,
+            "reported Pain Cage period exposes no challenge section");
+
+        state.BossStageRecords.Add(new BossSingleStageRecordState { StageId = 30302903, Score = 88_200, MaxScore = 88_200 });
+        state.BossStageRecords.Add(new BossSingleStageRecordState { StageId = 30302904, Score = 180_900, MaxScore = 180_900 });
+        NotifyFubenBossSingleData unlocked = InvokePrivateStaticWithArgs<NotifyFubenBossSingleData>(
+            bossModule, "BuildLoginData", [player, null]);
+        AssertEqual(1_855_290, unlocked.FubenBossSingleData.TotalScore,
+            "Pain Cage period total counts the newly cleared stage scores");
+        AssertEqual(challengeGrade.LevelType, unlocked.FubenBossSingleData.ChallengeLevelType,
+            "Pain Cage period total unlocks the level-9 challenge");
+        AssertEqual(true, unlocked.FubenBossSingleData.ChallengeSectionId > 0,
+            "Pain Cage unlocked challenge exposes a section");
+    }
+
+
     private static void ValidateBossInshotEarlyLineupRejection(
         BossInshotActivityTable activity,
         int robotId)
