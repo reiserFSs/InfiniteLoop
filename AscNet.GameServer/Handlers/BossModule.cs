@@ -1050,7 +1050,11 @@ namespace AscNet.GameServer.Handlers
             {
                 Dictionary<int, int> scores = pending.StageType == 2 ? state.BossTrialScores : state.BossBestiaryScores;
                 scores[pending.StageId] = Math.Max(scores.GetValueOrDefault(pending.StageId), pending.Result.TotalScore);
-                stageData = UpdateStageDatum(session, pending, pending.Result.TotalScore);
+                // Codex clears are recorded in BossTrialScores/BossBestiaryScores: stageType 2 is the codex
+                // "Ultimate Zone" list, stageType 4 the codex "Current Threats" list, whose stage ids are the same
+                // as the current Ultimate rotation's. The stage datum carries the rotation score of the current
+                // period, which these clears do not produce.
+                stageData = UpdateStageDatum(session, pending, 0);
                 session.stage.Save();
                 session.player.Save();
                 return true;

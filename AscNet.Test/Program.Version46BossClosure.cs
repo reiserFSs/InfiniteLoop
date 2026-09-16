@@ -156,7 +156,7 @@ internal partial class Program
         List<BossSingleGradeTable> grades = TableReaderV2.Parse<BossSingleGradeTable>();
         int currentAfreshId = grades.Max(row => row.AfreshId);
         SimulatedBattlefieldState state = player.SimulatedBattlefield;
-        AssertEqual(1, state.BossList.Count > 0 ? 1 : 0,
+        AssertEqual(true, state.BossList.Count > 0,
             "fresh level-80 Pain Cage login selects one grade of sections");
         BossSingleSectionTable section = TableReaderV2.Parse<BossSingleSectionTable>().Single(row =>
             row.SectionId == state.BossList[0] && row.AfreshId == currentAfreshId);
@@ -249,6 +249,35 @@ internal partial class Program
         AssertEqual(87_300L, bestPush.StageList.Single().Score,
             "Pain Cage live sync push carries the record best score");
 
+        // The codex "Current Threats" list (stageType 4, IsBestiaryCfg != 0, sections 2020..2044) uses the same
+        // stage ids as the current Ultimate rotation, so its scores must never reach the period stage datum.
+        List<BossSingleSectionTable> sectionRows = TableReaderV2.Parse<BossSingleSectionTable>();
+        int currentThreatsStageId = TableReaderV2.Parse<BossSingleTrialGradeTable>()
+            .Where(catalog => catalog.IsBestiaryCfg != 0)
+            .SelectMany(catalog => catalog.SectionId.Where(sectionId => sectionId > 0))
+            .Distinct()
+            .SelectMany(sectionId => sectionRows
+                .Where(row => row.SectionId == sectionId && row.AfreshId == currentAfreshId)
+                .SelectMany(row => row.StageId))
+            .First(stageId => harness.Session.stage.Stages.ContainsKey(stageId));
+        state.BossBestiaryScores[currentThreatsStageId] = 91_200;
+        int savesBeforeCurrentThreats = stageCollection.ReplaceOneCalls;
+        AssertEqual(0, ReadRankInfo(46_805, "Pain Cage Current Threats score isolation").Count,
+            "Pain Cage Current Threats score leaks no stage push");
+        AssertEqual(0L, harness.Session.stage.Stages[currentThreatsStageId].Score,
+            "Pain Cage Current Threats score stays out of the period stage datum");
+        AssertEqual(savesBeforeCurrentThreats, stageCollection.ReplaceOneCalls,
+            "Pain Cage Current Threats score writes no stage save");
+        List<Dictionary<string, object>> currentThreatsEntries = InvokePrivateStaticWithArgs<NotifyFubenBossSingleData>(
+                bossModule, "BuildLoginData", [player, null])
+            .FubenBossSingleData.BestiraryStageInfoList
+            .Select(entry => (Dictionary<string, object>)entry!)
+            .ToList();
+        AssertEqual(true,
+            currentThreatsEntries.Any(entry =>
+                (int)entry["StageId"] == currentThreatsStageId && (int)entry["Score"] == 91_200),
+            "Pain Cage Current Threats score is reported through the codex list");
+
         int savesBeforeRepeat = stageCollection.ReplaceOneCalls;
         AssertEqual(0, ReadRankInfo(46_803, "Pain Cage repeated stage score sync").Count,
             "Pain Cage stage score sync is idempotent");
@@ -296,10 +325,13 @@ internal partial class Program
             new BossSingleStageRecordState { StageId = 30303251, Score = 348_240, MaxScore = 348_240 },
             new BossSingleStageRecordState { StageId = 30302905, Score = 360_600, MaxScore = 360_600 }
         ];
+        AssertEqual(true,
+            state.BossStageRecords.All(record => sectionRows.Any(row => row.StageId.Contains(record.StageId))),
+            "Pain Cage period total fixture stages exist in the section table");
         NotifyFubenBossSingleData locked = InvokePrivateStaticWithArgs<NotifyFubenBossSingleData>(
             bossModule, "BuildLoginData", [player, null]);
         AssertEqual(1_586_190, locked.FubenBossSingleData.TotalScore,
-            "reported Pain Cage period total excludes the archived stage scores");
+            "reported Pain Cage period total stays below the challenge threshold");
         AssertEqual(0, locked.FubenBossSingleData.ChallengeLevelType,
             "reported Pain Cage period keeps Intensive Battle locked");
         AssertEqual(0, locked.FubenBossSingleData.ChallengeSectionId,

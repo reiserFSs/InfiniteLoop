@@ -28009,6 +28009,8 @@ namespace AscNet.Test
                     : player.SimulatedBattlefield.BossTrialScores;
                 AssertEqual(result.TotalScore, scores[stageId],
                     $"Pain Cage {(bestiary ? "bestiary" : "trial")} score persistence");
+                AssertEqual(0L, harness.Session.stage.Stages[stageId].Score,
+                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves no period stage score");
                 AssertEqual(challengeCountBefore, player.SimulatedBattlefield.BossChallengeCount,
                     $"Pain Cage {(bestiary ? "bestiary" : "trial")} does not consume normal attempts");
             }
@@ -28474,7 +28476,7 @@ namespace AscNet.Test
             AssertEqual(playerSavesBeforeNormalScore + 1, playerCollection.ReplaceOneCalls,
                 "Pain Cage normal save persists Player once");
             AssertEqual(stageSavesBeforeNormalScore + 2, stageCollection.ReplaceOneCalls,
-                "Pain Cage normal save heals the stale bestiary datum and persists the committed Stage");
+                "Pain Cage normal save heals the fixture-cleared stage datums and persists the committed Stage");
             int rankPushIndex = savePushes.IndexOf(nameof(NotifyBossSingleRankInfo));
             int stagePushIndex = savePushes.IndexOf(nameof(NotifyStageData), rankPushIndex + 1);
             int loginPushIndex = savePushes.IndexOf(nameof(NotifyFubenBossSingleData));
