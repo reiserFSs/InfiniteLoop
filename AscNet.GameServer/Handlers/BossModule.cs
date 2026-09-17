@@ -675,6 +675,61 @@ namespace AscNet.GameServer.Handlers
 
         internal static void CancelFight(Session session) => session.PendingBossSingleScore = null;
 
+        // The client resolves a stage's current score from the record list first and only falls back to the generic
+        // stage datum (XFubenBossSingleControl:GetBossStageScore), and that datum is shared with the codex lists.
+        // Project a zero-valued entry for every current rotation stage without a genuine non-reset record, so the
+        // rotation cards, the reset gating and the auto-fight preview read the period value directly instead of the
+        // shared datum, without waiting for the datum to be restored.
+        // Wire projection only: no record is persisted, StageDatum.Passed / BossHistory are untouched, genuine
+        // records are preserved as-is, a reset stage keeps its retained best in BossStageRecords but is projected
+        // like any other stage without a current record, and no stage id appears twice.
+        // The synthetic entries are inert for the client: IsResetBtnEnable needs a positive current score, the
+        // settlement's fallback returns once the current score is non-positive, and empty Characters/Partners keep
+        // the team-change warning away.
+        private static List<dynamic> BuildStageRecordList(SimulatedBattlefieldState state)
+        {
+            SortedDictionary<int, dynamic> entries = new();
+            foreach (BossSingleStageRecordState record in state.BossStageRecords)
+            {
+                if (state.BossResetStageIds.Contains(record.StageId))
+                    continue;
+                entries[record.StageId] = (dynamic)new Dictionary<string, object>
+                {
+                    ["StageId"] = record.StageId,
+                    ["Score"] = record.Score,
+                    ["Characters"] = record.Characters.ToArray(),
+                    ["IsUseAutoFight"] = record.IsUseAutoFight,
+                    ["MaxScore"] = record.MaxScore,
+                    ["MaxCharacters"] = record.MaxCharacters.ToArray(),
+                    ["MaxPartners"] = record.MaxPartners.ToArray()
+                };
+            }
+
+            foreach (int sectionId in state.BossList)
+            {
+                if (!HasCurrentSection(sectionId))
+                    continue;
+                foreach (int stageId in ResolveSection(sectionId).StageId)
+                {
+                    if (stageId <= 0 || entries.ContainsKey(stageId))
+                        continue;
+                    entries[stageId] = (dynamic)new Dictionary<string, object>
+                    {
+                        ["StageId"] = stageId,
+                        ["Score"] = 0,
+                        ["Characters"] = Array.Empty<int>(),
+                        ["Partners"] = Array.Empty<int>(),
+                        ["IsUseAutoFight"] = false,
+                        ["MaxScore"] = 0,
+                        ["MaxCharacters"] = Array.Empty<int>(),
+                        ["MaxPartners"] = Array.Empty<int>()
+                    };
+                }
+            }
+
+            return entries.Values.ToList();
+        }
+
         internal static NotifyFubenBossSingleData BuildLoginData(Player player, long? now = null)
         {
             if (Reconcile(player, now))
@@ -733,20 +788,7 @@ namespace AscNet.GameServer.Handlers
                         }).ToList(),
                     ChallengeDeleteRecordTime = checked((int)state.BossChallengeDeleteRecordTime),
                     IsResetOpen = true,
-                    StageRecordList = state.BossStageRecords
-                        .Where(record => !state.BossResetStageIds.Contains(record.StageId))
-                        .OrderBy(record => record.StageId)
-                        .Select(record => (dynamic)new Dictionary<string, object>
-                        {
-                            ["StageId"] = record.StageId,
-                            ["Score"] = record.Score,
-                            ["Characters"] = record.Characters.ToArray(),
-                            ["IsUseAutoFight"] = record.IsUseAutoFight,
-                            ["MaxScore"] = record.MaxScore,
-                            ["MaxCharacters"] = record.MaxCharacters.ToArray(),
-                            ["MaxPartners"] = record.MaxPartners.ToArray()
-                        })
-                        .ToList(),
+                    StageRecordList = BuildStageRecordList(state),
                     CurTotalScore = state.BossCurrentTotalScore,
                     NormalStageTeamInfos = state.BossNormalStageTeams
                         .OrderBy(entry => entry.Key)
@@ -1052,9 +1094,12 @@ namespace AscNet.GameServer.Handlers
                 scores[pending.StageId] = Math.Max(scores.GetValueOrDefault(pending.StageId), pending.Result.TotalScore);
                 // Codex clears are recorded in BossTrialScores/BossBestiaryScores: stageType 2 is the codex
                 // "Ultimate Zone" list, stageType 4 the codex "Current Threats" list, whose stage ids are the same
-                // as the current Ultimate rotation's. The stage datum carries the rotation score of the current
-                // period, which these clears do not produce.
-                stageData = UpdateStageDatum(session, pending, 0);
+                // as the current Ultimate rotation's. Each mode's best is also what the client's non-Trial
+                // settlement compares against, because XUiFubenBossSingleSettlement:GetMyTotalHistory only
+                // special-cases Trial and otherwise reads the generic stage datum. Expose the mode best here so a
+                // lower run cannot look like a new record; the period sync restores the cycle value on the next
+                // rotation request and the cycle totals stay record-based.
+                stageData = UpdateStageDatum(session, pending, scores[pending.StageId]);
                 session.stage.Save();
                 session.player.Save();
                 return true;
@@ -1125,6 +1170,25 @@ namespace AscNet.GameServer.Handlers
             return changed;
         }
 
+        // The persisted stage datum is the stage's own best score, not a period value: the settlement history
+        // (XUiFubenBossSingleSettlement:GetMyTotalHistory reads it for every non-Trial mode, and the codex catalogs
+        // share the rotation's stage ids) and the challenge feature panel read that field directly, and a period-only
+        // value would blank the history a codex save just published - the new-record prompt the review flagged.
+        // The rotation cards, the reset gating and the auto-fight preview read StageRecordList instead
+        // (BuildStageRecordList), so a codex best parked here cannot surface as a period score.
+        // The reset mark clears the period part only; the codex/challenge bests survive it.
+        private static int ExpectedCycleStageScore(SimulatedBattlefieldState state, int stageId)
+        {
+            int period = state.BossResetStageIds.Contains(stageId)
+                ? 0
+                : state.BossStageRecords.Find(record => record.StageId == stageId)?.MaxScore ?? 0;
+            int codex = Math.Max(
+                state.BossTrialScores.GetValueOrDefault(stageId),
+                state.BossBestiaryScores.GetValueOrDefault(stageId));
+            int challenge = state.BossChallengeHistory.Find(record => record.StageId == stageId)?.Score ?? 0;
+            return Math.Max(period, Math.Max(codex, challenge));
+        }
+
         private static List<StageDatum> SyncCycleStageScores(SimulatedBattlefieldState state, Stage persistedStages)
         {
             List<StageDatum>? changed = null;
@@ -1133,11 +1197,7 @@ namespace AscNet.GameServer.Handlers
                 if (!persistedStages.Stages.TryGetValue(stageId, out StageDatum? datum) || datum is null)
                     continue;
 
-                int expected = state.BossResetStageIds.Contains(stageId)
-                    ? 0
-                    : state.BossStageRecords.Find(record => record.StageId == stageId)?.MaxScore
-                        ?? state.BossChallengeHistory.Find(record => record.StageId == stageId)?.Score
-                        ?? 0;
+                int expected = ExpectedCycleStageScore(state, stageId);
                 if (datum.Score == expected)
                     continue;
 

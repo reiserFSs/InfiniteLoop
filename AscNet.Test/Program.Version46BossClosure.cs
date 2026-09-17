@@ -250,7 +250,9 @@ internal partial class Program
             "Pain Cage live sync push carries the record best score");
 
         // The codex "Current Threats" list (stageType 4, IsBestiaryCfg != 0, sections 2020..2044) uses the same
-        // stage ids as the current Ultimate rotation, so its scores must never reach the period stage datum.
+        // stage ids as the current Ultimate rotation. Its best is the value the client's settlement compares against
+        // (GetMyTotalHistory reads the generic datum for non-Trial modes), so the datum carries the mode best while the
+        // period data (records, totals) stays untouched - the *cards* are isolated by the projection instead.
         List<BossSingleSectionTable> sectionRows = TableReaderV2.Parse<BossSingleSectionTable>();
         int currentThreatsStageId = TableReaderV2.Parse<BossSingleTrialGradeTable>()
             .Where(catalog => catalog.IsBestiaryCfg != 0)
@@ -260,14 +262,19 @@ internal partial class Program
                 .Where(row => row.SectionId == sectionId && row.AfreshId == currentAfreshId)
                 .SelectMany(row => row.StageId))
             .First(stageId => harness.Session.stage.Stages.ContainsKey(stageId));
+        int cycleBestBeforeCodex = state.BossTotalScore;
+        int cycleCurrentBeforeCodex = state.BossCurrentTotalScore;
         state.BossBestiaryScores[currentThreatsStageId] = 91_200;
         int savesBeforeCurrentThreats = stageCollection.ReplaceOneCalls;
-        AssertEqual(0, ReadRankInfo(46_805, "Pain Cage Current Threats score isolation").Count,
-            "Pain Cage Current Threats score leaks no stage push");
-        AssertEqual(0L, harness.Session.stage.Stages[currentThreatsStageId].Score,
-            "Pain Cage Current Threats score stays out of the period stage datum");
-        AssertEqual(savesBeforeCurrentThreats, stageCollection.ReplaceOneCalls,
-            "Pain Cage Current Threats score writes no stage save");
+        NotifyStageData codexHistoryPush = SingleStagePush(
+            ReadRankInfo(46_805, "Pain Cage codex settlement history"),
+            "Pain Cage codex settlement history");
+        AssertEqual(91_200L, harness.Session.stage.Stages[currentThreatsStageId].Score,
+            "Pain Cage codex best is the stage datum the settlement reads");
+        AssertEqual(91_200L, codexHistoryPush.StageList.Single().Score,
+            "Pain Cage codex best reaches the client as its settlement history");
+        AssertEqual(savesBeforeCurrentThreats + 1, stageCollection.ReplaceOneCalls,
+            "Pain Cage codex best datum persists once");
         List<Dictionary<string, object>> currentThreatsEntries = InvokePrivateStaticWithArgs<NotifyFubenBossSingleData>(
                 bossModule, "BuildLoginData", [player, null])
             .FubenBossSingleData.BestiraryStageInfoList
@@ -277,6 +284,94 @@ internal partial class Program
             currentThreatsEntries.Any(entry =>
                 (int)entry["StageId"] == currentThreatsStageId && (int)entry["Score"] == 91_200),
             "Pain Cage Current Threats score is reported through the codex list");
+
+        // The review's defect, server side: a rotation request must not blank the codex best out of the datum the
+        // settlement reads, and it must raise a datum that sits below it. Any codex-only stage whose id is not part of
+        // the current rotation is covered by the same rule.
+        harness.Session.stage.Stages[currentThreatsStageId].Score = 0;
+        int savesBeforeCodexRaise = stageCollection.ReplaceOneCalls;
+        NotifyStageData codexRaisePush = SingleStagePush(
+            ReadRankInfo(46_806, "Pain Cage rotation request keeps the codex best"),
+            "Pain Cage rotation request keeps the codex best");
+        AssertEqual(91_200L, harness.Session.stage.Stages[currentThreatsStageId].Score,
+            "Pain Cage rotation request raises the stage datum to the codex best");
+        AssertEqual(savesBeforeCodexRaise + 1, stageCollection.ReplaceOneCalls,
+            "Pain Cage codex best raise persists once");
+        AssertEqual(91_200L, codexRaisePush.StageList.Single().Score,
+            "Pain Cage codex best raise pushes the mode best");
+        int savesBeforeCodexHold = stageCollection.ReplaceOneCalls;
+        AssertEqual(0, ReadRankInfo(46_807, "Pain Cage codex best steady state").Count,
+            "Pain Cage codex best datum is stable across rotation requests");
+        AssertEqual(savesBeforeCodexHold, stageCollection.ReplaceOneCalls,
+            "Pain Cage stable codex best writes no stage save");
+        AssertEqual(cycleBestBeforeCodex, state.BossTotalScore,
+            "Pain Cage codex score never reaches the cycle best total");
+        AssertEqual(cycleCurrentBeforeCodex, state.BossCurrentTotalScore,
+            "Pain Cage codex score never reaches the cycle current total");
+
+        // The codex "Ultimate Zone" list (stageType 2, LevelType 4 catalog) is the other half of the same rule: its
+        // stage ids are not part of the current rotation, so the datum is the only place its settlement history lives.
+        int trialCodexStageId = TableReaderV2.Parse<BossSingleTrialGradeTable>()
+            .Where(catalog => catalog.LevelType == 4 && catalog.IsBestiaryCfg == 0)
+            .SelectMany(catalog => catalog.SectionId.Where(sectionId => sectionId > 0))
+            .Distinct()
+            .SelectMany(sectionId => sectionRows
+                .Where(row => row.SectionId == sectionId)
+                .OrderByDescending(row => row.AfreshId == currentAfreshId)
+                .Take(1)
+                .SelectMany(row => row.StageId))
+            .First(stageId => harness.Session.stage.Stages.ContainsKey(stageId));
+        state.BossTrialScores[trialCodexStageId] = 123_456;
+        int savesBeforeTrialCodex = stageCollection.ReplaceOneCalls;
+        NotifyStageData trialCodexPush = SingleStagePush(
+            ReadRankInfo(46_808, "Pain Cage trial codex settlement history"),
+            "Pain Cage trial codex settlement history");
+        AssertEqual(123_456L, harness.Session.stage.Stages[trialCodexStageId].Score,
+            "Pain Cage trial codex best is the stage datum the settlement reads");
+        AssertEqual(123_456L, trialCodexPush.StageList.Single().Score,
+            "Pain Cage trial codex best reaches the client as its settlement history");
+        AssertEqual(savesBeforeTrialCodex + 1, stageCollection.ReplaceOneCalls,
+            "Pain Cage trial codex best persists once");
+
+        // Wire projection: every current rotation stage is reported exactly once, synthetic entries carry no score,
+        // no team and no auto-fight marker, and nothing is persisted by building the payload.
+        List<int> rotationStageIds = state.BossList
+            .Where(sectionId => sectionRows.Any(row => row.SectionId == sectionId && row.AfreshId == currentAfreshId))
+            .SelectMany(sectionId => sectionRows
+                .Single(row => row.SectionId == sectionId && row.AfreshId == currentAfreshId)
+                .StageId)
+            .Where(stageId => stageId > 0)
+            .Distinct()
+            .ToList();
+        int persistedRecordsBeforeProjection = state.BossStageRecords.Count;
+        int stageSavesBeforeProjection = stageCollection.ReplaceOneCalls;
+        List<Dictionary<string, object>> projectedRecords = InvokePrivateStaticWithArgs<NotifyFubenBossSingleData>(
+                bossModule, "BuildLoginData", [player, null])
+            .FubenBossSingleData.StageRecordList
+            .Select(entry => (Dictionary<string, object>)entry!)
+            .ToList();
+        List<int> projectedStageIds = projectedRecords.Select(entry => Convert.ToInt32(entry["StageId"])).ToList();
+        AssertEqual(projectedStageIds.Distinct().Count(), projectedStageIds.Count,
+            "Pain Cage stage record projection has no duplicate stage ids");
+        AssertEqual(true, rotationStageIds.All(projectedStageIds.Contains),
+            "Pain Cage stage record projection covers every current rotation stage");
+        List<Dictionary<string, object>> syntheticRecords = projectedRecords
+            .Where(entry => !state.BossStageRecords.Any(record => record.StageId == Convert.ToInt32(entry["StageId"])))
+            .ToList();
+        int genuineRotationRecords = state.BossStageRecords.Count(record =>
+            rotationStageIds.Contains(record.StageId) && !state.BossResetStageIds.Contains(record.StageId));
+        AssertEqual(rotationStageIds.Count - genuineRotationRecords, syntheticRecords.Count,
+            "Pain Cage projection synthesizes only the uncleared rotation stages");
+        AssertEqual(true, syntheticRecords.All(entry =>
+                Convert.ToInt32(entry["Score"]) == 0
+                && ((System.Collections.ICollection)entry["Characters"]!).Count == 0
+                && ((System.Collections.ICollection)entry["Partners"]!).Count == 0
+                && !Convert.ToBoolean(entry["IsUseAutoFight"])),
+            "Pain Cage projected entries carry no score, no team and no auto-fight marker");
+        AssertEqual(persistedRecordsBeforeProjection, state.BossStageRecords.Count,
+            "Pain Cage projection persists no fictional clear");
+        AssertEqual(stageSavesBeforeProjection, stageCollection.ReplaceOneCalls,
+            "Pain Cage projection writes no stage save");
 
         int savesBeforeRepeat = stageCollection.ReplaceOneCalls;
         AssertEqual(0, ReadRankInfo(46_803, "Pain Cage repeated stage score sync").Count,

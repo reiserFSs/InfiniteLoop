@@ -27970,6 +27970,8 @@ namespace AscNet.Test
                 int stageId = AuxiliaryStageId(bestiary);
                 BossSingleStageTable stage = stages.Single(row => row.StageId == stageId);
                 int challengeCountBefore = player.SimulatedBattlefield.BossChallengeCount;
+                int cycleBestBefore = player.SimulatedBattlefield.BossTotalScore;
+                int cycleCurrentBefore = player.SimulatedBattlefield.BossCurrentTotalScore;
                 PreFightResponse preFight = StartFight(packetBase, stageId, stageType);
                 AssertEqual(0, preFight.Code, $"Pain Cage {(bestiary ? "bestiary" : "trial")} pre-fight code");
                 AssertEqual(stage.PassTimeLimit, preFight.FightData.PassTimeLimit,
@@ -28009,8 +28011,15 @@ namespace AscNet.Test
                     : player.SimulatedBattlefield.BossTrialScores;
                 AssertEqual(result.TotalScore, scores[stageId],
                     $"Pain Cage {(bestiary ? "bestiary" : "trial")} score persistence");
-                AssertEqual(0L, harness.Session.stage.Stages[stageId].Score,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves no period stage score");
+                // The non-Trial settlement compares the new run against the generic stage datum
+                // (XUiFubenBossSingleSettlement:GetMyTotalHistory only special-cases Trial), so the codex save has
+                // to expose the mode best there or a lower run looks like a new record.
+                AssertEqual(result.TotalScore, harness.Session.stage.Stages[stageId].Score,
+                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear exposes the mode best to the settlement");
+                AssertEqual(cycleBestBefore, player.SimulatedBattlefield.BossTotalScore,
+                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves the cycle best total unchanged");
+                AssertEqual(cycleCurrentBefore, player.SimulatedBattlefield.BossCurrentTotalScore,
+                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves the cycle current total unchanged");
                 AssertEqual(challengeCountBefore, player.SimulatedBattlefield.BossChallengeCount,
                     $"Pain Cage {(bestiary ? "bestiary" : "trial")} does not consume normal attempts");
             }
@@ -28022,6 +28031,40 @@ namespace AscNet.Test
                 "Pain Cage partial remaining-time scores are below their caps");
             AssertEqual(true, auxiliaryTimeScores[0].Score != auxiliaryTimeScores[1].Score,
                 "Pain Cage remaining-time scores vary proportionally with distinct durations");
+
+            // A saved codex best followed by a lower run must keep the settlement history at the best, otherwise
+            // the client offers to discard the worse score as though it were a new record.
+            {
+                int codexStageId = AuxiliaryStageId(bestiary: true);
+                BossSingleStageTable codexStage = stages.Single(row => row.StageId == codexStageId);
+                int codexBest = player.SimulatedBattlefield.BossBestiaryScores[codexStageId];
+                PreFightResponse lowerCodexPreFight = StartFight(82_023, codexStageId, stageType: 4);
+                AssertEqual(0, lowerCodexPreFight.Code, "Pain Cage bestiary lower-run pre-fight code");
+                FightSettleResponse lowerCodexSettle = SettleFight(
+                    82_024,
+                    lowerCodexPreFight,
+                    codexStage,
+                    characterHp: 100,
+                    bossHp: 0,
+                    fightSeconds: 240);
+                BossSingleFightResult lowerCodexResult = RequiredBossResult(
+                    lowerCodexSettle,
+                    "Pain Cage bestiary lower-run result");
+                AssertEqual(true, lowerCodexResult.TotalScore < codexBest,
+                    "Pain Cage bestiary lower-run fixture scores below the saved best");
+                BossSingleSaveScoreResponse lowerCodexSave = SaveScore(
+                    82_025,
+                    codexStageId,
+                    "Pain Cage bestiary lower-run save",
+                    out List<string> lowerCodexPushes);
+                AssertEqual(0, lowerCodexSave.Code, "Pain Cage bestiary lower-run save code");
+                AssertEqual(true, lowerCodexPushes.Contains(nameof(NotifyStageData)),
+                    "Pain Cage bestiary lower-run pushes the stage datum");
+                AssertEqual(codexBest, player.SimulatedBattlefield.BossBestiaryScores[codexStageId],
+                    "Pain Cage bestiary lower run keeps the saved best");
+                AssertEqual(codexBest, harness.Session.stage.Stages[codexStageId].Score,
+                    "Pain Cage bestiary lower run keeps the settlement history at the saved best");
+            }
             List<BossSingleChallengeGradeTable> challengeGrades = TableReaderV2.Parse<BossSingleChallengeGradeTable>();
             List<BossSingleChallengeFeatureGroupTable> challengeGroups = TableReaderV2.Parse<BossSingleChallengeFeatureGroupTable>();
             int preIntensiveLevelType = player.SimulatedBattlefield.BossLevelType;
@@ -28589,9 +28632,14 @@ namespace AscNet.Test
                 "Pain Cage stage reset",
                 out List<string> resetPushes);
             AssertEqual(0, reset.Code, "Pain Cage reset code");
+            int resetStageCodexBest = Math.Max(
+                player.SimulatedBattlefield.BossTrialScores.GetValueOrDefault(normalStage.StageId),
+                player.SimulatedBattlefield.BossBestiaryScores.GetValueOrDefault(normalStage.StageId));
             AssertEqual(true,
-                resetPushes.SequenceEqual([nameof(NotifyFubenBossSingleData), nameof(NotifyStageData)]),
-                "Pain Cage reset push ordering");
+                resetPushes.SequenceEqual(resetStageCodexBest > 0
+                    ? [nameof(NotifyFubenBossSingleData)]
+                    : [nameof(NotifyFubenBossSingleData), nameof(NotifyStageData)]),
+                $"Pain Cage reset push ordering: got {string.Join(",", resetPushes)} (codex best {resetStageCodexBest})");
             AssertEqual(0, player.SimulatedBattlefield.BossCurrentTotalScore,
                 "Pain Cage reset removes current score");
             AssertEqual(normalResult.TotalScore, player.SimulatedBattlefield.BossTotalScore,
@@ -28613,10 +28661,24 @@ namespace AscNet.Test
                 MessagePackSerializer.Serialize(BuildLogin(player, null))));
             JObject resetLoginData = RequiredValue<JObject>(
                 resetLoginPayload, "FubenBossSingleData", JTokenType.Object, "Pain Cage reset login");
+            JArray resetProjectedRecords = RequiredValue<JArray>(
+                resetLoginData, "StageRecordList", JTokenType.Array, "Pain Cage reset login");
+            AssertEqual(resetProjectedRecords.OfType<JObject>().Count(),
+                resetProjectedRecords.OfType<JObject>().Select(value => RequiredValue<int>(
+                    value, "StageId", JTokenType.Integer, "Pain Cage reset login")).Distinct().Count(),
+                "Pain Cage reset login projects each stage once");
+            JObject? resetStageEntry = resetProjectedRecords.OfType<JObject>().SingleOrDefault(value =>
+                RequiredValue<int>(value, "StageId", JTokenType.Integer, "Pain Cage reset login")
+                    == normalStage.StageId);
+            AssertEqual(true, resetStageEntry is not null,
+                "Pain Cage reset login projects the reset stage");
+            AssertEqual(0,
+                RequiredValue<int>(resetStageEntry!, "Score", JTokenType.Integer, "Pain Cage reset login"),
+                "Pain Cage reset reports no current score for the reset stage");
             AssertEqual(0,
                 RequiredValue<JArray>(
-                    resetLoginData, "StageRecordList", JTokenType.Array, "Pain Cage reset login").Count,
-                "Pain Cage reset hides cleared stage record");
+                    resetStageEntry!, "Characters", JTokenType.Array, "Pain Cage reset login").Count,
+                "Pain Cage reset reports no current team for the reset stage");
             AssertEqual(1,
                 RequiredValue<JArray>(
                     resetLoginData, "HistoryList", JTokenType.Array, "Pain Cage reset login").Count,
