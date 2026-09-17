@@ -491,6 +491,13 @@ namespace AscNet.Test
                     ValidateLoginAccountCompatibility();
                     return;
                 }
+                if (args.Contains("--weekly-activeness-compat-only"))
+                {
+                    ValidateWeeklyActivenessRewardCompatibility();
+                    ValidateWeeklyActivenessLoginProjectionCompatibility();
+                    ValidateWeeklyActivenessRolloverCompatibility();
+                    return;
+                }
                 if (args.Contains("--gate-login-compat-only"))
                 {
                     ValidateGateLoginCompatibility().GetAwaiter().GetResult();
@@ -4253,6 +4260,9 @@ namespace AscNet.Test
             ValidateNewPlayerRewardCompatibility();
             ValidateNewbieRewardCompatibility();
             ValidateActivenessRewardCompatibility();
+            ValidateWeeklyActivenessRewardCompatibility();
+            ValidateWeeklyActivenessLoginProjectionCompatibility();
+            ValidateWeeklyActivenessRolloverCompatibility();
             ValidateAchievementRewardCompatibility();
             ValidateLoginStartupPushOrder();
             ValidateReconnectAckClientPushNoReplayStabilityCompatibility();
@@ -4909,6 +4919,255 @@ namespace AscNet.Test
                 maxPacketsToRead: 8);
             AssertEqual(20026012, duplicateResponse.Code, "GetActivenessRewardResponse duplicate Code");
             AssertEqual(0, duplicateResponse.RewardGoodsList.Count, "GetActivenessRewardResponse duplicate reward count");
+        }
+
+        private static void ValidateWeeklyActivenessRewardCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForWeeklyActivenessCompatibility();
+            const long playerId = 88_045;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            List<int> taggedTaskIds = TableReaderV2.Parse<TaskTable>()
+                .Where(task => task.Tag == 1)
+                .Select(task => task.Id)
+                .ToList();
+            if (taggedTaskIds.Count < 10)
+                throw new InvalidDataException($"Weekly-two activeness test requires at least 10 Tag=1 tasks, found {taggedTaskIds.Count}.");
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                inventory,
+                "weekly-activeness-reward-compat-test");
+            harness.Session.stage = new AscNet.Common.Database.Stage
+            {
+                Uid = playerId,
+                Stages = new(),
+                Course = new(),
+                FinishedTasks = new()
+            };
+
+            RequestPacketHandlerDelegate handler = GetRegisteredRequestHandler("GetWeeklyActivenessRewardRequest");
+
+            player.MissionProgress.ClaimedTaskIds = taggedTaskIds.Take(4).ToList();
+            const int belowPacketId = 13_210;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = belowPacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse belowResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                belowPacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest below-milestone response",
+                maxPacketsToRead: 16);
+            AssertEqual(20026010, belowResponse.Code, "GetWeeklyActivenessRewardResponse below-milestone Code");
+            AssertEqual(0, belowResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse below-milestone reward count");
+
+            long week = player.MissionProgress.WeeklyResetWeek;
+            player.MissionProgress.ClaimedTaskIds = taggedTaskIds.Take(5).ToList();
+            const int firstPacketId = 13_211;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = firstPacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse firstResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                firstPacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest first-milestone response",
+                maxPacketsToRead: 16);
+            AssertEqual(0, firstResponse.Code, "GetWeeklyActivenessRewardResponse first-milestone Code");
+            AssertEqual(1, firstResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse first-milestone reward count");
+            AssertIntegerList([5], firstResponse.WeeklyTaskActivenessProgress.Select(value => (long)value).ToArray(),
+                "GetWeeklyActivenessRewardResponse first-milestone progress");
+            AssertEqual(true, inventory.AppliedRewardClaims.Contains($"weekly-two:{week}:5", StringComparer.Ordinal),
+                "GetWeeklyActivenessRewardRequest persisted first claim key");
+
+            player.MissionProgress.ClaimedTaskIds = taggedTaskIds.Take(10).ToList();
+            const int secondPacketId = 13_212;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = secondPacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse secondResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                secondPacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest second-milestone response",
+                maxPacketsToRead: 16);
+            AssertEqual(0, secondResponse.Code, "GetWeeklyActivenessRewardResponse second-milestone Code");
+            AssertEqual(1, secondResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse second-milestone reward count");
+            AssertIntegerList([5, 10], secondResponse.WeeklyTaskActivenessProgress.Select(value => (long)value).ToArray(),
+                "GetWeeklyActivenessRewardResponse second-milestone progress");
+
+            const int duplicatePacketId = 13_213;
+            handler.Invoke(harness.Session, new Packet.Request
+            {
+                Id = duplicatePacketId,
+                Name = "GetWeeklyActivenessRewardRequest",
+                Content = [0xC0]
+            });
+            GetWeeklyActivenessRewardResponse duplicateResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness,
+                duplicatePacketId,
+                nameof(GetWeeklyActivenessRewardResponse),
+                "GetWeeklyActivenessRewardRequest duplicate response");
+            AssertEqual(20026012, duplicateResponse.Code, "GetWeeklyActivenessRewardResponse duplicate Code");
+            AssertEqual(0, duplicateResponse.RewardGoodsList.Count, "GetWeeklyActivenessRewardResponse duplicate reward count");
+        }
+
+        // Client XTaskManager.GetWeeklyTaskActiveness counts the login FinishedTasks map, so persisted
+        // weekly claims must survive a BSON relog before the client can issue the claim RPC.
+        private static void ValidateWeeklyActivenessLoginProjectionCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForWeeklyActivenessCompatibility();
+            const long playerId = 88_046;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "weekly-activeness-login-projection-compat-test");
+            harness.Session.stage = new AscNet.Common.Database.Stage
+            {
+                Uid = playerId,
+                Stages = new(),
+                Course = new(),
+                FinishedTasks = new()
+            };
+
+            HashSet<int> taggedTaskIds = TableReaderV2.Parse<TaskTable>()
+                .Where(task => task.Tag == 1)
+                .Select(task => task.Id)
+                .ToHashSet();
+            int[] claimedTaskIds = [30039, 30040, 30041, 30042];
+            int packetId = 13_220;
+            foreach (int taskId in claimedTaskIds)
+            {
+                CurrentTaskTable task = TableReaderV2.Parse<CurrentTaskTable>().Single(row => row.Id == taskId);
+                player.MissionProgress.ConditionCounters[task.Condition] = task.Result;
+                InvokeRegisteredRequestHandler(nameof(FinishTaskRequest), harness.Session, packetId,
+                    new FinishTaskRequest { TaskId = taskId });
+                FinishTaskResponse claimResponse = ReadResponsePayload<FinishTaskResponse>(
+                    harness, packetId, nameof(FinishTaskResponse),
+                    $"Weekly activeness FinishTaskRequest {taskId} response", maxPacketsToRead: 32);
+                AssertEqual(0, claimResponse.Code, $"Weekly activeness FinishTaskRequest {taskId} Code");
+                AssertEqual(true, player.MissionProgress.ClaimedTaskIds.Contains(taskId),
+                    $"Weekly activeness FinishTaskRequest {taskId} claim persisted");
+                packetId++;
+            }
+
+            AscNet.Common.Database.Player reloaded =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
+            using LoopbackSessionHarness relogHarness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                reloaded,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "weekly-activeness-login-projection-relog-test");
+            relogHarness.Session.stage = new AscNet.Common.Database.Stage
+            {
+                Uid = playerId,
+                Stages = new(),
+                Course = new(),
+                FinishedTasks = new()
+            };
+
+            Type accountModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule");
+            NotifyTaskData relogTaskData = InvokePrivateStatic<NotifyTaskData>(
+                accountModule, "BuildNotifyTaskData", relogHarness.Session);
+            List<int> finishedTasks = relogTaskData.TaskData.FinishedTasks;
+            foreach (int taskId in claimedTaskIds)
+            {
+                AssertEqual(true, finishedTasks.Contains(taskId),
+                    $"Weekly activeness login projection contains claimed task {taskId}");
+            }
+            AssertEqual(
+                reloaded.MissionProgress.ClaimedTaskIds.Count(id => taggedTaskIds.Contains(id)),
+                finishedTasks.Count(id => taggedTaskIds.Contains(id)),
+                "Weekly activeness login projection count matches server activeness");
+
+            CurrentTaskTable fifthTask = TableReaderV2.Parse<CurrentTaskTable>().Single(row => row.Id == 30043);
+            reloaded.MissionProgress.ConditionCounters[fifthTask.Condition] = fifthTask.Result;
+            const int fifthPacketId = 13_230;
+            InvokeRegisteredRequestHandler(nameof(FinishTaskRequest), relogHarness.Session, fifthPacketId,
+                new FinishTaskRequest { TaskId = 30043 });
+            FinishTaskResponse fifthClaim = ReadResponsePayload<FinishTaskResponse>(
+                relogHarness, fifthPacketId, nameof(FinishTaskResponse),
+                "Weekly activeness relog further claim response", maxPacketsToRead: 32);
+            AssertEqual(0, fifthClaim.Code, "Weekly activeness relog further claim Code");
+
+            const int activenessPacketId = 13_231;
+            InvokeRegisteredRequestHandler("GetWeeklyActivenessRewardRequest", relogHarness.Session, activenessPacketId, null);
+            GetWeeklyActivenessRewardResponse activenessResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                relogHarness, activenessPacketId, nameof(GetWeeklyActivenessRewardResponse),
+                "Weekly activeness relog reward response", maxPacketsToRead: 16);
+            AssertEqual(0, activenessResponse.Code, "Weekly activeness relog reward Code");
+            AssertIntegerList([5], activenessResponse.WeeklyTaskActivenessProgress.Select(value => (long)value).ToArray(),
+                "Weekly activeness relog reward progress");
+        }
+
+        // Prior-week GuildWeekly (Type 23) claims are not in CurrentTask, so the weekly reset must clear
+        // them explicitly without disturbing unrelated lifetime tasks that share condition counters.
+        private static void ValidateWeeklyActivenessRolloverCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForWeeklyActivenessCompatibility();
+            const long playerId = 88_047;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                player,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "weekly-activeness-rollover-compat-test");
+            harness.Session.stage = new AscNet.Common.Database.Stage
+            {
+                Uid = playerId,
+                Stages = new(),
+                Course = new(),
+                FinishedTasks = new()
+            };
+
+            Type taskModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule");
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            player.MissionProgress.DailyResetDay = InvokePrivateStatic<long>(taskModule, "CurrentDailyResetPeriod", now);
+            player.MissionProgress.WeeklyResetWeek = InvokePrivateStatic<long>(taskModule, "CurrentWeeklyResetPeriod", now) - 1;
+
+            player.MissionProgress.ClaimedTaskIds = [30039, 3001728, 35010];
+            const int rolloverPacketId = 13_240;
+            InvokeRegisteredRequestHandler("GetWeeklyActivenessRewardRequest", harness.Session, rolloverPacketId, null);
+            GetWeeklyActivenessRewardResponse rolloverResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness, rolloverPacketId, nameof(GetWeeklyActivenessRewardResponse),
+                "Weekly activeness rollover response", maxPacketsToRead: 8);
+            AssertEqual(20026010, rolloverResponse.Code, "Weekly activeness rollover below-milestone Code");
+            AssertEqual(false, player.MissionProgress.ClaimedTaskIds.Contains(30039),
+                "Weekly activeness rollover clears CurrentTask weekly claim");
+            AssertEqual(false, player.MissionProgress.ClaimedTaskIds.Contains(3001728),
+                "Weekly activeness rollover clears prior-week GuildWeekly claim");
+            AssertEqual(true, player.MissionProgress.ClaimedTaskIds.Contains(35010),
+                "Weekly activeness rollover preserves unrelated lifetime task claim");
+
+            player.MissionProgress.ClaimedTaskIds = [30039, 30040, 30041, 30042];
+            const int belowPacketId = 13_241;
+            InvokeRegisteredRequestHandler("GetWeeklyActivenessRewardRequest", harness.Session, belowPacketId, null);
+            GetWeeklyActivenessRewardResponse belowResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness, belowPacketId, nameof(GetWeeklyActivenessRewardResponse),
+                "Weekly activeness rollover four-task response", maxPacketsToRead: 8);
+            AssertEqual(20026010, belowResponse.Code, "Weekly activeness rollover four tasks below milestone");
+
+            player.MissionProgress.ClaimedTaskIds = [30039, 30040, 30041, 30042, 30043];
+            const int thresholdPacketId = 13_242;
+            InvokeRegisteredRequestHandler("GetWeeklyActivenessRewardRequest", harness.Session, thresholdPacketId, null);
+            GetWeeklyActivenessRewardResponse thresholdResponse = ReadResponsePayload<GetWeeklyActivenessRewardResponse>(
+                harness, thresholdPacketId, nameof(GetWeeklyActivenessRewardResponse),
+                "Weekly activeness rollover threshold response", maxPacketsToRead: 16);
+            AssertEqual(0, thresholdResponse.Code, "Weekly activeness rollover threshold Code");
+            AssertIntegerList([5], thresholdResponse.WeeklyTaskActivenessProgress.Select(value => (long)value).ToArray(),
+                "Weekly activeness rollover threshold progress");
         }
 
         private static void ValidateAchievementRewardCompatibility()
@@ -17594,6 +17853,24 @@ namespace AscNet.Test
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), CreateNoOpMongoCollection<AscNet.Common.Database.Player>()),
                     (RequiredCollectionField(typeof(AscNet.Common.Database.Stage)), CreateNoOpMongoCollection<AscNet.Common.Database.Stage>())
+                ]);
+            }
+
+            // Guild membership and guild-war task lookups read Guild.collection during FinishTaskRequest and
+            // login task projection; return an empty result set so the weekly regressions stay DB-isolated.
+            public static MongoCollectionOverride InstallForWeeklyActivenessCompatibility()
+            {
+                IMongoCollection<AscNet.Common.Database.Guild> guildCollection =
+                    CreateRecordingMongoCollection<AscNet.Common.Database.Guild>(
+                        out RecordingMongoCollectionProxy<AscNet.Common.Database.Guild> guildRecorder);
+                guildRecorder.FindResults = [];
+                return new MongoCollectionOverride(
+                [
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Inventory)), CreateNoOpMongoCollection<AscNet.Common.Database.Inventory>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Character)), CreateNoOpMongoCollection<AscNet.Common.Database.Character>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Player)), CreateNoOpMongoCollection<AscNet.Common.Database.Player>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Stage)), CreateNoOpMongoCollection<AscNet.Common.Database.Stage>()),
+                    (RequiredCollectionField(typeof(AscNet.Common.Database.Guild)), guildCollection)
                 ]);
             }
 

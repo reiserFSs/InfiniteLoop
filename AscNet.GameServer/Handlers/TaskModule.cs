@@ -77,6 +77,14 @@ namespace AscNet.GameServer.Handlers
     }
 
     [MessagePackObject(true)]
+    public class GetWeeklyActivenessRewardResponse
+    {
+        public int Code { get; set; }
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
+        public List<int> WeeklyTaskActivenessProgress { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
     public class FinishTaskRequest
     {
         public int TaskId { get; set; }
@@ -141,6 +149,9 @@ namespace AscNet.GameServer.Handlers
         });
         private static readonly Lazy<IReadOnlyDictionary<int, int>> GuildBossStageTypes = new(() =>
             TableReaderV2.Parse<GuildBossStageCatalogTable>().ToDictionary(stage => stage.StageId, stage => stage.StageType));
+        // WeeklyTwo activeness counts finished tasks tagged Weekly in Task.tab (client XTaskManager.GetWeeklyTaskActiveness).
+        private static readonly Lazy<IReadOnlySet<int>> WeeklyTaggedTaskIds = new(() =>
+            TableReaderV2.Parse<TaskTable>().Where(task => task.Tag == 1).Select(task => task.Id).ToHashSet());
 
         [RequestPacketHandler("DoClientTaskEventRequest")]
         public static void DoClientTaskEventRequestHandler(Session session, Packet.Request packet)
@@ -470,6 +481,104 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(BuildActivenessStatus(session));
             }
             session.SendResponse(response, packet.Id);
+        }
+
+        [RequestPacketHandler("GetWeeklyActivenessRewardRequest")]
+        public static void GetWeeklyActivenessRewardRequestHandler(Session session, Packet.Request packet)
+        {
+            session.SendResponse(ClaimWeeklyTwoRewards(session), packet.Id);
+        }
+
+        internal static List<int> BuildWeeklyTwoProgress(Session session)
+        {
+            EnsureMissionResets(session);
+            return WeeklyTwoClaimedMilestones(session);
+        }
+
+        private static GetWeeklyActivenessRewardResponse ClaimWeeklyTwoRewards(Session session)
+        {
+            EnsureMissionResets(session);
+            CurrentTaskActivenessTable? rewards = TableReaderV2.Parse<CurrentTaskActivenessTable>().FirstOrDefault(x => x.Type == 5);
+            if (rewards is null)
+            {
+                return new GetWeeklyActivenessRewardResponse { Code = 20026010 };
+            }
+
+            long week = session.player.MissionProgress.WeeklyResetWeek;
+            int activeness = WeeklyTwoActiveness(session);
+            List<int> rewardIndexes = rewards.Activeness
+                .Select((milestone, index) => (milestone, index))
+                .Where(entry => entry.milestone <= activeness && !WeeklyTwoClaimed(session, week, entry.milestone))
+                .Select(entry => entry.index)
+                .ToList();
+            if (rewardIndexes.Count == 0)
+            {
+                bool hasReachedMilestone = rewards.Activeness.Any(milestone => milestone <= activeness);
+                return new GetWeeklyActivenessRewardResponse { Code = hasReachedMilestone ? 20026012 : 20026010 };
+            }
+            if (rewardIndexes.Any(index => index >= rewards.RewardId.Count))
+            {
+                return new GetWeeklyActivenessRewardResponse { Code = 20026010 };
+            }
+
+            List<RewardGrant> grants = new();
+            foreach (int index in rewardIndexes)
+            {
+                List<RewardGoodsTable> goods = RewardHandler.GetRewardGoods(rewards.RewardId[index]);
+                if (goods.Count == 0)
+                {
+                    return new GetWeeklyActivenessRewardResponse { Code = 20026010 };
+                }
+                grants.Add(new RewardGrant(WeeklyTwoClaimKey(week, rewards.Activeness[index]), goods));
+            }
+
+            RewardApplicationResult application;
+            try
+            {
+                application = RewardHandler.ApplyRewardsOnceAndPersist(grants, session);
+            }
+            catch (Exception exception)
+            {
+                session.log.Error($"Failed to persist weekly activeness rewards: {exception}");
+                return new GetWeeklyActivenessRewardResponse { Code = 20026003 };
+            }
+            application.SendPushes(session);
+            return new GetWeeklyActivenessRewardResponse
+            {
+                Code = 0,
+                RewardGoodsList = application.RewardGoods,
+                WeeklyTaskActivenessProgress = WeeklyTwoClaimedMilestones(session)
+            };
+        }
+
+        private static int WeeklyTwoActiveness(Session session) => WeeklyTwoClaimedTaskIds(session).Count();
+
+        // The client's XTaskManager.GetWeeklyTaskActiveness counts finished tasks tagged Weekly; the login
+        // projection and the granted milestone must derive from this same set so they cannot diverge.
+        internal static IEnumerable<int> WeeklyTwoClaimedTaskIds(Session session) =>
+            session.player.MissionProgress.ClaimedTaskIds
+                .Concat(session.stage.FinishedTasks)
+                .Distinct()
+                .Where(WeeklyTaggedTaskIds.Value.Contains);
+
+        private static void ResetWeeklyTagClaims(Session session) =>
+            session.player.MissionProgress.ClaimedTaskIds.RemoveAll(WeeklyTaggedTaskIds.Value.Contains);
+
+        private static string WeeklyTwoClaimKey(long week, int milestone) => $"weekly-two:{week}:{milestone}";
+
+        private static bool WeeklyTwoClaimed(Session session, long week, int milestone) =>
+            session.inventory.AppliedRewardClaims.Contains(WeeklyTwoClaimKey(week, milestone), StringComparer.Ordinal)
+            || session.character.AppliedRewardClaims.Contains(WeeklyTwoClaimKey(week, milestone), StringComparer.Ordinal);
+
+        private static List<int> WeeklyTwoClaimedMilestones(Session session)
+        {
+            CurrentTaskActivenessTable? rewards = TableReaderV2.Parse<CurrentTaskActivenessTable>().FirstOrDefault(x => x.Type == 5);
+            if (rewards is null)
+            {
+                return [];
+            }
+            long week = session.player.MissionProgress.WeeklyResetWeek;
+            return rewards.Activeness.Where(milestone => WeeklyTwoClaimed(session, week, milestone)).ToList();
         }
 
         [RequestPacketHandler("GetNewbieRewardRequest")]
@@ -2418,6 +2527,10 @@ namespace AscNet.GameServer.Handlers
             else if (session.player.MissionProgress.WeeklyResetWeek != week)
             {
                 ResetMissionType(session, 3);
+                // Weekly-tagged tasks outside CurrentTask (GuildWeekly Type 23) are not covered by
+                // ResetMissionType; clear their claims too so the new week cannot inherit prior completions.
+                // Shared condition counters (e.g. 35010, also used by the Type 6 Thursday task) are preserved.
+                ResetWeeklyTagClaims(session);
                 ResetPassportTaskType(session, 2);
                 session.player.PlayerData.WeeklyActivenessRewardStatus = 0;
                 Item? weeklyActiveness = session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.WeeklyActiveness);

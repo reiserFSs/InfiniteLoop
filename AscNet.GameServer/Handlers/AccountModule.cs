@@ -820,6 +820,29 @@ namespace AscNet.GameServer.Handlers
             return notifyLogin;
         }
 
+        // Persisted claims that the client cannot reconstruct from the task list are folded into the
+        // login FinishedTasks projection (e.g. weekly activeness counts the client's FinishedTasks map).
+        internal static NotifyTaskData BuildNotifyTaskData(Session session)
+        {
+            return new NotifyTaskData
+            {
+                TaskData = new()
+                {
+                    NewbieHonorReward = session.player.MissionProgress.NewbieHonorReward,
+                    NewbieUnlockPeriod = 7,
+                    Course = session.stage.Course,
+                    FinishedTasks = session.stage.FinishedTasks
+                        .Concat(TaskModule.WeeklyTwoClaimedTaskIds(session))
+                        .Distinct()
+                        .ToList(),
+                    NewPlayerRewardRecord = session.player.MissionProgress.NewPlayerRewardRecords,
+                    NewbieRecvProgress = session.player.MissionProgress.NewbieRewardRecords,
+                    WeeklyTaskActivenessProgress = TaskModule.BuildWeeklyTwoProgress(session),
+                    Tasks = TaskModule.BuildTaskData(session),
+                }
+            };
+        }
+
         private static Dictionary<int, List<int>> BuildOwnedFashionColors(Character character)
         {
             character.FashionColors ??= [];
@@ -1313,19 +1336,7 @@ namespace AscNet.GameServer.Handlers
 
             PassportModule.PrepareLogin(session);
             BfrtModule.ReconcileTaskStages(session);
-            NotifyTaskData notifyTaskData = new()
-            {
-                TaskData = new()
-                {
-                    NewbieHonorReward = session.player.MissionProgress.NewbieHonorReward,
-                    NewbieUnlockPeriod = 7,
-                    Course = session.stage.Course,
-                    FinishedTasks = session.stage.FinishedTasks,
-                    NewPlayerRewardRecord = session.player.MissionProgress.NewPlayerRewardRecords,
-                    NewbieRecvProgress = session.player.MissionProgress.NewbieRewardRecords,
-                    Tasks = TaskModule.BuildTaskData(session),
-                }
-            };
+            NotifyTaskData notifyTaskData = BuildNotifyTaskData(session);
             NotifyGatherRewardList notifyGatherRewardList = new()
             {
                 GatherRewards = session.player.GatherRewards
