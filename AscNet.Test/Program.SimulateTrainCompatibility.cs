@@ -180,66 +180,51 @@ internal partial class Program
             return (int)(arguments[3] ?? -1);
         }
 
-        void AssertScheduleWindow(
-            SimulateTrainMonsterTable boss,
-            int difficulty,
-            string mode,
-            params ActivityScheduleEntry[] schedules)
-        {
-            long opensAt = schedules.Max(schedule => schedule.StartTime);
-            long closesAt = schedules
-                .Select(schedule => schedule.EndTime)
-                .Where(time => time > 0)
-                .DefaultIfEmpty()
-                .Min();
-            int CodeAt(long time) => PreFightCodeAt(
-                boss,
-                DateTimeOffset.FromUnixTimeSeconds(time),
-                difficulty);
-
-            if (opensAt > 0)
-            {
-                AssertEqual(20_003_024, CodeAt(opensAt - 1),
-                    $"SimulateTrain boss {boss.Id} {mode} is locked before its schedule");
-            }
-            AssertEqual(0, CodeAt(opensAt),
-                $"SimulateTrain boss {boss.Id} {mode} opens at its schedule");
-            if (closesAt > 0)
-            {
-                AssertEqual(20_003_024, CodeAt(closesAt),
-                    $"SimulateTrain boss {boss.Id} {mode} locks when its schedule ends");
-            }
-        }
-
+        // Rotation TimeIds are permanent, so both difficulties must be enterable at every probe.
+        DateTimeOffset[] probes = [DateTimeOffset.UnixEpoch, DateTimeOffset.UtcNow];
         foreach (SimulateTrainMonsterTable boss in bosses)
         {
-            if (!ActivityScheduleService.TryGet(boss.TimeId, out ActivityScheduleEntry baseSchedule))
+            foreach (DateTimeOffset probe in probes)
             {
-                AssertEqual(20_003_024, PreFightCodeAt(boss, permanentPracticeAt),
-                    $"SimulateTrain boss {boss.Id} is unavailable without an authoritative base schedule");
-                if (boss.ImpasseTimeId > 0)
-                {
-                    AssertEqual(20_003_024, PreFightCodeAt(boss, permanentPracticeAt, boss.NpcId.Count),
-                        $"SimulateTrain boss {boss.Id} Impasse is unavailable without an authoritative base schedule");
-                }
-                continue;
-            }
-
-            AssertScheduleWindow(boss, 1, "base", baseSchedule);
-            if (boss.ImpasseTimeId <= 0)
-                continue;
-
-            if (ActivityScheduleService.TryGet(boss.ImpasseTimeId, out ActivityScheduleEntry impasseSchedule))
-            {
-                AssertScheduleWindow(boss, boss.NpcId.Count, "Impasse", baseSchedule, impasseSchedule);
-            }
-            else
-            {
-                DateTimeOffset baseOpenAt = DateTimeOffset.FromUnixTimeSeconds(baseSchedule.StartTime);
-                AssertEqual(20_003_024, PreFightCodeAt(boss, baseOpenAt, boss.NpcId.Count),
-                    $"SimulateTrain boss {boss.Id} Impasse is unavailable without an authoritative schedule");
+                AssertEqual(true, ActivityScheduleService.IsOpen(boss.TimeId, probe),
+                    $"SimulateTrain boss {boss.Id} base schedule is open at {probe:O}");
+                AssertEqual(0, PreFightCodeAt(boss, probe),
+                    $"SimulateTrain boss {boss.Id} base pre-fight at {probe:O}");
+                if (boss.ImpasseTimeId <= 0)
+                    continue;
+                AssertEqual(true, ActivityScheduleService.IsOpen(boss.ImpasseTimeId, probe),
+                    $"SimulateTrain boss {boss.Id} Impasse schedule is open at {probe:O}");
+                AssertEqual(0, PreFightCodeAt(boss, probe, boss.NpcId.Count),
+                    $"SimulateTrain boss {boss.Id} Impasse pre-fight at {probe:O}");
             }
         }
+
+        SimulateTrainMonsterTable cthylla = bosses.Single(boss => boss.Id == 3_052);
+        AssertEqual(30_308, cthylla.TimeId, "SimulateTrain Cthylla rotation TimeId");
+
+        int[] rotationTimeIds = bosses
+            .SelectMany(boss => new[] { boss.TimeId, boss.ImpasseTimeId })
+            .Where(timeId => timeId > 0 && timeId != 201)
+            .Distinct()
+            .Order()
+            .ToArray();
+        AssertEqual(true, rotationTimeIds.Length > 0, "SimulateTrain publishes rotation TimeIds");
+        foreach (int timeId in rotationTimeIds)
+        {
+            ActivityScheduleEntry rotation = ActivityScheduleService.All.Single(row => row.Id == timeId);
+            AssertEqual<(long, long)>((0, 0), (rotation.StartTime, rotation.EndTime),
+                $"SimulateTrain TimeId {timeId} is a permanent window");
+            AssertEqual(true, rotation.Source.Contains("SimulateTrainMonster"),
+                $"SimulateTrain TimeId {timeId} is derived from the monster table");
+        }
+
+        AssertEqual(1, ActivityScheduleService.All.Count(row => row.Id == 201),
+            "SimulateTrain permanent practice TimeId resolves exactly once");
+        AssertEqual(true, ActivityScheduleService.All.Single(row => row.Id == 201).Source
+                .Contains("SimulateTrain:permanent-practice"),
+            "SimulateTrain permanent practice keeps its authored schedule provenance");
+        AssertEqual(1, ActivityScheduleService.All.Count(row => row.Id == 47_121),
+            "Authored activity TimeId 47121 resolves exactly once");
 
         request.PreFightData.SimulateTrainInfo!.BossId = 9_999;
         object?[] invalidPreFightArguments =

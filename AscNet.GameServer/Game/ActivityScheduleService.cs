@@ -1,6 +1,7 @@
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.activity;
 using AscNet.Table.V2.share.condition;
+using AscNet.Table.V2.share.fuben.simulatetrain;
 using AscNet.Table.V2.share.miniactivity.dyemerge;
 using AscNet.Table.V2.share.theatre;
 using AscNet.Table.V2.share.theatre3;
@@ -40,6 +41,7 @@ public static class ActivityScheduleService
                 $"feature-window:Theatre5:unbounded-calendar:user-approved:TimeId={timeId}")))
             .Concat(TableReaderV2.Parse<ActivityScheduleTable>()
                 .Select(row => new ActivityScheduleEntry(row.Id, row.StartTime, row.EndTime, row.Source)))
+            .Concat(SimulateTrainWindowEntries())
             .DistinctBy(row => row.Id)
             .OrderBy(row => row.Id)
             .ToArray());
@@ -86,6 +88,25 @@ public static class ActivityScheduleService
             }
         }
     }
+
+    /// <summary>
+    /// Simulated Trial practice bosses are a permanent catalog: their TimeId/ImpasseTimeId columns
+    /// are retail rotation metadata with no authoritative AscNet schedule, so every id the monster
+    /// table publishes stays available at all times (retail opened each from a rotation date).
+    /// </summary>
+    private static IEnumerable<ActivityScheduleEntry> SimulateTrainWindowEntries() =>
+        TableReaderV2.Parse<SimulateTrainMonsterTable>()
+            .SelectMany(row => new[]
+            {
+                (TimeId: row.TimeId, Column: "TimeId"),
+                (TimeId: row.ImpasseTimeId, Column: "ImpasseTimeId")
+            })
+            .Where(entry => entry.TimeId > 0)
+            .DistinctBy(entry => entry.TimeId)
+            .OrderBy(entry => entry.TimeId)
+            .Select(entry => new ActivityScheduleEntry(entry.TimeId, 0, 0,
+                $"local-policy:SimulateTrain:permanent-boss-practice:SimulateTrainMonster:"
+                + $"{entry.Column}={entry.TimeId}:user-approved"));
 
     /// <summary>
     /// Maps an ordinary event stage back to its activity TimeId from the fuben/miniactivity
