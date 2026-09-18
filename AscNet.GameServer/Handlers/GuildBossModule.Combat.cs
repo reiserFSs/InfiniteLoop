@@ -275,7 +275,11 @@ internal static partial class GuildBossModule
     {
         if (result.StartFrame < 0 || result.SettleFrame < result.StartFrame || result.PauseFrame < 0 || result.ExSkillPauseFrame < 0
             || result.TotalDamage < 0 || result.HighestDamage < 0 || result.HighestDamage > result.TotalDamage
-            || result.TotalDamaged < 0 || result.TotalCure < 0 || result.LeftTime < 0 || result.LeftTime > int.MaxValue
+            || result.TotalDamaged < 0 || result.TotalCure < 0
+            // The native countdown is signed: untimed stages carry no timer, and a siege stage extends its timer as
+            // battle score thresholds are reached, so a long fight settles below the authored PassTimeLimit.
+            // Only the int bound is enforced because :241 narrows LeftTime with checked((int)...).
+            || result.LeftTime is < int.MinValue or > int.MaxValue
             || result.RebootCount != 0 || (result.PlayerIds is { Length: > 0 }
                 && (result.PlayerIds.Length != 1 || result.PlayerIds[0] != session.player.PlayerData.Id)))
             throw new ServerCodeException("Invalid guild boss settlement bounds.", 20063304);
