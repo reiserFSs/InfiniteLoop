@@ -304,15 +304,20 @@ namespace AscNet.GameServer.Handlers
                     {
                         foreach ((int itemId, int count) in grant.Costs)
                         {
-                            Item? item = stagedInventory.Items.FirstOrDefault(value => value.Id == itemId);
                             if (!inventoryClaimed)
                             {
-                                if (item is null || item.Count < count)
+                                if (stagedInventory.SpendableCount(itemId) < count)
                                     throw new InvalidOperationException($"Insufficient item {itemId} for reward claim {grant.ClaimKey}.");
-                                item = stagedInventory.Do(itemId, -count);
+                                foreach (Item changed in stagedInventory.Spend(itemId, count))
+                                    if (grantResult.ItemData.ItemDataList.All(entry => entry.Id != changed.Id))
+                                        grantResult.ItemData.ItemDataList.Add(changed);
                             }
-                            if (item is not null)
-                                grantResult.ItemData.ItemDataList.Add(item);
+                            else
+                            {
+                                foreach (Item item in stagedInventory.SpendableStacks(itemId))
+                                    if (grantResult.ItemData.ItemDataList.All(entry => entry.Id != item.Id))
+                                        grantResult.ItemData.ItemDataList.Add(item);
+                            }
                         }
                     }
                     List<Reward> prepared = PrepareRewards(grant.Goods, session, grantResult);
