@@ -1,0 +1,47 @@
+Id	Desc	GroupId	ItemId	Weight	Condition
+1	Standard Artifact Box	10001	3	100	
+2	Standard Artifact Box	10001	4	100	
+3	Standard Artifact Box	10001	5	100	
+4	Standard Artifact Box	10001	14	4	
+5	Standard Artifact Box	10001	6	100	
+6	Standard Artifact Box	10001	7	100	
+7	Standard Artifact Box	10001	8	100	
+8	Standard Artifact Box	10001	15	4	
+9	Standard Artifact Box	10001	9	100	
+10	Standard Artifact Box	10001	12	100	
+11	Standard Artifact Box	10001	13	100	
+12	Standard Artifact Box	10001	16	4	1020690
+13	Standard Artifact Box	10001	28	100	
+14	Standard Artifact Box	10001	29	100	
+15	Standard Artifact Box	10001	30	100	
+16	Standard Artifact Box	10001	17	4	1020688
+17	Standard Artifact Box	10001	31	100	
+18	Standard Artifact Box	10001	32	100	
+19	Standard Artifact Box	10001	33	100	
+20	Standard Artifact Box	10001	18	4	
+21	Standard Artifact Box	10001	34	100	
+22	Standard Artifact Box	10001	38	100	
+23	Standard Artifact Box	10001	39	100	
+24	Standard Artifact Box	10001	19	4	1020690
+25	Standard Artifact Box	10001	40	100	
+26	Standard Artifact Box	10001	41	100	
+27	Standard Artifact Box	10001	42	100	
+28	Standard Artifact Box	10001	22	4	1020688
+29	Standard Artifact Box	10001	1	80	
+30	Standard Artifact Box	10001	2	80	
+31	Standard Artifact Box	10001	27	4	
+32	Standard Artifact Box	10001	35	4	1020690
+33	Standard Artifact Box	10001	43	80	
+34	Standard Artifact Box	10001	44	80	
+35	Standard Artifact Box	10001	45	80	
+36	Standard Artifact Box	10001	10	80	
+37	Standard Artifact Box	10001	36	4	1020688
+38	Multiplier Artifact Box	10002	14	100	
+39	Multiplier Artifact Box	10002	15	100	
+40	Multiplier Artifact Box	10002	16	100	1020690
+41	Multiplier Artifact Box	10002	17	100	1020688
+42	Multiplier Artifact Box	10002	18	100	
+43	Multiplier Artifact Box	10002	19	100	1020690
+44	Multiplier Artifact Box	10002	22	100	1020688
+45	Multiplier Artifact Box	10002	35	100	1020690
+46	Multiplier Artifact Box	10002	36	100	1020688

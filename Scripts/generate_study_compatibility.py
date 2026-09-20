@@ -26,6 +26,8 @@ SOURCES = {
     "PracticeActivity": "en/bytes/share/fuben/practice/PracticeActivity.json",
     "TeachingActivity": "en/bytes/share/fuben/teaching/TeachingActivity.json",
     "TeachingRobot": "en/bytes/share/fuben/teaching/TeachingRobot.json",
+    "EnhanceSkill": "en/bytes/share/character/enhanceskill/EnhanceSkill.json",
+    "EnhanceSkillGroup": "en/bytes/share/character/enhanceskill/EnhanceSkillGroup.json",
 }
 
 def require_clean_sources(source: Path) -> None:
@@ -152,6 +154,24 @@ def build_catalog(tables: dict[str, list[dict[str, Any]]], hashes: dict[str, str
     if any(not isinstance(robot.get("CharacterId"), int) or robot["CharacterId"] <= 0 for robot in robots):
         raise ValueError("selected Robot row is missing a positive CharacterId")
 
+    # The client resolves a premade frame's enhance skills from the same client version as the
+    # Robot row, so freeze that version's enhance inputs alongside the selected robots. The
+    # projection is closed: every selected character has its authored row and every referenced
+    # group is present.
+    character_ids = {robot["CharacterId"] for robot in robots}
+    all_enhance_skills = unique_by(tables["EnhanceSkill"], "CharacterId", "EnhanceSkill")
+    if character_ids - all_enhance_skills.keys():
+        raise ValueError(
+            f"selected Robots reference missing EnhanceSkill rows: {sorted(character_ids - all_enhance_skills.keys())}")
+    enhance_skills = [row for row in tables["EnhanceSkill"] if row["CharacterId"] in character_ids]
+    enhance_group_ids = {group_id for row in enhance_skills for group_id in positive_ids(row.get("SkillGroupId"))}
+    all_enhance_groups = unique_by(tables["EnhanceSkillGroup"], "Id", "EnhanceSkillGroup")
+    if enhance_group_ids - all_enhance_groups.keys():
+        raise ValueError(
+            f"selected EnhanceSkill rows reference missing EnhanceSkillGroup rows: "
+            f"{sorted(enhance_group_ids - all_enhance_groups.keys())}")
+    enhance_skill_groups = [row for row in tables["EnhanceSkillGroup"] if row["Id"] in enhance_group_ids]
+
     counts = {
         "PracticeChapters": len(tables["PracticeChapter"]),
         "PracticeGroups": len(tables["PracticeGroup"]),
@@ -161,6 +181,8 @@ def build_catalog(tables: dict[str, list[dict[str, Any]]], hashes: dict[str, str
         "StudyStages": len(stages),
         "StageLevelControls": len(controls),
         "Robots": len(robots),
+        "EnhanceSkills": len(enhance_skills),
+        "EnhanceSkillGroups": len(enhance_skill_groups),
     }
     return {
         "ClientVersion": CLIENT_VERSION,
@@ -177,6 +199,8 @@ def build_catalog(tables: dict[str, list[dict[str, Any]]], hashes: dict[str, str
         "Stages": stages,
         "StageLevelControls": controls,
         "Robots": robots,
+        "EnhanceSkills": enhance_skills,
+        "EnhanceSkillGroups": enhance_skill_groups,
     }
 
 

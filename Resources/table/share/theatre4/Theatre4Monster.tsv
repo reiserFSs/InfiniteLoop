@@ -1,0 +1,195 @@
+Id	NpcId	Level	BuffLevel[1]	BuffLevel[2]	BuffIds[1]	BuffIds[2]	Note
+10101	93653	506	1		776976		Team Soldier
+10102	93223	325	1		776976		Deporter-R (Extreme)
+10103	90030	280	1		776976		Repairer (Extreme)
+10104	90770	325	1		776976		Naval 5 - Squid (Extreme)
+10105	93482	271	1		776976		Aurora Guardian (Extreme)
+10106	93542	541	1		776976		Aurora Bastion (Extreme)
+10201	90380	427	1		776976		Construct (Extreme)
+10202	93050	345	1		776976		Construct Soldier (Female) (Extreme)
+10203	90440	433	1		776976		Terrapod (Extreme)
+10204	90420	275	1		776976		Musashi VI (Extreme)
+10205	93653	506	1		776976		Team Soldier
+10206	93353	295	1		776976		Elite Construct
+10301	90730	295	1		776976		Mr. White (Extreme)
+10302	90720	229	1		776976		Martini (Extreme)
+10303	90030	280	1		776976		Repairer (Extreme)
+10304	90090	382	1		776976		Ground Monitor (Extreme)
+10305	90110	399	1		776976		Pilgrim (Extreme)
+10306	90210	262	1		776976		Gardener (Extreme)
+10401	93353	295	1		776976		Elite Construct
+10402	90440	433	1		776976		Terrapod (Extreme)
+10403	90430	110	1		776976		Musashi IX (Extreme)
+20101	90970	304	1		776976		M4-Medic Bot (Extreme)
+20102	90770	325	1		776976		Naval 5 - Squid (Extreme)
+20103	90990	448	1		776976		Trailblazing Surfer (Extreme)
+20104	90460	325	1		776976		Deep-sea Ambusher
+20105	90600	1084	1		776976		Hetero Deconstruct Unit (Extreme)
+20106	90630	406	1		776976		Hetero Explore Unit (Extreme)
+20201	90400	241	1		776976		Bio-Bull (Extreme)
+20202	90410	541	1		776976		Acid Ant (Extreme)
+20203	90350	332	1		776976		Firefighter (Extreme)
+20204	90330	336	1		776976		Envoy (Extreme)
+20205	90340	233	1		776976		Royal Guard (Extreme)
+20206	90360	330	1		776976		Deconstructor (Extreme)
+20301	90400	241	1		776976		Bio-Bull (Extreme)
+20302	90400	241	1		776976		Bio-Bull (Extreme)
+20303	90470	413	1		776976		Heteromer Hydraulic
+20304	90490	500	1		776976		Heteromer Aerial Monitor
+20305	90460	325	1		776976		Deep-sea Ambusher
+20306	90480	328	1		776976		Heteromer Sentry Gun
+20401	90980	438	1		776976		PK43 Type "Sergeant" (Extreme)
+20402	93020	325	1		776976		SSG-Meanderer (Extreme)
+20403	90450	296	1		776976		Polar Soldier
+30101	90760	500	1		776976		Ground 3 - Rabbit (Extreme)
+30102	90750	479	1		776976		Aerial 7 - Snow Owl (Extreme)
+30103	93010	927	1		776976		DB02-Sanitizer (Extreme)
+30104	90780	239	1		776976		Ground 1 - Polar Bear (Extreme)
+30105	90890	792	1		776976		Corrupted Construct (Extreme)
+30106	90960	299	1		776976		Blair (Extreme)
+30201	93010	927	1		776976		DB02-Sanitizer (Extreme)
+30202	93020	325	1		776976		SSG-Meanderer (Extreme)
+30203	90760	500	1		776976		Ground 3 - Rabbit (Extreme)
+30204	90330	336	1		776976		Envoy (Extreme)
+30205	90740	325	1		776976		A'Mao
+30206	90740	325	1		776976		A'Mao
+30301	90760	500	1		776976		Ground 3 - Rabbit (Extreme)
+30302	90740	325	1		776976		A'Mao
+30303	90890	792	1		776976		Corrupted Construct (Extreme)
+30304	90960	299	1		776976		Blair (Extreme)
+30305	90970	304	1		776976		M4-Medic Bot (Extreme)
+30306	93010	927	1		776976		DB02-Sanitizer (Extreme)
+30401	90780	239	1		776976		Ground 1 - Polar Bear (Extreme)
+30402	90750	479	1		776976		Aerial 7 - Snow Owl (Extreme)
+30403	90740	325	1		776976		A'Mao
+40101	90620	1082	1		776976		Hetero Fire Unit (Extreme)
+40102	90610	361	1		776976		Hetero Deconstruct Unit (Extreme)
+40103	93473	406	1		776976		Rogue Assassin (Extreme)
+40104	93482	271	1		776976		Aurora Guardian (Extreme)
+40105	93293	343	1		776976		Redcoral Host (Extreme)
+40106	93303	316	1		776976		Chela Host (Extreme)
+40201	90370	433	1		776976		Explorer (Extreme)
+40202	90220	120	1		776976		Excavator
+40203	90440	433	1		776976		Terrapod (Extreme)
+40204	81500	1803	1		776976		Nozzle
+40205	90420	275	1		776976		Musashi VI (Extreme)
+40206	81800	1803	1		776976		Vassago
+40301	93743	541	1		776976		Hetero-Bee (Extreme)
+40302	93723	1082	1		776976		Mining Hopper (Extreme)
+40303	93763	406	1		776976		Lighting Bee (Extreme)
+40304	93743	541	1		776976		Hetero-Bee (Extreme)
+40305	90190	311	1		776976		Shieldbearer (Extreme)
+40306	90260	361	1		776976		Bio-Salamander (Extreme)
+40401	93503	361	1		776976		Cognitive Grimace (Extreme)
+40402	93723	1082	1		776976		Mining Hopper (Extreme)
+40403	90950	310	1		776976		Recycle Prisoner (Extreme)
+50101	93653	506	1		776976		Team Soldier
+50102	93592	433	1		776976		Fortress Heavy Soldier
+50103	93383	340	1		776976		Consciousness Test Subject A
+50104	93393	533	1		776976		Consciousness Test Subject B
+50105	93473	406	1		776976		Rogue Assassin
+50106	93353	295	1		776976		Elite Construct
+50201	90450	296	1		776976		Polar Soldier
+50202	93363	520	1		776976		Mechanoid Variant
+50203	93070	406	1		776976		Sanctuary Guard
+50204	90440	433	1		776976		Terrapod
+50205	90430	110	1		776976		Musashi IX
+50206	90910	437	1		776976		Gear
+50301	93653	506	1		776976		Team Soldier
+50302	93353	295	1		776976		Elite Construct
+50303	90860	568	1		776976		Popper (Extreme)
+50304	90870	383	1		776976		Jaspers (Extreme)
+50305	93192	373	1		776976		Heal-Z (Extreme)
+50306	93182	232	1		776976		Nalasr-E (Extreme)
+50401	93403	382	1		776976		"Gate Keeper" (Extreme)
+50402	93683	361	1		776976		Perfect Program (Extreme)
+50403	93170	389	1		776976		Wheel of Fortune (Extreme)
+60101	93653	506	1		776976		Team Soldier
+60102	93353	295	1		776976		Elite Construct
+60103	93383	340	1		776976		Consciousness Test Subject A
+60104	93683	361	1		776976		Perfect Program (Extreme)
+60105	93473	406	1		776976		Rogue Assassin
+60106	93592	433	1		776976		Fortress Heavy Soldier
+60201	90450	296	1		776976		Polar Soldier
+60202	93363	520	1		776976		Mechanoid Variant
+60203	93070	406	1		776976		Sanctuary Guard
+60204	90440	433	1		776976		Terrapod
+60205	90430	110	1		776976		Musashi IX
+60206	90910	437	1		776976		Gear
+60301	93653	506	1		776976		Team Soldier
+60302	93353	295	1		776976		Elite Construct
+60303	90860	568	1		776976		Popper (Extreme)
+60304	90870	383	1		776976		Jaspers (Extreme)
+60305	93192	373	1		776976		Heal-Z (Extreme)
+60306	93182	232	1		776976		Nalasr-E (Extreme)
+60401	93403	382	1		776976		"Gate Keeper" (Extreme)
+60402	93683	361	1		776976		Perfect Program (Extreme)
+60403	93170	389	1		776976		Wheel of Fortune (Extreme)
+110101	90380	427	1		776976		Construct (Extreme)
+110102	93050	345	1		776976		Construct Soldier (Female) (Extreme)
+110103	93653	506	1		776976		Team Soldier
+110104	93353	295	1		776976		Elite Construct
+110201	90420	275	1		776976		Musashi VI (Extreme)
+110202	90440	433	1		776976		Terrapod (Extreme)
+110203	90480	328	1		776976		Heteromer Sentry Gun
+110204	90250	216	1		776976		Ronin IV (Extreme)
+110401	93353	295	1		776976		Elite Construct
+110402	90420	275	1		776976		Musashi VI (Extreme)
+120101	90400	241	1		776976		Bio-Bull (Extreme)
+120102	90410	541	1		776976		Acid Ant (Extreme)
+120103	90330	336	1		776976		Envoy (Extreme)
+120104	90360	330	1		776976		Deconstructor (Extreme)
+120201	90350	332	1		776976		Firefighter (Extreme)
+120202	90350	332	1		776976		Firefighter (Extreme)
+120203	90340	233	1		776976		Royal Guard (Extreme)
+120204	90390	260	1		776976		Harvester (Extreme)
+120401	90390	260	1		776976		Harvester (Extreme)
+120402	90400	241	1		776976		Bio-Bull (Extreme)
+130101	93010	927	1		776976		DB02-Sanitizer (Extreme)
+130102	93020	325	1		776976		SSG-Meanderer (Extreme)
+130103	90330	336	1		776976		Envoy (Extreme)
+130104	90370	433	1		776976		Explorer (Extreme)
+130201	90740	325	1		776976		A'Mao
+130202	90740	325	1		776976		A'Mao
+130203	90760	500	1		776976		Ground 3 - Rabbit (Extreme)
+130204	90760	500	1		776976		Ground 3 - Rabbit (Extreme)
+130401	93020	325	1		776976		SSG-Meanderer (Extreme)
+130402	90740	325	1		776976		A'Mao
+140101	90370	433	1		776976		Explorer (Extreme)
+140102	90220	120	1		776976		Excavator
+140103	93503	361	1		776976		Cognitive Grimace (Extreme)
+140104	93723	1082	1		776976		Mining Hopper (Extreme)
+140201	90440	433	1		776976		Terrapod (Extreme)
+140202	81500	1803	1		776976		Nozzle
+140203	90420	275	1		776976		Musashi VI (Extreme)
+140204	81800	1803	1		776976		Vassago
+140401	81500	1803	1		776976		Nozzle
+140402	81800	1803	1		776976		Vassago
+150101	90450	296	1		776976		Polar Soldier
+150102	93363	520	1		776976		Mechanoid Variant
+150103	90430	110	1		776976		Musashi IX
+150104	90910	437	1		776976		Gear
+150201	93070	406	1		776976		Sanctuary Guard
+150202	90440	433	1		776976		Terrapod
+150203	93683	361	1		776976		Perfect Program (Extreme)
+150204	93683	361	1		776976		Perfect Program (Extreme)
+150401	93683	361	1		776976		Perfect Program (Extreme)
+150402	93070	406	1		776976		Sanctuary Guard
+160101	90450	296	1		776976		Polar Soldier
+160102	93363	520	1		776976		Mechanoid Variant
+160103	90430	110	1		776976		Musashi IX
+160104	90910	437	1		776976		Gear
+160201	93070	406	1		776976		Sanctuary Guard
+160202	90440	433	1		776976		Terrapod
+160203	93683	361	1		776976		Perfect Program (Extreme)
+160204	93683	361	1		776976		Perfect Program (Extreme)
+160401	93683	361	1		776976		Perfect Program (Extreme)
+160402	93070	406	1		776976		Sanctuary Guard
+991001	90920	1	1		776976		Treasure Kuroro
+991002	93353	295	1		776976		Elite Construct
+991003	90420	275	1		776976		Musashi VI (Extreme)
+991004	90740	325	1		776976		A'Mao
+991005	93503	361	1		776976		Cognitive Grimace (Extreme)
+991006	93683	361	1		776976		Perfect Program (Extreme)
+991007	93070	406	1		776976		Sanctuary Guard
+991008	96181	1	1		776976		Little Kuroro

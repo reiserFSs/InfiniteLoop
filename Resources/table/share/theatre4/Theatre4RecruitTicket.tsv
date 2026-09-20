@@ -1,0 +1,11 @@
+Id	Quality	CharacterGroupA	CharacterNumA	SelectNum	RefreshLimit	Name	Icon	Desc
+1	6	1	3	1	1	Squad Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item33.png	Guarantees the recruitment of a "Special Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+2	4	101	3	1	1	Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item33.png	Allows you to recruit a\n"1★ Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+3	4	102	3	1	1	2★ Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item34.png	Allows you to recruit a\n"2★ Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+4	5	201	3	1	1	Special Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item35.png	Gives you a high chance of recruiting a "1★ Special Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+5	5	202	3	1	1	2★ Special Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item36.png	Gives you a high chance of recruiting a "2★ Special Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+6	6	2	3	1	1	Squad Registration Form II	Assets/Product/Texture/Image/IconTools/UiTheatre4Item33.png	Guarantees the recruitment of a\n"Special Tank Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+7	5	301	3	1	1	3★ Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item36.png	Allows you to recruit a\n"3★ Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+8	4	401	3	1	1	Guide to Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item33.png	Allows you to recruit a\n"1★ Member"\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+9	5	501	3	1	1	Military Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item33.png	Guarantees the recruitment of a\n"1★ Member"with Red Multiplier\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>
+10	5	601	3	1	1	Infrastructure Registration Form	Assets/Product/Texture/Image/IconTools/UiTheatre4Item33.png	Guarantees the recruitment of a\n"1★ Member"with Blue Multiplier\n\n<size=24><color=#74797D>A heartfelt Registration Form.</color></size>

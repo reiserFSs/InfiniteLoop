@@ -334,12 +334,14 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("DrawGetDrawGroupListRequest")]
         public static void DrawGetDrawGroupListRequestHandler(Session session, Packet.Request packet)
         {
+            bool initializedPity = DrawManager.InitializePityState(session.player);
             DrawGetDrawGroupListResponse rsp = new()
             {
                 DrawGroupInfoList = DrawManager.GetDrawGroupInfos(session.player),
                 DrawAdjustActivityInfoList = DrawManager.GetDrawAdjustActivityInfos(session.player)
             };
 
+            if (initializedPity) session.player.SaveChecked();
             session.SendResponse(rsp, packet.Id);
         }
 
@@ -364,13 +366,14 @@ namespace AscNet.GameServer.Handlers
         public static void DrawGroupGetHistoryRequestHandler(Session session, Packet.Request packet)
         {
             DrawGroupGetHistoryRequest request = packet.Deserialize<DrawGroupGetHistoryRequest>();
+            bool initializedPity = DrawManager.InitializePityState(session.player, request.GroupId);
             (int bottomTimes, int maxBottomTimes) = DrawManager.GetDrawHistoryStatus(
                 session.player,
                 request.GroupId,
                 request.GroupSubType
             );
 
-            session.SendResponse(new DrawGroupGetHistoryResponse
+            DrawGroupGetHistoryResponse response = new()
             {
                 HistoryRewardList = DrawManager.GetDrawHistory(session.player, request.GroupId, request.GroupSubType)
                     .Select(entry => new DrawHistoryReward
@@ -381,17 +384,21 @@ namespace AscNet.GameServer.Handlers
                     .ToList(),
                 BottomTimes = bottomTimes,
                 MaxBottomTimes = maxBottomTimes
-            }, packet.Id);
+            };
+            if (initializedPity) session.player.SaveChecked();
+            session.SendResponse(response, packet.Id);
         }
 
         [RequestPacketHandler("DrawGetDrawInfoListRequest")]
         public static void DrawGetDrawInfoListRequestHandler(Session session, Packet.Request packet)
         {
             DrawGetDrawInfoListRequest request = packet.Deserialize<DrawGetDrawInfoListRequest>();
+            bool initializedPity = DrawManager.InitializePityState(session.player, request.GroupId);
 
             DrawGetDrawInfoListResponse rsp = new();
             rsp.DrawInfoList.AddRange(DrawManager.GetDrawInfosByGroup(request.GroupId, session.player));
 
+            if (initializedPity) session.player.SaveChecked();
             session.SendResponse(rsp, packet.Id);
         }
 
@@ -426,6 +433,9 @@ namespace AscNet.GameServer.Handlers
             DrawDrawCardRequest request = packet.Deserialize<DrawDrawCardRequest>();
             long playerId = session.player.PlayerData.Id;
             int drawCount = request.Count <= 0 ? 1 : Math.Min(request.Count, 10);
+            int groupId = DrawManager.GetGroupByDrawId(request.DrawId);
+            if (groupId > 0 && DrawManager.InitializePityState(session.player, groupId))
+                session.player.SaveChecked();
             DrawInfo? initialDrawInfo = DrawManager.GetDrawInfoById(request.DrawId, session.player);
             if (initialDrawInfo is null || !DrawManager.HasRewardConfiguration(request.DrawId))
             {

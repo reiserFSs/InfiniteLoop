@@ -1,0 +1,51 @@
+Id	Desc	SizeX	SizeY	BaseBlockGroupId	EliteMonsterLimit	HiddenId[1]	HiddenId[2]	TracebackGroupId
+1001	Beginner Map	7	7	10001				1
+10002	Beginner - Chapter 1	5	4	10001	4			1
+10003	Beginner - Chapter 2	6	5	10001	5			1
+10004	Beginner - Chapter 3	6	5	10001	6			1
+10005	Beginner - Chapter 4	7	6	10001	6			1
+10006	Beginner - Map 5	8	7	10001	6			1
+10007	Beginner - Map 6	6	5	10001	5			1
+11001	Beginner Tutorial Map 1	5	3	10005				1
+11002	Beginner Tutorial Map 2	6	5	10006				1
+11003	Beginner Tutorial Map 3	5	4	10007				1
+21000	Red - Ch1 - 1	5	4	10005	5			1
+22000	Red - Ch2 - 1	5	6	10006	5			1
+23000	Red - Ch3 - 1	7	6	10007	5	2300001	2300002	1
+24000	Red - Ch4 - 1	8	6	10008	10	2400001	2400002	1
+25000	Red - Ch5 - 1	8	7	10009	10	2500001		1
+26000	Red - Ch6 - 1	6	5	10010	5			1
+31000	Neutral - Ch1 - 1	5	4	10005	10			1
+32000	Neutral - Ch2 - 1	6	5	10006	10			1
+33000	Neutral - Ch3 - 1	7	6	10007	10			1
+34000	Neutral - Ch4 - 1	8	7	10009	10	3400001		1
+41001	Blue - Chapter 1 - Map 1	5	4	10005	1			1
+42001	Blue - Chapter 2 - Map 1	6	5	10006	1			1
+43001	Blue - Chapter 3 - Map 1	6	5	10007	1			1
+44001	Blue - Chapter 4 - Map 1	7	6	10008	2			1
+45001	Blue - Chapter 5 - Map 1	8	7	10009	3			1
+46001	Blue - Chapter 6 - Map 1	6	7	10010	2	4600101	4600102	1
+51001	Yellow - Chapter 1 - Map 1	5	4	10005				1
+52001	Yellow - Chapter 2 - Map 1	6	5	10006				1
+53001	Yellow - Chapter 3 - Map 1	6	5	10007	1	5300101		1
+54001	Yellow - Chapter 4 - Map 1	7	6	10008	1			1
+55001	Yellow - Chapter 5 - Map 1	8	7	10009	3	5500101		1
+56001	Yellow - Chapter 6 - Map 1	5	4	10010	1			1
+60001	Golden City - Chapter 2 - Low Difficulty	5	4	60030	3			1
+60003	Golden City - Chapter 2 - High Difficulty	5	4	60030	3			1
+60005	Golden City - Chapter 3 - Low Difficulty	5	4	60030	3			1
+60007	Golden City - Chapter 3 - High Difficulty	5	4	60030	3			1
+60009	Golden City - Chapter 4 - Low Difficulty	6	5	60030	3			1
+60011	Golden City - Chapter 4 - High Difficulty	6	5	60030	3			1
+60013	Path Against the Wind - Chapter 2 - Low Difficulty	6	4	60031	5			1
+60017	Path Against the Wind - Chapter 2 - High Difficulty	6	4	60031	8			1
+60021	Path Against the Wind - Chapter 3 - Low Difficulty	6	4	60031	8			1
+60023	Path Against the Wind - Chapter 3 - High Difficulty	6	4	60031	8			1
+60026	Path Against the Wind - Chapter 4 - Low Difficulty	6	4	60031	8			1
+60028	Path Against the Wind - Chapter 4 - High Difficulty	6	4	60031	8			1
+60101	False Ending - 3 - Low Difficulty	6	5	10010	5			1
+60102	False Ending - 4 - Low Difficulty	6	5	10010	5			1
+60103	False Ending - 5 - Low Difficulty	6	5	10010	5			1
+60104	False Ending First Run - 3 - Low Difficulty	6	5	10010	3			1
+70001	Final Chapter - Low Difficulty	6	5	10010	5			1
+70002	Final Chapter - High Difficulty	6	5	10010	5			1

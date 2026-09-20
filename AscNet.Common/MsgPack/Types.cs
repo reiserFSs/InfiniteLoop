@@ -209,6 +209,12 @@ namespace AscNet.Common.MsgPack
     }
 
     [MessagePackObject(true)]
+    public class NotifyUnlockHideStage
+    {
+        public int UnlockHideStage { get; set; }
+    }
+
+    [MessagePackObject(true)]
     public partial class FubenBaseData
     {
         public long RefreshTime { get; set; }

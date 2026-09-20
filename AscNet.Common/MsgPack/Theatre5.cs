@@ -828,6 +828,34 @@ public sealed class DlcSingleFightSettleRequest
     public Theatre5DlcReportWorldResult DlcReportWorldResult { get; set; } = new();
 }
 
+// Partial views of DlcSingleFightSettleRequest, used only to decide which DLC mode owns a settlement
+// before either handler runs. Map-mode deserialization skips undeclared members, so the dispatcher can
+// read the nested world id without materialising the whole battle report a second time. Public like
+// every other wire contract so the MessagePack resolver needs no private-member opt-in.
+[MessagePackObject(true)]
+public sealed class DlcSettleOwnershipProbe
+{
+    public DlcReportWorldOwnershipProbe? DlcReportWorldResult { get; set; }
+}
+
+[MessagePackObject(true)]
+public sealed class DlcReportWorldOwnershipProbe
+{
+    public DlcFightSettleOwnershipProbe? DlcFightSettleData { get; set; }
+}
+
+[MessagePackObject(true)]
+public sealed class DlcFightSettleOwnershipProbe
+{
+    public DlcWorldOwnershipProbe? WorldData { get; set; }
+}
+
+[MessagePackObject(true)]
+public sealed class DlcWorldOwnershipProbe
+{
+    public int WorldId { get; set; }
+}
+
 [MessagePackObject(true)]
 public sealed class DlcSingleFightSettleResponse : Theatre5Response
 {
@@ -930,12 +958,15 @@ public sealed class NotifyTheatre5Mission
     public Theatre5Mission Mission { get; set; } = new();
 }
 
+// Native XDlcFightSettleData: exactly one of the mode results is populated per settlement.
 [MessagePackObject(true)]
 public sealed class Theatre5DlcFightSettleData
 {
     public Theatre5DlcFightResultData ResultData { get; set; } = new();
     public Theatre5AutoChessGameplayResult? XAutoChessGameplayResult { get; set; }
     public List<RewardGoods> RewardGoodsList { get; set; } = [];
+    public Theatre6PvpFightResult? Theatre6PvpFightResult { get; set; }
+    public Theatre6FightResult? Theatre6FightResult { get; set; }
 }
 
 // Native XWorldData.
@@ -1362,15 +1393,21 @@ public sealed class Theatre5RuneEvolve
     public bool IsStrengthen { get; set; }
 }
 
-// Native XTheatre6GameplayData.
+// Native XTheatre6GameplayData. RoundNum/RoundResults are PvP round state; the shipped EN
+// Theatre6 producer (XTheatre6BattleAgency:_GetXWorldData) assigns RoundResults for PvP only,
+// from its own cached round history, and never copies RoundNum back out of the native object.
 [MessagePackObject(true)]
 public sealed class Theatre5Theatre6GameplayData
 {
     public Theatre5Theatre6NpcData? SelfData { get; set; }
     public Theatre5Theatre6NpcData? EnemyData { get; set; }
+    public int RoundNum { get; set; }
+    public List<bool> RoundResults { get; set; } = [];
 }
 
-// Native XTheatre6NpcData.
+// Native XTheatre6NpcData. The field set is the one XTheatre6BattleAgency copies field by field;
+// every dictionary here is the native Dictionary<int,int> the xLua caster fills, and
+// MagicIdsWithoutLevel/PvpBuffActionRecord are added element-wise, so their keys survive.
 [MessagePackObject(true)]
 public sealed class Theatre5Theatre6NpcData
 {
@@ -1381,12 +1418,41 @@ public sealed class Theatre5Theatre6NpcData
     public int CharacterLevel { get; set; }
     [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
     public Dictionary<int, int> Attribs { get; set; } = [];
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, int> GameplayAttribs { get; set; } = [];
     public List<int> Skills { get; set; } = [];
     [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
     public Dictionary<int, int> MagicIds { get; set; } = [];
     public int FashionId { get; set; }
     public int[] WeaponIds { get; set; } = [];
     public List<int> Relics { get; set; } = [];
+    public int PvpEnvMagicId { get; set; }
+    public List<int> MagicIdsWithoutLevel { get; set; } = [];
+    // Native cross-round accumulator read back by Buff_1025815/1025818/1025819/1025820.
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, int> PvpBuffActionRecord { get; set; } = [];
+}
+
+// Native Theatre6 combat record. XTheatre6Control.GetRoundSettlementDamageList reads category 0
+// (skills) and 1 (buffs) out of DamageRecord/EnergyCastRecord plus the flat SkillCountRecord.
+[MessagePackObject(true)]
+public sealed class Theatre6CheckData
+{
+    public Theatre6CheckNpcData? MyData { get; set; }
+    public Theatre6CheckNpcData? EnemyData { get; set; }
+}
+
+[MessagePackObject(true)]
+public sealed class Theatre6CheckNpcData
+{
+    public int TotalDamage { get; set; }
+    public int TotalEnergyCast { get; set; }
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, Dictionary<int, int>> DamageRecord { get; set; } = [];
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, Dictionary<int, int>> EnergyCastRecord { get; set; } = [];
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+    public Dictionary<int, int> SkillCountRecord { get; set; } = [];
 }
 
 // Native XDlcFightResultData.
@@ -1416,6 +1482,8 @@ public sealed class Theatre5DlcFightResultData
     [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
     public Dictionary<int, Theatre5MouseHunterRecordData> RecordDataDict { get; set; } = [];
     public Theatre5AutoChessCheckData? AutoChessCheckData { get; set; }
+    // Theatre6 native combat records. Absent for every other DLC world.
+    public Theatre6CheckData? Theatre6CheckData { get; set; }
 }
 
 // Native XDlcFightResultPlayerData.

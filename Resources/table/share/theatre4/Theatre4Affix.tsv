@@ -1,0 +1,8 @@
+Id	Name	RecruitTicketId[1]	RecruitTicketId[2]	EffectGroupId	ConditionId	Desc	Icon
+1	Military	1	6	20001		Character ATK +10% for each Red Area you explore.	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJunShi.png
+2	Foundations	1	6	20003	1020810	Construction Permit +1 for each 3 Blue Areas you explore.	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJiJian.png
+3	Economy	1	6	20002	1020811	Silver Coins +15 for each Yellow Area you explore.	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJinJi.png
+4	Activate Funds	1	6	20005	1020812	Gain 300 Silver Coins and 4 Construction Permits.	Assets/Product/Texture/Image/IconSkill/R3A2hexin1.png
+5	Additional Compensation	1	6	20006	1020813	File Box +1 for each 6 Contentless Areas you explore.	Assets/Product/Texture/Image/IconSkill/R2Buouxiongdazhao1.png
+6	Blueprint Collection	1	6	20004	1020687	Blueprint Limit +1	Assets/Product/Texture/Image/IconSkill/R2SufeiyaSS1.png
+7	Proxy Campaign	1	6	20008	1020835	Spend Military Development Rate to perform a proxy battle. The effects of the proxy battle will be halved and can only reduce the enemy's HP by 50% at at time if you spend Silver Coins.	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconMaisi.png

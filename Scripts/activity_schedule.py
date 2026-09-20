@@ -204,6 +204,20 @@ def _catalog_notice_name_windows(catalog: Iterable[dict[str, str]], notices: Ite
     return output
 
 
+def _item_lifetime(item: Any) -> tuple[int, int] | None:
+    """Return an authored item lifetime; only a valid timestamp and positive duration count."""
+    if not isinstance(item, dict):
+        return None
+    start_text, duration = item.get("StartTime"), _int(item.get("Duration"))
+    if not isinstance(start_text, str) or duration is None:
+        return None
+    try:
+        start = int(dt.datetime.strptime(start_text, "%Y/%m/%d %H:%M").replace(tzinfo=dt.timezone.utc).timestamp())
+    except ValueError:
+        return None
+    return start, start + duration
+
+
 def _theatre6_windows(source: Path) -> dict[int, tuple[int, int, str]]:
     pvp_activities = _rows(source, "share/theatre6pvp/Theatre6PvpActivity.json")
     client_config = _rows(source, "client/theatre6/Theatre6ClientConfig.json")
@@ -220,14 +234,10 @@ def _theatre6_windows(source: Path) -> dict[int, tuple[int, int, str]]:
             item = items.get(item_id)
             if not isinstance(item, dict) or "shrouded requiem" not in str(item.get("Description", "")).lower():
                 continue
-            start_text, duration = item.get("StartTime"), item.get("Duration")
-            if not isinstance(start_text, str) or not isinstance(duration, int):
+            window = _item_lifetime(item)
+            if window is None:
                 continue
-            try:
-                start = int(dt.datetime.strptime(start_text, "%Y/%m/%d %H:%M").replace(tzinfo=dt.timezone.utc).timestamp())
-            except ValueError:
-                continue
-            output[time_id] = (start, start + duration, f"feature-window:Theatre6PvpActivity+Theatre6ClientConfig+Item:{item_id}")
+            output[time_id] = (*window, f"feature-window:Theatre6PvpActivity+Theatre6ClientConfig+Item:{item_id}")
     if len(output) == 1:
         rank_time_ids = [
             time_id
@@ -243,6 +253,45 @@ def _theatre6_windows(source: Path) -> dict[int, tuple[int, int, str]]:
                 start,
                 end,
                 provenance + "+Theatre6PvpRank:first-positive-TimeId",
+            )
+    # AscNet policy: a mission tab without a server calendar follows the authored lifetime of
+    # the timed reward token its tasks grant. PvP-derived windows above keep their priority.
+    limits = {row.get("Id"): row for row in _rows(source, "share/task/TaskTimeLimit.json")}
+    tasks = {row.get("Id"): row for row in _rows(source, "share/task/Task.json")}
+    rewards = {row.get("Id"): row for row in _rows(source, "share/reward/Reward.json")}
+    goods = {row.get("Id"): row for row in _rows(source, "share/reward/RewardGoods.json")}
+    for tab in _rows(source, "share/theatre6/Theatre6Reward.json"):
+        limit_id = _int(tab.get("TaskTimeLimitId"))
+        limit = limits.get(limit_id)
+        time_id = _int(limit.get("TimeId")) if isinstance(limit, dict) else None
+        task_ids = limit.get("TaskId") if isinstance(limit, dict) else None
+        if time_id is None or time_id in output or not isinstance(task_ids, list):
+            continue
+        windows: dict[tuple[int, int], set[int]] = {}
+        for task_id in task_ids:
+            task = tasks.get(_int(task_id))
+            reward = rewards.get(_int(task.get("RewardId"))) if isinstance(task, dict) else None
+            sub_ids = reward.get("SubIds") if isinstance(reward, dict) else None
+            if not isinstance(sub_ids, list):
+                continue
+            for sub_id in sub_ids:
+                entry = goods.get(_int(sub_id))
+                template_id = _int(entry.get("TemplateId")) if isinstance(entry, dict) else None
+                if template_id is None:
+                    continue
+                window = _item_lifetime(items.get(template_id))
+                if window is not None:
+                    windows.setdefault(window, set()).add(template_id)
+        if len(windows) == 1:
+            (start, end), template_ids = next(iter(windows.items()))
+            output[time_id] = (
+                start,
+                end,
+                f"feature-window:Theatre6Reward:TaskTimeLimitId={limit_id}"
+                "+TaskTimeLimit+Task+Reward+RewardGoods"
+                f"+Item:{','.join(map(str, sorted(template_ids)))}"
+                "; AscNet policy: a timed mission window follows its authored reward-token lifetime"
+                " where no server calendar exists",
             )
     return output
 

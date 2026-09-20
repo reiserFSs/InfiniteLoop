@@ -1,0 +1,251 @@
+Id	Desc	Desc1	Effects[1]	Effects[2]	Effects[3]	Effects[4]
+1	Flush		1			
+2	Shopping		2			
+3	Distance Makes Beauty		3			
+4	Collect Luck		4			
+5	Clock Out		5			
+6	Go to Work		6			
+7	Mentoring		7			
+8	Community		8			
+9	Superstar		9			
+10	Minion Bounty		10			
+11	Resource Conversion		11			
+12	Long Strip		12			
+13	Architect		13			
+14	Popcorn		14			
+15	Corrupt Text		15			
+16	Vampire		16			
+17	Arrow Tower Expert		17			
+18	Union		18			
+19	Hundred Flowers		19			
+20	Hold Back		20			
+21	Grid Pattern		21			
+22	Major Client		22			
+23	Factory Mass Recruitment		23			
+24	996		24			
+25	Moonlight		25			
+26	Discount		26			
+27	Golden Egg		27			
+28	Resource Conversion 2		28			
+29	L-shaped		29			
+30	Straight Line - Gold Coin		30			
+31	L-shaped - Base Number		31			
+32	Silver Egg		32			
+33	Copper Egg		33			
+34	Hold Back 2		34	35	36	
+35	L-shaped - Artifact Multiplier		37			
+36	Pacify Expert		38			
+38	Non-equivalent Substitution		39	40	41	42
+39	Remaining Value		43			
+40	Subject Handling		44	45	46	
+41	Exploration Expert		47			
+42	Supply Excavation I		48			
+43	Supply Excavation II		49			
+44	Diversify		50			
+45	Diversify II		51			
+46	Enable Awaken Points		56			
+47	Enable Time Rewind		57			
+48	Blue Lv.25 Construction	You can preview 2 tiles in the cross-shaped area. Permanently provides 1 Construction Permit every day. Clears 1 random Danger Zone within range after construction. Areas Within Range of Exploration: Colored Resources +150.	30037			
+49	Red 25 Talent		58			
+50	Yellow 25 Talent		60			
+1001	Continued DMG Bonus		1001			
+1002	Periodic Enhancement		1002			
+1003	Ping DMG Increase		1003			
+1004	Periodic Orb Generation		1004			
+1005	Continued Radiation		1005			
+1006	Switch Orb Generation		1006			
+1007	Switch DMG Increase		1007			
+1008	Deployment DMG Increase		1008			
+1009	Ping Lowers Switch CD		1009			
+1010	Deployment Direct DMG		1010			
+1011	Attack DMG Increase		1011			
+1012	Single ATK Boost		1012			
+1013	ATK 1		1013			
+1014	ATK 2		1014			
+1015	Type DMG Boost 1		1015			
+1016	Type DMG Boost 2		1016			
+1017	Last Stand Bonus DMG		1017			
+1018	Last Stand Bloodburn		1018			
+1019	HP 1		1019			
+1020	HP 2		1020			
+1021	Taking DMG Increases Max HP		1021			
+1022	HP Bonus DMG		1022			
+1023	HP Bomb		1023			
+1024	Convert Energy into HP		1024			
+1025	QTE RES Reduction		1025			
+1026	QTE DMG Reduction		1026			
+1027	Fixed RES Reduction		1027			
+1028	Fixed RES Reduction		1028			
+1029	Containment Shield		1029			
+1030	DMG Reduction 1		1030			
+1031	DMG Reduction 2		1031			
+1032	Super Armor Shield		1032			
+1033	Armor Recover HP		1033			
+1034	Single HP Boost		1034			
+1035	Last Stand Shield		1035			
+1036	Recovery Efficiency		1036			
+1037	Healing after Taking DMG		1037			
+1038	QTE Heal		1038			
+1039	Poisonous Healing		1039			
+1040	Auto Healing		1040			
+1041	Birth Orb Generation		1041			
+1042	Volleyball		1042			
+1043	QTE Orb Generation		1043			
+1044	QTE Recharge		1044			
+1045	Replenish Signal Orb		1045			
+1046	Support CD Reduction		1046			
+1047	Single DMG Reduction		1047			
+1048	Switch Cooldown Reset		1048			
+1049	Dodge Orb Generation		1049			
+1050	Dodge Recharge		1050			
+1051	Auto Matrix		1051			
+1101	Create Bonfire	Preview the contents within a 2-tile distance and receive 1 Construction Point daily.	1101			
+1102	Decrease Consumption	Decrease the cost of creating Bonfire by 1.	1102			
+1103	Flip Open Manually	Flip open the tile closest to the Bonfire automatically when you create a Bonfire.	1103			
+1104	Flip Open Automatically	Flip open a tile within the Bonfire's range at the start of each day.	1104			
+1105	Create Arrow Tower	Eliminate 1 random visible Minion instantly once built (effective within Visible Range)	1105			
+1106	Self-Destruction	Removed automatically once the Building becomes active and receive 2 Build Energy.	1106			
+1107	All-Rounder	The Arrow Tower will instantly eliminate all enemies while its being built.	1107			
+1108	Against Boss	Arrow Tower will become effective against bosses, but it will only reduce 30% of the boss's current HP (forced to enter battle).	1108			
+1109	Piggy Bank	After construction, Colored Talent count +10 for every tile opened within the Piggy Bank's range.	1109			
+1110	Construction Point	Decrease the cost of creating Piggy Bank by 3.	1110			
+1111	Color Level	Eliminate enemies within the Piggy Bank's range and increase the color levels of 3 colors by an extra 2 levels.	1111			
+1112	Save Money 1	After opening a total of 5 tiles within the Piggy Bank's range (Each Piggy Bank can only trigger this once), receive the specified number of Colored Levels & Colored Resources.	1112			
+1113	Skilled Artisan	Gain 2 Construction Points at the start of each day (can be triggered multiple times each day; stackable)	1113			
+1114	Modification Collab	When you modify a tile within the building's range, get 1 Build Energy back.	1114			
+1115	Miner	Every Building in the current map can generate 3 Coins every round.	1115			
+1116	Solar Power	Every Building in the current map can generate 1 Construction Point every round.	1116			
+1117	Weaken	fightevent unofficial - Fighting within the building's range will lower Enemy DMG by 10/20/30% and increase DMG taken by Enemies by 10/20/30%.	1117			
+1118	Weaken 2	fightevent unofficial - Fighting within the building's range will lower Enemy DMG by 10/20/30% and increase DMG taken by Enemies by 10/20/30%.	1118			
+1119	Weaken 3	fightevent unofficial - Fighting within the building's range will lower Enemy DMG by 10/20/30% and increase DMG taken by Enemies by 10/20/30%.	1119			
+1120	Spacetime Travel - Spectacle	(low probability; mutually exclusive) Extremely high build cost (the map's only one). Its construction will increase the current map's Action Point by 1 each round.	1120			
+1121	Precision	Recover 1 Build Energy upon killing an enemy.	1121			
+1122	Change to Blue	Change non-blue tile to blue	1122			
+1123	Change to Red	Change non-red tile to red	1123			
+1124	Change to Yellow	Change non-yellow tile to yellow	1124			
+1125	Sync Color	During color modification, 1 area within a cross-shape that were mismatched in color will be changed into matching color.	1125			
+1126	Lower Cost	Lower Red Modification Cost by 2	1126			
+1127	Lower Cost	Lower Blue Modification Cost by 2	1127			
+1128	Lower Cost	Lower Yellow Modification Cost by 2	1128			
+1129	Remove Obstacle	Remove 1 Obstacle Tile	1129			
+1130	Mining	Receive 10/20/30 Gold Coins for each Obstacle Tile removed.	1130			
+1131	Sunset Shovel	Remove 1 random Obstacle Tile within a cross-shaped area at the same time.	1131			
+1132	Enemy Isolation	Treat minions as obstacles.	1132	1223		
+1133	Weaken Modification	fightevent unofficial - After modification, decrease Tile & Neighboring Tile Enemy DMG by 10/20/30% and DMG taken by 10/20/30%.	1133			
+1134	Weaken Modification	fightevent unofficial - After modification, decrease Tile & Neighboring Tile Enemy DMG by 10/20/30% and DMG taken by 10/20/30%.	1134			
+1135	Weaken Modification	fightevent unofficial - After modification, decrease Tile & Neighboring Tile Enemy DMG by 10/20/30% and DMG taken by 10/20/30%.	1135			
+1136	Collab	After any modification, recover 2 Build Energy when your next building is constructed.	1136			
+1137	Enhancement 2	Increase Colored Talent produced by each tile by 5.	1137			
+1138	Free-Loading	When you modify a tile, receive resource produced by the affected tile once.	1138			
+1201	Create Red Shop	Always appears the 4th time you choose a talent. Red Shop will start with 3 tiles (synched to the Standard Shop) and will produce Red Recruitment Vouchers.	1201	1406		
+1202	Create Blue Shop	Always appears the 4th time you choose a talent. Blue Shop will start with 3 tiles (synched to the Standard Shop) and will produce Blue Recruitment Vouchers and Build Energy.	1202	1406		
+1203	Shop like an American	The first item you purchase at the shop is free. (This discount effect will be removed once a purchase is made. All products will be shown to cost 0 before the first purchase.)	1203			
+1204	Singles' Day	All items are 30% off.	1204			
+1205	Increase Refresh Attempts	Unlock 1 free shop refresh.	1205			
+1206	Pacify Available	A "Pacify" button will appear beneath every enemy. Tap "Pacify" to instantly kill the enemy by spending coins.	1206			
+1207	Pacify Discount	Lower the Gold Coin cost when you use Pacify on an enemy (-10%, rounding down)	1207			
+1208	Pacify + Interest	Interest +2 every round after each Pacify.	1208			
+1209	Interest Boost	Interest Limit +10	1210			
+1211	Full Wallet	Gold Coin +5 when you perform incomplete interest settlement.	1211			
+1212	Interest Growth	Interest limit +1 with a max of 10 when you perform full interest settlement.	1212			
+1213	Energy Conversion	Gold Coin +1 for every Build Energy spent.	1213			
+1214	Build Diversity	Gold Coin +10 for every Build or Modification performed.	1214			
+1215	Jenga	Gold Coin +2 for opening a yellow tile. For every subsequent yellow tile opened in a row, get 1 more Gold Coins than your previous one. The effect stacks until a non-yellow tile is opened.	1215			
+1216	Treasure Thief	One Treasure Thief will spawn in every map. Kill the Treasure Thief to get precious rewards (Gold Coins +10, Recruitment Voucher x1, and Artifact x1)	1216			
+1217	Power Boost	All Minions tiles on every map will be upgraded to Elite Enemy tiles.	1217			
+1218	Shop & Earn	Gold Coin +5 for entering a new shop.	1218			
+1219	Shop Mogul	Receive Gold Coins equal to the number of purchases in this game x2 during daily tally.	1219			
+1220	IPO	Get 200 Gold Coins	1220			
+1221	Eradicate	Gold Coin +3 for destroying an enemy node.	1221			
+1222	Angel's Wheel	Get 50 Gold Coins	1222			
+1224	Slaughter	Gold Coin +100 for destroying an enemy node.	1224			
+1225	Interest Boost		1209			
+1226	Full Wallet II	Gold Coin +8 when you perform incomplete interest settlement.	1225			
+1227	Interest Growth II		1226			
+1228	Jenga II		1227			
+1229	Shop & Earn II		1228			
+1230	Eradicate II		1229			
+1231	Money Fountain		1230			
+1232	Pacify Available	Pacify already appeared once, so don't add any Gold Coins.	1206			
+1233	Job Switch and Gold Coins	Gold Coin +800	1407			
+1302	Common Boss HP Reduction	Decrease HP by 1 after execution, Boss exclusive	1302			
+1401	Open Mark 1	Open Mark 1	1401			
+1402	Open Mark 2	Open Mark 2	1402			
+1403	Open Mark 3	Open Mark 3	1403			
+1404	Stage completion marker for Yellow and Blue Maps	Stage completion marker for Yellow Map	1404			
+1405	Chest generated by Deep-Cleaning Event Mark 1	Generate Mark 1 tiles	2004			
+1406	Frosty Worm Marker	Frosty Worm Marker	1405			
+10001	Outer Loop Red 1	ATK +50	10001			
+10002	Outer Loop Red 2	HP +500	10002			
+10003	Outer Loop Red 3	ATK +10%.	10003			
+10004	Outer Loop Red 4	All Elemental DMG +15%	10004			
+10005	Outer Loop Red 5	Extra DMG Bonus +15%.	10005			
+10011	Outer Loop Yellow 1	Initial Gold Coin +20	10011			
+10012	Outer Loop Yellow 2	Gold Coin +50 for entering a shop.	10012			
+10013	Outer Loop Yellow 3	Initial Gold Coin +40	10013			
+10014	Outer Loop Yellow 4	10% off all items in the shop.	10014			
+10015	Outer Loop Yellow 5	Interest Limit +10	10015			
+10021	Outer Loop Blue 1	Receive 1 Build Energy at the start.	10021			
+10022	Outer Loop Blue 2	Each talent refresh cost -10.	10022			
+10023	Outer Loop Blue 3	Receive 2 Build Energy at the start.	10023			
+10024	Outer Loop Blue 4	Each talent refresh cost -15.	10024			
+10025	Outer Loop Blue 5	Refresh talent once for free.	10025			
+10031	Initial Gold Coin Difficulty 1	Initial Gold Coin +1	10031			
+10032	Initial Gold Coin Difficulty 2	Initial Gold Coin +2	10032			
+10033	Initial Gold Coin Difficulty 3	Initial Gold Coin +3	10033			
+10034	Initial Gold Coin Difficulty 4	Initial Gold Coin +4	10034			
+10035	Initial Gold Coin Difficulty 5	Initial Gold Coin +5	10035			
+10036	Initial Gold Coin Difficulty 6	Initial Gold Coin +6	10036			
+10037	Silver Coins After Time Rewind +100	Silver Coins After Time Rewind +100	10037			
+10038	Gain 1 bonus Action Point after Time Rewind		10038			
+10039	Awaken Points Aquired +50%		10039			
+20001	Combat - Squad		11000	11007		
+20002	Resource - Squad		11001	11008		
+20003	Infrastructure - Squad		11002	11009		
+20004	Mystery Box - Squad		11004			
+20005	Gold - Squad		11005	11010		
+20006	Idle - Squad		11006			
+20007	Double - Squad					
+20008	Red Proxy Battle Opening		52	54		
+21001	Minor Node Stat - Minor Node Stat - ATK +8%		20001			
+21002	Minor Node Stat - ATK +11%		20002			
+21003	Minor Node Stat - ATK +14%		20003			
+21004	Minor Node Stat - ATK +19%		20004			
+21005	Minor Node Stat - ATK +23%		20005			
+21006	Minor Node Stat - ATK +26%		20006			
+21007	Minor Node Stat - ATK +29%		20007			
+21008	Minor Node Stat - ATK +31%		20008			
+21009	Minor Node Stat - ATK +34%		20009			
+21010	Minor Node Stat - HP +300		20010			
+21011	Minor Node Stat - DEF +100		20011			
+21012	Minor Node Stat - All Elemental Resistance -12% (talents of the same name do not stack)		20012			
+21013	Minor Node Stat - All Elemental Resistance -18% (talents of the same name do not stack)		20013			
+21014	Minor Node Stat - All Elemental Resistance -20% (talents of the same name do not stack)		20014			
+2005	Red Route - Map 1 - Chapter 3 Hidden Area 1 open tile		2005			
+2006	Red Route - Map 1 - Chapter 3 Hidden Area 2 open tile		2006			
+21015	Minor Node Stat - ATK +38%		20015			
+10040	Beginner Exclusive ATK Bonus	All Elemental DMG +55%	1015	1016		
+10041	Beginner Exclusive DEF Bonus	DMG taken -40%	1031	1031	1031	1031
+30001	Golden City Action Points Converted to Stamina		30001			
+30002	Golden City Low Difficulty Purchased Kills of Enemies		30002	30003	30004	30005
+30003	Golden City High Difficulty Purchased Kills of Enemies		30006	30007	30008	30009
+30004	Path Against the Wind Prohibition of Killing Minions		30010	30011	1107	
+30005	Golden City Gold Coins double		30012			
+30006	Golden City Gold Coins halve		30013			
+30007	Golden City Gold Coins +100		30014			
+30008	Golden City Gold Coins -100		30015			
+30009	Golden City Gold Coins +400		30016			
+30010	Golden City Color Resource 2 Chapter		30017	30018		
+30011	Golden City Color Resource 3 Chapter		30019	30020		
+30012	Golden City Color Resource 4 Chapter		30021	30022		
+30013	Path Against the Wind Color Resource 2 Chapter - Leave		30023	30024		
+30014	Path Against the Wind Color Resource 3 Chapter		30025	30026		
+30015	Path Against the Wind Color Resource 4 Chapter		30027	30028		
+30016	Golden City Restriction on Purchased Kills		30003	30005	30007	30009
+30017	Golden City initial Gold Coins: 500		30029	30036		
+30018	Golden City initial Gold Coins: 800		30030	30036		
+30019	Path Against the Wind Construction Point 18		30031			
+30020	Path Against the Wind Construction Point 17		30032			
+30021	Path Against the Wind Color Resource 2 Chapter - Proceed		30023	30024	30033	
+30022	Path Against the Wind Construction Point 24		30034			
+30023	Path Against the Wind Construction Point 23		30035			

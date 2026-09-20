@@ -81,6 +81,11 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--draw-rules-only"))
+                {
+                    ValidateDrawRules();
+                    return;
+                }
                 if (args.Contains("--guild-compat-only"))
                 {
                     ValidateGuildMembershipCompatibility();
@@ -371,6 +376,12 @@ namespace AscNet.Test
                 }
 
 
+                if (args.Contains("--theatre6-compat-only"))
+                {
+                    ValidateTheatre6Compatibility();
+                    return;
+                }
+
                 if (args.Contains("--theatre6-visibility-only"))
                 {
                     ValidateTheatre6Visibility();
@@ -413,6 +424,12 @@ namespace AscNet.Test
                 if (args.Contains("--pre-fight-position-compat-only"))
                 {
                     ValidatePreFightPositionCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--robot-deployment-fashion-compat-only"))
+                {
+                    ValidateRobotDeploymentFashionCompatibility();
                     return;
                 }
                 if (args.Contains("--segment-check-fight-compat-only"))
@@ -574,6 +591,7 @@ namespace AscNet.Test
                 {
                     ValidateBossSingleCompatibility();
                     ValidateBossSingleIntensiveStageHydration();
+                    ValidateBossSingleCycleStageScoreSync();
                     return;
                 }
 
@@ -658,6 +676,12 @@ namespace AscNet.Test
                 if (args.Contains("--story-course-reward-compat-only"))
                 {
                     ValidateStoryCourseRewardCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--hidden-stage-compat-only"))
+                {
+                    ValidateHiddenStageCompatibility();
                     return;
                 }
 
@@ -858,6 +882,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--theatre4-compat-only"))
+                {
+                    ValidateTheatre4Compatibility();
+                    return;
+                }
+
                 if (args.Contains("--theatre5-compat-only"))
                 {
                     ValidateTheatre5Compatibility();
@@ -935,6 +965,7 @@ namespace AscNet.Test
                 ValidateBossActivityCompatibility();
                 ValidateBossSingleCompatibility();
                 ValidateBossSingleIntensiveStageHydration();
+                ValidateBossSingleCycleStageScoreSync();
                 ValidateSimulatedBattlefieldCompatibility();
                 ValidateCurrentClientGuideTableCompatibility();
                 ValidateWheelchairManualFullCompatibility();
@@ -947,6 +978,7 @@ namespace AscNet.Test
                 ValidateCharacterSendGiftCompatibility();
                 ValidateTeamPrefabCompatibility();
                 ValidatePreFightPositionCompatibility();
+                ValidateRobotDeploymentFashionCompatibility();
                 ValidateSegmentCheckFightCompatibility();
                 ValidateFightRestartCompatibility();
                 ValidateCharacterProgressionPersistenceCompatibility();
@@ -955,6 +987,7 @@ namespace AscNet.Test
                 ValidateExpLevelCompatibility();
                 ValidateStoryCourseRewardCompatibility();
                 ValidatePrequelRewardCompatibility();
+                ValidateHiddenStageCompatibility();
                 ValidateStoryDeployVersionGapCompatibility();
                 ValidateStudyCharacterCompatibility();
                 ValidateStudyProgressionCompatibility();
@@ -966,6 +999,7 @@ namespace AscNet.Test
                 ValidateEquipDecomposeCompatibility();
                 ValidateEquipChipRecycleCompatibility();
                 ValidateDrawCompatibility();
+                ValidateDrawRules();
                 ValidateItemUseCompatibility();
                 ValidateAutoUseGiftCompatibility();
                 ValidateItemSellCompatibility();
@@ -977,7 +1011,9 @@ namespace AscNet.Test
                 ValidateFashionSuitRewardCompatibility();
                 ValidateBiancaTheatreCompatibility();
                 ValidateTheatreCompatibility();
+                ValidateTheatre4Compatibility();
                 ValidateTheatre5Compatibility();
+                ValidateTheatre6Compatibility();
                 ValidateCharacterTowerCompatibility();
                 ValidateShopCompatibility();
                 ValidateWheelchairManualPurchaseCompatibility();
@@ -7024,7 +7060,7 @@ namespace AscNet.Test
 
         private static void ValidateDrawCompatibility()
         {
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
             AssertConstructShardTableCompatibility();
             AssertDataDrivenRotationCatalog();
             ValidateMemberTargetLocalPolicy();
@@ -7076,13 +7112,12 @@ namespace AscNet.Test
             long drawNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             List<DrawPredictTable> activeRotations = TableReaderV2.Parse<DrawPredictTable>()
                 .Where(x => x.StartTime <= drawNow && drawNow < x.EndTime).ToList();
-            foreach (int rerunGroupId in new[] { 12, 13 })
-                AssertEqual(activeRotations.Count > 0, groups.DrawGroupInfoList.Any(group => group.Id == rerunGroupId),
-                    $"Draw group {rerunGroupId} visibility matches active DrawPredict schedule");
-            if (activeRotations.Count > 0)
-                AssertEqual(false, groups.DrawGroupInfoList.Single(group => group.Id == 12).OptionalDrawIdList
-                    .Intersect(groups.DrawGroupInfoList.Single(group => group.Id == 13).OptionalDrawIdList).Any(),
-                    "normal and fate rerun draw identities are distinct");
+            AssertEqual(activeRotations.Count > 0, groups.DrawGroupInfoList.Any(group => group.Id == 12),
+                "Draw group 12 visibility matches active DrawPredict schedule");
+            // Fate rerun (13) shares the same schedule but its threshold law is not
+            // authoritative, so it stays unadvertised even while rotations are active.
+            AssertEqual(false, groups.DrawGroupInfoList.Any(group => group.Id == 13),
+                "Fate draw group 13 stays unadvertised without an authoritative threshold law");
             foreach (DrawGroupInfo advertisedGroup in groups.DrawGroupInfoList)
             {
                 InvokeRegisteredRequestHandler(
@@ -7098,7 +7133,7 @@ namespace AscNet.Test
                 AssertEqual(0, advertisedDraws.Code, "advertised draw group response Code");
                 if (advertisedDraws.DrawInfoList.Count == 0 || advertisedDraws.DrawInfoList.Any(draw => draw.GroupId != advertisedGroup.Id))
                     throw new InvalidDataException($"Draw group {advertisedGroup.Id} was advertised without a matching active draw.");
-                if (advertisedGroup.Id is 12 or 13 && activeRotations.Count > 0)
+                if (advertisedGroup.Id == 12 && activeRotations.Count > 0)
                 {
                     AssertEqual(true, advertisedGroup.StartTime <= drawNow
                         && (advertisedGroup.EndTime == 0 || drawNow < advertisedGroup.EndTime),
@@ -10418,7 +10453,7 @@ namespace AscNet.Test
 
             AssertBlackCardCommandPersistenceContract(blackCardCommandType);
 
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDrawCompatibility();
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
             ExecuteBlackCardCommandAndAssertGrant([], initialBlackCards: 0, expectedBlackCards: 30_000, playerId: 90_001, "BlackCardCommand default grant behavior");
             ExecuteBlackCardCommandAndAssertGrant(["875"], initialBlackCards: 125, expectedBlackCards: 1_000, playerId: 90_002, "BlackCardCommand explicit grant behavior");
             ExecuteCharacterAddAllAndAssertOwnable(playerId: 90_003, "CharacterCommand bulk add ownability");
@@ -17784,7 +17819,7 @@ namespace AscNet.Test
                     .ToArray();
 
                 foreach ((FieldInfo field, object? replacement) in replacements)
-                    SetStaticReadonlyField(field, replacement);
+                    SetStaticField(field, replacement);
             }
 
             public static MongoCollectionOverride InstallForDrawCompatibility()
@@ -17989,10 +18024,10 @@ namespace AscNet.Test
             public void Dispose()
             {
                 foreach ((FieldInfo field, object? value) in originalValues)
-                    SetStaticReadonlyField(field, value);
+                    SetStaticField(field, value);
             }
 
-            private static FieldInfo RequiredCollectionField(Type databaseType)
+            internal static FieldInfo RequiredCollectionField(Type databaseType)
             {
                 return databaseType.GetField("collection", BindingFlags.Static | BindingFlags.Public)
                     ?? throw new MissingFieldException(databaseType.FullName, "collection");
@@ -18011,24 +18046,9 @@ namespace AscNet.Test
                 return collection;
             }
 
-            private static void SetStaticReadonlyField(FieldInfo field, object? value)
+            internal static void SetStaticField(FieldInfo field, object? value)
             {
-                DynamicMethod setter = new(
-                    $"Set_{field.DeclaringType?.Name}_{field.Name}",
-                    typeof(void),
-                    [typeof(object)],
-                    typeof(Program),
-                    skipVisibility: true);
-                ILGenerator il = setter.GetILGenerator();
-                il.Emit(OpCodes.Ldarg_0);
-                if (field.FieldType.IsValueType)
-                    il.Emit(OpCodes.Unbox_Any, field.FieldType);
-                else
-                    il.Emit(OpCodes.Castclass, field.FieldType);
-                il.Emit(OpCodes.Stsfld, field);
-                il.Emit(OpCodes.Ret);
-
-                ((Action<object?>)setter.CreateDelegate(typeof(Action<object?>))).Invoke(value);
+                field.SetValue(null, value);
             }
         }
 
@@ -18066,6 +18086,7 @@ namespace AscNet.Test
             public TDocument? LastReplacement { get; private set; }
             public bool ThrowOnReplaceOne { get; set; }
             public Action<TDocument>? BeforeReplaceOne { get; set; }
+            public long ReplaceOneMatchedCount { get; set; } = 1;
             public byte[]? LastSuccessfulReplacementBson { get; private set; }
             public Queue<long> CountDocumentsResults { get; } = new();
             public IReadOnlyList<TDocument>? FindResults { get; set; }
@@ -18115,9 +18136,9 @@ namespace AscNet.Test
 
                     if (ThrowOnReplaceOne)
                         throw new MongoException($"Injected {typeof(TDocument).Name} ReplaceOne failure.");
-                    if (replacement is TDocument successful)
+                    if (replacement is TDocument successful && ReplaceOneMatchedCount > 0)
                         LastSuccessfulReplacementBson = successful.ToBson();
-                    return new ReplaceOneResult.Acknowledged(1, 1, null);
+                    return new ReplaceOneResult.Acknowledged(ReplaceOneMatchedCount, ReplaceOneMatchedCount, null);
                 }
 
                 return base.Invoke(targetMethod, args);
@@ -18772,6 +18793,7 @@ namespace AscNet.Test
 
             character.Equips[0].IsLock = false;
             long expectedInventoryCount = 0;
+            int expectedRecycledCount = 0;
             void RecycleAndAssert(int packetId, int[] ids, int expectedReward, int expectedSaveCount, string name)
             {
                 InvokeRegisteredRequestHandler(
@@ -18779,6 +18801,19 @@ namespace AscNet.Test
                     harness.Session,
                     packetId,
                     new EquipChipRecycleRequest { ChipIds = ids.ToList() });
+                NotifyTask taskPush = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), $"{name} recycle task push");
+                expectedRecycledCount += ids.Length;
+                var recycleTask = taskPush.Tasks.Tasks.Single(task => task.Id == 3550);
+                AssertEqual(3550u, recycleTask.Schedule.Single().Id, $"{name} recycle task condition");
+                AssertEqual(expectedRecycledCount, recycleTask.Schedule.Single().Value, $"{name} recycle task count");
+                int recycleTarget = TableReaderV2.Parse<CurrentConditionTable>().Single(condition => condition.Id == 3550).Params[0];
+                AssertEqual(expectedRecycledCount >= recycleTarget ? 3 : 1, recycleTask.State, $"{name} recycle task state");
+                AscNet.Common.Database.Player persistedProgress =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                        playerCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException($"{name} expected persisted task progress."));
+                AssertEqual(expectedRecycledCount, persistedProgress.MissionProgress.ConditionCounters.GetValueOrDefault(3550),
+                    $"{name} persisted recycle task count");
                 NotifyItemDataList itemPush = ReadPushPayload<NotifyItemDataList>(
                     harness,
                     nameof(NotifyItemDataList),
@@ -18824,7 +18859,6 @@ namespace AscNet.Test
             AssertEqual(expectedInventoryCount,
                 inventoryCollection.LastReplacement?.Items.Single(item => item.Id == recycleItemId).Count ?? -1,
                 "EquipChipRecycle persisted reward count");
-            AssertEqual(0, playerCollection.ReplaceOneCalls, "EquipChipRecycle does not save Player");
 
             long beforeSetTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             InvokeRegisteredRequestHandler(
@@ -18847,13 +18881,12 @@ namespace AscNet.Test
                 player.EquipChipAutoRecycleSite.SetRecycleTime >= beforeSetTime
                 && player.EquipChipAutoRecycleSite.SetRecycleTime <= afterSetTime,
                 "EquipChipSiteAutoRecycle set time");
-            AssertEqual(1, playerCollection.ReplaceOneCalls, "EquipChipSiteAutoRecycle player saves");
             if (harness.TryReadAvailablePacket("EquipChipSiteAutoRecycle unexpected push", out Packet siteUnexpected))
                 throw new InvalidDataException($"EquipChipSiteAutoRecycle emitted unexpected {siteUnexpected.Type} packet.");
 
             AscNet.Common.Database.Player reloadedPlayer =
                 MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
-                    playerCollection.LastReplacement?.ToBson()
+                    playerCollection.LastSuccessfulReplacementBson
                     ?? throw new InvalidDataException("EquipChipSiteAutoRecycle expected persisted Player."));
             MethodInfo buildSiteNotify = RequiredMethod(
                 RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
@@ -18872,6 +18905,8 @@ namespace AscNet.Test
                 "EquipChipSiteAutoRecycle relogin set time");
 
             byte[] settingsBeforeInvalid = player.ToBson();
+            byte[] persistedBeforeInvalid = playerCollection.LastSuccessfulReplacementBson
+                ?? throw new InvalidDataException("EquipChipSiteAutoRecycle expected persisted Player before rejection.");
             InvokeRegisteredRequestHandler(
                 nameof(EquipChipSiteAutoRecycleRequest),
                 harness.Session,
@@ -18887,7 +18922,10 @@ namespace AscNet.Test
             AssertEqual(Convert.ToHexString(settingsBeforeInvalid),
                 Convert.ToHexString(player.ToBson()),
                 "EquipChipSiteAutoRecycle invalid preserves Player");
-            AssertEqual(1, playerCollection.ReplaceOneCalls, "EquipChipSiteAutoRecycle invalid player saves");
+            AssertEqual(Convert.ToHexString(persistedBeforeInvalid),
+                Convert.ToHexString(playerCollection.LastSuccessfulReplacementBson
+                    ?? throw new InvalidDataException("EquipChipSiteAutoRecycle lost persisted Player.")),
+                "EquipChipSiteAutoRecycle invalid preserves persisted Player");
             if (harness.TryReadAvailablePacket("EquipChipSiteAutoRecycle invalid unexpected push", out Packet invalidSiteUnexpected))
                 throw new InvalidDataException($"EquipChipSiteAutoRecycle invalid emitted unexpected {invalidSiteUnexpected.Type} packet.");
         }
@@ -19266,26 +19304,6 @@ namespace AscNet.Test
                 equipCommandType,
                 "SyncEquipsFromDatabase",
                 BindingFlags.Instance | BindingFlags.NonPublic);
-            MethodInfo loginHandler = GetRegisteredRequestHandlerMethod("LoginRequest");
-            AssertCallPrecedes(loginHandler, characterFromUid, doLogin, "LoginRequestHandler normalized character load before login pushes");
-            MethodInfo normalizeEquipReferences = RequiredMethod(
-                typeof(AscNet.Common.Database.Player),
-                nameof(AscNet.Common.Database.Player.NormalizeEquipReferences),
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(IReadOnlySet<uint>)]);
-            AssertCallPrecedes(loginHandler, characterFromUid, normalizeEquipReferences,
-                "LoginRequestHandler reconciles references after character normalization");
-            AssertCallResultFeedsConditionalBranch(loginHandler, normalizeEquipReferences,
-                "LoginRequestHandler persists reconciled references only when changed");
-            AssertCallPrecedes(loginHandler, normalizeEquipReferences, doLogin,
-                "LoginRequestHandler reconciles references before login pushes");
-            MethodInfo playerSave = RequiredMethod(
-                typeof(AscNet.Common.Database.Player),
-                nameof(AscNet.Common.Database.Player.Save),
-                BindingFlags.Instance | BindingFlags.Public);
-            AssertCallPrecedes(loginHandler, normalizeEquipReferences, playerSave,
-                "LoginRequestHandler persists reconciled references");
-
             MethodInfo tableParse = RequiredMethod(
                 typeof(TableReaderV2),
                 nameof(TableReaderV2.Parse),
@@ -21509,18 +21527,10 @@ namespace AscNet.Test
             PropertyInfo playerDataGender = typeof(PlayerData).GetProperty(nameof(PlayerData.Gender), BindingFlags.Instance | BindingFlags.Public)
                 ?? throw new MissingMemberException(typeof(PlayerData).FullName, nameof(PlayerData.Gender));
             AssertEqual(typeof(long), playerDataGender.PropertyType, "PlayerData Gender type");
-            MethodInfo playerDataGenderGetter = playerDataGender.GetMethod
-                ?? throw new MissingMethodException(typeof(PlayerData).FullName, $"get_{nameof(PlayerData.Gender)}");
-            MethodInfo playerDataGenderSetter = playerDataGender.SetMethod
-                ?? throw new MissingMethodException(typeof(PlayerData).FullName, $"set_{nameof(PlayerData.Gender)}");
 
             PropertyInfo playerDataChangeGenderTime = typeof(PlayerData).GetProperty(nameof(PlayerData.ChangeGenderTime), BindingFlags.Instance | BindingFlags.Public)
                 ?? throw new MissingMemberException(typeof(PlayerData).FullName, nameof(PlayerData.ChangeGenderTime));
             AssertEqual(typeof(long), playerDataChangeGenderTime.PropertyType, "PlayerData ChangeGenderTime type");
-            MethodInfo playerDataChangeGenderTimeGetter = playerDataChangeGenderTime.GetMethod
-                ?? throw new MissingMethodException(typeof(PlayerData).FullName, $"get_{nameof(PlayerData.ChangeGenderTime)}");
-            MethodInfo playerDataChangeGenderTimeSetter = playerDataChangeGenderTime.SetMethod
-                ?? throw new MissingMethodException(typeof(PlayerData).FullName, $"set_{nameof(PlayerData.ChangeGenderTime)}");
 
             PlayerData playerData = new()
             {
@@ -21533,13 +21543,6 @@ namespace AscNet.Test
                 MessagePackSerializer.Serialize(playerData));
             AssertEqual((long)selectedGender, playerDataRoundTrip.Gender, "PlayerData Gender MessagePack round-trip");
             AssertEqual(changeGenderTime, playerDataRoundTrip.ChangeGenderTime, "PlayerData ChangeGenderTime MessagePack round-trip");
-
-            MethodInfo createPlayer = RequiredMethod(
-                typeof(AscNet.Common.Database.Player),
-                "Create",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(long)]);
-            AssertMethodTransitivelyCalls(createPlayer, playerDataGenderSetter, "Player.Create new-player gender availability");
 
             FieldInfo requestGender = typeof(ChangePlayerGenderRequest).GetField(nameof(ChangePlayerGenderRequest.Gender), BindingFlags.Instance | BindingFlags.Public)
                 ?? throw new MissingFieldException(typeof(ChangePlayerGenderRequest).FullName, nameof(ChangePlayerGenderRequest.Gender));
@@ -21613,72 +21616,135 @@ namespace AscNet.Test
             AssertEqual((long)selectedGender, notifyRoundTrip.Gender, "NotifyPlayerGender Gender MessagePack round-trip");
             AssertEqual(changeGenderTime, notifyRoundTrip.ChangeGenderTime, "NotifyPlayerGender ChangeGenderTime MessagePack round-trip");
 
-            MethodInfo playerDataGetter = RequiredMethod(
-                typeof(AscNet.Common.Database.Player),
-                $"get_{nameof(AscNet.Common.Database.Player.PlayerData)}",
-                BindingFlags.Instance | BindingFlags.Public);
-            MethodInfo playerSave = RequiredMethod(
-                typeof(AscNet.Common.Database.Player),
-                nameof(AscNet.Common.Database.Player.Save),
-                BindingFlags.Instance | BindingFlags.Public);
-            MethodInfo inventoryDo = RequiredMethod(
-                typeof(AscNet.Common.Database.Inventory),
-                nameof(AscNet.Common.Database.Inventory.Do),
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(int), typeof(int)]);
-            MethodInfo inventorySave = RequiredMethod(
-                typeof(AscNet.Common.Database.Inventory),
-                nameof(AscNet.Common.Database.Inventory.Save),
-                BindingFlags.Instance | BindingFlags.Public);
+            const long playerId = 99_720;
+            using MongoCollectionOverride genderMongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerSaves,
+                out _,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventorySaves);
+            AscNet.Common.Database.Player genderPlayer = CreateDrawCompatibilityPlayer(playerId);
+            using LoopbackSessionHarness genderHarness = new(
+                CreateDrawCompatibilityCharacter(playerId),
+                genderPlayer,
+                CreateDrawCompatibilityInventory(playerId, []),
+                "gender-compat");
+            int genderPacketId = 99_720;
 
-            MethodInfo changeGenderHandler = GetRegisteredRequestHandlerMethod("ChangePlayerGenderRequest");
-            AssertEqual("ChangePlayerGenderRequestHandler", changeGenderHandler.Name, "ChangePlayerGenderRequest registered handler method");
-            AssertGenderValidationRejectsOnlyOutsideCurrentClientRange(
-                changeGenderHandler,
-                requestGender,
-                responseCode,
-                "ChangePlayerGenderRequestHandler current-client gender validation");
-            AssertHandlerSendsResponseCode(
-                changeGenderHandler,
-                responseCode,
-                20002021,
-                "ChangePlayerGenderRequestHandler unchanged gender response");
-            AssertSameGenderResponseRequiresAlreadySetGender(
-                changeGenderHandler,
-                requestGender,
-                playerDataGenderGetter,
-                playerDataChangeGenderTimeGetter,
-                responseCode,
-                "ChangePlayerGenderRequestHandler unchanged gender guard");
-            AssertRequestFieldFeedsSetterBeforePersistence(
-                changeGenderHandler,
-                requestGender,
-                playerDataGenderSetter,
-                playerSave,
-                "ChangePlayerGenderRequestHandler selected gender persistence");
-            AssertLiveGenderRefreshBeforeSuccessResponse(
-                changeGenderHandler,
-                playerDataGetter,
-                playerDataGenderGetter,
-                playerDataGenderSetter,
-                playerDataChangeGenderTimeGetter,
-                playerDataChangeGenderTimeSetter,
-                responseGender,
-                responseChangeGenderTime,
-                responseNextCanChangeTime,
-                responsePlayerData,
-                notifyGender,
-                notifyChangeGenderTime,
-                "ChangePlayerGenderRequestHandler live gender refresh");
-            AssertFirstGenderSetupRewardPath(
-                changeGenderHandler,
-                playerDataChangeGenderTimeGetter,
-                playerDataChangeGenderTimeSetter,
-                responseRewardGoodsList,
-                inventoryDo,
-                inventorySave,
-                playerSave,
-                "ChangePlayerGenderRequestHandler first gender setup reward");
+            void AssertOutOfRangeGenderUnchanged(int invalidGender)
+            {
+                string name = $"ChangePlayerGenderRequest out-of-range gender {invalidGender}";
+                string stateBefore = Convert.ToHexString(genderPlayer.ToBson());
+                byte[]? storedBefore = playerSaves.LastSuccessfulReplacementBson;
+                InvokeRegisteredRequestHandler(
+                    nameof(ChangePlayerGenderRequest),
+                    genderHarness.Session,
+                    genderPacketId,
+                    new ChangePlayerGenderRequest { Gender = invalidGender });
+                ChangePlayerGenderResponse rejected = ReadResponsePayload<ChangePlayerGenderResponse>(
+                    genderHarness, genderPacketId, nameof(ChangePlayerGenderResponse), name);
+                genderPacketId++;
+                AssertEqual(20002020, rejected.Code, $"{name} response code");
+                AssertEqual(Convert.ToHexString(storedBefore ?? []), Convert.ToHexString(playerSaves.LastSuccessfulReplacementBson ?? []), $"{name} leaves persisted player unchanged");
+                AssertEqual(stateBefore, Convert.ToHexString(genderPlayer.ToBson()), $"{name} leaves player unchanged");
+                AssertNoAvailablePacket(genderHarness, name);
+            }
+
+            AssertOutOfRangeGenderUnchanged(0);
+            AssertOutOfRangeGenderUnchanged(4);
+
+            // First setup (gender and change time unset) accepts a client-range gender, grants the
+            // 50 Black Card reward, and persists player and inventory before the success response.
+            int firstSetupPacketId = genderPacketId;
+            InvokeRegisteredRequestHandler(
+                nameof(ChangePlayerGenderRequest),
+                genderHarness.Session,
+                firstSetupPacketId,
+                new ChangePlayerGenderRequest { Gender = selectedGender });
+            NotifyItemDataList setupItemPush = ReadPushPayload<NotifyItemDataList>(
+                genderHarness, nameof(NotifyItemDataList), "ChangePlayerGenderRequest first setup reward push");
+            AssertEqual((long)firstSetupRewardCount,
+                setupItemPush.ItemDataList.Single(item => item.Id == AscNet.Common.Database.Inventory.FreeGem).Count,
+                "ChangePlayerGenderRequest first setup reward item count");
+            NotifyPlayerGender setupGenderPush = ReadPushPayload<NotifyPlayerGender>(
+                genderHarness, nameof(NotifyPlayerGender), "ChangePlayerGenderRequest first setup gender push");
+            AssertEqual((long)selectedGender, setupGenderPush.Gender, "ChangePlayerGenderRequest first setup notified gender");
+            ChangePlayerGenderResponse setupResponse = ReadResponsePayload<ChangePlayerGenderResponse>(
+                genderHarness, firstSetupPacketId, nameof(ChangePlayerGenderResponse), "ChangePlayerGenderRequest first setup response");
+            genderPacketId++;
+            AssertEqual(0, setupResponse.Code, "ChangePlayerGenderRequest first setup response code");
+            AssertEqual((long)selectedGender, setupResponse.Gender, "ChangePlayerGenderRequest first setup response gender");
+            AssertEqual(setupGenderPush.ChangeGenderTime, setupResponse.ChangeGenderTime, "ChangePlayerGenderRequest first setup response change time");
+            RewardGoods setupReward = setupResponse.RewardGoodsList.Single();
+            AssertEqual((int)RewardType.Item, setupReward.RewardType, "ChangePlayerGenderRequest first setup reward type");
+            AssertEqual(AscNet.Common.Database.Inventory.FreeGem, setupReward.TemplateId, "ChangePlayerGenderRequest first setup reward item");
+            AssertEqual(firstSetupRewardCount, setupReward.Count, "ChangePlayerGenderRequest first setup reward count");
+            byte[]? storedAfterFirstSetup = playerSaves.LastSuccessfulReplacementBson;
+            AscNet.Common.Database.Player setupStoredPlayer = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                playerSaves.LastSuccessfulReplacementBson
+                ?? throw new InvalidDataException("ChangePlayerGenderRequest first setup player was not durably saved."));
+            AssertEqual((long)selectedGender, setupStoredPlayer.PlayerData.Gender, "ChangePlayerGenderRequest first setup durable gender");
+            AssertEqual(setupGenderPush.ChangeGenderTime, setupStoredPlayer.PlayerData.ChangeGenderTime, "ChangePlayerGenderRequest first setup durable change time");
+            AscNet.Common.Database.Inventory setupStoredInventory = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                inventorySaves.LastSuccessfulReplacementBson
+                ?? throw new InvalidDataException("ChangePlayerGenderRequest first setup reward was not durably saved."));
+            AssertEqual((long)firstSetupRewardCount,
+                setupStoredInventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.FreeGem).Count,
+                "ChangePlayerGenderRequest first setup durable reward");
+
+            // A completed setup rejects the same gender without packets, persistence, or state changes.
+            string settledState = Convert.ToHexString(genderPlayer.ToBson());
+            int sameGenderPacketId = genderPacketId;
+            InvokeRegisteredRequestHandler(
+                nameof(ChangePlayerGenderRequest),
+                genderHarness.Session,
+                sameGenderPacketId,
+                new ChangePlayerGenderRequest { Gender = selectedGender });
+            ChangePlayerGenderResponse sameGenderRejection = ReadResponsePayload<ChangePlayerGenderResponse>(
+                genderHarness, sameGenderPacketId, nameof(ChangePlayerGenderResponse), "ChangePlayerGenderRequest unchanged gender response");
+            genderPacketId++;
+            AssertEqual(20002021, sameGenderRejection.Code, "ChangePlayerGenderRequest unchanged gender response code");
+            AssertEqual(Convert.ToHexString(storedAfterFirstSetup ?? []), Convert.ToHexString(playerSaves.LastSuccessfulReplacementBson ?? []), "ChangePlayerGenderRequest unchanged gender leaves persisted player unchanged");
+            AssertEqual(settledState, Convert.ToHexString(genderPlayer.ToBson()), "ChangePlayerGenderRequest unchanged gender leaves state unchanged");
+            AssertNoAvailablePacket(genderHarness, "ChangePlayerGenderRequest unchanged gender");
+
+            // Clearing the change time re-enters first setup, so the same gender is accepted and rewarded again.
+            genderPlayer.PlayerData.ChangeGenderTime = 0;
+            int repeatSetupPacketId = genderPacketId;
+            InvokeRegisteredRequestHandler(
+                nameof(ChangePlayerGenderRequest),
+                genderHarness.Session,
+                repeatSetupPacketId,
+                new ChangePlayerGenderRequest { Gender = selectedGender });
+            _ = ReadPushPayload<NotifyItemDataList>(genderHarness, nameof(NotifyItemDataList), "ChangePlayerGenderRequest repeated setup reward push");
+            _ = ReadPushPayload<NotifyPlayerGender>(genderHarness, nameof(NotifyPlayerGender), "ChangePlayerGenderRequest repeated setup gender push");
+            ChangePlayerGenderResponse repeatSetupResponse = ReadResponsePayload<ChangePlayerGenderResponse>(
+                genderHarness, repeatSetupPacketId, nameof(ChangePlayerGenderResponse), "ChangePlayerGenderRequest repeated setup response");
+            genderPacketId++;
+            AssertEqual(0, repeatSetupResponse.Code, "ChangePlayerGenderRequest repeated setup response code");
+            AssertEqual(firstSetupRewardCount, repeatSetupResponse.RewardGoodsList.Single().Count, "ChangePlayerGenderRequest repeated setup reward count");
+
+            // A distinct client-range gender is accepted, notified before the response, and durably stored.
+            int changePacketId = genderPacketId;
+            InvokeRegisteredRequestHandler(
+                nameof(ChangePlayerGenderRequest),
+                genderHarness.Session,
+                changePacketId,
+                new ChangePlayerGenderRequest { Gender = currentClientGender });
+            NotifyPlayerGender changePush = ReadPushPayload<NotifyPlayerGender>(
+                genderHarness, nameof(NotifyPlayerGender), "ChangePlayerGenderRequest changed gender push");
+            AssertEqual((long)currentClientGender, changePush.Gender, "ChangePlayerGenderRequest changed notified gender");
+            ChangePlayerGenderResponse changeResponse = ReadResponsePayload<ChangePlayerGenderResponse>(
+                genderHarness, changePacketId, nameof(ChangePlayerGenderResponse), "ChangePlayerGenderRequest changed gender response");
+            genderPacketId++;
+            AssertEqual(0, changeResponse.Code, "ChangePlayerGenderRequest changed gender response code");
+            AssertEqual((long)currentClientGender, changeResponse.Gender, "ChangePlayerGenderRequest changed gender response gender");
+            AssertEqual(changePush.ChangeGenderTime, changeResponse.ChangeGenderTime, "ChangePlayerGenderRequest changed gender response change time");
+            if (changeResponse.PlayerData is null)
+                throw new InvalidDataException("ChangePlayerGenderRequest changed gender response: expected player data.");
+            AssertEqual((long)currentClientGender, changeResponse.PlayerData.Gender, "ChangePlayerGenderRequest changed response player gender");
+            AscNet.Common.Database.Player changedStoredPlayer = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                playerSaves.LastSuccessfulReplacementBson
+                ?? throw new InvalidDataException("ChangePlayerGenderRequest changed gender was not durably saved."));
+            AssertEqual((long)currentClientGender, changedStoredPlayer.PlayerData.Gender, "ChangePlayerGenderRequest changed durable gender");
         }
 
         private static void ValidateBoardMutualClientPushCompatibility()
@@ -22526,6 +22592,7 @@ namespace AscNet.Test
                 AssertEqual(1, pushedUnlockCharacter.EnhanceSkillList.Count(skill =>
                     targetSkillIds.Contains(skill.Id)), "CharacterUnlockEnhanceSkillRequest unlocks one active group skill");
 
+                AssertEnhancementSpending(harness, unlockCosts, "Enhancement unlock");
                 CharacterUnlockEnhanceSkillResponse unlockResponse = ReadResponsePayload<CharacterUnlockEnhanceSkillResponse>(
                     harness,
                     unlockPacketId,
@@ -22590,6 +22657,7 @@ namespace AscNet.Test
                 AssertEqual(1, pushedUpgradeCharacter.EnhanceSkillList.Count(skill =>
                     targetSkillIds.Contains(skill.Id)), "CharacterUpgradeEnhanceSkillRequest keeps one active group skill");
 
+                AssertEnhancementSpending(harness, upgradeCosts, "Enhancement upgrade");
                 CharacterUpgradeEnhanceSkillResponse upgradeResponse = ReadResponsePayload<CharacterUpgradeEnhanceSkillResponse>(
                     harness,
                     upgradePacketId,
@@ -22674,6 +22742,7 @@ namespace AscNet.Test
                         startrailSkillId,
                         "Nanami: Startrail level 8 breakpoint").Level,
                     "Nanami: Startrail level 8 breakpoint level");
+                AssertEnhancementSpending(harness, startrailBreakpointCosts, "Enhancement breakpoint");
                 CharacterUpgradeEnhanceSkillResponse breakpointResponse = ReadResponsePayload<CharacterUpgradeEnhanceSkillResponse>(
                     harness,
                     16_014,
@@ -22707,6 +22776,19 @@ namespace AscNet.Test
                     nameof(CharacterUnlockEnhanceSkillResponse),
                     "CharacterUnlockEnhanceSkillRequest missing table response");
                 AssertEqual(20009021, missingGroupResponse.Code, "CharacterUnlockEnhanceSkillResponse missing table Code");
+            }
+
+            static void AssertEnhancementSpending(LoopbackSessionHarness harness, Dictionary<int, int> costs, string name)
+            {
+                NotifyTask spendingNotify = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), $"{name} spending progress");
+                Dictionary<uint, int> expectedCoinProgress = TableReaderV2.Parse<CurrentConditionTable>()
+                    .Where(condition => condition.Type == 11202 && condition.Params.Count == 2
+                        && condition.Params[1] == AscNet.Common.Database.Inventory.Coin)
+                    .ToDictionary(condition => checked((uint)condition.Id),
+                        condition => Math.Min(costs[AscNet.Common.Database.Inventory.Coin], condition.Params[0]));
+                AssertEqual(true, spendingNotify.Tasks.Tasks.Any(task => task.Schedule.Any(schedule =>
+                    expectedCoinProgress.TryGetValue(schedule.Id, out int expected) && schedule.Value == expected)),
+                    $"{name} credits actual coin spending");
             }
 
             static (Dictionary<int, int> UnlockCosts, Dictionary<int, int> UpgradeCosts) AssertTableBackedEnhanceSkillCompatibilityFixture(
@@ -23142,30 +23224,12 @@ namespace AscNet.Test
                 BindingFlags.Instance | BindingFlags.Public);
             MethodInfo changeNameTimeSetter = typeof(PlayerData).GetProperty(nameof(PlayerData.ChangeNameTime))?.SetMethod
                 ?? throw new MissingMethodException(typeof(PlayerData).FullName, $"set_{nameof(PlayerData.ChangeNameTime)}");
-            MethodInfo newPlayerTaskActiveDaySetter = typeof(PlayerData).GetProperty(nameof(PlayerData.NewPlayerTaskActiveDay))?.SetMethod
-                ?? throw new MissingMethodException(typeof(PlayerData).FullName, $"set_{nameof(PlayerData.NewPlayerTaskActiveDay)}");
             Type rewardHandlerType = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
             MethodInfo getRewardGoods = RequiredMethod(
                 rewardHandlerType,
                 "GetRewardGoods",
                 BindingFlags.Static | BindingFlags.Public,
                 [typeof(int)]);
-            Type taskModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule");
-            MethodInfo sendTaskSync = RequiredMethod(
-                taskModule,
-                "SendTaskSync",
-                BindingFlags.Static | BindingFlags.Public,
-                [typeof(Session)]);
-
-            MethodInfo loginHandler = GetRegisteredRequestHandlerMethod("LoginRequest");
-            AssertEqual("LoginRequestHandler", loginHandler.Name, "LoginRequest registered handler method");
-            AssertMethodTransitivelyCalls(loginHandler, addGatherReward, "LoginRequestHandler base gather reward claim");
-            AssertMethodTransitivelyCalls(loginHandler, newPlayerTaskActiveDaySetter, "LoginRequestHandler new-player active-day update");
-            AssertMethodTransitivelyCallsGenericMethod(loginHandler, sendPush, typeof(NotifyGatherRewardList), "LoginRequestHandler gather reward list push");
-            AssertMethodTransitivelyCallsGenericMethod(loginHandler, sendPush, typeof(NotifyBirthdayPlot), "LoginRequestHandler birthday plot push");
-            AssertMethodTransitivelyCallsGenericMethod(loginHandler, sendPush, typeof(NotifyNewPlayerTaskStatus), "LoginRequestHandler new-player task status push");
-            AssertMethodTransitivelyCalls(loginHandler, sendTaskSync, "LoginRequestHandler authoritative task synchronization");
-
             MethodInfo changeNameHandler = GetRegisteredRequestHandlerMethod("ChangePlayerNameRequest");
             AssertEqual("ChangePlayerNameRequestHandler", changeNameHandler.Name, "ChangePlayerNameRequest registered handler method");
             AssertMethodTransitivelyCalls(changeNameHandler, changeNameTimeSetter, "ChangePlayerNameRequestHandler ChangeNameTime update");
@@ -23225,95 +23289,103 @@ namespace AscNet.Test
             ValidateStoryTaskProgressCompatibility(currentStoryTaskProgressStageId, expectedCurrentStoryTaskId);
             ValidateGeneralMissionProgressCompatibility();
 
-            MethodInfo stageSave = RequiredMethod(
-                typeof(AscNet.Common.Database.Stage),
-                "Save",
-                BindingFlags.Instance | BindingFlags.Public);
-            MethodInfo inventorySave = RequiredMethod(
-                typeof(AscNet.Common.Database.Inventory),
-                "Save",
-                BindingFlags.Instance | BindingFlags.Public);
-            MethodInfo characterSave = RequiredMethod(
-                typeof(AscNet.Common.Database.Character),
-                "Save",
-                BindingFlags.Instance | BindingFlags.Public);
-            MethodInfo playerSave = RequiredMethod(
-                typeof(AscNet.Common.Database.Player),
-                "Save",
-                BindingFlags.Instance | BindingFlags.Public);
-            MethodInfo stageAddCourse = RequiredMethod(
-                typeof(AscNet.Common.Database.Stage),
-                "AddCourse",
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(uint)]);
-            MethodInfo stageAddFinishedTask = RequiredMethod(
-                typeof(AscNet.Common.Database.Stage),
-                "AddFinishedTask",
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(int)]);
-            MethodInfo tableParse = RequiredMethod(
-                typeof(TableReaderV2),
-                nameof(TableReaderV2.Parse),
-                BindingFlags.Static | BindingFlags.Public);
-            Type taskModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule");
-            Type rewardHandler = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.RewardHandler");
-            MethodInfo getRewardGoods = RequiredMethod(
-                rewardHandler,
-                "GetRewardGoods",
-                BindingFlags.Static | BindingFlags.Public,
-                [typeof(int)]);
-            MethodInfo sendTaskSync = RequiredMethod(
-                taskModule,
-                "SendTaskSync",
-                BindingFlags.Static | BindingFlags.Public,
-                [typeof(Session)]);
-            MethodInfo recordStageClear = RequiredMethod(
-                taskModule,
-                "RecordStageClear",
-                BindingFlags.Static | BindingFlags.Public,
-                [typeof(Session), typeof(int), typeof(int), typeof(int), typeof(bool)]);
+            using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForBiancaCompatibility(
+                out _, out var characters, out var inventories, out var stages);
+            const long uid = 49_401;
+            using LoopbackSessionHarness harness = new(
+                CreateDrawCompatibilityCharacter(uid), CreateDrawCompatibilityPlayer(uid),
+                CreateDrawCompatibilityInventory(uid, []), "story-course-reward-compat");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            int packetId = 49_410;
+            T Request<T>(string requestName, object body)
+            {
+                int id = packetId++;
+                InvokeRegisteredRequestHandler(requestName, harness.Session, id, body);
+                return (T)ReadResponsePayload(harness, id, typeof(T).Name, requestName,
+                    typeof(T), maxPacketsToRead: 64);
+            }
+            FinishTaskResponse Claim() => Request<FinishTaskResponse>(nameof(FinishTaskRequest),
+                new FinishTaskRequest { TaskId = expectedStoryTaskIdForStage });
+            GetCourseRewardResponse Course() => Request<GetCourseRewardResponse>(nameof(GetCourseRewardRequest),
+                new GetCourseRewardRequest { StageId = storyStageId });
+            string Goods(IEnumerable<RewardGoods> goods) => string.Join(";", goods.GroupBy(row => row.TemplateId)
+                .OrderBy(group => group.Key).Select(group => $"{group.Key}:{group.Sum(row => row.Count)}"));
+            string ExpectedGoods(IEnumerable<RewardGoodsTable> goods) => string.Join(";", goods.GroupBy(row => row.TemplateId)
+                .OrderBy(group => group.Key).Select(group => $"{group.Key}:{group.Sum(row => row.Count)}"));
+            void ReloadRewards()
+            {
+                harness.Session.inventory = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                    inventories.LastSuccessfulReplacementBson!);
+                harness.Session.character = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                    characters.LastSuccessfulReplacementBson!);
+                harness.Session.stage = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Stage>(
+                    stages.LastSuccessfulReplacementBson!);
+            }
 
-            MethodInfo courseRewardHandler = GetRegisteredRequestHandlerMethod("GetCourseRewardRequest");
-            AssertEqual("GetCourseRewardRequestHandler", courseRewardHandler.Name, "GetCourseRewardRequest registered handler method");
-            AssertMethodTransitivelyCallsGenericMethod(courseRewardHandler, tableParse, typeof(CourseTable), "GetCourseRewardRequestHandler course table lookup");
-            AssertMethodTransitivelyCalls(courseRewardHandler, getRewardGoods, "GetCourseRewardRequestHandler authoritative reward lookup");
-            AssertMethodDoesNotTransitivelyCallGenericMethod(courseRewardHandler, tableParse, typeof(StageTable), "GetCourseRewardRequestHandler stale stage first-clear lookup");
-            AssertMethodTransitivelyCalls(courseRewardHandler, stageAddCourse, "GetCourseRewardRequestHandler course claim marker");
-            AssertMethodTransitivelyCalls(courseRewardHandler, stageSave, "GetCourseRewardRequestHandler stage course persistence");
-            AssertMethodTransitivelyCalls(courseRewardHandler, inventorySave, "GetCourseRewardRequestHandler inventory reward persistence");
-            AssertMethodTransitivelyCalls(courseRewardHandler, characterSave, "GetCourseRewardRequestHandler character reward persistence");
+            string initialInventory = harness.Session.inventory.ToJson();
+            AssertEqual(20026007, Claim().Code, "Uncleared story task rejects reward");
+            AssertEqual(20026013, Course().Code, "Uncleared story course rejects reward");
+            AssertEqual(initialInventory, harness.Session.inventory.ToJson(), "Unearned story claims preserve inventory");
+            AssertEqual(false, harness.Session.stage.FinishedTasks.Contains(expectedStoryTaskIdForStage), "Unearned story task remains unclaimed");
+            harness.Session.stage.AddStage(new StageDatum { StageId = storyStageId, Passed = true, StarsMark = 7, PassTimesTotal = 1 });
+            harness.Session.stage.Save();
+            AssertEqual(false, harness.Session.stage.Course.Contains((uint)storyStageId), "Stage completion does not claim course reward");
 
-            MethodInfo finishTaskHandler = GetRegisteredRequestHandlerMethod("FinishTaskRequest");
-            AssertEqual("FinishTaskRequestHandler", finishTaskHandler.Name, "FinishTaskRequest registered handler method");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(StoryTaskTable), "FinishTaskRequestHandler story task lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(StoryTaskConditionTable), "FinishTaskRequestHandler story task condition lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(CurrentTaskTable), "FinishTaskRequestHandler current task lookup");
-            AssertMethodTransitivelyCalls(finishTaskHandler, getRewardGoods, "FinishTaskRequestHandler authoritative reward lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(CurrentRewardTable), "FinishTaskRequestHandler current reward lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishTaskHandler, tableParse, typeof(CurrentRewardGoodsTable), "FinishTaskRequestHandler current reward goods lookup");
-            AssertMethodTransitivelyCalls(finishTaskHandler, stageAddFinishedTask, "FinishTaskRequestHandler finished task marker");
-            AssertMethodTransitivelyCalls(finishTaskHandler, stageSave, "FinishTaskRequestHandler stage task persistence");
-            AssertMethodTransitivelyCalls(finishTaskHandler, inventorySave, "FinishTaskRequestHandler inventory reward persistence");
-            AssertMethodTransitivelyCalls(finishTaskHandler, characterSave, "FinishTaskRequestHandler character reward persistence");
-            AssertMethodTransitivelyCalls(finishTaskHandler, playerSave, "FinishTaskRequestHandler mission claim persistence");
-            AssertMethodTransitivelyCalls(finishTaskHandler, sendTaskSync, "FinishTaskRequestHandler task sync push");
+            StoryTaskTable task = TableReaderV2.Parse<StoryTaskTable>().Single(row => row.Id == expectedStoryTaskIdForStage);
+            List<RewardGoodsTable> taskGoods = ResolveRewardGoods(task.RewardId, rewardGoodsTables, "Story task reward");
+            Dictionary<uint, int> equipsBefore = harness.Session.character.Equips.GroupBy(equip => equip.TemplateId)
+                .ToDictionary(group => group.Key, group => group.Count());
+            stages.ThrowOnReplaceOne = true;
+            FinishTaskResponse failed;
+            try { failed = Claim(); }
+            finally { stages.ThrowOnReplaceOne = false; }
+            AssertEqual(20026003, failed.Code, "Failed story completion persistence rejects claim");
+            AssertEqual(0, failed.RewardGoodsList.Count, "Failed story completion announces no reward");
+            ReloadRewards();
+            AssertEqual(false, harness.Session.stage.FinishedTasks.Contains(task.Id), "Failed story completion is not persisted");
+            string paidInventory = harness.Session.inventory.ToJson();
+            foreach (var goods in taskGoods
+                .Where(row => TableReaderV2.Parse<EquipTable>().Any(equip => equip.Id == row.TemplateId))
+                .GroupBy(row => checked((uint)row.TemplateId)))
+                AssertEqual(equipsBefore.GetValueOrDefault(goods.Key) + goods.Sum(row => row.Count),
+                    harness.Session.character.Equips.Count(equip => equip.TemplateId == goods.Key),
+                    $"Persisted story reward grants equipment {goods.Key} exactly once");
+            string paidCharacters = harness.Session.character.ToJson();
+            FinishTaskResponse recovered = Claim();
+            AssertEqual(0, recovered.Code, "Story completion retry succeeds");
+            AssertEqual(ExpectedGoods(taskGoods), Goods(recovered.RewardGoodsList), "Story claim returns authored reward");
+            AssertEqual(paidInventory, harness.Session.inventory.ToJson(), "Story completion recovery cannot repay inventory");
+            AssertEqual(paidCharacters, harness.Session.character.ToJson(), "Story completion recovery cannot repay roster");
+            ReloadRewards();
+            AssertEqual(true, harness.Session.stage.FinishedTasks.Contains(task.Id), "Story completion marker survives persisted BSON reload");
+            AssertEqual(4, RequiredStoryLoginTask(BuildStoryTaskData(harness.Session), task.Id).State, "Reloaded story task is finished");
+            AssertEqual(20026006, Claim().Code, "Reloaded story claim rejects duplicate");
+            AssertEqual(paidInventory, harness.Session.inventory.ToJson(), "Duplicate story claim preserves inventory");
+            AssertEqual(paidCharacters, harness.Session.character.ToJson(), "Duplicate story claim preserves roster");
 
-            MethodInfo finishMultiTaskHandler = GetRegisteredRequestHandlerMethod("FinishMultiTaskRequest");
-            AssertEqual("FinishMultiTaskRequestHandler", finishMultiTaskHandler.Name, "FinishMultiTaskRequest registered handler method");
-            AssertMethodTransitivelyCallsGenericMethod(finishMultiTaskHandler, tableParse, typeof(StoryTaskTable), "FinishMultiTaskRequestHandler story task lookup");
-            AssertMethodTransitivelyCallsGenericMethod(finishMultiTaskHandler, tableParse, typeof(StoryTaskConditionTable), "FinishMultiTaskRequestHandler story task condition lookup");
-            AssertMethodTransitivelyCalls(finishMultiTaskHandler, getRewardGoods, "FinishMultiTaskRequestHandler authoritative reward lookup");
-            AssertMethodTransitivelyCalls(finishMultiTaskHandler, stageAddFinishedTask, "FinishMultiTaskRequestHandler finished task marker");
-            AssertMethodTransitivelyCalls(finishMultiTaskHandler, stageSave, "FinishMultiTaskRequestHandler stage task persistence");
-            AssertMethodTransitivelyCalls(finishMultiTaskHandler, inventorySave, "FinishMultiTaskRequestHandler inventory reward persistence");
-            AssertMethodTransitivelyCalls(finishMultiTaskHandler, characterSave, "FinishMultiTaskRequestHandler character reward persistence");
-            AssertMethodTransitivelyCalls(finishMultiTaskHandler, sendTaskSync, "FinishMultiTaskRequestHandler task sync push");
-            AssertMethodTransitivelyCalls(finishMultiTaskHandler, playerSave, "FinishMultiTaskRequestHandler mission claim persistence");
+            harness.Session.stage.AddStage(new StageDatum { StageId = currentStoryTaskProgressStageId, Passed = true, StarsMark = 7, PassTimesTotal = 1 });
+            FinishMultiTaskResponse batch = Request<FinishMultiTaskResponse>(nameof(FinishMultiTaskRequest),
+                new FinishMultiTaskRequest { TaskIds = [task.Id, expectedCurrentStoryTaskId] });
+            AssertIntegerList([expectedCurrentStoryTaskId], batch.SuccessTaskIds.Select(id => (long)id).ToArray(), "Story batch claims only unfinished task");
+            AssertIntegerList([task.Id], batch.NotDealTaskIds.Select(id => (long)id).ToArray(), "Story batch rejects claimed task");
+            StoryTaskTable nextTask = TableReaderV2.Parse<StoryTaskTable>().Single(row => row.Id == expectedCurrentStoryTaskId);
+            AssertEqual(ExpectedGoods(ResolveRewardGoods(nextTask.RewardId, rewardGoodsTables, "Story batch reward")),
+                Goods(batch.RewardGoodsList), "Story batch returns only newly claimed reward");
+            ReloadRewards();
+            AssertEqual(true, harness.Session.stage.FinishedTasks.Contains(nextTask.Id), "Story batch completion survives persisted BSON reload");
 
-            MethodInfo fightSettleHandler = GetRegisteredRequestHandlerMethod("FightSettleRequest");
-            AssertEqual("FightSettleRequestHandler", fightSettleHandler.Name, "FightSettleRequest registered handler method");
-            AssertMethodTransitivelyCalls(fightSettleHandler, recordStageClear, "FightSettleRequestHandler mission progress update");
-            AssertMethodDoesNotTransitivelyCall(fightSettleHandler, stageAddCourse, "FightSettleRequestHandler course claim marker");
+            GetCourseRewardResponse course = Course();
+            AssertEqual(0, course.Code, "Earned story course reward succeeds");
+            AssertEqual(ExpectedGoods(courseRewardGoods), Goods(course.RewardGoodsList), "Course claim uses authored course reward, not stage first reward");
+            ReloadRewards();
+            AssertEqual(true, harness.Session.stage.Course.Contains((uint)storyStageId), "Course completion survives persisted BSON reload");
+            string courseInventory = harness.Session.inventory.ToJson();
+            string courseCharacters = harness.Session.character.ToJson();
+            GetCourseRewardResponse duplicateCourse = Course();
+            AssertEqual(20026014, duplicateCourse.Code, "Reloaded course claim rejects duplicate");
+            AssertEqual(0, duplicateCourse.RewardGoodsList.Count, "Duplicate course announces no reward");
+            AssertEqual(courseInventory, harness.Session.inventory.ToJson(), "Duplicate course preserves inventory");
+            AssertEqual(courseCharacters, harness.Session.character.ToJson(), "Duplicate course preserves roster");
         }
 
         private static void ValidatePrequelRewardCompatibility()
@@ -24350,6 +24422,8 @@ namespace AscNet.Test
             AssertEqual(467, CompatibilityRows(compatibility, "Stages").Count, "Study compatibility Stage row count");
             AssertEqual(141, CompatibilityRows(compatibility, "StageLevelControls").Count, "Study compatibility StageLevelControl row count");
             AssertEqual(170, CompatibilityRows(compatibility, "Robots").Count, "Study compatibility Robot row count");
+            AssertEqual(82, CompatibilityRows(compatibility, "EnhanceSkills").Count, "Study compatibility EnhanceSkill row count");
+            AssertEqual(92, CompatibilityRows(compatibility, "EnhanceSkillGroups").Count, "Study compatibility EnhanceSkillGroup row count");
 
             JArray studyRobotRows = CompatibilityRows(compatibility, "Robots");
             JObject StudyRobotRow(int robotId) =>
@@ -24442,6 +24516,41 @@ namespace AscNet.Test
             // Weapon-only sparse shape: authored weapon, no core wafer arrays at all.
             AssertStudyRobotEquipPayload(weaponOnlyFight, 1_142, StudyRobotRow(1_142),
                 "Study weapon-only robot stage 30100883");
+
+            PreFightResponse baseWeaveFight = AssertStudyStageRobotDeployment(
+                stageId: 30_100_971,
+                cardIds: [],
+                robotIds: [],
+                expectedCharacterId: 1_021_005,
+                expectedRobotId: 9_161,
+                luciaLotusCharacterId,
+                "Study base-form Crimson Weave stage 30100971");
+            AssertRobotDeployedEnhanceSkills(baseWeaveFight, 9_161, [],
+                "Study base-form Crimson Weave stage 30100971");
+            PreFightResponse leapWeaveFight = AssertStudyStageRobotDeployment(
+                stageId: 30_100_099,
+                cardIds: [],
+                robotIds: [],
+                expectedCharacterId: 1_021_005,
+                expectedRobotId: 9_239,
+                luciaLotusCharacterId,
+                "Study Crimson Weave leap trial stage 30100099");
+            AssertRobotDeployedEnhanceSkills(leapWeaveFight, 9_239,
+                [(102_531, 18), (102_529, 18), (102_530, 18)],
+                "Study Crimson Weave leap trial stage 30100099");
+
+            PreFightResponse basePyroathFight = AssertStudyStageRobotDeployment(
+                stageId: 30_100_081,
+                cardIds: [],
+                robotIds: [],
+                expectedCharacterId: 1_021_006,
+                expectedRobotId: 2_273,
+                luciaLotusCharacterId,
+                "Study level-1 Pyroath effect practice stage 30100081");
+            // 4.6 authors no enhance groups for Pyroath, so the version-frozen robot grants none and
+            // its authored removal list is already satisfied.
+            AssertRobotDeployedEnhanceSkills(basePyroathFight, 2_273, [],
+                "Study level-1 Pyroath effect practice stage 30100081");
         }
 
         private static PreFightResponse AssertStudyStageRobotDeployment(
@@ -24617,6 +24726,37 @@ namespace AscNet.Test
             AssertEqual(expectedCharacterId, RequiredDynamicInteger(character, "Id", $"{name}.Character"), $"{name}.Character.Id");
             AssertEqual(true, RequiredDynamicBoolean(npcData, "IsRobot", name), $"{name}.IsRobot");
             AssertEqual(expectedRobotId, RequiredDynamicInteger(npcData, "RobotId", name), $"{name}.RobotId");
+        }
+
+        private static void AssertRobotDeployedEnhanceSkills(
+            PreFightResponse preFightResponse,
+            int robotId,
+            IReadOnlyList<(int SkillId, int Level)> expected,
+            string name)
+        {
+            if (preFightResponse.FightData is null)
+                throw new InvalidDataException($"{name}: expected FightData.");
+            System.Collections.IDictionary npc = preFightResponse.FightData.RoleData
+                .SelectMany(role => role.NpcData.Values)
+                .Select(value => RequiredDynamicMap(value, $"{name} NpcData"))
+                .Single(candidate => RequiredDynamicInteger(candidate, "RobotId", $"{name} NpcData") == robotId);
+            System.Collections.IDictionary character = RequiredDynamicMap(
+                RequiredDynamicValue(npc, "Character", name),
+                $"{name}.Character");
+            List<(int SkillId, int Level)> actual = RequiredDynamicObjectList(character, "EnhanceSkillList", $"{name}.Character.EnhanceSkillList")
+                .Select(value => RequiredDynamicMap(value, $"{name} enhance skill"))
+                .Select(skill => (
+                    SkillId: RequiredDynamicInteger(skill, "Id", $"{name} enhance skill"),
+                    Level: RequiredDynamicInteger(skill, "Level", $"{name} enhance skill")))
+                .OrderBy(skill => skill.SkillId)
+                .ToList();
+            List<(int SkillId, int Level)> orderedExpected = expected.OrderBy(skill => skill.SkillId).ToList();
+            AssertEqual(orderedExpected.Count, actual.Count, $"{name} EnhanceSkillList count");
+            for (int i = 0; i < orderedExpected.Count; i++)
+            {
+                AssertEqual(orderedExpected[i].SkillId, actual[i].SkillId, $"{name} EnhanceSkillList[{i}].Id");
+                AssertEqual(orderedExpected[i].Level, actual[i].Level, $"{name} EnhanceSkillList[{i}].Level");
+            }
         }
 
         private static void AssertPreFightDoesNotDeployCharacter(
@@ -28218,6 +28358,8 @@ namespace AscNet.Test
                 int stageId = AuxiliaryStageId(bestiary);
                 BossSingleStageTable stage = stages.Single(row => row.StageId == stageId);
                 int challengeCountBefore = player.SimulatedBattlefield.BossChallengeCount;
+                int cycleBestBefore = player.SimulatedBattlefield.BossTotalScore;
+                int cycleCurrentBefore = player.SimulatedBattlefield.BossCurrentTotalScore;
                 PreFightResponse preFight = StartFight(packetBase, stageId, stageType);
                 AssertEqual(0, preFight.Code, $"Pain Cage {(bestiary ? "bestiary" : "trial")} pre-fight code");
                 AssertEqual(stage.PassTimeLimit, preFight.FightData.PassTimeLimit,
@@ -28257,6 +28399,15 @@ namespace AscNet.Test
                     : player.SimulatedBattlefield.BossTrialScores;
                 AssertEqual(result.TotalScore, scores[stageId],
                     $"Pain Cage {(bestiary ? "bestiary" : "trial")} score persistence");
+                // The non-Trial settlement compares the new run against the generic stage datum
+                // (XUiFubenBossSingleSettlement:GetMyTotalHistory only special-cases Trial), so the codex save has
+                // to expose the mode best there or a lower run looks like a new record.
+                AssertEqual(result.TotalScore, harness.Session.stage.Stages[stageId].Score,
+                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear exposes the mode best to the settlement");
+                AssertEqual(cycleBestBefore, player.SimulatedBattlefield.BossTotalScore,
+                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves the cycle best total unchanged");
+                AssertEqual(cycleCurrentBefore, player.SimulatedBattlefield.BossCurrentTotalScore,
+                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves the cycle current total unchanged");
                 AssertEqual(challengeCountBefore, player.SimulatedBattlefield.BossChallengeCount,
                     $"Pain Cage {(bestiary ? "bestiary" : "trial")} does not consume normal attempts");
             }
@@ -28268,6 +28419,40 @@ namespace AscNet.Test
                 "Pain Cage partial remaining-time scores are below their caps");
             AssertEqual(true, auxiliaryTimeScores[0].Score != auxiliaryTimeScores[1].Score,
                 "Pain Cage remaining-time scores vary proportionally with distinct durations");
+
+            // A saved codex best followed by a lower run must keep the settlement history at the best, otherwise
+            // the client offers to discard the worse score as though it were a new record.
+            {
+                int codexStageId = AuxiliaryStageId(bestiary: true);
+                BossSingleStageTable codexStage = stages.Single(row => row.StageId == codexStageId);
+                int codexBest = player.SimulatedBattlefield.BossBestiaryScores[codexStageId];
+                PreFightResponse lowerCodexPreFight = StartFight(82_023, codexStageId, stageType: 4);
+                AssertEqual(0, lowerCodexPreFight.Code, "Pain Cage bestiary lower-run pre-fight code");
+                FightSettleResponse lowerCodexSettle = SettleFight(
+                    82_024,
+                    lowerCodexPreFight,
+                    codexStage,
+                    characterHp: 100,
+                    bossHp: 0,
+                    fightSeconds: 240);
+                BossSingleFightResult lowerCodexResult = RequiredBossResult(
+                    lowerCodexSettle,
+                    "Pain Cage bestiary lower-run result");
+                AssertEqual(true, lowerCodexResult.TotalScore < codexBest,
+                    "Pain Cage bestiary lower-run fixture scores below the saved best");
+                BossSingleSaveScoreResponse lowerCodexSave = SaveScore(
+                    82_025,
+                    codexStageId,
+                    "Pain Cage bestiary lower-run save",
+                    out List<string> lowerCodexPushes);
+                AssertEqual(0, lowerCodexSave.Code, "Pain Cage bestiary lower-run save code");
+                AssertEqual(true, lowerCodexPushes.Contains(nameof(NotifyStageData)),
+                    "Pain Cage bestiary lower-run pushes the stage datum");
+                AssertEqual(codexBest, player.SimulatedBattlefield.BossBestiaryScores[codexStageId],
+                    "Pain Cage bestiary lower run keeps the saved best");
+                AssertEqual(codexBest, harness.Session.stage.Stages[codexStageId].Score,
+                    "Pain Cage bestiary lower run keeps the settlement history at the saved best");
+            }
             List<BossSingleChallengeGradeTable> challengeGrades = TableReaderV2.Parse<BossSingleChallengeGradeTable>();
             List<BossSingleChallengeFeatureGroupTable> challengeGroups = TableReaderV2.Parse<BossSingleChallengeFeatureGroupTable>();
             int preIntensiveLevelType = player.SimulatedBattlefield.BossLevelType;
@@ -28721,10 +28906,10 @@ namespace AscNet.Test
             AssertEqual(0, normalSave.Code, "Pain Cage normal save-score code");
             AssertEqual(playerSavesBeforeNormalScore + 1, playerCollection.ReplaceOneCalls,
                 "Pain Cage normal save persists Player once");
-            AssertEqual(stageSavesBeforeNormalScore + 1, stageCollection.ReplaceOneCalls,
-                "Pain Cage normal save persists Stage once");
+            AssertEqual(stageSavesBeforeNormalScore + 2, stageCollection.ReplaceOneCalls,
+                "Pain Cage normal save heals the fixture-cleared stage datums and persists the committed Stage");
             int rankPushIndex = savePushes.IndexOf(nameof(NotifyBossSingleRankInfo));
-            int stagePushIndex = savePushes.IndexOf(nameof(NotifyStageData));
+            int stagePushIndex = savePushes.IndexOf(nameof(NotifyStageData), rankPushIndex + 1);
             int loginPushIndex = savePushes.IndexOf(nameof(NotifyFubenBossSingleData));
             if (rankPushIndex < 0 || stagePushIndex <= rankPushIndex || loginPushIndex <= stagePushIndex)
                 throw new InvalidDataException(
@@ -28835,8 +29020,14 @@ namespace AscNet.Test
                 "Pain Cage stage reset",
                 out List<string> resetPushes);
             AssertEqual(0, reset.Code, "Pain Cage reset code");
-            AssertEqual(true, resetPushes.SequenceEqual([nameof(NotifyFubenBossSingleData)]),
-                "Pain Cage reset push ordering");
+            int resetStageCodexBest = Math.Max(
+                player.SimulatedBattlefield.BossTrialScores.GetValueOrDefault(normalStage.StageId),
+                player.SimulatedBattlefield.BossBestiaryScores.GetValueOrDefault(normalStage.StageId));
+            AssertEqual(true,
+                resetPushes.SequenceEqual(resetStageCodexBest > 0
+                    ? [nameof(NotifyFubenBossSingleData)]
+                    : [nameof(NotifyFubenBossSingleData), nameof(NotifyStageData)]),
+                $"Pain Cage reset push ordering: got {string.Join(",", resetPushes)} (codex best {resetStageCodexBest})");
             AssertEqual(0, player.SimulatedBattlefield.BossCurrentTotalScore,
                 "Pain Cage reset removes current score");
             AssertEqual(normalResult.TotalScore, player.SimulatedBattlefield.BossTotalScore,
@@ -28858,10 +29049,24 @@ namespace AscNet.Test
                 MessagePackSerializer.Serialize(BuildLogin(player, null))));
             JObject resetLoginData = RequiredValue<JObject>(
                 resetLoginPayload, "FubenBossSingleData", JTokenType.Object, "Pain Cage reset login");
+            JArray resetProjectedRecords = RequiredValue<JArray>(
+                resetLoginData, "StageRecordList", JTokenType.Array, "Pain Cage reset login");
+            AssertEqual(resetProjectedRecords.OfType<JObject>().Count(),
+                resetProjectedRecords.OfType<JObject>().Select(value => RequiredValue<int>(
+                    value, "StageId", JTokenType.Integer, "Pain Cage reset login")).Distinct().Count(),
+                "Pain Cage reset login projects each stage once");
+            JObject? resetStageEntry = resetProjectedRecords.OfType<JObject>().SingleOrDefault(value =>
+                RequiredValue<int>(value, "StageId", JTokenType.Integer, "Pain Cage reset login")
+                    == normalStage.StageId);
+            AssertEqual(true, resetStageEntry is not null,
+                "Pain Cage reset login projects the reset stage");
+            AssertEqual(0,
+                RequiredValue<int>(resetStageEntry!, "Score", JTokenType.Integer, "Pain Cage reset login"),
+                "Pain Cage reset reports no current score for the reset stage");
             AssertEqual(0,
                 RequiredValue<JArray>(
-                    resetLoginData, "StageRecordList", JTokenType.Array, "Pain Cage reset login").Count,
-                "Pain Cage reset hides cleared stage record");
+                    resetStageEntry!, "Characters", JTokenType.Array, "Pain Cage reset login").Count,
+                "Pain Cage reset reports no current team for the reset stage");
             AssertEqual(1,
                 RequiredValue<JArray>(
                     resetLoginData, "HistoryList", JTokenType.Array, "Pain Cage reset login").Count,
@@ -32099,466 +32304,12 @@ namespace AscNet.Test
             }
         }
 
-        private static void AssertRequestFieldFeedsSetterBeforePersistence(MethodInfo method, FieldInfo sourceField, MethodInfo targetSetter, MethodInfo persistenceMethod, string name)
-        {
-            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
-            int setterIndex = instructions.FindIndex(instruction => instruction.Operand is MethodBase calledMethod && MethodsMatch(calledMethod, targetSetter));
-            if (setterIndex < 0)
-                throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to assign through {targetSetter.DeclaringType?.FullName}.{targetSetter.Name}.");
-
-            bool loadsSourceField = false;
-            for (int previousIndex = setterIndex - 1; previousIndex >= 0 && previousIndex >= setterIndex - 8; previousIndex--)
-            {
-                if (instructions[previousIndex].Operand is FieldInfo loadedField && FieldsMatch(loadedField, sourceField))
-                {
-                    loadsSourceField = true;
-                    break;
-                }
-            }
-
-            if (!loadsSourceField)
-                throw new InvalidDataException($"{name}: expected assignment through {targetSetter.DeclaringType?.FullName}.{targetSetter.Name} to use {sourceField.DeclaringType?.FullName}.{sourceField.Name}.");
-
-            int persistenceIndex = instructions.FindIndex(setterIndex + 1, instruction => instruction.Operand is MethodBase calledMethod && MethodsMatch(calledMethod, persistenceMethod));
-            if (persistenceIndex < 0)
-                throw new InvalidDataException($"{name}: expected {persistenceMethod.DeclaringType?.FullName}.{persistenceMethod.Name} after assigning the selected value.");
-        }
-
-        private static void AssertHandlerSendsResponseCode(MethodInfo method, FieldInfo responseCodeField, int expectedCode, string name)
-        {
-            MethodInfo sendResponse = RequiredGenericMethodDefinition(
-                typeof(Session),
-                nameof(Session.SendResponse),
-                BindingFlags.Instance | BindingFlags.Public,
-                parameterCount: 2);
-            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
-
-            int codeIndex = FindFieldAssignmentIndex(instructions, responseCodeField, expectedCode);
-            if (codeIndex < 0)
-                throw new InvalidDataException($"{name}: expected {method.DeclaringType?.FullName}.{method.Name} to assign {responseCodeField.DeclaringType?.FullName}.{responseCodeField.Name} = {expectedCode}.");
-
-            Type responseType = responseCodeField.DeclaringType
-                ?? throw new InvalidDataException($"{name}: response code field has no declaring type.");
-            int responseIndex = FindGenericCallIndex(instructions, sendResponse, responseType, codeIndex + 1);
-            if (responseIndex < 0)
-                throw new InvalidDataException($"{name}: expected response code {expectedCode} to feed Session.SendResponse<{responseType.FullName}>.");
-
-            if (!HasConditionalBranchGuard(instructions, codeIndex, responseIndex))
-                throw new InvalidDataException($"{name}: expected response code {expectedCode} to be reached through a conditional validation branch.");
-
-            if (!PathExits(instructions, responseIndex + 1))
-                throw new InvalidDataException($"{name}: expected response code {expectedCode} path to exit before the success path.");
-        }
-
-        private static void AssertGenderValidationRejectsOnlyOutsideCurrentClientRange(MethodInfo method, FieldInfo requestGenderField, FieldInfo responseCodeField, string name)
-        {
-            MethodInfo sendResponse = RequiredGenericMethodDefinition(
-                typeof(Session),
-                nameof(Session.SendResponse),
-                BindingFlags.Instance | BindingFlags.Public,
-                parameterCount: 2);
-            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
-
-            int invalidCodeIndex = FindFieldAssignmentIndex(instructions, responseCodeField, expectedValue: 20002020);
-            if (invalidCodeIndex < 0)
-                throw new InvalidDataException($"{name}: expected invalid gender response code 20002020.");
-
-            Type responseType = responseCodeField.DeclaringType
-                ?? throw new InvalidDataException($"{name}: response code field has no declaring type.");
-            int invalidResponseIndex = FindGenericCallIndex(instructions, sendResponse, responseType, invalidCodeIndex + 1);
-            if (invalidResponseIndex < 0)
-                throw new InvalidDataException($"{name}: expected invalid gender response code 20002020 to feed Session.SendResponse<{responseType.FullName}>.");
-
-            bool hasNormalizedRangeGuard = HasNormalizedInclusiveRangeGuard(
-                instructions,
-                requestGenderField,
-                minimum: 1,
-                maximum: 3,
-                invalidCodeIndex,
-                invalidResponseIndex);
-            bool hasLowerBoundGuard = HasGenderBoundBranch(instructions, requestGenderField, bound: 1, invalidCodeIndex, invalidResponseIndex, lowerBound: true);
-            bool hasUpperBoundGuard = HasGenderBoundBranch(instructions, requestGenderField, bound: 3, invalidCodeIndex, invalidResponseIndex, lowerBound: false);
-
-            if (!hasNormalizedRangeGuard && !hasLowerBoundGuard)
-                throw new InvalidDataException($"{name}: expected gender 0 to reach invalid response 20002020 while gender 1 continues.");
-
-            if (!hasNormalizedRangeGuard && !hasUpperBoundGuard)
-                throw new InvalidDataException($"{name}: expected gender 4 to reach invalid response 20002020 while current-client gender 3 continues.");
-
-            if (!PathExits(instructions, invalidResponseIndex + 1))
-                throw new InvalidDataException($"{name}: expected invalid gender response path to exit before success handling.");
-        }
-
-        private static void AssertSameGenderResponseRequiresAlreadySetGender(MethodInfo method, FieldInfo requestGenderField, MethodInfo playerGenderGetter, MethodInfo playerChangeGenderTimeGetter, FieldInfo responseCodeField, string name)
-        {
-            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
-
-            int sameGenderCodeIndex = FindFieldAssignmentIndex(instructions, responseCodeField, expectedValue: 20002021);
-            if (sameGenderCodeIndex < 0)
-                throw new InvalidDataException($"{name}: expected unchanged gender response code 20002021.");
-
-            if (!HasMethodCallComparedToConstantBefore(instructions, playerGenderGetter, expectedValue: 0, endIndex: sameGenderCodeIndex))
-                throw new InvalidDataException($"{name}: expected same-gender rejection to be gated by current PlayerData.Gender being already set (> 0).");
-
-            if (!HasMethodCallStrictlyPositiveComparisonBefore(instructions, playerChangeGenderTimeGetter, endIndex: sameGenderCodeIndex))
-                throw new InvalidDataException($"{name}: expected same-gender rejection to require PlayerData.ChangeGenderTime > 0 before returning 20002021.");
-
-            if (!HasSameGenderComparisonBefore(instructions, playerGenderGetter, requestGenderField, sameGenderCodeIndex))
-                throw new InvalidDataException($"{name}: expected response code 20002021 to be guarded by comparing current PlayerData.Gender with ChangePlayerGenderRequest.Gender.");
-        }
-
-        private static void AssertFirstGenderSetupRewardPath(
-            MethodInfo method,
-            MethodInfo changeGenderTimeGetter,
-            MethodInfo changeGenderTimeSetter,
-            FieldInfo responseRewardGoodsListField,
-            MethodInfo inventoryDo,
-            MethodInfo inventorySave,
-            MethodInfo playerSave,
-            string name)
-        {
-            MethodInfo sendPush = RequiredGenericMethodDefinition(
-                typeof(Session),
-                nameof(Session.SendPush),
-                BindingFlags.Instance | BindingFlags.Public,
-                parameterCount: 1);
-            MethodInfo sendResponse = RequiredGenericMethodDefinition(
-                typeof(Session),
-                nameof(Session.SendResponse),
-                BindingFlags.Instance | BindingFlags.Public,
-                parameterCount: 2);
-            MethodInfo rewardGoodsListAdd = RequiredMethod(
-                typeof(List<RewardGoods>),
-                nameof(List<RewardGoods>.Add),
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(RewardGoods)]);
-            MethodInfo rewardGoodsRewardTypeSetter = RequiredMethod(
-                typeof(RewardGoods),
-                $"set_{nameof(RewardGoods.RewardType)}",
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(int)]);
-            MethodInfo rewardGoodsTemplateIdSetter = RequiredMethod(
-                typeof(RewardGoods),
-                $"set_{nameof(RewardGoods.TemplateId)}",
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(int)]);
-            MethodInfo rewardGoodsCountSetter = RequiredMethod(
-                typeof(RewardGoods),
-                $"set_{nameof(RewardGoods.Count)}",
-                BindingFlags.Instance | BindingFlags.Public,
-                [typeof(int)]);
-
-            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
-
-            int changeGenderTimeIndex = FindCallIndex(instructions, changeGenderTimeSetter, startIndex: 0);
-            if (changeGenderTimeIndex < 0)
-                throw new InvalidDataException($"{name}: expected success path to set PlayerData.ChangeGenderTime.");
-
-            int rewardInventoryIndex = FindMethodCallWithRecentConstants(instructions, inventoryDo, AscNet.Common.Database.Inventory.FreeGem, 50);
-            if (rewardInventoryIndex < 0)
-                throw new InvalidDataException($"{name}: expected first setup path to grant 50 Black Cards through Inventory.Do(Inventory.FreeGem, 50).");
-
-            if (!HasConditionalBranchGuard(instructions, rewardInventoryIndex, rewardInventoryIndex))
-                throw new InvalidDataException($"{name}: expected Black Card reward grant to be guarded by first gender setup.");
-
-            if (!HasMethodCallStrictlyPositiveComparisonBefore(instructions, changeGenderTimeGetter, endIndex: rewardInventoryIndex))
-                throw new InvalidDataException($"{name}: expected first setup reward guard to classify PlayerData.ChangeGenderTime <= 0 as incomplete setup.");
-
-            int notifyItemPushIndex = FindGenericCallIndex(instructions, sendPush, typeof(NotifyItemDataList), rewardInventoryIndex + 1);
-            if (notifyItemPushIndex < 0)
-                throw new InvalidDataException($"{name}: expected first setup reward to push NotifyItemDataList.");
-
-            int rewardGoodsListLoadIndex = FindFieldLoadIndex(instructions, responseRewardGoodsListField, notifyItemPushIndex + 1);
-            if (rewardGoodsListLoadIndex < 0)
-                throw new InvalidDataException($"{name}: expected first setup response to load ChangePlayerGenderResponse.RewardGoodsList.");
-
-            int rewardGoodsAddIndex = FindCallIndex(instructions, rewardGoodsListAdd, rewardGoodsListLoadIndex + 1);
-            if (rewardGoodsAddIndex < 0)
-                throw new InvalidDataException($"{name}: expected first setup response to add a RewardGoods entry.");
-
-            AssertSetterAssignedConstantBetween(instructions, rewardGoodsRewardTypeSetter, (int)RewardType.Item, rewardGoodsListLoadIndex, rewardGoodsAddIndex, $"{name} reward type");
-            AssertSetterAssignedConstantBetween(instructions, rewardGoodsTemplateIdSetter, AscNet.Common.Database.Inventory.FreeGem, rewardGoodsListLoadIndex, rewardGoodsAddIndex, $"{name} reward item");
-            AssertSetterAssignedConstantBetween(instructions, rewardGoodsCountSetter, 50, rewardGoodsListLoadIndex, rewardGoodsAddIndex, $"{name} reward count");
-
-            int inventorySaveIndex = FindCallIndex(instructions, inventorySave, rewardGoodsAddIndex + 1);
-            if (inventorySaveIndex < 0)
-                throw new InvalidDataException($"{name}: expected first setup reward to persist Inventory.Save.");
-
-            int playerSaveIndex = FindCallIndex(instructions, playerSave, inventorySaveIndex + 1);
-            if (playerSaveIndex < 0)
-                throw new InvalidDataException($"{name}: expected success path to save Player after first setup reward handling.");
-
-            int finalResponseIndex = FindGenericCallIndex(instructions, sendResponse, typeof(ChangePlayerGenderResponse), playerSaveIndex + 1);
-            if (finalResponseIndex < 0)
-                throw new InvalidDataException($"{name}: expected saved success path to send ChangePlayerGenderResponse.");
-
-            if (changeGenderTimeIndex >= playerSaveIndex)
-                throw new InvalidDataException($"{name}: expected ChangeGenderTime to be set before Player.Save.");
-            if (notifyItemPushIndex >= inventorySaveIndex)
-                throw new InvalidDataException($"{name}: expected NotifyItemDataList push before Inventory.Save.");
-            if (inventorySaveIndex >= finalResponseIndex)
-                throw new InvalidDataException($"{name}: expected Inventory.Save before the success response.");
-            if (playerSaveIndex >= finalResponseIndex)
-                throw new InvalidDataException($"{name}: expected Player.Save before the success response.");
-        }
-
-        private static void AssertLiveGenderRefreshBeforeSuccessResponse(
-            MethodInfo method,
-            MethodInfo playerDataGetter,
-            MethodInfo playerGenderGetter,
-            MethodInfo playerGenderSetter,
-            MethodInfo changeGenderTimeGetter,
-            MethodInfo changeGenderTimeSetter,
-            FieldInfo responseGenderField,
-            FieldInfo responseChangeGenderTimeField,
-            FieldInfo responseNextCanChangeTimeField,
-            FieldInfo responsePlayerDataField,
-            FieldInfo notifyGenderField,
-            FieldInfo notifyChangeGenderTimeField,
-            string name)
-        {
-            MethodInfo sendPush = RequiredGenericMethodDefinition(
-                typeof(Session),
-                nameof(Session.SendPush),
-                BindingFlags.Instance | BindingFlags.Public,
-                parameterCount: 1);
-            MethodInfo sendResponse = RequiredGenericMethodDefinition(
-                typeof(Session),
-                nameof(Session.SendResponse),
-                BindingFlags.Instance | BindingFlags.Public,
-                parameterCount: 2);
-
-            List<IlInstruction> instructions = ReadIlInstructions(method).ToList();
-
-            int genderSetIndex = FindCallIndex(instructions, playerGenderSetter, startIndex: 0);
-            if (genderSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected success path to set PlayerData.Gender.");
-
-            int changeGenderTimeSetIndex = FindCallIndex(instructions, changeGenderTimeSetter, startIndex: genderSetIndex + 1);
-            if (changeGenderTimeSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected success path to set PlayerData.ChangeGenderTime after PlayerData.Gender.");
-
-            int updatedStateIndex = Math.Max(genderSetIndex, changeGenderTimeSetIndex);
-            int notifyPushIndex = FindGenericCallIndex(instructions, sendPush, typeof(NotifyPlayerGender), updatedStateIndex + 1);
-            if (notifyPushIndex < 0)
-                throw new InvalidDataException($"{name}: expected updated gender state to be pushed through NotifyPlayerGender.");
-
-            int successResponseIndex = FindGenericCallIndex(instructions, sendResponse, typeof(ChangePlayerGenderResponse), notifyPushIndex + 1);
-            if (successResponseIndex < 0)
-                throw new InvalidDataException($"{name}: expected NotifyPlayerGender to precede the success ChangePlayerGenderResponse.");
-
-            int notifyGenderSetIndex = FindFieldAssignmentIndex(instructions, notifyGenderField, updatedStateIndex + 1, notifyPushIndex);
-            if (notifyGenderSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected NotifyPlayerGender.Gender to be populated before SendPush.");
-            AssertFieldAssignmentUsesRecentCall(instructions, notifyGenderSetIndex, playerGenderGetter, $"{name} notify gender source");
-
-            int notifyChangeGenderTimeSetIndex = FindFieldAssignmentIndex(instructions, notifyChangeGenderTimeField, updatedStateIndex + 1, notifyPushIndex);
-            if (notifyChangeGenderTimeSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected NotifyPlayerGender.ChangeGenderTime to be populated before SendPush.");
-            AssertFieldAssignmentUsesRecentCall(instructions, notifyChangeGenderTimeSetIndex, changeGenderTimeGetter, $"{name} notify change-time source");
-
-            int responseGenderSetIndex = FindFieldAssignmentIndex(instructions, responseGenderField, updatedStateIndex + 1, successResponseIndex);
-            if (responseGenderSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected ChangePlayerGenderResponse.Gender to be populated before SendResponse.");
-            AssertFieldAssignmentUsesRecentCall(instructions, responseGenderSetIndex, playerGenderGetter, $"{name} response gender source");
-
-            int responseChangeGenderTimeSetIndex = FindFieldAssignmentIndex(instructions, responseChangeGenderTimeField, updatedStateIndex + 1, successResponseIndex);
-            if (responseChangeGenderTimeSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected ChangePlayerGenderResponse.ChangeGenderTime to be populated before SendResponse.");
-            AssertFieldAssignmentUsesRecentCall(instructions, responseChangeGenderTimeSetIndex, changeGenderTimeGetter, $"{name} response change-time source");
-
-            int responseNextCanChangeTimeSetIndex = FindFieldAssignmentIndex(instructions, responseNextCanChangeTimeField, updatedStateIndex + 1, successResponseIndex);
-            if (responseNextCanChangeTimeSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected ChangePlayerGenderResponse.NextCanChangeTime to be populated before SendResponse.");
-            AssertFieldAssignmentUsesRecentCall(instructions, responseNextCanChangeTimeSetIndex, changeGenderTimeGetter, $"{name} response next-change-time source");
-
-            int responsePlayerDataSetIndex = FindFieldAssignmentIndex(instructions, responsePlayerDataField, updatedStateIndex + 1, successResponseIndex);
-            if (responsePlayerDataSetIndex < 0)
-                throw new InvalidDataException($"{name}: expected ChangePlayerGenderResponse.PlayerData to be populated before SendResponse.");
-            AssertFieldAssignmentUsesRecentCall(instructions, responsePlayerDataSetIndex, playerDataGetter, $"{name} response player-data source");
-
-            if (notifyPushIndex >= successResponseIndex)
-                throw new InvalidDataException($"{name}: expected NotifyPlayerGender push before the success response.");
-        }
-
-        private static bool HasGenderBoundBranch(List<IlInstruction> instructions, FieldInfo requestGenderField, int bound, int invalidCodeIndex, int invalidResponseIndex, bool lowerBound)
-        {
-            int firstCandidateIndex = Math.Max(0, invalidCodeIndex - 48);
-            int invalidResponseOffset = instructions[invalidResponseIndex].Offset;
-
-            for (int index = firstCandidateIndex; index < invalidCodeIndex; index++)
-            {
-                IlInstruction instruction = instructions[index];
-                if (instruction.OpCode.FlowControl != FlowControl.Cond_Branch || instruction.Operand is not int targetOffset)
-                    continue;
-                if (!InstructionWindowLoadsFieldAndConstant(instructions, requestGenderField, bound, index, maxInstructionsBack: 8))
-                    continue;
-
-                bool targetReachesInvalidResponse = targetOffset > instruction.Offset && targetOffset <= invalidResponseOffset;
-                bool targetSkipsInvalidResponse = targetOffset > invalidResponseOffset;
-
-                if (lowerBound)
-                {
-                    if ((targetReachesInvalidResponse && IsLessThanBranch(instruction.OpCode))
-                        || (targetSkipsInvalidResponse && IsGreaterThanOrEqualBranch(instruction.OpCode)))
-                        return true;
-                }
-                else
-                {
-                    if ((targetReachesInvalidResponse && IsGreaterThanBranch(instruction.OpCode))
-                        || (targetSkipsInvalidResponse && IsLessThanOrEqualBranch(instruction.OpCode)))
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool HasNormalizedInclusiveRangeGuard(List<IlInstruction> instructions, FieldInfo requestGenderField, int minimum, int maximum, int invalidCodeIndex, int invalidResponseIndex)
-        {
-            int firstCandidateIndex = Math.Max(0, invalidCodeIndex - 48);
-            int invalidResponseOffset = instructions[invalidResponseIndex].Offset;
-            int normalizedMaximum = maximum - minimum;
-
-            for (int index = firstCandidateIndex; index < invalidCodeIndex; index++)
-            {
-                IlInstruction instruction = instructions[index];
-                if (instruction.OpCode.FlowControl != FlowControl.Cond_Branch || instruction.Operand is not int targetOffset)
-                    continue;
-                if (!InstructionWindowLoadsFieldAndConstant(instructions, requestGenderField, minimum, index, maxInstructionsBack: 10))
-                    continue;
-                if (!InstructionWindowHasConstant(instructions, normalizedMaximum, index, maxInstructionsBack: 10))
-                    continue;
-                if (!InstructionWindowHasOpCode(instructions, OpCodes.Sub, index, maxInstructionsBack: 10))
-                    continue;
-
-                bool targetReachesInvalidResponse = targetOffset > instruction.Offset && targetOffset <= invalidResponseOffset;
-                bool targetSkipsInvalidResponse = targetOffset > invalidResponseOffset;
-                if ((targetSkipsInvalidResponse && IsLessThanOrEqualUnsignedBranch(instruction.OpCode))
-                    || (targetReachesInvalidResponse && IsGreaterThanUnsignedBranch(instruction.OpCode)))
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static bool InstructionWindowLoadsFieldAndConstant(List<IlInstruction> instructions, FieldInfo field, int expectedValue, int endIndex, int maxInstructionsBack)
-        {
-            bool loadedField = false;
-            bool loadedConstant = false;
-            int firstIndex = Math.Max(0, endIndex - maxInstructionsBack);
-
-            for (int index = firstIndex; index < endIndex; index++)
-            {
-                if (instructions[index].Operand is FieldInfo loadedFieldInfo && FieldsMatch(loadedFieldInfo, field))
-                    loadedField = true;
-                if (LdcI4Value(instructions[index]) == expectedValue)
-                    loadedConstant = true;
-            }
-
-            return loadedField && loadedConstant;
-        }
-
         private static bool InstructionWindowHasConstant(List<IlInstruction> instructions, int expectedValue, int endIndex, int maxInstructionsBack)
         {
             int firstIndex = Math.Max(0, endIndex - maxInstructionsBack);
             for (int index = firstIndex; index < endIndex; index++)
             {
                 if (LdcI4Value(instructions[index]) == expectedValue)
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static bool InstructionWindowHasOpCode(List<IlInstruction> instructions, OpCode opCode, int endIndex, int maxInstructionsBack)
-        {
-            int firstIndex = Math.Max(0, endIndex - maxInstructionsBack);
-            for (int index = firstIndex; index < endIndex; index++)
-            {
-                if (instructions[index].OpCode == opCode)
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static bool HasMethodCallComparedToConstantBefore(List<IlInstruction> instructions, MethodInfo method, int expectedValue, int endIndex)
-        {
-            for (int index = 0; index < endIndex; index++)
-            {
-                if (instructions[index].Operand is not MethodBase calledMethod || !MethodsMatch(calledMethod, method))
-                    continue;
-
-                bool loadedConstant = false;
-                bool comparedOrBranched = false;
-                int lastIndex = Math.Min(endIndex, index + 10);
-                for (int scanIndex = index + 1; scanIndex < lastIndex; scanIndex++)
-                {
-                    if (LdcI4Value(instructions[scanIndex]) == expectedValue)
-                        loadedConstant = true;
-                    if (IsComparisonOrConditionalBranch(instructions[scanIndex].OpCode))
-                        comparedOrBranched = true;
-                }
-
-                if (loadedConstant && comparedOrBranched)
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static bool HasMethodCallStrictlyPositiveComparisonBefore(List<IlInstruction> instructions, MethodInfo method, int endIndex)
-        {
-            for (int index = 0; index < endIndex; index++)
-            {
-                if (instructions[index].Operand is not MethodBase calledMethod || !MethodsMatch(calledMethod, method))
-                    continue;
-
-                bool loadedZero = false;
-                int lastIndex = Math.Min(endIndex, index + 12);
-                for (int scanIndex = index + 1; scanIndex < lastIndex; scanIndex++)
-                {
-                    if (LdcI4Value(instructions[scanIndex]) == 0)
-                    {
-                        loadedZero = true;
-                        continue;
-                    }
-
-                    if (!loadedZero)
-                        continue;
-
-                    OpCode opCode = instructions[scanIndex].OpCode;
-
-                    if (opCode == OpCodes.Cgt
-                        || IsGreaterThanBranch(opCode)
-                        || IsLessThanOrEqualBranch(opCode))
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool HasSameGenderComparisonBefore(List<IlInstruction> instructions, MethodInfo playerGenderGetter, FieldInfo requestGenderField, int endIndex)
-        {
-            for (int index = 0; index < endIndex; index++)
-            {
-                if (instructions[index].Operand is not MethodBase calledMethod || !MethodsMatch(calledMethod, playerGenderGetter))
-                    continue;
-
-                bool loadedRequestGender = false;
-                bool comparedOrBranched = false;
-                int lastIndex = Math.Min(endIndex, index + 20);
-                for (int scanIndex = index + 1; scanIndex < lastIndex; scanIndex++)
-                {
-                    if (instructions[scanIndex].Operand is FieldInfo loadedField && FieldsMatch(loadedField, requestGenderField))
-                        loadedRequestGender = true;
-                    if (IsComparisonOrConditionalBranch(instructions[scanIndex].OpCode))
-                        comparedOrBranched = true;
-                }
-
-                if (loadedRequestGender && comparedOrBranched)
                     return true;
             }
 
@@ -32600,20 +32351,6 @@ namespace AscNet.Test
             return -1;
         }
 
-        private static int FindFieldLoadIndex(List<IlInstruction> instructions, FieldInfo field, int startIndex)
-        {
-            for (int index = startIndex; index < instructions.Count; index++)
-            {
-                IlInstruction instruction = instructions[index];
-                if ((instruction.OpCode == OpCodes.Ldfld || instruction.OpCode == OpCodes.Ldflda)
-                    && instruction.Operand is FieldInfo loadedField
-                    && FieldsMatch(loadedField, field))
-                    return index;
-            }
-
-            return -1;
-        }
-
         private static int FindFieldAssignmentIndex(List<IlInstruction> instructions, FieldInfo field, int startIndex, int endIndex)
         {
             int firstIndex = Math.Max(0, startIndex);
@@ -32628,70 +32365,6 @@ namespace AscNet.Test
             }
 
             return -1;
-        }
-
-        private static void AssertFieldAssignmentUsesRecentCall(List<IlInstruction> instructions, int assignmentIndex, MethodInfo sourceMethod, string name)
-        {
-            for (int previousIndex = assignmentIndex - 1; previousIndex >= 0 && previousIndex >= assignmentIndex - 12; previousIndex--)
-            {
-                if (instructions[previousIndex].Operand is MethodBase calledMethod && MethodsMatch(calledMethod, sourceMethod))
-                    return;
-            }
-
-            throw new InvalidDataException($"{name}: expected assignment to use {sourceMethod.DeclaringType?.FullName}.{sourceMethod.Name}.");
-        }
-
-        private static void AssertSetterAssignedConstantBetween(List<IlInstruction> instructions, MethodInfo setter, int expectedValue, int startIndex, int endIndex, string name)
-        {
-            for (int index = startIndex; index <= endIndex; index++)
-            {
-                if (instructions[index].Operand is not MethodBase calledMethod || !MethodsMatch(calledMethod, setter))
-                    continue;
-                if (InstructionWindowHasConstant(instructions, expectedValue, index, maxInstructionsBack: 8))
-                    return;
-            }
-
-            throw new InvalidDataException($"{name}: expected {setter.DeclaringType?.FullName}.{setter.Name} to be assigned {expectedValue}.");
-        }
-
-        private static bool IsComparisonOrConditionalBranch(OpCode opCode)
-        {
-            return opCode.FlowControl == FlowControl.Cond_Branch
-                || opCode == OpCodes.Ceq
-                || opCode == OpCodes.Cgt
-                || opCode == OpCodes.Cgt_Un
-                || opCode == OpCodes.Clt
-                || opCode == OpCodes.Clt_Un;
-        }
-
-        private static bool IsLessThanBranch(OpCode opCode)
-        {
-            return opCode == OpCodes.Blt || opCode == OpCodes.Blt_S;
-        }
-
-        private static bool IsGreaterThanBranch(OpCode opCode)
-        {
-            return opCode == OpCodes.Bgt || opCode == OpCodes.Bgt_S;
-        }
-
-        private static bool IsGreaterThanUnsignedBranch(OpCode opCode)
-        {
-            return opCode == OpCodes.Bgt_Un || opCode == OpCodes.Bgt_Un_S;
-        }
-
-        private static bool IsLessThanOrEqualBranch(OpCode opCode)
-        {
-            return opCode == OpCodes.Ble || opCode == OpCodes.Ble_S;
-        }
-
-        private static bool IsLessThanOrEqualUnsignedBranch(OpCode opCode)
-        {
-            return opCode == OpCodes.Ble_Un || opCode == OpCodes.Ble_Un_S;
-        }
-
-        private static bool IsGreaterThanOrEqualBranch(OpCode opCode)
-        {
-            return opCode == OpCodes.Bge || opCode == OpCodes.Bge_S;
         }
 
         private static int FindFieldAssignmentIndex(List<IlInstruction> instructions, FieldInfo field, int expectedValue)

@@ -2,6 +2,7 @@ using AscNet.Common.Util;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.share.robot;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
 
 namespace AscNet.GameServer.Handlers;
 
@@ -16,6 +17,8 @@ internal static class CurrentClientStudyTables
     internal const int StudyStageCount = 467;
     internal const int StageLevelControlCount = 141;
     internal const int RobotCount = 170;
+    internal const int EnhanceSkillCount = 82;
+    internal const int EnhanceSkillGroupCount = 92;
     private const int ProgressionEdgeCount = 255;
     private const int ProgressionChainCount = 212;
 
@@ -61,6 +64,9 @@ internal static class CurrentClientStudyTables
     {
         return Data.Value.Robots.TryGetValue(robotId, out robot!);
     }
+
+    /// Frozen 4.6 enhance-skill inputs of the imported Study robots, matching their frozen Robot rows.
+    internal static EnhanceSkillSource EnhanceSkills => Data.Value.EnhanceSkills;
 
     internal static bool TryGetPracticeChapterId(long stageId, out int chapterId)
     {
@@ -112,7 +118,7 @@ internal static class CurrentClientStudyTables
 
         JObject sourcePaths = RequireObject(root, "SourcePaths");
         JObject sourceHashes = RequireObject(root, "SourceHashes");
-        foreach (string source in new[] { "Stage", "StageLevelControl", "Robot", "PracticeChapter", "PracticeGroup", "PracticeActivity", "TeachingActivity", "TeachingRobot" })
+        foreach (string source in new[] { "Stage", "StageLevelControl", "Robot", "PracticeChapter", "PracticeGroup", "PracticeActivity", "TeachingActivity", "TeachingRobot", "EnhanceSkill", "EnhanceSkillGroup" })
         {
             string? path = sourcePaths.Value<string>(source);
             if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("en/bytes/", StringComparison.Ordinal) || !path.EndsWith(".json", StringComparison.Ordinal))
@@ -131,6 +137,8 @@ internal static class CurrentClientStudyTables
         ValidateDeclaredCount(expectedCounts, "StudyStages", StudyStageCount);
         ValidateDeclaredCount(expectedCounts, "StageLevelControls", StageLevelControlCount);
         ValidateDeclaredCount(expectedCounts, "Robots", RobotCount);
+        ValidateDeclaredCount(expectedCounts, "EnhanceSkills", EnhanceSkillCount);
+        ValidateDeclaredCount(expectedCounts, "EnhanceSkillGroups", EnhanceSkillGroupCount);
 
         JArray practiceChapters = RequireArray(root, "PracticeChapters", PracticeChapterCount);
         JArray practiceGroups = RequireArray(root, "PracticeGroups", PracticeGroupCount);
@@ -140,6 +148,8 @@ internal static class CurrentClientStudyTables
         JArray stageRows = RequireArray(root, "Stages", StudyStageCount);
         JArray stageLevelControlRows = RequireArray(root, "StageLevelControls", StageLevelControlCount);
         JArray robotRows = RequireArray(root, "Robots", RobotCount);
+        JArray enhanceSkillRows = RequireArray(root, "EnhanceSkills", EnhanceSkillCount);
+        JArray enhanceSkillGroupRows = RequireArray(root, "EnhanceSkillGroups", EnhanceSkillGroupCount);
 
         HashSet<int> studyStageIds = new();
         foreach (JObject row in practiceGroups.OfType<JObject>())
@@ -242,6 +252,32 @@ internal static class CurrentClientStudyTables
         if (robots.Values.Any(robot => robot.CharacterId <= 0))
             throw new InvalidDataException($"{ResourcePath}: every imported Robot must define a CharacterId.");
 
+        Dictionary<int, int[]> enhanceSkillGroupIds = new();
+        foreach (JObject row in enhanceSkillRows.OfType<JObject>())
+        {
+            int characterId = row.Value<int>("CharacterId");
+            if (characterId <= 0 || !enhanceSkillGroupIds.TryAdd(characterId, ReadPositiveIds(row["SkillGroupId"])))
+                throw new InvalidDataException($"{ResourcePath}: invalid or duplicate EnhanceSkill CharacterId {characterId}.");
+        }
+        if (!enhanceSkillGroupIds.Keys.ToHashSet().SetEquals(robots.Values.Select(robot => robot.CharacterId)))
+            throw new InvalidDataException($"{ResourcePath}: EnhanceSkills must cover exactly the imported Robot characters.");
+
+        Dictionary<int, int[]> enhanceSkillGroupSkills = new();
+        foreach (JObject row in enhanceSkillGroupRows.OfType<JObject>())
+        {
+            int groupId = row.Value<int>("Id");
+            if (groupId <= 0 || !enhanceSkillGroupSkills.TryAdd(groupId, ReadPositiveIds(row["SkillId"])))
+                throw new InvalidDataException($"{ResourcePath}: invalid or duplicate EnhanceSkillGroup Id {groupId}.");
+        }
+        foreach ((int characterId, int[] groupIds) in enhanceSkillGroupIds)
+        {
+            foreach (int groupId in groupIds)
+            {
+                if (!enhanceSkillGroupSkills.ContainsKey(groupId))
+                    throw new InvalidDataException($"{ResourcePath}: EnhanceSkill {characterId} references missing EnhanceSkillGroup {groupId}.");
+            }
+        }
+
         Dictionary<int, List<StageLevelControlTable>> controls = new();
         HashSet<int> controlIds = new();
         foreach (JObject token in stageLevelControlRows.OfType<JObject>())
@@ -262,6 +298,9 @@ internal static class CurrentClientStudyTables
             configuredRobotIds,
             controls.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray()),
             robots,
+            new EnhanceSkillSource(
+                characterId => enhanceSkillGroupIds.GetValueOrDefault(characterId, []),
+                groupId => enhanceSkillGroupSkills.GetValueOrDefault(groupId, [])),
             practiceChapterIds,
             teachingActivityIds.ToDictionary(pair => pair.Key, pair => pair.Value.Distinct().Order().ToArray()));
     }
@@ -322,11 +361,28 @@ internal static class CurrentClientStudyTables
         {
             T row = token.ToObject<T>()
                 ?? throw new InvalidDataException($"{ResourcePath}: invalid {section} row.");
+            MaterializeOmittedArrays(row);
             int key = keySelector(row);
             if (key <= 0 || !result.TryAdd(key, row))
                 throw new InvalidDataException($"{ResourcePath}: invalid or duplicate {section} key {key}.");
         }
         return result;
+    }
+
+    /// Client table JSON omits empty arrays, while the runtime TSV reader materializes them and the
+    /// generated rows declare them non-nullable. Frozen rows adopt the reader-built invariant so
+    /// Stage and Robot fields are never null.
+    private static void MaterializeOmittedArrays<T>(T row)
+    {
+        foreach (PropertyInfo property in typeof(T).GetProperties())
+        {
+            if (property.PropertyType.IsGenericType
+                && property.PropertyType.GetGenericTypeDefinition() == typeof(List<>)
+                && property.GetValue(row) is null)
+            {
+                property.SetValue(row, Activator.CreateInstance(property.PropertyType));
+            }
+        }
     }
 
     private static void NormalizeBooleanScalars(JObject row)
@@ -382,6 +438,7 @@ internal static class CurrentClientStudyTables
         IReadOnlyDictionary<int, int[]> ConfiguredRobotIds,
         IReadOnlyDictionary<int, StageLevelControlTable[]> StageLevelControls,
         IReadOnlyDictionary<int, RobotTable> Robots,
+        EnhanceSkillSource EnhanceSkills,
         IReadOnlyDictionary<int, int> PracticeChapterIds,
         IReadOnlyDictionary<int, int[]> TeachingActivityIds);
 }

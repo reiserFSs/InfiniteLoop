@@ -1156,7 +1156,7 @@ namespace AscNet.GameServer.Handlers
                 return head.HeadFashionId == characterRow.DefaultNpcFashtionId;
             if (head.HeadFashionType == 1)
                 return head.HeadFashionId == characterRow.DefaultNpcFashtionId
-                    && character.LiberateLv >= 4;
+                    && Character.GetLiberateLevel(character.Id, session.player.GatherRewards) >= 4;
 
             FashionTable? fashionRow = TableReaderV2.Parse<FashionTable>()
                 .Find(candidate => candidate.Id == head.HeadFashionId);

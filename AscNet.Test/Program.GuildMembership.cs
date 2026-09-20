@@ -431,8 +431,8 @@ internal static partial class Program
         cleanupFault.TargetUid = Uid(cleanupVictim);
         FieldInfo guildCollectionField = typeof(Guild).GetField("collection", BindingFlags.Static | BindingFlags.Public)
             ?? throw new MissingFieldException(typeof(Guild).FullName, "collection");
-        MethodInfo setCollection = typeof(MongoCollectionOverride).GetMethod("SetStaticReadonlyField", BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new MissingMethodException(typeof(MongoCollectionOverride).FullName, "SetStaticReadonlyField");
+        MethodInfo setCollection = typeof(MongoCollectionOverride).GetMethod("SetStaticField", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new MissingMethodException(typeof(MongoCollectionOverride).FullName, "SetStaticField");
         setCollection.Invoke(null, [guildCollectionField, forwardingCollection]);
         try
         {

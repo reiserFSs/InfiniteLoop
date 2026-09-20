@@ -8,6 +8,7 @@ using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.partner;
 using AscNet.Table.V2.share.team;
 using AscNet.Table.V2.share.character;
+using AscNet.Table.V2.share.character.enhanceskill;
 using AscNet.Table.V2.share.character.skill;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.share.fashion;
@@ -299,6 +300,21 @@ namespace AscNet.GameServer.Handlers
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
+    /// One client version's enhance-skill inputs: the authored groups of a character and the
+    /// authored skills of a group. Premade deployments resolve both from the robot row's version.
+    internal sealed class EnhanceSkillSource(Func<int, IReadOnlyList<int>> groupIds, Func<int, IReadOnlyList<int>> skillIds)
+    {
+        // Live tables shipped with the server, used by every deployment from the live Robot table.
+        internal static EnhanceSkillSource Live { get; } = new(
+            characterId => TableReaderV2.Parse<EnhanceSkillTable>()
+                .Find(row => row.CharacterId == characterId)?.SkillGroupId ?? [],
+            groupId => TableReaderV2.Parse<EnhanceSkillGroupTable>()
+                .Find(row => row.Id == groupId)?.SkillId ?? []);
+
+        internal IReadOnlyList<int> GroupIds(int characterId) => groupIds(characterId);
+        internal IReadOnlyList<int> SkillIds(int groupId) => skillIds(groupId);
+    }
+
     internal class FightModule
     {
         private const int TeamManagerSetTeamParaError = 20004003;
@@ -344,6 +360,10 @@ namespace AscNet.GameServer.Handlers
                     .Where(stageId => stageId > 0)
                     .Select(stageId => (StageId: (uint)stageId, chapter.ChapterId)))
                 .ToDictionary(entry => entry.StageId, entry => entry.ChapterId));
+        private static readonly Lazy<IReadOnlyList<StageTable>> HiddenStageUnlockTargets = new(() =>
+            TableReaderV2.Parse<StageTable>()
+                .Where(stage => stage.StageId > 0 && stage.UnlockEventId.Any(eventId => eventId > 0))
+                .ToArray());
 
 
         private static readonly Lazy<IReadOnlyDictionary<string, int>> TeamConfigValues = new(() =>
@@ -438,7 +458,8 @@ namespace AscNet.GameServer.Handlers
         {
             if (TheatreModule.TryLeaveFight(session, out LeaveFightResponse theatreResponse, packet.Id)
                 || Theatre3Module.TryLeaveFight(session, out theatreResponse)
-                || BiancaTheatreModule.TryLeaveFight(session, out theatreResponse))
+                || BiancaTheatreModule.TryLeaveFight(session, out theatreResponse)
+                || Theatre4Module.TryLeaveFight(session, out theatreResponse, packet.Id))
             {
                 session.SendResponse(theatreResponse, packet.Id);
                 return;
@@ -465,7 +486,8 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
             if (Theatre3Module.TryPreFight(session, req, out PreFightResponse theatreResponse)
-                || BiancaTheatreModule.TryPreFight(session, req, out theatreResponse))
+                || BiancaTheatreModule.TryPreFight(session, req, out theatreResponse)
+                || Theatre4Module.TryPreFight(session, req, out theatreResponse, packet.Id))
             {
                 session.SendResponse(theatreResponse, packet.Id);
                 return;
@@ -538,10 +560,28 @@ namespace AscNet.GameServer.Handlers
                     StageId = req.PreFightData.StageId,
                     RebootId = stageTable?.RebootId ?? 0,
                     PassTimeLimit = stageTable?.PassTimeLimit ?? 0,
+                    // Table-derived default. The mode hooks below replace it when the mode owns a
+                    // different authority: Arcade towers force it on for blank-authored rows.
+                    // The generic restart handler checks fight identity only, so do not re-gate
+                    // this flag against the table.
+                    Restartable = Convert.ToInt32(stageTable?.Restartable) != 0,
                     StarsMark = 0,
-                    MonsterLevel = levelControl?.MonsterLevel ?? new()
+                    MonsterLevel = levelControl?.MonsterLevel ?? new(),
+                    NormalEventIds = stageTable?.NormalEventId
+                        ?.Where(eventId => eventId > 0)
+                        .Distinct()
+                        .Select(eventId => (dynamic)eventId)
+                        .ToList() ?? []
                 }
             };
+            int normalReplayEventId = stageTable?.NormalEventIdOnPassed ?? 0;
+            if (stageTable is not null
+                && normalReplayEventId > 0
+                && session.stage?.Stages.GetValueOrDefault(req.PreFightData.StageId)?.Passed == true
+                && stageTable.NormalEventId?.Contains(normalReplayEventId) != true)
+            {
+                rsp.FightData.NormalEventIds.Add(normalReplayEventId);
+            }
 
             // Central table-derived ordinary event-stage availability gate: a stage that maps
             // to an activity TimeId via the fuben/miniactivity tables must be inside its
@@ -749,7 +789,11 @@ namespace AscNet.GameServer.Handlers
                     while (playerNpcData.ContainsKey(npcKey))
                         npcKey++;
 
-                    (CharacterData robotCharacterData, List<EquipData> equips) = BuildRobotDeployment(robot);
+                    // Legacy Study stages deploy version-frozen 4.6 premise rows, so their enhance
+                    // inputs come from the same frozen version instead of the live tables.
+                    (CharacterData robotCharacterData, List<EquipData> equips) = isCurrentStudyStage
+                        ? BuildRobotDeployment(robot, CurrentClientStudyTables.EnhanceSkills)
+                        : BuildRobotDeployment(robot);
                     deployedCharacters.Add(robotCharacterData);
                     playerNpcData.Add(npcKey, new
                     {
@@ -819,12 +863,19 @@ namespace AscNet.GameServer.Handlers
         }
 
         internal static (CharacterData Character, List<EquipData> Equips) BuildRobotDeployment(RobotTable robot)
+            => BuildRobotDeployment(robot, EnhanceSkillSource.Live);
+
+        /// <param name="enhanceSkills">
+        /// Enhance-skill inputs of the robot row's own client version. Premade rows served from a
+        /// version-frozen catalog must be deployed with that version's inputs, never the live ones.
+        /// </param>
+        internal static (CharacterData Character, List<EquipData> Equips) BuildRobotDeployment(RobotTable robot, EnhanceSkillSource enhanceSkills)
         {
             CharacterSkillTable? characterSkill = TableReaderV2.Parse<CharacterSkillTable>().Find(x => x.CharacterId == robot.CharacterId);
             IEnumerable<int> skills = characterSkill?.SkillGroupId.SelectMany(x => TableReaderV2.Parse<CharacterSkillGroupTable>().Find(y => y.Id == x)?.SkillId ?? new List<int>()) ?? new List<int>();
             HashSet<int> removedSkillIds = robot.RemoveSkillId?.ToHashSet() ?? [];
             CharacterTable? character = TableReaderV2.Parse<CharacterTable>().Find(row => row.Id == robot.CharacterId);
-            uint fashionId = (uint)(character?.DefaultNpcFashtionId > 0 ? character.DefaultNpcFashtionId : robot.FashionId);
+            uint fashionId = (uint)(robot.FashionId > 0 ? robot.FashionId : character?.DefaultNpcFashtionId ?? 0);
             List<EquipData> equips =
             [
                 new()
@@ -870,6 +921,7 @@ namespace AscNet.GameServer.Handlers
                         Level = Math.Min(Convert.ToInt32(robot.SkillLevel), TableReaderV2.Parse<CharacterSkillLevelEffectTable>()
                             .Where(row => row.SkillId == id).Select(row => row.Level).DefaultIfEmpty(1).Max())
                     }).ToList(),
+                EnhanceSkillList = BuildRobotEnhanceSkills(robot, enhanceSkills),
                 FashionId = fashionId,
                 TrustLv = 1,
                 Ability = robot.ShowAbility ?? 0,
@@ -877,6 +929,31 @@ namespace AscNet.GameServer.Handlers
                 CharacterHeadInfo = new() { HeadFashionId = fashionId }
             };
             return (data, equips);
+        }
+
+        /// <summary>One active skill per owned enhance group; a removed skill or an absent level yields none.</summary>
+        internal static List<CharacterSkill> BuildRobotEnhanceSkills(RobotTable robot, EnhanceSkillSource enhanceSkills)
+        {
+            List<CharacterSkill> enhanceSkillList = [];
+            if (robot.EnhanceSkillLevel <= 0)
+                return enhanceSkillList;
+
+            HashSet<int> removedSkillIds = robot.RemoveSkillId?.ToHashSet() ?? [];
+            foreach (int groupId in enhanceSkills.GroupIds(robot.CharacterId).Where(id => id > 0).Distinct())
+            {
+                // The client's XEnhanceSkillGroup activates the group's first configured skill.
+                int skillId = enhanceSkills.SkillIds(groupId).FirstOrDefault(id => id > 0);
+                if (skillId <= 0 || removedSkillIds.Contains(skillId))
+                    continue;
+
+                int maxLevel = Character.EnhanceSkillMaxLevel(skillId);
+                enhanceSkillList.Add(new CharacterSkill
+                {
+                    Id = (uint)skillId,
+                    Level = Math.Clamp(robot.EnhanceSkillLevel, 1, Math.Max(1, maxLevel))
+                });
+            }
+            return enhanceSkillList;
         }
 
         private static List<ResonanceInfo> BuildRobotResonance(string? templates, string? types, int characterId)
@@ -1085,7 +1162,8 @@ namespace AscNet.GameServer.Handlers
             FightRebootRequest req = packet.Deserialize<FightRebootRequest>();
             if (TheatreModule.TryReboot(session, req, out FightRebootResponse theatreResponse)
                 || Theatre3Module.TryReboot(session, req, out theatreResponse)
-                || BiancaTheatreModule.TryReboot(session, req, out theatreResponse))
+                || BiancaTheatreModule.TryReboot(session, req, out theatreResponse)
+                || Theatre4Module.TryReboot(session, req, out theatreResponse, packet.Id))
             {
                 session.SendResponse(theatreResponse, packet.Id);
                 return;
@@ -1103,7 +1181,8 @@ namespace AscNet.GameServer.Handlers
             FightRestartRequest req = packet.Deserialize<FightRestartRequest>();
             if (TheatreModule.TryRestart(session, req, out FightRestartResponse theatreResponse, packet.Id)
                 || Theatre3Module.TryRestart(session, req, out theatreResponse, packet.Id)
-                || BiancaTheatreModule.TryRestart(session, req, out theatreResponse))
+                || BiancaTheatreModule.TryRestart(session, req, out theatreResponse)
+                || Theatre4Module.TryRestart(session, req, out theatreResponse, packet.Id))
             {
                 session.SendResponse(theatreResponse, packet.Id);
                 return;
@@ -2414,6 +2493,8 @@ namespace AscNet.GameServer.Handlers
                 if (!TheatreModule.IsCombatStage(result.StageId)
                     && !TheatreModule.IsCombatStage(session.fight?.PreFight.PreFightData.StageId ?? 0)
                     && !Theatre3Module.IsCombatStage(result.StageId)
+                    && !Theatre4Module.IsCombatStage(result.StageId)
+                    && !Theatre4Module.IsCombatStage(session.fight?.PreFight.PreFightData.StageId ?? 0)
                     && !BiancaTheatreModule.IsCombatStage(result.StageId) && !IsAuthorizedFightSettle(session, result))
                     return false;
 
@@ -2428,7 +2509,8 @@ namespace AscNet.GameServer.Handlers
 
         private static void ClearFailedFightSettle(Session session)
         {
-            if (TheatreModule.IsCombatStage(session.fight?.PreFight.PreFightData.StageId ?? 0))
+            if (TheatreModule.IsCombatStage(session.fight?.PreFight.PreFightData.StageId ?? 0)
+                || Theatre4Module.IsCombatStage(session.fight?.PreFight.PreFightData.StageId ?? 0))
                 return;
             BossModule.CancelFight(session);
             session.PendingBossInshotFight = null;
@@ -2447,7 +2529,8 @@ namespace AscNet.GameServer.Handlers
             {
                 if (TryRecoverFailedFightSettle(session, packet, out req))
                 {
-                    if (TheatreModule.TrySettleFight(session, req.Result, out FightSettleResponse originalTheatreFailedResponse, packet.Id))
+                    if (TheatreModule.TrySettleFight(session, req.Result, out FightSettleResponse originalTheatreFailedResponse, packet.Id)
+                        || Theatre4Module.TrySettleFight(session, req.Result, out originalTheatreFailedResponse, packet.Id))
                     {
                         session.SendResponse(originalTheatreFailedResponse, packet.Id);
                         return;
@@ -2482,7 +2565,8 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new FightSettleResponse { Code = FightAuthorizationError }, packet.Id);
                 return;
             }
-            if (TheatreModule.TrySettleFight(session, req.Result, out FightSettleResponse originalTheatreResponse, packet.Id))
+            if (TheatreModule.TrySettleFight(session, req.Result, out FightSettleResponse originalTheatreResponse, packet.Id)
+                || Theatre4Module.TrySettleFight(session, req.Result, out originalTheatreResponse, packet.Id))
             {
                 session.SendResponse(originalTheatreResponse, packet.Id);
                 return;
@@ -2578,6 +2662,9 @@ namespace AscNet.GameServer.Handlers
             uint responseStageId = ResolveFightSettleStageId(session, req);
             ExploreModule.TrySettle(session, req.Result);
             StageDatum? previousStageData = session.stage?.Stages.TryGetValue(responseStageId, out StageDatum? existingStageData) == true ? existingStageData : null;
+            StageDatum? previousSourceStageData = responseStageId == req.Result.StageId
+                ? previousStageData
+                : session.stage?.Stages.GetValueOrDefault(req.Result.StageId);
             bool isQuickClear = responseStageId != req.Result.StageId;
             bool isFirstClear = ArenaModule.IsArenaStage(req.Result.StageId)
                 ? !session.player.SimulatedBattlefield.ArenaStageMaxPoints.ContainsKey(req.Result.StageId)
@@ -2856,6 +2943,30 @@ namespace AscNet.GameServer.Handlers
             session.player.Save();
             session.inventory.Save();
             session.character.Save();
+            List<int>? addedUnlockEvents = null;
+            List<object>? unlockStagesBefore = null;
+            if (!isTowerStage
+                && stageTable is not null
+                && req.Result.EventSet is { Length: > 0 })
+            {
+                foreach (object? rawEventId in req.Result.EventSet)
+                {
+                    if (!TryReadProtocolInteger(rawEventId, out int eventId)
+                        || eventId <= 0
+                        || !stageTable.PreEventId.Contains(eventId))
+                    {
+                        continue;
+                    }
+
+                    session.stage.UnlockEvents ??= new();
+                    if (session.stage.UnlockEvents.Contains(eventId))
+                        continue;
+
+                    unlockStagesBefore ??= BuildUnlockedHideStages(session.stage);
+                    session.stage.UnlockEvents.Add(eventId);
+                    (addedUnlockEvents ??= new()).Add(eventId);
+                }
+            }
             // Arcade Anima progress is read back by the mode claim ledger and replayed from Stage.Stages on
             // relog, so a mode win must not be answered before that write is acknowledged. A failed write
             // restores the pre-settle datum, so no retry can see a first-clear/pass count the database never
@@ -2876,10 +2987,37 @@ namespace AscNet.GameServer.Handlers
                     throw;
                 }
             }
+            else if (addedUnlockEvents is not null)
+            {
+                try
+                {
+                    session.stage.SaveChecked();
+                }
+                catch
+                {
+                    foreach (int eventId in addedUnlockEvents)
+                        session.stage.UnlockEvents.Remove(eventId);
+                    if (previousStageData is null)
+                        session.stage.Stages.Remove(stageData.StageId);
+                    else
+                        session.stage.AddStage(previousStageData);
+                    if (responseStageId != req.Result.StageId)
+                    {
+                        if (previousSourceStageData is null)
+                            session.stage.Stages.Remove(req.Result.StageId);
+                        else
+                            session.stage.AddStage(previousSourceStageData);
+                    }
+                    throw;
+                }
+            }
             else
             {
                 session.stage.Save();
             }
+            List<object>? unlockStagesAfter = addedUnlockEvents is null
+                ? null
+                : BuildUnlockedHideStages(session.stage);
             BossModule.PushActivityProgress(session, stageData.StageId);
             CourseModule.RecordBattleResult(session, req.Result);
             foreach (RewardApplicationResult application in deferredRewardApplications)
@@ -2921,6 +3059,15 @@ namespace AscNet.GameServer.Handlers
             }
             session.fight = null;
             session.SendPush(new NotifyStageData() { StageList = new() { stageData } });
+            if (unlockStagesBefore is not null && unlockStagesAfter is not null)
+            {
+                foreach (object hiddenStageId in unlockStagesAfter)
+                {
+                    if (hiddenStageId is not int targetStageId || unlockStagesBefore.Contains(hiddenStageId))
+                        continue;
+                    session.SendPush(new NotifyUnlockHideStage { UnlockHideStage = targetStageId });
+                }
+            }
             if (simulateTrainArchiveRecord is not null)
                 session.SendPush(simulateTrainArchiveRecord);
             StudyProgressModule.SendTeachingStageUpdate(session, stageData);
@@ -2953,6 +3100,30 @@ namespace AscNet.GameServer.Handlers
             return controls
                 .OrderBy(control => Math.Abs(playerLevel - control.MaxLevel))
                 .FirstOrDefault();
+        }
+        internal static List<object> BuildUnlockedHideStages(Stage? stage)
+        {
+            List<object> unlockedStages = new();
+            if (stage?.UnlockEvents is not { Count: > 0 } events)
+                return unlockedStages;
+
+            // Hidden-event grants and ordinary stage prerequisites are separate client gates.
+            foreach (StageTable target in HiddenStageUnlockTargets.Value)
+            {
+                bool eventUnlocked = true;
+                foreach (int eventId in target.UnlockEventId)
+                {
+                    if (eventId > 0 && !events.Contains(eventId))
+                    {
+                        eventUnlocked = false;
+                        break;
+                    }
+                }
+                if (eventUnlocked)
+                    unlockedStages.Add(target.StageId);
+            }
+
+            return unlockedStages;
         }
 
         private static RobotTable? ResolveRobotTable(int robotId, bool isCurrentStudyStage)
@@ -3066,6 +3237,39 @@ namespace AscNet.GameServer.Handlers
             }
 
             return stageExp;
+        }
+        private static bool TryReadProtocolInteger(object? value, out int result)
+        {
+            switch (value)
+            {
+                case sbyte typed:
+                    result = typed;
+                    return true;
+                case byte typed:
+                    result = typed;
+                    return true;
+                case short typed:
+                    result = typed;
+                    return true;
+                case ushort typed:
+                    result = typed;
+                    return true;
+                case int typed:
+                    result = typed;
+                    return true;
+                case uint typed when typed <= int.MaxValue:
+                    result = (int)typed;
+                    return true;
+                case long typed when typed is >= int.MinValue and <= int.MaxValue:
+                    result = (int)typed;
+                    return true;
+                case ulong typed when typed <= int.MaxValue:
+                    result = (int)typed;
+                    return true;
+                default:
+                    result = 0;
+                    return false;
+            }
         }
     }
 }

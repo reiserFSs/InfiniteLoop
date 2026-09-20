@@ -182,12 +182,14 @@ internal partial class Program
         AscNet.Common.Database.Character awakenedRoster =
             CreateTestCharacterRoster(liberationCandidate.CharacterId, 80);
         CharacterData awakened = RequiredCharacterData(awakenedRoster, liberationCandidate.CharacterId);
-        awakened.LiberateLv = liberationCandidate.RequiredLiberation;
+        awakened.LiberateLv = 1;
         awakened.SkillList.RemoveAll(skill => skill.Id == liberationCandidate.SkillId);
         int liberationReward = TableReaderV2.Parse<ExhibitionRewardTable>()
             .First(row => row.CharacterId == liberationCandidate.CharacterId
                 && row.LevelId >= liberationCandidate.RequiredLiberation).Id;
         awakenedRoster.NormalizeCharactersForCurrentTables([liberationReward]);
+        AssertEqual(liberationCandidate.RequiredLiberation, awakened.LiberateLv,
+            "claimed liberation milestone repairs stale cached liberation level");
         AssertEqual(false, awakened.SkillList.Any(skill => skill.Id == liberationCandidate.SkillId),
             "Ultima eligibility does not perform a manual unlock during normalization");
         awakened.SkillList.Add(new CharacterSkill { Id = liberationCandidate.SkillId, Level = 1 });
@@ -685,7 +687,7 @@ internal partial class Program
         {
             Id = 1021001,
             Level = 80,
-            LiberateLv = 4,                        // GrowUpLevel.Higher
+            LiberateLv = 1,                        // stale pre-4.6 cache
             FashionId = defaultFashionId,
             CharacterHeadInfo = new CharacterData.CharacterHead
             {
@@ -699,20 +701,24 @@ internal partial class Program
             new FashionList { Id = defaultFashionId, IsLock = false },
             new FashionList { Id = selectableFashionId, IsLock = false }
         ];
+        Player player = CreateDrawCompatibilityPlayer(playerId);
+        player.GatherRewards = [TableReaderV2.Parse<ExhibitionRewardTable>()
+            .First(row => row.CharacterId == luciaRow.Id && row.LevelId >= 4).Id];
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
             out _, out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterSaves, out _);
-        using LoopbackSessionHarness harness = new(character, CreateDrawCompatibilityPlayer(playerId),
+        using LoopbackSessionHarness harness = new(character, player,
             CreateDrawCompatibilityInventory(playerId, []), "v47-character-head");
 
         int packetId = 12_301;
         // Type 0 (default) succeeds.
         AssertHeadSelectionSucceeds(harness, characterSaves, packetId++, defaultFashionId, 0, "default");
-        // Type 1 (liberation) with Higher liberation succeeds.
+        // Type 1 (liberation) uses the claimed milestone despite the stale cache.
         AssertHeadSelectionSucceeds(harness, characterSaves, packetId++, defaultFashionId, 1, "liberation");
         // Type 2 (owned same-character coating) succeeds.
         AssertHeadSelectionSucceeds(harness, characterSaves, packetId++, selectableFashionId, 2, "fashion");
 
-        // Liberation head without Higher liberation is rejected.
+        // Liberation head without the claimed milestone is rejected.
+        player.GatherRewards = [];
         lucia.LiberateLv = 3;
         AssertHeadSelectionRejected(harness, packetId++, defaultFashionId, 1, "liberation without Higher");
         lucia.LiberateLv = 4;

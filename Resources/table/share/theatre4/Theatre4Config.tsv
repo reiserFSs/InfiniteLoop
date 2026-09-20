@@ -1,0 +1,16 @@
+Key	Desc	Values[1]	Values[2]
+ChapterNumberParameter	Chapter Count Coefficient	100000	
+ProsperityIndexParameter	Prosperity Coefficient	1	
+CellsOpenedParameter	Overturned Tile Count Coefficient	150000	
+InterestNeedCount	Gold Coins required for one-time Interest [Danger]	10	
+InterestAwardCount	One-time Interest Gold Coin reward	1	
+InterestAwardLimit	Gold Coin reward interest limit per round [Danger]	30	
+OpenCloseCheck	Enable Force Exit Detection	1	
+CloseCheckCount	Fault-Tolerant Guaranteed Attempts	1	
+ItemCountLimit	Artifact Limit	5	
+InheritItemNum	Number of Artifacts inherited	2	
+InheritItemThreshold	Artifact inherit Threshold (overturned tile count requirement)	9999	
+PassChapterOperable	Archived Stages operation permission	0	
+MaxTotalTechPoint	Max total obtainable Tech Points	1200	
+MaxColorPoint	Max total obtainable Talent Points		
+MaxProsperity	Max total obtainable Prosperity		

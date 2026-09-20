@@ -11,7 +11,7 @@ namespace AscNet.Common.Database
     #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     public class Stage
     {
-        public static readonly IMongoCollection<Stage> collection = Common.db.GetCollection<Stage>("stages");
+        public static IMongoCollection<Stage> collection = Common.db.GetCollection<Stage>("stages");
         
         public static Stage FromUid(long uid)
         {
@@ -19,6 +19,7 @@ namespace AscNet.Common.Database
             stage.Course ??= new();
             stage.FinishedTasks ??= new();
             stage.PrequelRewardedStages ??= new();
+            stage.UnlockEvents ??= new();
             return stage;
         }
 
@@ -30,7 +31,6 @@ namespace AscNet.Common.Database
                 Stages = new(),
                 Course = new(),
             };
-
             foreach (var guideFight in TableReaderV2.Parse<GuideFightTable>())
             {
                 stage.AddStage(new StageDatum()
@@ -135,6 +135,8 @@ namespace AscNet.Common.Database
 
         [BsonElement("finished_tasks")]
         public List<int> FinishedTasks { get; set; } = new();
+        [BsonElement("unlock_events")]
+        public HashSet<int> UnlockEvents { get; set; } = new();
 
         [BsonElement("stage_bookmark_data")]
         public StageBookmarkData? StageBookmarkData { get; set; }

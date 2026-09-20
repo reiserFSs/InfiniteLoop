@@ -114,9 +114,14 @@ namespace AscNet.GameServer
             // Dispatch already holds MembershipLock. Reject foreign progress before
             // participant recovery or reset can change the pending owner's epoch.
             if (request.Name is not ("LoginRequest" or "HandshakeRequest")
-                && currentPlayer.Theatre5.PendingMutation is { } pending
-                && pending.ResponseName is not (nameof(Handlers.FinishTaskResponse) or nameof(Handlers.FinishMultiTaskResponse))
-                && !Handlers.Theatre5Module.CanDispatchPendingRequest(this, request))
+                && ((currentPlayer.Theatre5.PendingMutation is { } pending
+                        && pending.ResponseName is not (nameof(Handlers.FinishTaskResponse) or nameof(Handlers.FinishMultiTaskResponse))
+                        && !Handlers.Theatre5Module.CanDispatchPendingRequest(this, request))
+                    || (currentPlayer.Theatre4.PendingMutation is { } tundraPending
+                        && tundraPending.ResponseName is not (nameof(Handlers.FinishTaskResponse) or nameof(Handlers.FinishMultiTaskResponse))
+                        && !Handlers.Theatre4Module.CanDispatchPendingRequest(this, request))
+                    || (currentPlayer.Theatre6.PendingMutation is not null
+                        && !Handlers.Theatre6Module.CanDispatchPendingRequest(this, request))))
             {
                 string responseName = request.Name.EndsWith("Request", StringComparison.Ordinal)
                     ? request.Name[..^7] + "Response" : request.Name + "Response";
@@ -124,6 +129,8 @@ namespace AscNet.GameServer
                 return;
             }
             Handlers.GuildModule.RecoverParticipant(this, currentPlayer.PlayerData.Id);
+            if (request.Name is not ("LoginRequest" or "HandshakeRequest"))
+                Handlers.Theatre6PvpModule.RecoverPendingDefense(this);
 
             lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
             {

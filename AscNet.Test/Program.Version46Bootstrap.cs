@@ -411,18 +411,20 @@ internal partial class Program
     {
         const long uid = 46_002;
         AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(uid);
+        using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
         using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(uid), player, CreateDrawCompatibilityInventory(uid, []), "v46-table-draw");
         InvokeRegisteredRequestHandler(nameof(DrawGetDrawGroupListRequest), harness.Session, 46_020, new DrawGetDrawGroupListRequest());
         DrawGetDrawGroupListResponse catalog = ReadResponsePayload<DrawGetDrawGroupListResponse>(harness, 46_020, nameof(DrawGetDrawGroupListResponse), "4.6 table draw catalog");
-        int[] expectedGroups = [1, 2, 4, 12, 13, 16, 22, 35, 36];
+        int[] expectedGroups = [1, 2, 4, 12, 16, 22, 11];
         AssertEqual(string.Join(',', expectedGroups), string.Join(',', catalog.DrawGroupInfoList.Select(group => group.Id)), "4.6 server-pushed draw groups");
+        if (catalog.DrawGroupInfoList.Any(group => group.Id is 13 or 15 or 35 or 36))
+            throw new InvalidDataException("4.6 catalog must not advertise groups whose pity law or window is unavailable.");
 
-        DrawGroupInfo group35 = catalog.DrawGroupInfoList.Single(group => group.Id == 35);
-        DrawGroupInfo group36 = catalog.DrawGroupInfoList.Single(group => group.Id == 36);
-        AssertEqual(1499, group35.UseDrawIdDict[0], "4.6 group 35 selected draw");
-        AssertEqual("2493", string.Join(',', group36.OptionalDrawIdList), "4.6 group 36 optional draw");
-        AssertEqual(1784246400L, group35.StartTime, "4.6 group 35 start");
-        AssertEqual(1787094000L, group35.EndTime, "4.6 group 35 end");
+        DrawGroupInfo group11 = catalog.DrawGroupInfoList.Single(group => group.Id == 11);
+        AssertEqual(1509, group11.UseDrawIdDict[0], "4.6 group 11 selected draw");
+        AssertEqual("1509", string.Join(',', group11.OptionalDrawIdList), "4.6 group 11 optional draw");
+        AssertEqual(1787115600L, group11.StartTime, "4.6 group 11 start");
+        AssertEqual(1790204400L, group11.EndTime, "4.6 group 11 end");
         MethodInfo activityDrawListBuilder = RequiredMethod(
             RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
             "BuildActivityDrawListPayload",
@@ -472,18 +474,19 @@ internal partial class Program
         AssertEqual(canLiverActivity.Id, freshCanLiver.DrawCanLiverData.ActivityId, "4.6 DrawCanLiver activity comes from the active table row");
         AssertEqual(0, freshCanLiver.DrawCanLiverData.DrawCount, "4.6 fresh DrawCanLiver progress");
 
-        MethodInfo getGroupByDrawId = RequiredMethod(
-            RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager"),
-            "GetGroupByDrawId",
-            BindingFlags.Static | BindingFlags.Public,
-            [typeof(int)]);
+        FieldInfo drawsByIdField = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager")
+            .GetField("DrawsById", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidDataException("DrawManager.DrawsById is missing.");
+        Dictionary<int, DrawInfo> drawsById = (Dictionary<int, DrawInfo>)drawsByIdField.GetValue(null)!;
         MethodInfo getProgressForDrawIds = RequiredMethod(
             RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager"),
             "GetProgressForDrawIds",
             BindingFlags.Static | BindingFlags.Public,
             [typeof(AscNet.Common.Database.Player), typeof(IEnumerable<int>)]);
-        int firstCanLiverGroup = (int)getGroupByDrawId.Invoke(null, [canLiverActivity.DrawIds[0]])!;
-        int secondCanLiverGroup = (int)getGroupByDrawId.Invoke(null, [canLiverActivity.DrawIds[1]])!;
+        // Can-liver progress attribution is historical: the groups are resolved from the
+        // template table because the expired draws are no longer active.
+        int firstCanLiverGroup = drawsById[canLiverActivity.DrawIds[0]].GroupId;
+        int secondCanLiverGroup = drawsById[canLiverActivity.DrawIds[1]].GroupId;
         player.DrawState.PityCountByGroup[firstCanLiverGroup] = 4;
         player.DrawState.PityCountByGroup[secondCanLiverGroup] = 9;
         NotifyDrawCanLiverData progressedCanLiver = (NotifyDrawCanLiverData)canLiverBuilder.Invoke(null, [player, DateTimeOffset.FromUnixTimeSeconds(canLiverSchedule.StartTime)])!;
@@ -502,64 +505,64 @@ internal partial class Program
             return ReadResponsePayload<DrawGetDrawInfoListResponse>(harness, packetId, nameof(DrawGetDrawInfoListResponse), $"4.6 group {groupId} draw info").DrawInfoList.Single();
         }
 
-        DrawInfo draw35 = GetInfo(35, 46_021);
-        DrawInfo draw36 = GetInfo(36, 46_022);
-        foreach (DrawInfo draw in new[] { draw35, draw36 })
-        {
-            AssertEqual(50005, draw.UseItemId, $"4.6 draw {draw.Id} use item");
-            AssertEqual(250, draw.UseItemCount, $"4.6 draw {draw.Id} use item count");
-            AssertEqual(draw.StartTime, group35.StartTime, $"4.6 draw {draw.Id} active start");
-            AssertEqual(draw.EndTime, group35.EndTime, $"4.6 draw {draw.Id} active end");
-        }
-        AssertEqual(60, draw35.MaxBottomTimes, "4.6 draw 1499 pity");
-        AssertEqual(100, draw36.MaxBottomTimes, "4.6 draw 2493 pity");
+        DrawInfo draw11 = GetInfo(11, 46_021);
+        AssertEqual(50005, draw11.UseItemId, "4.6 draw 1509 use item");
+        AssertEqual(250, draw11.UseItemCount, "4.6 draw 1509 use item count");
+        AssertEqual(group11.StartTime, draw11.StartTime, "4.6 draw 1509 active start");
+        AssertEqual(group11.EndTime, draw11.EndTime, "4.6 draw 1509 active end");
+        AssertEqual(60, draw11.MaxBottomTimes, "4.6 draw 1509 pity");
+
+        InvokeRegisteredRequestHandler(nameof(DrawGetDrawInfoListRequest), harness.Session, 46_022, new DrawGetDrawInfoListRequest { GroupId = 15 });
+        if (ReadResponsePayload<DrawGetDrawInfoListResponse>(harness, 46_022, nameof(DrawGetDrawInfoListResponse), "4.6 Fate group draw info").DrawInfoList.Count != 0)
+            throw new InvalidDataException("4.6 Fate group 15 draw info must stay empty without an authoritative pity law.");
 
         MethodInfo drawMethod = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager"), "DrawDraw", BindingFlags.Static | BindingFlags.Public, [typeof(AscNet.Common.Database.Player), typeof(int), typeof(int)]);
-        List<RewardGoods> sampledRewards = Enumerable.Range(0, 16).SelectMany(offset => (List<RewardGoods>)drawMethod.Invoke(null, [player, 1499, offset])!).ToList();
-        if (sampledRewards.Count != 16 || sampledRewards.All(reward => reward.TemplateId == draw35.ResourceIds[1]))
-            throw new InvalidDataException("4.6 draw 1499: expected the restored table-pool reward algorithm, not a deterministic target reward.");
+        List<RewardGoods> sampledRewards = Enumerable.Range(0, 16).SelectMany(offset => (List<RewardGoods>)drawMethod.Invoke(null, [player, 1509, offset])!).ToList();
+        if (sampledRewards.Count != 16 || sampledRewards.All(reward => reward.TemplateId == draw11.ResourceIds[1]))
+            throw new InvalidDataException("4.6 draw 1509: expected the restored table-pool reward algorithm, not a deterministic target reward.");
 
-        AssertEqual(true, AscNet.Common.Database.Character.IsOwnableCharacter(1401003), "4.6 draw 1499 target ownability");
-        player.DrawState.PityCountByGroup[35] = 59;
+        AssertEqual(true, AscNet.Common.Database.Character.IsOwnableCharacter(1071005), "4.6 draw 1509 target ownability");
+        player.DrawState.PityRounds[11].Misses = 59;
         harness.Session.inventory.Items.Add(new Item { Id = 50003, Count = 250 });
         byte[] beforeWrongTicket = player.ToBson();
-        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, 46_029, new DrawDrawCardRequest { DrawId = 1499, Count = 1, UseDrawTicketId = 50003 });
-        DrawDrawCardResponse wrongTicketDraw = ReadResponsePayload<DrawDrawCardResponse>(harness, 46_029, nameof(DrawDrawCardResponse), "4.6 group 35 wrong ticket draw");
-        AssertEqual(1, wrongTicketDraw.Code, "4.6 group 35 wrong ticket rejection");
-        AssertEqual(250L, harness.Session.inventory.Items.Single(item => item.Id == 50003).Count, "4.6 group 35 wrong ticket remains");
-        AssertEqual(Convert.ToHexString(beforeWrongTicket), Convert.ToHexString(player.ToBson()), "4.6 group 35 wrong ticket preserves pity/history");
+        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, 46_029, new DrawDrawCardRequest { DrawId = 1509, Count = 1, UseDrawTicketId = 50003 });
+        DrawDrawCardResponse wrongTicketDraw = ReadResponsePayload<DrawDrawCardResponse>(harness, 46_029, nameof(DrawDrawCardResponse), "4.6 group 11 wrong ticket draw");
+        AssertEqual(1, wrongTicketDraw.Code, "4.6 group 11 wrong ticket rejection");
+        AssertEqual(250L, harness.Session.inventory.Items.Single(item => item.Id == 50003).Count, "4.6 group 11 wrong ticket remains");
+        AssertEqual(Convert.ToHexString(beforeWrongTicket), Convert.ToHexString(player.ToBson()), "4.6 group 11 wrong ticket preserves pity/history");
 
         harness.Session.inventory.Items.Add(new Item { Id = 50005, Count = 250 });
-        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, 46_030, new DrawDrawCardRequest { DrawId = 1499, Count = 1 });
-        DrawDrawCardResponse forcedGroup35Draw = (DrawDrawCardResponse)ReadResponsePayload(harness, 46_030, nameof(DrawDrawCardResponse), "4.6 group 35 forced pity draw", typeof(DrawDrawCardResponse), maxPacketsToRead: 8);
-        AssertEqual(0, forcedGroup35Draw.Code, "4.6 group 35 forced pity draw code");
-        RewardGoods forcedGroup35Reward = forcedGroup35Draw.RewardGoodsList.Single();
-        if (forcedGroup35Reward.TemplateId != 1401003 && forcedGroup35Reward.ConvertFrom != 1401003)
-            throw new InvalidDataException($"4.6 group 35 forced pity target: expected 1401003, got template {forcedGroup35Reward.TemplateId}, conversion {forcedGroup35Reward.ConvertFrom}.");
-        AssertEqual(0L, harness.Session.inventory.Items.Single(item => item.Id == 50005).Count, "4.6 group 35 retail ticket deduction");
-        if (!harness.Session.character.Characters.Any(character => character.Id == 1401003))
-            throw new InvalidDataException("4.6 group 35 forced pity draw did not create character 1401003.");
+        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, 46_030, new DrawDrawCardRequest { DrawId = 1509, Count = 1 });
+        DrawDrawCardResponse forcedGroup11Draw = (DrawDrawCardResponse)ReadResponsePayload(harness, 46_030, nameof(DrawDrawCardResponse), "4.6 group 11 forced pity draw", typeof(DrawDrawCardResponse), maxPacketsToRead: 8);
+        AssertEqual(0, forcedGroup11Draw.Code, "4.6 group 11 forced pity draw code");
+        RewardGoods forcedGroup11Reward = forcedGroup11Draw.RewardGoodsList.Single();
+        if (forcedGroup11Reward.TemplateId != 1071005 && forcedGroup11Reward.ConvertFrom != 1071005)
+            throw new InvalidDataException($"4.6 group 11 forced pity target: expected 1071005, got template {forcedGroup11Reward.TemplateId}, conversion {forcedGroup11Reward.ConvertFrom}.");
+        AssertEqual(0L, harness.Session.inventory.Items.Single(item => item.Id == 50005).Count, "4.6 group 11 retail ticket deduction");
+        if (!harness.Session.character.Characters.Any(character => character.Id == 1071005))
+            throw new InvalidDataException("4.6 group 11 forced pity draw did not create character 1071005.");
 
         // Pity belongs to the group, not to an individual optional banner.
-        player.DrawState.PityCountByGroup[12] = 59;
-        player.DrawState.ProgressByDrawId[1495] = new PlayerDrawProgress { TotalCount = 59, TodayCount = 59 };
-        InvokeRegisteredRequestHandler(nameof(DrawSetUseDrawIdRequest), harness.Session, 46_025, new DrawSetUseDrawIdRequest { DrawId = 1496 });
-        DrawSetUseDrawIdResponse switched = ReadResponsePayload<DrawSetUseDrawIdResponse>(harness, 46_025, nameof(DrawSetUseDrawIdResponse), "4.6 group 12 pity selection");
-        AssertEqual(0, switched.Code, "4.6 group 12 pity selection code");
+        player.DrawState.PityRounds[12].Misses = 59;
+        player.DrawState.PityRounds[12].GuaranteedTarget = true;
         InvokeRegisteredRequestHandler(nameof(DrawGetDrawInfoListRequest), harness.Session, 46_026, new DrawGetDrawInfoListRequest { GroupId = 12 });
         DrawGetDrawInfoListResponse nearPity = ReadResponsePayload<DrawGetDrawInfoListResponse>(harness, 46_026, nameof(DrawGetDrawInfoListResponse), "4.6 group 12 shared pity");
-        if (nearPity.DrawInfoList.Any(info => info.BottomTimes != 1))
+        if (nearPity.DrawInfoList.Count == 0 || nearPity.DrawInfoList.Any(info => info.BottomTimes != 1))
             throw new InvalidDataException("4.6 group 12: every optional draw must expose the shared one-pull pity state.");
+        int group12DrawId = nearPity.DrawInfoList.Min(info => info.Id);
+        InvokeRegisteredRequestHandler(nameof(DrawSetUseDrawIdRequest), harness.Session, 46_025, new DrawSetUseDrawIdRequest { DrawId = group12DrawId });
+        DrawSetUseDrawIdResponse switched = ReadResponsePayload<DrawSetUseDrawIdResponse>(harness, 46_025, nameof(DrawSetUseDrawIdResponse), "4.6 group 12 pity selection");
+        AssertEqual(0, switched.Code, "4.6 group 12 pity selection code");
         AscNet.Common.Database.Player pityReload = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
-        AssertEqual(59, pityReload.DrawState.PityCountByGroup[12], "4.6 group 12 pity BSON roundtrip");
-        AssertEqual(1496, pityReload.DrawState.SelectedDrawByGroup[12].Slots[0], "4.6 group 12 selection BSON roundtrip");
+        AssertEqual(59, pityReload.DrawState.PityRounds[12].Misses, "4.6 group 12 pity BSON roundtrip");
+        AssertEqual(true, pityReload.DrawState.SelectedDrawByGroup[12].Slots.Values.Contains(group12DrawId), "4.6 group 12 selection BSON roundtrip");
 
         harness.Session.inventory.Items.Single(item => item.Id == 50005).Count += 250;
-        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, 46_027, new DrawDrawCardRequest { DrawId = 1496, Count = 1 });
+        InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), harness.Session, 46_027, new DrawDrawCardRequest { DrawId = group12DrawId, Count = 1 });
         DrawDrawCardResponse forcedDraw = (DrawDrawCardResponse)ReadResponsePayload(harness, 46_027, nameof(DrawDrawCardResponse), "4.6 group 12 forced pity draw", typeof(DrawDrawCardResponse), maxPacketsToRead: 8);
         AssertEqual(0, forcedDraw.Code, "4.6 group 12 forced pity draw code");
         RewardGoods forcedReward = forcedDraw.RewardGoodsList.Single();
-        int forcedTarget = nearPity.DrawInfoList.Single(info => info.Id == 1496).ResourceIds[1];
+        int forcedTarget = nearPity.DrawInfoList.Single(info => info.Id == group12DrawId).ResourceIds[1];
         if (forcedReward.TemplateId != forcedTarget && forcedReward.ConvertFrom != forcedTarget)
             throw new InvalidDataException($"4.6 group 12 forced pity target: expected {forcedTarget}, got template {forcedReward.TemplateId}, conversion {forcedReward.ConvertFrom}.");
         InvokeRegisteredRequestHandler(nameof(DrawGetDrawInfoListRequest), harness.Session, 46_028, new DrawGetDrawInfoListRequest { GroupId = 12 });
@@ -567,12 +570,12 @@ internal partial class Program
         if (resetPity.DrawInfoList.Any(info => info.BottomTimes != 60))
             throw new InvalidDataException("4.6 group 12: shared pity must reset every optional draw after the forced pull.");
         pityReload = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
-        AssertEqual(60, pityReload.DrawState.PityCountByGroup[12], "4.6 group 12 reset pity BSON roundtrip");
+        AssertEqual(0, pityReload.DrawState.PityRounds[12].Misses, "4.6 group 12 reset pity BSON roundtrip");
 
-        InvokeRegisteredRequestHandler(nameof(DrawSetUseDrawIdRequest), harness.Session, 46_023, new DrawSetUseDrawIdRequest { DrawId = 1499 });
-        DrawSetUseDrawIdResponse selected = ReadResponsePayload<DrawSetUseDrawIdResponse>(harness, 46_023, nameof(DrawSetUseDrawIdResponse), "4.6 group 35 selection");
-        AssertEqual(0, selected.Code, "4.6 group 35 selection code");
-        AssertEqual(1, selected.SwitchDrawIdCount, "4.6 group 35 selection count");
+        InvokeRegisteredRequestHandler(nameof(DrawSetUseDrawIdRequest), harness.Session, 46_023, new DrawSetUseDrawIdRequest { DrawId = 1509 });
+        DrawSetUseDrawIdResponse selected = ReadResponsePayload<DrawSetUseDrawIdResponse>(harness, 46_023, nameof(DrawSetUseDrawIdResponse), "4.6 group 11 selection");
+        AssertEqual(0, selected.Code, "4.6 group 11 selection code");
+        AssertEqual(1, selected.SwitchDrawIdCount, "4.6 group 11 selection count");
 
         byte[] beforeUnknown = player.ToBson();
         InvokeRegisteredRequestHandler(nameof(DrawSetUseDrawIdRequest), harness.Session, 46_024, new DrawSetUseDrawIdRequest { DrawId = int.MaxValue });
@@ -605,31 +608,31 @@ internal partial class Program
         RewardGoods legacyBoundary = ((List<RewardGoods>)drawPublic.Invoke(null, [player, targets[0].Id, 0])!).Single();
         AssertEqual(3, Rank(legacyBoundary), "MemberTarget legacy 60th pull awards S, never selected A");
 
-        MethodInfo roll = RequiredMethod(manager, "DrawMemberReward", BindingFlags.Static | BindingFlags.NonPublic,
-            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(double), typeof(double), typeof(double), typeof(double)]);
-        MethodInfo getPity = RequiredMethod(manager, "GetMemberTargetPity", BindingFlags.Static | BindingFlags.NonPublic,
-            [typeof(AscNet.Common.Database.Player)]);
+        MethodInfo rollDraw = RequiredMethod(manager, "RollDraw", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(Random)]);
+        MethodInfo getRound = RequiredMethod(manager, "GetPityRound", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(Random)]);
         MethodInfo applyProgress = RequiredMethod(manager, "ApplyDrawProgress", BindingFlags.Static | BindingFlags.Public,
             [typeof(AscNet.Common.Database.Player), typeof(int), typeof(int)]);
         MethodInfo select = RequiredMethod(manager, "SetUseDrawId", BindingFlags.Static | BindingFlags.Public,
             [typeof(AscNet.Common.Database.Player), typeof(int)]);
-        void Progress(int a, int s)
-        {
-            object pity = getPity.Invoke(null, [player])!;
-            pity.GetType().GetProperty("SinceAOrS")!.SetValue(pity, a);
-            pity.GetType().GetProperty("SinceS")!.SetValue(pity, s);
-        }
-        int Since(string name) => (int)getPity.Invoke(null, [player])!.GetType().GetProperty(name)!
-            .GetValue(getPity.Invoke(null, [player]))!;
-        RewardGoods Pull(DrawInfo draw, double category, double rank = 0, double target = 0, double item = 0) =>
-            (RewardGoods)roll.Invoke(null, [player, draw, category, rank, target, item])!;
+        PlayerDrawPityRound Round() => player.DrawState.PityRounds.TryGetValue(1, out var round) ? round
+            : (PlayerDrawPityRound)getRound.Invoke(null, [player, targets[0], new DrawFixedRandom(0)])!;
+        void Progress(int a, int s) => player.DrawState.PityRounds[1] =
+            new PlayerDrawPityRound { LowerMisses = a, Misses = s, Limit = 60, HasObtainedRare = true };
+        int Since(string name) => name == "SinceAOrS" ? Round().LowerMisses : Round().Misses;
+        // Live-path pulls: the shared engine consumes the rare roll first, then the
+        // member reward composition consumes category, rank, target and item rolls.
+        RewardGoods Pull(DrawInfo draw, double rare, double category, double rank = 0, double target = 0, double item = 0) =>
+            (RewardGoods)rollDraw.Invoke(null, [player, draw, new DrawSequenceRandom([rare, category, rank, target, item])])!;
         DrawProbShowTable profile = TableReaderV2.Parse<DrawProbShowTable>().Single(row => row.DrawId == targets[0].Id);
         double[] weights = profile.ProbShow.Where(value => !string.IsNullOrWhiteSpace(value))
             .Skip(1).Select(value => double.Parse(value.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture)).ToArray();
         double sChance = weights[0] / 100;
         double nonS = weights.Skip(1).Sum();
-        double Category(int index) => index == 0 ? sChance / 2
-            : sChance + (1 - sChance) * (weights.Skip(1).Take(index - 1).Sum() + weights[index] / 2) / nonS;
+        // The rare check is a separate engine roll; this maps category index to a
+        // roll inside the conditional (non-S) share.
+        double Category(int index) => (weights.Skip(1).Take(index - 1).Sum() + weights[index] / 2) / nonS;
         foreach (DrawInfo draw in targets)
         {
             DrawPreviewTable preview = TableReaderV2.Parse<DrawPreviewTable>().Single(row => row.Id == draw.Id);
@@ -642,38 +645,38 @@ internal partial class Program
             string targetPercent = TableReaderV2.Parse<DrawAimProbabilityTable>().Single(row => row.Id == draw.Id)
                 .UpProbabilityPercent ?? throw new InvalidDataException($"MemberTarget {draw.Id} has no authoritative target percentage.");
             double targetChance = double.Parse(targetPercent.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture) / 100;
-            Progress(0, 17);
-            RewardGoods fullA = Pull(draw, Category(1), Math.BitDecrement(rankBoundary), Math.BitDecrement(targetChance));
+            Progress(5, 17);
+            RewardGoods fullA = Pull(draw, .999, Category(1), Math.BitDecrement(rankBoundary), Math.BitDecrement(targetChance));
             AssertEqual((int)RewardType.Character, fullA.RewardType, $"MemberTarget {draw.Id} raw full A type");
             AssertEqual(draw.ResourceIds[1], fullA.TemplateId, $"MemberTarget {draw.Id} conditional selected A");
             AssertEqual(0, fullA.ConvertFrom, "raw A is not preconverted");
             AssertEqual(0, Since("SinceAOrS"), "ordinary A resets ten guarantee");
             AssertEqual(18, Since("SinceS"), "ordinary A retains S progress");
             Progress(0, 0);
-            AssertEqual(1, Rank(Pull(draw, Category(1), rankBoundary)), "A/B count-derived rank boundary selects B");
+            AssertEqual(1, Rank(Pull(draw, .999, Category(1), rankBoundary)), "A/B count-derived rank boundary selects B");
             if (targetChance < 1)
             {
                 Progress(0, 0);
-                RewardGoods otherA = Pull(draw, Category(1), 0, targetChance);
+                RewardGoods otherA = Pull(draw, .999, Category(1), 0, targetChance);
                 AssertEqual(2, Rank(otherA), "conditional target miss remains A");
                 AssertEqual(false, otherA.TemplateId == draw.ResourceIds[1], "conditional target miss excludes selected A");
             }
             Progress(9, 20);
-            AssertEqual(2, Rank(Pull(draw, Category(6))), "tenth non-S pull forces A over materials");
+            AssertEqual(2, Rank(Pull(draw, .999, Category(6))), "tenth non-S pull forces A over materials");
             AssertEqual(0, Since("SinceAOrS"), "guaranteed A resets ten");
             AssertEqual(21, Since("SinceS"), "guaranteed A does not reset sixty");
             Progress(9, 20);
-            AssertEqual(3, Rank(Pull(draw, Math.BitDecrement(sChance))), "base S precedes tenth A guarantee");
+            AssertEqual(3, Rank(Pull(draw, Math.BitDecrement(sChance), 0)), "base S precedes tenth A guarantee");
             AssertEqual(0, Since("SinceS"), "early S resets sixty");
             AssertEqual(0, Since("SinceAOrS"), "early S resets ten");
             Progress(9, 59);
-            AssertEqual(3, Rank(Pull(draw, Category(6))), "sixtieth S precedes tenth A guarantee");
+            AssertEqual(3, Rank(Pull(draw, .999, Category(6))), "sixtieth S precedes tenth A guarantee");
             Progress(0, 0);
-            AssertEqual(2, Rank(Pull(draw, sChance)), "exact base S boundary leaves S category");
+            AssertEqual(2, Rank(Pull(draw, sChance, Category(1))), "exact base S boundary leaves S category");
             for (int category = 2; category < weights.Length; category++)
             {
                 Progress(0, 0);
-                RewardGoods material = Pull(draw, Category(category));
+                RewardGoods material = Pull(draw, .999, Category(category));
                 AssertEqual(category == 3 ? (int)RewardType.Equip : (int)RewardType.Item, material.RewardType,
                     $"MemberTarget category {category} reward family");
                 if (category == 2)
@@ -706,14 +709,14 @@ internal partial class Program
         AssertEqual(8, Since("SinceAOrS"), "target switch BSON ten progress");
         AssertEqual(58, Since("SinceS"), "target switch BSON sixty progress");
         int oldTotal = player.DrawState.PityCountByGroup[1];
-        RewardGoods[] batch = Enumerable.Range(0, 3).Select(_ => Pull(targets[1], Category(6))).ToArray();
+        RewardGoods[] batch = Enumerable.Range(0, 3).Select(_ => Pull(targets[1], .999, Category(6))).ToArray();
         AssertEqual("0,3,0", string.Join(',', batch.Select(Rank)), "batch sequential S boundary");
         AssertEqual(1, Since("SinceAOrS"), "post-S batch ten progress");
         AssertEqual(1, Since("SinceS"), "post-S batch sixty progress");
         applyProgress.Invoke(null, [player, targets[1].Id, 3]);
         AssertEqual(oldTotal + 3, player.DrawState.PityCountByGroup[1], "draw total remains cumulative");
         Progress(8, 28);
-        RewardGoods[] aBatch = Enumerable.Range(0, 3).Select(_ => Pull(targets[0], Category(6))).ToArray();
+        RewardGoods[] aBatch = Enumerable.Range(0, 3).Select(_ => Pull(targets[0], .999, Category(6))).ToArray();
         AssertEqual("0,2,0", string.Join(',', aBatch.Select(Rank)), "batch sequential A boundary");
         AssertEqual(1, Since("SinceAOrS"), "post-A batch ten progress");
         AssertEqual(31, Since("SinceS"), "post-A batch preserves sixty progress");
@@ -806,10 +809,10 @@ internal partial class Program
         Type manager = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
         MethodInfo infos = RequiredMethod(manager, "GetDrawInfosByGroup", BindingFlags.Static | BindingFlags.Public,
             [typeof(int), typeof(AscNet.Common.Database.Player)]);
-        MethodInfo roll = RequiredMethod(manager, "DrawMemberReward", BindingFlags.Static | BindingFlags.NonPublic,
-            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(double), typeof(double), typeof(double), typeof(double)]);
-        MethodInfo getPity = RequiredMethod(manager, "GetMemberTargetPity", BindingFlags.Static | BindingFlags.NonPublic,
-            [typeof(AscNet.Common.Database.Player)]);
+        MethodInfo rollDraw = RequiredMethod(manager, "RollDraw", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(Random)]);
+        MethodInfo getRound = RequiredMethod(manager, "GetPityRound", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.Player), typeof(DrawInfo), typeof(Random)]);
         Dictionary<int, int> ranks = TableReaderV2.Parse<AscNet.Table.V2.share.character.quality.CharacterQualityTable>()
             .GroupBy(row => row.CharacterId).ToDictionary(group => group.Key, group => group.Min(row => row.Quality));
         DrawInfo draw = ((List<DrawInfo>)infos.Invoke(null, [1, player])!)
@@ -851,18 +854,13 @@ internal partial class Program
         AssertEqual(0, Choose(first, campaign.ActivityId, 0), "choose-later remains idempotent before guide");
         CompleteGuide(first);
         CompleteGuide(second);
-        void Progress(int a, int s)
-        {
-            object pity = getPity.Invoke(null, [first.Session.player])!;
-            pity.GetType().GetProperty("SinceAOrS")!.SetValue(pity, a);
-            pity.GetType().GetProperty("SinceS")!.SetValue(pity, s);
-        }
-        int Since(string name)
-        {
-            object pity = getPity.Invoke(null, [first.Session.player])!;
-            return (int)pity.GetType().GetProperty(name)!.GetValue(pity)!;
-        }
-        RewardGoods Pull(double category, double rank = 0) => (RewardGoods)roll.Invoke(null, [first.Session.player, draw, category, rank, 0d, 0d])!;
+        PlayerDrawPityRound Round() => first.Session.player.DrawState.PityRounds.TryGetValue(1, out var round) ? round
+            : (PlayerDrawPityRound)getRound.Invoke(null, [first.Session.player, draw, new DrawFixedRandom(0)])!;
+        void Progress(int a, int s) => first.Session.player.DrawState.PityRounds[1] =
+            new PlayerDrawPityRound { LowerMisses = a, Misses = s, Limit = 60, HasObtainedRare = true };
+        int Since(string name) => name == "SinceAOrS" ? Round().LowerMisses : Round().Misses;
+        RewardGoods Pull(double rare, double category, double rank = 0) =>
+            (RewardGoods)rollDraw.Invoke(null, [first.Session.player, draw, new DrawSequenceRandom([rare, category, rank, 0d, 0d])])!;
         Progress(8, 58);
         AssertEqual(0, Choose(first, campaign.ActivityId, target), "select S calibration target");
         AssertEqual(target, Activity(first).TargetId, "group-list renders chosen S");
@@ -894,7 +892,7 @@ internal partial class Program
             "failed persistence leaves stored calibration unchanged");
         AssertEqual(0, Choose(first, campaign.ActivityId, 0), "clear means choose later");
         Progress(0, 0);
-        RewardGoods unselectedS = Pull(0);
+        RewardGoods unselectedS = Pull(0, 0);
         AssertEqual(3, ranks[unselectedS.TemplateId], "unselected natural S still rewards S");
         AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "unselected S does not spend entitlement");
         AssertEqual(0, Choose(first, campaign.ActivityId, target), "reselect after clearing");
@@ -902,18 +900,18 @@ internal partial class Program
             saves.LastSuccessfulReplacementBson ?? throw new InvalidDataException("Calibration selection was not persisted."));
         AssertEqual(target, Activity(first).TargetId, "relog restores usable selection");
         Progress(0, 0);
-        Pull(Math.BitDecrement(1d));
+        Pull(Math.BitDecrement(1d), Math.BitDecrement(1d));
         AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "material pull does not consume calibration");
         double sChance = double.Parse(TableReaderV2.Parse<DrawProbShowTable>().Single(row => row.DrawId == draw.Id)
             .ProbShow.Where(value => !string.IsNullOrWhiteSpace(value)).Skip(1).First().TrimEnd('%'),
             System.Globalization.CultureInfo.InvariantCulture) / 100;
         Progress(0, 0);
-        AssertEqual(2, ranks[Pull(sChance).TemplateId], "calibration does not replace ordinary A");
+        AssertEqual(2, ranks[Pull(sChance, 0).TemplateId], "calibration does not replace ordinary A");
         Progress(0, 0);
-        AssertEqual(1, ranks[Pull(sChance, Math.BitDecrement(1d)).TemplateId], "calibration does not replace ordinary B");
+        AssertEqual(1, ranks[Pull(sChance, 0, Math.BitDecrement(1d)).TemplateId], "calibration does not replace ordinary B");
         AssertEqual(1, Activity(first).AdjustTimes - Activity(first).TargetTimes, "A and B leave calibration unused");
         Progress(8, 58);
-        RewardGoods[] batch = Enumerable.Range(0, 3).Select(_ => Pull(Math.BitDecrement(1d))).ToArray();
+        RewardGoods[] batch = Enumerable.Range(0, 3).Select(_ => Pull(Math.BitDecrement(1d), Math.BitDecrement(1d))).ToArray();
         AssertEqual(target, batch[1].TemplateId, "sequential batch substitutes selected S on sixty guarantee");
         AssertEqual(1, Since("SinceS"), "batch continues pity after calibrated S");
         AssertEqual(0, Activity(first).AdjustTimes - Activity(first).TargetTimes, "calibrated S exhausts banner entitlement");
@@ -923,15 +921,15 @@ internal partial class Program
         first.Session.player = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(first.Session.player.ToBson());
         AssertEqual(0, Activity(first).AdjustTimes - Activity(first).TargetTimes, "BSON relog retains consumed entitlement without reset");
         Progress(0, 0);
-        AssertEqual(unselectedS.TemplateId, Pull(0).TemplateId, "later S returns to ordinary deterministic pool after single consumption");
+        AssertEqual(unselectedS.TemplateId, Pull(0, 0).TemplateId, "later S returns to ordinary deterministic pool after single consumption");
         AssertEqual(1, Activity(second).AdjustTimes - Activity(second).TargetTimes, "first account consumption leaves second unused");
 
         // The second account owns every possible S: fulfillment must precede duplicate conversion.
         AssertEqual(0, Choose(second, campaign.ActivityId, alternative), "second account selects independently");
         foreach (int id in sPool)
             second.Session.character.Characters.Add(new CharacterData { Id = (uint)id });
-        object secondPity = getPity.Invoke(null, [second.Session.player])!;
-        secondPity.GetType().GetProperty("SinceS")!.SetValue(secondPity, 59);
+        second.Session.player.DrawState.PityRounds[1] =
+            new PlayerDrawPityRound { Misses = 59, Limit = 60, HasObtainedRare = true };
         second.Session.inventory.Items.Add(new Item { Id = draw.UseItemId, Count = draw.UseItemCount });
         int drawPacket = packetId++;
         InvokeRegisteredRequestHandler(nameof(DrawDrawCardRequest), second.Session, drawPacket, new DrawDrawCardRequest { DrawId = draw.Id, Count = 1 });
@@ -958,7 +956,7 @@ internal partial class Program
         CompleteGuide(first);
         AssertEqual(0, Choose(first, campaign.ActivityId, naturalTarget), "legacy account selects natural-S target");
         Progress(0, 0);
-        AssertEqual(naturalTarget, Pull(0).TemplateId, "base-probability S fulfills selected target without waiting for pity");
+        AssertEqual(naturalTarget, Pull(0, 0).TemplateId, "base-probability S fulfills selected target without waiting for pity");
         AssertEqual(1, Activity(first).TargetTimes, "natural S consumes calibration once");
     }
 

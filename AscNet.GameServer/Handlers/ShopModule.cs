@@ -8,6 +8,10 @@ using MessagePack;
 using Newtonsoft.Json.Linq;
 using AscNet.Table.V2.share.guild;
 using AscNet.Table.V2.client.theatre5;
+using AscNet.Table.V2.share.theatre6;
+using AscNet.Table.V2.share.task;
+using AscNet.Table.V2.share.reward;
+using AscNet.GameServer.Game;
 using ClientShop = AscNet.Common.MsgPack.GetShopInfoResponse.GetShopInfoResponseClientShop;
 using ClientShopConsume = AscNet.Common.MsgPack.GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods.GetShopInfoResponseClientShopGoodsConsume;
 using ClientShopGoods = AscNet.Common.MsgPack.GetShopInfoResponse.GetShopInfoResponseClientShop.GetShopInfoResponseClientShopGoods;
@@ -100,11 +104,77 @@ namespace AscNet.GameServer.Handlers
             return shop;
         }
 
-        private static ClientShop? ShopCatalog(uint shopId) => shopId == 9998
-            ? GuildProcurementShop.Value : RetailShopSnapshot.Value.GetValueOrDefault(shopId);
+        private static ClientShop? ShopCatalog(uint shopId) => IsTheatre6Shop(shopId)
+            ? Theatre6Shops.Value[shopId].Catalog
+            : shopId == 9998 ? GuildProcurementShop.Value : RetailShopSnapshot.Value.GetValueOrDefault(shopId);
 
         internal static bool IsTheatre5Shop(uint shopId) => shopId > 0
             && TableReaderV2.Parse<Theatre5TaskShopTable>().Any(row => row.Type == 1 && row.ShopId == shopId);
+
+        internal static bool IsTheatre6Shop(uint shopId) => shopId > 0
+            && TableReaderV2.Parse<Theatre6RewardTable>().Any(row => row.ShopId == shopId);
+
+        private static readonly Lazy<Dictionary<uint, (ClientShop Catalog, int TimeId)>> Theatre6Shops = new(BuildTheatre6Shops);
+
+        private static Dictionary<uint, (ClientShop Catalog, int TimeId)> BuildTheatre6Shops()
+        {
+            // AscNet policy, not recovered retail catalogs: pair shop/mission tabs by priority.
+            // Each authored activity-preview bundle is sold once per account, for an equal
+            // share of that mission group's authored currency budget; there are no resets.
+            List<Theatre6RewardTable> rows = TableReaderV2.Parse<Theatre6RewardTable>();
+            var shops = rows.Where(row => row.ShopId is > 0).OrderBy(row => row.Priority).ToArray();
+            var missions = rows.Where(row => row.TaskTimeLimitId is > 0).OrderBy(row => row.Priority).ToArray();
+            Theatre6ActivityTable activity = TableReaderV2.Parse<Theatre6ActivityTable>().Single();
+            if (shops.Length != missions.Length || activity.ShowItems.Count == 0
+                || activity.ShowItems.Count != activity.ShowNum.Count || activity.ShowItems.Count >= 1000)
+                throw new InvalidDataException("Invalid Theatre6 reward-shop policy sources.");
+            var limits = TableReaderV2.Parse<TaskTimeLimitTable>().ToDictionary(row => row.Id);
+            var tasks = TableReaderV2.Parse<TaskTable>().ToDictionary(row => row.Id);
+            HashSet<uint> usedGoodsIds = RetailShopSnapshot.Value.Values
+                .SelectMany(shop => shop.GoodsList).Select(goods => goods.Id).ToHashSet();
+            Dictionary<uint, (ClientShop Catalog, int TimeId)> result = [];
+            for (int index = 0; index < shops.Length; index++)
+            {
+                uint shopId = checked((uint)shops[index].ShopId!.Value);
+                TaskTimeLimitTable limit = limits[missions[index].TaskTimeLimitId!.Value];
+                List<RewardGoodsTable> rewards = limit.TaskId.SelectMany(id =>
+                    RewardHandler.GetRewardGoods(tasks[id].RewardId ?? 0)).ToList();
+                if (rewards.Count == 0 || rewards.Any(reward => reward.Count <= 0))
+                    throw new InvalidDataException($"Missing Theatre6 shop currency rewards for mission group {limit.Id}.");
+                int currency = rewards.Select(reward => reward.TemplateId > 0 ? reward.TemplateId : reward.Id).Distinct().Single();
+                if (!Inventory.IsValidClientItemId(currency))
+                    throw new InvalidDataException($"Invalid Theatre6 reward-shop currency {currency}.");
+                uint price = checked((uint)Math.Max(1, rewards.Sum(reward => (long)reward.Count) / activity.ShowItems.Count));
+                ClientShop catalog = new() { Id = shopId, Name = shops[index].Name };
+                for (int preview = 0; preview < activity.ShowItems.Count; preview++)
+                {
+                    RewardGoodsTable reward = new() { TemplateId = activity.ShowItems[preview], Count = activity.ShowNum[preview] };
+                    RewardType type = RewardHandler.GetRewardType(reward)
+                        ?? throw new InvalidDataException($"Invalid Theatre6 preview reward {reward.TemplateId}.");
+                    // Reserved AscNet SKU namespace, disjoint from imported catalog goods.
+                    uint goodsId = checked(2_000_000_000u + shopId * 1000u + (uint)preview + 1);
+                    if (reward.Count <= 0 || goodsId > int.MaxValue || !usedGoodsIds.Add(goodsId))
+                        throw new InvalidDataException("Invalid Theatre6 policy SKU or preview quantity.");
+                    catalog.GoodsList.Add(new()
+                    {
+                        Id = goodsId, Priority = checked((uint)preview + 1), BuyTimesLimit = 1,
+                        RewardGoods = new() { TemplateId = checked((uint)reward.TemplateId), Count = reward.Count, RewardType = (int)type },
+                        ConsumeList = [new() { Id = currency, Count = price }]
+                    });
+                }
+                result.Add(shopId, (catalog, limit.TimeId ?? 0));
+            }
+            return result;
+        }
+
+        private static ActivityScheduleEntry Theatre6ShopWindow(uint shopId)
+        {
+            int timeId = Theatre6Shops.Value[shopId].TimeId;
+            if (timeId == 0)
+                return new(0, 0, 0, "local-policy:Theatre6:permanent-reward-shop");
+            return ActivityScheduleService.TryGet(timeId, out ActivityScheduleEntry window)
+                ? window : throw new InvalidDataException($"Missing Theatre6 reward-shop schedule {timeId}.");
+        }
 
         private const string ShopBaseInfoSnapshotPath = "Configs/shop_base_infos.json";
         private static readonly Lazy<Dictionary<uint, ClientShop>> RetailShopSnapshot = new(LoadShopSnapshot);
@@ -168,11 +238,12 @@ namespace AscNet.GameServer.Handlers
 
             foreach (uint shopId in request.IdList.Distinct())
             {
+                ActivityScheduleEntry window = IsTheatre6Shop(shopId) ? Theatre6ShopWindow(shopId) : default;
                 response.ShopValidInfos.Add(new ShopValidInfo
                 {
                     Id = shopId,
-                    StartTime = 0,
-                    EndTime = 0,
+                    StartTime = checked((int)window.StartTime),
+                    EndTime = checked((int)window.EndTime),
                     IsUnShelve = ShopInfoCode(session, shopId) != 0
                 });
             }
@@ -184,6 +255,17 @@ namespace AscNet.GameServer.Handlers
         public static void BuyRequestHandler(Session session, Packet.Request packet)
         {
             BuyRequest request = packet.Deserialize<BuyRequest>();
+            if (session.player.Theatre6.PendingMutation is not null
+                && !Theatre6Module.CanDispatchPendingRequest(session, packet))
+            {
+                session.SendResponse(new BuyResponse { Code = 1 }, packet.Id);
+                return;
+            }
+            if (IsTheatre6Shop(request.ShopId))
+            {
+                BuyTheatre6Goods(session, packet);
+                return;
+            }
             if (IsTheatre5Shop(request.ShopId))
             {
                 BuyTheatre5Goods(session, packet);
@@ -261,6 +343,18 @@ namespace AscNet.GameServer.Handlers
 
         private static int ShopInfoCode(Session session, uint shopId)
         {
+            if (IsTheatre6Shop(shopId))
+            {
+                try { Theatre6Module.EnsureAvailable(session); }
+                catch (ServerCodeException exception) { return exception.Code; }
+                if (!Theatre6ShopWindow(shopId).IsOpen(DateTimeOffset.UtcNow))
+                    return 1;
+                ClientShop? shop = ShopCatalog(shopId);
+                if (shop is not { GoodsList.Count: > 0 }
+                    || shop.GoodsList.Any(goods => goods.AutoResetClockId != 0)
+                    || shop.ConditionIds.Any(id => !Theatre6Module.HasCondition(session.player, id)))
+                    return 1;
+            }
             if (IsTheatre5Shop(shopId))
             {
                 try { Theatre5Module.EnsureAvailable(session); }
@@ -292,6 +386,8 @@ namespace AscNet.GameServer.Handlers
             {
                 ClientShop shop = MessagePackSerializer.Deserialize<ClientShop>(
                     MessagePackSerializer.Serialize(snapshot));
+                if (IsTheatre6Shop(shopId))
+                    shop.ClosedTime = checked((int)Theatre6ShopWindow(shopId).EndTime);
                 if (shopId is not (4001 or 9998) && ReconcileShopResetPeriods(player, shop.GoodsList))
                     player.Save();
                 player.ShopBuyTimes ??= new();
@@ -537,6 +633,42 @@ namespace AscNet.GameServer.Handlers
         {
             GuildGoodsTable row = TableReaderV2.Parse<GuildGoodsTable>().Single(row => row.Id == itemId);
             return (row.Type == 1 ? guild.DormThemes : guild.DormBgms).Contains(row.TargetId);
+        }
+
+        private static void BuyTheatre6Goods(Session session, Packet.Request packet)
+        {
+            if (session.player.Theatre6.PendingMutation is null)
+                TaskModule.EnsureMissionResets(session);
+            Theatre6Module.Handle<BuyRequest, BuyResponse>(session, packet, (mutation, request, response) =>
+            {
+                int availability = ShopInfoCode(session, request.ShopId);
+                if (availability != 0)
+                    throw new ServerCodeException("Theatre6 reward shop is closed.", availability);
+                ClientShop? shop = ShopCatalog(request.ShopId);
+                ClientShopGoods? goods = FindShopGoods(request.ShopId, request.GoodsId);
+                if (shop is null || goods is null
+                    || shop.GoodsList.Any(entry => entry.AutoResetClockId != 0)
+                    || shop.ConditionIds.Any(id => !Theatre6Module.HasCondition(mutation.Player, id))
+                    || goods.ConditionIds.Any(id => !Theatre6Module.HasCondition(mutation.Player, id))
+                    || !TryPreparePurchase(session, goods, request.Count, out RewardGoods reward))
+                    throw new ServerCodeException("Theatre6 catalog or purchase is unavailable.", 1);
+                int previous = mutation.GetShopBuyTimes(goods.Id);
+                if (goods.BuyTimesLimit > 0 && (long)previous + request.Count > goods.BuyTimesLimit
+                    || shop.BuyTimesLimit > 0
+                        && shop.GoodsList.Sum(entry => (long)mutation.GetShopBuyTimes(entry.Id)) + request.Count > shop.BuyTimesLimit)
+                    throw new ServerCodeException("Theatre6 purchase limit reached.", 1);
+                foreach (ClientShopConsume consume in goods.ConsumeList)
+                    mutation.Cost(consume.Id, checked((int)((long)consume.Count * request.Count)));
+                mutation.GrantGoods([new AscNet.Table.V2.share.reward.RewardGoodsTable
+                {
+                    TemplateId = reward.TemplateId, Count = reward.Count, Params = [reward.Level]
+                }]);
+                mutation.RecordShopPurchase(goods.Id, request.Count);
+                TaskModule.RecordTableDrivenProgress(session,
+                    goods.ConsumeList.Select(consume => (11202, (int?)consume.Id, checked((int)((long)consume.Count * request.Count))))
+                        .Append((20201, (int?)checked((int)request.ShopId), request.Count)), theatre6: mutation);
+                response.GoodList.Add(reward);
+            }, static (response, code) => response.Code = code);
         }
 
         private static void BuyTheatre5Goods(Session session, Packet.Request packet)

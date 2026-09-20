@@ -5,7 +5,7 @@ namespace AscNet.Common.Database;
 
 public sealed class BossInshotRankEntry
 {
-    public static readonly IMongoCollection<BossInshotRankEntry> collection =
+    public static IMongoCollection<BossInshotRankEntry> collection =
         Common.db.GetCollection<BossInshotRankEntry>("boss_inshot_rank_entries");
 
     [BsonId]

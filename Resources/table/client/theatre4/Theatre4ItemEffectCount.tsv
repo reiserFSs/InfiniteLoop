@@ -1,0 +1,24 @@
+Id	EffectType	Desc	BubbleDesc
+1	1	Obtained: {0}	<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+2	2	Obtained: {0}	\n<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+3	4	Multiplier: {0}	<size=20><color=#9EA0A2>(Multiplier: {0})</color></size>
+4	8	Highest: {0} ★	<size=20><color=#9EA0A2>(Highest: {0} Stars)</color></size>
+5	12	Obtained: {0}	<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+6	13	Obtained: {0}	<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+7	14	Multiplier: x{0}	\n<size=20><color=#9EA0A2>(Multiplier: x{0})</color></size>
+8	16	Total: x{0}	\n<size=20><color=#9EA0A2>(Total: x{0})</color></size>
+9	17	Total: x{0}	<size=20><color=#9EA0A2>(Total: x{0})</color></size>
+10	19	Total: x{0}	<size=20><color=#9EA0A2>(Total: x{0})</color></size>
+11	20	Obtained: {0}	\n<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+12	22	Total: x{0}	<size=20><color=#9EA0A2>(Total: x{0})</color></size>
+13	27	Consumed: {0}	<size=20><color=#9EA0A2>(Consumed: {0})</color></size>
+14	28	Obtained: {0}	\n<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+15	29	Obtained: {0}	\n<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+16	32	Triggered: {0} times	\n<size=20><color=#9EA0A2>(Triggered: {0} times)</color></size>
+17	33	Triggered: {0} times	\n<size=20><color=#9EA0A2>(Triggered: {0} times)</color></size>
+18	34	Total: x{0}	\n<size=20><color=#9EA0A2>(Total: x{0})</color></size>
+19	35	Triggered: {0} times	\n<size=20><color=#9EA0A2>(Triggered: {0} times)</color></size>
+20	36	Obtained: {0}	\n<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+21	37	Total: {0}	<size=20><color=#9EA0A2>(Total: {0})</color></size>
+22	38	Obtained: {0}	<size=20><color=#9EA0A2>(Obtained: {0})</color></size>
+23	37	Total: x{0}	\n<size=20><color=#9EA0A2>(Total: x{0})</color></size>

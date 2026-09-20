@@ -1,0 +1,33 @@
+Id	GroupId	Color	Weight	AddWeightCondition	AddWeight	Desc
+10001	10001	1	100			Standard Color for Testing
+10002	10001	2	100			Standard Color for Testing
+10003	10001	3	100			Standard Color for Testing
+10004	10002	1	100	1020609	150	Map 1 - Red
+10005	10002	2	100	1020610	150	Map 1 - Yellow
+10006	10002	3	100	1020611	150	Map 1 - Blue
+10007	10003	1	100	1020609	150	Map 2 - Red
+10008	10003	2	100	1020610	150	Map 2 - Yellow
+10009	10003	3	100	1020611	150	Map 2 - Blue
+10010	10004	1	100	1020609	100	Map 3 - Red
+10011	10004	2	100	1020610	100	Map 3 - Yellow
+10012	10004	3	100	1020611	100	Map 3 - Blue
+10013	10005	1	100	1020609	100	Map 4 - Red
+10014	10005	2	100	1020610	100	Map 4 - Yellow
+10015	10005	3	100	1020611	100	Map 4 - Blue
+10016	10006	1	100	1020609	50	Map 5 - Red
+10017	10006	2	100	1020610	50	Map 5 - Yellow
+10018	10006	3	100	1020611	50	Map 5 - Blue
+10019	10007	1	100			Map 6 - Red
+10020	10007	2	100			Map 6 - Yellow
+10021	10007	3	100			Map 6 - Blue
+10022	11011	1	100			Beginner Map 1 Red
+10023	11012	2	100			Beginner Map 1 Yellow
+10024	11013	3	100			Beginner Map 1 Blue
+10025	11021	1	100			Beginner Map 2 Red
+10026	11022	2	100			Beginner Map 2 Yellow
+10027	11023	3	100			Beginner Map 2 Blue
+10028	11031	1	100			Beginner Map 3 Red
+10029	11032	2	100			Beginner Map 3 Yellow
+10030	11033	3	100			Beginner Map 3 Blue
+10031	11034	2	100			Golden City 0 Resources - Yellow
+10032	11035	3	100			Path Against the Wind 0 Resources - Blue

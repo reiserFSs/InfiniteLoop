@@ -3,6 +3,88 @@
   "sourceCommit": "c5a53f047bb72b3631d3798b06add7f9713c5589",
   "tables": [
     {
+      "columns": 2,
+      "contentSha256": "8c99cba7838d13501dd15dc0426bc3a678ea1b2ccff4f39b81f56dcab2aa3454",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/statussyncfight/level/World.tsv",
+      "rows": 32,
+      "source": [
+        "/Volumes/Lucia/PGR-native-research/PGR_DATA/en/bytes/share/statussyncfight/level/World.json (sha256:f72f79b5f6183cdb6c7ac43bb52b173164e7f6147a67aacbf90a87125007980a)"
+      ],
+      "transformation": [
+        "imported Id and DefaultLevel for every authored row in source order; other columns omitted"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "e179bd818b50a6b5a6f9d307e19865f5999bb05c25e584058f8bbc38269d441a",
+      "filter": "all",
+      "naturalKey": "StageId",
+      "path": "client/theatre6/Theatre6StageDifficultyAuto.tsv",
+      "rows": 9,
+      "source": [
+        "EN installed resource/matrix/12fa065aea3e4df323686f48ef8866852404b997.uab (sha1:9c28ecbcc797953052a29d08febf7ebc6272e07a; document index identity matches; 9806 bytes)",
+        "TextAsset Theatre6StageDifficultyAuto.tab (sha1:432a10dde25a681a5fca4d44c4be3fd32f3f0e98)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "imported every decoded row and preserved authored array indexes",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "75f0f6908eafcf278e0bc4e524cd05e4f171aadbb0b1fba6dac7935dc4c9b12b",
+      "filter": "all",
+      "naturalKey": "SanGroupId",
+      "path": "client/theatre6/Theatre6StageSanAuto.tsv",
+      "rows": 2,
+      "source": [
+        "EN installed resource/matrix/12fa065aea3e4df323686f48ef8866852404b997.uab (sha1:9c28ecbcc797953052a29d08febf7ebc6272e07a; document index identity matches; 9806 bytes)",
+        "TextAsset Theatre6StageSanAuto.tab (sha1:c84f1817fb9135e92da8467d941bf4d1c9fe9e03)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "imported every decoded row and preserved authored array indexes",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "34e778a68195cc0cd7165fc2f5941ff7e4623dbdf44e89982c399e4935777970",
+      "filter": "all",
+      "naturalKey": "CharacterId",
+      "path": "client/theatre6/Theatre6StoryLineAuto.tsv",
+      "rows": 4,
+      "source": [
+        "EN installed resource/matrix/12fa065aea3e4df323686f48ef8866852404b997.uab (sha1:9c28ecbcc797953052a29d08febf7ebc6272e07a; document index identity matches; 9806 bytes)",
+        "TextAsset Theatre6StoryLineAuto.tab (sha1:b0030561243e3847732a2871ea072b1824a3b2fe)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "imported every decoded row and preserved authored array indexes",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "bf2e41d78ffb00718759594d0c8e158933db466565ae0aded855f9d6af838f75",
+      "filter": "all",
+      "naturalKey": "Tag",
+      "path": "client/theatre6/Theatre6TagToBuff.tsv",
+      "rows": 1,
+      "source": [
+        "EN installed resource/matrix/12fa065aea3e4df323686f48ef8866852404b997.uab (sha1:9c28ecbcc797953052a29d08febf7ebc6272e07a; document index identity matches; 9806 bytes)",
+        "TextAsset Theatre6TagToBuff.tab (sha1:f409e7db7412ed064a08bfa0b87ed7d1f9aae589)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "imported every decoded row and preserved authored array indexes",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
+      ]
+    },
+    {
       "columns": 0,
       "contentSha256": null,
       "filter": "empty-source/no-schema/not-imported",
@@ -4727,36 +4809,57 @@
       ]
     },
     {
-      "columns": 28,
-      "contentSha256": "c7b0ab12ad4b5d620888813fd1c1c973647d40288ab19ae8a3de67ea670b28d2",
+      "columns": 32,
+      "contentSha256": "b1af519018b84b72e934a396e5969c10e05f43498b1b10ed5e0e39b495fd50b7",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6AttrPack.tsv",
       "rows": 90,
       "source": [
-        "share/theatre6/Theatre6AttrPack.json"
+        "share/theatre6/Theatre6AttrPack.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6AttrPack.tab (sha1:9313c29a569584ce0aaca6f4d107c6daee7d3912)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 8,
-      "contentSha256": "c6211340d5467be743dfdc8df1d332d27809ef59202307cfb6aeab704ff2c1cc",
+      "columns": 9,
+      "contentSha256": "2204225a09df242c32e2fd73275822e266bf2377fe3fa0d6c017558d5ae6f61e",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6BuildTag.tsv",
       "rows": 20,
       "source": [
-        "share/theatre6/Theatre6BuildTag.json"
+        "share/theatre6/Theatre6BuildTag.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6BuildTag.tab (sha1:0de1bfc3f4e5f72e7675159e9ec33cfa8e39dfc0)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 27,
-      "contentSha256": "9ce839cfd64adbb0f73074a682de822993bf660fe0793826be2ff34e692ea359",
+      "columns": 29,
+      "contentSha256": "5889df79ab6f170ba28beddc279a37312832dbf11eae197c740c4ce10e203547",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6Character.tsv",
       "rows": 9,
       "source": [
-        "share/theatre6/Theatre6Character.json"
+        "share/theatre6/Theatre6Character.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6Character.tab (sha1:5def644d514cc125338c88e913956b6cd6d6fdc4)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -4793,14 +4896,21 @@
       ]
     },
     {
-      "columns": 37,
-      "contentSha256": "8a582bfb3124ce842c70c6f66cc55e6f29e35412be67e6e0adba9e13b67a1a6c",
+      "columns": 40,
+      "contentSha256": "389500ce7ae00d895db654242d12d09c31b7e5849107dca1bea05dc54a1bcfa8",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6Monster.tsv",
       "rows": 256,
       "source": [
-        "share/theatre6/Theatre6Monster.json"
+        "share/theatre6/Theatre6Monster.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6Monster.tab (sha1:bb11a7c617fb64a2831421a5a5d7889979544d95)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -4826,69 +4936,111 @@
       ]
     },
     {
-      "columns": 33,
-      "contentSha256": "8076e5718e1dfcd27458dc6edad30dddbc1e5c5c1c3804ae505528e4f0844538",
+      "columns": 35,
+      "contentSha256": "7ab6f470969609d9748b680e0d41be567258f7f85022a01c5dd31db204f92230",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6Skill.tsv",
       "rows": 418,
       "source": [
-        "share/theatre6/Theatre6Skill.json"
+        "share/theatre6/Theatre6Skill.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6Skill.tab (sha1:2a1bafafcd13f4a7dc733ae598a1276f1f35cb37)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
       "columns": 3,
-      "contentSha256": "0fc03bf54e97a46fb55266007020821c6bc56e4be11ef894b5c185f9ee57c009",
+      "contentSha256": "b0488f0343b67ee2c751eed0c6ca768b3750f1d241c09cf6aca93bcf708d7209",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6SkillExtend.tsv",
-      "rows": 343,
+      "rows": 418,
       "source": [
-        "share/theatre6/Theatre6SkillExtend.json"
+        "share/theatre6/Theatre6SkillExtend.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6SkillExtend.tab (sha1:ff694935c757dcaeef81feb8ac6c6b22255891c7)",
+        "tools/decode_binary_table.py"
+      ],
+      "transformation": [
+        "preserved all 343 existing rows and cells; appended 75 installed rows with matching parent Skill IDs",
+        "all appended IsShowTags arrays are empty and remain blank indexed cells"
       ]
     },
     {
-      "columns": 25,
-      "contentSha256": "53daed5fc3d000d66b66026f5fcc679acb6362cfe10caf11686e235df8bab9d9",
+      "columns": 29,
+      "contentSha256": "5b5902cd5cfad7784c90fe014354f401f32123194ceb9e774f29b91ad632e6e7",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6Stage.tsv",
       "rows": 31,
       "source": [
-        "share/theatre6/Theatre6Stage.json"
+        "share/theatre6/Theatre6Stage.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6Stage.tab (sha1:23a2995b16761f3baad9c0538666781e6382fdfe)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 22,
-      "contentSha256": "9119c53f3d64817e7366b422ac39955b79a8f432a496bb98880adbcab05b7f27",
+      "columns": 26,
+      "contentSha256": "b23a01c67c1c877dc72a55cca7ac52223f423c337bb55551645ec49753c95737",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageBuff.tsv",
       "rows": 79,
       "source": [
-        "share/theatre6/Theatre6StageBuff.json"
+        "share/theatre6/Theatre6StageBuff.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageBuff.tab (sha1:8f05f3a6a29dedf041d1fc61530af3b8b9864097)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 4,
-      "contentSha256": "3f715e6ee6061e8e21bc32f73fc36709b14429d6a19bb36559b4bdca5b5a29fd",
+      "columns": 6,
+      "contentSha256": "b0dbd7d2f6f99113e7d89a5d37c2b9c8c48d81e5ff3e7fdc758f7b4b30fbd33a",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageBuffPool.tsv",
       "rows": 26,
       "source": [
-        "share/theatre6/Theatre6StageBuffPool.json"
+        "share/theatre6/Theatre6StageBuffPool.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageBuffPool.tab (sha1:507f37296b61d75af99363f09411a7ebf98d5559)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 42,
-      "contentSha256": "f8c1523cd32def0fa7f18f04383564998efda9deb2eaec8214d9013a7439a26b",
+      "columns": 43,
+      "contentSha256": "17120bdf2d2d0ccd4c4e23d72fbee6034a8cfb94365f72a643f6a88c020e6ad6",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageChoose.tsv",
       "rows": 480,
       "source": [
-        "share/theatre6/Theatre6StageChoose.json"
+        "share/theatre6/Theatre6StageChoose.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageChoose.tab (sha1:7082985e18d93af1adb61b3eeeb8220e496998e9)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -4925,14 +5077,21 @@
       ]
     },
     {
-      "columns": 6,
-      "contentSha256": "71a4c03396479c5f0d68a84bec2dda20211cb867e1446b0aba3850248c66bc1c",
+      "columns": 8,
+      "contentSha256": "d792a6347f3b48fd69972633692110303024c0c4392ade18bbfbb0aea46ce6f8",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageDifficultyGroup.tsv",
       "rows": 3,
       "source": [
-        "share/theatre6/Theatre6StageDifficultyGroup.json"
+        "share/theatre6/Theatre6StageDifficultyGroup.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageDifficultyGroup.tab (sha1:91beee36c5a666eeb230c7056858d8a8d9c7365e)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -4947,25 +5106,39 @@
       ]
     },
     {
-      "columns": 17,
-      "contentSha256": "59643e5d58ed9e0ea92941e4d4efaa1cc9ac0239ff395f9ad75f0d72235e45d4",
+      "columns": 20,
+      "contentSha256": "3a204039c9cf75431658f5870a9003029bf662c27fc0749f48e6c590a017b270",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageFight.tsv",
       "rows": 133,
       "source": [
-        "share/theatre6/Theatre6StageFight.json"
+        "share/theatre6/Theatre6StageFight.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageFight.tab (sha1:42bc6d1b3ea7e0beaf0884143c51333449e0e536)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 5,
-      "contentSha256": "0d7711959dc630b6ad5264910999def987609e3ddb16b920d677f9b0a9a3ffb2",
+      "columns": 7,
+      "contentSha256": "3de502f8bc70d639edfbc0589b2c80283fd56c1d50357bcfffab9ee87f046995",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageFightGroup.tsv",
       "rows": 83,
       "source": [
-        "share/theatre6/Theatre6StageFightGroup.json"
+        "share/theatre6/Theatre6StageFightGroup.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageFightGroup.tab (sha1:b592644a27b737cae023f22369d7d34539c32daa)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -4980,14 +5153,21 @@
       ]
     },
     {
-      "columns": 5,
-      "contentSha256": "3dcc3bcf3dd61d0623a665d9a402de5931c4c2b5bd77c9991eb68eefd10fd412",
+      "columns": 6,
+      "contentSha256": "756991bf7feab5aabf538f833fd41ad13ad59d0a8e4ed32e9175f0450af33e67",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageGoods.tsv",
       "rows": 4,
       "source": [
-        "share/theatre6/Theatre6StageGoods.json"
+        "share/theatre6/Theatre6StageGoods.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageGoods.tab (sha1:4f7fb8e8687fe7b920ba3c6fcc1ecfff5bf1665b)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -5002,36 +5182,57 @@
       ]
     },
     {
-      "columns": 15,
-      "contentSha256": "0aaed7203d4d0f6998a807973e6fc85122d26e78ecb064255de5b5559660f494",
+      "columns": 17,
+      "contentSha256": "482342f5b4bc83d1b5620f0acec8ac0ddf269eaf4ab700d430e587f232c45265",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageSan.tsv",
       "rows": 10,
       "source": [
-        "share/theatre6/Theatre6StageSan.json"
+        "share/theatre6/Theatre6StageSan.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageSan.tab (sha1:23f49111b065bd9d22d7612176dee6aecc2d0fd2)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 13,
-      "contentSha256": "4b2529dff8acb42ed9348672c5c3fc406230a8b7fa209c5d11afaea0b1f9be80",
+      "columns": 14,
+      "contentSha256": "718a463bc53775e8ef415807efb95f5818f043e3fad2b9013999438a6c16e647",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageShop.tsv",
       "rows": 32,
       "source": [
-        "share/theatre6/Theatre6StageShop.json"
+        "share/theatre6/Theatre6StageShop.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageShop.tab (sha1:8d80cc3ab3445f8111cebb3aff537cc829b8451d)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 12,
-      "contentSha256": "dd3032c5abaadde8859ee3a1c3ce60c29c9854a5f61395a3b6dac5a687e3807b",
+      "columns": 15,
+      "contentSha256": "6d0da620684c3d03396900aae3b999df4ae5b7912240b6249e79ce8b45b9fdba",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageTask.tsv",
       "rows": 135,
       "source": [
-        "share/theatre6/Theatre6StageTask.json"
+        "share/theatre6/Theatre6StageTask.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageTask.tab (sha1:7b9929df9ff15ea61a2e43ac790117eb4bdbfcb7)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -5046,36 +5247,57 @@
       ]
     },
     {
-      "columns": 2,
-      "contentSha256": "f396dfd1a7c5506d11d227ab2f3a91d73b69f497b53dcb16043f48876899ffad",
+      "columns": 4,
+      "contentSha256": "129ddf293e67842c1ab177e10f514a0ea66b01fcbf2d36cb81cb2f5d694d7026",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StageTaskQuality.tsv",
       "rows": 5,
       "source": [
-        "share/theatre6/Theatre6StageTaskQuality.json"
+        "share/theatre6/Theatre6StageTaskQuality.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StageTaskQuality.tab (sha1:5e7978744ad24b9e7bb32e41846cde427453be19)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 2,
-      "contentSha256": "4d292f5c71e8b60ebc3417ad99a7552fcb41fbf6a02106b190db8a40ae8ab0db",
+      "columns": 3,
+      "contentSha256": "0206553a8dd711d743a80289b8d6d9fd4e99eeb77e320b90a52dcd5bf43b74d1",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StoryDetail.tsv",
       "rows": 35,
       "source": [
-        "share/theatre6/Theatre6StoryDetail.json"
+        "share/theatre6/Theatre6StoryDetail.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StoryDetail.tab (sha1:98d1986c3c63308513ccf6b76927aaa2b1efd1c9)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
-      "columns": 15,
-      "contentSha256": "6a7889c39936ee40fb9c60a95677bb5da3b34b79d018a11bcb47b6a4707eef99",
+      "columns": 17,
+      "contentSha256": "84b0e1c581da3a1d0e84e9abe07ec807525ce16f4bfe5112e28bfd74f010f014",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/theatre6/Theatre6StoryLine.tsv",
       "rows": 4,
       "source": [
-        "share/theatre6/Theatre6StoryLine.json"
+        "share/theatre6/Theatre6StoryLine.json",
+        "EN installed resource/matrix/4463a79aeabbd3b4d902d2aafb0b9d95dfa73779.uab (sha1:e05683c985969ba7fee59e64f88a3ea3b71b85ab; document index identity matches; 104188 bytes)",
+        "TextAsset Theatre6StoryLine.tab (sha1:59ff4f6edf8a30b956debd5c5298ca316d8ccf03)",
+        "tools/decode_binary_table.py with type4 string-list decoding (count followed by pooled string indices or null-terminated strings)"
+      ],
+      "transformation": [
+        "preserved every existing row and cell; appended missing installed schema columns only",
+        "empty arrays remain blank indexed cells; scalar numeric and boolean defaults are 0"
       ]
     },
     {
@@ -5263,11 +5485,11 @@
     },
     {
       "columns": 4,
-      "contentSha256": "6de39d587304696599104c98aaeadb56a3691f78eda21d1d4136bd0ec1e33af0",
-      "filter": "official-notice-feature-window-version-history-regional-client-entry-and-permanent-practice-derived; includes permanent BiancaTheatre TimeId28 (unbounded availability, not invented release timestamps) | Arcade Anima permanent towers: TimeIds 13101/13102/15101/17101/20401/34301 as unbounded (0,0) local-policy rows derived from CharacterTower.OpenTimeId; chapter TimeIds 20402/34301 deliberately not authored (promotional windows).",
+      "contentSha256": "df2960b7e4085d46a2dc8065cd6381b8c0e137c1ef21b9b0334244ed540029fe",
+      "filter": "official-notice-feature-window-version-history-regional-client-entry-and-permanent-practice-derived; includes permanent BiancaTheatre TimeId28 (unbounded availability, not invented release timestamps) | Arcade Anima permanent towers: TimeIds 13101/13102/15101/17101/20401/34301 as unbounded (0,0) local-policy rows derived from CharacterTower.OpenTimeId; chapter TimeIds 20402/34301 deliberately not authored (promotional windows). | Theatre6 timed missions: AscNet policy derives a missing server calendar from the single distinct authored reward-token lifetime via Theatre6Reward -> TaskTimeLimit -> Task -> Reward -> RewardGoods -> Item; TimeId47121 follows Item97087 (1780376400,1784178000), not a recovered retail shop window; existing PvP/rank windows 48601/48602 retain priority.",
       "naturalKey": "Id",
       "path": "share/activity/ActivitySchedule.tsv",
-      "rows": 42,
+      "rows": 43,
       "source": [
         "share/activity/EventCatalog.tsv",
         "Resources/Configs/Notices/4.7.0/{GameNotice,LoginNotice}.json",
@@ -5276,7 +5498,13 @@
         "regional-current-minor:{en,cn}/bytes/client/fuben/{FubenClientConfig,FubenActivityTimeTips}.json",
         "regional-current-minor:{en,cn}/bytes/share/fuben/FubenActivity.json",
         "share/theatre6pvp/Theatre6PvpActivity.json",
+        "share/theatre6pvp/Theatre6PvpRank.json",
         "client/theatre6/Theatre6ClientConfig.json",
+        "share/theatre6/Theatre6Reward.json",
+        "share/task/TaskTimeLimit.json",
+        "share/task/Task.json",
+        "share/reward/Reward.json",
+        "share/reward/RewardGoods.json",
         "share/item/Item.json",
         "share/miniactivity/musicgame/concertpreheating/ConcertPreHeatingActivity.json",
         "share/signin/SignIn.json",
@@ -6164,14 +6392,16 @@
       "naturalKey": "Id",
       "source": [
         "/Volumes/Lucia/PGR-native-research/PGR_DATA/en/bytes/share/scoretitle/ScoreTitle.json (sha256:0b439b126f3f2b009101ee51c7106a455c50d033c4a9e10ed51ce4b224cd7b4a)",
-        "EN BiancaTheatreLevelReward.RewardId + BiancaTheatreActivity.RewardIds + BiancaTheatreAchievement.TaskIds + BiancaTheatreTask.TaskId -> Task.RewardId -> Reward.SubIds -> RewardGoods.TemplateId -> ScoreTitle.Id"
+        "EN BiancaTheatreLevelReward.RewardId + BiancaTheatreActivity.RewardIds + BiancaTheatreAchievement.TaskIds + BiancaTheatreTask.TaskId -> Task.RewardId -> Reward.SubIds -> RewardGoods.TemplateId -> ScoreTitle.Id",
+        "EN Theatre6PvpRank Id=3/4/5 RewardId=69188/69189/69190 -> Reward.SubIds -> RewardGoods.TemplateId=13019727/13019728/13019729 -> ScoreTitle.Id"
       ],
       "columns": 8,
-      "rows": 9,
-      "contentSha256": "074371d6b3a7ee132028bab6cbfca97c33d1e1dbe1dd9d6cea40219310f2dfa2",
-      "filter": "existing rows preserved; preserve existing rows; add missing Cursed Waves level/activity-achievement/task reward title closure; runtime-consumed original columns only; absent quality conditions remain empty | Arcade Anima collectible closure: RewardGoods.TemplateId 13019202/13019204/13019404/13019606/13019614/13019669 -> ScoreTitle (InitQuality 5, no quality conditions), authorized by Main",
+      "rows": 13,
+      "contentSha256": "d2449483f3aa905dc79c76c39e119be691014cc3a0eabb18645300742a58ac24",
+      "filter": "existing rows preserved; preserve existing rows; add missing Cursed Waves level/activity-achievement/task reward title closure; runtime-consumed original columns only; absent quality conditions remain empty | Arcade Anima collectible closure: RewardGoods.TemplateId 13019202/13019204/13019404/13019606/13019614/13019669 -> ScoreTitle (InitQuality 5, no quality conditions), authorized by Main | Theatre6PvP rank reward closure: add ScoreTitle 13019727/13019728/13019729 with authored InitQuality 5 and no quality conditions/qualities; preserve all 10 preexisting rows",
       "transformation": [
-        "Existing rows and schema preserved; new rows carry Id + InitQuality only; absent quality conditions/qualities remain empty."
+        "Existing rows and schema preserved; new rows carry Id + InitQuality only; absent quality conditions/qualities remain empty.",
+        "Theatre6PvP title grants consume no Condition rows: each added title has zero quality-condition/quality pairs; GrantScoreTitle uses the authored InitQuality directly."
       ]
     },
     {
@@ -7496,6 +7726,633 @@
       "source": [
         "share/fashion/FashionSuit.json"
       ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "d849c686b054f160b6c95665974589a6972a6cec8b2e5d82862200cad3e53ec9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/theatre4/Theatre4Asset.tsv",
+      "rows": 20,
+      "source": [
+        "client/theatre4/Theatre4Asset.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "023c7a82ab5f878b14cc1a7fc5e4012debb696a585b82ccf43c402959d27bb0d",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/theatre4/Theatre4BlockIcon.tsv",
+      "rows": 18,
+      "source": [
+        "client/theatre4/Theatre4BlockIcon.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "818e5b8989ed09d5e33fb9a18e54ace1b44b5170d9e68af934b868a88871ccbd",
+      "filter": "all",
+      "naturalKey": "Key",
+      "path": "client/theatre4/Theatre4ClientConfig.tsv",
+      "rows": 80,
+      "source": [
+        "client/theatre4/Theatre4ClientConfig.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "6d9a7ebb0059c79849aa77e9a56a219bec87068fe56cdf85f537c2092edfb8ee",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/theatre4/Theatre4ItemEffectCount.tsv",
+      "rows": 23,
+      "source": [
+        "client/theatre4/Theatre4ItemEffectCount.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "df3b47e8f8641cc6a15f61f6b7bf0f7d53445a781487476cf4a1a1edb17bcb34",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/theatre4/Theatre4MapClient.tsv",
+      "rows": 50,
+      "source": [
+        "client/theatre4/Theatre4MapClient.json"
+      ]
+    },
+    {
+      "columns": 2,
+      "contentSha256": "1bd63a09b1eb874bbad559c7fd77186fbf74b1bd3cbcba50a20a6eab4867a52b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/theatre4/Theatre4MapIndex.tsv",
+      "rows": 20,
+      "source": [
+        "client/theatre4/Theatre4MapIndex.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "6956ea287577d246a57c6b34d77512be1911879c6117358dbe1ee31651cbd4c1",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "client/theatre4/Theatre4ScientificSpEffect.tsv",
+      "rows": 16,
+      "source": [
+        "client/theatre4/Theatre4ScientificSpEffect.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "8feea2cbdff23426889d93897bcaabdef15b56fc42db8fe485dfa8d518b126c9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ActionFactor.tsv",
+      "rows": 240,
+      "source": [
+        "share/theatre4/Theatre4ActionFactor.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "96135f881da169ac9a562c1f5419b1d4eff94163e47872c8669f8927ec255e4f",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Activity.tsv",
+      "rows": 1,
+      "source": [
+        "share/theatre4/Theatre4Activity.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "7fdfbe212a585485683888354c25bea2353665ab88d156ba6b36e8e9aa2aec55",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Affix.tsv",
+      "rows": 7,
+      "source": [
+        "share/theatre4/Theatre4Affix.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "c60867c45bb9a8b83bb7adef6dc7e51e2d4243807907b87b9221d8f8731ab935",
+      "filter": "all",
+      "naturalKey": "Level",
+      "path": "share/theatre4/Theatre4BattlePass.tsv",
+      "rows": 150,
+      "source": [
+        "share/theatre4/Theatre4BattlePass.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "28226b0a08f10f41d00d683326d89a0e73ded1644137e2e8f205d3db5b7bf6c7",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4BoxGroup.tsv",
+      "rows": 64,
+      "source": [
+        "share/theatre4/Theatre4BoxGroup.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "849e3deb483bbd8cb6e0725a6f713a039e375d121f5fa27de02588477aae7182",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Building.tsv",
+      "rows": 5,
+      "source": [
+        "share/theatre4/Theatre4Building.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "202977150fbb00350757f237a009ee19117790add1e5854f62ed1db972066994",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Character.tsv",
+      "rows": 69,
+      "source": [
+        "share/theatre4/Theatre4Character.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "ae43533e1be4233778bad77e6eb28db6a8f5ba2c16c1eed455bec592295ba678",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4CharacterGroup.tsv",
+      "rows": 363,
+      "source": [
+        "share/theatre4/Theatre4CharacterGroup.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "728428be8c6de52da0ddd7ee645a99b73e15031612cdabb2ab55f44876e478dc",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4CharacterStar.tsv",
+      "rows": 6969,
+      "source": [
+        "share/theatre4/Theatre4CharacterStar.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "71a2e3f27ec31f137e8d2a32ad697d983686ac61bfc55a8136b62bbb0e1d637b",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ColorResource.tsv",
+      "rows": 35,
+      "source": [
+        "share/theatre4/Theatre4ColorResource.json"
+      ]
+    },
+    {
+      "columns": 21,
+      "contentSha256": "8f603f28ae2aed80105fa831fb1f7f6fa81d43dfe37f67dc1f4b6ceacc99b74c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ColorTalent.tsv",
+      "rows": 139,
+      "source": [
+        "share/theatre4/Theatre4ColorTalent.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "9f30827c4e3f206c913e506ab88ba9403b245203e70b6da9a224cc775f27847c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ColorTalentPool.tsv",
+      "rows": 541,
+      "source": [
+        "share/theatre4/Theatre4ColorTalentPool.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "2c8ec0109799fb3b628f61fae0f974866d89905149582b6a255af0a2d8218fba",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ColorTalentRelation.tsv",
+      "rows": 119,
+      "source": [
+        "share/theatre4/Theatre4ColorTalentRelation.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "995977ccf7f2b6b012dfca738973b43d52b703ab15a3c4053a3f28ba0d187de6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ColorTalentSlot.tsv",
+      "rows": 77,
+      "source": [
+        "share/theatre4/Theatre4ColorTalentSlot.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "d84c12f284c3f271c50737e774210637643674f30437b6c6090976fddec6d3cc",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ColorTalentTree.tsv",
+      "rows": 3,
+      "source": [
+        "share/theatre4/Theatre4ColorTalentTree.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "ad4f4f2371464a5cc4d20bac72088601aa59965a4075de843ea454f31027c267",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ColorWeight.tsv",
+      "rows": 32,
+      "source": [
+        "share/theatre4/Theatre4ColorWeight.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "8756146538771407b821fc5d2d8af27cb93aa0f43779f4544a95f0481557ae12",
+      "filter": "all",
+      "naturalKey": "Key",
+      "path": "share/theatre4/Theatre4Config.tsv",
+      "rows": 15,
+      "source": [
+        "share/theatre4/Theatre4Config.json"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "e323dec5cd40bd7f0b5ae657d7700beac8024c718819b0147704e2ede4b58392",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4DifficultDistance.tsv",
+      "rows": 0,
+      "source": [
+        "share/theatre4/Theatre4DifficultDistance.json"
+      ]
+    },
+    {
+      "columns": 38,
+      "contentSha256": "7dfde0ffbdbd04df5f2365bf7f472dad88a22ee19c27b50a4b54f29515530659",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Difficulty.tsv",
+      "rows": 7,
+      "source": [
+        "share/theatre4/Theatre4Difficulty.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "195cfd0a0d3694c71839376ed5d39e08c54dcbfdf57f78b0a134b4711a4ec278",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4DifficultyStar.tsv",
+      "rows": 15,
+      "source": [
+        "share/theatre4/Theatre4DifficultyStar.json"
+      ]
+    },
+    {
+      "columns": 22,
+      "contentSha256": "19483ea16ffaff629cb41a5f0199a09630b05a22b9d283ca7fd62ec8f45d1db8",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Effect.tsv",
+      "rows": 282,
+      "source": [
+        "share/theatre4/Theatre4Effect.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "8e40b3b686b250a9c1e6adfa8e6e5d1b11508e9569f204b711ed8eea1853e0e6",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4EffectGroup.tsv",
+      "rows": 250,
+      "source": [
+        "share/theatre4/Theatre4EffectGroup.json"
+      ]
+    },
+    {
+      "columns": 18,
+      "contentSha256": "f89ca31442118d2247af97f936943b10aa6dde1bef4b53365dc1fab9ef00bb06",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Ending.tsv",
+      "rows": 13,
+      "source": [
+        "share/theatre4/Theatre4Ending.json"
+      ]
+    },
+    {
+      "columns": 25,
+      "contentSha256": "40fc1379d29fd2f69c07d51fc10374622ab8de3d1614c40a6f0f8c45a80664f9",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Event.tsv",
+      "rows": 734,
+      "source": [
+        "share/theatre4/Theatre4Event.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "2bc8738bee2d471631ffaa7e2b9fab666911e65050a530e0e09ec355d1a0604d",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4EventGroup.tsv",
+      "rows": 271,
+      "source": [
+        "share/theatre4/Theatre4EventGroup.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "f4e9509b96ad73417607d481ddecb840c676b1c9556fc6c142f0fdb96f61f5fe",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4EventOption.tsv",
+      "rows": 298,
+      "source": [
+        "share/theatre4/Theatre4EventOption.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "fed0de4074125379e9c789d8105b3b312ada31de4895969f6f35742c31089d75",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Fate.tsv",
+      "rows": 8,
+      "source": [
+        "share/theatre4/Theatre4Fate.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "cc2f827d6acce311bdee7a07bea97838f7ea6cc249c1a76c2318c448cd6f0dce",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4FateEvent.tsv",
+      "rows": 11,
+      "source": [
+        "share/theatre4/Theatre4FateEvent.json"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "6ae8da8f3442de4b521dc0babe062330f2ead96210b5c049ba930de9f44de88a",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Fight.tsv",
+      "rows": 216,
+      "source": [
+        "share/theatre4/Theatre4Fight.json"
+      ]
+    },
+    {
+      "columns": 43,
+      "contentSha256": "b6b74db509083be6e0f9f2c4bc4fbcfde7d008693b2dc7f70ffec121a53f31ec",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4FightGroup.tsv",
+      "rows": 307,
+      "source": [
+        "share/theatre4/Theatre4FightGroup.json"
+      ]
+    },
+    {
+      "columns": 18,
+      "contentSha256": "9f52ef73b96770f6a065c5b14c4129ccb935563266015dca34bcf972c5d67880",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4FightMold.tsv",
+      "rows": 170,
+      "source": [
+        "share/theatre4/Theatre4FightMold.json"
+      ]
+    },
+    {
+      "columns": 14,
+      "contentSha256": "f3c60ff25f89f4dbc9159fd566a7dfe34d2cb5b8b36c5e193df3f6c349f21f2d",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Item.tsv",
+      "rows": 46,
+      "source": [
+        "share/theatre4/Theatre4Item.json"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "f3d2193f81cbc6bf3c61fb5e7c5a04d0766451268b547d0e23c1c5874e33f8fe",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ItemBox.tsv",
+      "rows": 2,
+      "source": [
+        "share/theatre4/Theatre4ItemBox.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "edf8f03cac892d5721ac20af4723c4ac454211a34b96b21a0afbe70d154b9011",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ItemGroup.tsv",
+      "rows": 46,
+      "source": [
+        "share/theatre4/Theatre4ItemGroup.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "cc46def9714b2c373cb8eaf1114c552d2db450c5b664e8b4d5d8dd8c5dc367a2",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Monster.tsv",
+      "rows": 194,
+      "source": [
+        "share/theatre4/Theatre4Monster.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "dbbe3bd40c2664dac3eafd15f7f394bede5ca7d5cb663c9b1d6905f253ef742c",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4MonsterGroup.tsv",
+      "rows": 151,
+      "source": [
+        "share/theatre4/Theatre4MonsterGroup.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "89c9e97866f2e36f7fd5c4c4aba16c5feae25d7deed7bf5f3e152b90260412fa",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Reboot.tsv",
+      "rows": 2,
+      "source": [
+        "share/theatre4/Theatre4Reboot.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "8ab207a3e41fffba0d33c3dbada78aca190d0d26ed12cd60dfe752a28ba81a33",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4RecruitTicket.tsv",
+      "rows": 10,
+      "source": [
+        "share/theatre4/Theatre4RecruitTicket.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "f5b683d54b1411cce4e5e325d7db6620eb07a2369d2e5f254b0ec3cac0076db4",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Reward.tsv",
+      "rows": 194,
+      "source": [
+        "share/theatre4/Theatre4Reward.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "31e2583adc96e32c82da8345ae906bbfe99ef658ff1a51c0fb499007721a3318",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4RewardDrop.tsv",
+      "rows": 40,
+      "source": [
+        "share/theatre4/Theatre4RewardDrop.json"
+      ]
+    },
+    {
+      "columns": 19,
+      "contentSha256": "2388c5e3350faa05c11a98e48cdc794ef877226140398949df5956178ba96c33",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Shop.tsv",
+      "rows": 34,
+      "source": [
+        "share/theatre4/Theatre4Shop.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "87b28c9b74b0eefa653c6852280cac0a9986ba39e28a9f8010351ec077fb0578",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ShopGoods.tsv",
+      "rows": 119,
+      "source": [
+        "share/theatre4/Theatre4ShopGoods.json"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "b6c3d7fc1fa689ea53f6b3820891e4fab25e251ac9db0e5426c66855df322402",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4ShopGroup.tsv",
+      "rows": 38,
+      "source": [
+        "share/theatre4/Theatre4ShopGroup.json"
+      ]
+    },
+    {
+      "columns": 11,
+      "contentSha256": "8debe37078ee0df930309f5d546ed53b11e01a187a9e36fb8258f352e0d9e71a",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Task.tsv",
+      "rows": 3,
+      "source": [
+        "share/theatre4/Theatre4Task.json"
+      ]
+    },
+    {
+      "columns": 10,
+      "contentSha256": "0785638106e58c8eac12178c87aac401d814251882806b0c4d526df0f0d5d23a",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Tech.tsv",
+      "rows": 20,
+      "source": [
+        "share/theatre4/Theatre4Tech.json"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "2530e522e610816336b75b8d7e420ba8f6deca43c0e757eda6cf249ab9a9bcb3",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/Theatre4Traceback.tsv",
+      "rows": 7,
+      "source": [
+        "share/theatre4/Theatre4Traceback.json"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "27a5cc27b5b3456784e7cb1676dd6bf64d72fa137b455d127850073685829961",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/theatre4map/Theatre4Map.tsv",
+      "rows": 50,
+      "source": [
+        "share/theatre4/theatre4map/Theatre4Map.json"
+      ]
+    },
+    {
+      "columns": 13,
+      "contentSha256": "51ed20eb6d9c43939ea8d82308d9407bea382dbda59b332d65d1e06a47253ffa",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/theatre4map/Theatre4MapBlueprint.tsv",
+      "rows": 5,
+      "source": [
+        "share/theatre4/theatre4map/Theatre4MapBlueprint.json"
+      ]
+    },
+    {
+      "columns": 8,
+      "contentSha256": "8920a5db77bf7296c12c9a968f0115a1442c5e0227e629ec09ea52be7d473480",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/theatre4map/Theatre4MapGroup.tsv",
+      "rows": 53,
+      "source": [
+        "share/theatre4/theatre4map/Theatre4MapGroup.json"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "10d8fb8406c8f8a6f675f3e8243a875e2a3a4eed305fad17204687096ffb6446",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/theatre4/theatre4map/Theatre4MapHiddenGrid.tsv",
+      "rows": 10,
+      "source": [
+        "share/theatre4/theatre4map/Theatre4MapHiddenGrid.json"
+      ]
     }
   ],
   "validationNotes": [
@@ -8063,5 +8920,84 @@
       "13019614",
       "13019669"
     ]
+  },
+  "theatre4Import": {
+    "sourceRoot": "PGR_DATA/en/bytes",
+    "schemaRoot": "PGR_DATA/en/lua/matrix/xcommon/XTable.lua (XTableTheatre4*)",
+    "capturesUsed": false,
+    "tables": 57,
+    "rows": 12662,
+    "columnConvention": "XTable-declared fields in XTable order; XTable Type1 arrays expanded to the observed row width, padded to >=2 columns so TableGeneratorV2 emits List<T> (same convention that reproduces Resources/table/share/theatre5/*.tsv byte-for-byte); JSON booleans rendered true/false; XTable fields with no shipped values omitted because an all-empty generated column infers no type.",
+    "naturalKeyOverrides": {
+      "share/theatre4/Theatre4Config.tsv": "Key",
+      "client/theatre4/Theatre4ClientConfig.tsv": "Key",
+      "share/theatre4/Theatre4BattlePass.tsv": "Level"
+    },
+    "jsonOnlyFields": {
+      "share/theatre4/Theatre4Reboot.tsv": [
+        "MagicIds (List<int>, authoritative bytes value; absent from XTable.lua, appended last pending consumer evidence)"
+      ]
+    },
+    "authorityGaps": [
+      {
+        "source": "XTable.lua declares XTableTheatre4Block, XTableTheatre4BlockGrid, XTableTheatre4BlockGroup, XTableTheatre4BlockRelation, XTableTheatre4MapGrid",
+        "reason": "No data file for Theatre4Block, Theatre4BlockGrid, Theatre4BlockGroup, Theatre4BlockRelation or Theatre4MapGrid exists in PGR_Data/en/bytes or PGR_Data/cn/bytes (both language extractions have identical file sets), and no Lua file outside xcommon/XTable.lua references them: XTheatre4ConfigModel loads only the Theatre4TableKey and Theatre4MapTableKey registries, neither of which contains them. Same XTable-without-data pattern as Theatre3BaseGroup, Theatre6AttrPackPool and Theatre6SkillPool. No rows were fabricated; installed-bundle row presence was not independently verified and is not asserted here.",
+        "references": [
+          "share/theatre4/theatre4map/Theatre4Map.json:1.BaseBlockGroupId",
+          "share/theatre4/theatre4map/Theatre4MapGroup.json:1.SpEffectGroup",
+          "en/lua/matrix/xmodule/xtheatre4/XTheatre4ConfigModel.lua:11-72",
+          "en/lua/matrix/xmodule/xtheatre4/XTheatre4Agency.lua (server-pushed grid data path)"
+        ]
+      },
+      {
+        "source": "share/theatre4/Theatre4DifficultDistance.json",
+        "reason": "Empty source ([]) in both EN and CN; header-only TSV ships with 0 rows, so no properties are generated.",
+        "references": [
+          "share/theatre4/Theatre4Difficulty.json:DistanceGroup"
+        ]
+      },
+      {
+        "source": "XTable array fields with no shipped values",
+        "reason": "Declared Type1 but absent from bytes, so no column/property can be generated.",
+        "fields": [
+          "Theatre4Affix.TeamLogo",
+          "Theatre4Affix.TeamLogoCondition",
+          "Theatre4ColorTalent.Param",
+          "Theatre4ColorTalentPool.AddWeightCondition",
+          "Theatre4ColorTalentPool.AddWeight",
+          "Theatre4ColorTalentTree.Param",
+          "Theatre4Difficulty.StarGroupIds",
+          "Theatre4Ending.StoryCondition",
+          "Theatre4Fight.NextFightCondition",
+          "Theatre4ScientificSpEffect.MapImageFrom",
+          "Theatre4ScientificSpEffect.MapImageTo",
+          "Theatre4Shop.ConditionId"
+        ]
+      }
+    ],
+    "xTableFieldsWithoutShippedValues": "XTable-declared scalar fields absent from the bytes JSON (for example Theatre4Shop.NodeBg/EndDesc/NodeEffectUrl, Theatre4Traceback effect fields, Theatre4Activity.TalentRefreshFreeNum, Theatre4Difficulty.DistanceGroup/HpActionPoint) are omitted: TableGeneratorV2 infers no type for an all-empty column, so they would generate no property regardless, and emitting default 0 values would be authored data.",
+    "signedInt32Corrections": {
+      "reason": "The client table binary encodes every non-float scalar as signed int32, but tools/decode_binary_table.py read_int decodes varints unsigned (read_uint), so negative int32 values in PGR_DATA/en/bytes JSON appear as 2**32+n. XTable.lua declares no unsigned type (only int/float/string/bool/fix), so any value in [2**31,2**32) is the two's-complement view of the signed value.",
+      "impactIfNotCorrected": "TableGeneratorV2 int.TryParse overflows on 4294967196, so the column would silently generate as string.",
+      "occurrences": [
+        {
+          "path": "share/theatre4/theatre4map/Theatre4MapGroup.tsv",
+          "column": "AddWeight",
+          "rows": [
+            "42001",
+            "43001",
+            "45001",
+            "52001",
+            "53001",
+            "55001"
+          ],
+          "raw": 4294967196,
+          "corrected": -100,
+          "othersUnchanged": "remaining 47 rows keep 100/9999/1/999999"
+        }
+      ],
+      "scopeVerified": "Grepped every PGR_DATA/en theatre4 JSON for integers >= 2**31: exactly these 6 occurrences; theatre5/theatre6 have none."
+    },
+    "closureScope": "Claims in this section are grounded in PGR_Data/en and PGR_Data/cn extracted tables, the shipped Lua/XTable schema and the repository table convention. Installed-bundle/binary decode evidence is out of scope here and deliberately not asserted."
   }
 }

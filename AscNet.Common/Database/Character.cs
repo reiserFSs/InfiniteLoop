@@ -26,7 +26,7 @@ namespace AscNet.Common.Database
     {
         public static readonly List<CharacterLevelUpTemplate> characterLevelUpTemplates;
         public static readonly List<EquipLevelUpTemplate> equipLevelUpTemplates;
-        public static readonly IMongoCollection<Character> collection = Common.db.GetCollection<Character>("characters");
+        public static IMongoCollection<Character> collection = Common.db.GetCollection<Character>("characters");
         private static readonly Lazy<HashSet<int>> ownableCharacterIds = new(() =>
         {
             HashSet<int> ids = TableReaderV2.Parse<CharacterTable>()
@@ -71,6 +71,15 @@ namespace AscNet.Common.Database
                 character.Save();
 
             return character;
+        }
+
+        public static int GetLiberateLevel(uint characterId, IReadOnlyCollection<int> gatherRewards)
+        {
+            return TableReaderV2.Parse<ExhibitionRewardTable>()
+                .Where(reward => reward.CharacterId == (int)characterId && gatherRewards.Contains(reward.Id))
+                .Select(reward => reward.LevelId)
+                .DefaultIfEmpty()
+                .Max();
         }
 
 
@@ -499,6 +508,13 @@ namespace AscNet.Common.Database
                 if (character.LiberateLv <= 0)
                 {
                     character.LiberateLv = 1;
+                    changed = true;
+                }
+
+                int claimedLiberateLv = GetLiberateLevel(character.Id, gatherRewards);
+                if (claimedLiberateLv > character.LiberateLv)
+                {
+                    character.LiberateLv = claimedLiberateLv;
                     changed = true;
                 }
 

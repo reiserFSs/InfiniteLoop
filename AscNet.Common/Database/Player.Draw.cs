@@ -47,6 +47,10 @@ namespace AscNet.Common.Database
 
     public class PlayerDrawState
     {
+        [BsonElement("pity_rounds")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, PlayerDrawPityRound> PityRounds { get; set; } = new();
+
         [BsonElement("member_target_calibration_target_id")]
         public int MemberTargetCalibrationTargetId { get; set; }
 
@@ -75,6 +79,21 @@ namespace AscNet.Common.Database
         [BsonElement("history_by_group")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<int, PlayerDrawHistoryGroupState> HistoryByGroup { get; set; } = new();
+
+        // In-memory only: set when a pity round is created, cleared by
+        // Player.Save/SaveChecked only after an acknowledged write matched a stored
+        // document. Keeps initialization retriable after a failed or non-durable save.
+        [BsonIgnore]
+        public bool HasUnsavedPityRounds { get; set; }
+    }
+
+    public class PlayerDrawPityRound
+    {
+        public int Misses { get; set; }
+        public int Limit { get; set; }
+        public bool HasObtainedRare { get; set; }
+        public bool GuaranteedTarget { get; set; }
+        public int LowerMisses { get; set; }
     }
 
     public partial class Player

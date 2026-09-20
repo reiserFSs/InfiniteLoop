@@ -734,5 +734,25 @@ internal partial class Program
             [1] = new NpcDpsTable { RoleId = checked((int)leaderId), CharacterId = robotCharacters[preservedRobot], DamageTotal = 1 }
         };
         Candidate(resumed, robotSettle);
+
+        // The native countdown is signed and the siege timer is extended by battle score thresholds, so a long
+        // fight reports a value below the authored PassTimeLimit; only the int bound guards the checked narrowing.
+        FightSettleRequest timedOut = StartFight(resumed, firstScore, contributors: 1);
+        timedOut.Result.StartFrame = 1;
+        timedOut.Result.SettleFrame = 2423;
+        timedOut.Result.PauseFrame = 301;
+        timedOut.Result.ExSkillPauseFrame = 225;
+        timedOut.Result.LeftTime = -46;
+        JObject timedOutCandidate = Candidate(resumed, timedOut);
+        GuildAssert(timedOutCandidate["Settle"]!.Value<long>("LeftTime") == -46,
+            "Negative native countdown must be echoed unchanged, not rejected or rewritten");
+        foreach (long countdown in new[] { (long)int.MaxValue + 1, (long)int.MinValue - 1 })
+        {
+            FightSettleRequest overflowCountdown = StartFight(resumed, firstScore);
+            overflowCountdown.Result.LeftTime = countdown;
+            JObject overflowRejection = GuildRpc(resumed, nameof(FightSettleRequest), ClientSettle(overflowCountdown));
+            GuildAssert(overflowRejection.Value<int?>("Code") == 20063304,
+                "Out-of-int countdown must stay rejected: " + countdown);
+        }
     }
 }

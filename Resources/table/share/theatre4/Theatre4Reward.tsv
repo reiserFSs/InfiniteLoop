@@ -1,0 +1,195 @@
+Id	Des	ElementType	ElementId	ElementCount	GroupId	Weight	Condition	ConditionWeight	IsShow
+101	Timeline rewards abundant Gold Coins	4		100	101	100			1
+10001		4		100	10001	100			1
+10002		4		101	10001	100			1
+10003		4		102	10001	100			1
+10004		4		103	10002	100			1
+10005		4		104	10002	100			1
+10006		4		105	10002	100			1
+10007		4		106	10003	100			1
+10008		4		107	10003	100			1
+10009		4		108	10003	100			1
+10010	Tri-Colored Level for Piggy Bank +2	7	1	2	10004	100			1
+10011	Tri-Colored Level for Piggy Bank +2	7	2	2	10005	100			1
+10012	Tri-Colored Level for Piggy Bank +2	7	3	2	10006	100			1
+10013	1★ Recruitment Voucher for testing - includes red, yellow, and blue.	3	2	1	10007	100			1
+10014	1★ Recruitment Voucher for testing - includes red, yellow, and blue.	3	2	1	10007	100			1
+10015	1★ Recruitment Voucher for testing - includes red, yellow, and blue.	3	2	1	10007	100			1
+10016	2★ Recruitment Voucher for testing - includes red, yellow, and blue.	3	3	1	10008	100			1
+10017	2★ Recruitment Voucher for testing - includes red, yellow, and blue.	3	3	1	10008	100			1
+10018	2★ Recruitment Voucher for testing - includes red, yellow, and blue.	3	3	1	10008	100			1
+10019	Spent 10 Gold Coins during testing	4		10	10009	100			1
+10020	Golden Egg Reward	1	2	1	10020	100			1
+10021	Silver Egg Reward	1	1	2	10021	100			1
+10022	Bronze Egg Reward	3	3	1	10022	100			1
+10023	Golden Egg Reward 2	13		1	10023	100			1
+11001	Chapter 1 Gold Coins for chest use only.	4		60	11001	100			1
+11002	Chapter 2 Gold Coins for chest use only.	4		60	11002	100			1
+11003	Chapter 3 Gold Coins for chest use only.	4		75	11003	100			1
+11004	Chapter 4 Gold Coins for chest use only.	4		60	11004	100			1
+11005	Chapter 5 Gold Coins for chest use only.	4		85	11005	100			1
+11006	Chapter 6 Gold Coins for chest use only.	4		85	11006	100			1
+11007	Chapter 1 Artifact Box for chest use only.	1	1	1	11007	100			1
+11008	Chapter 2 Artifact Box for chest use only.	1	1	1	11008	100			1
+11009	Chapter 3 Artifact Box for chest use only.	1	1	1	11009	100			1
+11010	Chapter 4 Artifact Box for chest use only.	1	1	1	11010	100			1
+11011	Chapter 5 Artifact Box for chest use only.	1	1	1	11011	100			1
+11012	Chapter 6 Artifact Box for chest use only.	1	1	1	11012	100			1
+12001	Produced when Gold Coins are exchanged in Fill-In Event Chapter 1.	4		10	12001	100			1
+12002	Produced when Gold Coins are exchanged in Fill-In Event Chapter 2.	4		10	12002	100			1
+12003	Produced when Gold Coins are exchanged in Fill-In Event Chapter 3.	4		10	12003	100			1
+12004	Produced when Gold Coins are exchanged in Fill-In Event Chapter 4.	4		10	12004	100			1
+12005	Produced when Gold Coins are exchanged in Fill-In Event Chapter 5.	4		10	12005	100			1
+12006	Produced when Gold Coins are exchanged in Fill-In Event Chapter 6.	4		10	12006	100			1
+12007	Produced when Construction Points are exchanged in Fill-In Event Chapter 1.	4		40	12007	100			1
+12008	Produced when Construction Points are exchanged in Fill-In Event Chapter 2.	4		40	12008	100			1
+12009	Produced when Construction Points are exchanged in Fill-In Event Chapter 3.	4		50	12009	100			1
+12010	Produced when Construction Points are exchanged in Fill-In Event Chapter 4.	4		50	12010	100			1
+12011	Produced when Construction Points are exchanged in Fill-In Event Chapter 5.	4		60	12011	100			1
+12012	Produced when Construction Points are exchanged in Fill-In Event Chapter 6.	4		60	12012	100			1
+12013	Fill-In Event: Chapter 1 Tri-Colored Multiplier	7	1	1	12013	100			1
+12014	Fill-In Event: Chapter 1 Tri-Colored Multiplier	7	2	1	12014	100			1
+12015	Fill-In Event: Chapter 1 Tri-Colored Multiplier	7	3	1	12015	100			1
+12016	Fill-In Event: Chapter 2 Tri-Colored Multiplier	7	1	1	12016	100			1
+12017	Fill-In Event: Chapter 2 Tri-Colored Multiplier	7	2	1	12017	100			1
+12018	Fill-In Event: Chapter 2 Tri-Colored Multiplier	7	3	1	12018	100			1
+12019	Fill-In Event: Chapter 3 Tri-Colored Multiplier	7	1	2	12019	100			1
+12020	Fill-In Event: Chapter 3 Tri-Colored Multiplier	7	2	2	12020	100			1
+12021	Fill-In Event: Chapter 3 Tri-Colored Multiplier	7	3	2	12021	100			1
+12022	Fill-In Event: Chapter 4 Tri-Colored Multiplier	7	1	2	12022	100			1
+12023	Fill-In Event: Chapter 4 Tri-Colored Multiplier	7	2	2	12023	100			1
+12024	Fill-In Event: Chapter 4 Tri-Colored Multiplier	7	3	2	12024	100			1
+12025	Fill-In Event: Chapter 5 Tri-Colored Multiplier	7	1	4	12025	100			1
+12026	Fill-In Event: Chapter 5 Tri-Colored Multiplier	7	2	4	12026	100			1
+12027	Fill-In Event: Chapter 5 Tri-Colored Multiplier	7	3	4	12027	100			1
+12028	Fill-In Event: Chapter 6 Tri-Colored Multiplier	7	1	4	12028	100			1
+12029	Fill-In Event: Chapter 6 Tri-Colored Multiplier	7	2	4	12029	100			1
+12030	Fill-In Event: Chapter 6 Tri-Colored Multiplier	7	3	4	12030	100			1
+12031	Fill-In Event: Chapter 1 Tri-Colored Base Number	12	1	80	12031	100			1
+12032	Fill-In Event: Chapter 1 Tri-Colored Base Number	12	2	80	12032	100			1
+12033	Fill-In Event: Chapter 1 Tri-Colored Base Number	12	3	80	12033	100			1
+12034	Fill-In Event: Chapter 2 Tri-Colored Base Number	12	1	80	12034	100			1
+12035	Fill-In Event: Chapter 2 Tri-Colored Base Number	12	2	80	12035	100			1
+12036	Fill-In Event: Chapter 2 Tri-Colored Base Number	12	3	80	12036	100			1
+12037	Fill-In Event: Chapter 3 Tri-Colored Base Number	12	1	100	12037	100			1
+12038	Fill-In Event: Chapter 3 Tri-Colored Base Number	12	2	100	12038	100			1
+12039	Fill-In Event: Chapter 3 Tri-Colored Base Number	12	3	100	12039	100			1
+12040	Fill-In Event: Chapter 4 Tri-Colored Base Number	12	1	100	12040	100			1
+12041	Fill-In Event: Chapter 4 Tri-Colored Base Number	12	2	100	12041	100			1
+12042	Fill-In Event: Chapter 4 Tri-Colored Base Number	12	3	100	12042	100			1
+12043	Fill-In Event: Chapter 5 Tri-Colored Base Number	12	1	150	12043	100			1
+12044	Fill-In Event: Chapter 5 Tri-Colored Base Number	12	2	150	12044	100			1
+12045	Fill-In Event: Chapter 5 Tri-Colored Base Number	12	3	150	12045	100			1
+12046	Fill-In Event: Chapter 6 Tri-Colored Base Number	12	1	150	12046	100			1
+12047	Fill-In Event: Chapter 6 Tri-Colored Base Number	12	2	150	12047	100			1
+12048	Fill-In Event: Chapter 6 Tri-Colored Base Number	12	3	150	12048	100			1
+12049	Obtain Gold Coins from Fill-In Event Chapters 1 and 2.	4		45	12049	100			1
+12050	Gold Coins from Fill-In Event Chapters 3 and Obtain 4.	4		60	12050	100			1
+12051	Obtain Gold Coins from Fill-In Event Chapters 5 and 6.	4		90	12051	100			1
+12052	Obtain Basic Recruitment Vouchers from Fill-In Event Chapters 3 and 4.	3	2	1	12052	100			1
+12053	Obtain Rare Recruitment Vouchers from Fill-In Event Chapters 5 and 6.	3	4	1	12053	100			1
+12054	Obtain Construction Points from Fill-In Event Chapters 1 and 2.	10	1	1	12049	100			1
+12055	Obtain Construction Points from Fill-In Event Chapters 3 and 4.	10	1	1	12050	100			1
+12056	Obtain Construction Points from Fill-In Event Chapters 5 and 6.	10	1	2	12051	100			1
+12057	Main 1 Event Reward 1	4		25	12013	100			1
+12058	Main 1 Event Reward 2	10	1	1	12014	100			1
+12059	Main 1 Event Reward 3-1	12	1	50	12015	100			1
+12060	Main 1 Event Reward 3-2	12	2	50	12016	100			1
+12061	Main 1 Event Reward 3-3	12	3	50	12017	100			1
+12062	Treasure Thief Gold Coin	4		99	12062	100			1
+12063	Treasure Thief Rare Recruitment Voucher	3	4	1	12063	100			1
+12064	Treasure Thief Normal Artifact Box	1	1	1	12064	100			1
+12200	Winter Shadows Event Economy Resource	4		40	12200	100			1
+12201	Winter Shadows Event Recruitment Voucher Resource	3	2	1	12201	100			1
+12202	Trap Ahead Event Build Resource	10		2	12202	100			1
+12203	Final Defense Event Military Resource	7	1	2	12203	100			1
+12204	Final Defense Event Action Point Resource	11		1	12204	100			1
+12205	Hide-and-Seek Event Economy Resource	4		10	12205	100			1
+12206	Final Defense Event Military Resource: small	7	1	1	12206	100			1
+12207	Final Defense Event Military Resource: medium	7	1	2	12207	100			1
+12208	Final Defense Event Military Resource: large	7	1	3	12208	100			1
+12209	To the Battlefield Event Military Resources: small	7	1	1	12206	100			1
+12210	To the Battlefield Event Military Resources: medium	7	1	2	12207	100			1
+12211	To the Battlefield Event Military Resources: large	7	1	3	12208	100			1
+12212	Yellow stage completion event	2	101	1	12212	100			1
+12213	Winter Shadows Event Colored Multiplier	7	1	2	12213	100			1
+12214	Winter Shadows Event Colored Multiplier	7	2	2	12214	100			1
+12215	Winter Shadows Event Colored Multiplier	7	3	2	12215	100			1
+12216	Icy Worm Chapter 5 Gold Coin (level: two chests)	4		170	12216	100			1
+13001	Chapter 1 Minion Gold Coin	4		20	13001	1	1020603	100	1
+13002	Chapter 2 Minion Gold Coin	4		20	13002	1	1020604	100	1
+13003	Chapter 3 Minion Gold Coin	4		30	13003	1	1020605	100	1
+13004	Chapter 4 Minion Gold Coin	4		30	13004	1	1020606	100	1
+13005	Chapter 5 Minion Gold Coin	4		40	13005	1	1020607	100	1
+13006	Chapter 6 Minion Gold Coin	4		40	13006	1	1020608	100	1
+13011	Chapter 1 Elite Gold Coin	4		30	13011	1	1020603	100	1
+13012	Chapter 2 Elite Gold Coin	4		30	13012	1	1020604	100	1
+13013	Chapter 3 Elite Gold Coin	4		45	13013	1	1020605	100	1
+13014	Chapter 4 Elite Gold Coin	4		45	13014	1	1020606	100	1
+13015	Chapter 5 Elite Gold Coin	4		60	13015	1	1020607	100	1
+13016	Chapter 6 Elite Gold Coin	4		60	13016	1	1020608	100	1
+13021	Chapter 1 Boss Gold Coin	4		60	13021	1		100	1
+13022	Chapter 2 Boss Gold Coin	4		60	13022	1		100	1
+13023	Chapter 3 Boss Gold Coin	4		90	13023	1		100	1
+13024	Chapter 4 Boss Gold Coin	4		90	13024	1		100	1
+13025	Chapter 5 Boss Gold Coin	4		120	13025	1		100	1
+13026	Chapter 6 Boss Gold Coin	4		120	13026	1		100	1
+13031	Minion Recruitment Voucher	3	2	1	13031	100			1
+13032	Elite Recruitment Voucher	3	4	1	13032	100			1
+13033	Boss Recruitment Voucher	3	3	1	13033	100			1
+13034	Boss Normal Artifact Box	1	1	1	13034	100			1
+13035	Boss Special Artifact Box	1	2	1	13035	100			1
+14001	Beginner Recruitment Voucher	3	8	1	14001	100			1
+14002	AC6 Event Artifact Reward	2	25	1	14002	100			1
+14003	Tri-Colored Base Number given when you lose HP.	12	1	300	14003	100			1
+14004	Tri-Colored Base Number given when you lose HP.	12	2	300	14004	100			1
+14005	Tri-Colored Base Number given when you lose HP.	12	3	300	14005	100			1
+14006	Mystic Ring Artifact Reward	2	26	1	14006	100			1
+14007	Release the traitor for extra money - Chapter 3	4		50	14007	100			1
+14008	Seize the traitor to get red - Chapter 3	12	1	225	14008	100			1
+14009	Our Home Custom Artifact	2	24	1	14009	100			1
+14010	Kill the traitor to get red - Chapter 4	12	1	300	14010	100			1
+14021	Gold Coin reward for Make Camp I	4		60	14021	100			1
+14022	Military Level reward for Make Camp I	7	1	3	14022	100			1
+14023	Gold Coin reward for Make Camp II	4		80	14023	100			1
+14024	Final reward for Make Camp III	2	37	1	14024	100			1
+14025	Loyal Guard Rewards	2	23	1	14025	100			1
+14026	Loyal Guard Red Resource Point	12	1	300	14026	100			1
+14027	Beginner Chapter 1 Boss Gold Coin	4		200	14027	1			1
+14028	Gold Coins given at the end of Evening Bell	4		170	14028	100			1
+14029	Golden City +100 Silver Coins	4		100	14029	100			1
+14030	Golden City -100 Silver Coins	4		-100	14030	100			1
+14031	Golden City +400 Silver Coins	4		400	14031	100			1
+14032	Golden City Round Converted Collectible	2	102	1	14032	100			1
+14033	Path Against the Wind Arrow Tower	2	103	1	14033	100			1
+14034	Golden City Low Difficulty Purchased Kills	2	104	1	14034	100			1
+14035	Path Against the Wind Chapter 2 Given Construction Point	10		18	14035	100			1
+14036	Path Against the Wind Chapter 3 Given Construction Point	10		30	14036	100			1
+14037	Path Against the Wind Chapter 4 Given Construction Point	10		24	14037	100			1
+14038	Golden City Chapter 2 Boss Difficulty 1 Reward Triple Color Multiplier 1	7	1	10	14038	100			1
+14039	Golden City Chapter 2 Boss Difficulty 1 Reward Triple Color Multiplier 2	7	2	30	14039	100			1
+14040	Golden City Chapter 2 Boss Difficulty 1 Reward Triple Color Multiplier 3	7	3	10	14040	100			1
+14041	Golden City Chapter 2 Difficulty 2-3 Triple Color Multiplier 1	7	1	8	14041	100			1
+14042	Golden City Chapter 2 Difficulty 2-3 Triple Color Multiplier 2	7	3	8	14042	100			1
+14043	Golden City Chapter 2 Difficulty 4-5 Triple Color Multiplier 2	7	2	25	14043	100			1
+14044	Golden City Chapter 2 Difficulty 6 Triple Color Multiplier 1	7	1	6	14044	100			1
+14045	Golden City Chapter 2 Difficulty 6 Triple Color Multiplier 3	7	3	6	14045	100			1
+14046	Golden City Chapter 3 Difficulty 1 Triple Color Multiplier 1	7	1	12	14046	100			1
+14047	Golden City Chapter 3 Difficulty 1 Triple Color Multiplier 2	7	2	35	14047	100			1
+14048	Golden City Chapter 3 Difficulty 1 Triple Color Multiplier 3	7	3	12	14048	100			1
+14049	Golden City Chapter 3 Difficulty 2 Triple Color Multiplier 2	7	2	35	14049	100			1
+14050	Golden City Chapter 4 Difficulty 1 Triple Color Multiplier 1	7	1	15	14050	100			1
+14051	Golden City Chapter 4 Difficulty 1 Triple Color Multiplier 2	7	2	40	14051	100			1
+14052	Golden City Chapter 4 Difficulty 1 Triple Color Multiplier 3	7	3	15	14052	100			1
+14053	Path Against the Wind Chapter 2 Difficulty 1 Triple Color Multiplier 2	7	2	10	14053	100			1
+14054	Path Against the Wind Chapter 2 Difficulty 1 Triple Color Multiplier 3	7	3	30	14054	100			1
+14055	Path Against the Wind Chapter 2 Difficulty 2 Triple Color Multiplier 2	7	2	8	14055	100			1
+14056	Path Against the Wind Chapter 2 Difficulty 4 Triple Color Multiplier 3	7	3	25	14056	100			1
+14057	Path Against the Wind Chapter 2 Difficulty 6 Triple Color Multiplier 2	7	2	6	14057	100			1
+14058	Path Against the Wind Chapter 3 Difficulty 1 Triple Color Multiplier 2	7	2	12	14058	100			1
+14059	Path Against the Wind Chapter 3 Difficulty 2 Triple Color Multiplier 3	7	3	35	14059	100			1
+14060	Path Against the Wind Chapter 3 Difficulty 3 Triple Color Multiplier 3	7	3	30	14060	100			1
+14061	Path Against the Wind Chapter 4 Difficulty 1 Triple Color Multiplier 2	7	2	15	14061	100			1
+14062	Path Against the Wind Chapter 4 Difficulty 1 Triple Color Multiplier 3	7	3	40	14062	100			1
+15001	Timeline Event - Awaken Points Distribution	15		25	15001	100			1
+15002	Ending Event Awaken Points Distribution	15		100	15002	100			1

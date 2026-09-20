@@ -15,8 +15,8 @@ internal static partial class Program
     /// <summary>
     /// Isolated entry for the 4.7 ConcertPreHeatingStartRequest handler. Callable by the parent
     /// integration driver; derives valid StageIds and the activity window from the current
-    /// ConcertPreHeatingActivity table + ActivitySchedule, and confirms the registered handler
-    /// accepts two authoritative open stages while rejecting nonexistent and closed input.
+    /// ConcertPreHeatingActivity table + ActivitySchedule. Exercises admission with explicit
+    /// timestamps and verifies registered-handler responses against the actual authored window.
     /// </summary>
     public static void ValidateVersion47ConcertStartCompatibility()
     {
@@ -32,9 +32,10 @@ internal static partial class Program
         ConcertPreHeatingActivityTable concert = TableReaderV2.Parse<ConcertPreHeatingActivityTable>().Single(row => row.TimeId > 0);
         if (!ActivityScheduleService.TryGet(concert.TimeId, out ActivityScheduleEntry schedule))
             throw new InvalidDataException($"ConcertPreHeating TimeId {concert.TimeId} is not staged in ActivitySchedule.tsv.");
-        if (schedule.StartTime <= 0)
-            throw new InvalidDataException("ConcertPreHeating schedule has no concrete StartTime.");
+        if (schedule.StartTime <= 0 || schedule.EndTime <= schedule.StartTime)
+            throw new InvalidDataException("ConcertPreHeating schedule must have a concrete, nonempty window.");
         DateTimeOffset concertOpen = DateTimeOffset.FromUnixTimeSeconds(schedule.StartTime);
+        DateTimeOffset concertClose = DateTimeOffset.FromUnixTimeSeconds(schedule.EndTime);
         if (concert.StageIds.Count < 2)
             throw new InvalidDataException("ConcertPreHeatingActivity has fewer than two authoritative StageIds; cannot test two open stages.");
 
@@ -56,11 +57,14 @@ internal static partial class Program
         // Nonexistent stage is rejected deterministically while the activity is open.
         AssertEqual(1, Start(unknownStage, concertOpen).Code, "Concert start unknown stage rejected");
 
-        // Closed window rejects an otherwise-valid stage.
-        AssertEqual(1, Start(stageA, concertOpen.AddSeconds(-1)).Code, "Concert start closed-window rejected");
+        // The authored interval is start-inclusive and end-exclusive.
+        AssertEqual(1, Start(stageA, concertOpen.AddSeconds(-1)).Code, "Concert start before-window rejected");
+        AssertEqual(0, Start(stageA, concertClose.AddSeconds(-1)).Code, "Concert start last open second accepted");
+        AssertEqual(1, Start(stageA, concertClose).Code, "Concert start at end rejected");
 
-        // End-to-end: the registered handler dispatches and emits the exact response on a live
-        // session, with no mutation and no push.
+        // The registered handler uses UtcNow directly, with no scoped clock override. Verify
+        // its valid-stage response against the authored bounds, allowing either adjacent state
+        // only if dispatch crosses a boundary. Explicit-time checks above cover both outcomes.
         long uid = 47_501;
         using (LoopbackSessionHarness harness = new(
             CreateDrawCompatibilityCharacter(uid),
@@ -68,22 +72,32 @@ internal static partial class Program
             CreateDrawCompatibilityInventory(uid, []),
             "version47-concert-start-test"))
         {
-            Player before = harness.Session.player;
+            byte[] before = harness.Session.player.ConcertPreHeating.ToBson();
+            static int ExpectedCode(ActivityScheduleEntry window, DateTimeOffset now) =>
+                now.ToUnixTimeSeconds() >= window.StartTime && now.ToUnixTimeSeconds() < window.EndTime ? 0 : 1;
+            DateTimeOffset beforeDispatch = DateTimeOffset.UtcNow;
             InvokeRequestHandler(harness, "ConcertPreHeatingStartRequest", 2001, new ConcertPreHeatingStartRequest { StageId = stageA });
-            ConcertPreHeatingStartResponse ok = ReadResponsePayload<ConcertPreHeatingStartResponse>(
-                harness, 2001, nameof(ConcertPreHeatingStartResponse), "Concert start end-to-end open stage");
-            AssertEqual(0, ok.Code, "Concert start end-to-end open stage code");
-            if (harness.TryReadAvailablePacket("Concert start unexpected push", out _))
+            DateTimeOffset afterDispatch = DateTimeOffset.UtcNow;
+            ConcertPreHeatingStartResponse valid = ReadResponsePayload<ConcertPreHeatingStartResponse>(
+                harness, 2001, nameof(ConcertPreHeatingStartResponse), "Concert start end-to-end authored stage");
+            AssertEqual(true, valid.Code == ExpectedCode(schedule, beforeDispatch)
+                || valid.Code == ExpectedCode(schedule, afterDispatch),
+                "Concert start authored stage follows current schedule");
+            AssertEqual(true, before.SequenceEqual(harness.Session.player.ConcertPreHeating.ToBson()),
+                "Concert start authored stage does not mutate persisted concert state");
+            if (harness.TryReadAvailablePacket("Concert start authored stage unexpected push", out _))
                 throw new InvalidDataException("ConcertPreHeatingStart emitted a push.");
 
             InvokeRequestHandler(harness, "ConcertPreHeatingStartRequest", 2002, new ConcertPreHeatingStartRequest { StageId = unknownStage });
             ConcertPreHeatingStartResponse bad = ReadResponsePayload<ConcertPreHeatingStartResponse>(
                 harness, 2002, nameof(ConcertPreHeatingStartResponse), "Concert start end-to-end unknown stage");
             AssertEqual(1, bad.Code, "Concert start end-to-end unknown stage rejected");
+            if (harness.TryReadAvailablePacket("Concert start unexpected push", out _))
+                throw new InvalidDataException("ConcertPreHeatingStart emitted a push.");
 
-            // Pure validation: no durable state was touched.
-            AssertEqual(before.ConcertPreHeating.ActivityId, harness.Session.player.ConcertPreHeating.ActivityId, "Concert start does not mutate activity id");
-            AssertEqual(before.ConcertPreHeating.CompletedStageIds.Count, harness.Session.player.ConcertPreHeating.CompletedStageIds.Count, "Concert start does not mutate completed stages");
+            // Snapshot bytes rather than aliasing the mutable player under test.
+            AssertEqual(true, before.SequenceEqual(harness.Session.player.ConcertPreHeating.ToBson()),
+                "Concert start does not mutate persisted concert state");
         }
 
         // BSON stability of the (untouched) persisted concert state.

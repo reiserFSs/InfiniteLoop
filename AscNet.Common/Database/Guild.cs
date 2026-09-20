@@ -8,7 +8,7 @@ namespace AscNet.Common.Database;
 
 public sealed partial class Guild
 {
-    public static readonly IMongoCollection<Guild> collection = Common.db.GetCollection<Guild>("guilds");
+    public static IMongoCollection<Guild> collection = Common.db.GetCollection<Guild>("guilds");
     private static readonly IMongoCollection<BsonDocument> counters = Common.db.GetCollection<BsonDocument>("guild_counters");
     private static readonly Lazy<bool> indexes = new(() =>
     {

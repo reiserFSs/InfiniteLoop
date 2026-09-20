@@ -1,0 +1,21 @@
+Id	Type	Cost	EffectGroupId	Condition	PreIds[1]	PreIds[2]	Name	Desc	Icon
+1	1	50	10001				Refine and Polish	ATK +50	Assets/Product/Texture/Image/IconAffixUnionKill/UiUnionKillBUFFIcon001.png
+2	1	50	10002		1		Boost Fitness	HP +500	Assets/Product/Texture/Image/IconAffixUnionKill/UiUnionKillBUFFIcon006.png
+3	1	50	10003		2		Work Smarter, Not Harder	ATK +10%.	Assets/Product/Texture/Image/IconAffixUnionKill/UiUnionKillBUFFIcon002.png
+4	1	50	10004		3		Master of Many	All Elemental DMG +15%	Assets/Product/Texture/Image/IconAffixUnionKill/UiUnionKillBUFFIcon008.png
+5	1	100	10005		4		Unstoppable Force	Extra DMG Bonus +15%.	Assets/Product/Texture/Image/IconAffixUnionKill/UiUnionKillBUFFIcon031.png
+6	2	50	10011				Activate Funds	Initial New Sophiasburgh Coin +20	Assets/Product/Texture/Image/IconSkill/R2BuouxiongSSS1.png
+7	2	50	10012		6		Trade Subsidy	New Sophiasburgh Coin +50 when you enter a shop.	Assets/Product/Texture/Image/IconAffixUnionKill/UiUnionKillBUFFIcon021.png
+8	2	50	10013		7		A Wealth of Assets	Initial New Sophiasburgh Coin +40	Assets/Product/Texture/Image/IconSkill/R2SufeiyaS1.png
+9	2	50	10014		8		Negotiation Skills	10% off all items in the shop.	Assets/Product/Texture/Image/UiBiancaTheatre/BiancaTheatreIconSkill05.png
+10	2	100	10015		9		Big player	Interest Limit +10	Assets/Product/Texture/Image/IconSkill/R4luxiyaSS1.png
+11	3	50	10021				Start from Scratch	Receive 1 Construction Permit at the start.	Assets/Product/Texture/Image/IconSkill/R4KalieninaExqiu1.png
+12	3	50	10022		11		Diverse Tactics	Each Camp Support refresh cost -10.	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon33031.png
+13	3	50	10023		12		Everything You Need	Receive 2 Construction Permits at the start.	Assets/Product/Texture/Image/IconSkill/R4KalieninaExhexin2.png
+14	3	50	10024		13		Frugal	Each Camp Support refresh cost -15.	Assets/Product/Texture/Image/UiBabelTower/UiBabelTowerChallengeIcon33032.png
+15	3	100	10025		14		Long-Term Planning	Refresh Camp Support once for free.	Assets/Product/Texture/Image/IconSkill/R2KamuZhongjieji1.png
+16	4	50	46	1020770			Silken Birth	Gain Awaken Points in game	Assets/Product/Texture/Image/IconSkill/UiTheatre4SkillIconJX01.png
+17	4	50	47		16		Reverse Reconstruction	Unlock Sand Table Reconstruction: Teleports the user back to 3 days ago and refunds some of the resources consumed in the period. Can only be used once per chapter. Uses cannot be accumulated. Available 3 days after you enter the current map.	Assets/Product/Texture/Image/IconSkill/UiTheatre4SkillIconJX03.png
+18	4	50	10037		17		Fitting Recursion	Gain 100 bonus Silver Coins after sand able reconstruction	Assets/Product/Texture/Image/IconSkill/UiTheatre4SkillIconJX04.png
+19	4	50	10038		18		Rewinding Hourglass	Gain 1 bonus Action Point after sand able reconstruction	Assets/Product/Texture/Image/IconSkill/UiTheatre4SkillIconJX05.png
+20	4	100	10039		19		Peek into the Dream	Awaken Points Aquired +50%	Assets/Product/Texture/Image/IconSkill/UiTheatre4SkillIconJX02.png

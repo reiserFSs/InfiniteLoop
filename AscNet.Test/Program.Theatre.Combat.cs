@@ -194,7 +194,7 @@ internal partial class Program
             {
                 value => value.FightId++, value => value.StageId++, value => value.RebootCount++,
                 value => value.SettleFrame = -1, value => value.PauseFrame = 1,
-                value => value.TotalDamage = -1, value => value.LeftTime = -1,
+                value => value.TotalDamage = -1, value => value.LeftTime = (long)int.MinValue - 1,
                 value => value.PlayerIds = [test.Session.player.PlayerData.Id + 1]
             })
             {
@@ -274,7 +274,11 @@ internal partial class Program
                 test.Data.CurRoleLv = level.Lv;
                 var robot = TableReaderV2.Parse<RobotTable>().Single(row => row.Id ==
                     TableReaderV2.Parse<TheatreRoleAttrTable>().Single(row => row.RoleId == test.Data.RecruitRole[0] && row.Lv == level.Lv).RobotId);
-                var build = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.FightModule").GetMethod("BuildRobotDeployment", BindingFlags.Static | BindingFlags.NonPublic)!;
+                var build = RequiredMethod(
+                    RequiredAscNetGameServerType("AscNet.GameServer.Handlers.FightModule"),
+                    "BuildRobotDeployment",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    [typeof(RobotTable)]);
                 var deployment = ((CharacterData Character, List<EquipData> Equips))build.Invoke(null, [robot])!;
                 test.Session.character.Characters.RemoveAll(row => row.Id == deployment.Character.Id);
                 test.Session.character.Characters.Add(deployment.Character);

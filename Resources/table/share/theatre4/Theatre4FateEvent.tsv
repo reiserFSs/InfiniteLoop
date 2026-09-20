@@ -1,0 +1,12 @@
+Id	GroupId	Desc	Duration	EventId	Weight	Condition[1]	Condition[2]	ConditionWeight[1]	ConditionWeight[2]
+1	1	Awaken Event - Blue - Nameless Lab	2	60132	100	1020838		-100	
+2	1	Awaken Event - Blue - Belongings Under the Ice	2	60143	100	1020838		-100	
+3	2	Awaken Event - Yellow - Astrologer in the Tower's Top Attic	2	60153	100	1020838		-100	
+4	2	Awaken Event - Yellow - Wishing Spring	2	60164	100	1020838		-100	
+5	3	Awaken Event - Red - Imaginary Beast	2	60183		1020797		100	
+6	3	Awaken Event - Red - A Neverending Nightmare	2	60194	100	1020838		-100	
+7	2	Awaken Event - Yellow - Wishing Spring	2	60288		1020838		100	
+8	1	Awaken Event - Blue - Nameless Lab	2	60292		1020838		100	
+9	2	Awaken Event - Yellow - Astrologer in the Tower's Top Attic	2	60296		1020838		100	
+10	1	Awaken Event - Blue - Belongings Under the Ice	2	60294		1020838		100	
+11	3	Awaken Event - Red - A Neverending Nightmare	2	60301		1020838		100	

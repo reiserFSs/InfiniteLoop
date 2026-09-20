@@ -1,0 +1,21 @@
+Id	Type	Params	Name	Description	WorldDesc	Icon
+1	4		New Sophiasburgh Coin	A token of multiple uses.	Simply called "Silver Coins", these coins are a universal currency in New Sophiasburgh. You can use them to buy anything you can afford in Shop.	Assets/Product/Texture/Image/IconTools/UiTheatre4Item30.png
+2	5		Defense Points	A Garrison Point's Defense Points. The Garrison Point will be dissolved and the exploration will end once when there are 0 Defense Points.		
+3	6		Development Level	An important indicator of the level of development of a Garrison Point.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4EndIcon02.png
+4	7	1	Red Multiplier	Increases the Military Development Rate acquisition efficiency during daily result calculation.		Assets/Product/Texture/Image/IconTools/ItPointQuest02.png
+5	7	2	Yellow Multiplier	Increases the Economic Development Rate acquisition efficiency during daily result calculation.		Assets/Product/Texture/Image/IconTools/ItPointQuest03.png
+6	7	3	Blue Multiplier	Increases the Infrastructure Development Rate acquisition efficiency during daily result calculation.		Assets/Product/Texture/Image/IconTools/ItPointQuest01.png
+7	8	1	Red Resources - Permanent	Reusable resources that can be used to increase Military Development Rate during daily result calculation.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJunShi.png
+8	8	2	Yellow Resources - Permanent	Reusable resources that can be used to increase Economic Development Rate during daily result calculation.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJinJi.png
+9	8	3	Blue Resources - Permanent	Reusable resources that can be used to increase Infrastructure Development Rate during daily result calculation.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJiJian.png
+10	9	1	Red Level	Increase the level to activate the corresponding Military Support effects.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJunShi.png
+11	9	2	Yellow Level	Increase the level to activate the corresponding Economic Support effects.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJinJi.png
+12	9	3	Blue Level	Increase the level to activate the corresponding Infrastructure Support effects.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJiJian.png
+13	10		Construction Permit	Spend the permit to construct buildings/reconstruct areas.	The construction permit issued by the Border Commune that allows the holder to construct in the specified area.	Assets/Product/Texture/Image/IconTools/UiTheatre4Item31.png
+14	11		Action Point	Resources required to explore an area.		Assets/Product/Texture/Image/IconTools/IconRift006.png
+15	12	1	Red Resources	Can be used to increase Military Development Rate during daily result calculation.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJunShi.png
+16	12	2	Yellow Resources	Can be used to increase Economic Development Rate during daily result calculation.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJinJi.png
+17	12	3	Blue Resources	Can be used to increase Infrastructure Development Rate during daily result calculation.		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4CommonIconJiJian.png
+18	13		Max Blueprints	Increases the maximum Blueprints you can have.		Assets/Product/Texture/Image/IconTools/ItGuildPoint01.png
+19	15		Awaken Points	Tatyana's Awaken Points		Assets/Product/Texture/Image/UiTheatre4/UiTheatre4JuexingIcon01.png
+20	17		Sand Table Reconstruction	Spend 1 Hourglass to perform Sand Table Reconstruction once. Rewinds time back to 3 rounds ago and returns all Action Points spent during that period		Assets/Product/Texture/Image/IconTools/UiTheatre4ItemHuisu.png

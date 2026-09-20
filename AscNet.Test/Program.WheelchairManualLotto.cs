@@ -32,7 +32,7 @@ internal partial class Program
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
         IMongoCollection<Player> collection = DispatchProxy.Create<IMongoCollection<Player>, LottoPlayerSaveProxy>();
         LottoPlayerSaveProxy saves = (LottoPlayerSaveProxy)(object)collection;
-        typeof(MongoCollectionOverride).GetMethod("SetStaticReadonlyField", BindingFlags.Static | BindingFlags.NonPublic)!
+        typeof(MongoCollectionOverride).GetMethod("SetStaticField", BindingFlags.Static | BindingFlags.NonPublic)!
             .Invoke(null, [typeof(Player).GetField("collection", BindingFlags.Static | BindingFlags.Public)!, collection]);
         int packetId = 47_815_000;
 

@@ -1,0 +1,39 @@
+Id	ShopGroupId	ShopId	Weight	NodeRepeatable	GameRepeatable	Des
+1	1	1	100	1	1	Shop for testing
+2	1	2	100	1	1	Shop for testing
+3	1001	8	100	1	1	Yellow Talent - Blue Shop Set
+4	1001	8	100	1	1	Yellow Talent - Blue Shop Set
+5	1002	7	100	1	1	Yellow Talent - Red Shop Set
+6	1002	7	100	1	1	Yellow Talent - Red Shop Set
+7	1003	1	100	1	1	Chapter 1 Map Store
+8	1003	101	100	1	1	Chapter 1 Map Store
+9	1003	102	100	1	1	Chapter 1 Map Store
+10	1003	103	100	1	1	Chapter 1 Map Store
+11	1003	104	100	1	1	Chapter 1 Map Store
+12	1004	2	100	1	1	Chapter 2 Map Store
+13	1004	201	100	1	1	Chapter 2 Map Store
+14	1004	202	100	1	1	Chapter 2 Map Store
+15	1004	203	100	1	1	Chapter 2 Map Store
+16	1004	204	100	1	1	Chapter 2 Map Store
+17	1005	3	100	1	1	Chapter 3 Map Store
+18	1005	301	100	1	1	Chapter 3 Map Store
+19	1005	302	100	1	1	Chapter 3 Map Store
+20	1005	303	100	1	1	Chapter 3 Map Store
+21	1005	304	100	1	1	Chapter 3 Map Store
+22	1006	4	100	1	1	Chapter 4 Map Store
+23	1006	401	100	1	1	Chapter 4 Map Store
+24	1006	402	100	1	1	Chapter 4 Map Store
+25	1006	403	100	1	1	Chapter 4 Map Store
+26	1006	404	100	1	1	Chapter 4 Map Store
+27	1007	5	100	1	1	Chapter 5 Map Store
+28	1007	501	100	1	1	Chapter 5 Map Store
+29	1007	502	100	1	1	Chapter 5 Map Store
+30	1007	503	100	1	1	Chapter 5 Map Store
+31	1007	504	100	1	1	Chapter 5 Map Store
+32	1008	6	100	1	1	Chapter 6 Map Store
+33	1008	601	100	1	1	Chapter 6 Map Store
+34	1008	602	100	1	1	Chapter 6 Map Store
+35	1008	603	100	1	1	Chapter 6 Map Store
+36	1008	604	100	1	1	Chapter 6 Map Store
+37	2001	9	100			Secret Shop
+38	3001	10	100			Yellow Talent 25 Shop

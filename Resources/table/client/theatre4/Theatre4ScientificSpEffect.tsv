@@ -1,0 +1,17 @@
+Id	SpEffectGroup	Difficulty	ColorPoint	Effect
+100101	1001		1000	EffectPingShan01
+100102	1001	1	50	EffectPingShan01
+100103	1001	2	50	EffectPingShan01
+100104	1001	3	50	EffectPingShan01
+100105	1001	4	50	EffectPingShan01
+100106	1001	4	75	EffectPingShan02
+100107	1001	4	100	EffectPingShan03
+100108	1001	5	50	EffectPingShan01
+100109	1001	5	75	EffectPingShan02
+100110	1001	5	100	EffectPingShan03
+100111	1001	6	50	EffectPingShan01
+100112	1001	6	75	EffectPingShan02
+100113	1001	6	100	EffectPingShan03
+100114	1001	7	50	EffectPingShan01
+100115	1001	7	75	EffectPingShan02
+100116	1001	7	100	EffectPingShan03

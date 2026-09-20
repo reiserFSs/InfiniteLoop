@@ -1,0 +1,81 @@
+Key	Note	Params[1]	Params[2]	Params[3]	Params[4]	Params[5]	Params[6]
+HelpKey	Help Key	Theatre4					
+CameraDistanceRange	Camera Zooming Distance Area	50	200				
+CameraMoveSpeedRange	Camera Movement Speed Area	3	9	1.5	5		
+CameraDragMaxRange	Max Camera Drag Range - Default Point as Center of the Map	425	375				
+CameraDragMinRange	Min Camera Drag Range - Default Point as Center of the Map	400	350				
+CameraZoomSpeed	Camera Zooming Speed (Permillage)	100	90000				
+CameraDefaultDistance	Default Camera Distance	70					
+ClickGridLensFocusOffset	Tap Grid Camera Focus Shift, Parameter 1 is X Axis Shift, Parameter 2 is Y Axis Shift	7	0				
+MapFirstFloorRange	Map Layer 1 Distance Range - Parameter 2 = Max Camera Distance	120	200				
+MapSecondFloorRange	Map Layer 2 Distance Range - Parameter 1 = Min Camera Distance	50	120				
+ClickGridLensFocusTime	Tap Grid Camera Focus Duration (ms)	300					
+RecoverGridLensFocusTime	Lens Focus Reset Duration (ms)	500					
+IsOpenGridFocusRecover	Enable Lens Focus Reset? (1: Yes, 0: No)	1					
+LocationBtnFocusToMapTime	Tap Locate Button Camera Focus Duration (ms)	500					
+NewAreaFocusToMapBigCameraTime	New Area Big Camera Focus Duration (ms)	1000					
+NewAreaFocusToMapBaseCameraTime	New Area Basic Camera Focus Duration (ms)	500					
+NewAreaFocusCueId	New Area Focus Audio ID	4840					
+PopupNewAreaShowTime	New Area Prompt Window Display Duration (ms)	1500					
+CountDownIcon	Boss Countdown Icon	Assets/Product/Texture/Atlas/UiTheatre4/UiTheatre4BossGridBg04.png					
+CountDownDesc	Boss Countdown Description	Attack in {0} day(s)	<color=#FD1414>About to Attack</color>				
+DisableCountDownIcon	Self-Destruction Countdown Icon	Assets/Product/Texture/Atlas/UiTheatre4/UiTheatre4BossGridBg04.png					
+DisableCountDownDesc	Self-Destruction Countdown Description	Crashes in {0} days	<color=#FD1414>Self-destructing</color>				
+TimelineDays	Days Displayed on Timeline	4					
+ArchieveTypeText	Codex Collectible Column	Golden Blueprint	Purple Blueprint	Blue Blueprint	Token		
+FateExclamationMarkIcon	Timeline Exclamation Mark Icon	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4GridEvent.png					
+ShopItemCostColor	Shop Item Cost Price Color	D0DFE7	FF001F				
+SettlementDataContent	Result Data Text	Clear Area	Development Level	Explore Area	Ending Multiplier	Reward Multiplier	3★ Reward
+EntryProgressDesc	Entrance BP Description	Current Level: %s/%s					
+StartGridName	Start Grid Name	Garrison Point					
+StartGridDesc	Start Grid Description	Receive Silver Coin x{1}\nfor every Silver Coin x{0} you have.\n<color=#A0522D>Current Interest: {2}</color>\n<color=#A0522D>Max Interest: {3}</color>					
+BpRewardName	BP Button Name	Assessment Progress	Mission Reward				
+InGameOpenSkillTip	In-Game Talent Tree Opening Prompt	In-Game Talent Activation Failed					
+HandBookTagText	Collectible Interface Tag Text	Blueprint Handbook	Logistic Support	Map Overview			
+DiscoverGridColorBg	Found Grid Background Color	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4GridBgRed.png	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4GridBgYellow.png	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4GridBgBlue.png			
+EmptyGridProcessedName	Empty Grid Solved Status Name	Completed					
+GameBossInfoTips	Game Main Interface Boss Prosperity Prompt	%d Development Level required	Requirement met				
+HurdleGridName	Obstacle Grid Name	Ruins					
+ColorResourceAnimTime	Color Resource Anime Duration (ms)	1500					
+ProsperityAnimTime	Prosperity Anime Duration (ms)	1000					
+GeniusLevelIcon	Talent Level Icon	Assets/Product/Texture/Atlas/UiTheatre4/ImgGeniusIconLv.png	Assets/Product/Texture/Atlas/UiTheatre4/ImgGeniusIconLv2.png	Assets/Product/Texture/Atlas/UiTheatre4/ImgGeniusIconLv3.png			
+SkillActiveText	Talent Activation Button Description	Activate	Locked	Activated			
+TimelineAnimTime	Timeline Movement Duration (ms)	500					
+GuideActiveMapId	Trigger Guide MapId	11002	11003				
+ShopSureText	Shop Confirmation Button Text	Leave	Purchase				
+BtnClickCoolingTime	Button Tap Cooldown Time (ms)	500					
+FirstEntryStoryId	1st Time Story	RG00801BA					
+NotFoundItemAndGeniusDesc	Collectible/Talent Not Found Description Text	Not Found					
+BossAttackDrainLifeTip	Boss Attack HP Reduction Prompt	Garrison Point is <color=#FF9519>under attack</color>. Defense -1. Eliminate the Boss asap!					
+RestartGoldName	Name of Token Consumed by Restart	Silver Coin					
+ResourceRollingNumberTime	Color Resource Scrolling Duration (ms)	600					
+LevelRollingNumberTime	Color Level Scrolling Display Duration (ms)	600					
+ProsperityRollingNumberTime	Prosperity Scrolling Display Duration (ms)	600					
+AssetNotEnoughTextColor	Exploration Cost Not Met Text Color	D0DFE7	FF676B				
+BuildPointDailyAdd	Construction Point Daily Prompt	Daily +{0}					
+BossUnknowIcon	Top Left Corner Icon Display (Boss Locked)	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4BossGridBg05.png					
+BossUnknowName	Top Left Corner Name Display (Boss Locked)	???					
+BossUnknowProsperity	Top Left Corner Prosperity Display (Boss Locked)	???					
+ItemRepeatLimitTips	Duplicate Collectible Prompt	Blueprint cannot be obtained repeatedly					
+TechItemCountUnEnough	Tech Tree Insufficient Tech Points Prompt	Insufficient Supply Coupons					
+BpFullLevelTip	Max BP Level Prompt	Level limit reached					
+BuildPointEffectShowValue	Construction Point Special Effect Display Value (Displayed When Above or Equal to the Configured Value)	10					
+AttackPopupTitle	Attack Alert Title	Tip					
+AttackPopupDesc	Attack Alert Description	Garrison Point will be attacked soon!					
+AttackPopupHpDesc	Attack Alert HP Description	Current Defense: {0}	Defense Reduced: {0}				
+AdventureFailedPopupTitle	Failed Adventure Pop-up Window Title	Tip					
+AdventureFailedPopupContent	Failed Adventure Pop-up Window Text Content	Base's Defense reduced to 0. Challenge failed.					
+AdventureFailedPopupConfirmText	Failed Adventure Pop-up Window Confirmation Text	Leave Challenge					
+ViewMapTipContent	View Map Tips	Cannot proceed without {0}					
+ViewMapBtnClickTipContent	View Map Tap Button Tips	Cannot tap when {0}					
+EntryViewMapPopupName	Map View on That Interface	Replacement Blueprint	Select Blueprint	Select Rewards	Select Support		
+SwitchFloorCueId	Switch Layer Audio ID	557					
+EventOptionStageScoreNotEnough	Event Option Score Prompt	Low Event Option Stage Score					
+EffectForbiddenFight	411 Battle Prohibition Prompt	Encounter Prohibited for This Battle Type					
+EffectRecruitCostNotEnoughTip	Effect 410 Insufficient Gold Coins Prompt	Insufficient Silver Coins. You can save the Action Points and convert them to Silver Coins on the next day.	Insufficient Silver Coins. The remaining Action Points can be converted into {0} Silver Coin(s).				
+EffectRecruitRedCostNotEnoughTip	Effect 422 Insufficient Red Cost Prompt	Insufficient Military Development Rate					
+EffectRecruitHalfDiscount	Ownership Effect 421, Red Cost Affiliated Effect, Cost Consumption Halved	(Only reduces the enemy's HP by %s%%)					
+TimeBackTips1		Refunds the %s Action Points used in the last 3 rounds and clears them in the next chapter	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4IconActionpoint.png				
+TimeBackTips2		Refunds a portion of the Silver Coins spent in the last 3 rounds, for a total of %s	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4IconCoin.png				
+TimeBackTips3		Refunds the %s Construction Permits spent in the last 3 rounds and demolishes the corresponding buildings	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4IconXuke.png				
+TimeBackTips4		Deducts the %s Tri-Colored Multiplier gained in the last 3 rounds	Assets/Product/Texture/Image/UiTheatre4/UiTheatre4IconGou.png				

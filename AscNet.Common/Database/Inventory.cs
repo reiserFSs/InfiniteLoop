@@ -45,7 +45,7 @@ namespace AscNet.Common.Database
         public const int PassportExp = 60;
         #endregion
 
-        public static readonly IMongoCollection<Inventory> collection = Common.db.GetCollection<Inventory>("inventory");
+        public static IMongoCollection<Inventory> collection = Common.db.GetCollection<Inventory>("inventory");
         private static readonly Lazy<HashSet<int>> ClientItemIds = new(() =>
             TableReaderV2.Parse<ItemTable>().Select(item => item.Id).ToHashSet());
 

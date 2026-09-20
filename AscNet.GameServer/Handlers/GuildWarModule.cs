@@ -275,7 +275,7 @@ internal static partial class GuildWarModule
 
     internal static Round RoundData(Guild guild, GuildWarRoundState round)
     {
-        var data = new Round { RoundId = round.RoundId, DifficultyId = round.DifficultyId, SkipRound = guild.CreatedAt > round.StartedAt ? 1 : 0, NodeData = round.Nodes.Select(NodeData).ToList(), MonsterData = round.Monsters.Select(MonsterData).ToList(),
+        var data = new Round { RoundId = round.RoundId, DifficultyId = round.DifficultyId > 0 ? round.DifficultyId : guild.War.NextDifficultyId > 0 ? guild.War.NextDifficultyId : PreselectedDifficulty(guild.War, round.RoundId), SkipRound = guild.CreatedAt > round.StartedAt ? 1 : 0, NodeData = round.Nodes.Select(NodeData).ToList(), MonsterData = round.Monsters.Select(MonsterData).ToList(),
             AttackPlan = round.AttackPlan.Select(x => (dynamic)x).ToList(), TotalActivation = round.TotalActivation, TotalPoint = checked((uint)Math.Min(uint.MaxValue, round.TotalPoint)) };
         PopulateDynamics(round, data);
         return data;

@@ -1,0 +1,272 @@
+Id	Des	GroupId	EventId	Weight	GameRepeatable	ConditionId	AddWeight[1]	AddWeight[2]	AddWeight[3]	AddWeightCondition[1]	AddWeightCondition[2]	AddWeightCondition[3]
+1	Event Series for Option Jump	10010	10010	100	1							
+2	Event Series for Option Jump	10011	10011	100	1							
+3	Event Series for Option Jump	10012	10012	100	1							
+4	Event Series for Option Jump	10013	10013	100	1							
+5	Temporary, will be deleted	10002	10002	100	1							
+6	Temporary, will be deleted	10003	10003	100	1							
+7	Temporary, will be deleted	10004	10004	100	1							
+8	Temporary, will be deleted	10006	10006	100	1							
+9	Temporary, will be deleted	10007	10007	100	1							
+10	Temporary, will be deleted	10008	10008	100	1							
+11	Ger 1 random item out of 3 options for testing	10009	10001	100	1							
+12	Ger 1 random item out of 3 options for testing	10009	10005	100	1							
+13	Ger 1 random item out of 3 options for testing	10009	10009	100	1							
+14	Blue Map True or False Door Ending	30001	30001	100	1							
+15	Costs 1 Gold Coin for filling in	21001	11001		1	1020603						
+16	Costs 2 Gold Coins for filling in	21001	11009		1	1020603						
+17	Costs 3 Gold Coins for filling in	21001	11017		1	1020603						
+18	Common Event Series	20001	11001	100	1							
+19	Common Event - No refresh for the first two chapters	20001	11009		1		100			1020614		
+20	Common Event Series	20001	11017	100	1							
+21	Common Event Series	20001	11025	100	1							
+22	Common Event Series	20001	11033	100	1							
+23	Common Event Series	20001	11041	100	1							
+24	Common Event Series	20001	11075	100	1							
+25	Common Event Series	20001	11133	100	1							
+26	Common Event Series	20001	11146	100	1							
+27	Common Event Series	20001	11159		1		100			1020614		
+28	Hide-and-Seek Teleport Event	30180	30180	100								
+29	Hide-and-Seek Teleported Event	30200	30200	100	1							
+30	Ring of Supremacy Start	31001	31001	100								
+31	Ring of Supremacy Map 3	31002	31006		1		99999			1020619		
+32	Ring of Supremacy Map 3	31002	31013		1		99999			1020620		
+33	Ring of Supremacy Map 3	31002	11001	1	1							
+34	Ring of Supremacy Map 3	31002	11009		1		1			1020614		
+35	Ring of Supremacy Map 3	31002	11017	1	1							
+36	Ring of Supremacy Map 3	31002	11025	1	1							
+37	Ring of Supremacy Map 3	31002	11033	1	1							
+38	Ring of Supremacy Map 3	31002	11041	1	1							
+39	Ring of Supremacy Map 3	31002	11075	1	1							
+40	Ring of Supremacy Map 3	31002	11133	1	1							
+41	Ring of Supremacy Map 3	31002	11146	1	1							
+42	Ring of Supremacy Map 3	31002	11159		1		1			1020614		
+43	Ring of Supremacy Map 4 Event	31003	31017	100	1							
+44	Frieren Event	31004	31019	100	1							
+45	Scientific Research Station, Yellow Map 3 Opening Event	31005	31028	100	1							
+46	Yellow Ending Opening Event. Don't lower weighting. Guaranteed Ending Map.	31006	31035	9999	1							
+47	Yellow Mystery Shop	31007	31038	1	1							
+48	Winter Shadows Blue Map 2	31008	30060				99999			1020631		
+49	Winter Shadows Blue Map 2	31008	11001	1	1							
+50	Winter Shadows Blue Map 2	31008	11009		1		1			1020614		
+51	Winter Shadows Blue Map 2	31008	11017	1	1							
+52	Winter Shadows Blue Map 2	31008	11025	1	1							
+53	Winter Shadows Blue Map 2	31008	11033	1	1							
+54	Winter Shadows Blue Map 2	31008	11041	1	1							
+55	Winter Shadows Blue Map 2	31008	11075	1	1							
+56	Winter Shadows Blue Map 2	31008	11133	1	1							
+57	Winter Shadows Blue Map 2	31008	11146	1	1							
+58	Winter Shadows Blue Map 2	31008	11159		1		1			1020614		
+59	Deep-cleaning Blue Map 3	31009	30410	1	1							
+60	Winter Shadows Blue Map 1	31010	30050	1	1							
+61	Friends Blue Map 4	31011	30420	1	1							
+62	Save the Evening Bell Blue Map 4	31012	30434	1	1							
+63	Robo Worm Blue Map 5	31013	30445	1	1							
+64	Blue Ending Select True or False Door	31014	31080	1	1							
+65	Ryne the Warhorse Red Map 1	31015	30030	10								
+66	Ryne the Warhorse Red Map 1	31015	11001	1	1							
+67	Ryne the Warhorse Red Map 1	31015	11009		1		1			1020614		
+68	Ryne the Warhorse Red Map 1	31015	11017	1	1							
+69	Ryne the Warhorse Red Map 1	31015	11025	1	1							
+70	Ryne the Warhorse Red Map 1	31015	11033	1	1							
+71	Ryne the Warhorse Red Map 1	31015	11041	1	1							
+72	Ryne the Warhorse Red Map 1	31015	11075	1	1							
+73	Ryne the Warhorse Red Map 1	31015	11133	1	1							
+74	Ryne the Warhorse Red Map 1	31015	11146	1	1							
+75	Ryne the Warhorse Red Map 1	31015	11159		1		1			1020614		
+76	Ryne the Warhorse Red Map 2	31016	30036				99999			1020615		
+77	Ryne the Warhorse Red Map 2	31016	30040		1		99999			1020616		
+78	Ryne the Warhorse Red Map 2	31016	11001	1	1							
+79	Ryne the Warhorse Red Map 2	31016	11009		1		1			1020614		
+80	Ryne the Warhorse Red Map 2	31016	11017	1	1							
+81	Ryne the Warhorse Red Map 2	31016	11025	1	1							
+82	Ryne the Warhorse Red Map 2	31016	11033	1	1							
+83	Ryne the Warhorse Red Map 2	31016	11041	1	1							
+84	Ryne the Warhorse Red Map 2	31016	11075	1	1							
+85	Ryne the Warhorse Red Map 2	31016	11133	1	1							
+86	Ryne the Warhorse Red Map 2	31016	11146	1	1							
+87	Ryne the Warhorse Red Map 2	31016	11159		1		1			1020614		
+88	Red Ending Event - Guaranteed Ending	31017	31110	1								
+89	Chapter 1 Main, add weighting the first two times and appear at a 50% rate after that	31018	31130	10			9999	9999	-19998	1020649	1020650	1020691
+90		31018	11001	1	1							
+91		31018	11009		1		1			1020614		
+92		31018	11017	1	1							
+93		31018	11025	1	1							
+94		31018	11033	1	1							
+95		31018	11041	1	1							
+96		31018	11075	1	1							
+97		31018	11133	1	1							
+98		31018	11146	1	1							
+99		31018	11159		1		1			1020614		
+100	Chapter 2 Main, add weighting the first two times and appear at a 50% rate after that	31019	31140	10			9999	9999	-19998	1020651	1020652	1020692
+101		31019	11001	1	1							
+102		31019	11009		1		1			1020614		
+103		31019	11017	1	1							
+104		31019	11025	1	1							
+105		31019	11033	1	1							
+106		31019	11041	1	1							
+107		31019	11075	1	1							
+108		31019	11133	1	1							
+109		31019	11146	1	1							
+110		31019	11159		1		1			1020614		
+111	Chapter 4 Main, add weighting the first two times and appear at a 50% rate after that	31020	31170	10			9999	9999	-19998	1020653	1020654	1020693
+112		31020	11001	1	1							
+113		31020	11009		1		1			1020614		
+114		31020	11017	1	1							
+115		31020	11025	1	1							
+116		31020	11033	1	1							
+117		31020	11041	1	1							
+118		31020	11075	1	1							
+119		31020	11133	1	1							
+120		31020	11146	1	1							
+121		31020	11159		1		1			1020614		
+122	Chapter 3 Main, add weighting the first two times and appear at a 50% rate after that	31021	31185	10			9999	9999	-19998	1020655	1020656	1020694
+123		31021	11001	1	1							
+124		31021	11009		1		1			1020614		
+125		31021	11017	1	1							
+126		31021	11025	1	1							
+127		31021	11033	1	1							
+128		31021	11041	1	1							
+129		31021	11075	1	1							
+130		31021	11133	1	1							
+131		31021	11146	1	1							
+132		31021	11159		1		1			1020614		
+133	Red Ending Event - Guaranteed	31022	31110	1								
+134	For random areas in Trap Ahead Event	31030	30098	1		1020670						
+135		31030	30099	1		1020670						
+136		31030	30100	1		1020671						
+138	Red Route 1, Trap Ahead Event	31031	30090	1000								
+139		31031	11001	1	1							
+140		31031	11009		1		1			1020614		
+141		31031	11017	1	1							
+142		31031	11025	1	1							
+143		31031	11033	1	1							
+144		31031	11041	1	1							
+145		31031	11075	1	1							
+146		31031	11133	1	1							
+147		31031	11146	1	1							
+148		31031	11159		1		1			1020614		
+149	Beginner Map 1 Event 1	1001	1001	1	1							
+150	Beginner Map 2 Event 1	1002	11001	1	1							
+151	Beginner Map 2 Event 1	1003	11017	1	1							
+152	Red Route1, Our Hometown - Prerequisite - Chapter 3	31032	30501	1000								
+153		31032	11001	1	1							
+154		31032	11009		1		1			1020614		
+155		31032	11017	1	1							
+156		31032	11025	1	1							
+157		31032	11033	1	1							
+158		31032	11041	1	1							
+159		31032	11075	1	1							
+160		31032	11133	1	1							
+161		31032	11146	1	1							
+162		31032	11159		1		1			1020614		
+163	Red Route1, Our Hometown - Ending - Chapter 4	31033	30520	1000								
+164	Multi-colored Route 1, To the Battlefield 1 - Chapter 2	31040	30300	1000								
+165		31040	11001	1	1							
+166		31040	11009		1		1			1020614		
+167		31040	11017	1	1							
+168		31040	11025	1	1							
+169		31040	11033	1	1							
+170		31040	11041	1	1							
+171		31040	11075	1	1							
+172		31040	11133	1	1							
+173		31040	11146	1	1							
+174		31040	11159		1		1			1020614		
+175	Multi-colored Route 1, To the Battlefield 2 - Chapter 3	31041	30320	1000		1020695						
+176		31041	11001	1	1							
+177		31041	11009		1		1			1020614		
+178		31041	11017	1	1							
+179		31041	11025	1	1							
+180		31041	11033	1	1							
+181		31041	11041	1	1							
+182		31041	11075	1	1							
+183		31041	11133	1	1							
+184		31041	11146	1	1							
+185		31041	11159		1		1			1020614		
+186	Multi-colored Route 1, To the Battlefield 3 - Chapter 4	31042	30370	1000		1020696						
+187		31042	11001	1	1							
+188		31042	11009		1		1			1020614		
+189		31042	11017	1	1							
+190		31042	11025	1	1							
+191		31042	11033	1	1							
+192		31042	11041	1	1							
+193		31042	11075	1	1							
+194		31042	11133	1	1							
+195		31042	11146	1	1							
+196		31042	11159		1		1			1020614		
+197	Multi-colored Route 1, Loyal Guard 1 - Chapter 4	31043	30221	1000								
+198		31043	11001	1	1							
+199		31043	11009		1		1			1020614		
+200		31043	11017	1	1							
+201		31043	11025	1	1							
+202		31043	11033	1	1							
+203		31043	11041	1	1							
+204		31043	11075	1	1							
+205		31043	11133	1	1							
+206		31043	11146	1	1							
+207		31043	11159		1		1			1020614		
+208	Multi-colored Route 1, Loyal Guard 2 - Chapter 4	31044	30250	1000								
+209	Silver City Series Origin	60001	60001	1	1							
+210	Silver City First Pursuading to Quit	60008	60008	1	1							
+211	Silver City doubles	60011	60011	1	1							
+212	Silver City halves	60015	60015	1	1							
+213	Silver City -100	60019	60019	1	1							
+214	Silver City +100	60021	60021	1	1							
+215	Silver City +400	60024	60024	1	1							
+216	Before the Battle	60026	60026	1	1							
+217	After the Battle	60030	60030	1	1							
+218	Path Against the Wind Initial	60034	60034	1	1							
+219	Path Against the Wind Pursuading to Quit	60040	60040	1	1							
+220	Path Against the Wind - Necklace	60043	60043	1	1							
+221	Path Against the Wind - Stat Reward	60046	60046	1	1							
+222	Path Against the Wind - Trial	60048	60048	1	1							
+223	Path Against the Wind - After Boss Fight	60051	60051	1	1							
+224	Path Against the Wind - Chapter 2 Opening Reward	60058	60058	1	1							
+225	Polar Revival Project 1	60059	60059									
+226	Polar Revival Project 2	60059	60071									
+227	Polar Revival Project 3	60059	60077									
+228	Golden City +100 Fallen Stone Pillar	60125	60125	1	1							
+229	Golden City +100 Belongings of the Deceased	60128	60128	1	1							
+230	Awaken Event - Blue - Nameless Lab	60132	60132	1	1							
+231	Awaken Event - Blue - Belongings Under the Ice	60143	60143	1	1							
+232	Awaken Event - Yellow - Astrologer in the Tower's Top Attic	60153	60153	1	1							
+233	Awaken Event - Yellow - Wishing Spring	60164	60164	1	1							
+234	Awaken Event - Red - Imaginary Beast	60183	60183	1	1							
+235	Awaken Event - Red - A Neverending Nightmare	60194	60194	1	1							
+236	Awaken Event - Prelude to the Collapse 1	60205	60205	1	1							
+237	Awaken Event - Prelude to the Collapse 2	60211	60211		1		100			1020840		
+238	Awaken Event - Prelude to the Collapse 3	60215	60215		1		100			1020848		
+239	Awaken Event - Prelude to the Collapse: The End	60216	60216		1		100			1020839		
+240	Awaken Event - Singularity 1	60205	60221	1	1							
+241	Awaken Event - Singularity 2	60211	60230		1		100			1020842		
+242	Awaken Event - Singularity 3	60215	60234		1		100			1020849		
+243	Awaken Event - Singularity 4	60216	60238		1		100			1020850		
+244	Awaken Event - Singularity 5	60244	60244		1		100			1020851		
+245	Classified Files 1	60252	60252	100	1							
+246	Classified Files 2	60259	60259		1		100			1020786		
+247	Classified Files 3	60265	60265		1		100			1020787		
+248	Echoes in the Dream 1	60252	60272	100	1							
+249	Echoes in the Dream 2	60259	60277		1		100			1020852		
+250	Echoes in the Dream 3	60265	60280		1		100			1020853		
+251	Sand Table Prompt	60259	60282	1	1							
+252	Sand Table Prompt	60265	60282	1	1							
+253	Sand Table Prompt	60211	60282	1	1							
+254	Sand Table Prompt	60215	60282	1	1							
+255	Sand Table Prompt	60216	60282	1	1							
+256	Sand Table Prompt	60244	60282	1	1							
+257	Selected Event 2 for 2nd Slot, Jump Directly to 3 Collapse	60211	60215		1		100			1020848		
+258	Selected Event 2 for 2nd Slot, Jump Directly to 3 Singularity	60211	60234		1		100			1020849		
+259	Selected Event 3 for 2nd Slot, Jump Directly to 4 Collapse	60211	60216		1		100			1020839		
+260	Selected Event 3 for 2nd Slot, Jump Directly to 4 Singularity	60211	60238		1		100			1020850		
+261	Didn't Select 2 for 3rd Slot, Jump to 2 Collapse	60215	60211		1		100			1020840		
+262	Didn't Select 2 for 3rd Slot, Jump to 2 Singularity	60215	60230		1		100			1020842		
+263	Didn't Select Event 3 for 3rd Slot, Jump Directly to 4 Collapse	60215	60216		1		100			1020839		
+264	Didn't Select Event 3 for 3rd Slot, Jump Directly to 4 Singularity	60215	60238		1		100			1020850		
+265	Didn't Select 2 for 4th Slot, Jump to 2 Collapse	60216	60211		1		100			1020840		
+266	Didn't Select 2 for 4th Slot, Jump to 2 Singularity	60216	60230		1		100			1020842		
+267	Didn't Select 2 for 4th Slot, Jump to 3 Collapse	60216	60215		1		100			1020848		
+268	Didn't Select 3 for 4th Slot, Jump to 3 Singularity	60216	60234		1		100			1020849		
+269	On the Edge of the Sandbox II	70001	70001	100	1							
+270	Mound of Remains	70003	70003	100	1							
+271	When the Ice Lake Thaws	70009	70009	100	1							
+272	The Final Path	70015	70015	100	1							

@@ -256,8 +256,10 @@ internal partial class Program
             GuildWarSetBalance(actor, energy, 0);
             JObject skipped = GuildWarCall(actor, "GuildWarGetActivityDataRequest", empty);
             GuildAssert(skipped["ActivityData"]!["RoundData"]!.Single().Value<int>("SkipRound") == 1
+                && skipped["ActivityData"]!["RoundData"]!.Single().Value<int>("DifficultyId") == alternate
+                && Guild.FindById(guildId)!.War.Rounds.Single().DifficultyId == 0
                 && Guild.FindById(guildId)!.War.Rounds.Single().Nodes.Count == 0 && GuildWarBalance(actor, energy) == 0,
-                "Guild created after the exact round start must report SkipRound without initializing gameplay or granting energy");
+                "Skipped rounds must expose the authored preselection needed by the client without initializing gameplay or granting energy");
             GuildWarCall(actor, "GuildWarSelectDifficultyRequest", new Dictionary<string, object> { ["DifficultyId"] = 1 });
             GuildAssert(GuildWarCall(actor, "GuildWarMoveRequest", new Dictionary<string, object>
                 { ["CurNodeId"] = 0, ["NextNodeId"] = rules.Values.First(row => row.DifficultyId == 1).Id }, false)

@@ -1,0 +1,3 @@
+Id	GroupId	Weight	Quality	ItemGroupId[1]	ItemGroupId[2]	SafeItemGroupId	Name	Icon	Title	TitleContent	Desc
+1	1	100	5	10001	10001	10001	Standard File Box	Assets/Product/Texture/Image/IconTools/UiTheatre4Item39.png	Standard File Box	Try opening it?	Open to receive a random Blueprint\n\n. <size=24><color=#74797D>A sealed box that safekeeps Blueprints from the Old World.</color></size>
+2	2	100	6	10002	10002	10001	Classified File Box	Assets/Product/Texture/Image/IconTools/UiTheatre4Item37.png	Classified File Box	Try opening it?	Open to receive a\n <color=##D5994B>Golden</color> Blueprint\n\n. <size=24><color=#74797D>A sealed box that safekeeps valuable Blueprints from the Old World.</color></size>

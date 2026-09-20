@@ -4,6 +4,8 @@ using AscNet.Common.Util;
 using AscNet.GameServer;
 using AscNet.GameServer.Handlers;
 using AscNet.Table.V2.share.equip;
+using AscNet.Table.V2.share.task;
+using MessagePack;
 using System.Reflection;
 
 namespace AscNet.Test;
@@ -57,7 +59,7 @@ internal static partial class Program
         AssertResonance(santiago[1], discount.DiscountCount - 1, expectedCode: 20012004,
             expectedRemaining: discount.DiscountCount - 1, "Santiago insufficient discount");
 
-        static void AssertResonance(
+        void AssertResonance(
             EquipTable memory,
             long materialCount,
             int expectedCode,
@@ -65,6 +67,10 @@ internal static partial class Program
             string name)
         {
             const int characterId = 1071005;
+            using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<Player> players,
+                out RecordingMongoCollectionProxy<Character> characters,
+                out RecordingMongoCollectionProxy<Inventory> inventories);
             EquipData equip = new()
             {
                 Id = checked((uint)(memory.Id + 10_000_000)),
@@ -80,13 +86,13 @@ internal static partial class Program
             AscNet.Common.Database.Inventory inventory = new()
             {
                 Uid = character.Uid,
-                Items = [new Item { Id = 62738, Count = materialCount }]
+                Items = [new Item { Id = discount.ItemId, Count = materialCount }]
             };
             using LoopbackSessionHarness harness = new(character, inventory: inventory);
             InvokeRequestHandler(harness, nameof(EquipResonanceRequest), checked((int)equip.Id),
                 new EquipResonanceRequest
                 {
-                    UseItemId = 62738,
+                    UseItemId = discount.ItemId,
                     EquipId = checked((int)equip.Id),
                     CharacterId = characterId,
                     Slots = [1],
@@ -95,14 +101,80 @@ internal static partial class Program
             if (expectedCode == 0)
             {
                 NotifyItemDataList push = ReadPushPayload<NotifyItemDataList>(harness, nameof(NotifyItemDataList), $"{name} item push");
-                AssertEqual(expectedRemaining, push.ItemDataList.Single(item => item.Id == 62738).Count,
+                AssertEqual(expectedRemaining, push.ItemDataList.Single(item => item.Id == discount.ItemId).Count,
                     $"{name} deducted material");
             }
+            Packet packet = harness.ReadPacket($"{name} response or task progression");
+            while (packet.Type == Packet.ContentType.Push)
+            {
+                AssertEqual(0, expectedCode, $"{name} rejected resonance emits no task push");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                AssertEqual(nameof(NotifyTask), push.Name, $"{name} only task progression precedes response");
+                NotifyTask notification = MessagePackSerializer.Deserialize<NotifyTask>(push.Content);
+                foreach (var task in notification.Tasks.Tasks)
+                {
+                    var schedule = task.Schedule.Single();
+                    TaskTable? legacy = TableReaderV2.Parse<TaskTable>().Find(row => row.Id == task.Id);
+                    CurrentTaskTable? current = TableReaderV2.Parse<CurrentTaskTable>().Find(row => row.Id == task.Id);
+                    int conditionId = legacy?.Condition ?? current!.Condition;
+                    AssertEqual((uint)conditionId, schedule.Id, $"{name} task uses configured condition");
+                    ConditionTable? legacyCondition = legacy is null ? null
+                        : TableReaderV2.Parse<ConditionTable>().Single(row => row.Id == conditionId);
+                    CurrentConditionTable? currentCondition = legacy is not null ? null
+                        : TableReaderV2.Parse<CurrentConditionTable>().Single(row => row.Id == conditionId);
+                    int? type = legacyCondition?.Type ?? currentCondition!.Type;
+                    var parameters = legacyCondition?.Params ?? currentCondition!.Params;
+                    int amount;
+                    if (type == 11202)
+                    {
+                        AssertEqual(true, parameters.Count <= 2
+                            && (parameters.Count < 2 || parameters[1] == discount.ItemId),
+                            $"{name} task counts only the spent material");
+                        amount = checked((int)(materialCount - expectedRemaining));
+                    }
+                    else
+                    {
+                        AssertEqual(12205, type ?? 0, $"{name} task counts resonance");
+                        AssertEqual(true, (parameters.Count < 2 || parameters[1] <= 0 || parameters[1] == memory.Id)
+                            && (parameters.Count < 3 || parameters[2] < 0 || parameters[2] == 0 && memory.Site is >= 1 and <= 6)
+                            && (parameters.Count < 4 || parameters[3] < 0 || parameters[3] == 0 && memory.Site == 0),
+                            $"{name} resonance matches task equipment filter");
+                        amount = 1;
+                    }
+                    AssertEqual(amount, harness.Session.player.MissionProgress.ConditionCounters[conditionId],
+                        $"{name} committed condition progress");
+                    AssertEqual(amount, players.LastReplacement!.MissionProgress.ConditionCounters[conditionId],
+                        $"{name} persisted condition progress");
+                    int target = legacy is not null ? legacy.Result ?? 1 : current!.Result;
+                    AssertEqual(Math.Min(amount, target), schedule.Value, $"{name} table-derived task schedule");
+                }
+                packet = harness.ReadPacket($"{name} response or task progression");
+            }
             EquipResonanceResponse response = ReadResponsePayload<EquipResonanceResponse>(
-                harness.ReadPacket($"{name} response"), nameof(EquipResonanceResponse));
+                packet, nameof(EquipResonanceResponse));
             AssertEqual(expectedCode, response.Code, $"{name} response Code");
-            AssertEqual(expectedRemaining, inventory.Items.Single(item => item.Id == 62738).Count,
+            AssertEqual(expectedRemaining, inventory.Items.Single(item => item.Id == discount.ItemId).Count,
                 $"{name} inventory material");
+            AssertEqual(expectedCode == 0 ? 1 : 0, equip.ResonanceInfo.Count, $"{name} committed resonance count");
+            AssertEqual(0, harness.Session.PendingEquipResonances.Count, $"{name} no provisional resonance");
+            if (expectedCode == 0)
+            {
+                AssertEqual(response.ResonanceDatas.Single().TemplateId,
+                    characters.LastReplacement!.Equips.Single().ResonanceInfo.Single().TemplateId,
+                    $"{name} returned resonance is persisted");
+                AssertEqual(expectedRemaining, inventories.LastReplacement!.Items.Single(item => item.Id == discount.ItemId).Count,
+                    $"{name} persisted material balance");
+            }
+            else
+            {
+                AssertEqual(0, players.ReplaceOneCalls, $"{name} no player save");
+                AssertEqual(0, characters.ReplaceOneCalls, $"{name} no character save");
+                AssertEqual(0, inventories.ReplaceOneCalls, $"{name} no inventory save");
+                AssertEqual(0, harness.Session.player.MissionProgress.ConditionCounters.Count,
+                    $"{name} no task progression");
+            }
+            AssertEqual(false, harness.TryReadAvailablePacket($"{name} unexpected trailing packet", out _),
+                $"{name} response completes sequence");
         }
     }
 }

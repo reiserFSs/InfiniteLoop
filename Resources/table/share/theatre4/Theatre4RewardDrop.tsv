@@ -1,0 +1,41 @@
+Id	Type	Des	GroupIds[1]	GroupIds[2]	GroupIds[3]	Probabilitys[1]	Probabilitys[2]	Probabilitys[3]
+10001	1	Take all the rewards for testing	10001	10002	10003	0.5	0.5	0.5
+10002	2	Ger 1 reward out of 3 options for testing	10001	10002	10003	1.0	1.0	1.0
+10003	1	Tri-Colored reward bonus +2 for each Piggy Bank	10004	10005	10006	1.0	1.0	1.0
+10004	1	Use rewards on Piggy Bank 5 times	10004	10005	10006	1.0	1.0	1.0
+10005	1	Minions, 1★ Recruitment Voucher, and Gold Coins	10007	10009		1.0	1.0	
+10006	1	Dropped by Elites: 2★ Recruitment Voucher, and Gold Coins.	10008	10009		1.0	1.0	
+10007	1	Chapter 1 Chest: 45 Gold Coins	11001			1.0		
+10008	1	Chapter 2 Chest: 45 Gold Coins	11002			1.0		
+10009	1	Chapter 3 Chest: 60 Gold Coins	11009	11003		1.0	1.0	
+10010	1	Chapter 4 Chest: 45 Gold Coins and Artifact Box	11010			1.0		
+10011	1	Chapter 5 Chest: 60 Gold Coins and Artifact Box	11011	11005		1.0	1.0	
+10012	1	Chapter 6 Chest: 60 Gold Coins and Artifact Box	11012	11006		1.0	1.0	
+10020	1	Golden Egg Reward	10020	10023		1.0	1.0	
+10021	1	Silver Egg Reward	10021			1.0		
+10022	1	Bronze Egg Reward	10022			1.0		
+10023	1	Tri-Colored Base Number given when you lose HP, 300 each.	14003	14004	14005	1.0	1.0	1.0
+11001	1	Dropped by Chapter 1 Minion	13031			1.0		
+11002	1	Dropped by Chapter 1 Elite	13032	13011		1.0	1.0	
+11003	1	Dropped by Chapter 1 Boss	13033	13034	13021	1.0	1.0	1.0
+11004	1	Dropped by Special Bosses: 2★ Recruitment Voucher, Special Artifact Box, and Gold Coins.	13033	13021	13035	1.0	1.0	1.0
+11005	1	Treasure Thief takes all	12062	12063	12064	1.0	1.0	1.0
+11006	1	Dropped by Chapter 2 Boss	13033	13034	13022	1.0	1.0	1.0
+11007	1	Dropped by Chapter 3 Boss	13033	13035	13023	1.0	1.0	1.0
+11008	1	Dropped by Chapter 4 Boss	13033	13034	13024	1.0	1.0	1.0
+11009	1	Dropped by Chapter 5 Boss	13033	13034	13025	1.0	1.0	1.0
+11010	1	Dropped by Chapter 6 Boss	13033	13034	13026	1.0	1.0	1.0
+11011	1	Dropped by Chapter 2 Minion	13031			1.0		
+11012	1	Dropped by Chapter 3 Minion	13031			1.0		
+11013	1	Dropped by Chapter 4 Minion	13031			1.0		
+11014	1	Dropped by Chapter 5 Minion	13031			1.0		
+11015	1	Dropped by Chapter 6 Minion	13031			1.0		
+11016	1	Dropped by Chapter 2 Elite	13032	13012		1.0	1.0	
+11017	1	Dropped by Chapter 3 Elite	13032	13013		1.0	1.0	
+11018	1	Dropped by Chapter 4 Elite	13032	13014		1.0	1.0	
+11019	1	Dropped by Chapter 5 Elite	13032	13015		1.0	1.0	
+11020	1	Dropped by Chapter 6 Elite	13032	13016		1.0	1.0	
+12001	1	Beginner Map 2 Recruitment Voucher	14001			1.0		
+12002	1	Beginner Map 1 Boss drops 200 Gold Coins.	14027			1.0		
+13001	1	Roguelike 4.0 Special Map Regular Collectible Chest x1	13034			1.0		
+13002	1	Roguelike 4.0 Special Map Special Collectible Chest x1	13035			1.0		

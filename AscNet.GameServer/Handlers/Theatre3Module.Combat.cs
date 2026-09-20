@@ -397,7 +397,8 @@ internal static partial class Theatre3Module
     private static void ValidateCombatResult(Mutation mutation, FightSettleResult result)
     {
         Require(result.StartFrame >= 0 && result.SettleFrame >= result.StartFrame && result.PauseFrame >= 0
-            && result.ExSkillPauseFrame >= 0 && result.LeftTime is >= 0 and <= int.MaxValue
+// Native untimed stages may produce negative countdown values
+            && result.LeftTime is >= int.MinValue and <= int.MaxValue
             && result.TotalDamage >= 0 && result.TotalDamaged >= 0 && result.TotalCure >= 0, 1033);
         long frames = result.SettleFrame - result.StartFrame;
         Require(result.PauseFrame <= frames && result.ExSkillPauseFrame <= frames - result.PauseFrame, 1033);
