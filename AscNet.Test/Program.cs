@@ -455,6 +455,12 @@ namespace AscNet.Test
                     ValidatePartnerComposeCompatibility();
                     return;
                 }
+                if (args.Contains("--partner-decompose-compat-only"))
+                {
+                    ValidatePartnerDecomposeCompatibility();
+                    return;
+                }
+
 
                 string? liveResonanceUid = args.FirstOrDefault(value =>
                     value.StartsWith("--verify-live-resonance-uid=", StringComparison.Ordinal));
@@ -970,6 +976,7 @@ namespace AscNet.Test
                 ValidateCharacterSwitchSkillCompatibility();
                 ValidateCharacterSendGiftCompatibility();
                 ValidateTeamPrefabCompatibility();
+                ValidatePartnerDecomposeCompatibility();
                 ValidatePreFightPositionCompatibility();
                 ValidateRobotDeploymentFashionCompatibility();
                 ValidateSegmentCheckFightCompatibility();
@@ -1424,6 +1431,428 @@ namespace AscNet.Test
                     "valid main final skill");
                 AssertNoExtraPacket(mainHarness, "valid main");
             }
+        }
+
+        private static void ValidatePartnerDecomposeCompatibility()
+        {
+            using MongoCollectionOverride collections = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out _, out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
+            PartnerData Partner(int id, int templateId, int level, int exp, int breakThrough,
+                int quality, int starSchedule, int mainSkillLevel = 1, int passiveSkillLevel = 1) => new()
+            {
+                Id = id,
+                TemplateId = templateId,
+                Level = level,
+                Exp = exp,
+                BreakThrough = breakThrough,
+                Quality = quality,
+                StarSchedule = starSchedule,
+                SkillList =
+                [
+                    new PartnerSkillData { Id = id * 10, Type = 1, Level = mainSkillLevel, IsWear = true },
+                    new PartnerSkillData { Id = id * 10 + 1, Type = 2, Level = passiveSkillLevel },
+                    new PartnerSkillData { Id = id * 10 + 2, Type = 2, Level = 1 },
+                    new PartnerSkillData { Id = id * 10 + 3, Type = 2, Level = 1 },
+                    new PartnerSkillData { Id = id * 10 + 4, Type = 2, Level = 1 },
+                    new PartnerSkillData { Id = id * 10 + 5, Type = 2, Level = 1 }
+                ]
+            };
+            AscNet.Common.Database.Character character = new()
+            {
+                Uid = 70_100,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners =
+                [
+                    Partner(701, 16_010_000, 10, 0, 0, 2, 0),
+                    Partner(702, 16_030_000, 5, 15, 1, 4, 30, 2)
+                ]
+            };
+            AscNet.Common.Database.Inventory inventory = new()
+            {
+                Uid = character.Uid,
+                Items = [new Item { Id = Inventory.Coin, Count = 9 }]
+            };
+            using LoopbackSessionHarness harness = new(character, inventory: inventory,
+                sessionId: "partner-decompose-test");
+            Dictionary<int, long> inventoryCountsBefore = inventory.Items.ToDictionary(item => item.Id, item => item.Count);
+            PartnerDecomposeRequest request = MessagePackSerializer.Deserialize<PartnerDecomposeRequest>(
+                MessagePackSerializer.Serialize(new PartnerDecomposeRequest { PartnerIds = [701, 702] }));
+            InvokeRequestHandler(harness, nameof(PartnerDecomposeRequest), 17_200, request);
+            NotifyItemDataList itemPush = ReadItemPush(harness.ReadPacket("PartnerDecomposeRequest item push"),
+                "PartnerDecomposeRequest item push");
+            Packet responsePacket = harness.ReadPacket("PartnerDecomposeResponse");
+            Packet.Response responseEnvelope = MessagePackSerializer.Deserialize<Packet.Response>(responsePacket.Content);
+            AssertEqual(17_200, responseEnvelope.Id, "PartnerDecomposeResponse packet id");
+            AssertEqual(nameof(PartnerDecomposeResponse), responseEnvelope.Name, "PartnerDecomposeResponse packet name");
+            PartnerDecomposeResponse response = MessagePackSerializer.Deserialize<PartnerDecomposeResponse>(
+                responseEnvelope.Content);
+            AssertEqual(0, response.Code, "PartnerDecomposeResponse code");
+            AssertEqual(true, response.RewardGoodsList.All(reward => reward.RewardType == (int)RewardType.Item),
+                "PartnerDecomposeResponse item reward types");
+            Dictionary<int, long> rewards = response.RewardGoodsList.ToDictionary(reward => reward.TemplateId,
+                reward => (long)reward.Count);
+            AssertEqual(150L, rewards.GetValueOrDefault(61), "first table-backed partner base refund");
+            AssertEqual(150L, rewards.GetValueOrDefault(62), "second table-backed partner base refund");
+            AssertEqual(true, rewards.GetValueOrDefault(30111) > 0,
+                "two distinct table-backed partner EXP refunds");
+            AssertEqual(true, rewards.GetValueOrDefault(Inventory.Coin) > 0,
+                "two distinct table-backed partner coin refunds");
+            AssertEqual(25L, rewards.GetValueOrDefault(40200), "breakthrough rebate floors aggregate");
+            AssertEqual(8L, rewards.GetValueOrDefault(40201), "breakthrough material rebate floors aggregate");
+            AssertEqual(21L, rewards.GetValueOrDefault(203), "star schedule rebate floors aggregate");
+            AssertEqual(42L, rewards.GetValueOrDefault(40301), "skill rebate floors aggregate");
+            AssertEqual(0, character.Partners.Count, "PartnerDecomposeRequest removes partners");
+            AssertEqual(1, characterCollection.ReplaceOneCalls, "PartnerDecomposeRequest persists Character");
+            AssertEqual(1, inventoryCollection.ReplaceOneCalls, "PartnerDecomposeRequest persists Inventory");
+            AssertEqual(0, characterCollection.LastReplacement!.Partners.Count,
+                "PartnerDecomposeRequest persisted partner removal");
+            AscNet.Common.Database.Inventory persistedInventory =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                    inventoryCollection.LastSuccessfulReplacementBson
+                    ?? throw new InvalidDataException("PartnerDecomposeRequest inventory was not durably saved."));
+            AssertEqual(rewards.Count, itemPush.ItemDataList.Count, "PartnerDecomposeRequest push reward count");
+            foreach (RewardGoods reward in response.RewardGoodsList)
+            {
+                long before = inventoryCountsBefore.GetValueOrDefault(reward.TemplateId);
+                long current = inventory.Items.Single(item => item.Id == reward.TemplateId).Count;
+                long persisted = persistedInventory.Items.Single(item => item.Id == reward.TemplateId).Count;
+                AssertEqual((long)reward.Count, current - before,
+                    $"PartnerDecomposeRequest inventory delta {reward.TemplateId}");
+                AssertEqual((long)reward.Count, persisted - before,
+                    $"PartnerDecomposeRequest persisted inventory delta {reward.TemplateId}");
+                AssertEqual(current, itemPush.ItemDataList.Single(item => item.Id == reward.TemplateId).Count,
+                    $"PartnerDecomposeRequest push inventory state {reward.TemplateId}");
+            }
+            AssertEqual(Convert.ToHexString(inventory.ToBson()), Convert.ToHexString(persistedInventory.ToBson()),
+                "PartnerDecomposeRequest durable inventory state");
+
+            AscNet.Common.Database.Character underCapCharacter = new()
+            {
+                Uid = 70_102,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners =
+                [
+                    Partner(703, 16_010_000, 10, 0, 0, 2, 0),
+                    Partner(704, 16_030_000, 5, 15, 1, 4, 30, 2),
+                    Partner(706, 16_010_000, 1, 0, 0, 2, 0)
+                ]
+            };
+            AscNet.Common.Database.Inventory underCapInventory = new()
+            {
+                Uid = underCapCharacter.Uid,
+                Items = [new Item { Id = 99_999, Count = 9 }]
+            };
+            Dictionary<int, long> underCapBefore = underCapInventory.Items
+                .ToDictionary(item => item.Id, item => item.Count);
+            byte[] retainedPartner = underCapCharacter.Partners[2].ToBson();
+            int underCapCharacterSaves = characterCollection.ReplaceOneCalls;
+            int underCapInventorySaves = inventoryCollection.ReplaceOneCalls;
+            Dictionary<int, long> underCapRewards = [];
+            using (LoopbackSessionHarness underCap = new(underCapCharacter, inventory: underCapInventory,
+                sessionId: "partner-decompose-under-cap"))
+            {
+                InvokeRequestHandler(underCap, nameof(PartnerDecomposeRequest), 17_202,
+                    new PartnerDecomposeRequest { PartnerIds = [703, 704] });
+                Packet firstPacket = underCap.ReadPacket("under-cap first packet");
+                Packet secondPacket = underCap.ReadPacket("under-cap second packet");
+                NotifyItemDataList underCapPush = ReadItemPush(
+                    firstPacket.Type == Packet.ContentType.Push ? firstPacket : secondPacket, "under-cap item push");
+                PartnerDecomposeResponse underCapResponse = ReadResponsePayload<PartnerDecomposeResponse>(
+                    firstPacket.Type == Packet.ContentType.Response ? firstPacket : secondPacket,
+                    nameof(PartnerDecomposeResponse));
+                AssertEqual(0, underCapResponse.Code, "under-cap Code");
+                underCapRewards = underCapResponse.RewardGoodsList.ToDictionary(
+                    reward => reward.TemplateId, reward => (long)reward.Count);
+                AssertEqual(underCapRewards.Count, underCapPush.ItemDataList.Count, "under-cap push reward count");
+                foreach (var item in underCapPush.ItemDataList)
+                    AssertEqual(underCapRewards[item.Id], item.Count, $"under-cap push reward {item.Id}");
+                AscNet.Common.Database.Inventory underCapPersisted =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                        inventoryCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException("under-cap inventory was not durably saved."));
+                foreach ((int itemId, long count) in underCapRewards)
+                {
+                    AssertEqual(count, underCapInventory.Items.Single(item => item.Id == itemId).Count -
+                        underCapBefore.GetValueOrDefault(itemId), $"under-cap inventory delta {itemId}");
+                    AssertEqual(count, underCapPersisted.Items.Single(item => item.Id == itemId).Count -
+                        underCapBefore.GetValueOrDefault(itemId), $"under-cap durable inventory delta {itemId}");
+                }
+                AssertEqual(Convert.ToHexString(underCapInventory.ToBson()), Convert.ToHexString(underCapPersisted.ToBson()),
+                    "under-cap durable inventory state");
+                AssertEqual(underCapCharacterSaves + 1, characterCollection.ReplaceOneCalls, "under-cap Character save");
+                AssertEqual(underCapInventorySaves + 1, inventoryCollection.ReplaceOneCalls, "under-cap Inventory save");
+                AssertEqual(Convert.ToHexString(retainedPartner), Convert.ToHexString(underCapCharacter.Partners.Single().ToBson()),
+                    "under-cap preserves unrelated partner");
+                AssertEqual(9L, underCapInventory.Items.Single(item => item.Id == 99_999).Count,
+                    "under-cap preserves unrelated inventory");
+                if (underCap.TryReadAvailablePacket("under-cap unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"under-cap sent unexpected {extra.Type} packet.");
+            }
+            ItemTable exactHeadroomItemTable = TableReaderV2.Parse<ItemTable>().First(item =>
+                item.Id != Inventory.Coin && underCapRewards.ContainsKey(item.Id)
+                && underCapRewards[item.Id] <= Inventory.GetMaxCount(item));
+            int exactHeadroomItemId = exactHeadroomItemTable.Id;
+            long exactHeadroomReward = underCapRewards[exactHeadroomItemId];
+            AscNet.Common.Database.Character exactHeadroomCharacter = new()
+            {
+                Uid = 70_103,
+                Characters = [],
+                Equips = [],
+                Fashions = [],
+                Partners =
+                [
+                    Partner(703, 16_010_000, 10, 0, 0, 2, 0),
+                    Partner(704, 16_030_000, 5, 15, 1, 4, 30, 2)
+                ]
+            };
+            AscNet.Common.Database.Inventory exactHeadroomInventory = new()
+            {
+                Uid = exactHeadroomCharacter.Uid,
+                Items =
+                [
+                    new Item
+                    {
+                        Id = exactHeadroomItemId,
+                        Count = Inventory.GetMaxCount(exactHeadroomItemTable) - exactHeadroomReward
+                    }
+                ]
+            };
+            Dictionary<int, long> exactHeadroomBefore = exactHeadroomInventory.Items
+                .ToDictionary(item => item.Id, item => item.Count);
+            int exactHeadroomCharacterSaves = characterCollection.ReplaceOneCalls;
+            int exactHeadroomInventorySaves = inventoryCollection.ReplaceOneCalls;
+            using (LoopbackSessionHarness exactHeadroom = new(
+                exactHeadroomCharacter,
+                inventory: exactHeadroomInventory,
+                sessionId: "partner-decompose-exact-headroom"))
+            {
+                InvokeRequestHandler(exactHeadroom, nameof(PartnerDecomposeRequest), 17_203,
+                    new PartnerDecomposeRequest { PartnerIds = [703, 704] });
+                Packet firstPacket = exactHeadroom.ReadPacket("exact-headroom first packet");
+                Packet secondPacket = exactHeadroom.ReadPacket("exact-headroom second packet");
+                NotifyItemDataList exactHeadroomPush = ReadItemPush(
+                    firstPacket.Type == Packet.ContentType.Push ? firstPacket : secondPacket,
+                    "exact-headroom item push");
+                PartnerDecomposeResponse exactHeadroomResponse = ReadResponsePayload<PartnerDecomposeResponse>(
+                    firstPacket.Type == Packet.ContentType.Response ? firstPacket : secondPacket,
+                    nameof(PartnerDecomposeResponse));
+                AssertEqual(0, exactHeadroomResponse.Code, "exact-headroom Code");
+                Dictionary<int, long> exactHeadroomResponseRewards = exactHeadroomResponse.RewardGoodsList
+                    .ToDictionary(reward => reward.TemplateId, reward => (long)reward.Count);
+                AssertEqual(underCapRewards.Count, exactHeadroomResponseRewards.Count,
+                    "exact-headroom response reward count");
+                AssertEqual(underCapRewards.Count, exactHeadroomPush.ItemDataList.Count,
+                    "exact-headroom push reward count");
+                foreach ((int itemId, long count) in underCapRewards)
+                {
+                    AssertEqual(count, exactHeadroomResponseRewards.GetValueOrDefault(itemId),
+                        $"exact-headroom response reward {itemId}");
+                    AssertEqual(count, exactHeadroomPush.ItemDataList.Single(item => item.Id == itemId).Count
+                        - exactHeadroomBefore.GetValueOrDefault(itemId),
+                        $"exact-headroom push inventory delta {itemId}");
+                }
+                AscNet.Common.Database.Inventory exactHeadroomPersisted =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                        inventoryCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException("exact-headroom inventory was not durably saved."));
+                AssertEqual(0, exactHeadroomCharacter.Partners.Count, "exact-headroom removes partners");
+                AssertEqual(0, characterCollection.LastReplacement!.Partners.Count,
+                    "exact-headroom persisted partner removal");
+                AssertEqual(exactHeadroomCharacterSaves + 1, characterCollection.ReplaceOneCalls,
+                    "exact-headroom Character save");
+                AssertEqual(exactHeadroomInventorySaves + 1, inventoryCollection.ReplaceOneCalls,
+                    "exact-headroom Inventory save");
+                foreach ((int itemId, long count) in underCapRewards)
+                {
+                    long before = exactHeadroomBefore.GetValueOrDefault(itemId);
+                    long current = exactHeadroomInventory.Items.Single(item => item.Id == itemId).Count;
+                    long persisted = exactHeadroomPersisted.Items.Single(item => item.Id == itemId).Count;
+                    AssertEqual(count, current - before, $"exact-headroom inventory delta {itemId}");
+                    AssertEqual(count, persisted - before, $"exact-headroom durable inventory delta {itemId}");
+                }
+                AssertEqual(Inventory.GetMaxCount(exactHeadroomItemTable),
+                    exactHeadroomInventory.Items.Single(item => item.Id == exactHeadroomItemId).Count,
+                    "exact-headroom reaches item cap");
+                AssertEqual(Convert.ToHexString(exactHeadroomInventory.ToBson()),
+                    Convert.ToHexString(exactHeadroomPersisted.ToBson()),
+                    "exact-headroom durable inventory state");
+                if (exactHeadroom.TryReadAvailablePacket("exact-headroom unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"exact-headroom sent unexpected {extra.Type} packet.");
+            }
+
+
+            void Reject(string name, PartnerDecomposeRequest invalid,
+                Action<PartnerData>? configurePartner = null,
+                Action<AscNet.Common.Database.Player>? configurePlayer = null)
+            {
+                PartnerData partner = Partner(703, 16_010_000, 1, 0, 0, 2, 0);
+                configurePartner?.Invoke(partner);
+                AscNet.Common.Database.Character rejectedCharacter = new()
+                {
+                    Uid = 70_101 + characterCollection.ReplaceOneCalls,
+                    Characters = [],
+                    Equips = [],
+                    Fashions = [],
+                    Partners = [partner]
+                };
+                AscNet.Common.Database.Inventory rejectedInventory = new()
+                {
+                    Uid = rejectedCharacter.Uid,
+                    Items = [new Item { Id = 1, Count = 9 }]
+                };
+                AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(rejectedCharacter.Uid);
+                configurePlayer?.Invoke(player);
+                using LoopbackSessionHarness rejected = new(rejectedCharacter, player, rejectedInventory,
+                    $"partner-decompose-{name}");
+                byte[] characterBefore = rejectedCharacter.ToBson();
+                byte[] inventoryBefore = rejectedInventory.ToBson();
+                int characterSaves = characterCollection.ReplaceOneCalls;
+                int inventorySaves = inventoryCollection.ReplaceOneCalls;
+                InvokeRequestHandler(rejected, nameof(PartnerDecomposeRequest), 17_201 + characterSaves, invalid);
+                PartnerDecomposeResponse invalidResponse = ReadResponsePayload<PartnerDecomposeResponse>(
+                    rejected.ReadPacket($"{name} PartnerDecomposeResponse"), nameof(PartnerDecomposeResponse));
+                AssertEqual(1, invalidResponse.Code, $"{name} Code");
+                AssertEqual(0, invalidResponse.RewardGoodsList.Count, $"{name} rewards");
+                AssertEqual(characterSaves, characterCollection.ReplaceOneCalls, $"{name} does not save Character");
+                AssertEqual(inventorySaves, inventoryCollection.ReplaceOneCalls, $"{name} does not save Inventory");
+                AssertEqual(Convert.ToHexString(characterBefore), Convert.ToHexString(rejectedCharacter.ToBson()),
+                    $"{name} preserves partners");
+                AssertEqual(Convert.ToHexString(inventoryBefore), Convert.ToHexString(rejectedInventory.ToBson()),
+                    $"{name} preserves inventory");
+                if (rejected.TryReadAvailablePacket($"{name} unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"{name}: rejected request sent unexpected {extra.Type} packet.");
+            }
+
+            Reject("empty", new PartnerDecomposeRequest { PartnerIds = [] });
+            Reject("duplicate", new PartnerDecomposeRequest { PartnerIds = [703, 703] });
+            Reject("missing", new PartnerDecomposeRequest { PartnerIds = [999] });
+            Reject("locked", new PartnerDecomposeRequest { PartnerIds = [703] },
+                partner => partner.IsLock = true);
+            Reject("carried", new PartnerDecomposeRequest { PartnerIds = [703] },
+                partner => partner.CharacterId = 1021001);
+            Reject("team prefab", new PartnerDecomposeRequest { PartnerIds = [703] }, null,
+                player => player.TeamPrefabs =
+                [
+                    new TeamPrefabData
+                    {
+                        PartnerData = new Dictionary<int, TeamPrefabPartnerData?>
+                        {
+                            [1] = new() { PartnerId = 703 }
+                        }
+                    }
+                ]);
+            void RejectMutation(string name, Action applyFailure, Action clearFailure,
+                int expectedCharacterWrites, int expectedInventoryWrites, Action<AscNet.Common.Database.Inventory>? configureInventory = null,
+                bool retry = true, IReadOnlyDictionary<int, long>? expectedRetryRewards = null)
+            {
+                AscNet.Common.Database.Character failedCharacter = new()
+                {
+                    Uid = 70_200,
+                    Characters = [],
+                    Equips = [],
+                    Fashions = [],
+                    Partners =
+                    [
+                        Partner(703, 16_010_000, 10, 0, 0, 2, 0),
+                        Partner(704, 16_030_000, 5, 15, 1, 4, 30, 2)
+                    ]
+                };
+                AscNet.Common.Database.Inventory failedInventory = new() { Uid = failedCharacter.Uid, Items = [] };
+                configureInventory?.Invoke(failedInventory);
+                characterCollection.LastSuccessfulReplacementBson = failedCharacter.ToBson();
+                inventoryCollection.LastSuccessfulReplacementBson = failedInventory.ToBson();
+                byte[] characterBefore = failedCharacter.ToBson();
+                byte[] inventoryBefore = failedInventory.ToBson();
+                int characterSaves = characterCollection.ReplaceOneCalls;
+                int inventorySaves = inventoryCollection.ReplaceOneCalls;
+                using LoopbackSessionHarness failed = new(failedCharacter, inventory: failedInventory,
+                    sessionId: $"partner-decompose-{name}");
+                try
+                {
+                    applyFailure();
+                    InvokeRequestHandler(failed, nameof(PartnerDecomposeRequest), 17_300 + characterSaves,
+                        new PartnerDecomposeRequest { PartnerIds = [703, 704] });
+                }
+                finally
+                {
+                    clearFailure();
+                }
+
+                PartnerDecomposeResponse rejected = ReadResponsePayload<PartnerDecomposeResponse>(
+                    failed.ReadPacket($"{name} PartnerDecomposeResponse"), nameof(PartnerDecomposeResponse));
+                AssertEqual(1, rejected.Code, $"{name} Code");
+                AssertEqual(0, rejected.RewardGoodsList.Count, $"{name} rewards");
+                AssertEqual(characterSaves + expectedCharacterWrites, characterCollection.ReplaceOneCalls,
+                    $"{name} Character writes");
+                AssertEqual(inventorySaves + expectedInventoryWrites, inventoryCollection.ReplaceOneCalls,
+                    $"{name} Inventory writes");
+                AssertEqual(Convert.ToHexString(characterBefore), Convert.ToHexString(failedCharacter.ToBson()),
+                    $"{name} preserves live Character");
+                AssertEqual(Convert.ToHexString(inventoryBefore), Convert.ToHexString(failedInventory.ToBson()),
+                    $"{name} preserves live Inventory");
+                AssertEqual(Convert.ToHexString(characterBefore),
+                    Convert.ToHexString(characterCollection.LastSuccessfulReplacementBson ?? []),
+                    $"{name} preserves durable Character");
+                AssertEqual(Convert.ToHexString(inventoryBefore),
+                    Convert.ToHexString(inventoryCollection.LastSuccessfulReplacementBson ?? []),
+                    $"{name} preserves durable Inventory");
+                if (failed.TryReadAvailablePacket($"{name} unexpected packet", out Packet extra))
+                    throw new InvalidDataException($"{name}: rejected request sent unexpected {extra.Type} packet.");
+
+                if (!retry)
+                    return;
+                InvokeRequestHandler(failed, nameof(PartnerDecomposeRequest), 17_400 + characterSaves,
+                    new PartnerDecomposeRequest { PartnerIds = [703, 704] });
+                NotifyItemDataList retryPush = ReadItemPush(failed.ReadPacket($"{name} retry item push"),
+                    $"{name} retry item push");
+                PartnerDecomposeResponse retryResponse = ReadResponsePayload<PartnerDecomposeResponse>(
+                    failed.ReadPacket($"{name} retry response"), nameof(PartnerDecomposeResponse));
+                AssertEqual(0, retryResponse.Code, $"{name} retry Code");
+                IReadOnlyDictionary<int, long> retryRewards = expectedRetryRewards
+                    ?? throw new InvalidDataException($"{name}: missing retry reward oracle.");
+                AssertEqual(retryRewards.Count, retryResponse.RewardGoodsList.Count, $"{name} retry reward count");
+                AssertEqual(retryRewards.Count, retryPush.ItemDataList.Count, $"{name} retry push count");
+                foreach (RewardGoods reward in retryResponse.RewardGoodsList)
+                {
+                    AssertEqual(retryRewards.GetValueOrDefault(reward.TemplateId), (long)reward.Count,
+                        $"{name} retry reward {reward.TemplateId}");
+                    AssertEqual((long)reward.Count, failedInventory.Items.Single(item => item.Id == reward.TemplateId).Count,
+                        $"{name} retry inventory {reward.TemplateId}");
+                }
+                if (failed.TryReadAvailablePacket($"{name} retry unexpected packet", out Packet retryExtra))
+                    throw new InvalidDataException($"{name}: retry sent unexpected {retryExtra.Type} packet.");
+            }
+
+            RejectMutation("character save exception",
+                () => characterCollection.ThrowOnReplaceOne = true,
+                () => characterCollection.ThrowOnReplaceOne = false, 1, 0,
+                expectedRetryRewards: underCapRewards);
+            RejectMutation("inventory save exception",
+                () => inventoryCollection.ThrowOnReplaceOne = true,
+                () => inventoryCollection.ThrowOnReplaceOne = false, 2, 1,
+                expectedRetryRewards: underCapRewards);
+            RejectMutation("character zero match",
+                () => characterCollection.ReplaceOneMatchedCount = 0,
+                () => characterCollection.ReplaceOneMatchedCount = 1, 1, 0,
+                expectedRetryRewards: underCapRewards);
+            RejectMutation("inventory zero match",
+                () => inventoryCollection.ReplaceOneMatchedCount = 0,
+                () => inventoryCollection.ReplaceOneMatchedCount = 1, 2, 1,
+                expectedRetryRewards: underCapRewards);
+
+            KeyValuePair<int, long> cappedItem = rewards.First(reward => reward.Key != Inventory.Coin);
+            ItemTable cappedItemTable = TableReaderV2.Parse<ItemTable>().Single(item => item.Id == cappedItem.Key);
+            RejectMutation("item cap", () => { }, () => { }, 0, 0,
+                failedInventory => failedInventory.Items =
+                    [new Item { Id = cappedItem.Key, Count = Inventory.GetMaxCount(cappedItemTable) - cappedItem.Value + 1 }], false);
+            RejectMutation("money cap", () => { }, () => { }, 0, 0,
+                failedInventory => failedInventory.Items =
+                    [new Item { Id = Inventory.Coin, Count = Inventory.MoneyItemMaxCount - rewards[Inventory.Coin] + 1 }], false);
         }
 
         private static void ValidatePartnerComposeCompatibility()
@@ -17810,7 +18239,7 @@ namespace AscNet.Test
             public bool ThrowOnReplaceOne { get; set; }
             public Action<TDocument>? BeforeReplaceOne { get; set; }
             public long ReplaceOneMatchedCount { get; set; } = 1;
-            public byte[]? LastSuccessfulReplacementBson { get; private set; }
+            public byte[]? LastSuccessfulReplacementBson { get; set; }
             public Queue<long> CountDocumentsResults { get; } = new();
             public IReadOnlyList<TDocument>? FindResults { get; set; }
             public int? LastFindLimit { get; private set; }

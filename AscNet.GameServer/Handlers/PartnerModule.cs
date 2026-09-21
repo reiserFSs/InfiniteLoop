@@ -5,8 +5,10 @@ using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.partner;
 using AscNet.Table.V2.share.partner.leveluptemplate;
 using AscNet.Table.V2.share.archive;
+using AscNet.Table.V2.share.config;
 using ArchiveCondition = AscNet.Table.V2.share.condition.ConditionTable;
 using MessagePack;
+using MongoDB.Bson;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -24,6 +26,19 @@ namespace AscNet.GameServer.Handlers
     public class PartnerComposeResponse
     {
         public int Code;
+    }
+
+    [MessagePackObject(true)]
+    public class PartnerDecomposeRequest
+    {
+        public List<int> PartnerIds;
+    }
+
+    [MessagePackObject(true)]
+    public class PartnerDecomposeResponse
+    {
+        public int Code;
+        public List<RewardGoods> RewardGoodsList;
     }
 
     [MessagePackObject(true)]
@@ -308,6 +323,88 @@ namespace AscNet.GameServer.Handlers
             });
             SyncArchive(session);
             session.SendResponse(new PartnerComposeResponse(), packet.Id);
+        }
+
+        [RequestPacketHandler("PartnerDecomposeRequest")]
+        public static void PartnerDecomposeRequestHandler(Session session, Packet.Request packet)
+        {
+            PartnerDecomposeRequest request = packet.Deserialize<PartnerDecomposeRequest>();
+            List<int> ids = request.PartnerIds ?? [];
+            List<PartnerData> partners = session.character.Partners?
+                .Where(partner => ids.Contains(partner.Id))
+                .ToList() ?? [];
+            if (ids.Count == 0 || ids.Distinct().Count() != ids.Count || partners.Count != ids.Count
+                || partners.Any(partner => partner.IsLock || partner.CharacterId != 0
+                    || (session.player.TeamPrefabs?.Any(prefab => prefab?.PartnerData?.Values
+                        .Any(data => data?.PartnerId == partner.Id) == true) ?? false))
+                || !TryGetPartnerDecomposeRewards(partners, out List<RewardGoods> rewards))
+            {
+                session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                return;
+            }
+
+            Dictionary<int, ItemTable> itemTables = TableReaderV2.Parse<ItemTable>()
+                .ToDictionary(item => item.Id);
+            Dictionary<int, long> inventoryCounts = session.inventory.Items
+                .GroupBy(item => item.Id)
+                .ToDictionary(group => group.Key, group => group.Sum(item => item.Count));
+            foreach (IGrouping<int, RewardGoods> rewardGroup in rewards.GroupBy(reward => reward.TemplateId))
+            {
+                if (!itemTables.TryGetValue(rewardGroup.Key, out ItemTable? itemTable)
+                    || !Inventory.IsValidClientItemId(rewardGroup.Key))
+                {
+                    session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                    return;
+                }
+
+                long rewardCount = rewardGroup.Sum(reward => (long)reward.Count);
+                long currentCount = inventoryCounts.GetValueOrDefault(rewardGroup.Key);
+                // AscNet policy: reject grants that exceed the authoritative inventory headroom.
+                if (rewardCount <= 0 || currentCount < 0
+                    || rewardCount > Inventory.GetMaxCount(itemTable) - currentCount)
+                {
+                    session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                    return;
+                }
+            }
+
+            Character originalCharacter = session.character;
+            Inventory originalInventory = session.inventory;
+            NotifyItemDataList items = new();
+            bool characterPersisted = false;
+            try
+            {
+                Character stagedCharacter = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<Character>(
+                    originalCharacter.ToBsonDocument());
+                Inventory stagedInventory = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<Inventory>(
+                    originalInventory.ToBsonDocument());
+                foreach (RewardGoods reward in rewards)
+                    items.ItemDataList.Add(stagedInventory.Do(reward.TemplateId, reward.Count));
+                foreach (PartnerData partner in partners)
+                {
+                    PartnerData? stagedPartner = stagedCharacter.Partners?.SingleOrDefault(
+                        value => value.Id == partner.Id);
+                    if (stagedPartner is null || !stagedCharacter.Partners!.Remove(stagedPartner))
+                        throw new InvalidDataException($"Unable to remove decomposed partner {partner.Id}.");
+                }
+
+                stagedCharacter.SaveChecked();
+                characterPersisted = true;
+                stagedInventory.SaveChecked();
+                originalCharacter.Partners = stagedCharacter.Partners;
+                originalInventory.Items = stagedInventory.Items;
+            }
+            catch
+            {
+                if (characterPersisted)
+                    originalCharacter.SaveChecked();
+                session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                return;
+            }
+
+            if (items.ItemDataList.Count > 0)
+                session.SendPush(items);
+            session.SendResponse(new PartnerDecomposeResponse { RewardGoodsList = rewards }, packet.Id);
         }
 
         [RequestPacketHandler("PartnerLevelUpRequest")]
@@ -801,6 +898,145 @@ namespace AscNet.GameServer.Handlers
             504 => TableReaderV2.Parse<PartnerLevelUpTemplate504Table>().Select(row => (row.Level, row.AllExp)).ToList(),
             _ => []
         };
+
+        // Authoritative producer: EN client XPartnerManager.GetPartnerDecomposeRewards; server rewards are table-driven.
+        private static bool TryGetPartnerDecomposeRewards(
+            IReadOnlyList<PartnerData> partners,
+            out List<RewardGoods> rewards)
+        {
+            Dictionary<string, string> config = TableReaderV2.Parse<ConfigTable>()
+                .Where(row => row.Key is "PartnerDecomposeExpItemRebate"
+                    or "PartnerDecomposeLevelBreakRebate"
+                    or "PartnerDecomposeEvolutionRebate"
+                    or "PartnerDecomposeSkillRebate")
+                .ToDictionary(row => row.Key, row => row.Value);
+            if (!decimal.TryParse(config.GetValueOrDefault("PartnerDecomposeLevelBreakRebate"),
+                    System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out decimal levelRate)
+                || !decimal.TryParse(config.GetValueOrDefault("PartnerDecomposeEvolutionRebate"),
+                    System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out decimal evolutionRate)
+                || !decimal.TryParse(config.GetValueOrDefault("PartnerDecomposeSkillRebate"),
+                    System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out decimal skillRate))
+            {
+                rewards = [];
+                return false;
+            }
+
+            Dictionary<int, ItemTable> items = TableReaderV2.Parse<ItemTable>().ToDictionary(row => row.Id);
+            List<(int Id, int Exp, int Coin)> expItems = (config.GetValueOrDefault(
+                    "PartnerDecomposeExpItemRebate") ?? string.Empty)
+                .Split('|', StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => int.TryParse(value, out int id) ? id : 0)
+                .Where(id => id > 0 && items.TryGetValue(id, out _))
+                .Select(id => (Id: id, Exp: items[id].SubTypeParams.FirstOrDefault(),
+                    Coin: items[id].SubTypeParams.Skip(1).FirstOrDefault()))
+                .Where(item => item.Exp > 0)
+                .OrderByDescending(item => item.Exp)
+                .ToList();
+            Dictionary<int, PartnerTable> partnerRows = TableReaderV2.Parse<PartnerTable>()
+                .ToDictionary(row => row.Id);
+            ILookup<int, PartnerBreakThroughTable> breakthroughs = TableReaderV2.Parse<PartnerBreakThroughTable>()
+                .ToLookup(row => row.PartnerId);
+            ILookup<int, PartnerQualityTable> qualities = TableReaderV2.Parse<PartnerQualityTable>()
+                .ToLookup(row => row.PartnerId);
+            Dictionary<int, PartnerSkillTable> skills = TableReaderV2.Parse<PartnerSkillTable>()
+                .ToDictionary(row => row.PartnerId);
+            Dictionary<int, decimal> totals = [];
+            void Add(int itemId, decimal count)
+            {
+                if (itemId > 0 && count > 0 && items.ContainsKey(itemId))
+                    totals[itemId] = totals.GetValueOrDefault(itemId) + count;
+            }
+
+            foreach (PartnerData partner in partners)
+            {
+                PartnerTable? partnerRow = partnerRows.GetValueOrDefault(partner.TemplateId);
+                PartnerSkillTable? skillRow = skills.GetValueOrDefault(partner.TemplateId);
+                if (partnerRow is null || skillRow is null || partner.Level < 1 || partner.Exp < 0
+                    || partner.BreakThrough < 0 || partner.Quality < partnerRow.InitQuality
+                    || partner.StarSchedule < 0 || partner.SkillList.Count == 0
+                    || partner.SkillList.Any(skill => skill.Level < 1)
+                    || partner.SkillList.Count(skill => skill.Type == 1) != 1
+                    || skillRow.UpgradeCostItemId.Count != skillRow.UpgradeCostItemCount.Count)
+                {
+                    rewards = [];
+                    return false;
+                }
+
+                Add(partnerRow.DecomposeItemId, partnerRow.DecomposeItemCount);
+
+                int breakThroughExp = 0;
+                for (int breakTimes = 0; breakTimes <= partner.BreakThrough; breakTimes++)
+                {
+                    PartnerBreakThroughTable? row = breakthroughs[partner.TemplateId]
+                        .SingleOrDefault(value => value.BreakTimes == breakTimes);
+                    List<(int Level, int AllExp)> levels = row is null ? [] : GetLevelTemplate(row.LevelUpTemplateId);
+                    int level = breakTimes == partner.BreakThrough ? partner.Level : row?.LevelLimit ?? 0;
+                    if (row is null || !levels.Any(value => value.Level == level)
+                        || row.CostItemId.Count != row.CostItemCount.Count)
+                    {
+                        rewards = [];
+                        return false;
+                    }
+                    if (breakTimes < partner.BreakThrough)
+                    {
+                        breakThroughExp = checked(breakThroughExp
+                            + levels.Single(value => value.Level == level).AllExp);
+                        foreach ((int itemId, int count) in row.CostItemId.Zip(row.CostItemCount))
+                            Add(itemId, count * levelRate);
+                    }
+                    else
+                    {
+                        decimal exp = (partner.Exp
+                            + levels.Single(value => value.Level == level).AllExp
+                            + breakThroughExp) * levelRate;
+                        while (true)
+                        {
+                            (int Id, int Exp, int Coin) item = expItems.FirstOrDefault(value => exp >= value.Exp);
+                            if (item.Exp == 0)
+                                break;
+                            Add(item.Id, 1);
+                            Add(Inventory.Coin, item.Coin);
+                            exp -= item.Exp;
+                        }
+                    }
+                }
+
+                for (int quality = partnerRow.InitQuality + 1; quality <= partner.Quality; quality++)
+                {
+                    PartnerQualityTable? row = qualities[partner.TemplateId]
+                        .SingleOrDefault(value => value.Quality == quality - 1);
+                    if (row is null)
+                    {
+                        rewards = [];
+                        return false;
+                    }
+                    Add(row.EvolutionCostItemId ?? 0, (row.EvolutionCostItemCount ?? 0) * evolutionRate);
+                }
+                Add(partnerRow.ChipItemId, partner.StarSchedule * evolutionRate);
+
+                int skillLevels = partner.SkillList.Sum(skill => skill.Level);
+                for (int level = partner.SkillList.Count + 1; level <= skillLevels; level++)
+                    foreach ((int itemId, int count) in skillRow.UpgradeCostItemId.Zip(skillRow.UpgradeCostItemCount))
+                        Add(itemId, count * skillRate);
+            }
+
+            rewards = totals
+                .Select(total => (Id: total.Key, Count: decimal.ToInt32(decimal.Floor(total.Value))))
+                .Where(total => total.Count > 0)
+                .OrderByDescending(total => total.Id)
+                .Select(total => new RewardGoods
+                {
+                    Id = total.Id,
+                    TemplateId = total.Id,
+                    Count = total.Count,
+                    RewardType = (int)RewardType.Item
+                })
+                .ToList();
+            return true;
+        }
 
         private static (int TemplateId, int ShardId, int ShardCount)? ResolveComposition(int requestedId)
         {
