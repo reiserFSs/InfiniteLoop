@@ -326,11 +326,34 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new PartnerComposeResponse(), packet.Id);
         }
 
+        // ponytail: keep the latest 16 receipts; add a request journal only if this replay window proves insufficient.
+        private const int MaxPartnerDecomposeCompletions = 16;
+
         [RequestPacketHandler("PartnerDecomposeRequest")]
         public static void PartnerDecomposeRequestHandler(Session session, Packet.Request packet)
         {
             PartnerDecomposeRequest request = packet.Deserialize<PartnerDecomposeRequest>();
+            if (session.player.PendingItemUse is not null || session.player.PendingPurchase is not null)
+            {
+                session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                return;
+            }
+
             List<int> ids = request.PartnerIds ?? [];
+            if (session.player.PendingPartnerDecompose is null)
+            {
+                try
+                {
+                    if (TryReplayCompletedPartnerDecompose(session, packet, ids))
+                        return;
+                }
+                catch
+                {
+                    session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                    return;
+                }
+            }
+
             PartnerDecomposePendingOperation? pending = session.player.PendingPartnerDecompose;
             if (pending is not null)
             {
@@ -429,6 +452,49 @@ namespace AscNet.GameServer.Handlers
             if (session.player.PendingPartnerDecompose is not null)
                 CompletePendingPartnerDecompose(session);
         }
+        private static bool TryReplayCompletedPartnerDecompose(
+            Session session,
+            Packet.Request packet,
+            IReadOnlyList<int> ids)
+        {
+            if (ids.Count == 0
+                || session.player.PartnerDecomposeCompletions is not { Count: > 0 } completions)
+                return false;
+
+            PartnerDecomposeCompletion? completion = completions.LastOrDefault(
+                value => value.PartnerIds.SequenceEqual(ids));
+            if (completion is null
+                || session.character.Partners?.Any(partner => ids.Contains(partner.Id)) == true)
+                return false;
+
+            if (!session.character.AppliedRewardClaims.Contains(completion.ClaimKey, StringComparer.Ordinal)
+                || !session.inventory.AppliedRewardClaims.Contains(completion.ClaimKey, StringComparer.Ordinal))
+            {
+                session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                return true;
+            }
+
+            RewardApplicationResult result = RewardHandler.ApplyRewardsOnceAndPersist(
+                [new RewardGrant(completion.ClaimKey, completion.RewardGoodsList.Select(reward => new RewardGoodsTable
+                {
+                    Id = reward.Id,
+                    TemplateId = reward.TemplateId,
+                    Count = reward.Count,
+                    Params = []
+                }).ToList())], session);
+            result.SendPushes(session);
+            session.SendResponse(new PartnerDecomposeResponse
+            {
+                RewardGoodsList = completion.RewardGoodsList.Select(reward => new RewardGoods
+                {
+                    Id = reward.Id,
+                    RewardType = reward.RewardType,
+                    TemplateId = reward.TemplateId,
+                    Count = reward.Count
+                }).ToList()
+            }, packet.Id);
+            return true;
+        }
 
         private static RewardApplicationResult CompletePendingPartnerDecompose(Session session)
         {
@@ -468,6 +534,27 @@ namespace AscNet.GameServer.Handlers
                     Params = []
                 }).ToList())], session);
 
+            List<PartnerDecomposeCompletion>? previousCompletions =
+                session.player.PartnerDecomposeCompletions;
+            List<PartnerDecomposeCompletion> completions = (previousCompletions ?? [])
+                .Where(completion => completion.ClaimKey != pending.ClaimKey)
+                .ToList();
+            completions.Add(new PartnerDecomposeCompletion
+            {
+                ClaimKey = pending.ClaimKey,
+                PartnerIds = pending.PartnerIds.ToList(),
+                RewardGoodsList = pending.RewardGoodsList.Select(reward => new RewardGoods
+                {
+                    Id = reward.Id,
+                    RewardType = reward.RewardType,
+                    TemplateId = reward.TemplateId,
+                    Count = reward.Count
+                }).ToList()
+            });
+            if (completions.Count > MaxPartnerDecomposeCompletions)
+                completions.RemoveRange(0, completions.Count - MaxPartnerDecomposeCompletions);
+
+            session.player.PartnerDecomposeCompletions = completions;
             session.player.PendingPartnerDecompose = null;
             try
             {
@@ -475,6 +562,7 @@ namespace AscNet.GameServer.Handlers
             }
             catch
             {
+                session.player.PartnerDecomposeCompletions = previousCompletions;
                 session.player.PendingPartnerDecompose = pending;
                 throw;
             }
