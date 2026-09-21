@@ -1,6 +1,7 @@
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
+using AscNet.Table.V2.share.reward;
 using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.partner;
 using AscNet.Table.V2.share.partner.leveluptemplate;
@@ -330,81 +331,154 @@ namespace AscNet.GameServer.Handlers
         {
             PartnerDecomposeRequest request = packet.Deserialize<PartnerDecomposeRequest>();
             List<int> ids = request.PartnerIds ?? [];
-            List<PartnerData> partners = session.character.Partners?
-                .Where(partner => ids.Contains(partner.Id))
-                .ToList() ?? [];
-            if (ids.Count == 0 || ids.Distinct().Count() != ids.Count || partners.Count != ids.Count
-                || partners.Any(partner => partner.IsLock || partner.CharacterId != 0
-                    || (session.player.TeamPrefabs?.Any(prefab => prefab?.PartnerData?.Values
-                        .Any(data => data?.PartnerId == partner.Id) == true) ?? false))
-                || !TryGetPartnerDecomposeRewards(partners, out List<RewardGoods> rewards))
+            PartnerDecomposePendingOperation? pending = session.player.PendingPartnerDecompose;
+            if (pending is not null)
             {
-                session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
-                return;
-            }
-
-            Dictionary<int, ItemTable> itemTables = TableReaderV2.Parse<ItemTable>()
-                .ToDictionary(item => item.Id);
-            Dictionary<int, long> inventoryCounts = session.inventory.Items
-                .GroupBy(item => item.Id)
-                .ToDictionary(group => group.Key, group => group.Sum(item => item.Count));
-            foreach (IGrouping<int, RewardGoods> rewardGroup in rewards.GroupBy(reward => reward.TemplateId))
-            {
-                if (!itemTables.TryGetValue(rewardGroup.Key, out ItemTable? itemTable)
-                    || !Inventory.IsValidClientItemId(rewardGroup.Key))
-                {
-                    session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
-                    return;
-                }
-
-                long rewardCount = rewardGroup.Sum(reward => (long)reward.Count);
-                long currentCount = inventoryCounts.GetValueOrDefault(rewardGroup.Key);
-                // AscNet policy: reject grants that exceed the authoritative inventory headroom.
-                if (rewardCount <= 0 || currentCount < 0
-                    || rewardCount > Inventory.GetMaxCount(itemTable) - currentCount)
+                if (!pending.PartnerIds.SequenceEqual(ids))
                 {
                     session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
                     return;
                 }
             }
+            else
+            {
+                List<PartnerData> partners = session.character.Partners?
+                    .Where(partner => ids.Contains(partner.Id))
+                    .ToList() ?? [];
+                if (ids.Count == 0 || ids.Distinct().Count() != ids.Count || partners.Count != ids.Count
+                    || partners.Any(partner => partner.IsLock || partner.CharacterId != 0
+                        || (session.player.TeamPrefabs?.Any(prefab => prefab?.PartnerData?.Values
+                            .Any(data => data?.PartnerId == partner.Id) == true) ?? false))
+                    || !TryGetPartnerDecomposeRewards(partners, out List<RewardGoods> rewards))
+                {
+                    session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                    return;
+                }
 
-            Character originalCharacter = session.character;
-            Inventory originalInventory = session.inventory;
-            NotifyItemDataList items = new();
-            bool characterPersisted = false;
+                Dictionary<int, ItemTable> itemTables = TableReaderV2.Parse<ItemTable>()
+                    .ToDictionary(item => item.Id);
+                Dictionary<int, long> inventoryCounts = session.inventory.Items
+                    .GroupBy(item => item.Id)
+                    .ToDictionary(group => group.Key, group => group.Sum(item => item.Count));
+                foreach (IGrouping<int, RewardGoods> rewardGroup in rewards.GroupBy(reward => reward.TemplateId))
+                {
+                    if (!itemTables.TryGetValue(rewardGroup.Key, out ItemTable? itemTable)
+                        || !Inventory.IsValidClientItemId(rewardGroup.Key))
+                    {
+                        session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                        return;
+                    }
+
+                    long rewardCount = rewardGroup.Sum(reward => (long)reward.Count);
+                    long currentCount = inventoryCounts.GetValueOrDefault(rewardGroup.Key);
+                    // AscNet policy: reject grants that exceed the authoritative inventory headroom.
+                    if (rewardCount <= 0 || currentCount < 0
+                        || rewardCount > Inventory.GetMaxCount(itemTable) - currentCount)
+                    {
+                        session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                        return;
+                    }
+                }
+
+                pending = new PartnerDecomposePendingOperation
+                {
+                    ClaimKey = $"partner-decompose:{session.player.PlayerData.Id}:{Guid.NewGuid():N}",
+                    PartnerIds = ids.ToList(),
+                    RewardGoodsList = rewards.Select(reward => new RewardGoods
+                    {
+                        Id = reward.Id,
+                        RewardType = reward.RewardType,
+                        TemplateId = reward.TemplateId,
+                        Count = reward.Count
+                    }).ToList()
+                };
+                session.player.PendingPartnerDecompose = pending;
+            }
+            PartnerDecomposePendingOperation operation = pending!;
+
             try
             {
-                Character stagedCharacter = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<Character>(
-                    originalCharacter.ToBsonDocument());
-                Inventory stagedInventory = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<Inventory>(
-                    originalInventory.ToBsonDocument());
-                foreach (RewardGoods reward in rewards)
-                    items.ItemDataList.Add(stagedInventory.Do(reward.TemplateId, reward.Count));
-                foreach (PartnerData partner in partners)
-                {
-                    PartnerData? stagedPartner = stagedCharacter.Partners?.SingleOrDefault(
-                        value => value.Id == partner.Id);
-                    if (stagedPartner is null || !stagedCharacter.Partners!.Remove(stagedPartner))
-                        throw new InvalidDataException($"Unable to remove decomposed partner {partner.Id}.");
-                }
-
-                stagedCharacter.SaveChecked();
-                characterPersisted = true;
-                stagedInventory.SaveChecked();
-                originalCharacter.Partners = stagedCharacter.Partners;
-                originalInventory.Items = stagedInventory.Items;
+                session.player.SaveChecked();
             }
             catch
             {
-                if (characterPersisted)
-                    originalCharacter.SaveChecked();
                 session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
                 return;
             }
 
-            if (items.ItemDataList.Count > 0)
-                session.SendPush(items);
-            session.SendResponse(new PartnerDecomposeResponse { RewardGoodsList = rewards }, packet.Id);
+            RewardApplicationResult result;
+            try
+            {
+                result = CompletePendingPartnerDecompose(session);
+            }
+            catch
+            {
+                session.SendResponse(new PartnerDecomposeResponse { Code = ErrorCode, RewardGoodsList = [] }, packet.Id);
+                return;
+            }
+
+            result.SendPushes(session);
+            session.SendResponse(new PartnerDecomposeResponse
+            {
+                RewardGoodsList = operation.RewardGoodsList
+            }, packet.Id);
+        }
+
+        public static void ResumePendingPartnerDecompose(Session session)
+        {
+            if (session.player.PendingPartnerDecompose is not null)
+                CompletePendingPartnerDecompose(session);
+        }
+
+        private static RewardApplicationResult CompletePendingPartnerDecompose(Session session)
+        {
+            PartnerDecomposePendingOperation pending = session.player.PendingPartnerDecompose
+                ?? throw new InvalidOperationException("No pending partner decomposition.");
+            Character originalCharacter = session.character;
+            Character stagedCharacter = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<Character>(
+                originalCharacter.ToBsonDocument());
+            stagedCharacter.AppliedRewardClaims ??= [];
+            bool characterClaimed = stagedCharacter.AppliedRewardClaims.Contains(
+                pending.ClaimKey, StringComparer.Ordinal);
+            if (characterClaimed)
+            {
+                if (pending.PartnerIds.Any(id => stagedCharacter.Partners?.Any(partner => partner.Id == id) == true))
+                    throw new InvalidDataException($"Partner decomposition claim {pending.ClaimKey} contradicts persisted partners.");
+            }
+            else
+            {
+                foreach (int id in pending.PartnerIds)
+                {
+                    PartnerData? partner = stagedCharacter.Partners?.SingleOrDefault(value => value.Id == id);
+                    if (partner is null || !stagedCharacter.Partners!.Remove(partner))
+                        throw new InvalidDataException($"Unable to remove decomposed partner {id}.");
+                }
+                stagedCharacter.AppliedRewardClaims.Add(pending.ClaimKey);
+                stagedCharacter.SaveChecked();
+            }
+
+            originalCharacter.Partners = stagedCharacter.Partners;
+            originalCharacter.AppliedRewardClaims = stagedCharacter.AppliedRewardClaims;
+            RewardApplicationResult result = RewardHandler.ApplyRewardsOnceAndPersist(
+                [new RewardGrant(pending.ClaimKey, pending.RewardGoodsList.Select(reward => new RewardGoodsTable
+                {
+                    Id = reward.Id,
+                    TemplateId = reward.TemplateId,
+                    Count = reward.Count,
+                    Params = []
+                }).ToList())], session);
+
+            session.player.PendingPartnerDecompose = null;
+            try
+            {
+                session.player.SaveChecked();
+            }
+            catch
+            {
+                session.player.PendingPartnerDecompose = pending;
+                throw;
+            }
+            return result;
         }
 
         [RequestPacketHandler("PartnerLevelUpRequest")]
@@ -910,20 +984,23 @@ namespace AscNet.GameServer.Handlers
                     or "PartnerDecomposeEvolutionRebate"
                     or "PartnerDecomposeSkillRebate")
                 .ToDictionary(row => row.Key, row => row.Value);
-            if (!decimal.TryParse(config.GetValueOrDefault("PartnerDecomposeLevelBreakRebate"),
+            if (!float.TryParse(config.GetValueOrDefault("PartnerDecomposeLevelBreakRebate"),
                     System.Globalization.NumberStyles.Number,
-                    System.Globalization.CultureInfo.InvariantCulture, out decimal levelRate)
-                || !decimal.TryParse(config.GetValueOrDefault("PartnerDecomposeEvolutionRebate"),
+                    System.Globalization.CultureInfo.InvariantCulture, out float levelRateValue)
+                || !float.TryParse(config.GetValueOrDefault("PartnerDecomposeEvolutionRebate"),
                     System.Globalization.NumberStyles.Number,
-                    System.Globalization.CultureInfo.InvariantCulture, out decimal evolutionRate)
-                || !decimal.TryParse(config.GetValueOrDefault("PartnerDecomposeSkillRebate"),
+                    System.Globalization.CultureInfo.InvariantCulture, out float evolutionRateValue)
+                || !float.TryParse(config.GetValueOrDefault("PartnerDecomposeSkillRebate"),
                     System.Globalization.NumberStyles.Number,
-                    System.Globalization.CultureInfo.InvariantCulture, out decimal skillRate))
+                    System.Globalization.CultureInfo.InvariantCulture, out float skillRateValue))
             {
                 rewards = [];
                 return false;
             }
-
+            // Client config crosses a float boundary; Lua widens to double and floors once per item.
+            double levelRate = levelRateValue;
+            double evolutionRate = evolutionRateValue;
+            double skillRate = skillRateValue;
             Dictionary<int, ItemTable> items = TableReaderV2.Parse<ItemTable>().ToDictionary(row => row.Id);
             List<(int Id, int Exp, int Coin)> expItems = (config.GetValueOrDefault(
                     "PartnerDecomposeExpItemRebate") ?? string.Empty)
@@ -943,8 +1020,8 @@ namespace AscNet.GameServer.Handlers
                 .ToLookup(row => row.PartnerId);
             Dictionary<int, PartnerSkillTable> skills = TableReaderV2.Parse<PartnerSkillTable>()
                 .ToDictionary(row => row.PartnerId);
-            Dictionary<int, decimal> totals = [];
-            void Add(int itemId, decimal count)
+            Dictionary<int, double> totals = [];
+            void Add(int itemId, double count)
             {
                 if (itemId > 0 && count > 0 && items.ContainsKey(itemId))
                     totals[itemId] = totals.GetValueOrDefault(itemId) + count;
@@ -989,7 +1066,7 @@ namespace AscNet.GameServer.Handlers
                     }
                     else
                     {
-                        decimal exp = (partner.Exp
+                        double exp = (partner.Exp
                             + levels.Single(value => value.Level == level).AllExp
                             + breakThroughExp) * levelRate;
                         while (true)
@@ -1024,7 +1101,7 @@ namespace AscNet.GameServer.Handlers
             }
 
             rewards = totals
-                .Select(total => (Id: total.Key, Count: decimal.ToInt32(decimal.Floor(total.Value))))
+                .Select(total => (Id: total.Key, Count: checked((int)Math.Floor(total.Value))))
                 .Where(total => total.Count > 0)
                 .OrderByDescending(total => total.Id)
                 .Select(total => new RewardGoods

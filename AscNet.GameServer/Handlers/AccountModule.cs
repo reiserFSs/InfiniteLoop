@@ -734,6 +734,7 @@ namespace AscNet.GameServer.Handlers
         private static NotifyLogin BuildNotifyLogin(Session session)
         {
             ItemModule.ResumePendingItemUse(session);
+            PartnerModule.ResumePendingPartnerDecompose(session);
             PayModule.ResumePendingPurchase(session);
             BiancaTheatreModule.PrepareLogin(session);
             GuildModule.PrepareLogin(session);

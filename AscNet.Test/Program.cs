@@ -9,6 +9,7 @@ using AscNet.Table.V2.share.newactivitycalendar;
 using AscNet.SDKServer.Models;
 using AscNet.Table.V2.share.guide;
 using AscNet.Table.V2.share.partner;
+using AscNet.Table.V2.share.partner.leveluptemplate;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.client.fuben.arena;
 using AscNet.Table.V2.share.fuben.arena;
@@ -1436,7 +1437,8 @@ namespace AscNet.Test
         private static void ValidatePartnerDecomposeCompatibility()
         {
             using MongoCollectionOverride collections = MongoCollectionOverride.InstallForDailySignInCompatibility(
-                out _, out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Character> characterCollection,
                 out RecordingMongoCollectionProxy<AscNet.Common.Database.Inventory> inventoryCollection);
             PartnerData Partner(int id, int templateId, int level, int exp, int breakThrough,
                 int quality, int starSchedule, int mainSkillLevel = 1, int passiveSkillLevel = 1) => new()
@@ -1475,6 +1477,12 @@ namespace AscNet.Test
                 Uid = character.Uid,
                 Items = [new Item { Id = Inventory.Coin, Count = 9 }]
             };
+            PartnerData reviewerFixture = Partner(799, 16_010_000, 1, 0, 0, 2, 0, 2);
+            Dictionary<int, long> reviewerOracle = PartnerDecomposeRewardOracle([reviewerFixture]);
+            AssertEqual(150L, reviewerOracle.GetValueOrDefault(61), "float oracle base refund");
+            AssertEqual(13_999L, reviewerOracle.GetValueOrDefault(Inventory.Coin), "float oracle coin refund");
+            AssertEqual(41L, reviewerOracle.GetValueOrDefault(40301), "float oracle skill refund");
+            Dictionary<int, long> oracleRewards = PartnerDecomposeRewardOracle(character.Partners);
             using LoopbackSessionHarness harness = new(character, inventory: inventory,
                 sessionId: "partner-decompose-test");
             Dictionary<int, long> inventoryCountsBefore = inventory.Items.ToDictionary(item => item.Id, item => item.Count);
@@ -1494,19 +1502,22 @@ namespace AscNet.Test
                 "PartnerDecomposeResponse item reward types");
             Dictionary<int, long> rewards = response.RewardGoodsList.ToDictionary(reward => reward.TemplateId,
                 reward => (long)reward.Count);
-            AssertEqual(150L, rewards.GetValueOrDefault(61), "first table-backed partner base refund");
-            AssertEqual(150L, rewards.GetValueOrDefault(62), "second table-backed partner base refund");
-            AssertEqual(true, rewards.GetValueOrDefault(30111) > 0,
-                "two distinct table-backed partner EXP refunds");
-            AssertEqual(true, rewards.GetValueOrDefault(Inventory.Coin) > 0,
-                "two distinct table-backed partner coin refunds");
-            AssertEqual(25L, rewards.GetValueOrDefault(40200), "breakthrough rebate floors aggregate");
-            AssertEqual(8L, rewards.GetValueOrDefault(40201), "breakthrough material rebate floors aggregate");
-            AssertEqual(21L, rewards.GetValueOrDefault(203), "star schedule rebate floors aggregate");
-            AssertEqual(42L, rewards.GetValueOrDefault(40301), "skill rebate floors aggregate");
+            AssertEqual(oracleRewards.Count, rewards.Count, "PartnerDecomposeResponse oracle reward count");
+            foreach ((int itemId, long count) in oracleRewards)
+                AssertEqual(count, rewards.GetValueOrDefault(itemId), $"PartnerDecomposeResponse oracle reward {itemId}");
             AssertEqual(0, character.Partners.Count, "PartnerDecomposeRequest removes partners");
             AssertEqual(1, characterCollection.ReplaceOneCalls, "PartnerDecomposeRequest persists Character");
             AssertEqual(1, inventoryCollection.ReplaceOneCalls, "PartnerDecomposeRequest persists Inventory");
+            AssertEqual(2, playerCollection.ReplaceOneCalls, "PartnerDecomposeRequest Player intent writes");
+            string claimKey = characterCollection.LastReplacement!.AppliedRewardClaims.Single();
+            AssertEqual(true, inventoryCollection.LastReplacement!.AppliedRewardClaims.Contains(claimKey),
+                "PartnerDecomposeRequest shared claim key");
+            AscNet.Common.Database.Player persistedPlayer =
+                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                    playerCollection.LastSuccessfulReplacementBson
+                    ?? throw new InvalidDataException("PartnerDecomposeRequest Player was not durably saved."));
+            AssertEqual(true, persistedPlayer.PendingPartnerDecompose is null,
+                "PartnerDecomposeRequest clears Player intent");
             AssertEqual(0, characterCollection.LastReplacement!.Partners.Count,
                 "PartnerDecomposeRequest persisted partner removal");
             AscNet.Common.Database.Inventory persistedInventory =
@@ -1552,7 +1563,8 @@ namespace AscNet.Test
             byte[] retainedPartner = underCapCharacter.Partners[2].ToBson();
             int underCapCharacterSaves = characterCollection.ReplaceOneCalls;
             int underCapInventorySaves = inventoryCollection.ReplaceOneCalls;
-            Dictionary<int, long> underCapRewards = [];
+            Dictionary<int, long> underCapRewards = PartnerDecomposeRewardOracle(
+                underCapCharacter.Partners.Take(2).ToList());
             using (LoopbackSessionHarness underCap = new(underCapCharacter, inventory: underCapInventory,
                 sessionId: "partner-decompose-under-cap"))
             {
@@ -1566,8 +1578,11 @@ namespace AscNet.Test
                     firstPacket.Type == Packet.ContentType.Response ? firstPacket : secondPacket,
                     nameof(PartnerDecomposeResponse));
                 AssertEqual(0, underCapResponse.Code, "under-cap Code");
-                underCapRewards = underCapResponse.RewardGoodsList.ToDictionary(
-                    reward => reward.TemplateId, reward => (long)reward.Count);
+                AssertEqual(underCapRewards.Count, underCapResponse.RewardGoodsList.Count,
+                    "under-cap oracle reward count");
+                foreach (RewardGoods reward in underCapResponse.RewardGoodsList)
+                    AssertEqual(underCapRewards.GetValueOrDefault(reward.TemplateId), (long)reward.Count,
+                        $"under-cap oracle reward {reward.TemplateId}");
                 AssertEqual(underCapRewards.Count, underCapPush.ItemDataList.Count, "under-cap push reward count");
                 foreach (var item in underCapPush.ItemDataList)
                     AssertEqual(underCapRewards[item.Id], item.Count, $"under-cap push reward {item.Id}");
@@ -1748,7 +1763,8 @@ namespace AscNet.Test
                 ]);
             void RejectMutation(string name, Action applyFailure, Action clearFailure,
                 int expectedCharacterWrites, int expectedInventoryWrites, Action<AscNet.Common.Database.Inventory>? configureInventory = null,
-                bool retry = true, IReadOnlyDictionary<int, long>? expectedRetryRewards = null)
+                bool retry = true, IReadOnlyDictionary<int, long>? expectedRetryRewards = null,
+                bool characterCommittedOnFailure = false)
             {
                 AscNet.Common.Database.Character failedCharacter = new()
                 {
@@ -1791,13 +1807,30 @@ namespace AscNet.Test
                     $"{name} Character writes");
                 AssertEqual(inventorySaves + expectedInventoryWrites, inventoryCollection.ReplaceOneCalls,
                     $"{name} Inventory writes");
-                AssertEqual(Convert.ToHexString(characterBefore), Convert.ToHexString(failedCharacter.ToBson()),
-                    $"{name} preserves live Character");
+                if (characterCommittedOnFailure)
+                {
+                    AssertEqual(true, failedCharacter.AppliedRewardClaims.Count > 0,
+                        $"{name} live Character claim");
+                    AssertEqual(true, failedCharacter.Partners.All(partner => partner.Id is not (703 or 704)),
+                        $"{name} live Character removal");
+                    AscNet.Common.Database.Character persistedCharacter =
+                        MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                            characterCollection.LastSuccessfulReplacementBson ?? []);
+                    AssertEqual(true, persistedCharacter.AppliedRewardClaims.Count > 0,
+                        $"{name} durable Character claim");
+                    AssertEqual(true, persistedCharacter.Partners.All(partner => partner.Id is not (703 or 704)),
+                        $"{name} durable Character removal");
+                }
+                else
+                {
+                    AssertEqual(Convert.ToHexString(characterBefore), Convert.ToHexString(failedCharacter.ToBson()),
+                        $"{name} preserves live Character");
+                    AssertEqual(Convert.ToHexString(characterBefore),
+                        Convert.ToHexString(characterCollection.LastSuccessfulReplacementBson ?? []),
+                        $"{name} preserves durable Character");
+                }
                 AssertEqual(Convert.ToHexString(inventoryBefore), Convert.ToHexString(failedInventory.ToBson()),
                     $"{name} preserves live Inventory");
-                AssertEqual(Convert.ToHexString(characterBefore),
-                    Convert.ToHexString(characterCollection.LastSuccessfulReplacementBson ?? []),
-                    $"{name} preserves durable Character");
                 AssertEqual(Convert.ToHexString(inventoryBefore),
                     Convert.ToHexString(inventoryCollection.LastSuccessfulReplacementBson ?? []),
                     $"{name} preserves durable Inventory");
@@ -1827,6 +1860,106 @@ namespace AscNet.Test
                 if (failed.TryReadAvailablePacket($"{name} retry unexpected packet", out Packet retryExtra))
                     throw new InvalidDataException($"{name}: retry sent unexpected {retryExtra.Type} packet.");
             }
+            void VerifyAcknowledgementLoss(string name, bool inventoryFault)
+            {
+                AscNet.Common.Database.Character failedCharacter = new()
+                {
+                    Uid = inventoryFault ? 70_202 : 70_201,
+                    Characters = [],
+                    Equips = [],
+                    Fashions = [],
+                    Partners =
+                    [
+                        Partner(703, 16_010_000, 10, 0, 0, 2, 0),
+                        Partner(704, 16_030_000, 5, 15, 1, 4, 30, 2)
+                    ]
+                };
+                AscNet.Common.Database.Inventory failedInventory = new()
+                {
+                    Uid = failedCharacter.Uid,
+                    Items = []
+                };
+                AscNet.Common.Database.Player failedPlayer = CreateDrawCompatibilityPlayer(failedCharacter.Uid);
+                Dictionary<int, long> expected = PartnerDecomposeRewardOracle(failedCharacter.Partners);
+                Dictionary<int, long> before = failedInventory.Items.ToDictionary(item => item.Id, item => item.Count);
+                characterCollection.LastSuccessfulReplacementBson = failedCharacter.ToBson();
+                inventoryCollection.LastSuccessfulReplacementBson = failedInventory.ToBson();
+                playerCollection.LastSuccessfulReplacementBson = failedPlayer.ToBson();
+                using (LoopbackSessionHarness failed = new(failedCharacter, failedPlayer, failedInventory,
+                    $"partner-decompose-{name}"))
+                {
+                    try
+                    {
+                        if (inventoryFault)
+                            inventoryCollection.ThrowAfterReplaceOne = true;
+                        else
+                            characterCollection.ThrowAfterReplaceOne = true;
+                        InvokeRequestHandler(failed, nameof(PartnerDecomposeRequest), 17_500,
+                            new PartnerDecomposeRequest { PartnerIds = [703, 704] });
+                    }
+                    finally
+                    {
+                        characterCollection.ThrowAfterReplaceOne = false;
+                        inventoryCollection.ThrowAfterReplaceOne = false;
+                    }
+                    PartnerDecomposeResponse response = ReadResponsePayload<PartnerDecomposeResponse>(
+                        failed.ReadPacket($"{name} response"), nameof(PartnerDecomposeResponse));
+                    AssertEqual(1, response.Code, $"{name} acknowledgement-loss response");
+                    if (failed.TryReadAvailablePacket($"{name} unexpected packet", out Packet extra))
+                        throw new InvalidDataException($"{name}: unexpected {extra.Type} packet.");
+                }
+
+                AscNet.Common.Database.Character persistedCharacter =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                        characterCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException($"{name}: missing Character BSON."));
+                AscNet.Common.Database.Inventory persistedInventory =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                        inventoryCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException($"{name}: missing Inventory BSON."));
+                AscNet.Common.Database.Player persistedPlayer =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                        playerCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException($"{name}: missing Player BSON."));
+                string claimKey = persistedCharacter.AppliedRewardClaims.Single();
+                AssertEqual(true, persistedPlayer.PendingPartnerDecompose is not null,
+                    $"{name} retains Player intent");
+                using (LoopbackSessionHarness recovered = new(persistedCharacter, persistedPlayer, persistedInventory,
+                    $"{name}-resume"))
+                {
+                    RequiredMethod(
+                        RequiredAscNetGameServerType("AscNet.GameServer.Handlers.PartnerModule"),
+                        "ResumePendingPartnerDecompose",
+                        BindingFlags.Static | BindingFlags.Public,
+                        [typeof(Session)]).Invoke(null, [recovered.Session]);
+                    if (recovered.TryReadAvailablePacket($"{name} resume push", out Packet extra))
+                        throw new InvalidDataException($"{name}: resume emitted {extra.Type}.");
+                }
+
+                AscNet.Common.Database.Character convergedCharacter =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                        characterCollection.LastSuccessfulReplacementBson!);
+                AscNet.Common.Database.Inventory convergedInventory =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                        inventoryCollection.LastSuccessfulReplacementBson!);
+                AscNet.Common.Database.Player convergedPlayer =
+                    MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
+                        playerCollection.LastSuccessfulReplacementBson!);
+                AssertEqual(true, convergedPlayer.PendingPartnerDecompose is null,
+                    $"{name} clears Player intent");
+                AssertEqual(true, convergedCharacter.AppliedRewardClaims.Contains(claimKey),
+                    $"{name} Character claim");
+                AssertEqual(true, convergedInventory.AppliedRewardClaims.Contains(claimKey),
+                    $"{name} Inventory claim");
+                AssertEqual(true, convergedCharacter.Partners.All(partner => partner.Id is not (703 or 704)),
+                    $"{name} removes frozen partners");
+                foreach ((int itemId, long count) in expected)
+                    AssertEqual(count, (convergedInventory.Items.FirstOrDefault(item => item.Id == itemId)?.Count ?? 0)
+                        - before.GetValueOrDefault(itemId), $"{name} refund {itemId}");
+            }
+
+            VerifyAcknowledgementLoss("character acknowledgement loss", false);
+            VerifyAcknowledgementLoss("inventory acknowledgement loss", true);
 
             RejectMutation("character save exception",
                 () => characterCollection.ThrowOnReplaceOne = true,
@@ -1834,16 +1967,16 @@ namespace AscNet.Test
                 expectedRetryRewards: underCapRewards);
             RejectMutation("inventory save exception",
                 () => inventoryCollection.ThrowOnReplaceOne = true,
-                () => inventoryCollection.ThrowOnReplaceOne = false, 2, 1,
-                expectedRetryRewards: underCapRewards);
+                () => inventoryCollection.ThrowOnReplaceOne = false, 1, 1,
+                expectedRetryRewards: underCapRewards, characterCommittedOnFailure: true);
             RejectMutation("character zero match",
                 () => characterCollection.ReplaceOneMatchedCount = 0,
                 () => characterCollection.ReplaceOneMatchedCount = 1, 1, 0,
                 expectedRetryRewards: underCapRewards);
             RejectMutation("inventory zero match",
                 () => inventoryCollection.ReplaceOneMatchedCount = 0,
-                () => inventoryCollection.ReplaceOneMatchedCount = 1, 2, 1,
-                expectedRetryRewards: underCapRewards);
+                () => inventoryCollection.ReplaceOneMatchedCount = 1, 1, 1,
+                expectedRetryRewards: underCapRewards, characterCommittedOnFailure: true);
 
             KeyValuePair<int, long> cappedItem = rewards.First(reward => reward.Key != Inventory.Coin);
             ItemTable cappedItemTable = TableReaderV2.Parse<ItemTable>().Single(item => item.Id == cappedItem.Key);
@@ -1853,6 +1986,109 @@ namespace AscNet.Test
             RejectMutation("money cap", () => { }, () => { }, 0, 0,
                 failedInventory => failedInventory.Items =
                     [new Item { Id = Inventory.Coin, Count = Inventory.MoneyItemMaxCount - rewards[Inventory.Coin] + 1 }], false);
+        }
+
+        private static Dictionary<int, long> PartnerDecomposeRewardOracle(
+            IReadOnlyList<PartnerData> partners)
+        {
+            Dictionary<string, string> config = TableReaderV2.Parse<ConfigTable>()
+                .Where(row => row.Key is "PartnerDecomposeExpItemRebate"
+                    or "PartnerDecomposeLevelBreakRebate"
+                    or "PartnerDecomposeEvolutionRebate"
+                    or "PartnerDecomposeSkillRebate")
+                .ToDictionary(row => row.Key, row => row.Value);
+            double levelRate = float.Parse(config["PartnerDecomposeLevelBreakRebate"],
+                NumberStyles.Number, CultureInfo.InvariantCulture);
+            double evolutionRate = float.Parse(config["PartnerDecomposeEvolutionRebate"],
+                NumberStyles.Number, CultureInfo.InvariantCulture);
+            double skillRate = float.Parse(config["PartnerDecomposeSkillRebate"],
+                NumberStyles.Number, CultureInfo.InvariantCulture);
+            Dictionary<int, ItemTable> items = TableReaderV2.Parse<ItemTable>().ToDictionary(row => row.Id);
+            List<(int Id, int Exp, int Coin)> expItems = config["PartnerDecomposeExpItemRebate"]
+                .Split('|', StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => int.Parse(value, CultureInfo.InvariantCulture))
+                .Where(id => items.ContainsKey(id))
+                .Select(id => (Id: id, Exp: items[id].SubTypeParams.FirstOrDefault(),
+                    Coin: items[id].SubTypeParams.Skip(1).FirstOrDefault()))
+                .Where(item => item.Exp > 0)
+                .OrderByDescending(item => item.Exp)
+                .ToList();
+            Dictionary<int, PartnerTable> partnerRows = TableReaderV2.Parse<PartnerTable>()
+                .ToDictionary(row => row.Id);
+            ILookup<int, PartnerBreakThroughTable> breakthroughs = TableReaderV2.Parse<PartnerBreakThroughTable>()
+                .ToLookup(row => row.PartnerId);
+            ILookup<int, PartnerQualityTable> qualities = TableReaderV2.Parse<PartnerQualityTable>()
+                .ToLookup(row => row.PartnerId);
+            Dictionary<int, PartnerSkillTable> skills = TableReaderV2.Parse<PartnerSkillTable>()
+                .ToDictionary(row => row.PartnerId);
+            Dictionary<int, double> totals = [];
+            void Add(int itemId, double count)
+            {
+                if (itemId > 0 && count > 0 && items.ContainsKey(itemId))
+                    totals[itemId] = totals.GetValueOrDefault(itemId) + count;
+            }
+            List<(int Level, int AllExp)> Levels(int templateId) => templateId switch
+            {
+                501 => TableReaderV2.Parse<PartnerLevelUpTemplate501Table>()
+                    .Select(row => (row.Level, row.AllExp)).ToList(),
+                502 => TableReaderV2.Parse<PartnerLevelUpTemplate502Table>()
+                    .Select(row => (row.Level, row.AllExp)).ToList(),
+                503 => TableReaderV2.Parse<PartnerLevelUpTemplate503Table>()
+                    .Select(row => (row.Level, row.AllExp)).ToList(),
+                504 => TableReaderV2.Parse<PartnerLevelUpTemplate504Table>()
+                    .Select(row => (row.Level, row.AllExp)).ToList(),
+                _ => []
+            };
+
+            foreach (PartnerData partner in partners)
+            {
+                PartnerTable partnerRow = partnerRows[partner.TemplateId];
+                PartnerSkillTable skillRow = skills[partner.TemplateId];
+                Add(partnerRow.DecomposeItemId, partnerRow.DecomposeItemCount);
+                int breakThroughExp = 0;
+                for (int breakTimes = 0; breakTimes <= partner.BreakThrough; breakTimes++)
+                {
+                    PartnerBreakThroughTable row = breakthroughs[partner.TemplateId]
+                        .Single(value => value.BreakTimes == breakTimes);
+                    List<(int Level, int AllExp)> levels = Levels(row.LevelUpTemplateId);
+                    int level = breakTimes == partner.BreakThrough ? partner.Level : row.LevelLimit;
+                    if (breakTimes < partner.BreakThrough)
+                    {
+                        breakThroughExp += levels.Single(value => value.Level == level).AllExp;
+                        foreach ((int itemId, int count) in row.CostItemId.Zip(row.CostItemCount))
+                            Add(itemId, count * levelRate);
+                    }
+                    else
+                    {
+                        double exp = (partner.Exp + levels.Single(value => value.Level == level).AllExp
+                            + breakThroughExp) * levelRate;
+                        while (true)
+                        {
+                            (int Id, int Exp, int Coin) item = expItems.FirstOrDefault(value => exp >= value.Exp);
+                            if (item.Exp == 0)
+                                break;
+                            Add(item.Id, 1);
+                            Add(Inventory.Coin, item.Coin);
+                            exp -= item.Exp;
+                        }
+                    }
+                }
+                for (int quality = partnerRow.InitQuality + 1; quality <= partner.Quality; quality++)
+                {
+                    PartnerQualityTable row = qualities[partner.TemplateId]
+                        .Single(value => value.Quality == quality - 1);
+                    Add(row.EvolutionCostItemId ?? 0, (row.EvolutionCostItemCount ?? 0) * evolutionRate);
+                }
+                Add(partnerRow.ChipItemId, partner.StarSchedule * evolutionRate);
+                int skillLevels = partner.SkillList.Sum(skill => skill.Level);
+                for (int level = partner.SkillList.Count + 1; level <= skillLevels; level++)
+                    foreach ((int itemId, int count) in skillRow.UpgradeCostItemId.Zip(skillRow.UpgradeCostItemCount))
+                        Add(itemId, count * skillRate);
+            }
+            return totals
+                .Select(entry => (entry.Key, Count: checked((long)Math.Floor(entry.Value))))
+                .Where(entry => entry.Count > 0)
+                .ToDictionary(entry => entry.Key, entry => entry.Count);
         }
 
         private static void ValidatePartnerComposeCompatibility()
@@ -18237,6 +18473,7 @@ namespace AscNet.Test
             public int ReplaceOneCalls { get; private set; }
             public TDocument? LastReplacement { get; private set; }
             public bool ThrowOnReplaceOne { get; set; }
+            public bool ThrowAfterReplaceOne { get; set; }
             public Action<TDocument>? BeforeReplaceOne { get; set; }
             public long ReplaceOneMatchedCount { get; set; } = 1;
             public byte[]? LastSuccessfulReplacementBson { get; set; }
@@ -18290,6 +18527,11 @@ namespace AscNet.Test
                         throw new MongoException($"Injected {typeof(TDocument).Name} ReplaceOne failure.");
                     if (replacement is TDocument successful && ReplaceOneMatchedCount > 0)
                         LastSuccessfulReplacementBson = successful.ToBson();
+                    if (ThrowAfterReplaceOne)
+                    {
+                        ThrowAfterReplaceOne = false;
+                        throw new MongoException($"Injected committed {typeof(TDocument).Name} ReplaceOne acknowledgement loss.");
+                    }
                     return new ReplaceOneResult.Acknowledged(ReplaceOneMatchedCount, ReplaceOneMatchedCount, null);
                 }
 
