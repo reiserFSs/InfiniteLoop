@@ -9,6 +9,7 @@ using AscNet.Table.V2.share.newactivitycalendar;
 using AscNet.SDKServer.Models;
 using AscNet.Table.V2.share.guide;
 using AscNet.Table.V2.share.partner;
+using AscNet.Table.V2.share.partner.leveluptemplate;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.client.fuben.arena;
 using AscNet.Table.V2.share.fuben.arena;
@@ -455,6 +456,12 @@ namespace AscNet.Test
                     ValidatePartnerComposeCompatibility();
                     return;
                 }
+                if (args.Contains("--partner-decompose-compat-only"))
+                {
+                    ValidatePartnerDecomposeCompatibilitySuite();
+                    return;
+                }
+
 
                 string? liveResonanceUid = args.FirstOrDefault(value =>
                     value.StartsWith("--verify-live-resonance-uid=", StringComparison.Ordinal));
@@ -970,6 +977,7 @@ namespace AscNet.Test
                 ValidateCharacterSwitchSkillCompatibility();
                 ValidateCharacterSendGiftCompatibility();
                 ValidateTeamPrefabCompatibility();
+                ValidatePartnerDecomposeCompatibilitySuite();
                 ValidatePreFightPositionCompatibility();
                 ValidateRobotDeploymentFashionCompatibility();
                 ValidateSegmentCheckFightCompatibility();
@@ -1425,6 +1433,8 @@ namespace AscNet.Test
                 AssertNoExtraPacket(mainHarness, "valid main");
             }
         }
+
+
 
         private static void ValidatePartnerComposeCompatibility()
         {
@@ -17808,9 +17818,10 @@ namespace AscNet.Test
             public int ReplaceOneCalls { get; private set; }
             public TDocument? LastReplacement { get; private set; }
             public bool ThrowOnReplaceOne { get; set; }
+            public bool ThrowAfterReplaceOne { get; set; }
             public Action<TDocument>? BeforeReplaceOne { get; set; }
             public long ReplaceOneMatchedCount { get; set; } = 1;
-            public byte[]? LastSuccessfulReplacementBson { get; private set; }
+            public byte[]? LastSuccessfulReplacementBson { get; set; }
             public Queue<long> CountDocumentsResults { get; } = new();
             public IReadOnlyList<TDocument>? FindResults { get; set; }
             public int? LastFindLimit { get; private set; }
@@ -17861,6 +17872,11 @@ namespace AscNet.Test
                         throw new MongoException($"Injected {typeof(TDocument).Name} ReplaceOne failure.");
                     if (replacement is TDocument successful && ReplaceOneMatchedCount > 0)
                         LastSuccessfulReplacementBson = successful.ToBson();
+                    if (ThrowAfterReplaceOne)
+                    {
+                        ThrowAfterReplaceOne = false;
+                        throw new MongoException($"Injected committed {typeof(TDocument).Name} ReplaceOne acknowledgement loss.");
+                    }
                     return new ReplaceOneResult.Acknowledged(ReplaceOneMatchedCount, ReplaceOneMatchedCount, null);
                 }
 
@@ -30306,11 +30322,12 @@ namespace AscNet.Test
             public Session Session { get; }
 
             public LoopbackSessionHarness(
-                AscNet.Common.Database.Character character,
+                AscNet.Common.Database.Character? character,
                 AscNet.Common.Database.Player? player = null,
                 AscNet.Common.Database.Inventory? inventory = null,
                 string sessionId = "equip-put-on-test",
-                bool startClientLoop = true)
+                bool startClientLoop = true,
+                bool preloadSessionState = true)
             {
                 listener = new TcpListener(IPAddress.Loopback, port: 0);
                 listener.Start();
@@ -30324,12 +30341,15 @@ namespace AscNet.Test
 
                 sessionSide = listener.AcceptTcpClient();
                 sessionSide.NoDelay = true;
-                Session = new Session(sessionId, sessionSide)
+                Session = new Session(sessionId, sessionSide);
+                if (preloadSessionState)
                 {
-                    character = character,
-                    player = player ?? CreateDrawCompatibilityPlayer(character.Uid),
-                    inventory = inventory ?? CreateDrawCompatibilityInventory(character.Uid, [])
-                };
+                    if (character is null)
+                        throw new ArgumentNullException(nameof(character));
+                    Session.character = character;
+                    Session.player = player ?? CreateDrawCompatibilityPlayer(character.Uid);
+                    Session.inventory = inventory ?? CreateDrawCompatibilityInventory(character.Uid, []);
+                }
                 if (startClientLoop)
                     Session.Start();
             }
@@ -30473,8 +30493,16 @@ namespace AscNet.Test
             public void Dispose()
             {
                 clientSide.Close();
-                sessionSide.Close();
-                listener.Stop();
+                try
+                {
+                    if (!Session.Completion.Wait(TimeSpan.FromSeconds(5)))
+                        throw new InvalidDataException("LoopbackSessionHarness timed out waiting for session completion.");
+                }
+                finally
+                {
+                    sessionSide.Close();
+                    listener.Stop();
+                }
             }
 
             private static byte[] ReadExact(NetworkStream stream, int length, string name)
