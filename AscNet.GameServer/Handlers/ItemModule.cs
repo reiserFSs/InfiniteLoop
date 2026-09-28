@@ -863,5 +863,34 @@ namespace AscNet.GameServer.Handlers
             gain = (int)totalGain;
             return 0;
         }
+
+        // The client displays stored BuyTimes verbatim; clear stale daily counts on login
+        // using the same reset period as TryPlanBuyAsset.
+        internal static void ReconcileDailyAssetPurchaseCounts(Inventory inventory)
+        {
+            long today = TaskModule.CurrentDailyResetPeriod(Game.DrawManager.UtcNow().ToUnixTimeSeconds());
+            HashSet<int> dailyAssets = TableReaderV2.Parse<BuyAssetTable>()
+                .Where(row => row.DailyLimit > 0)
+                .Select(row => row.Id)
+                .ToHashSet();
+            List<(Item Item, int BuyTimes)> stale = inventory.Items
+                .Where(item => item.BuyTimes != 0
+                    && dailyAssets.Contains(item.Id)
+                    && TaskModule.CurrentDailyResetPeriod(item.LastBuyTime) != today)
+                .Select(item => (item, item.BuyTimes))
+                .ToList();
+            if (stale.Count == 0)
+                return;
+
+            foreach ((Item item, _) in stale)
+                item.BuyTimes = 0;
+            try { inventory.SaveChecked(); }
+            catch
+            {
+                foreach ((Item item, int buyTimes) in stale)
+                    item.BuyTimes = buyTimes;
+                throw;
+            }
+        }
      }
 }

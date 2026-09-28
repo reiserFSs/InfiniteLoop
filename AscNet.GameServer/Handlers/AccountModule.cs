@@ -734,9 +734,11 @@ namespace AscNet.GameServer.Handlers
                 {
                     Id = (uint)package.Id,
                     UiType = monthlyUiType,
-                    BuyTimes = player.PurchaseBuyTimes.GetValueOrDefault((uint)package.Id),
-                    DailyRewardRemainDay = 0,
-                    IsDailyRewardGet = false
+                    BuyTimes = Math.Max(player.PurchaseBuyTimes.GetValueOrDefault((uint)package.Id),
+                        PayModule.RemainingDays(player, (uint)package.Id) > 0 ? 1 : 0),
+                    DailyRewardRemainDay = PayModule.RemainingDays(player, (uint)package.Id),
+                    BuyLimitRemainDay = PayModule.RemainingDays(player, (uint)package.Id),
+                    IsDailyRewardGet = player.PurchaseDailyPasses.GetValueOrDefault((uint)package.Id)?.LastClaimDay == PayModule.PurchaseDay()
                 })
                 .ToList();
         }
@@ -745,7 +747,8 @@ namespace AscNet.GameServer.Handlers
         {
             ItemModule.ResumePendingItemUse(session);
             ItemModule.ResumePendingBuyAsset(session);
-            PayModule.ResumePendingPurchase(session);
+            ItemModule.ReconcileDailyAssetPurchaseCounts(session.inventory);
+            PayModule.ResumePendingPurchase(session, out _);
             DrawModule.ResumePendingDraw(session);
             GachaManager.RecoverPending(session);
             MineSweepingModule.RecoverPending(session);
@@ -1355,6 +1358,7 @@ namespace AscNet.GameServer.Handlers
                 NewPlayerTaskActiveDay = session.player.PlayerData.NewPlayerTaskActiveDay
             };
             NotifyPayInfo notifyPayInfo = BuildNotifyPayInfo();
+            PayModule.GrantMailDailyRewards(session, sendPush: false);
             long mailNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             bool mailStateChanged = MailModule.EnsureSystemMails(session.player, mailNow)
                 | MailModule.ReconcileExpiry(session.player, mailNow);
@@ -1363,6 +1367,11 @@ namespace AscNet.GameServer.Handlers
                 session.player.SaveChecked();
             NotifyFunctionalEntranceData notifyFunctionalEntranceData = BuildFunctionalEntranceData();
             PurchaseDailyNotify purchaseDailyNotify = BuildPurchaseDailyNotify();
+            PayModule.AddSignInNotifications(purchaseDailyNotify, session.player);
+            foreach (uint id in session.player.PurchaseDailyPasses.Keys)
+                if (PayModule.RemainingDays(session.player, id) > 0
+                    && session.player.PurchaseDailyPasses[id].LastClaimDay < PayModule.PurchaseDay())
+                    purchaseDailyNotify.DailyRewardInfoList.Add(new Dictionary<string, object> { ["Id"] = id });
             NotifyPurchaseRecommendConfig purchaseRecommendConfig = BuildPurchaseRecommendConfig();
             // Seed the manual before NotifyLogin fires login-complete; the late full push refreshes Lotto/Purchase after cache initialization.
             session.SendPush(WheelchairManualModule.BuildPayload(session, DateTimeOffset.UtcNow));
