@@ -129,6 +129,86 @@ internal static partial class Program
             (TeachingTreasureRewardResponse duplicate, List<string> duplicatePushes) = Registered(285);
             AssertEqual(20003001, duplicate.Code, "Teaching registered duplicate rejected");
             AssertEqual(0, duplicate.RewardGoodsList.Count + duplicatePushes.Count, "Teaching duplicate grants nothing");
+
+            // A committed Character receipt can lose its acknowledgement. The registered handler must
+            // fail closed so this session cannot continue from an uncertain in-memory snapshot.
+            const long stalePlayerId = 99_750;
+            const string staleSessionId = "teaching-treasure-stale-session";
+            byte[]? mainInventoryReplacement = inventoryCollection.LastSuccessfulReplacementBson;
+            byte[]? mainCharacterReplacement = characterCollection.LastSuccessfulReplacementBson;
+
+            using (LoopbackSessionHarness stale = new(CreateDrawCompatibilityCharacter(stalePlayerId),
+                       CreateDrawCompatibilityPlayer(stalePlayerId),
+                       CreateDrawCompatibilityInventory(stalePlayerId, []), staleSessionId))
+            {
+                stale.Session.stage = CreateLoginAccountCompatibilityStage(stalePlayerId);
+                stale.Session.stage.Stages[30100237] = new StageDatum
+                {
+                    StageId = 30100237,
+                    Passed = true
+                };
+                AssertEqual(true, Server.Instance.Sessions.TryAdd(staleSessionId, stale.Session),
+                    "Teaching stale-session failure registers the session");
+                try
+                {
+                    characterCollection.ThrowAfterReplaceOne = true;
+                    bool acknowledgementLost = false;
+                    try
+                    {
+                        InvokeRegisteredRequestHandler(nameof(TeachingTreasureRewardRequest), stale.Session, 83_001,
+                            new TeachingTreasureRewardRequest { TreasureId = 284 });
+                    }
+                    catch (InvalidDataException exception) when (exception.InnerException is MongoDB.Driver.MongoException)
+                    {
+                        acknowledgementLost = true;
+                    }
+                    finally
+                    {
+                        characterCollection.ThrowAfterReplaceOne = false;
+                    }
+
+                    AssertEqual(true, acknowledgementLost, "Teaching committed acknowledgement loss reaches the registered handler");
+                    AssertEqual(false, Server.Instance.Sessions.ContainsKey(staleSessionId),
+                        "Teaching handler disconnects the stale session");
+                    AssertEqual(false, stale.TryReadAvailablePacket("Teaching failed registered claim packet", out _),
+                        "Teaching failed registered claim emits no success packet");
+
+                    string claimKey = $"teaching-treasure:{stalePlayerId}:284";
+                    AscNet.Common.Database.Inventory durableInventory = BsonSerializer.Deserialize<AscNet.Common.Database.Inventory>(
+                        inventoryCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException("Teaching acknowledgement loss did not persist Inventory."));
+                    AscNet.Common.Database.Character durableCharacter = BsonSerializer.Deserialize<AscNet.Common.Database.Character>(
+                        characterCollection.LastSuccessfulReplacementBson
+                        ?? throw new InvalidDataException("Teaching acknowledgement loss did not persist Character."));
+                    AssertEqual(true, durableInventory.AppliedRewardClaims.Contains(claimKey, StringComparer.Ordinal)
+                        && durableCharacter.AppliedRewardClaims.Contains(claimKey, StringComparer.Ordinal),
+                        "Teaching acknowledgement loss durably records both receipts");
+                    AssertEqual(1L, durableInventory.Items.Single(item => item.Id == 30013).Count,
+                        "Teaching acknowledgement loss durably credits one reward");
+
+                    using LoopbackSessionHarness reload = new(durableCharacter,
+                        BsonSerializer.Deserialize<AscNet.Common.Database.Player>(stale.Session.player.ToBson()),
+                        durableInventory, "teaching-treasure-stale-reload");
+                    reload.Session.stage = CreateLoginAccountCompatibilityStage(stalePlayerId);
+                    InvokeRegisteredRequestHandler(nameof(TeachingTreasureRewardRequest), reload.Session, 83_002,
+                        new TeachingTreasureRewardRequest { TreasureId = 284 });
+                    TeachingTreasureRewardResponse reloadedDuplicate = ReadResponsePayload<TeachingTreasureRewardResponse>(
+                        reload, 83_002, nameof(TeachingTreasureRewardResponse),
+                        "Teaching stale-session reload duplicate response");
+                    AssertEqual(20003001, reloadedDuplicate.Code,
+                        "Teaching fresh reload rejects the durably completed claim");
+                    AssertEqual(0, reloadedDuplicate.RewardGoodsList.Count,
+                        "Teaching fresh reload does not duplicate the reward");
+                    AssertEqual(false, reload.TryReadAvailablePacket("Teaching stale-session reload packet", out _),
+                        "Teaching fresh reload emits no reward push");
+                }
+                finally
+                {
+                    Server.Instance.Sessions.TryRemove(staleSessionId, out _);
+                    inventoryCollection.LastSuccessfulReplacementBson = mainInventoryReplacement;
+                    characterCollection.LastSuccessfulReplacementBson = mainCharacterReplacement;
+                }
+            }
         }
         finally { schedules[scheduleIndex] = window; }
 

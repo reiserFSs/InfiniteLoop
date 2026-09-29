@@ -121,7 +121,9 @@ namespace AscNet.GameServer
                         && tundraPending.ResponseName is not (nameof(Handlers.FinishTaskResponse) or nameof(Handlers.FinishMultiTaskResponse))
                         && !Handlers.Theatre4Module.CanDispatchPendingRequest(this, request))
                     || (currentPlayer.Theatre6.PendingMutation is not null
-                        && !Handlers.Theatre6Module.CanDispatchPendingRequest(this, request))))
+                        && !Handlers.Theatre6Module.CanDispatchPendingRequest(this, request))
+                    || (currentPlayer.PendingPartnerDecompose is not null
+                        && request.Name is not ("PartnerDecomposeRequest" or "ReconnectRequest"))))
             {
                 string responseName = request.Name.EndsWith("Request", StringComparison.Ordinal)
                     ? request.Name[..^7] + "Response" : request.Name + "Response";

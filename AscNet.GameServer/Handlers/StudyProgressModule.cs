@@ -60,13 +60,21 @@ internal static class StudyProgressModule
     public static void TeachingTreasureRewardRequestHandler(Session session, Packet.Request packet)
     {
         TeachingTreasureRewardRequest request = packet.Deserialize<TeachingTreasureRewardRequest>();
-        (int code, RewardApplicationResult? application) = ClaimTreasure(session, request.TreasureId, DateTimeOffset.UtcNow);
-        application?.SendPushes(session);
-        session.SendResponse(new TeachingTreasureRewardResponse
+        try
         {
-            Code = code,
-            RewardGoodsList = application?.RewardGoods ?? new()
-        }, packet.Id);
+            (int code, RewardApplicationResult? application) = ClaimTreasure(session, request.TreasureId, DateTimeOffset.UtcNow);
+            application?.SendPushes(session);
+            session.SendResponse(new TeachingTreasureRewardResponse
+            {
+                Code = code,
+                RewardGoodsList = application?.RewardGoods ?? new()
+            }, packet.Id);
+        }
+        catch
+        {
+            session.DisconnectProtocol(persistState: false);
+            throw;
+        }
     }
 
     internal static (int Code, RewardApplicationResult? Application) ClaimTreasure(Session session, int treasureId, DateTimeOffset now)

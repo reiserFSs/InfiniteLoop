@@ -750,6 +750,7 @@ namespace AscNet.GameServer.Handlers
             GachaManager.RecoverPending(session);
             MineSweepingModule.RecoverPending(session);
             StudyProgressModule.ResumePartialTreasureClaims(session);
+            PartnerModule.ResumePendingPartnerDecompose(session);
             BiancaTheatreModule.PrepareLogin(session);
             GuildModule.PrepareLogin(session);
             GuildBossModule.PrepareLogin(session);
