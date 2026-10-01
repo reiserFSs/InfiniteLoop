@@ -211,6 +211,14 @@ namespace AscNet.GameServer.Handlers
             Sections.Value.SelectMany(row => row.StageId).Where(stageId => stageId > 0).ToHashSet());
         private static readonly Lazy<List<BossSingleChallengeGradeTable>> ChallengeGrades = new(() =>
             TableReaderV2.Parse<BossSingleChallengeGradeTable>());
+        private static readonly Lazy<HashSet<int>> ChallengeStageIds = new(() =>
+            ChallengeGrades.Value
+                .Where(row => Groups.Value.ContainsKey(row.BossGroupId))
+                .SelectMany(row => Groups.Value[row.BossGroupId].SectionId)
+                .Where(HasCurrentSection)
+                .SelectMany(sectionId => ResolveSection(sectionId).StageId)
+                .Where(stageId => stageId > 0)
+                .ToHashSet());
         private static readonly Lazy<List<BossSingleChallengeFeatureGroupTable>> ChallengeFeatureGroups = new(() =>
         {
             List<BossSingleChallengeFeatureTable> features = TableReaderV2.Parse<BossSingleChallengeFeatureTable>();
@@ -274,7 +282,8 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("BossSingleSelectLevelTypeRequest")]
         public static void BossSingleSelectLevelTypeRequestHandler(Session session, Packet.Request packet)
         {
-            ReconcileLive(session);
+            long reconcileNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, reconcileNow, includeOwnershipSnapshot: false);
             BossSingleSelectLevelTypeRequest request = packet.Deserialize<BossSingleSelectLevelTypeRequest>();
             SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
             if (!state.BossListOptions.TryGetValue(request.LevelId, out List<int>? bossList)
@@ -294,7 +303,7 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new BossSingleSelectLevelTypeResponse
             {
                 Code = 0,
-                FubenBossSingleData = BuildLoginData(session.player).FubenBossSingleData
+                FubenBossSingleData = BuildLoginData(session.player, reconcileNow).FubenBossSingleData
             }, packet.Id);
         }
 
@@ -302,16 +311,20 @@ namespace AscNet.GameServer.Handlers
         public static void BossSingleSaveScoreRequestHandler(Session session, Packet.Request packet)
         {
             BossSingleSaveScoreRequest request = packet.Deserialize<BossSingleSaveScoreRequest>();
+            long reconcileNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, reconcileNow, includeOwnershipSnapshot: false);
             BossSinglePendingScore? pending = session.PendingBossSingleScore;
             if (pending is null || pending.StageId != request.StageId)
             {
                 session.SendResponse(new BossSingleSaveScoreResponse { Code = 1 }, packet.Id);
                 return;
             }
-            ReconcileLive(session);
-
-            bool isFirstClear = !session.stage.Stages.TryGetValue((uint)pending.StageId, out StageDatum? previousStageData)
-                || !previousStageData.Passed;
+            bool previousStagePassed = session.stage.Stages.TryGetValue((uint)pending.StageId, out StageDatum? previousStageData)
+                && previousStageData.Passed;
+            bool codexStageSeen = pending.StageType is 2 or 4
+                && (session.player.SimulatedBattlefield.BossTrialScores.ContainsKey(pending.StageId)
+                    || session.player.SimulatedBattlefield.BossBestiaryScores.ContainsKey(pending.StageId));
+            bool isFirstClear = !previousStagePassed && !codexStageSeen;
             if (!TryCommitScore(session, pending, false, out StageDatum? stageData))
             {
                 session.SendResponse(new BossSingleSaveScoreResponse { Code = 1 }, packet.Id);
@@ -325,14 +338,15 @@ namespace AscNet.GameServer.Handlers
                 TaskModule.RecordStageParticipation(session, pending.StageId, pending.Characters);
             if (stageData is not null)
                 session.SendPush(new NotifyStageData { StageList = [stageData] });
-            session.SendPush(BuildLoginData(session.player));
+            session.SendPush(BuildLoginData(session.player, reconcileNow));
             session.SendResponse(new BossSingleSaveScoreResponse { Code = 0, Supply = 0 }, packet.Id);
         }
 
         [RequestPacketHandler("BossSingleAutoFightRequest")]
         public static void BossSingleAutoFightRequestHandler(Session session, Packet.Request packet)
         {
-            ReconcileLive(session);
+            long reconcileNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, reconcileNow, includeOwnershipSnapshot: false);
             BossSingleAutoFightRequest request = packet.Deserialize<BossSingleAutoFightRequest>();
             SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
             if (!TryResolveNormalStage(state, request.StageId, out int sectionId, out BossSingleStageTable? stage)
@@ -354,7 +368,7 @@ namespace AscNet.GameServer.Handlers
             }
 
             int stageStatus = DetermineStageStatus(state, request.StageId, history.Characters);
-            if (!CanConsumeAttempt(state, ResolveGrade(state.BossLevelType), sectionId, history.Characters, stageStatus))
+            if (!CanConsumeAttempt(state, ResolveGrade(state.BossLevelType), history.Characters, stageStatus))
             {
                 session.SendResponse(new BossSingleAutoFightResponse { Code = 1 }, packet.Id);
                 return;
@@ -386,7 +400,7 @@ namespace AscNet.GameServer.Handlers
             TaskModule.RecordStageClear(session, request.StageId, 1, 0, isFirstClear);
             TaskModule.RecordStageParticipation(session, pending.StageId, pending.Characters);
             SendRankPush(session);
-            session.SendPush(BuildLoginData(session.player));
+            session.SendPush(BuildLoginData(session.player, reconcileNow));
             if (stageData is not null)
                 session.SendPush(new NotifyStageData { StageList = [stageData] });
             session.SendResponse(new BossSingleAutoFightResponse { Code = 0, Supply = 0 }, packet.Id);
@@ -406,7 +420,8 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("BossSingleResetStageRequest")]
         public static void BossSingleResetStageRequestHandler(Session session, Packet.Request packet)
         {
-            ReconcileLive(session);
+            long reconcileNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, reconcileNow, includeOwnershipSnapshot: false);
             BossSingleResetStageRequest request = packet.Deserialize<BossSingleResetStageRequest>();
             SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
             BossSingleStageRecordState? record = state.BossStageRecords.Find(value => value.StageId == request.StageId);
@@ -433,7 +448,7 @@ namespace AscNet.GameServer.Handlers
             state.BossCurrentTotalScore = state.BossStageRecords.Sum(value => value.Score);
             session.PendingBossSingleScore = null;
             session.player.Save();
-            session.SendPush(BuildLoginData(session.player));
+            session.SendPush(BuildLoginData(session.player, reconcileNow));
             if (session.stage is not null
                 && SyncCycleStageScores(state, session.stage) is { Count: > 0 } resetStages)
             {
@@ -582,7 +597,7 @@ namespace AscNet.GameServer.Handlers
 
                 SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
                 int stageStatus = DetermineStageStatus(state, stageId, characters);
-                if (!CanConsumeAttempt(state, ResolveGrade(state.BossLevelType), sectionId, characters, stageStatus))
+                if (!CanConsumeAttempt(state, ResolveGrade(state.BossLevelType), characters, stageStatus))
                     return false;
 
                 state.BossNormalStageTeams[sectionId] = characters.ToList();
@@ -1009,21 +1024,30 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
-        internal static void PrepareLogin(Session session)
+        internal static void PrepareLogin(Session session) =>
+            PrepareLoginAt(session, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+        internal static void PrepareLoginAt(Session session, long reconcileNow)
         {
-            if (Reconcile(session.player, null))
+            int previousActivity = session.player.SimulatedBattlefield?.BossActivityNo ?? 0;
+            int currentActivity = CurrentActivity(reconcileNow);
+            PersistStageOwnershipReconciliation(session, currentActivity, reconcileNow);
+            bool rolledOver = previousActivity != 0 && previousActivity != currentActivity;
+            if (rolledOver)
+                session.PendingBossSingleScore = null;
+            if (Reconcile(session.player, reconcileNow))
                 session.player.Save();
-            if (session.stage is not null)
-            {
-                if (SyncCycleStageScores(session.player.SimulatedBattlefield, session.stage).Count > 0)
-                    session.stage.Save();
-                HydrateBossStages(session, sendPushes: false);
-            }
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield
+                ?? throw new InvalidOperationException("Boss Single state missing after login reconciliation.");
+            if (SyncCycleStageScores(state, session.stage).Count > 0)
+                session.stage.Save();
+            HydrateBossStages(session, sendPushes: false);
         }
 
         private static void ClaimRewards(Session session, int packetId, int? requestedId)
         {
-            ReconcileLive(session);
+            long reconcileNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, reconcileNow, includeOwnershipSnapshot: false);
             SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
             BossSingleGradeTable grade = ResolveGrade(state.BossLevelType);
             List<BossSingleScoreRewardTable> eligible = ScoreRewards.Value
@@ -1059,7 +1083,7 @@ namespace AscNet.GameServer.Handlers
             session.character.Save();
             session.player.Save();
             rewardResult.SendPushes(session);
-            session.SendPush(BuildLoginData(session.player));
+            session.SendPush(BuildLoginData(session.player, reconcileNow));
             if (requestedId is null)
             {
                 session.SendResponse(new BossSingleGetAllRewardResponse
@@ -1099,7 +1123,7 @@ namespace AscNet.GameServer.Handlers
                 // special-cases Trial and otherwise reads the generic stage datum. Expose the mode best here so a
                 // lower run cannot look like a new record; the period sync restores the cycle value on the next
                 // rotation request and the cycle totals stay record-based.
-                stageData = UpdateStageDatum(session, pending, scores[pending.StageId]);
+                stageData = UpdateStageDatumScore(session, pending.StageId, scores[pending.StageId]);
                 session.stage.Save();
                 session.player.Save();
                 return true;
@@ -1129,9 +1153,9 @@ namespace AscNet.GameServer.Handlers
                 return false;
             BossSingleGradeTable grade = ResolveGrade(state.BossLevelType);
             int stageStatus = DetermineStageStatus(state, pending.StageId, pending.Characters);
-            if (!CanConsumeAttempt(state, grade, pending.SectionId, pending.Characters, stageStatus))
+            if (!CanConsumeAttempt(state, grade, pending.Characters, stageStatus))
                 return false;
-            ConsumeAttempt(state, pending.SectionId, pending.Characters, stageStatus);
+            ConsumeAttempt(state, pending.Characters, stageStatus);
 
             BossSingleStageRecordState? record = state.BossStageRecords.Find(value => value.StageId == pending.StageId);
             if (record is null)
@@ -1148,7 +1172,7 @@ namespace AscNet.GameServer.Handlers
                 record.MaxCharacters = pending.Characters.ToList();
                 record.MaxPartners = pending.Partners.ToList();
             }
-            ArchiveRecord(state, record);
+            // BossHistory is the prior-period Auto Clear source; current scores become history only at rollover.
 
             state.BossResetStageIds.Remove(pending.StageId);
             state.BossNormalStageTeams[pending.SectionId] = pending.Characters.ToList();
@@ -1209,6 +1233,16 @@ namespace AscNet.GameServer.Handlers
         }
 
 
+        private static StageDatum UpdateStageDatumScore(Session session, int stageId, int bestScore)
+        {
+            uint key = checked((uint)stageId);
+            bool exists = session.stage.Stages.TryGetValue(key, out StageDatum? stage);
+            stage ??= NewStageDatum(stageId);
+            stage.Score = Math.Max(stage.Score, bestScore);
+            if (!exists)
+                session.stage.AddStage(stage);
+            return stage;
+        }
         private static StageDatum UpdateStageDatum(Session session, BossSinglePendingScore pending, int bestScore)
         {
             uint stageId = checked((uint)pending.StageId);
@@ -1349,23 +1383,174 @@ namespace AscNet.GameServer.Handlers
             return changed;
         }
 
-        private static void ReconcileLive(Session session)
+        internal static void ReconcileReconnect(Session session)
+        {
+            long reconcileNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, reconcileNow, includeOwnershipSnapshot: true);
+        }
+
+        private static void ReconcileLive(Session session) =>
+            ReconcileLive(session, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), includeOwnershipSnapshot: false);
+
+        private static void ReconcileLive(Session session, bool includeOwnershipSnapshot) =>
+            ReconcileLive(session, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), includeOwnershipSnapshot);
+
+        private static void ReconcileLive(Session session, long reconcileNow, bool includeOwnershipSnapshot)
         {
             int previousActivity = session.player.SimulatedBattlefield?.BossActivityNo ?? 0;
-            if (Reconcile(session.player, null))
-                session.player.Save();
-            if (previousActivity != 0 && previousActivity != session.player.SimulatedBattlefield!.BossActivityNo)
-            {
+            int currentActivity = CurrentActivity(reconcileNow);
+            List<StageDatum> changedStages = PersistStageOwnershipReconciliation(session, currentActivity, reconcileNow);
+            bool rolledOver = previousActivity != 0 && previousActivity != currentActivity;
+            if (rolledOver)
                 session.PendingBossSingleScore = null;
+            if (Reconcile(session.player, reconcileNow))
+                session.player.Save();
+            if (rolledOver)
                 WheelchairManualGuideManager.SendUpdate(session);
-            }
-            if (session.stage is not null
-                && SyncCycleStageScores(session.player.SimulatedBattlefield!, session.stage) is { Count: > 0 } syncedStages)
+
+            List<StageDatum> syncedStages = SyncCycleStageScores(session.player.SimulatedBattlefield!, session.stage);
+            foreach (StageDatum synced in syncedStages)
+                if (!changedStages.Any(stage => stage.StageId == synced.StageId))
+                    changedStages.Add(synced);
+            foreach (int stageId in session.PendingBossSingleRolloverStageIds)
             {
+                if (!session.stage.Stages.TryGetValue(checked((uint)stageId), out StageDatum? pendingStage))
+                    continue;
+                if (!changedStages.Any(stage => stage.StageId == pendingStage.StageId))
+                    changedStages.Add(pendingStage);
+            }
+            if (includeOwnershipSnapshot)
+            {
+                foreach (int stageId in Stages.Value.Keys)
+                {
+                    if (session.stage.Stages.TryGetValue(stageId, out StageDatum? ownedStage)
+                        && !changedStages.Any(stage => stage.StageId == ownedStage.StageId))
+                        changedStages.Add(ownedStage);
+                }
+            }
+            if (syncedStages.Count > 0)
                 session.stage.Save();
-                session.SendPush(new NotifyStageData { StageList = syncedStages });
+            if (changedStages.Count > 0)
+            {
+                session.SendPush(new NotifyStageData { StageList = changedStages });
+                foreach (StageDatum notifiedStage in changedStages)
+                    session.PendingBossSingleRolloverStageIds.Remove(checked((int)notifiedStage.StageId));
+            }
+            if (includeOwnershipSnapshot)
+                session.SendPush(BuildLoginData(session.player, reconcileNow));
+        }
+
+        private static List<StageDatum> PersistStageOwnershipReconciliation(
+            Session session,
+            int currentActivity,
+            long now)
+        {
+            Stage stage = session.stage
+                ?? throw new InvalidOperationException("Cannot reconcile Boss Single Stage ownership without persisted stage state.");
+            if (stage.BossSingleActivityNo == currentActivity)
+                return [];
+
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield ?? new();
+            Normalize(state);
+            HashSet<int> ownedStageIds = BossSingleOwnershipStageIds(
+                state,
+                checked((int)session.player.PlayerData.Level),
+                stage.BossSingleActivityNo ?? currentActivity);
+            bool legacy = stage.BossSingleActivityNo is null;
+            List<StageDatum> changedStages = [];
+            foreach (int stageId in ownedStageIds)
+            {
+                if (!stage.Stages.TryGetValue(stageId, out StageDatum? datum) || !datum.Passed)
+                    continue;
+
+                // TaskModule maps Unix seconds to the weekly period as (timestamp / 86_400 + 3) / 7.
+                // Zero, future, or non-current timestamps are ambiguous and cannot prove a legacy pass.
+                bool provenCurrentLegacyPass = legacy
+                    && datum.LastPassTime > 0
+                    && datum.LastPassTime <= now
+                    && TaskModule.CurrentWeeklyResetPeriod(datum.LastPassTime) == currentActivity;
+                if (provenCurrentLegacyPass)
+                    continue;
+
+                datum.Passed = false;
+                changedStages.Add(datum);
+                session.PendingBossSingleRolloverStageIds.Add(stageId);
+            }
+
+            stage.BossSingleActivityNo = currentActivity;
+            try
+            {
+                stage.SaveChecked();
+                return changedStages;
+            }
+            catch (Exception saveException)
+            {
+                // SaveChecked may throw after Mongo committed. Re-read durable state before any retry can
+                // replace it; never restore a stale in-memory copy over an ambiguous commit.
+                try
+                {
+                    session.stage = Stage.Reload(stage.Id, stage.Uid);
+                }
+                catch (Exception reloadException)
+                {
+                    session.stage = null!;
+                    throw new AggregateException(
+                        "Boss Single Stage save failed and durable state could not be reloaded.",
+                        saveException,
+                        reloadException);
+                }
+
+                throw;
             }
         }
+
+        private static HashSet<int> BossSingleOwnershipStageIds(
+            SimulatedBattlefieldState state,
+            int playerLevel,
+            int activity)
+        {
+            HashSet<int> stageIds = new();
+            AddSectionStageIds(stageIds, state.BossList);
+            foreach (List<int> options in state.BossListOptions.Values)
+                AddSectionStageIds(stageIds, options);
+            foreach (List<int> options in BuildBossListOptions(state, playerLevel, activity).Values)
+                AddSectionStageIds(stageIds, options);
+            if (state.BossOldLevelType > 0)
+            {
+                BossSingleGradeTable previousGrade = ResolveGrade(state.BossOldLevelType);
+                if (BuildBossListOptions(state, previousGrade.MinPlayerLevel, activity)
+                    .TryGetValue(previousGrade.LevelType, out List<int>? previousSections))
+                    AddSectionStageIds(stageIds, previousSections);
+            }
+            stageIds.UnionWith(ChallengeStageIds.Value);
+            stageIds.UnionWith(IntensiveStageIds(state));
+            return stageIds;
+        }
+
+        private static void AddSectionStageIds(HashSet<int> stageIds, IEnumerable<int> sectionIds)
+        {
+            foreach (int sectionId in sectionIds.Where(id => id > 0))
+                stageIds.UnionWith(ResolveSection(sectionId, false).StageId.Where(id => id > 0));
+        }
+
+        private static HashSet<int> IntensiveStageIds(SimulatedBattlefieldState state)
+        {
+            HashSet<int> stageIds = new();
+            foreach (BossSingleTrialGradeTable catalog in TrialGrades.Value)
+            {
+                if (catalog.LevelType is not (4 or 8)
+                    || (catalog.IsBestiaryCfg != 0) != (catalog.LevelType == 8))
+                    continue;
+                AddSectionStageIds(stageIds, catalog.SectionId);
+            }
+
+            BossSingleGradeTable? grade = state.BossLevelType > 0 ? ResolveGrade(state.BossLevelType) : null;
+            var challenge = ResolveChallengeData(state, grade);
+            if (challenge is not null)
+                stageIds.UnionWith(ResolveChallengeSection(challenge.Value.SectionId).StageId.Where(id => id > 0));
+            return stageIds;
+        }
+
 
         private static void Normalize(SimulatedBattlefieldState state)
         {
@@ -1419,22 +1604,7 @@ namespace AscNet.GameServer.Handlers
         {
             bool changed = HydrateNormalStages(session, sendPushes);
             SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
-            HashSet<int> stageIds = new();
-
-            foreach (BossSingleTrialGradeTable catalog in TrialGrades.Value)
-            {
-                if (catalog.LevelType is not (4 or 8)
-                    || (catalog.IsBestiaryCfg != 0) != (catalog.LevelType == 8))
-                    continue;
-                foreach (int sectionId in catalog.SectionId)
-                    if (sectionId > 0)
-                        stageIds.UnionWith(ResolveSection(sectionId, false).StageId);
-            }
-
-            BossSingleGradeTable? grade = state.BossLevelType > 0 ? ResolveGrade(state.BossLevelType) : null;
-            var challenge = ResolveChallengeData(state, grade);
-            if (challenge is not null)
-                stageIds.UnionWith(ResolveChallengeSection(challenge.Value.SectionId).StageId);
+            HashSet<int> stageIds = IntensiveStageIds(state);
 
             List<StageDatum>? addedStages = sendPushes ? new() : null;
             foreach (int stageId in stageIds)
@@ -1674,12 +1844,10 @@ namespace AscNet.GameServer.Handlers
         private static bool CanConsumeAttempt(
             SimulatedBattlefieldState state,
             BossSingleGradeTable grade,
-            int sectionId,
             IReadOnlyCollection<int> characters,
             int stageStatus)
         {
             if (stageStatus == 0
-                && !HasSectionRecord(state, sectionId)
                 && state.BossChallengeCount >= CurrentChallengeLimit(grade, null))
             {
                 return false;
@@ -1694,23 +1862,16 @@ namespace AscNet.GameServer.Handlers
 
         private static void ConsumeAttempt(
             SimulatedBattlefieldState state,
-            int sectionId,
             IReadOnlyCollection<int> characters,
             int stageStatus)
         {
-            if (stageStatus == 0 && !HasSectionRecord(state, sectionId))
+            if (stageStatus == 0)
                 state.BossChallengeCount++;
             if (stageStatus is 0 or 1 or 3)
             {
                 foreach (int characterId in characters)
                     state.BossCharacterPoints[characterId] = state.BossCharacterPoints.GetValueOrDefault(characterId) + 1;
             }
-        }
-
-        private static bool HasSectionRecord(SimulatedBattlefieldState state, int sectionId)
-        {
-            List<int> stageIds = ResolveSection(sectionId).StageId;
-            return state.BossStageRecords.Any(record => stageIds.Contains(record.StageId));
         }
 
         private static int CurrentChallengeLimit(BossSingleGradeTable grade, long? now)

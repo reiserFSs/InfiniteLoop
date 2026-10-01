@@ -24,6 +24,7 @@ namespace AscNet.GameServer
         public Fight? fight;
         public int? OpenedGuideGroupId;
         public BossSinglePendingScore? PendingBossSingleScore;
+        public HashSet<int> PendingBossSingleRolloverStageIds { get; } = [];
         public Inventory inventory = default!;
         public int? PendingEnterWorldChatRequestId;
         public int? PendingGetWorldChannelInfoRequestId;

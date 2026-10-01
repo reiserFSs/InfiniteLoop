@@ -107,6 +107,7 @@ This branch adds or fixes current-client server behavior for:
 - Story course rewards.
 - Lucia: Lotus's hidden interlude uses table-derived replay flags and persisted objective events, with an immediate hidden-stage notification and relog recovery. Old clear records do not prove objective completion; replay episode 6 after updating. Clearing the episode without its hidden objective does not unlock episode 7.
 - Boss single login payload shape.
+- Pain Cage consumes one Attempt per normal stage's first weekly clear, manual or Auto Clear; replays consume none. Current-week clears do not unlock Auto Clear until weekly rollover archives their records; prior archived eligibility remains unchanged until then. Weekly rollover resets completion flags, and ambiguous legacy clears are also reset. Codex clears update scores and first-clear task progress without marking weekly stages complete.
 - Guide table compatibility for current guide TSVs.
 - Player cost-time upload.
 - Player point upload.

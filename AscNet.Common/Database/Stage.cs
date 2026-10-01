@@ -114,6 +114,9 @@ namespace AscNet.Common.Database
             }
         }
 
+        [BsonElement("boss_single_activity_no")]
+        public int? BossSingleActivityNo { get; set; }
+
         [BsonId]
         public ObjectId Id { get; set; }
 
@@ -125,6 +128,17 @@ namespace AscNet.Common.Database
         [BsonRequired]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<long, StageDatum> Stages { get; set; }
+
+        public static Stage Reload(ObjectId id, long uid)
+        {
+            Stage stage = collection.Find(Builders<Stage>.Filter.Eq(x => x.Id, id)).FirstOrDefault()
+                ?? throw new InvalidOperationException($"Stage document for uid {uid} disappeared during reconciliation.");
+            stage.Course ??= new();
+            stage.FinishedTasks ??= new();
+            stage.PrequelRewardedStages ??= new();
+            stage.UnlockEvents ??= new();
+            return stage;
+        }
 
         // List of claimed StageIds
         [BsonElement("course")]

@@ -12,7 +12,6 @@ using AscNet.Table.V2.share.partner;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.client.fuben.arena;
 using AscNet.Table.V2.share.fuben.arena;
-using AscNet.Table.V2.share.fuben.bosssingle;
 using AscNet.Table.V2.share.fuben.bossactivity;
 using AscNet.Table.V2.share.chat;
 using AscNet.Table.V2.share.fuben.mainline;
@@ -716,6 +715,9 @@ namespace AscNet.Test
                 if (args.Contains("--boss-single-login-compat-only"))
                 {
                     ValidateBossSingleLoginCompatibilityShape();
+                    ValidateBossSingleLoginRollover();
+                    ValidateBossSingleSharedTimestampBoundary();
+                    ValidateBossSingleReconnectStageSnapshot();
                     return;
                 }
 
@@ -1100,6 +1102,9 @@ namespace AscNet.Test
                 ValidateStrongholdSweepCompatibility();
                 ValidateStrongholdRolloverCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
+                ValidateBossSingleLoginRollover();
+                ValidateBossSingleSharedTimestampBoundary();
+                ValidateBossSingleReconnectStageSnapshot();
                 ValidateBossActivityCompatibility();
                 ValidateBossSingleCompatibility();
                 ValidateBossSingleIntensiveStageHydration();
@@ -4139,8 +4144,13 @@ namespace AscNet.Test
                 "notify-login-time-limit-compat-test"))
             {
                 harness.Session.stage = CreateLoginAccountCompatibilityStage(notifyLoginPlayerId);
+                harness.Session.stage.Id = ObjectId.GenerateNewId();
+                AscNet.Common.Database.Stage.collection.InsertOne(harness.Session.stage);
                 productionLogin = buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
                     ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil or a non-NotifyLogin payload.");
+                AssertEqual(harness.Session.stage.BossSingleActivityNo,
+                    AscNet.Common.Database.Stage.Reload(harness.Session.stage.Id, notifyLoginPlayerId).BossSingleActivityNo,
+                    "BuildNotifyLogin persists its reconciled Stage ownership epoch");
             }
             if (productionLogin.TimeLimitCtrlConfigList.Count < 2
                 || productionLogin.FunctionOpenTimeConfigList.Any(mapping =>
@@ -4540,6 +4550,7 @@ namespace AscNet.Test
             ];
             character.Characters.AddRange(ownedCharacters);
             AscNet.Common.Database.Stage stage = CreateLoginAccountCompatibilityStage(playerId);
+            stage.Id = ObjectId.GenerateNewId();
             stage.AddStage(new StageDatum
             {
                 StageId = existingAccountStageId,
@@ -4557,6 +4568,7 @@ namespace AscNet.Test
                 BestCardIds = [1021001],
                 LastCardIds = [1021001]
             });
+            AscNet.Common.Database.Stage.collection.InsertOne(stage);
             HashSet<long> initialStageIds = stage.Stages.Keys.ToHashSet();
 
             NotifyLogin productionLogin;
@@ -6142,6 +6154,11 @@ namespace AscNet.Test
                 CreateDrawCompatibilityPlayer(playerId),
                 CreateDrawCompatibilityInventory(playerId, []),
                 "login-account-sync-read-game-notice-compat-test");
+            harness.Session.stage.Id = ObjectId.GenerateNewId();
+            AscNet.Common.Database.Stage.collection.InsertOne(harness.Session.stage);
+            if (AscNet.Common.Database.Stage.collection.CountDocuments(
+                    Builders<AscNet.Common.Database.Stage>.Filter.Eq(stage => stage.Id, harness.Session.stage.Id)) != 1)
+                throw new InvalidDataException("Game notice login fixture Stage was not inserted into its active collection.");
 
             const string noticeId = "6a1e0fd0f1b4a13fd8bf4900";
             const long modifyTime = 1_780_355_024;
@@ -6205,6 +6222,7 @@ namespace AscNet.Test
                 "BuildNotifyLogin",
                 BindingFlags.Static | BindingFlags.NonPublic,
                 [typeof(Session)]);
+            harness.Session.stage = AscNet.Common.Database.Stage.Reload(harness.Session.stage.Id, playerId);
             NotifyLogin notifyLogin = buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
                 ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil or a non-NotifyLogin payload.");
             NotifyLogin notifyLoginRoundTrip = MessagePackSerializer.Deserialize<NotifyLogin>(
@@ -27480,8 +27498,204 @@ namespace AscNet.Test
 
         }
 
+        private static void ValidateBossActivityLoginCompatibility()
+        {
+            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForBossCompatibility(
+                out _, out _);
+            const long playerId = 99_701;
+            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
+            player.SimulatedBattlefield = new() { BossRankPlatform = 2 };
+            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
+            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
+            using LoopbackSessionHarness harness = new(character, player, inventory, "boss-single-compat-test");
+            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
+
+            Type bossModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule");
+            List<BossActivityTable> activityBossActivities = TableReaderV2.Parse<BossActivityTable>();
+            List<BossSectionTable> activityBossSections = TableReaderV2.Parse<BossSectionTable>();
+            Dictionary<int, BossChallengeTable> activityBossChallenges = TableReaderV2.Parse<BossChallengeTable>()
+                .ToDictionary(challenge => challenge.Id);
+            (BossActivityTable Activity, ActivityScheduleEntry Schedule) activeActivity = activityBossActivities
+                .Where(activity => activity.ActivityTimeId is > 0
+                    && ActivityScheduleService.TryGet(activity.ActivityTimeId.Value, out _))
+                .Select(activity =>
+                {
+                    ActivityScheduleService.TryGet(activity.ActivityTimeId!.Value, out ActivityScheduleEntry schedule);
+                    return (Activity: activity, Schedule: schedule);
+                })
+                .OrderByDescending(candidate => candidate.Activity.Id)
+                .First();
+            BossSectionTable activeSection = activityBossSections
+                .Where(section => section.ActivityId == activeActivity.Activity.Id
+                    && player.PlayerData.Level >= section.MinLevel
+                    && player.PlayerData.Level <= section.MaxLevel)
+                .OrderBy(section => section.OrderId)
+                .ThenBy(section => section.Id)
+                .First();
+            int[] activeChallengeIds = activeSection.ChallengeId.Where(id => id > 0).ToArray();
+            int[] activeStageIds = activeChallengeIds
+                .Select(challengeId => activityBossChallenges[challengeId].StageId)
+                .ToArray();
+            if (activeStageIds.Length == 0)
+                throw new InvalidDataException("Boss activity table-selected section has no challenge stages.");
+
+            MethodInfo buildActivityLoginData = RequiredMethod(
+                bossModule,
+                "BuildActivityLoginData",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session), typeof(DateTimeOffset?)]);
+            NotifyBossActivityData? BuildActivityLogin(DateTimeOffset now) =>
+                buildActivityLoginData.Invoke(null, [harness.Session, now]) as NotifyBossActivityData;
+            DateTimeOffset activeNow = activeActivity.Schedule.StartTime > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(activeActivity.Schedule.StartTime)
+                : DateTimeOffset.UnixEpoch;
+            NotifyBossActivityData freshActivityLogin = BuildActivityLogin(activeNow)
+                ?? throw new InvalidDataException("BossModule.BuildActivityLoginData returned nil during its table-backed activity window.");
+            JObject freshActivityPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(freshActivityLogin)));
+            AssertEqual(
+                true,
+                freshActivityPayload.Properties().Select(property => property.Name).Order(StringComparer.Ordinal).SequenceEqual(
+                    ["ActivityId", "DifficultyScoreRecord", "PassStoryIds", "Schedule", "SectionId", "StageStarInfos", "StarRewardIds"]),
+                "NotifyBossActivityData exact top-level keys");
+            AssertEqual(activeActivity.Activity.Id,
+                RequiredValue<int>(freshActivityPayload, "ActivityId", JTokenType.Integer, "fresh NotifyBossActivityData"),
+                "fresh NotifyBossActivityData ActivityId");
+            AssertEqual(activeSection.Id,
+                RequiredValue<int>(freshActivityPayload, "SectionId", JTokenType.Integer, "fresh NotifyBossActivityData"),
+                "fresh NotifyBossActivityData SectionId");
+            AssertEqual(0,
+                RequiredValue<int>(freshActivityPayload, "Schedule", JTokenType.Integer, "fresh NotifyBossActivityData"),
+                "fresh NotifyBossActivityData Schedule");
+            JArray freshStageStars = RequiredValue<JArray>(
+                freshActivityPayload, "StageStarInfos", JTokenType.Array, "fresh NotifyBossActivityData");
+            AssertEqual(activeStageIds.Length, freshStageStars.Count, "fresh NotifyBossActivityData StageStarInfos count");
+            for (int stageIndex = 0; stageIndex < activeStageIds.Length; stageIndex++)
+            {
+                JObject stageStar = (JObject)freshStageStars[stageIndex]!;
+                AssertEqual(activeStageIds[stageIndex],
+                    RequiredValue<int>(stageStar, "StageId", JTokenType.Integer, $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}]"),
+                    $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}].StageId");
+                AssertEqual(0,
+                    RequiredValue<int>(stageStar, "StarsMark", JTokenType.Integer, $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}]"),
+                    $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}].StarsMark");
+            }
+            AssertEqual(0,
+                RequiredValue<JArray>(freshActivityPayload, "StarRewardIds", JTokenType.Array, "fresh NotifyBossActivityData").Count,
+                "fresh NotifyBossActivityData StarRewardIds count");
+            AssertEqual(0,
+                RequiredValue<JArray>(freshActivityPayload, "PassStoryIds", JTokenType.Array, "fresh NotifyBossActivityData").Count,
+                "fresh NotifyBossActivityData PassStoryIds count");
+            AssertEqual(0,
+                RequiredValue<JObject>(freshActivityPayload, "DifficultyScoreRecord", JTokenType.Object, "fresh NotifyBossActivityData").Count,
+                "fresh NotifyBossActivityData DifficultyScoreRecord count");
+
+            const int activityBossStarsMark = 5;
+            const int activityBossScore = 12_345;
+            harness.Session.stage.AddStage(new StageDatum
+            {
+                StageId = activeStageIds[0],
+                Passed = true,
+                StarsMark = activityBossStarsMark,
+                Score = activityBossScore
+            });
+            NotifyBossActivityData progressedActivityLogin = BuildActivityLogin(activeNow)
+                ?? throw new InvalidDataException("BossModule.BuildActivityLoginData returned nil for a progressed active activity.");
+            JObject progressedActivityPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(
+                MessagePackSerializer.Serialize(progressedActivityLogin)));
+            AssertEqual(1,
+                RequiredValue<int>(progressedActivityPayload, "Schedule", JTokenType.Integer, "progressed NotifyBossActivityData"),
+                "progressed NotifyBossActivityData consecutive Schedule");
+            JObject progressedFirstStage = (JObject)RequiredValue<JArray>(
+                progressedActivityPayload, "StageStarInfos", JTokenType.Array, "progressed NotifyBossActivityData")[0]!;
+            AssertEqual(activityBossStarsMark,
+                RequiredValue<int>(progressedFirstStage, "StarsMark", JTokenType.Integer, "progressed NotifyBossActivityData first stage"),
+                "progressed NotifyBossActivityData StarsMark");
+            JObject progressedScores = RequiredValue<JObject>(
+                progressedActivityPayload, "DifficultyScoreRecord", JTokenType.Object, "progressed NotifyBossActivityData");
+            AssertEqual(activityBossScore,
+                RequiredValue<int>(progressedScores, activeStageIds[0].ToString(CultureInfo.InvariantCulture), JTokenType.Integer,
+                    "progressed NotifyBossActivityData DifficultyScoreRecord"),
+                "progressed NotifyBossActivityData score");
+            DateTimeOffset inactiveNow = activeActivity.Schedule.EndTime > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(activeActivity.Schedule.EndTime)
+                : activeNow.AddYears(100);
+            AssertEqual(null, BuildActivityLogin(inactiveNow), "BossModule.BuildActivityLoginData inactive activity window");
+
+            if (ActivityScheduleService.IsOpen(activeActivity.Schedule.Id, DateTimeOffset.UtcNow))
+            {
+            MethodInfo doLogin = RequiredMethod(
+                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
+                "DoLogin",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                [typeof(Session)]);
+
+            using (LoopbackSessionHarness activityLoginHarness = new(
+                CreateDrawCompatibilityCharacter(playerId + 1),
+                CreateDrawCompatibilityPlayer(playerId + 1),
+                CreateDrawCompatibilityInventory(playerId + 1, []),
+                "boss-activity-login-compat-test"))
+            {
+                activityLoginHarness.Session.stage = CreateLoginAccountCompatibilityStage(playerId + 1);
+                doLogin.Invoke(null, [activityLoginHarness.Session]);
+                bool sawBossActivityPush = false;
+                for (int packetIndex = 0; packetIndex < 192; packetIndex++)
+                {
+                    Packet packet = activityLoginHarness.ReadPacket($"Boss activity login startup packet {packetIndex + 1}");
+                    AssertEqual(Packet.ContentType.Push, packet.Type, "Boss activity login startup packet type");
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    sawBossActivityPush |= push.Name == nameof(NotifyBossActivityData);
+                    if (push.Name == "NotifyWheelchairManualActivityUpdate")
+                        break;
+                }
+                AssertEqual(true, sawBossActivityPush,
+                    "AccountModule.DoLogin emits NotifyBossActivityData before startup completion");
+            }
+
+
+            const int activityBossRefreshPacketId = 82_001;
+            InvokeRegisteredRequestHandler(
+                nameof(GetActivityBossDataRequest),
+                harness.Session,
+                activityBossRefreshPacketId,
+                new GetActivityBossDataRequest());
+            Packet activityBossRefreshPushPacket = harness.ReadPacket("GetActivityBossDataRequest refresh push");
+            AssertEqual(Packet.ContentType.Push, activityBossRefreshPushPacket.Type, "GetActivityBossDataRequest first packet type");
+            Packet.Push activityBossRefreshPush = MessagePackSerializer.Deserialize<Packet.Push>(activityBossRefreshPushPacket.Content);
+            AssertEqual(nameof(NotifyBossActivityData), activityBossRefreshPush.Name, "GetActivityBossDataRequest refresh push name");
+            Packet activityBossRefreshResponsePacket = harness.ReadPacket("GetActivityBossDataRequest response");
+            AssertEqual(Packet.ContentType.Response, activityBossRefreshResponsePacket.Type, "GetActivityBossDataRequest response packet type");
+            Packet.Response activityBossRefreshResponse = MessagePackSerializer.Deserialize<Packet.Response>(activityBossRefreshResponsePacket.Content);
+            AssertEqual(activityBossRefreshPacketId, activityBossRefreshResponse.Id, "GetActivityBossDataRequest response id");
+            AssertEqual(nameof(GetActivityBossDataResponse), activityBossRefreshResponse.Name, "GetActivityBossDataRequest response name");
+            AssertEqual(0,
+                MessagePackSerializer.Deserialize<GetActivityBossDataResponse>(activityBossRefreshResponse.Content).Code,
+                "GetActivityBossDataRequest response code");
+            long originalPlayerLevel = player.PlayerData.Level;
+            player.PlayerData.Level = 0;
+            const int inactiveActivityBossRefreshPacketId = 82_002;
+            InvokeRegisteredRequestHandler(
+                nameof(GetActivityBossDataRequest),
+                harness.Session,
+                inactiveActivityBossRefreshPacketId,
+                new GetActivityBossDataRequest());
+            Packet inactiveActivityBossResponsePacket = harness.ReadPacket("inactive GetActivityBossDataRequest response");
+            AssertEqual(Packet.ContentType.Response, inactiveActivityBossResponsePacket.Type,
+                "inactive GetActivityBossDataRequest has no refresh push");
+            Packet.Response inactiveActivityBossResponse =
+                MessagePackSerializer.Deserialize<Packet.Response>(inactiveActivityBossResponsePacket.Content);
+            AssertEqual(inactiveActivityBossRefreshPacketId, inactiveActivityBossResponse.Id,
+                "inactive GetActivityBossDataRequest response id");
+            AssertEqual(1,
+                MessagePackSerializer.Deserialize<GetActivityBossDataResponse>(inactiveActivityBossResponse.Content).Code,
+                "inactive GetActivityBossDataRequest response code");
+            player.PlayerData.Level = originalPlayerLevel;
+            }
+        }
+
         private static void ValidateBossActivityCompatibility()
         {
+            ValidateBossActivityLoginCompatibility();
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForBossCompatibility(
                 out _,
                 out RecordingMongoCollectionProxy<AscNet.Common.Database.Stage> stageCollection);
@@ -27747,1685 +27961,7 @@ namespace AscNet.Test
             }
         }
 
-        private static void ValidateBossSingleCompatibility()
-        {
-            using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForBossCompatibility(
-                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> playerCollection,
-                out RecordingMongoCollectionProxy<AscNet.Common.Database.Stage> stageCollection);
-            const long playerId = 99_701;
-            const uint characterId = 1_021_001;
-            uint[] historyCharacterIds = [1_021_002, 1_021_003, 1_021_004];
-            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(playerId);
-            player.SimulatedBattlefield = new() { BossRankPlatform = 2 };
-            AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(playerId);
-            character.Characters.Add(CreateLoginAccountCompatibilityCharacter(characterId, 3_021_001));
-            foreach (uint historyCharacterId in historyCharacterIds)
-                character.Characters.Add(CreateLoginAccountCompatibilityCharacter(historyCharacterId, 3_021_001));
-            AscNet.Common.Database.Inventory inventory = CreateDrawCompatibilityInventory(playerId, []);
-            using LoopbackSessionHarness harness = new(character, player, inventory, "boss-single-compat-test");
-            harness.Session.stage = CreateLoginAccountCompatibilityStage(playerId);
 
-            Type bossModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule");
-            MethodInfo buildLoginData = RequiredMethod(
-                bossModule,
-                "BuildLoginData",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(AscNet.Common.Database.Player), typeof(long?)]);
-            NotifyFubenBossSingleData BuildLogin(AscNet.Common.Database.Player target, long? now) =>
-                buildLoginData.Invoke(null, [target, now]) as NotifyFubenBossSingleData
-                ?? throw new InvalidDataException("BossModule.BuildLoginData returned nil.");
-            MethodInfo buildNotifyLogin = RequiredMethod(
-                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
-                "BuildNotifyLogin",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(Session)]);
-            NotifyLogin BuildAccountLogin() =>
-                buildNotifyLogin.Invoke(null, [harness.Session]) as NotifyLogin
-                ?? throw new InvalidDataException("AccountModule.BuildNotifyLogin returned nil.");
-            List<BossActivityTable> activityBossActivities = TableReaderV2.Parse<BossActivityTable>();
-            List<BossSectionTable> activityBossSections = TableReaderV2.Parse<BossSectionTable>();
-            Dictionary<int, BossChallengeTable> activityBossChallenges = TableReaderV2.Parse<BossChallengeTable>()
-                .ToDictionary(challenge => challenge.Id);
-            (BossActivityTable Activity, ActivityScheduleEntry Schedule) activeActivity = activityBossActivities
-                .Where(activity => activity.ActivityTimeId is > 0
-                    && ActivityScheduleService.TryGet(activity.ActivityTimeId.Value, out _))
-                .Select(activity =>
-                {
-                    ActivityScheduleService.TryGet(activity.ActivityTimeId!.Value, out ActivityScheduleEntry schedule);
-                    return (Activity: activity, Schedule: schedule);
-                })
-                .OrderByDescending(candidate => candidate.Activity.Id)
-                .First();
-            BossSectionTable activeSection = activityBossSections
-                .Where(section => section.ActivityId == activeActivity.Activity.Id
-                    && player.PlayerData.Level >= section.MinLevel
-                    && player.PlayerData.Level <= section.MaxLevel)
-                .OrderBy(section => section.OrderId)
-                .ThenBy(section => section.Id)
-                .First();
-            int[] activeChallengeIds = activeSection.ChallengeId.Where(id => id > 0).ToArray();
-            int[] activeStageIds = activeChallengeIds
-                .Select(challengeId => activityBossChallenges[challengeId].StageId)
-                .ToArray();
-            if (activeStageIds.Length == 0)
-                throw new InvalidDataException("Boss activity table-selected section has no challenge stages.");
-
-            MethodInfo buildActivityLoginData = RequiredMethod(
-                bossModule,
-                "BuildActivityLoginData",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(Session), typeof(DateTimeOffset?)]);
-            NotifyBossActivityData? BuildActivityLogin(DateTimeOffset now) =>
-                buildActivityLoginData.Invoke(null, [harness.Session, now]) as NotifyBossActivityData;
-            DateTimeOffset activeNow = activeActivity.Schedule.StartTime > 0
-                ? DateTimeOffset.FromUnixTimeSeconds(activeActivity.Schedule.StartTime)
-                : DateTimeOffset.UnixEpoch;
-            NotifyBossActivityData freshActivityLogin = BuildActivityLogin(activeNow)
-                ?? throw new InvalidDataException("BossModule.BuildActivityLoginData returned nil during its table-backed activity window.");
-            JObject freshActivityPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(
-                MessagePackSerializer.Serialize(freshActivityLogin)));
-            AssertEqual(
-                true,
-                freshActivityPayload.Properties().Select(property => property.Name).Order(StringComparer.Ordinal).SequenceEqual(
-                    ["ActivityId", "DifficultyScoreRecord", "PassStoryIds", "Schedule", "SectionId", "StageStarInfos", "StarRewardIds"]),
-                "NotifyBossActivityData exact top-level keys");
-            AssertEqual(activeActivity.Activity.Id,
-                RequiredValue<int>(freshActivityPayload, "ActivityId", JTokenType.Integer, "fresh NotifyBossActivityData"),
-                "fresh NotifyBossActivityData ActivityId");
-            AssertEqual(activeSection.Id,
-                RequiredValue<int>(freshActivityPayload, "SectionId", JTokenType.Integer, "fresh NotifyBossActivityData"),
-                "fresh NotifyBossActivityData SectionId");
-            AssertEqual(0,
-                RequiredValue<int>(freshActivityPayload, "Schedule", JTokenType.Integer, "fresh NotifyBossActivityData"),
-                "fresh NotifyBossActivityData Schedule");
-            JArray freshStageStars = RequiredValue<JArray>(
-                freshActivityPayload, "StageStarInfos", JTokenType.Array, "fresh NotifyBossActivityData");
-            AssertEqual(activeStageIds.Length, freshStageStars.Count, "fresh NotifyBossActivityData StageStarInfos count");
-            for (int stageIndex = 0; stageIndex < activeStageIds.Length; stageIndex++)
-            {
-                JObject stageStar = (JObject)freshStageStars[stageIndex]!;
-                AssertEqual(activeStageIds[stageIndex],
-                    RequiredValue<int>(stageStar, "StageId", JTokenType.Integer, $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}]"),
-                    $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}].StageId");
-                AssertEqual(0,
-                    RequiredValue<int>(stageStar, "StarsMark", JTokenType.Integer, $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}]"),
-                    $"fresh NotifyBossActivityData StageStarInfos[{stageIndex}].StarsMark");
-            }
-            AssertEqual(0,
-                RequiredValue<JArray>(freshActivityPayload, "StarRewardIds", JTokenType.Array, "fresh NotifyBossActivityData").Count,
-                "fresh NotifyBossActivityData StarRewardIds count");
-            AssertEqual(0,
-                RequiredValue<JArray>(freshActivityPayload, "PassStoryIds", JTokenType.Array, "fresh NotifyBossActivityData").Count,
-                "fresh NotifyBossActivityData PassStoryIds count");
-            AssertEqual(0,
-                RequiredValue<JObject>(freshActivityPayload, "DifficultyScoreRecord", JTokenType.Object, "fresh NotifyBossActivityData").Count,
-                "fresh NotifyBossActivityData DifficultyScoreRecord count");
-
-            const int activityBossStarsMark = 5;
-            const int activityBossScore = 12_345;
-            harness.Session.stage.AddStage(new StageDatum
-            {
-                StageId = activeStageIds[0],
-                Passed = true,
-                StarsMark = activityBossStarsMark,
-                Score = activityBossScore
-            });
-            NotifyBossActivityData progressedActivityLogin = BuildActivityLogin(activeNow)
-                ?? throw new InvalidDataException("BossModule.BuildActivityLoginData returned nil for a progressed active activity.");
-            JObject progressedActivityPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(
-                MessagePackSerializer.Serialize(progressedActivityLogin)));
-            AssertEqual(1,
-                RequiredValue<int>(progressedActivityPayload, "Schedule", JTokenType.Integer, "progressed NotifyBossActivityData"),
-                "progressed NotifyBossActivityData consecutive Schedule");
-            JObject progressedFirstStage = (JObject)RequiredValue<JArray>(
-                progressedActivityPayload, "StageStarInfos", JTokenType.Array, "progressed NotifyBossActivityData")[0]!;
-            AssertEqual(activityBossStarsMark,
-                RequiredValue<int>(progressedFirstStage, "StarsMark", JTokenType.Integer, "progressed NotifyBossActivityData first stage"),
-                "progressed NotifyBossActivityData StarsMark");
-            JObject progressedScores = RequiredValue<JObject>(
-                progressedActivityPayload, "DifficultyScoreRecord", JTokenType.Object, "progressed NotifyBossActivityData");
-            AssertEqual(activityBossScore,
-                RequiredValue<int>(progressedScores, activeStageIds[0].ToString(CultureInfo.InvariantCulture), JTokenType.Integer,
-                    "progressed NotifyBossActivityData DifficultyScoreRecord"),
-                "progressed NotifyBossActivityData score");
-            DateTimeOffset inactiveNow = activeActivity.Schedule.EndTime > 0
-                ? DateTimeOffset.FromUnixTimeSeconds(activeActivity.Schedule.EndTime)
-                : activeNow.AddYears(100);
-            AssertEqual(null, BuildActivityLogin(inactiveNow), "BossModule.BuildActivityLoginData inactive activity window");
-
-            if (ActivityScheduleService.IsOpen(activeActivity.Schedule.Id, DateTimeOffset.UtcNow))
-            {
-            MethodInfo doLogin = RequiredMethod(
-                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
-                "DoLogin",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(Session)]);
-
-            using (LoopbackSessionHarness activityLoginHarness = new(
-                CreateDrawCompatibilityCharacter(playerId + 1),
-                CreateDrawCompatibilityPlayer(playerId + 1),
-                CreateDrawCompatibilityInventory(playerId + 1, []),
-                "boss-activity-login-compat-test"))
-            {
-                activityLoginHarness.Session.stage = CreateLoginAccountCompatibilityStage(playerId + 1);
-                doLogin.Invoke(null, [activityLoginHarness.Session]);
-                bool sawBossActivityPush = false;
-                for (int packetIndex = 0; packetIndex < 192; packetIndex++)
-                {
-                    Packet packet = activityLoginHarness.ReadPacket($"Boss activity login startup packet {packetIndex + 1}");
-                    AssertEqual(Packet.ContentType.Push, packet.Type, "Boss activity login startup packet type");
-                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
-                    sawBossActivityPush |= push.Name == nameof(NotifyBossActivityData);
-                    if (push.Name == "NotifyWheelchairManualActivityUpdate")
-                        break;
-                }
-                AssertEqual(true, sawBossActivityPush,
-                    "AccountModule.DoLogin emits NotifyBossActivityData before startup completion");
-            }
-
-
-            const int activityBossRefreshPacketId = 82_001;
-            InvokeRegisteredRequestHandler(
-                nameof(GetActivityBossDataRequest),
-                harness.Session,
-                activityBossRefreshPacketId,
-                new GetActivityBossDataRequest());
-            Packet activityBossRefreshPushPacket = harness.ReadPacket("GetActivityBossDataRequest refresh push");
-            AssertEqual(Packet.ContentType.Push, activityBossRefreshPushPacket.Type, "GetActivityBossDataRequest first packet type");
-            Packet.Push activityBossRefreshPush = MessagePackSerializer.Deserialize<Packet.Push>(activityBossRefreshPushPacket.Content);
-            AssertEqual(nameof(NotifyBossActivityData), activityBossRefreshPush.Name, "GetActivityBossDataRequest refresh push name");
-            Packet activityBossRefreshResponsePacket = harness.ReadPacket("GetActivityBossDataRequest response");
-            AssertEqual(Packet.ContentType.Response, activityBossRefreshResponsePacket.Type, "GetActivityBossDataRequest response packet type");
-            Packet.Response activityBossRefreshResponse = MessagePackSerializer.Deserialize<Packet.Response>(activityBossRefreshResponsePacket.Content);
-            AssertEqual(activityBossRefreshPacketId, activityBossRefreshResponse.Id, "GetActivityBossDataRequest response id");
-            AssertEqual(nameof(GetActivityBossDataResponse), activityBossRefreshResponse.Name, "GetActivityBossDataRequest response name");
-            AssertEqual(0,
-                MessagePackSerializer.Deserialize<GetActivityBossDataResponse>(activityBossRefreshResponse.Content).Code,
-                "GetActivityBossDataRequest response code");
-            long originalPlayerLevel = player.PlayerData.Level;
-            player.PlayerData.Level = 0;
-            const int inactiveActivityBossRefreshPacketId = 82_002;
-            InvokeRegisteredRequestHandler(
-                nameof(GetActivityBossDataRequest),
-                harness.Session,
-                inactiveActivityBossRefreshPacketId,
-                new GetActivityBossDataRequest());
-            Packet inactiveActivityBossResponsePacket = harness.ReadPacket("inactive GetActivityBossDataRequest response");
-            AssertEqual(Packet.ContentType.Response, inactiveActivityBossResponsePacket.Type,
-                "inactive GetActivityBossDataRequest has no refresh push");
-            Packet.Response inactiveActivityBossResponse =
-                MessagePackSerializer.Deserialize<Packet.Response>(inactiveActivityBossResponsePacket.Content);
-            AssertEqual(inactiveActivityBossRefreshPacketId, inactiveActivityBossResponse.Id,
-                "inactive GetActivityBossDataRequest response id");
-            AssertEqual(1,
-                MessagePackSerializer.Deserialize<GetActivityBossDataResponse>(inactiveActivityBossResponse.Content).Code,
-                "inactive GetActivityBossDataRequest response code");
-            player.PlayerData.Level = originalPlayerLevel;
-            }
-
-
-
-            TResponse ReadAfterPushes<TResponse>(
-                int packetId,
-                string responseName,
-                string name,
-                out List<string> pushNames,
-                int maxPackets = 64)
-
-            {
-                pushNames = [];
-                for (int packetIndex = 0; packetIndex < maxPackets; packetIndex++)
-                {
-                    Packet packet = harness.ReadPacket($"{name} packet {packetIndex + 1}");
-                    if (packet.Type == Packet.ContentType.Push)
-                    {
-                        Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
-                        pushNames.Add(push.Name);
-                        continue;
-                    }
-
-                    AssertEqual(Packet.ContentType.Response, packet.Type, $"{name} response packet type");
-                    Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
-                    AssertEqual(packetId, response.Id, $"{name} response packet id");
-                    AssertEqual(responseName, response.Name, $"{name} response packet name");
-                    return MessagePackSerializer.Deserialize<TResponse>(response.Content);
-                }
-                throw new InvalidDataException($"{name}: expected {responseName} within {maxPackets} packets.");
-            }
-
-            PreFightResponse StartFight(int packetId, int stageId, int stageType,
-                IReadOnlyList<uint>? cardIds = null, object? buffGroup = null)
-            {
-                InvokeRegisteredRequestHandler(
-                    nameof(PreFightRequest),
-                    harness.Session,
-                    packetId,
-                    new PreFightRequest
-                    {
-                        PreFightData = new PreFightRequest.PreFightRequestPreFightData
-                        {
-                            StageId = checked((uint)stageId),
-                            ChallengeCount = 1,
-                            CardIds = cardIds?.ToList() ?? [characterId],
-                            RobotIds = [],
-                            BossSingleStageType = stageType,
-                            BossSingleChallengeBuffGroup = buffGroup
-                        }
-                    });
-                return ReadResponsePayload<PreFightResponse>(
-                    harness,
-                    packetId,
-                    nameof(PreFightResponse),
-                    $"Pain Cage stage {stageId} PreFightResponse");
-            }
-
-            FightSettleResponse SettleFight(
-                int packetId,
-                PreFightResponse preFight,
-                BossSingleStageTable stage,
-                int characterHp,
-                int bossHp,
-                int fightSeconds = 20,
-                bool isWin = true,
-                bool isForceExit = false)
-            {
-                InvokeRegisteredRequestHandler(
-                    nameof(FightSettleRequest),
-                    harness.Session,
-                    packetId,
-                    new FightSettleRequest
-                    {
-                        Result = new FightSettleResult
-                        {
-                            IsWin = isWin,
-                            IsForceExit = isForceExit,
-                            StageId = checked((uint)stage.StageId),
-                            FightId = preFight.FightData.FightId,
-                            StartFrame = 1,
-                            SettleFrame = 1 + fightSeconds * 20,
-                            PauseFrame = 0,
-                            LeftTime = Math.Max(0, stage.PassTimeLimit - fightSeconds),
-                            NpcHpInfo = new()
-                            {
-                                [1] = new NpcHp
-                                {
-                                    CharacterId = checked((int)characterId),
-                                    Type = 1,
-                                    AttrTable = new()
-                                    {
-                                        [1] = new Dictionary<object, object>
-                                        {
-                                            ["Value"] = characterHp,
-                                            ["MaxValue"] = 100
-                                        }
-                                    },
-                                    BuffIds = []
-                                },
-                                [2] = new NpcHp
-                                {
-                                    Type = 2,
-                                    AttrTable = new()
-                                    {
-                                        [1] = new Dictionary<object, object>
-                                        {
-                                            ["Value"] = bossHp * 10_000,
-                                            ["MaxValue"] = 1_000_000
-                                        }
-                                    },
-                                    BuffIds = []
-                                }
-                            }
-                        }
-                    });
-                return ReadResponsePayload<FightSettleResponse>(
-                    harness,
-                    packetId,
-                    nameof(FightSettleResponse),
-                    $"Pain Cage stage {stage.StageId} FightSettleResponse");
-            }
-
-            BossSingleSaveScoreResponse SaveScore(
-                int packetId,
-                int stageId,
-                string name,
-                out List<string> pushNames)
-            {
-                InvokeRegisteredRequestHandler(
-                    nameof(BossSingleSaveScoreRequest),
-                    harness.Session,
-                    packetId,
-                    new BossSingleSaveScoreRequest { StageId = stageId });
-                return ReadAfterPushes<BossSingleSaveScoreResponse>(
-                    packetId,
-                    nameof(BossSingleSaveScoreResponse),
-                    name,
-                    out pushNames);
-            }
-
-            BossSingleFightResult RequiredBossResult(FightSettleResponse response, string name)
-            {
-                object? raw = response.Settle?.BossSingleFightResult;
-                if (raw is null)
-                    throw new InvalidDataException($"{name}: BossSingleFightResult is nil.");
-                if (raw is BossSingleFightResult typed)
-                    return typed;
-                return JObject.FromObject(raw).ToObject<BossSingleFightResult>()
-                    ?? throw new InvalidDataException($"{name}: BossSingleFightResult could not be decoded.");
-            }
-
-            List<BossSingleGradeTable> grades = TableReaderV2.Parse<BossSingleGradeTable>();
-            List<BossSingleGroupTable> groups = TableReaderV2.Parse<BossSingleGroupTable>();
-            List<BossSingleSectionTable> sections = TableReaderV2.Parse<BossSingleSectionTable>();
-            List<BossSingleStageTable> stages = TableReaderV2.Parse<BossSingleStageTable>();
-            List<BossSingleScoreRuleTable> scoreRules = TableReaderV2.Parse<BossSingleScoreRuleTable>();
-            List<BossSingleScoreRewardTable> scoreRewards = TableReaderV2.Parse<BossSingleScoreRewardTable>();
-            List<BossSingleRewardGoodsTable> rewardGoods = TableReaderV2.Parse<BossSingleRewardGoodsTable>();
-            List<BossSingleTrialGradeTable> trialGrades = TableReaderV2.Parse<BossSingleTrialGradeTable>();
-            BossSingleConfigTable runtimeConfig = TableReaderV2.Parse<BossSingleConfigTable>().Single();
-            AssertEqual(6, runtimeConfig.AutoFightCount, "Pain Cage EN-config auto-fight limit");
-            AssertEqual(100, runtimeConfig.AutoFightRebate, "Pain Cage EN-config auto-fight rebate");
-            AssertEqual(301, stages.Count, "Pain Cage generated stage count");
-            AssertEqual(stages.Count, scoreRules.Count, "Pain Cage one score rule per stage");
-            if (groups.Count == 0 || sections.Count == 0 || scoreRewards.Count == 0 || rewardGoods.Count == 0)
-                throw new InvalidDataException("Pain Cage generated runtime tables are incomplete.");
-
-            int playerLevel = checked((int)player.PlayerData.Level);
-            int currentAfreshId = grades.Max(row => row.AfreshId);
-            List<BossSingleGradeTable> freshEligibleGrades = grades
-                .Where(row => row.AfreshId == currentAfreshId
-                    && playerLevel >= row.MinPlayerLevel
-                    && playerLevel <= row.MaxPlayerLevel
-                    && row.PreGradeType == 0)
-                .ToList();
-            AssertEqual(1, freshEligibleGrades.Count,
-                "Pain Cage fresh level-80 table eligibility has one grade");
-
-            NotifyFubenBossSingleData initialLogin = BuildLogin(player, null);
-            AssertEqual(true, initialLogin.BossListDict is null,
-                "Pain Cage fresh direct-entry login omits BossListDict");
-            AssertEqual(true, initialLogin.FubenBossSingleData.LevelType > 0,
-                "Pain Cage fresh direct-entry login auto-selects its sole eligible grade");
-            AssertEqual(true, initialLogin.FubenBossSingleData.BossList.Count > 0,
-                "Pain Cage fresh direct-entry login commits bosses");
-            AssertEqual(true, initialLogin.FubenBossSingleData.RemainTime > 0, "Pain Cage live remaining time");
-            AssertEqual(2, initialLogin.FubenBossSingleData.RankPlatform,
-                "Pain Cage persisted login platform rank partition");
-            AssertEqual(grades.Max(row => row.AfreshId), initialLogin.FubenBossSingleData.AfreshId,
-                "Pain Cage current refresh id comes from grade tables");
-
-            int directEntryLevel = initialLogin.FubenBossSingleData.LevelType;
-            AssertEqual(freshEligibleGrades.Single().LevelType, directEntryLevel,
-                "Pain Cage fresh direct-entry selected table-eligible grade");
-            BossSingleGradeTable directEntryGrade = grades.Single(row => row.LevelType == directEntryLevel);
-            int[] directEntrySections = initialLogin.FubenBossSingleData.BossList.ToArray();
-            AssertEqual(directEntryGrade.GroupId.Count(groupId => groupId > 0), directEntrySections.Length,
-                "Pain Cage direct-entry one selected section per configured group");
-            AssertEqual(directEntrySections.Length, directEntrySections.Distinct().Count(),
-                "Pain Cage direct-entry selected sections are unique");
-
-            int currentActivityNo = player.SimulatedBattlefield.BossActivityNo;
-            player.SimulatedBattlefield.BossLevelType = 0;
-            player.SimulatedBattlefield.BossList.Clear();
-            player.SimulatedBattlefield.BossListOptions.Clear();
-            player.SimulatedBattlefield.BossListOptions[directEntryLevel] = directEntrySections.ToList();
-            NotifyFubenBossSingleData repairedLogin = BuildLogin(player, null);
-            AssertEqual(currentActivityNo, player.SimulatedBattlefield.BossActivityNo,
-                "Pain Cage persisted one-option repair stays in the current activity");
-            AssertEqual(directEntryLevel, repairedLogin.FubenBossSingleData.LevelType,
-                "Pain Cage persisted one-option repair selects the sole grade");
-            if (!repairedLogin.FubenBossSingleData.BossList.SequenceEqual(directEntrySections))
-                throw new InvalidDataException("Pain Cage persisted one-option repair did not commit the sole offered boss list.");
-            AssertEqual(true, repairedLogin.BossListDict is null,
-                "Pain Cage persisted one-option repair omits BossListDict");
-            int[] directEntryStageIds = directEntrySections
-                .SelectMany(sectionId => sections.Single(row => row.SectionId == sectionId && row.AfreshId == 1).StageId)
-                .Distinct()
-                .ToArray();
-            AssertEqual(true, directEntryStageIds.Length > 0,
-                "Pain Cage direct-entry committed sections contain stages");
-            NotifyLogin accountLogin = MessagePackSerializer.Deserialize<NotifyLogin>(
-                MessagePackSerializer.Serialize(BuildAccountLogin()));
-            Dictionary<long, StageDatum> loginStages = accountLogin.FubenData?.StageData
-                ?? throw new InvalidDataException("Pain Cage AccountModule.BuildNotifyLogin omitted FubenData.StageData.");
-            foreach (int stageId in directEntryStageIds)
-            {
-                AssertEqual(true, loginStages.ContainsKey(stageId),
-                    $"Pain Cage direct-entry NotifyLogin contains committed stage {stageId}");
-            }
-
-            List<BossSingleGradeTable> levelEligibleGrades = grades
-                .Where(row => row.AfreshId == currentAfreshId
-                    && playerLevel >= row.MinPlayerLevel
-                    && playerLevel <= row.MaxPlayerLevel)
-                .ToList();
-            (BossSingleGradeTable Previous, int Score, List<BossSingleGradeTable> Options) chooserFixture =
-                (from previous in grades
-                 from score in levelEligibleGrades.Select(row => row.NeedScore).Append(0).Distinct()
-                 let options = levelEligibleGrades.Where(row =>
-                     row.PreGradeType == 0
-                     || (previous.GradeType >= row.PreGradeType && score >= row.NeedScore)).ToList()
-                 where options.Count == 2
-                 select (previous, score, options)).FirstOrDefault();
-            if (chooserFixture.Previous is null)
-                throw new InvalidDataException("Pain Cage grade tables do not provide a table-qualified two-option fixture.");
-
-            foreach (int stageId in directEntryStageIds)
-                harness.Session.stage.Stages.Remove(checked((uint)stageId));
-
-            player.SimulatedBattlefield.BossOldLevelType = chooserFixture.Previous.LevelType;
-            player.SimulatedBattlefield.BossListOptions.Clear();
-            player.SimulatedBattlefield.BossMaxScore = chooserFixture.Score;
-            player.SimulatedBattlefield.BossLevelType = 0;
-            player.SimulatedBattlefield.BossList.Clear();
-            NotifyFubenBossSingleData chooserLogin = BuildLogin(player, null);
-            Dictionary<int, List<int>> initialOptions = chooserLogin.BossListDict
-                ?? throw new InvalidDataException("Pain Cage table-qualified chooser login omitted BossListDict.");
-            AssertEqual(0, chooserLogin.FubenBossSingleData.LevelType,
-                "Pain Cage two-option login retains chooser state");
-            AssertEqual(0, chooserLogin.FubenBossSingleData.BossList.Count,
-                "Pain Cage two-option login has no prematurely committed bosses");
-            AssertEqual(2, initialOptions.Count, "Pain Cage chooser exposes high/extreme option maps");
-            AssertIntegerSetContainsAll(
-                chooserFixture.Options.Select(row => (long)row.LevelType).ToArray(),
-                initialOptions.Keys.Select(levelType => (long)levelType).ToArray(),
-                "Pain Cage chooser table-qualified grade options");
-
-            int selectedLevel = initialOptions.Keys.Max();
-            BossSingleGradeTable selectedGrade = grades.Single(row => row.LevelType == selectedLevel);
-            int[] selectedSections = initialOptions[selectedLevel].ToArray();
-            AssertEqual(selectedGrade.GroupId.Count(groupId => groupId > 0), selectedSections.Length,
-                "Pain Cage one selected section per configured group");
-            AssertEqual(selectedSections.Length, selectedSections.Distinct().Count(),
-                "Pain Cage selected sections are unique");
-            foreach (int sectionId in selectedSections)
-            {
-                BossSingleSectionTable section = sections.Single(row => row.SectionId == sectionId && row.AfreshId == 1);
-                if (section.StageId.Count == 0)
-                    throw new InvalidDataException($"Pain Cage selected section {sectionId} has no stages.");
-            }
-
-            const int invalidSelectPacketId = 82_000;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleSelectLevelTypeRequest),
-                harness.Session,
-                invalidSelectPacketId,
-                new BossSingleSelectLevelTypeRequest { LevelId = int.MaxValue });
-            BossSingleSelectLevelTypeResponse invalidSelect =
-                ReadResponsePayload<BossSingleSelectLevelTypeResponse>(
-                    harness,
-                    invalidSelectPacketId,
-                    nameof(BossSingleSelectLevelTypeResponse),
-                    "Pain Cage invalid level selection");
-            AssertEqual(1, invalidSelect.Code, "Pain Cage invalid level selection code");
-
-            const int selectPacketId = 82_001;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleSelectLevelTypeRequest),
-                harness.Session,
-                selectPacketId,
-                new BossSingleSelectLevelTypeRequest { LevelId = selectedLevel });
-            BossSingleSelectLevelTypeResponse selectResponse =
-                ReadAfterPushes<BossSingleSelectLevelTypeResponse>(
-                    selectPacketId,
-                    nameof(BossSingleSelectLevelTypeResponse),
-                    "Pain Cage level selection",
-                    out List<string> selectPushes);
-            AssertEqual(0, selectResponse.Code, "Pain Cage level selection code");
-            AssertEqual(selectedLevel, player.SimulatedBattlefield.BossLevelType,
-                "Pain Cage selected level persistence");
-            if (!player.SimulatedBattlefield.BossList.SequenceEqual(selectedSections))
-                throw new InvalidDataException("Pain Cage selected boss list differs from the offered table-derived option.");
-            AssertEqual(0, selectPushes.Count(name => name == nameof(NotifyStageData)),
-                "Pain Cage selection does not duplicate login stage pushes");
-            AssertEqual(true, selectPushes.Contains(nameof(NotifyWheelchairManualActivityUpdate)),
-                "Pain Cage selection refreshes the manual guide subtype");
-            foreach (int stageId in selectedSections
-                         .SelectMany(sectionId => sections.Single(row => row.SectionId == sectionId && row.AfreshId == 1).StageId))
-            {
-                AssertEqual(true, harness.Session.stage.Stages.ContainsKey(checked((uint)stageId)),
-                    $"Pain Cage selected stage {stageId} unlocked");
-            }
-
-            int AuxiliaryStageId(bool bestiary)
-            {
-                BossSingleTrialGradeTable catalog = trialGrades.Single(row => (row.IsBestiaryCfg != 0) == bestiary);
-                return catalog.SectionId
-                    .Where(sectionId => sectionId > 0)
-                    .SelectMany(sectionId => sections
-                        .Where(row => row.SectionId == sectionId)
-                        .OrderByDescending(row => row.AfreshId == 1)
-                        .Take(1)
-                        .SelectMany(row => row.StageId))
-                    .First(stageId => stages.Any(row => row.StageId == stageId));
-            }
-
-            List<(int Remaining, int Score, int Cap)> auxiliaryTimeScores = [];
-            void ExerciseAuxiliaryStage(bool bestiary, int stageType, int fightSeconds, int packetBase)
-            {
-                int stageId = AuxiliaryStageId(bestiary);
-                BossSingleStageTable stage = stages.Single(row => row.StageId == stageId);
-                int challengeCountBefore = player.SimulatedBattlefield.BossChallengeCount;
-                int cycleBestBefore = player.SimulatedBattlefield.BossTotalScore;
-                int cycleCurrentBefore = player.SimulatedBattlefield.BossCurrentTotalScore;
-                PreFightResponse preFight = StartFight(packetBase, stageId, stageType);
-                AssertEqual(0, preFight.Code, $"Pain Cage {(bestiary ? "bestiary" : "trial")} pre-fight code");
-                AssertEqual(stage.PassTimeLimit, preFight.FightData.PassTimeLimit,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} table time limit");
-                FightSettleResponse settle = SettleFight(
-                    packetBase + 1,
-                    preFight,
-                    stage,
-                    characterHp: 100,
-                    bossHp: 0,
-                    fightSeconds: fightSeconds);
-                BossSingleFightResult result = RequiredBossResult(
-                    settle,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} result");
-                AssertEqual(stage.PassTimeLimit - fightSeconds, result.TimeLeft,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} remaining time");
-                BossSingleScoreRuleTable scoreRule = scoreRules.Single(row => row.Id == stageId);
-                int coefficientIndex = (stageType == 4 ? 8 : 4) - 1;
-                double timeCoefficient = scoreRule.LeftTimeScore[coefficientIndex];
-                int expectedTimeScore = Math.Min(stage.LeftTimeScore, checked((int)Math.Floor(
-                    (stage.PassTimeLimit - fightSeconds) * timeCoefficient * stage.PassTimeLimit)));
-                AssertEqual(expectedTimeScore, result.TimeScore,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} table-derived remaining-time score");
-                auxiliaryTimeScores.Add((result.TimeLeft, result.TimeScore, stage.LeftTimeScore));
-                AssertEqual(true, result.TimeScore > 0 && result.TimeScore <= stage.LeftTimeScore,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} remaining-time score is positive and table-capped");
-                AssertEqual(true, result.TotalScore > 0,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} positive score");
-                BossSingleSaveScoreResponse save = SaveScore(
-                    packetBase + 2,
-                    stageId,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} save",
-                    out _);
-                AssertEqual(0, save.Code, $"Pain Cage {(bestiary ? "bestiary" : "trial")} save code");
-                Dictionary<int, int> scores = bestiary
-                    ? player.SimulatedBattlefield.BossBestiaryScores
-                    : player.SimulatedBattlefield.BossTrialScores;
-                AssertEqual(result.TotalScore, scores[stageId],
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} score persistence");
-                // The non-Trial settlement compares the new run against the generic stage datum
-                // (XUiFubenBossSingleSettlement:GetMyTotalHistory only special-cases Trial), so the codex save has
-                // to expose the mode best there or a lower run looks like a new record.
-                AssertEqual(result.TotalScore, harness.Session.stage.Stages[stageId].Score,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear exposes the mode best to the settlement");
-                AssertEqual(cycleBestBefore, player.SimulatedBattlefield.BossTotalScore,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves the cycle best total unchanged");
-                AssertEqual(cycleCurrentBefore, player.SimulatedBattlefield.BossCurrentTotalScore,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} clear leaves the cycle current total unchanged");
-                AssertEqual(challengeCountBefore, player.SimulatedBattlefield.BossChallengeCount,
-                    $"Pain Cage {(bestiary ? "bestiary" : "trial")} does not consume normal attempts");
-            }
-
-            ExerciseAuxiliaryStage(bestiary: false, stageType: 2, fightSeconds: 100, packetBase: 82_010);
-            ExerciseAuxiliaryStage(bestiary: true, stageType: 4, fightSeconds: 12, packetBase: 82_020);
-            AssertEqual(true, auxiliaryTimeScores[0].Score < auxiliaryTimeScores[0].Cap
-                && auxiliaryTimeScores[1].Score < auxiliaryTimeScores[1].Cap,
-                "Pain Cage partial remaining-time scores are below their caps");
-            AssertEqual(true, auxiliaryTimeScores[0].Score != auxiliaryTimeScores[1].Score,
-                "Pain Cage remaining-time scores vary proportionally with distinct durations");
-
-            // A saved codex best followed by a lower run must keep the settlement history at the best, otherwise
-            // the client offers to discard the worse score as though it were a new record.
-            {
-                int codexStageId = AuxiliaryStageId(bestiary: true);
-                BossSingleStageTable codexStage = stages.Single(row => row.StageId == codexStageId);
-                int codexBest = player.SimulatedBattlefield.BossBestiaryScores[codexStageId];
-                PreFightResponse lowerCodexPreFight = StartFight(82_023, codexStageId, stageType: 4);
-                AssertEqual(0, lowerCodexPreFight.Code, "Pain Cage bestiary lower-run pre-fight code");
-                FightSettleResponse lowerCodexSettle = SettleFight(
-                    82_024,
-                    lowerCodexPreFight,
-                    codexStage,
-                    characterHp: 100,
-                    bossHp: 0,
-                    fightSeconds: 240);
-                BossSingleFightResult lowerCodexResult = RequiredBossResult(
-                    lowerCodexSettle,
-                    "Pain Cage bestiary lower-run result");
-                AssertEqual(true, lowerCodexResult.TotalScore < codexBest,
-                    "Pain Cage bestiary lower-run fixture scores below the saved best");
-                BossSingleSaveScoreResponse lowerCodexSave = SaveScore(
-                    82_025,
-                    codexStageId,
-                    "Pain Cage bestiary lower-run save",
-                    out List<string> lowerCodexPushes);
-                AssertEqual(0, lowerCodexSave.Code, "Pain Cage bestiary lower-run save code");
-                AssertEqual(true, lowerCodexPushes.Contains(nameof(NotifyStageData)),
-                    "Pain Cage bestiary lower-run pushes the stage datum");
-                AssertEqual(codexBest, player.SimulatedBattlefield.BossBestiaryScores[codexStageId],
-                    "Pain Cage bestiary lower run keeps the saved best");
-                AssertEqual(codexBest, harness.Session.stage.Stages[codexStageId].Score,
-                    "Pain Cage bestiary lower run keeps the settlement history at the saved best");
-            }
-            List<BossSingleChallengeGradeTable> challengeGrades = TableReaderV2.Parse<BossSingleChallengeGradeTable>();
-            List<BossSingleChallengeFeatureGroupTable> challengeGroups = TableReaderV2.Parse<BossSingleChallengeFeatureGroupTable>();
-            int preIntensiveLevelType = player.SimulatedBattlefield.BossLevelType;
-            List<int> preIntensiveBossList = player.SimulatedBattlefield.BossList.ToList();
-            List<AscNet.Common.Database.BossSingleStageRecordState> preIntensiveRecords = player.SimulatedBattlefield.BossStageRecords.ToList();
-            int preIntensiveTotal = player.SimulatedBattlefield.BossTotalScore;
-            int preIntensiveCurrent = player.SimulatedBattlefield.BossCurrentTotalScore;
-            int preIntensiveMax = player.SimulatedBattlefield.BossMaxScore;
-            int preIntensiveSection = player.SimulatedBattlefield.BossChallengeSelectedSection;
-            int preIntensiveFeatureGroup = player.SimulatedBattlefield.BossChallengeSelectedFeatureGroup;
-            List<AscNet.Common.Database.BossSingleChallengeHistoryRecordState> preIntensiveHistory = player.SimulatedBattlefield.BossChallengeHistory.ToList();
-            player.SimulatedBattlefield.BossLevelType = grades.Where(row => row.GradeType >= challengeGrades.Single().NeedGradeType).OrderBy(row => row.GradeType).First().LevelType;
-            player.SimulatedBattlefield.BossList = groups.Single(row => row.Id == grades.Single(value => value.LevelType == player.SimulatedBattlefield.BossLevelType).GroupId.First()).SectionId.ToList();
-            player.SimulatedBattlefield.BossStageRecords =
-            [
-                new AscNet.Common.Database.BossSingleStageRecordState
-                {
-                    StageId = stages.First().StageId,
-                    Score = challengeGrades.Single().NeedScore,
-                    MaxScore = challengeGrades.Single().NeedScore
-                }
-            ];
-            player.SimulatedBattlefield.BossChallengeSelectedFeatureGroup = challengeGroups.First(row => row.BuffGroupIds.Any(id => id > 0)).Id;
-            NotifyFubenBossSingleData challengeLogin = BuildLogin(player, null);
-            BossSingleSectionTable challengeSection = sections
-                .Single(row => row.Id == challengeLogin.FubenBossSingleData.ChallengeSectionId
-                    && row.AfreshId == sections.Max(section => section.AfreshId));
-            int challengeStageId = challengeSection.StageId.First();
-            BossSingleChallengeFeatureGroupTable challengeFeatureGroup = challengeGroups
-                .Single(row => row.Id == challengeLogin.FubenBossSingleData.ChallengeFeatureGroupId);
-            AssertEqual(3, challengeSection.StageId.Count,
-                "Pain Cage intensive current section has three stages");
-            AssertEqual(3, challengeFeatureGroup.FeatureIds.Count,
-                "Pain Cage intensive feature group has three affixes");
-            AssertEqual(true, challengeSection.StageId.Zip(challengeFeatureGroup.FeatureIds).All(pair =>
-                    challengeSection.StageId.Contains(pair.First)
-                    && challengeFeatureGroup.FeatureIds.Contains(pair.Second)),
-                "Pain Cage intensive stage and affix join preserves table order");
-            int challengeBuffGroup = challengeGroups.Single(row => row.Id == challengeLogin.FubenBossSingleData.ChallengeFeatureGroupId).BuffGroupIds.First(id => id > 0);
-            PreFightResponse intensivePreFight = StartFight(82_030, challengeStageId, stageType: 3, buffGroup: challengeBuffGroup);
-            AssertEqual(0, intensivePreFight.Code, "Pain Cage intensive type3 pre-fight");
-            int challengeFeatureEvent = TableReaderV2.Parse<BossSingleChallengeFeatureTable>()
-                .Single(row => row.Id == challengeFeatureGroup.FeatureIds[
-                    challengeFeatureGroup.BuffGroupIds.IndexOf(challengeBuffGroup)])
-                .FightEventIds;
-            AssertEqual(true, challengeFeatureEvent <= 0
-                || intensivePreFight.FightData.EventIds.Contains(challengeFeatureEvent),
-                "Pain Cage intensive module applies its table-derived fight event");
-            BossSingleStageTable intensiveStage = stages.Single(row => row.StageId == challengeStageId);
-            FightSettleResponse intensiveSettle = SettleFight(82_031, intensivePreFight, intensiveStage, 100, 0, fightSeconds: 8);
-            BossSingleFightResult intensiveResult = RequiredBossResult(intensiveSettle, "Pain Cage intensive result");
-            BossSingleSaveScoreResponse intensiveSave = SaveScore(82_032, challengeStageId, "Pain Cage intensive save", out List<string> intensivePushes);
-            AssertEqual(0, intensiveSave.Code, "Pain Cage intensive save");
-            AssertEqual(true, intensivePushes.Contains(nameof(NotifyBossSingleRankInfo)), "Pain Cage intensive rank push");
-            AssertEqual(intensiveResult.TotalScore, player.SimulatedBattlefield.BossChallengeHistory.Single(row => row.StageId == challengeStageId).Score, "Pain Cage intensive history");
-            dynamic intensiveHistoryBuffGroup = BuildLogin(player, null).FubenBossSingleData
-                .ChallengeStageHistoryList.Single(row => row.StageId == challengeStageId).BuffGroup
-                ?? throw new InvalidDataException("Pain Cage intensive history BuffGroup is nil.");
-            AssertEqual(challengeBuffGroup, (int)intensiveHistoryBuffGroup["BuffGroupId"],
-                "Pain Cage intensive history emits the client BuffGroup object");
-            AssertEqual(0, ((Dictionary<int, int>)intensiveHistoryBuffGroup["BuffChoices"]).Count,
-                "Pain Cage direct BuffGroup keeps empty choice map");
-            player.SimulatedBattlefield.BossChallengeHistory.Add(new AscNet.Common.Database.BossSingleChallengeHistoryRecordState { StageId = challengeSection.StageId[1], Score = intensiveResult.TotalScore + 1 });
-            player.SimulatedBattlefield.BossChallengeHistory.Add(new AscNet.Common.Database.BossSingleChallengeHistoryRecordState { StageId = challengeSection.StageId[2], Score = intensiveResult.TotalScore - 1 });
-            int unrelatedChallengeStageId = sections
-                .SelectMany(row => row.StageId)
-                .First(stageId => !challengeSection.StageId.Contains(stageId));
-            player.SimulatedBattlefield.BossChallengeHistory.Add(
-                new AscNet.Common.Database.BossSingleChallengeHistoryRecordState
-                {
-                    StageId = unrelatedChallengeStageId,
-                    Score = intensiveResult.TotalScore + 100
-                });
-            int[] intensiveScores = player.SimulatedBattlefield.BossChallengeHistory
-                .Where(row => challengeSection.StageId.Contains(row.StageId))
-                .Select(row => row.Score)
-                .ToArray();
-            AssertEqual(3, intensiveScores.Distinct().Count(), "Pain Cage intensive regression uses three distinct scores");
-            AssertEqual(intensiveScores.Sum(), BuildLogin(player, null).FubenBossSingleData.ChallengeTotalScore,
-                "Pain Cage intensive display total sums only current-section stages");
-            player.SimulatedBattlefield.BossChallengeHistory.RemoveAll(
-                row => row.StageId == unrelatedChallengeStageId);
-            const int intensiveRankPacketId = 82_036;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleGetChallengeRankRequest),
-                harness.Session,
-                intensiveRankPacketId,
-                new BossSingleGetChallengeRankRequest { StageId = 0 });
-            BossSingleGetChallengeRankResponse intensiveRank =
-                ReadResponsePayload<BossSingleGetChallengeRankResponse>(
-                    harness,
-                    intensiveRankPacketId,
-                    nameof(BossSingleGetChallengeRankResponse),
-                    "Pain Cage intensive aggregate rank");
-            AssertEqual(0, intensiveRank.Code, "Pain Cage intensive aggregate rank code");
-            int rankStageCount = challengeGrades.Single(row => row.LevelType == challengeLogin.FubenBossSingleData.ChallengeLevelType).RankStageNum;
-            AssertEqual(intensiveScores.OrderByDescending(score => score).Take(rankStageCount).Sum(), intensiveRank.Score,
-                "Pain Cage intensive aggregate rank retains table top-N total");
-            AscNet.Common.Database.Player intensiveReload = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBsonDocument());
-            AssertEqual(3, intensiveReload.SimulatedBattlefield.BossChallengeHistory.Count, "Pain Cage intensive relog history");
-            BossSingleChallengeBuffGroupTable challengeBuffChoice = TableReaderV2
-                .Parse<BossSingleChallengeBuffGroupTable>()
-                .First(row => row.BuffGroupId == challengeBuffGroup && row.Index > 0 && row.Buff.Count > 0);
-            int choiceFeatureEvent = TableReaderV2.Parse<BossSingleChallengeFeatureTable>()
-                .Single(row => row.Id == challengeBuffChoice.Buff[0]).FightEventIds;
-            PreFightResponse clientShapedPreFight = StartFight(
-                82_033,
-                challengeStageId,
-                stageType: 3,
-                buffGroup: new Dictionary<string, object>
-                {
-                    ["BuffGroupId"] = challengeBuffGroup,
-                    ["BuffChoices"] = new Dictionary<int, int> { [challengeBuffChoice.Index] = 1 }
-                });
-            AssertEqual(0, clientShapedPreFight.Code,
-                "Pain Cage client-shaped intensive module pre-fight");
-            AssertEqual(true, clientShapedPreFight.FightData.EventIds.Contains(challengeFeatureEvent)
-                && clientShapedPreFight.FightData.EventIds.Contains(choiceFeatureEvent),
-                "Pain Cage client-shaped module applies base and selected table-derived events");
-            player.SimulatedBattlefield.BossChallengeHistory.RemoveAll(row => row.StageId == challengeStageId);
-            _ = SettleFight(82_034, clientShapedPreFight, intensiveStage, 100, 0, fightSeconds: 8);
-            _ = SaveScore(82_035, challengeStageId, "Pain Cage client-shaped intensive save", out _);
-            dynamic persistedChoiceHistory = BuildLogin(player, null).FubenBossSingleData
-                .ChallengeStageHistoryList.Single(row => row.StageId == challengeStageId).BuffGroup
-                ?? throw new InvalidDataException("Pain Cage intensive choice history BuffGroup is nil.");
-            Dictionary<int, int> persistedChoices = (Dictionary<int, int>)persistedChoiceHistory["BuffChoices"];
-            AssertEqual(1, persistedChoices[challengeBuffChoice.Index],
-                "Pain Cage intensive history persists selected BuffChoices");
-            AscNet.Common.Database.Player choiceReload = MongoDB.Bson.Serialization.BsonSerializer
-                .Deserialize<AscNet.Common.Database.Player>(player.ToBsonDocument());
-            AssertEqual(1, choiceReload.SimulatedBattlefield.BossChallengeHistory
-                .Single(row => row.StageId == challengeStageId).BuffChoices[challengeBuffChoice.Index],
-                "Pain Cage intensive BuffChoices BSON round-trip");
-            player.SimulatedBattlefield.BossLevelType = preIntensiveLevelType;
-            player.SimulatedBattlefield.BossList = preIntensiveBossList;
-            player.SimulatedBattlefield.BossStageRecords = preIntensiveRecords;
-            player.SimulatedBattlefield.BossTotalScore = preIntensiveTotal;
-            player.SimulatedBattlefield.BossCurrentTotalScore = preIntensiveCurrent;
-            player.SimulatedBattlefield.BossMaxScore = preIntensiveMax;
-            player.SimulatedBattlefield.BossChallengeSelectedSection = preIntensiveSection;
-            player.SimulatedBattlefield.BossChallengeSelectedFeatureGroup = preIntensiveFeatureGroup;
-            player.SimulatedBattlefield.BossChallengeHistory = preIntensiveHistory;
-
-
-            List<int> selectedStageIds = selectedSections
-                .SelectMany(sectionId => sections.Single(row => row.SectionId == sectionId && row.AfreshId == 1).StageId)
-                .Distinct()
-                .ToList();
-            BossSingleStageTable normalStage = stages
-                .Where(row => selectedStageIds.Contains(row.StageId) && row.AutoFight != 0)
-                .OrderBy(row => row.StageId)
-                .First();
-            int normalSectionId = selectedSections.Single(sectionId =>
-                sections.Single(row => row.SectionId == sectionId && row.AfreshId == 1).StageId.Contains(normalStage.StageId));
-
-            List<(int SectionId, BossSingleStageTable Opening, BossSingleStageTable Final, uint CharacterId)> historyStages =
-                selectedSections
-                    .Take(3)
-                    .Select((sectionId, index) =>
-                    {
-                        List<int> stageIds = sections
-                            .Single(row => row.SectionId == sectionId && row.AfreshId == 1)
-                            .StageId;
-                        return (
-                            sectionId,
-                            stages.Single(row => row.StageId == stageIds.First()),
-                            stages.Single(row => row.StageId == stageIds.Last()),
-                            historyCharacterIds[index]);
-                    })
-                    .ToList();
-            AssertEqual(3, historyStages.Count, "Pain Cage table-selected three-section history fixture");
-            AssertEqual(true, historyStages.All(fixture => fixture.Opening.StageId != fixture.Final.StageId),
-                "Pain Cage table-selected sections have distinct opening and final stages");
-
-            foreach (var historyStage in historyStages)
-            {
-                int packetBase = 82_100 + historyStages.FindIndex(fixture => fixture.CharacterId == historyStage.CharacterId) * 10;
-                PreFightResponse openingPreFight = StartFight(
-                    packetBase,
-                    historyStage.Opening.StageId,
-                    stageType: 1,
-                    [historyStage.CharacterId]);
-                AssertEqual(0, openingPreFight.Code,
-                    $"Pain Cage section opening {historyStage.Opening.StageId} pre-fight code");
-                FightSettleResponse openingSettle = SettleFight(
-                    packetBase + 1,
-                    openingPreFight,
-                    historyStage.Opening,
-                    100,
-                    0);
-                _ = RequiredBossResult(openingSettle, $"Pain Cage section opening {historyStage.Opening.StageId} result");
-                BossSingleSaveScoreResponse openingSave = SaveScore(
-                    packetBase + 2,
-                    historyStage.Opening.StageId,
-                    $"Pain Cage section opening {historyStage.Opening.StageId} save",
-                    out _);
-                AssertEqual(0, openingSave.Code, $"Pain Cage section opening {historyStage.Opening.StageId} save code");
-            }
-            AssertEqual(3, player.SimulatedBattlefield.BossChallengeCount,
-                "Pain Cage counts first clears in three distinct sections");
-
-            foreach (var historyStage in historyStages.Take(2))
-            {
-                int packetBase = 82_140 + historyStages.FindIndex(fixture => fixture.CharacterId == historyStage.CharacterId) * 10;
-                PreFightResponse finalPreFight = StartFight(
-                    packetBase,
-                    historyStage.Final.StageId,
-                    stageType: 1,
-                    [historyStage.CharacterId]);
-                AssertEqual(0, finalPreFight.Code, $"Pain Cage final stage {historyStage.Final.StageId} pre-fight code");
-                FightSettleResponse finalSettle = SettleFight(
-                    packetBase + 1,
-                    finalPreFight,
-                    historyStage.Final,
-                    100,
-                    0);
-                _ = RequiredBossResult(finalSettle, $"Pain Cage final stage {historyStage.Final.StageId} result");
-                BossSingleSaveScoreResponse finalSave = SaveScore(
-                    packetBase + 2,
-                    historyStage.Final.StageId,
-                    $"Pain Cage final stage {historyStage.Final.StageId} save",
-                    out _);
-                AssertEqual(0, finalSave.Code, $"Pain Cage final stage {historyStage.Final.StageId} save code");
-            }
-            AssertEqual(3, player.SimulatedBattlefield.BossChallengeCount,
-                "Pain Cage later phases retain the three-section attempt count");
-            var retriedFinalStage = historyStages[0];
-            uint lowerScoreCharacterId = historyStages[2].CharacterId;
-            PreFightResponse lowerScorePreFight = StartFight(
-                82_170,
-                retriedFinalStage.Final.StageId,
-                stageType: 1,
-                [lowerScoreCharacterId]);
-            AssertEqual(0, lowerScorePreFight.Code,
-                $"Pain Cage final stage {retriedFinalStage.Final.StageId} lower-score pre-fight code");
-            FightSettleResponse lowerScoreSettle = SettleFight(
-                82_171,
-                lowerScorePreFight,
-                retriedFinalStage.Final,
-                characterHp: 0,
-                bossHp: 100,
-                isWin: false);
-            BossSingleFightResult lowerScoreResult = RequiredBossResult(
-                lowerScoreSettle,
-                $"Pain Cage final stage {retriedFinalStage.Final.StageId} lower-score result");
-            AscNet.Common.Database.BossSingleStageRecordState bestFinalRecord = player.SimulatedBattlefield.BossStageRecords
-                .Single(record => record.StageId == retriedFinalStage.Final.StageId);
-            AssertEqual(true, lowerScoreResult.TotalScore < bestFinalRecord.MaxScore,
-                $"Pain Cage final stage {retriedFinalStage.Final.StageId} lower-score fixture");
-            BossSingleSaveScoreResponse lowerScoreSave = SaveScore(
-                82_172,
-                retriedFinalStage.Final.StageId,
-                $"Pain Cage final stage {retriedFinalStage.Final.StageId} lower-score save",
-                out _);
-            AssertEqual(0, lowerScoreSave.Code,
-                $"Pain Cage final stage {retriedFinalStage.Final.StageId} lower-score save code");
-            AssertIntegerList(
-                [retriedFinalStage.CharacterId],
-                bestFinalRecord.MaxCharacters.Select(Convert.ToInt64).ToArray(),
-                $"Pain Cage final stage {retriedFinalStage.Final.StageId} lower score preserves best team");
-            AssertIntegerList(
-                [lowerScoreCharacterId],
-                bestFinalRecord.Characters.Select(Convert.ToInt64).ToArray(),
-                $"Pain Cage final stage {retriedFinalStage.Final.StageId} lower score retains latest team");
-
-            void AssertFinalStageHistory(AscNet.Common.Database.Player target, string name)
-            {
-                JObject data = RequiredValue<JObject>(
-                    JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerializer.Serialize(BuildLogin(target, null)))),
-                    "FubenBossSingleData",
-                    JTokenType.Object,
-                    name);
-                JArray stageRecords = RequiredValue<JArray>(data, "StageRecordList", JTokenType.Array, name);
-                foreach (var historyStage in historyStages.Take(2))
-                {
-                    JObject record = stageRecords
-                        .OfType<JObject>()
-                        .Single(value => RequiredValue<int>(value, "StageId", JTokenType.Integer, name)
-                            == historyStage.Final.StageId);
-                    uint expectedCurrentCharacterId = historyStage.Final.StageId == retriedFinalStage.Final.StageId
-                        ? lowerScoreCharacterId
-                        : historyStage.CharacterId;
-                    AssertIntegerList(
-                        [expectedCurrentCharacterId],
-                        RequiredValue<JArray>(record, "Characters", JTokenType.Array, name)
-                            .Select(value => value.Value<long>())
-                            .ToArray(),
-                        $"{name} final stage {historyStage.Final.StageId} current team");
-                    AssertIntegerList(
-                        [historyStage.CharacterId],
-                        RequiredValue<JArray>(record, "MaxCharacters", JTokenType.Array, name)
-                            .Select(value => value.Value<long>())
-                            .ToArray(),
-                        $"{name} final stage {historyStage.Final.StageId} best team");
-                }
-            }
-
-            AssertFinalStageHistory(player, "Pain Cage saved final-stage Team History");
-            AscNet.Common.Database.Player historyReloaded =
-                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBsonDocument());
-            AssertFinalStageHistory(historyReloaded, "Pain Cage relogged final-stage Team History");
-
-            player.SimulatedBattlefield.BossChallengeCount = 0;
-            player.SimulatedBattlefield.BossAutoFightCount = 0;
-            player.SimulatedBattlefield.BossCharacterPoints.Clear();
-            player.SimulatedBattlefield.BossHistory.Clear();
-            player.SimulatedBattlefield.BossStageRecords.Clear();
-            player.SimulatedBattlefield.BossResetStageIds.Clear();
-            player.SimulatedBattlefield.BossNormalStageTeams.Clear();
-            player.SimulatedBattlefield.BossTotalScore = 0;
-            player.SimulatedBattlefield.BossCurrentTotalScore = 0;
-            player.SimulatedBattlefield.BossMaxScore = 0;
-            player.SimulatedBattlefield.BossLastScoreTime = 0;
-
-            PreFightResponse discardedPreFight = StartFight(82_024, normalStage.StageId, stageType: 1);
-            AssertEqual(0, discardedPreFight.Code, "Pain Cage discarded-score pre-fight code");
-            _ = SettleFight(82_025, discardedPreFight, normalStage, characterHp: 100, bossHp: 0);
-            AssertEqual(normalStage.StageId, harness.Session.PendingBossSingleScore?.StageId ?? 0,
-                "Pain Cage successful settlement remains provisional");
-            InvokeRegisteredRequestHandler(
-                nameof(LeaveFightRequest),
-                harness.Session,
-                82_026,
-                new LeaveFightRequest());
-            _ = ReadResponsePayload<LeaveFightResponse>(
-                harness,
-                82_026,
-                nameof(LeaveFightResponse),
-                "Pain Cage discard LeaveFightResponse");
-            AssertEqual(null, harness.Session.PendingBossSingleScore,
-                "Pain Cage leaving without save discards provisional score");
-            AssertEqual(0, player.SimulatedBattlefield.BossChallengeCount,
-                "Pain Cage leaving without save leaves attempt count unchanged");
-            AssertEqual(false, player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
-                "Pain Cage leaving without save leaves character stamina unchanged");
-
-            PreFightResponse retreatPreFight = StartFight(82_028, normalStage.StageId, stageType: 1);
-            AssertEqual(0, retreatPreFight.Code, "Pain Cage retreat pre-fight code");
-            FightSettleResponse retreatSettle = SettleFight(
-                82_029,
-                retreatPreFight,
-                normalStage,
-                characterHp: 100,
-                bossHp: 100,
-                isWin: false,
-                isForceExit: true);
-            AssertEqual(false, retreatSettle.Settle?.IsWin ?? true, "Pain Cage retreat settle result");
-            AssertEqual(0, retreatSettle.Settle?.ChallengeCount ?? -1,
-                "Pain Cage retreat settlement consumes no attempts");
-            AssertEqual(0, player.SimulatedBattlefield.BossChallengeCount,
-                "Pain Cage retreat leaves attempt count unchanged");
-            AssertEqual(false, player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
-                "Pain Cage retreat leaves character stamina unchanged");
-            AssertEqual(null, harness.Session.PendingBossSingleScore,
-                "Pain Cage retreat leaves no provisional score");
-
-            PreFightResponse deathPreFight = StartFight(82_027, normalStage.StageId, stageType: 1);
-            AssertEqual(0, deathPreFight.Code, "Pain Cage death pre-fight code");
-            FightSettleResponse deathSettle = SettleFight(
-                82_028,
-                deathPreFight,
-                normalStage,
-                characterHp: 0,
-                bossHp: 100,
-                isWin: false);
-            AssertEqual(0, deathSettle.Code, "Pain Cage death settle code");
-            AssertEqual(true, deathSettle.Settle?.IsWin ?? false, "Pain Cage death settle result");
-            _ = RequiredBossResult(deathSettle, "Pain Cage death FightSettleResponse");
-            AssertEqual(normalStage.StageId, harness.Session.PendingBossSingleScore?.StageId ?? 0,
-                "Pain Cage death settlement remains provisional for save-score");
-            InvokeRegisteredRequestHandler(
-                nameof(LeaveFightRequest),
-                harness.Session,
-                82_029,
-                new LeaveFightRequest());
-            _ = ReadResponsePayload<LeaveFightResponse>(
-                harness,
-                82_029,
-                nameof(LeaveFightResponse),
-                "Pain Cage death discard LeaveFightResponse");
-            AssertEqual(null, harness.Session.PendingBossSingleScore,
-                "Pain Cage death discard clears provisional score");
-
-            const int normalPreFightPacketId = 82_030;
-            PreFightResponse normalPreFight = StartFight(normalPreFightPacketId, normalStage.StageId, stageType: 1);
-            AssertEqual(0, normalPreFight.Code, "Pain Cage normal PreFightResponse code");
-            AssertEqual(checked((uint)normalStage.StageId), normalPreFight.FightData.StageId,
-                "Pain Cage normal PreFightResponse StageId");
-            AssertEqual(1, normalPreFight.FightData.FightCheckType,
-                "Pain Cage normal PreFightResponse fight check type");
-            AssertEqual(normalStage.PassTimeLimit, normalPreFight.FightData.PassTimeLimit,
-                "Pain Cage normal table time limit");
-            AssertIntegerList(
-                [characterId],
-                player.SimulatedBattlefield.BossNormalStageTeams[normalSectionId].Select(Convert.ToInt64).ToArray(),
-                "Pain Cage pre-fight team persistence");
-
-            const int normalFightSeconds = 20;
-            const int normalSettlePacketId = 82_031;
-            FightSettleResponse normalSettle = SettleFight(
-                normalSettlePacketId,
-                normalPreFight,
-                normalStage,
-                characterHp: 100,
-                bossHp: 0,
-                fightSeconds: normalFightSeconds);
-            BossSingleFightResult normalResult = RequiredBossResult(
-                normalSettle,
-                "Pain Cage normal FightSettleResponse");
-            BossSingleScoreRuleTable normalRule = scoreRules.Single(row => row.Id == normalStage.StageId);
-            int coefficientIndex = selectedLevel - 1;
-            int expectedBossScore = Math.Min(
-                normalStage.BossLoseHpScore,
-                checked((int)Math.Floor(
-                    1d / normalRule.BossLoseHp[coefficientIndex]
-                    * normalRule.BossLoseHpScore[coefficientIndex])));
-            double timeCoefficient = normalRule.LeftTimeScore[coefficientIndex];
-            int expectedTimeScore = Math.Min(normalStage.LeftTimeScore,
-                checked((int)Math.Floor((normalStage.PassTimeLimit - normalFightSeconds) * timeCoefficient * normalStage.PassTimeLimit)));
-            double hpCoefficient = normalRule.CharLeftHpSocre[coefficientIndex];
-            int expectedHpScore = normalRule.BaseScore
-                + Math.Min(normalStage.LeftHpScore, checked((int)Math.Floor(100 * hpCoefficient)));
-            int expectedTotalScore = Math.Min(
-                normalStage.Score + normalRule.BaseScore,
-                expectedBossScore + expectedTimeScore + expectedHpScore);
-            AssertEqual(20, normalResult.FightTime, "Pain Cage frame-derived fight time");
-            AssertEqual(100, normalResult.BossDamagePer, "Pain Cage boss damage percentage");
-            AssertEqual(expectedBossScore, normalResult.BossDamageScore, "Pain Cage boss damage score");
-            AssertEqual(expectedTimeScore, normalResult.TimeScore, "Pain Cage remaining-time score");
-            AssertEqual(expectedHpScore, normalResult.HpScore, "Pain Cage character-HP score");
-            AssertEqual(expectedTotalScore, normalResult.TotalScore, "Pain Cage total score");
-            AssertEqual(0, normalSettle.Settle?.ChallengeCount ?? -1,
-                "Pain Cage settlement does not consume client-side stamina before save");
-            AssertEqual(0, player.SimulatedBattlefield.BossChallengeCount,
-                "Pain Cage settlement does not consume an attempt before save");
-            AssertEqual(false, player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
-                "Pain Cage settlement does not consume character stamina before save");
-            AssertEqual(0, player.SimulatedBattlefield.BossStageRecords.Count,
-                "Pain Cage settle is provisional before save-score");
-            AssertEqual(normalStage.StageId, harness.Session.PendingBossSingleScore?.StageId ?? 0,
-                "Pain Cage provisional score session state");
-
-            int playerSavesBeforeNormalScore = playerCollection.ReplaceOneCalls;
-            int stageSavesBeforeNormalScore = stageCollection.ReplaceOneCalls;
-            const int normalSavePacketId = 82_032;
-            BossSingleSaveScoreResponse normalSave = SaveScore(
-                normalSavePacketId,
-                normalStage.StageId,
-                "Pain Cage normal save",
-                out List<string> savePushes);
-            AssertEqual(0, normalSave.Code, "Pain Cage normal save-score code");
-            AssertEqual(playerSavesBeforeNormalScore + 1, playerCollection.ReplaceOneCalls,
-                "Pain Cage normal save persists Player once");
-            AssertEqual(stageSavesBeforeNormalScore + 2, stageCollection.ReplaceOneCalls,
-                "Pain Cage normal save heals the fixture-cleared stage datums and persists the committed Stage");
-            int rankPushIndex = savePushes.IndexOf(nameof(NotifyBossSingleRankInfo));
-            int stagePushIndex = savePushes.IndexOf(nameof(NotifyStageData), rankPushIndex + 1);
-            int loginPushIndex = savePushes.IndexOf(nameof(NotifyFubenBossSingleData));
-            if (rankPushIndex < 0 || stagePushIndex <= rankPushIndex || loginPushIndex <= stagePushIndex)
-                throw new InvalidDataException(
-                    $"Pain Cage save push order: expected rank, stage, login; got {string.Join(",", savePushes)}.");
-            AscNet.Common.Database.BossSingleStageRecordState savedRecord =
-                player.SimulatedBattlefield.BossStageRecords.Single(record => record.StageId == normalStage.StageId);
-            AssertEqual(normalResult.TotalScore, savedRecord.Score, "Pain Cage current stage score persistence");
-            AssertEqual(normalResult.TotalScore, savedRecord.MaxScore, "Pain Cage stage best score persistence");
-            AssertEqual(normalResult.TotalScore, player.SimulatedBattlefield.BossCurrentTotalScore,
-                "Pain Cage current total score");
-            AssertEqual(normalResult.TotalScore, player.SimulatedBattlefield.BossTotalScore,
-                "Pain Cage period best total score");
-            AssertEqual(1, player.SimulatedBattlefield.BossChallengeCount,
-                "Pain Cage first-clear attempt consumption");
-            AssertEqual(1, player.SimulatedBattlefield.BossCharacterPoints[checked((int)characterId)],
-                "Pain Cage character stamina consumption");
-            AscNet.Common.Database.BossSingleHistoryRecordState savedHistory =
-                player.SimulatedBattlefield.BossHistory.Single(record => record.StageId == normalStage.StageId);
-            AssertEqual(normalResult.TotalScore, savedHistory.Score,
-                "Pain Cage save records stage history score");
-            AssertIntegerList(
-                [characterId],
-                savedHistory.Characters.Select(Convert.ToInt64).ToArray(),
-                "Pain Cage save records stage history team");
-            AssertEqual(null, harness.Session.PendingBossSingleScore,
-                "Pain Cage save clears provisional session score");
-
-            const int duplicateSavePacketId = 82_033;
-            BossSingleSaveScoreResponse duplicateSave = SaveScore(
-                duplicateSavePacketId,
-                normalStage.StageId,
-                "Pain Cage duplicate save",
-                out List<string> duplicateSavePushes);
-            AssertEqual(1, duplicateSave.Code, "Pain Cage duplicate save rejected");
-            AssertEqual(0, duplicateSavePushes.Count, "Pain Cage duplicate save emits no pushes");
-            AssertEqual(1, player.SimulatedBattlefield.BossChallengeCount,
-                "Pain Cage duplicate save does not consume attempt");
-
-            const int rankInfoPacketId = 82_034;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleRankInfoRequest),
-                harness.Session,
-                rankInfoPacketId,
-                new BossSingleRankInfoRequest { SectionId = normalSectionId });
-            BossSingleRankInfoResponse rankInfo = ReadResponsePayload<BossSingleRankInfoResponse>(
-                harness,
-                rankInfoPacketId,
-                nameof(BossSingleRankInfoResponse),
-                "Pain Cage personal rank response");
-            AssertEqual(0, rankInfo.Code, "Pain Cage personal rank code");
-            AssertEqual(1, rankInfo.Rank, "Pain Cage personal rank");
-            AssertEqual(true, rankInfo.TotalRank >= 1, "Pain Cage personal rank population");
-
-            const int rankListPacketId = 82_035;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleGetRankRequest),
-                harness.Session,
-                rankListPacketId,
-                new BossSingleGetRankRequest { Level = selectedLevel, SectionId = normalSectionId });
-            BossSingleGetRankResponse rankList = ReadResponsePayload<BossSingleGetRankResponse>(
-                harness,
-                rankListPacketId,
-                nameof(BossSingleGetRankResponse),
-                "Pain Cage rank list response");
-            AssertEqual(0, rankList.Code, "Pain Cage rank list code");
-            AssertEqual(1, rankList.RankNum, "Pain Cage rank list personal rank");
-            AssertEqual(normalResult.TotalScore, rankList.Score, "Pain Cage rank list section score");
-            AssertEqual(true, rankList.RankList.Count >= 1, "Pain Cage rank list contains participant");
-
-            int pointsBeforeConstraintChecks =
-                player.SimulatedBattlefield.BossCharacterPoints[checked((int)characterId)];
-            int challengeCountBeforeConstraintChecks = player.SimulatedBattlefield.BossChallengeCount;
-            int constraintStageId = selectedStageIds.First(stageId => stageId != normalStage.StageId);
-            player.SimulatedBattlefield.BossCharacterPoints[checked((int)characterId)] = selectedGrade.StaminaCount;
-            PreFightResponse staminaRejected = StartFight(82_036, constraintStageId, stageType: 1);
-            AssertEqual(1, staminaRejected.Code, "Pain Cage exhausted character stamina rejection");
-            AssertEqual(null, harness.Session.fight, "Pain Cage stamina rejection creates no fight");
-            player.SimulatedBattlefield.BossCharacterPoints[checked((int)characterId)] = pointsBeforeConstraintChecks;
-            int constraintSectionId = selectedSections.Single(sectionId =>
-                sections.Single(row => row.SectionId == sectionId && row.AfreshId == currentAfreshId)
-                    .StageId.Contains(constraintStageId));
-            HashSet<int> constraintSectionStageIds = sections
-                .Single(row => row.SectionId == constraintSectionId && row.AfreshId == currentAfreshId)
-                .StageId
-                .ToHashSet();
-            List<AscNet.Common.Database.BossSingleStageRecordState> constraintSectionRecords =
-                player.SimulatedBattlefield.BossStageRecords
-                    .Where(record => constraintSectionStageIds.Contains(record.StageId))
-                    .ToList();
-            player.SimulatedBattlefield.BossStageRecords.RemoveAll(
-                record => constraintSectionStageIds.Contains(record.StageId));
-            player.SimulatedBattlefield.BossChallengeCount = int.MaxValue;
-            PreFightResponse attemptsRejected = StartFight(82_037, constraintStageId, stageType: 1);
-            AssertEqual(1, attemptsRejected.Code, "Pain Cage exhausted challenge-count rejection");
-            AssertEqual(null, harness.Session.fight, "Pain Cage challenge-count rejection creates no fight");
-            player.SimulatedBattlefield.BossStageRecords.AddRange(constraintSectionRecords);
-            player.SimulatedBattlefield.BossChallengeCount = challengeCountBeforeConstraintChecks;
-
-            const int resetPacketId = 82_038;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleResetStageRequest),
-                harness.Session,
-                resetPacketId,
-                new BossSingleResetStageRequest { StageId = normalStage.StageId });
-            BossSingleResetStageResponse reset = ReadAfterPushes<BossSingleResetStageResponse>(
-                resetPacketId,
-                nameof(BossSingleResetStageResponse),
-                "Pain Cage stage reset",
-                out List<string> resetPushes);
-            AssertEqual(0, reset.Code, "Pain Cage reset code");
-            int resetStageCodexBest = Math.Max(
-                player.SimulatedBattlefield.BossTrialScores.GetValueOrDefault(normalStage.StageId),
-                player.SimulatedBattlefield.BossBestiaryScores.GetValueOrDefault(normalStage.StageId));
-            AssertEqual(true,
-                resetPushes.SequenceEqual(resetStageCodexBest > 0
-                    ? [nameof(NotifyFubenBossSingleData)]
-                    : [nameof(NotifyFubenBossSingleData), nameof(NotifyStageData)]),
-                $"Pain Cage reset push ordering: got {string.Join(",", resetPushes)} (codex best {resetStageCodexBest})");
-            AssertEqual(0, player.SimulatedBattlefield.BossCurrentTotalScore,
-                "Pain Cage reset removes current score");
-            AssertEqual(normalResult.TotalScore, player.SimulatedBattlefield.BossTotalScore,
-                "Pain Cage reset preserves period best score");
-            AssertEqual(true, player.SimulatedBattlefield.BossResetStageIds.Contains(normalStage.StageId),
-                "Pain Cage reset marker persistence");
-            AssertEqual(false,
-                player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
-                "Pain Cage reset refunds character stamina");
-            AscNet.Common.Database.BossSingleStageRecordState resetRecord =
-                player.SimulatedBattlefield.BossStageRecords.Single(record => record.StageId == normalStage.StageId);
-            AssertEqual(0, resetRecord.Score, "Pain Cage reset clears current stage score");
-            AssertEqual(normalResult.TotalScore, resetRecord.MaxScore,
-                "Pain Cage reset retains stage best for aggregate progress");
-            AssertEqual(normalResult.TotalScore,
-                player.SimulatedBattlefield.BossStageRecords.Sum(record => record.MaxScore),
-                "Pain Cage reset retains aggregate best progress");
-            JObject resetLoginPayload = JObject.Parse(MessagePackSerializer.ConvertToJson(
-                MessagePackSerializer.Serialize(BuildLogin(player, null))));
-            JObject resetLoginData = RequiredValue<JObject>(
-                resetLoginPayload, "FubenBossSingleData", JTokenType.Object, "Pain Cage reset login");
-            JArray resetProjectedRecords = RequiredValue<JArray>(
-                resetLoginData, "StageRecordList", JTokenType.Array, "Pain Cage reset login");
-            AssertEqual(resetProjectedRecords.OfType<JObject>().Count(),
-                resetProjectedRecords.OfType<JObject>().Select(value => RequiredValue<int>(
-                    value, "StageId", JTokenType.Integer, "Pain Cage reset login")).Distinct().Count(),
-                "Pain Cage reset login projects each stage once");
-            JObject? resetStageEntry = resetProjectedRecords.OfType<JObject>().SingleOrDefault(value =>
-                RequiredValue<int>(value, "StageId", JTokenType.Integer, "Pain Cage reset login")
-                    == normalStage.StageId);
-            AssertEqual(true, resetStageEntry is not null,
-                "Pain Cage reset login projects the reset stage");
-            AssertEqual(0,
-                RequiredValue<int>(resetStageEntry!, "Score", JTokenType.Integer, "Pain Cage reset login"),
-                "Pain Cage reset reports no current score for the reset stage");
-            AssertEqual(0,
-                RequiredValue<JArray>(
-                    resetStageEntry!, "Characters", JTokenType.Array, "Pain Cage reset login").Count,
-                "Pain Cage reset reports no current team for the reset stage");
-            AssertEqual(1,
-                RequiredValue<JArray>(
-                    resetLoginData, "HistoryList", JTokenType.Array, "Pain Cage reset login").Count,
-                "Pain Cage reset preserves team history");
-
-            int savesBeforeDuplicateReset = playerCollection.ReplaceOneCalls;
-            const int duplicateResetPacketId = 82_138;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleResetStageRequest),
-                harness.Session,
-                duplicateResetPacketId,
-                new BossSingleResetStageRequest { StageId = normalStage.StageId });
-            BossSingleResetStageResponse duplicateReset =
-                ReadResponsePayload<BossSingleResetStageResponse>(
-                    harness,
-                    duplicateResetPacketId,
-                    nameof(BossSingleResetStageResponse),
-                    "Pain Cage duplicate stage reset");
-            AssertEqual(1, duplicateReset.Code, "Pain Cage duplicate reset rejected");
-            AssertEqual(savesBeforeDuplicateReset, playerCollection.ReplaceOneCalls,
-                "Pain Cage duplicate reset does not persist");
-            AssertEqual(false,
-                player.SimulatedBattlefield.BossCharacterPoints.ContainsKey(checked((int)characterId)),
-                "Pain Cage duplicate reset does not refund twice");
-
-            int playerSavesBeforeAutoFight = playerCollection.ReplaceOneCalls;
-            int stageSavesBeforeAutoFight = stageCollection.ReplaceOneCalls;
-            const int autoPacketId = 82_039;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleAutoFightRequest),
-                harness.Session,
-                autoPacketId,
-                new BossSingleAutoFightRequest { StageId = normalStage.StageId });
-            BossSingleAutoFightResponse auto = ReadAfterPushes<BossSingleAutoFightResponse>(
-                autoPacketId,
-                nameof(BossSingleAutoFightResponse),
-                "Pain Cage auto-fight",
-                out List<string> autoPushes);
-            AssertEqual(0, auto.Code, "Pain Cage auto-fight code");
-            AssertEqual(playerSavesBeforeAutoFight + 1, playerCollection.ReplaceOneCalls,
-                "Pain Cage auto-fight persists Player once");
-            AssertEqual(stageSavesBeforeAutoFight + 1, stageCollection.ReplaceOneCalls,
-                "Pain Cage auto-fight persists Stage once");
-            AssertEqual(1, player.SimulatedBattlefield.BossAutoFightCount,
-                "Pain Cage auto-fight count");
-            AscNet.Common.Database.BossSingleStageRecordState autoRecord =
-                player.SimulatedBattlefield.BossStageRecords.Single(record => record.StageId == normalStage.StageId);
-            AssertEqual(true, autoRecord.IsUseAutoFight, "Pain Cage auto-fight record marker");
-            AssertEqual(savedHistory.Score, autoRecord.Score, "Pain Cage EN-config auto-fight rebate score");
-            int autoRankPushIndex = autoPushes.IndexOf(nameof(NotifyBossSingleRankInfo));
-            int autoLoginPushIndex = autoPushes.IndexOf(nameof(NotifyFubenBossSingleData));
-            int autoStagePushIndex = autoPushes.IndexOf(nameof(NotifyStageData));
-            if (autoRankPushIndex < 0 || autoLoginPushIndex <= autoRankPushIndex || autoStagePushIndex <= autoLoginPushIndex)
-                throw new InvalidDataException(
-                    $"Pain Cage auto-fight push order: expected rank, login, stage; got {string.Join(",", autoPushes)}.");
-
-            const int duplicateAutoPacketId = 82_040;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleAutoFightRequest),
-                harness.Session,
-                duplicateAutoPacketId,
-                new BossSingleAutoFightRequest { StageId = normalStage.StageId });
-            BossSingleAutoFightResponse duplicateAuto =
-                ReadResponsePayload<BossSingleAutoFightResponse>(
-                    harness,
-                    duplicateAutoPacketId,
-                    nameof(BossSingleAutoFightResponse),
-                    "Pain Cage duplicate auto-fight response");
-            AssertEqual(1, duplicateAuto.Code, "Pain Cage duplicate auto-fight rejected");
-            AssertEqual(1, player.SimulatedBattlefield.BossAutoFightCount,
-                "Pain Cage duplicate auto-fight does not consume quota");
-
-            player.SimulatedBattlefield.BossTotalScore = Math.Max(
-                player.SimulatedBattlefield.BossTotalScore,
-                scoreRewards
-                    .Where(row => row.LevelType == selectedLevel
-                        && row.RewardGroupId == selectedGrade.RewardGroupId)
-                    .Min(row => row.Score));
-
-            const int allRewardPacketId = 82_041;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleGetAllRewardRequest),
-                harness.Session,
-                allRewardPacketId,
-                new BossSingleGetAllRewardRequest());
-            BossSingleGetAllRewardResponse allRewards =
-                ReadAfterPushes<BossSingleGetAllRewardResponse>(
-                    allRewardPacketId,
-                    nameof(BossSingleGetAllRewardResponse),
-                    "Pain Cage claim-all rewards",
-                    out List<string> rewardPushes);
-            AssertEqual(0, allRewards.Code, "Pain Cage claim-all reward code");
-            AssertEqual(true, allRewards.RewardGoodsList.Count > 0, "Pain Cage claim-all reward goods");
-            AssertEqual(true, player.SimulatedBattlefield.BossClaimedRewardIds.Count > 0,
-                "Pain Cage claimed reward IDs persistence");
-            AssertEqual(true, rewardPushes.Contains(nameof(NotifyFubenBossSingleData)),
-                "Pain Cage reward claim state push");
-            HashSet<int> expectedClaimedRewardIds = scoreRewards
-                .Where(row => row.LevelType == selectedLevel
-                    && row.RewardGroupId == selectedGrade.RewardGroupId
-                    && row.Score <= player.SimulatedBattlefield.BossTotalScore)
-                .Select(row => row.Id)
-                .ToHashSet();
-            if (!player.SimulatedBattlefield.BossClaimedRewardIds.ToHashSet().SetEquals(expectedClaimedRewardIds))
-                throw new InvalidDataException("Pain Cage claim-all persisted IDs differ from eligible table score rewards.");
-            int expectedRewardGoodsCount = rewardGoods.Count(row =>
-                expectedClaimedRewardIds.Contains(row.ScoreRewardId));
-            AssertEqual(expectedRewardGoodsCount, allRewards.RewardGoodsList.Count,
-                "Pain Cage claim-all table reward goods count");
-
-            int claimedCount = player.SimulatedBattlefield.BossClaimedRewardIds.Count;
-            const int duplicateAllRewardPacketId = 82_042;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleGetAllRewardRequest),
-                harness.Session,
-                duplicateAllRewardPacketId,
-                new BossSingleGetAllRewardRequest());
-            BossSingleGetAllRewardResponse duplicateAllRewards =
-                ReadAfterPushes<BossSingleGetAllRewardResponse>(
-                    duplicateAllRewardPacketId,
-                    nameof(BossSingleGetAllRewardResponse),
-                    "Pain Cage duplicate claim-all",
-                    out _);
-            AssertEqual(0, duplicateAllRewards.Code, "Pain Cage duplicate claim-all code");
-            AssertEqual(0, duplicateAllRewards.RewardGoodsList.Count,
-                "Pain Cage duplicate claim-all grants nothing");
-            AssertEqual(claimedCount, player.SimulatedBattlefield.BossClaimedRewardIds.Count,
-                "Pain Cage duplicate claim-all preserves claims");
-
-            int claimedRewardId = player.SimulatedBattlefield.BossClaimedRewardIds.First();
-            const int duplicateSingleRewardPacketId = 82_043;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleGetRewardRequest),
-                harness.Session,
-                duplicateSingleRewardPacketId,
-                new BossSingleGetRewardRequest { Id = claimedRewardId });
-            BossSingleGetRewardResponse duplicateSingleReward =
-                ReadResponsePayload<BossSingleGetRewardResponse>(
-                    harness,
-                    duplicateSingleRewardPacketId,
-                    nameof(BossSingleGetRewardResponse),
-                    "Pain Cage duplicate single reward");
-            AssertEqual(1, duplicateSingleReward.Code, "Pain Cage duplicate single reward rejected");
-
-            const int challengeRankInfoPacketId = 82_044;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleChallengeRankInfoRequest),
-                harness.Session,
-                challengeRankInfoPacketId,
-                new BossSingleChallengeRankInfoRequest { StageId = normalStage.StageId });
-            BossSingleChallengeRankInfoResponse challengeRankInfo =
-                ReadResponsePayload<BossSingleChallengeRankInfoResponse>(
-                    harness,
-                    challengeRankInfoPacketId,
-                    nameof(BossSingleChallengeRankInfoResponse),
-                    "Pain Cage challenge rank info response");
-            AssertEqual(0, challengeRankInfo.Code, "Pain Cage challenge rank info code");
-
-            const int challengeRankPacketId = 82_045;
-            InvokeRegisteredRequestHandler(
-                nameof(BossSingleGetChallengeRankRequest),
-                harness.Session,
-                challengeRankPacketId,
-                new BossSingleGetChallengeRankRequest { StageId = normalStage.StageId });
-            BossSingleGetChallengeRankResponse challengeRank =
-                ReadResponsePayload<BossSingleGetChallengeRankResponse>(
-                    harness,
-                    challengeRankPacketId,
-                    nameof(BossSingleGetChallengeRankResponse),
-                    "Pain Cage challenge rank response");
-            AssertEqual(0, challengeRank.Code, "Pain Cage challenge rank code");
-
-            BossSingleChallengeGradeTable challengeGrade = TableReaderV2.Parse<BossSingleChallengeGradeTable>().Single();
-            BossSingleGradeTable challengeNormalGrade = grades
-                .Where(row => row.AfreshId == currentAfreshId
-                    && row.GradeType >= challengeGrade.NeedGradeType)
-                .OrderByDescending(row => row.GradeType)
-                .First();
-            player.SimulatedBattlefield.BossLevelType = challengeNormalGrade.LevelType;
-            int lockedTotal = challengeGrade.NeedScore - 1;
-            int firstBossScore = lockedTotal / 2;
-            int secondBossScore = lockedTotal / 3;
-            int thirdBossScore = lockedTotal - firstBossScore - secondBossScore;
-            // Keep the real normal-stage best out of the synthetic gate records: the weekly
-            // StableHash rotation can place it among the first three, and rollover would then
-            // archive the synthetic score over the settled one.
-            player.SimulatedBattlefield.BossStageRecords = selectedStageIds
-                .Where(stageId => stageId != normalStage.StageId)
-                .Take(3)
-                .Select((stageId, index) => new AscNet.Common.Database.BossSingleStageRecordState
-                {
-                    StageId = stageId,
-                    Score = index == 0 ? firstBossScore : index == 1 ? secondBossScore : thirdBossScore,
-                    MaxScore = index == 0 ? firstBossScore : index == 1 ? secondBossScore : thirdBossScore
-                })
-                .ToList();
-            player.SimulatedBattlefield.BossTotalScore = int.MaxValue;
-            NotifyFubenBossSingleData lockedChallengeLogin = BuildLogin(player, null);
-            AssertEqual(0, lockedChallengeLogin.FubenBossSingleData.ChallengeLevelType,
-                "Pain Cage below normal-score gate has no intensive metadata");
-            AssertEqual(0, lockedChallengeLogin.FubenBossSingleData.ChallengeSectionId,
-                "Pain Cage below normal-score gate has no intensive section");
-            AssertEqual(0, lockedChallengeLogin.FubenBossSingleData.ChallengeFeatureGroupId,
-                "Pain Cage below normal-score gate has no intensive feature group");
-
-            player.SimulatedBattlefield.BossStageRecords[2].Score++;
-            player.SimulatedBattlefield.BossStageRecords[2].MaxScore++;
-            player.SimulatedBattlefield.BossTotalScore = 0;
-            player.SimulatedBattlefield.BossChallengeSelectedFeatureGroup = challengeGroups.First(row => row.BuffGroupIds.Any(id => id > 0)).Id;
-            NotifyFubenBossSingleData eligibleChallengeLogin = BuildLogin(player, null);
-            AssertEqual(challengeGrade.LevelType, eligibleChallengeLogin.FubenBossSingleData.ChallengeLevelType,
-                "Pain Cage normal total score unlocks table-backed intensive level");
-            AssertEqual(challengeGrade.NeedScore, eligibleChallengeLogin.FubenBossSingleData.TotalScore,
-                "Pain Cage login repairs total score from persisted stage bests");
-            AssertEqual(challengeNormalGrade.RewardGroupId,
-                grades.Single(row => row.LevelType == player.SimulatedBattlefield.BossLevelType).RewardGroupId,
-                "Pain Cage intensive rank rewards share the selected normal reward group");
-            BossSingleSectionTable eligibleChallengeSection = sections.Single(row =>
-                row.Id == eligibleChallengeLogin.FubenBossSingleData.ChallengeSectionId
-                && row.AfreshId == sections.Max(section => section.AfreshId));
-            BossSingleChallengeFeatureGroupTable eligibleChallengeFeatureGroup = challengeGroups.Single(row =>
-                row.Id == eligibleChallengeLogin.FubenBossSingleData.ChallengeFeatureGroupId);
-            AssertEqual(true, eligibleChallengeSection.StageId.Count > 0
-                && eligibleChallengeFeatureGroup.FeatureIds.Count > 0,
-                "Pain Cage intensive PK section and feature joins are nonempty");
-            AssertEqual(true,
-                eligibleChallengeFeatureGroup.FeatureIds.Count == eligibleChallengeFeatureGroup.BuffGroupIds.Count
-                && eligibleChallengeFeatureGroup.BuffGroupIds.All(id => id > 0),
-                "Pain Cage intensive features map positionally to client BuffGroup ids");
-            AssertEqual(0, eligibleChallengeLogin.FubenBossSingleData.ChallengeTotalScore,
-                "Pain Cage intensive score does not reuse normal total score");
-            NotifyFubenBossSingleData repeatedChallengeLogin = BuildLogin(player, null);
-            AssertEqual(eligibleChallengeLogin.FubenBossSingleData.ChallengeSectionId,
-                repeatedChallengeLogin.FubenBossSingleData.ChallengeSectionId,
-                "Pain Cage intensive section is stable within an activity");
-            AssertEqual(eligibleChallengeLogin.FubenBossSingleData.ChallengeFeatureGroupId,
-                repeatedChallengeLogin.FubenBossSingleData.ChallengeFeatureGroupId,
-                "Pain Cage intensive feature group is stable within an activity");
-
-            int ultimateStageId = sections
-                .Where(row => row.Id == eligibleChallengeLogin.FubenBossSingleData.ChallengeSectionId
-                    && row.AfreshId == sections.Max(section => section.AfreshId))
-                .SelectMany(row => row.StageId)
-                .First(stageId => stages.Any(row => row.StageId == stageId
-                    && row.PassTimeLimit == 300
-                    && row.LeftTimeScore == 180000));
-            BossSingleStageTable ultimateStage = stages.Single(row => row.StageId == ultimateStageId);
-            BossSingleScoreRuleTable ultimateRule = scoreRules.Single(row => row.Id == ultimateStage.StageId);
-            double ultimateTimeCoefficient = ultimateRule.LeftTimeScore[8 - 1];
-            AssertEqual(2d, ultimateTimeCoefficient,
-                "Pain Cage Ultimate Zone table time coefficient");
-            const int ultimateFightSeconds = 19;
-            int ultimateBuffGroup = challengeGroups
-                .Single(row => row.Id == eligibleChallengeLogin.FubenBossSingleData.ChallengeFeatureGroupId)
-                .BuffGroupIds.First(id => id > 0);
-            PreFightResponse ultimatePreFight = StartFight(
-                82_046,
-                ultimateStage.StageId,
-                stageType: 3,
-                buffGroup: ultimateBuffGroup);
-            AssertEqual(ultimateStage.PassTimeLimit, ultimatePreFight.FightData.PassTimeLimit,
-                "Pain Cage Ultimate Zone table time limit");
-            FightSettleResponse ultimateSettle = SettleFight(
-                82_047,
-                ultimatePreFight,
-                ultimateStage,
-                characterHp: 100,
-                bossHp: 0,
-                fightSeconds: ultimateFightSeconds);
-            BossSingleFightResult ultimateResult = RequiredBossResult(
-                ultimateSettle,
-                "Pain Cage Ultimate Zone result");
-            int expectedUltimateTimeLeft = ultimateStage.PassTimeLimit - ultimateFightSeconds;
-            AssertEqual(expectedUltimateTimeLeft, ultimateResult.TimeLeft,
-                "Pain Cage Ultimate Zone remaining time from fight input");
-            int expectedUltimateTimeScore = Math.Min(
-                ultimateStage.LeftTimeScore,
-                checked((int)Math.Floor(
-                    expectedUltimateTimeLeft * ultimateTimeCoefficient * ultimateStage.PassTimeLimit)));
-            AssertEqual(true, expectedUltimateTimeScore < ultimateStage.LeftTimeScore,
-                "Pain Cage Ultimate Zone 19-second fight remains below table time-score cap");
-            AssertEqual(expectedUltimateTimeScore, ultimateResult.TimeScore,
-                "Pain Cage Ultimate Zone table-derived remaining-time score");
-
-            int previousActivity = player.SimulatedBattlefield.BossActivityNo;
-            long rolloverTime = DateTimeOffset.UtcNow.AddDays(8).ToUnixTimeSeconds();
-            NotifyFubenBossSingleData rolloverLogin = BuildLogin(player, rolloverTime);
-            AssertEqual(true, rolloverLogin.FubenBossSingleData.ActivityNo > previousActivity,
-                "Pain Cage weekly activity rollover");
-            AssertEqual(0, rolloverLogin.FubenBossSingleData.LevelType,
-                "Pain Cage rollover requires level selection");
-            AssertEqual(0, player.SimulatedBattlefield.BossStageRecords.Count,
-                "Pain Cage rollover clears current stage records");
-            AssertEqual(0, player.SimulatedBattlefield.BossClaimedRewardIds.Count,
-                "Pain Cage rollover clears reward claims");
-            AssertEqual(true, player.SimulatedBattlefield.BossHistory.Any(record =>
-                    record.StageId == normalStage.StageId && record.Score == normalResult.TotalScore),
-                "Pain Cage rollover archives stage best");
-            AssertEqual(true, player.SimulatedBattlefield.BossMaxScore >= normalResult.TotalScore,
-                "Pain Cage rollover preserves promotion score");
-            AssertEqual(true, rolloverLogin.BossListDict is { Count: > 0 },
-                "Pain Cage rollover rebuilds table-derived boss options");
-
-            AscNet.Common.Database.Player reloaded =
-                MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
-                    player.ToBsonDocument());
-            NotifyFubenBossSingleData reloadLogin = BuildLogin(reloaded, rolloverTime);
-            AssertEqual(player.SimulatedBattlefield.BossActivityNo,
-                reloadLogin.FubenBossSingleData.ActivityNo,
-                "Pain Cage BSON reload activity persistence");
-            AssertEqual(true, reloaded.SimulatedBattlefield.BossHistory.Any(record =>
-                    record.StageId == normalStage.StageId && record.Score == normalResult.TotalScore),
-                "Pain Cage BSON reload history persistence");
-            AssertEqual(0, reloaded.SimulatedBattlefield.BossClaimedRewardIds.Count,
-                "Pain Cage BSON reload reset claim persistence");
-        }
-
-        private static void ValidateBossSingleLoginCompatibilityShape()
-        {
-            NotifyFubenBossSingleData notification = new()
-            {
-                FubenBossSingleData = new()
-                {
-                    ActivityNo = 260,
-                    TotalScore = 0,
-                    MaxScore = 0,
-                    OldLevelType = 8,
-                    LevelType = 8,
-                    ChallengeCount = 0,
-                    RemainTime = 3600 * 24,
-                    AutoFightCount = 0,
-                    RankPlatform = 1,
-                    TrialStageInfoList =
-                    [
-                        BuildBossSingleStageInfo(30302803),
-                        BuildBossSingleStageInfo(30302804),
-                        BuildBossSingleStageInfo(30302805)
-                    ],
-                    AfreshId = 1,
-                    ChallengeLevelType = 0,
-                    IsResetOpen = true,
-                    NormalStageTeamInfos =
-                    [
-                        BuildBossSingleTeamInfo(2030),
-                        BuildBossSingleTeamInfo(2034),
-                        BuildBossSingleTeamInfo(2038)
-                    ]
-                },
-                BossListDict = new()
-                {
-                    [7] = new() { 102, 104, 109 },
-                    [8] = new() { 2030, 2034, 2038 }
-                }
-            };
-
-            NotifyFubenBossSingleData roundTrip = MessagePackSerializer.Deserialize<NotifyFubenBossSingleData>(
-                MessagePackSerializer.Serialize(notification));
-
-            NotifyFubenBossSingleData.NotifyFubenBossSingleDataFubenBossSingleData bossSingleData = roundTrip.FubenBossSingleData
-                ?? throw new InvalidDataException("NotifyFubenBossSingleData FubenBossSingleData serialized as nil.");
-            AssertEmptyList(bossSingleData.CharacterPoints, "NotifyFubenBossSingleData FubenBossSingleData.CharacterPoints");
-            AssertEmptyList(bossSingleData.HistoryList, "NotifyFubenBossSingleData FubenBossSingleData.HistoryList");
-            AssertEmptyList(bossSingleData.RewardIds, "NotifyFubenBossSingleData FubenBossSingleData.RewardIds");
-            AssertEmptyList(bossSingleData.BossList, "NotifyFubenBossSingleData FubenBossSingleData.BossList");
-            AssertEmptyList(bossSingleData.BestiraryStageInfoList, "NotifyFubenBossSingleData FubenBossSingleData.BestiraryStageInfoList");
-            AssertEmptyList(bossSingleData.ChallengeStageHistoryList, "NotifyFubenBossSingleData FubenBossSingleData.ChallengeStageHistoryList");
-            AssertEmptyList(bossSingleData.StageRecordList, "NotifyFubenBossSingleData FubenBossSingleData.StageRecordList");
-            AssertEqual(3, bossSingleData.TrialStageInfoList.Count, "NotifyFubenBossSingleData FubenBossSingleData.TrialStageInfoList count");
-            AssertEqual(3, bossSingleData.NormalStageTeamInfos.Count, "NotifyFubenBossSingleData FubenBossSingleData.NormalStageTeamInfos count");
-            AssertEqual(true, bossSingleData.IsResetOpen, "NotifyFubenBossSingleData FubenBossSingleData.IsResetOpen");
-            AssertEqual(1, bossSingleData.AfreshId, "NotifyFubenBossSingleData FubenBossSingleData.AfreshId");
-            AssertEqual(8, bossSingleData.LevelType, "NotifyFubenBossSingleData FubenBossSingleData.LevelType");
-            AssertEqual(8, bossSingleData.OldLevelType, "NotifyFubenBossSingleData FubenBossSingleData.OldLevelType");
-            if (roundTrip.BossListDict is null)
-                throw new InvalidDataException("NotifyFubenBossSingleData BossListDict serialized as nil.");
-            AssertEqual(2, roundTrip.BossListDict.Count, "NotifyFubenBossSingleData BossListDict section count");
-            AssertBossListDictValues(roundTrip.BossListDict, 7, [102, 104, 109]);
-            AssertBossListDictValues(roundTrip.BossListDict, 8, [2030, 2034, 2038]);
-            if (!roundTrip.BossListDict.ContainsKey(bossSingleData.LevelType))
-                throw new InvalidDataException("NotifyFubenBossSingleData BossListDict: expected a section list for FubenBossSingleData.LevelType.");
-            if (bossSingleData.RemainTime == 0)
-                throw new InvalidDataException("NotifyFubenBossSingleData FubenBossSingleData.RemainTime: expected a positive value.");
-
-            static Dictionary<string, object> BuildBossSingleStageInfo(int stageId)
-            {
-                return new()
-                {
-                    ["StageId"] = stageId,
-                    ["Score"] = 0
-                };
-            }
-
-            static Dictionary<string, object> BuildBossSingleTeamInfo(int sectionId)
-            {
-                return new()
-                {
-                    ["SectionId"] = sectionId,
-                    ["CharacterIds"] = Array.Empty<int>()
-                };
-            }
-
-            static void AssertBossListDictValues(
-                IReadOnlyDictionary<int, List<int>> bossListDict,
-                int sectionId,
-                int[] expectedBossIds)
-            {
-                if (!bossListDict.TryGetValue(sectionId, out List<int>? actualBossIds))
-                    throw new InvalidDataException($"NotifyFubenBossSingleData BossListDict: expected section {sectionId}.");
-                if (!actualBossIds.SequenceEqual(expectedBossIds))
-                    throw new InvalidDataException($"NotifyFubenBossSingleData BossListDict section {sectionId}: expected {string.Join(",", expectedBossIds)}, got {string.Join(",", actualBossIds)}.");
-            }
-        }
 
         private static void ValidateCurrentClientGuideTableCompatibility()
         {

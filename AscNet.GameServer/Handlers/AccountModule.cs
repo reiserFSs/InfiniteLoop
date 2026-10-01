@@ -355,6 +355,7 @@ namespace AscNet.GameServer.Handlers
                     RequestNo = request.LastMsgSeqNo
                 }, packet.Id);
                 session.GuildIdentityReady = true;
+                BossModule.ReconcileReconnect(session);
                 PartnerModule.SyncArchive(session);
                 TaskModule.SendTaskSync(session);
             }
@@ -741,7 +742,10 @@ namespace AscNet.GameServer.Handlers
                 .ToList();
         }
 
-        private static NotifyLogin BuildNotifyLogin(Session session)
+        private static NotifyLogin BuildNotifyLogin(Session session) =>
+            BuildNotifyLogin(session, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+        private static NotifyLogin BuildNotifyLogin(Session session, long now)
         {
             ItemModule.ResumePendingItemUse(session);
             ItemModule.ResumePendingBuyAsset(session);
@@ -756,7 +760,7 @@ namespace AscNet.GameServer.Handlers
             GuildWarModule.PrepareLogin(session);
             GuildDormModule.PrepareLogin(session);
             WheelchairManualModule.RefreshProgress(session);
-            BossModule.PrepareLogin(session);
+            BossModule.PrepareLoginAt(session, now);
             BossInshotModule.PrepareLogin(session.player, DateTimeOffset.UtcNow);
             FashionStoryModule.PrepareLogin(session.player, DateTimeOffset.UtcNow);
             TransfiniteModule.PrepareLogin(session, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
@@ -1308,7 +1312,7 @@ namespace AscNet.GameServer.Handlers
             Theatre5Module.PrepareLogin(session);
             Theatre6Module.PrepareLogin(session);
             Theatre6PvpModule.RecoverPendingDefense(session);
-            NotifyLogin notifyLogin = BuildNotifyLogin(session);
+            NotifyLogin notifyLogin = BuildNotifyLogin(session, currentTime);
 
 
             NotifyAssistData notifyAssistData = new()
@@ -1474,7 +1478,7 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(dyeMergeData);
             session.SendPush(BossInshotModule.BuildNotifyBossInshotData(session.player));
             session.SendPush(BossInshotModule.BuildNotifyBossInshotPlayback(session.player));
-            session.SendPush(BossModule.BuildLoginData(session.player));
+            session.SendPush(BossModule.BuildLoginData(session.player, currentTime));
             NotifyBossActivityData? bossActivityData = BossModule.BuildActivityLoginData(session);
             if (bossActivityData is not null)
                 session.SendPush(bossActivityData);
