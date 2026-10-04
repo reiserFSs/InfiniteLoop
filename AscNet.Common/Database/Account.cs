@@ -5,6 +5,7 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace AscNet.Common.Database
 {
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+    [BsonIgnoreExtraElements]
     public class Account
     {
         public static readonly IMongoCollection<Account> collection = Common.db.GetCollection<Account>("accounts");

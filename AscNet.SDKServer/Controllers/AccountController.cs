@@ -94,13 +94,16 @@ namespace AscNet.SDKServer.Controllers
                 return AccountResponse(account);
             });
 
-            app.MapGet("/api/Login/Login", ([FromQuery] int loginType, [FromQuery] int userId, [FromQuery] string token, [FromQuery] string? clientIp) =>
+            string HandleGateLogin(HttpContext ctx, [FromQuery] int loginType, [FromQuery] int userId, [FromQuery] string token, [FromQuery] string? clientIp, [FromQuery] string? region)
             {
+                if (string.IsNullOrWhiteSpace(token))
+                    return InvalidLoginToken();
                 try
                 {
                     Account? account = Account.FromToken(token);
 
-                    if (account is null)
+                    if (account is null && ctx.Request.Path != "/api/Login/Login-cn"
+                        && !string.Equals(region, "cn", StringComparison.OrdinalIgnoreCase))
                         account = GateFallbackAccount();
 
                     if (account is null)
@@ -123,7 +126,9 @@ namespace AscNet.SDKServer.Controllers
                     SDKServer.log.Error($"Gate login lookup failed: {ex.GetType().Name}");
                     return InvalidLoginToken();
                 }
-            });
+            }
+            app.MapGet("/api/Login/Login", HandleGateLogin);
+            app.MapGet("/api/Login/Login-cn", HandleGateLogin);
         }
 
         // Engineering limit, not a retail protocol constant: the runner sends only username/password,

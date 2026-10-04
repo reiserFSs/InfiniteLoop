@@ -268,6 +268,17 @@ internal partial class Program
             AssertEqual("http://prod-encdn-aliyun.kurogame.net/prod", en["SecondaryCdns"], "EN SecondaryCdns");
             AssertEqual("5", en["Channel"], "EN Channel");
             AssertEqual("c5d4baac85a6e37b8109ea43dc045d31", en["IndexMd5"], "EN keeps its live IndexMd5");
+
+            Dictionary<string, string> cn = Serve("com.kurogame.haru.kuro", cdnKey);
+            AssertEqual("4.8.12", cn["DocumentVersion"], "CN DocumentVersion");
+            AssertEqual("4.8.12", cn["LaunchModuleVersion"], "CN LaunchModuleVersion");
+            AssertEqual("2c4d34218a22821b967aa40838b9cf856cdc5847", cn["IndexSha1"], "CN document index hash");
+            AssertEqual("dcaefb0fe38314825bd813d9b008f6239e7ecb45", cn["LaunchIndexSha1"], "CN launch index hash");
+            AssertEqual("http://prod-zspns-txcdn.kurogame.com/prod", cn["PrimaryCdns"], "CN PrimaryCdns");
+            AssertEqual("http://prod-zspnsalicdn.kurogame.com/prod", cn["SecondaryCdns"], "CN SecondaryCdns");
+            AssertEqual(false, cn.ContainsKey("IndexMd5"), "CN omits unpublished IndexMd5");
+            if (!cn["ServerListStr"].EndsWith("/api/Login/Login-cn", StringComparison.Ordinal))
+                throw new InvalidDataException("CN gate lost its region discriminator.");
         }
     }
 

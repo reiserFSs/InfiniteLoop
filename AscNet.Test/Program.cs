@@ -81,6 +81,18 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                if (args.Contains("--cn-sdk-config-only"))
+                {
+                    ValidateKuroSdkCompatibilityEndpoints().GetAwaiter().GetResult();
+                    ValidateCnSdkConfiguration().GetAwaiter().GetResult();
+                    ValidateRegionalConfigTab();
+                    return;
+                }
+                if (args.Contains("--cn-sdk-login-only"))
+                {
+                    ValidateCnSdkLogin().GetAwaiter().GetResult();
+                    return;
+                }
                 if (args.Contains("--draw-rules-only"))
                 {
                     ValidateDrawRules();

@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 from pathlib import Path
 import tempfile
@@ -43,7 +44,7 @@ class ProxyRoutingTests(unittest.TestCase):
         )
         return SimpleNamespace(request=request, response=None)
 
-    def test_flow_logs_omit_credentials_without_changing_routing(self):
+    def test_flow_logs_keep_raw_credentials_without_changing_routing(self):
         path = "/prod/client/notice/html/current-notice.html"
         query = (
             "autoToken=synthetic-auto&oauthCode=synthetic-oauth"
@@ -62,14 +63,13 @@ class ProxyRoutingTests(unittest.TestCase):
             log_path = Path(root) / "flows.log"
             with patch.dict(os.environ, {"ASCNET_PROXY_LOG": str(log_path)}):
                 proxy.request(flow)
-                flow.response = SimpleNamespace(status_code=204)
+                flow.response = SimpleNamespace(status_code=204, headers={}, content=b"")
                 proxy.response(flow)
             logged = log_path.read_text(encoding="utf-8")
-        self.assertNotIn("synthetic-", logged)
-        self.assertNotIn("?", logged)
-        self.assertNotIn("@", logged)
-        self.assertIn(f"REQ GET http://{flow.request.host}{path} -> -", logged)
-        self.assertIn(f"RSP GET http://{flow.request.host}{path} -> 204", logged)
+        self.assertIn("synthetic-password", logged)
+        self.assertIn("synthetic-userinfo", logged)
+        self.assertIn('"requestHeaders"', logged)
+        self.assertIn('"responseHeaders"', logged)
         self.assertEqual(original, vars(flow.request))
 
 
@@ -155,6 +155,7 @@ class ProxyRoutingTests(unittest.TestCase):
         )
         flow.response = SimpleNamespace(
             status_code=200,
+            headers={"Content-Type": "text/plain"},
             content=(
                 "Key\tType\tValue\n"
                 "ApplicationVersion\tstring\t4.7.0\n"
@@ -191,6 +192,79 @@ class ProxyRoutingTests(unittest.TestCase):
         proxy.request(flow)
 
         self.assertEqual(200, flow.response.status_code)
+
+    def test_cn_config_preserves_metadata_and_rewrites_every_gate(self):
+        for host in ("prod-zspns-txcdn.kurogame.com", "prod-zspnsalicdn.kurogame.com"):
+            with self.subTest(host=host):
+                flow = self.flow("/prod/client/config/key/com.kurogame.haru.kuro/4.8.0/standalone/config.tab", host)
+                body = ("DocumentVersion\tstring\t4.8.12\r\n"
+                        "ServerListStr\tstring\t星火服#https://gate.example/api/Login/Login\r\n"
+                        "ChannelServerListStr\tstring\t18#星火服#https://gate.example/api/Login/Login;http://backup.example/api/Login/Login|19#星火服#http://another.example/api/Login/Login?x=1\r\n")
+                with patch.dict(os.environ, {"ASCNET_PROXY_TARGET": "http://127.0.0.1:8080"}):
+                    proxy.request(flow)
+                    self.assertEqual(host, flow.request.host)
+                    flow.response = SimpleNamespace(status_code=200, content=body.encode(), headers={})
+                    proxy.response(flow)
+                result = flow.response.content.decode()
+                self.assertIn("DocumentVersion\tstring\t4.8.12\r\n", result)
+                self.assertEqual(4, result.count("http://127.0.0.1:8080/api/Login/Login-cn"))
+                self.assertNotIn("?", result)
+                gate_url = result.split("ServerListStr\tstring\t", 1)[1].split("\r\n", 1)[0].split("#")[-1]
+                self.assertEqual("http://127.0.0.1:8080/api/Login/Login-cn?loginType=5&userId=1&token=test", gate_url + "?loginType=5&userId=1&token=test")
+                self.assertNotIn("gate.example", result)
+
+    def test_cn_patch_and_agreement_stay_upstream(self):
+        for host, path in (("prod-zspns-txcdn.kurogame.com", "/prod/client/patch/key/com.kurogame.haru.kuro/4.8.0/standalone/4.8.12/launch/index"),
+                           ("pro-cdn-sdk.kurogame.com", "/pro/G148/19/agreement.json?pkgid=A1393")):
+            flow = self.flow(path, host)
+            proxy.request(flow)
+            self.assertEqual(host, flow.request.host)
+            self.assertIsNone(flow.response)
+
+    def test_cn_sdk_routes_and_telemetry_is_sunk(self):
+        gate = self.flow("/api/Login/Login-cn?loginType=5&userId=1&token=test", "gate.example")
+        with patch.dict(os.environ, {"ASCNET_PROXY_TARGET": "http://127.0.0.1:8080"}):
+            proxy.request(gate)
+        self.assertEqual("127.0.0.1", gate.request.host)
+        self.assertEqual("/api/Login/Login-cn?loginType=5&userId=1&token=test", gate.request.path)
+        flow = self.flow("/sdkcom/v2/sys/conf.lg", "sdkapi.kurogame.com")
+        proxy.request(flow)
+        self.assertEqual("sdkapi.kurogame.com", flow.request.headers["X-Forwarded-Host"])
+        self.assertIn("sdkapi.kurogame.com", flow.metadata["ascnet_original_url"])
+        for host, path in (("prod-zspnslog.zspms-game.com", "/feedback"), ("sdkapi.kurogame.com", "/ad-service/v1/sendEvent")):
+            flow = self.flow(path, host)
+            proxy.request(flow)
+            self.assertEqual(200, flow.response.status_code)
+
+    def test_json_response_and_raw_form_are_logged(self):
+        flow = self.flow("/sdkcom/v2/login/accLogin.lg", "sdkapi.kurogame.com")
+        flow.request.headers = {"Content-Type": "application/x-www-form-urlencoded", "Cookie": "raw-cookie"}
+        flow.request.content = b"loginName=alice&password=raw-password"
+        flow.response = SimpleNamespace(status_code=200, headers={"Content-Type": "application/json"}, content=b'{"token":"raw-token"}')
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "flows.log"
+            with patch.dict(os.environ, {"ASCNET_PROXY_LOG": str(path)}):
+                proxy._log_flow("REQ", flow)
+                proxy._log_flow("RSP", flow)
+            text = path.read_text(encoding="utf-8")
+        self.assertIn("password=raw-password", text)
+        self.assertIn("raw-cookie", text)
+        payload = json.loads(text.split("RSP ", 1)[1])
+        self.assertEqual({"token": "raw-token"}, payload["responseJson"])
+
+    def test_binary_response_and_transport_error_are_logged(self):
+        flow = self.flow("/asset.dll", "downloads.example")
+        flow.response = SimpleNamespace(status_code=200, headers={"Content-Type": "application/octet-stream"}, content=b"MZ\x00\xff")
+        flow.error = "connection reset"
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "flows.log"
+            with patch.dict(os.environ, {"ASCNET_PROXY_LOG": str(path)}):
+                proxy.response(flow)
+                proxy.error(flow)
+            text = path.read_text(encoding="utf-8")
+        response, failure = text.split("ERROR ")
+        self.assertEqual(4, json.loads(response.removeprefix("RSP "))["responseBytes"])
+        self.assertEqual("connection reset", json.loads(failure)["error"])
 
 
 if __name__ == "__main__":

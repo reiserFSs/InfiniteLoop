@@ -1,4 +1,5 @@
 using System.Net;
+using AscNet.Common.Database;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -17,11 +18,19 @@ namespace AscNet.SDKServer.Controllers
 
         public static void Register(WebApplication app)
         {
+            // CN form data is read asynchronously once; existing EN/TW handlers retain their contract.
+            app.Use(async (ctx, next) =>
+            {
+                if (ctx.Request.Path.StartsWithSegments("/sdkcom") && ctx.Request.HasFormContentType)
+                    await ctx.Request.ReadFormAsync(ctx.RequestAborted);
+                await next(ctx);
+            });
+            app.MapMethods("/sdkcom/v2/login/accLogin.lg", ["GET", "POST"], HandleAccountLogin);
             app.MapMethods("/sdkcom/v2/login/emailPwd.lg", ["GET", "POST"], HandleLogin);
             app.MapMethods("/sdkcom/v2/login/third/steam.lg", ["GET", "POST"], HandleLogin);
             app.MapMethods("/sdkcom/v2/login/third/pc/mark.lg", ["GET", "POST"], HandleThirdLoginMark);
             app.MapMethods("/sdkcom/v2/login/third/pc/browser.lg", ["GET", "POST"], HandleThirdLoginBrowser);
-            app.MapMethods("/sdkcom/v2/login/auto.lg", ["GET", "POST"], HandleLogin);
+            app.MapMethods("/sdkcom/v2/login/auto.lg", ["GET", "POST"], HandleAutoLogin);
             app.MapMethods("/sdkcom/v2/login/real-name/login.lg", ["GET", "POST"], HandleLogin);
             app.MapMethods("/sdkcom/v2/login/preambleCode.lg", ["GET", "POST"], HandleLogin);
             app.MapMethods("/sdkcom/v2/auth/getToken.lg", ["GET", "POST"], HandleAccessToken);
@@ -31,6 +40,7 @@ namespace AscNet.SDKServer.Controllers
             app.MapGet("/sdkcom/v2/sys/player-config.json", HandlePlayerConfig);
             app.MapMethods("/sdkcom/v2/user/game/role.lg", ["GET", "POST"], HandleOk);
             app.MapMethods("/sdkcom/v2/heartbeat/tokenCheck.lg", ["GET", "POST"], HandleOk);
+            app.MapMethods("/sdkcom/v2/heartbeat/switchStatus.lg", ["GET", "POST"], HandleOk);
             app.MapMethods("/sdkcom/v2/bind/device/status.lg", ["GET", "POST"], HandleOk);
             app.MapMethods("/sdkcom/v2/bind/device.lg", ["GET", "POST"], HandleOk);
             app.MapMethods("/sdkcom/v2/real-name-info/check.lg", ["GET", "POST"], HandleRealNameCheck);
@@ -40,6 +50,8 @@ namespace AscNet.SDKServer.Controllers
 
         private static IResult HandleLogin(HttpContext ctx)
         {
+            if (IsCnRequest(ctx))
+                return InvalidCredentials();
             return Results.Json(new
             {
                 code = 0,
@@ -50,6 +62,17 @@ namespace AscNet.SDKServer.Controllers
 
         private static IResult HandleAccessToken(HttpContext ctx)
         {
+            if (IsCnRequest(ctx))
+            {
+                string? code = RequestValue(ctx, "code");
+                Account? account = string.IsNullOrEmpty(code) ? null : Account.FromToken(code);
+                if (account is null)
+                    return InvalidCredentials();
+                // AscNet policy: local OAuth codes use the persisted, randomly generated account token.
+                return Results.Json(new { code = 0, msg = "success", access_token = account.Token,
+                    expires_in = LocalSdkExpiryHintSeconds,
+                    data = new { access_token = account.Token, expires_in = LocalSdkExpiryHintSeconds } });
+            }
             return Results.Json(new
             {
                 code = 0,
@@ -66,6 +89,14 @@ namespace AscNet.SDKServer.Controllers
 
         private static IResult HandleOauthCode(HttpContext ctx)
         {
+            if (IsCnRequest(ctx))
+            {
+                string? token = RequestValue(ctx, "access_token", "accessToken");
+                Account? account = string.IsNullOrEmpty(token) ? null : Account.FromToken(token);
+                if (account is null)
+                    return InvalidCredentials();
+                return Results.Json(new { code = 0, msg = "success", data = new { oauthCode = account.Token, code = account.Token } });
+            }
             return Results.Json(new
             {
                 code = 0,
@@ -159,8 +190,9 @@ namespace AscNet.SDKServer.Controllers
 
         private static Dictionary<string, object> PlayerConfigData(HttpContext ctx)
         {
+            bool cn = IsCnRequest(ctx);
             string origin = LocalSdkOrigin(ctx);
-            string playerConfigUrl = $"{origin}/sdkcom/v2/sys/player-config.json";
+            string playerConfigUrl = $"{origin}/sdkcom/v2/sys/player-config.json" + (cn ? "?region=cn" : "");
             string pcGeetestUrl = $"{origin}/sdkcom/v2/local/geetest";
             string accCenterUrl = $"{origin}/sdkcom/v2/local/account-center";
             string pcThirdLoginUrl = $"{origin}/sdkcom/v2/local/login";
@@ -201,7 +233,7 @@ namespace AscNet.SDKServer.Controllers
                 ["accCenterUrl"] = accCenterUrl,
                 ["clientUrl"] = clientUrl,
                 ["pcThirdLoginUrl"] = pcThirdLoginUrl,
-                ["thirdLogin"] = 1,
+                ["thirdLogin"] = cn ? CnThirdLoginPolicy() : 1,
                 ["heartFreq"] = 60,
                 ["kefuInterval"] = 60,
                 ["kefu"] = customerServiceUrl,
@@ -293,6 +325,119 @@ namespace AscNet.SDKServer.Controllers
         private static string? FirstQueryValue(HttpContext ctx, string key)
         {
             return ctx.Request.Query.TryGetValue(key, out var values) ? values.FirstOrDefault() : null;
+        }
+
+        // AscNet policy: CN account login creates an account on first use. Existing
+        // credentials must match; no separate SDK registration contract is assumed.
+        // Compatibility metadata only; local account tokens are not expired or rotated.
+        private const int LocalSdkExpiryHintSeconds = 30 * 24 * 60 * 60;
+        // Maintainer-authorized AscNet SDK compatibility value, not a verified account age.
+        private const int CnSdkCompatibilityAge = 21;
+
+        private static object CnThirdLoginPolicy() => new Dictionary<string, object>
+        {
+            ["wechat"] = new { enabled = 0 }, ["qq"] = new { enabled = 0 },
+            ["phone"] = new { enabled = 1 }, ["tourist"] = new { enabled = 0 },
+            ["phoneQk"] = new { enabled = 0 }, ["accReg"] = new { enabled = 0 },
+            ["accLogin"] = new { enabled = 1 }, ["qrLogin"] = new { enabled = 0 },
+            ["apple"] = new { enabled = 0 }, ["taptap"] = new { enabled = 0 }
+        };
+
+        private static bool IsCnRequest(HttpContext ctx)
+        {
+            string? package = RequestValue(ctx, "pkg");
+            if (!string.IsNullOrEmpty(package))
+                return package is "com.kurogame.haru.hero" or "com.kurogame.haru.kuro";
+            string host = ctx.Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? ctx.Request.Host.Host;
+            return host.Split(':')[0].Equals("sdkapi.kurogame.com", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(RequestValue(ctx, "region"), "cn", StringComparison.OrdinalIgnoreCase)
+                || (string.Equals(ctx.Request.Headers["Kr-ProjectId"].FirstOrDefault() ?? RequestValue(ctx, "projectId"), "G148", StringComparison.Ordinal)
+                    && string.Equals(ctx.Request.Headers["Kr-ProductId"].FirstOrDefault() ?? RequestValue(ctx, "productId"), "A1393", StringComparison.Ordinal));
+        }
+
+        private static IResult InvalidCredentials() => Results.Json(new { code = -1, msg = "Invalid credentials", data = new { } });
+
+        private static IResult HandleAccountLogin(HttpContext ctx)
+        {
+            ctx.Items["AscNet.LoginStage"] = "request-validation";
+            if (!IsCnRequest(ctx))
+                return InvalidCredentials();
+            string? username = RequestValue(ctx, "loginName");
+            string? password = RequestValue(ctx, "password");
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+                return InvalidCredentials();
+            ctx.Items["AscNet.LoginStage"] = "account-lookup";
+            Account? account = Account.FromUsername(username);
+            if (account is null)
+            {
+                try
+                {
+                    ctx.Items["AscNet.LoginStage"] = "account-create";
+                    // Persist the submitted SDK credential without assuming a client password transform.
+                    account = Account.Create(username, password);
+                }
+                catch (ArgumentException)
+                {
+                    ctx.Items["AscNet.LoginStage"] = "account-create-retry-lookup";
+                    // Another registration may have completed after the initial lookup.
+                    account = Account.FromUsername(username);
+                }
+            }
+            if (account is not null)
+                ctx.Items["AscNet.LoginAccount"] = $"uid={account.Uid}, objectId={account.Id}, username={account.Username}";
+            ctx.Items["AscNet.LoginStage"] = "password-validation";
+            if (account is null || !string.Equals(account.Password, password, StringComparison.Ordinal))
+                return InvalidCredentials();
+            return CnLoginResponse(ctx, account);
+        }
+
+        private static IResult HandleAutoLogin(HttpContext ctx)
+        {
+            if (!IsCnRequest(ctx))
+                return HandleLogin(ctx);
+            string? autoToken = RequestValue(ctx, "autoToken", "token");
+            if (string.IsNullOrEmpty(autoToken))
+                return InvalidCredentials();
+            ctx.Items["AscNet.LoginStage"] = "auto-account-token-lookup";
+            string? accountToken = CnAutoTokenAccessToken(autoToken);
+            if (accountToken is null)
+                return InvalidCredentials();
+            Account? account = Account.FromToken(accountToken);
+            if (account is null)
+                return InvalidCredentials();
+            return CnLoginResponse(ctx, account);
+        }
+
+        private static string? CnAutoTokenAccessToken(string token)
+        {
+            if (!token.Contains('.'))
+                return token;
+            string[] parts = token.Split('.');
+            // The SDK wrapper is transport metadata. AscNet does not expire the persisted token.
+            return parts.Length == 3 && parts[0] == "0" && !string.IsNullOrEmpty(parts[1])
+                && long.TryParse(parts[2], System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out _) ? parts[1] : null;
+        }
+
+        private static IResult CnLoginResponse(HttpContext ctx, Account account)
+        {
+            ctx.Items["AscNet.LoginStage"] = "account-response";
+            ctx.Items["AscNet.LoginAccount"] = $"uid={account.Uid}, objectId={account.Id}, username={account.Username}";
+            long sdkExpiryHint = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + LocalSdkExpiryHintSeconds;
+            return Results.Json(new { code = 0, msg = "登录成功", data = new Dictionary<string, object>
+            {
+                ["id"] = account.Uid, ["cuid"] = account.Uid.ToString(), ["username"] = account.Username,
+                // Dictionary keys preserve both client spellings without case-insensitive CLR property collisions.
+                ["sdkuserid"] = account.Uid.ToString(), ["sdkUserId"] = account.Uid.ToString(),
+                ["loginType"] = RequestIntValue(ctx, "loginType") ?? 0, ["code"] = account.Token,
+                ["age"] = CnSdkCompatibilityAge, ["showPaw"] = false,
+                ["email"] = $"{account.Username}@ascnet.local", ["token"] = account.Token, ["accessToken"] = account.Token,
+                ["autoToken"] = FormattableString.Invariant($"0.{account.Token}.{sdkExpiryHint}"), ["autoTokenStatus"] = true,
+                ["phoneCheck"] = 0, ["phone"] = account.Username,
+                ["bindDevStat"] = 0, ["idStat"] = 0, ["firstLgn"] = 0, ["bindDevMsg"] = string.Empty,
+                ["realNameMethod"] = 0, ["thirdNickName"] = account.Username, ["bindDevSwitch"] = 0,
+                ["realNameUrl"] = string.Empty, ["realNameKey"] = string.Empty
+            } });
         }
 
         private static string? RequestValue(HttpContext ctx, params string[] keys)

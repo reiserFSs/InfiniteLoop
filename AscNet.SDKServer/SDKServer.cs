@@ -15,6 +15,7 @@ namespace AscNet.SDKServer
             builder.Logging.ClearProviders();
 
             var app = builder.Build();
+            app.UseMiddleware<RequestLoggingMiddleware>();
 
             foreach (string url in GetUrls(args))
                 if (!app.Urls.Contains(url))
@@ -39,8 +40,6 @@ namespace AscNet.SDKServer
 #endif
             }
 
-            app.UseMiddleware<RequestLoggingMiddleware>();
-
             new Thread(() => app.Run()).Start();
             log.Info($"{nameof(SDKServer)} started in port {string.Join(", ", app.Urls.Select(x => x.Split(':').Last()))}!");
         }
@@ -58,8 +57,13 @@ namespace AscNet.SDKServer
             return [];
         }
 
-        private class RequestLoggingMiddleware
+        public class RequestLoggingMiddleware
         {
+            private static readonly System.Text.Json.JsonSerializerOptions LogJsonOptions = new()
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
             private readonly RequestDelegate _next;
             private static readonly PathString[] suppressedRoutes = ["/feedback"];
 
@@ -70,19 +74,53 @@ namespace AscNet.SDKServer
 
             public async Task Invoke(HttpContext context)
             {
+                bool failed = false;
+                bool debug = Common.Common.config.VerboseLevel >= Common.VerboseLevel.Debug;
+                bool suppressed = suppressedRoutes.Any(route => context.Request.Path == route);
+                string url = $"{context.Request.Scheme}://{context.Request.Host}{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}";
                 try
                 {
+                    if (debug && !suppressed)
+                    {
+                        context.Request.EnableBuffering();
+                        string body;
+                        using (var reader = new StreamReader(context.Request.Body, System.Text.Encoding.UTF8,
+                                   detectEncodingFromByteOrderMarks: true, leaveOpen: true))
+                            body = await reader.ReadToEndAsync(context.RequestAborted);
+                        context.Request.Body.Position = 0;
+                        log.Debug("REQ " + System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            method = context.Request.Method, url, status = "-",
+                            requestHeaders = context.Request.Headers.ToDictionary(x => x.Key, x => x.Value.ToString()),
+                            requestBody = body
+                        }, LogJsonOptions));
+                    }
                     await _next(context);
                 }
                 catch (Exception ex)
                 {
-                    log.Error($"Request failed: {ex.GetType().Name}");
+                    failed = true;
+                    if (!context.Response.HasStarted)
+                        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    log.Error($"Request failed: {context.Request.Method} {context.Request.Path}, error={ex.GetType().Name}");
+                    if (debug)
+                        log.Debug($"Request failure details: method={context.Request.Method}, url={url}, stage={context.Items["AscNet.LoginStage"] ?? "http-pipeline"}, account={context.Items["AscNet.LoginAccount"] ?? "unknown"}, responseStarted={context.Response.HasStarted}\n{ex}");
                     throw;
                 }
                 finally
                 {
-                    if (!suppressedRoutes.Any(route => context.Request.Path == route))
-                        log.Info($"{context.Response.StatusCode} {context.Request.Method} {context.Request.Path}");
+                    if (!suppressed || failed)
+                    {
+                        if (debug)
+                            log.Debug("RSP " + System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            method = context.Request.Method, url, status = context.Response.StatusCode,
+                            failed, stage = context.Items["AscNet.LoginStage"],
+                            responseHeaders = context.Response.Headers.ToDictionary(x => x.Key, x => x.Value.ToString())
+                        }, LogJsonOptions));
+                        else if (Common.Common.config.VerboseLevel > Common.VerboseLevel.Silent)
+                            log.Info($"{context.Response.StatusCode} {context.Request.Method} {context.Request.Path}{(failed ? " failed" : "")}");
+                    }
                 }
             }
         }

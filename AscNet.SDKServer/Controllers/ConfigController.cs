@@ -323,6 +323,7 @@ namespace AscNet.SDKServer.Controllers
 
         private static void AddCurrentClientConfig(List<RemoteConfig> remoteConfigs, string package, string version, ServerVersionConfig versionConfig, string publicHttpOrigin)
         {
+            bool cn = package == "com.kurogame.haru.kuro";
             (string primaryCdns, string secondaryCdns, int channel) = GetPackageConfig(package, currentClient: true);
 
             remoteConfigs.AddConfig("ApplicationVersion", version);
@@ -338,7 +339,7 @@ namespace AscNet.SDKServer.Controllers
             remoteConfigs.AddConfig("MtpEnabled", true);
             remoteConfigs.AddConfig("MemoryLimit", 2048);
             remoteConfigs.AddConfig("CloseMsgEncrypt", false);
-            remoteConfigs.AddConfig("ServerListStr", CurrentServerListStr(publicHttpOrigin));
+            remoteConfigs.AddConfig("ServerListStr", cn ? $"{Common.Common.config.GameServer.RegionName}#{publicHttpOrigin}/api/Login/Login-cn" : CurrentServerListStr(publicHttpOrigin));
             // TW's authoritative config carries no IndexMd5; only emit it where the region publishes one.
             if (versionConfig.IndexMd5 is not null)
                 remoteConfigs.AddConfig("IndexMd5", versionConfig.IndexMd5);
@@ -363,7 +364,7 @@ namespace AscNet.SDKServer.Controllers
             remoteConfigs.AddConfig("ParallelQueueSize", "3-7");
             remoteConfigs.AddConfig("WatermarkType", 0);
             remoteConfigs.AddConfig("IsPCPayEnable", true);
-            remoteConfigs.AddConfig("ChannelServerListStr", CurrentChannelServerListStr(publicHttpOrigin));
+            remoteConfigs.AddConfig("ChannelServerListStr", cn ? $"default#{Common.Common.config.GameServer.RegionName}#{publicHttpOrigin}/api/Login/Login-cn" : CurrentChannelServerListStr(publicHttpOrigin));
             remoteConfigs.AddConfig("IsHeXie", false);
             remoteConfigs.AddConfig("IsHideFunc", false);
             remoteConfigs.AddConfig("IsHideFuncAndroid", false);
@@ -390,9 +391,9 @@ namespace AscNet.SDKServer.Controllers
             return package switch
             {
                 "com.kurogame.haru.kuro" => (
+                    "http://prod-zspns-txcdn.kurogame.com/prod",
                     "http://prod-zspnsalicdn.kurogame.com/prod",
-                    "http://prod-zspnstxcdn.kurogame.com/prod",
-                    2),
+                    5),
                 "com.kurogame.punishing.grayraven.en" or "com.kurogame.gplay.punishing.grayraven.en" when currentClient => (
                     "http://prod-encdn-ak.pgr-game.com/prod",
                     "http://prod-encdn-aliyun.kurogame.net/prod",

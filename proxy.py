@@ -1,4 +1,5 @@
 import os
+import json
 from urllib.parse import urlparse, urlunparse
 from mitmproxy import http
 from mitmproxy import ctx
@@ -45,21 +46,53 @@ def _flow_log_path():
     return os.environ.get("ASCNET_PROXY_LOG")
 
 
-def _diagnostic_url(url):
-    parsed = urlparse(url)
-    return urlunparse(parsed._replace(
-        netloc=parsed.netloc.rsplit("@", 1)[-1], params="", query="", fragment="",
-    ))
-
-
 def _log_flow(prefix, flow):
     path = _flow_log_path()
+    status = getattr(flow.response, "status_code", "-") if getattr(flow, "response", None) else "-"
+    url = (f"{flow.request.pretty_host}:{flow.request.port}"
+           if prefix.startswith("CONNECT") else flow.request.pretty_url)
+    entry = {"method": flow.request.method, "url": url, "status": status}
+    original = getattr(flow, "metadata", {}).get("ascnet_original_url")
+    if original and original != url:
+        entry["originalUrl"] = original
+    message = flow.request if prefix == "REQ" else flow.response if prefix == "RSP" else None
+    if message is not None:
+        label = "request" if prefix == "REQ" else "response"
+        entry[label + "Headers"] = dict(message.headers)
+        if hasattr(message.headers, "items"):
+            try:
+                pairs = list(message.headers.items(multi=True))
+                if len(pairs) != len(entry[label + "Headers"]):
+                    entry[label + "HeaderPairs"] = pairs
+            except TypeError:
+                pass
+        content = getattr(message, "content", None) or b""
+        content_type = message.headers.get("Content-Type", "").lower()
+        if not content or any(kind in content_type for kind in ("json", "text", "xml", "javascript", "x-www-form-urlencoded")) or (not content_type and b"\x00" not in content):
+            text = content.decode("utf-8", errors="replace")
+            if label == "response" and "json" in content_type:
+                try:
+                    entry["responseJson"] = json.loads(text)
+                except ValueError:
+                    entry["responseBody"] = text
+            else:
+                entry[label + "Body"] = text
+        else:
+            entry[label + "Bytes"] = len(content)
+    if prefix == "ERROR":
+        entry["error"] = str(getattr(flow, "error", ""))
+    formatted = prefix + " " + json.dumps(entry, ensure_ascii=False, indent=2)
+    logger = getattr(ctx, "log", None)
+    if logger is not None:
+        logger.info(formatted)
     if not path:
         return
-    status = getattr(flow.response, "status_code", "-") if getattr(flow, "response", None) else "-"
-    line = f"{prefix} {flow.request.method} {_diagnostic_url(flow.request.pretty_url)} -> {status}\n"
-    with open(path, "a", encoding="utf-8") as handle:
-        handle.write(line)
+    try:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(formatted + "\n")
+    except OSError:
+        # Diagnostics must not interrupt routing.
+        pass
 
 
 def _is_ascnet_host(host):
@@ -89,11 +122,50 @@ def _is_upstream_notice_html_request(flow):
 
 
 def _is_ascnet_gate_request(flow):
-    return flow.request.path.split("?", 1)[0] == "/api/Login/Login"
+    return flow.request.path.split("?", 1)[0] in {"/api/Login/Login", "/api/Login/Login-cn"}
 
 
 def _is_feedback_request(flow):
     return "zspnslog." in flow.request.pretty_host and flow.request.path.split("?", 1)[0] == "/feedback"
+
+
+def _is_cn_config_request(flow):
+    path = flow.request.path.split("?", 1)[0]
+    return (flow.request.pretty_host in {"prod-zspns-txcdn.kurogame.com", "prod-zspnsalicdn.kurogame.com", "prod-zspnstxcdn.kurogame.com"}
+            and path.startswith("/prod/client/config/")
+            and "/com.kurogame.haru.kuro/" in path
+            and path.endswith("/standalone/config.tab"))
+
+
+def _is_cn_sdk_request(flow):
+    return (flow.request.pretty_host == "sdkapi.kurogame.com"
+            and flow.request.path.split("?", 1)[0].startswith("/sdkcom/"))
+
+
+def _rewrite_cn_config_body(body, target_origin):
+    def rewrite_url(url):
+        parsed = urlparse(url)
+        if not (parsed.scheme and parsed.hostname):
+            return url
+        target = urlparse(target_origin)
+        # The client appends '?' unconditionally. Gate bases must not contain a query.
+        return urlunparse(parsed._replace(scheme=target.scheme, netloc=target.netloc,
+                                         path="/api/Login/Login-cn", query="", fragment=""))
+
+    def rewrite_group(group):
+        head, sep, urls = group.rpartition("#")
+        if not sep:
+            return group
+        return head + sep + ";".join(rewrite_url(url) for url in urls.split(";"))
+
+    out = []
+    for line in body.split("\n"):
+        cols = line.split("\t")
+        if len(cols) >= 3 and cols[0] in {"ServerListStr", "ChannelServerListStr"}:
+            ending = "\r" if cols[2].endswith("\r") else ""
+            cols[2] = "|".join(rewrite_group(group) for group in cols[2].rstrip("\r").split("|")) + ending
+        out.append("\t".join(cols))
+    return "\n".join(out)
 
 def _is_wildcard_connect_request(flow):
     return flow.request.method == "CONNECT" and _is_local_wildcard_host(flow.request.pretty_host)
@@ -170,7 +242,7 @@ def http_connect(flow: http.HTTPFlow) -> None:
 def request(flow: http.HTTPFlow) -> None:
     _log_flow("REQ", flow)
 
-    if _is_feedback_request(flow):
+    if _is_feedback_request(flow) or (flow.request.pretty_host == "sdkapi.kurogame.com" and flow.request.path.split("?", 1)[0] == "/ad-service/v1/sendEvent"):
         flow.response = http.Response.make(200, b"OK", {"Content-Type": "text/plain"})
         _log_flow("SINK", flow)
         return
@@ -185,17 +257,20 @@ def request(flow: http.HTTPFlow) -> None:
     # channel, CDN list) that local AscNet does not reproduce. Let it pass
     # through to the real CDN unchanged; response() rewrites only the login
     # endpoints to the local target.
-    if _is_tw_config_request(flow):
+    if _is_tw_config_request(flow) or _is_cn_config_request(flow):
         _log_flow("PASS", flow)
         return
 
-    if not (_is_ascnet_host(flow.request.pretty_host) or _is_pgr_game_popup_notice_request(flow)
+    if not (_is_ascnet_host(flow.request.pretty_host) or _is_cn_sdk_request(flow) or _is_pgr_game_popup_notice_request(flow)
             or _is_ascnet_gate_request(flow) or _is_wildcard_ascnet_request(flow)):
         return
 
     scheme, host, port = _ascnet_target()
     original_host = flow.request.host
     original_scheme = flow.request.scheme
+    if not hasattr(flow, "metadata"):
+        flow.metadata = {}
+    flow.metadata["ascnet_original_url"] = flow.request.pretty_url
 
     flow.request.scheme = scheme
     flow.request.host = host
@@ -206,20 +281,26 @@ def request(flow: http.HTTPFlow) -> None:
 
 
 def response(flow: http.HTTPFlow) -> None:
-    _log_flow("RSP", flow)
 
     # TW config was passed through upstream unchanged. Rewrite only the login
     # endpoint URLs to the local target so the client reaches local AscNet,
     # keeping all authoritative metadata (version, channel, CDNs, labels).
-    if not _is_tw_config_request(flow) or flow.response is None:
+    if not (_is_tw_config_request(flow) or _is_cn_config_request(flow)) or flow.response is None or flow.response.status_code != 200:
+        _log_flow("RSP", flow)
         return
 
     body = flow.response.content
     if not body:
+        _log_flow("RSP", flow)
         return
 
     text = body.decode("utf-8", errors="replace")
-    rewritten = _rewrite_tw_config_body(text, _ascnet_origin())
+    rewritten = (_rewrite_cn_config_body if _is_cn_config_request(flow) else _rewrite_tw_config_body)(text, _ascnet_origin())
     if rewritten != text:
         flow.response.content = rewritten.encode("utf-8")
-        _log_flow("TW-CONFIG-REWRITE", flow)
+        _log_flow("CN-CONFIG-REWRITE" if _is_cn_config_request(flow) else "TW-CONFIG-REWRITE", flow)
+    _log_flow("RSP", flow)
+
+
+def error(flow: http.HTTPFlow) -> None:
+    _log_flow("ERROR", flow)
