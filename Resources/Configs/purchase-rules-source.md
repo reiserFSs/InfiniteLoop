@@ -43,17 +43,22 @@ traffic, research dumps or installed client files.
 
 ## Client artwork compatibility
 
-The installed 4.7 client's resource index has no `UiPurchaseV405` bundle.
-Some old icon mappings (including shared artwork and coating covers) still
-resolve, so changing `UIv405_N` to `UIv407_N` is incorrect.
+The installed 4.8 resource index does contain
+`assets/product/texture/image/uipurchase/uipurchasev405.ab`, but that bundle
+only has the PanelRecommend237 textures. It does not contain
+`IconEv58Pay001`–`IconEv58Pay014`, which is what `UIv405_2`–`UIv405_15` name.
+Older shared artwork such as `IconLibaoFiveDay` still resolves, so changing
+`UIv405_N` to `UIv407_N` is incorrect.
 
 `Scripts/patch_local_store.py --catalog` extends the existing reversible
 recharge patch. The shared purchase icon resolver receives the package's reward
 list, keeps available artwork/covers, and resolves the first available reward
 icon through `XGoodsCommonManager.GetGoodsIcon` and the installed resource
-index. Lists, purchase details and recommendation/combo views share this
-resolver. Sold-out/expired overlays clear the ownership overlay on refresh and
-timer transitions. No specific package IDs or image paths are patched.
+index. While preparing, it records the texture paths inside this install's
+purchase image bundles. A folder bundle that is indexed without the named
+texture counts as missing art. Lists, purchase details and recommendation/combo
+views share this resolver. Sold-out/expired overlays clear the ownership
+overlay on refresh and timer transitions. No specific package IDs are patched.
 
 Prepare into a new empty backup directory while retaining any existing recharge
 patch; inspect the manifest, then apply while PGR is closed:
@@ -70,6 +75,21 @@ Client checks (requires `lupa`, plus the patch script dependencies):
 `python -m unittest Scripts.test_store_catalog_patch`. Set `PGR_RESEARCH_LUA`
 to the exported `PGR_DATA/en/lua/matrix` directory to also run syntax checks
 and real list timer/overlay tests against that client version.
+
+## Total Recharge
+
+The installed client's `AccumulatedPayReward.Money` values are rainbow-card
+counts (5, 28, 100, …), the same unit as `Pay.MoneyCard`. A completed
+`ShowUIType` 1 recharge adds that product's `MoneyCard` to the persisted
+total and pushes `NotifyAccumulatedPayData`. `Pay.Amount` is the USD price
+and is not this counter. Giving item 5 with `/item` does not count.
+`GetAccumulatePayRequest` pays the tier's big, small, and extra reward rows
+from those client tables. Earlier recharges were not recorded.
+
+The top-up Popular tab is `PurchaseTabControl` group "Popular". The client
+hides that button unless `NotifyPurchaseRecommendConfig` contains recommend
+rows. Those rows are not in the client tables or the installed recommend
+prefabs, so the push stays empty.
 
 ## Daily reward rules
 

@@ -37,6 +37,29 @@ namespace AscNet.GameServer.Handlers
         public List<RewardGoods> RewardGoodsList { get; set; } = new();
     }
 
+    // The bag sends this when a one-choice gift stack is opened. Each entry is one pack.
+    [MessagePackObject(true)]
+    public class ItemUseMultipleEntry
+    {
+        public int Id;
+        public int RecycleTime;
+        public int Count;
+        public List<int>? SelectRewardIds { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class ItemUseMultipleRequest
+    {
+        public List<ItemUseMultipleEntry>? UseList { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class ItemUseMultipleResponse
+    {
+        public int Code;
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
+    }
+
     [MessagePackObject(true)]
     public class ItemSellRequest
     {
@@ -100,22 +123,50 @@ namespace AscNet.GameServer.Handlers
         public static void ItemUseRequestHandler(Session session, Packet.Request packet)
         {
             ItemUseRequest request = packet.Deserialize<ItemUseRequest>();
-            if (request.Id <= 0 || request.Count <= 0 || request.RecycleTime < 0
-                || request.SelectRewardIds is { Count: > 0 })
+            if (!TryCompleteItemUse(session, request, out RewardApplicationResult? result, out int errorCode))
             {
-                session.SendResponse(new ItemUseResponse { Code = 1 }, packet.Id);
+                session.SendResponse(new ItemUseResponse { Code = errorCode }, packet.Id);
                 return;
             }
+
+            result!.SendPushes(session);
+            session.SendResponse(new ItemUseResponse { RewardGoodsList = result.RewardGoods }, packet.Id);
+        }
+
+        [RequestPacketHandler("ItemUseMultipleRequest")]
+        public static void ItemUseMultipleRequestHandler(Session session, Packet.Request packet)
+        {
+            ItemUseMultipleRequest request = packet.Deserialize<ItemUseMultipleRequest>();
+            if (!TryFlattenItemUses(request.UseList, out ItemUseRequest flattened))
+            {
+                session.SendResponse(new ItemUseMultipleResponse { Code = 1 }, packet.Id);
+                return;
+            }
+            if (!TryCompleteItemUse(session, flattened, out RewardApplicationResult? result, out int errorCode))
+            {
+                session.SendResponse(new ItemUseMultipleResponse { Code = errorCode }, packet.Id);
+                return;
+            }
+
+            result!.SendPushes(session);
+            session.SendResponse(new ItemUseMultipleResponse { RewardGoodsList = result.RewardGoods }, packet.Id);
+        }
+
+        private static bool TryCompleteItemUse(Session session, ItemUseRequest request,
+            out RewardApplicationResult? result, out int errorCode)
+        {
+            result = null;
+            errorCode = 1;
+            if (request.Id <= 0 || request.Count <= 0 || request.RecycleTime < 0)
+                return false;
 
             ItemUsePendingOperation? pending = session.player.PendingItemUse;
             if (pending is not null)
             {
                 if (pending.ItemId != request.Id || pending.Count != request.Count
-                    || pending.RecycleTime != request.RecycleTime)
-                {
-                    session.SendResponse(new ItemUseResponse { Code = 1 }, packet.Id);
-                    return;
-                }
+                    || pending.RecycleTime != request.RecycleTime
+                    || !SameSelection(pending.SelectRewardIds, request.SelectRewardIds))
+                    return false;
             }
             else
             {
@@ -123,11 +174,12 @@ namespace AscNet.GameServer.Handlers
                 List<Item> stacks = session.inventory.Items.Where(row => row.Id == request.Id).ToList();
                 if (item is null || stacks.Count != 1 || stacks[0].Count < request.Count
                     || stacks[0].Count > Inventory.GetMaxCount(item)
-                    || !TryBuildItemUseRewards(item, request.Count, out List<RewardGoodsTable> goods)
-                    || !CanApplyItemUseGoods(session, request.Id, request.Count, goods))
+                    || !TryBuildItemUseRewards(item, request.Count, request.SelectRewardIds, out List<RewardGoodsTable> goods))
+                    return false;
+                if (!CanApplyItemUseGoods(session, request.Id, request.Count, goods))
                 {
-                    session.SendResponse(new ItemUseResponse { Code = 1 }, packet.Id);
-                    return;
+                    errorCode = 20012005;
+                    return false;
                 }
 
                 pending = new ItemUsePendingOperation
@@ -136,6 +188,7 @@ namespace AscNet.GameServer.Handlers
                     ItemId = request.Id,
                     Count = request.Count,
                     RecycleTime = request.RecycleTime,
+                    SelectRewardIds = request.SelectRewardIds is { Count: > 0 } selected ? selected.ToList() : [],
                     Goods = goods.Select(row => new ItemUsePendingReward
                     {
                         Id = row.Id, TemplateId = row.TemplateId, Count = row.Count,
@@ -151,9 +204,60 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            RewardApplicationResult result = CompletePendingItemUse(session);
-            result.SendPushes(session);
-            session.SendResponse(new ItemUseResponse { RewardGoodsList = result.RewardGoods }, packet.Id);
+            result = CompletePendingItemUse(session);
+            return true;
+        }
+
+        // One entry's single RewardGoods id covers that entry's count. Mixed item ids are rejected;
+        // the replicated choice panel sends one item.
+        private static bool TryFlattenItemUses(IReadOnlyList<ItemUseMultipleEntry>? uses, out ItemUseRequest request)
+        {
+            request = new ItemUseRequest();
+            if (uses is null || uses.Count == 0)
+                return false;
+
+            int id = uses[0].Id;
+            int recycleTime = uses[0].RecycleTime;
+            long count = 0;
+            List<int>? selected = null;
+            foreach (ItemUseMultipleEntry entry in uses)
+            {
+                int selectedCount = entry.SelectRewardIds?.Count ?? 0;
+                if (entry.Id != id || entry.RecycleTime != recycleTime
+                    || entry.Id <= 0 || entry.Count <= 0 || entry.RecycleTime < 0
+                    || (selectedCount != 0 && selectedCount != 1 && selectedCount != entry.Count))
+                    return false;
+                try { count = checked(count + entry.Count); }
+                catch (OverflowException) { return false; }
+
+                if (selectedCount == 0)
+                {
+                    if (selected is { Count: > 0 })
+                        return false;
+                    selected ??= [];
+                }
+                else
+                {
+                    if (selected is not null && selected.Count == 0)
+                        return false;
+                    selected ??= [];
+                    if (selectedCount == 1)
+                    {
+                        for (int index = 0; index < entry.Count; index++)
+                            selected.Add(entry.SelectRewardIds![0]);
+                    }
+                    else
+                        selected.AddRange(entry.SelectRewardIds!);
+                }
+            }
+
+            if (count <= 0 || count > int.MaxValue)
+                return false;
+            request.Id = id;
+            request.RecycleTime = recycleTime;
+            request.Count = (int)count;
+            request.SelectRewardIds = selected is { Count: > 0 } ? selected : null;
+            return true;
         }
 
         public static void ResumePendingItemUse(Session session)
@@ -444,13 +548,29 @@ namespace AscNet.GameServer.Handlers
             return true;
         }
 
-        private static bool TryBuildItemUseRewards(ItemTable item, int count, out List<RewardGoodsTable> goods)
+        private static bool SameSelection(IReadOnlyList<int>? pending, IReadOnlyList<int>? requested)
+        {
+            int pendingCount = pending?.Count ?? 0;
+            int requestedCount = requested?.Count ?? 0;
+            if (pendingCount != requestedCount)
+                return false;
+            for (int index = 0; index < pendingCount; index++)
+                if (pending![index] != requested![index])
+                    return false;
+            return true;
+        }
+
+        private static bool TryBuildItemUseRewards(ItemTable item, int count, IReadOnlyList<int>? selectedIds,
+            out List<RewardGoodsTable> goods)
         {
             goods = [];
             if (item.ItemType != (int)AscNet.Common.ItemType.Gift || item.SubTypeParams.Count < 2)
                 return false;
 
             int sourceId = item.SubTypeParams[1];
+            // A selection is only valid for a choice pack. Other gifts keep rejecting it.
+            if (item.SubTypeParams[0] != 3 && selectedIds is { Count: > 0 })
+                return false;
             switch (item.SubTypeParams[0])
             {
                 case 1:
@@ -474,6 +594,22 @@ namespace AscNet.GameServer.Handlers
                     return true;
                 case 2:
                 case 6:
+                    if (ConstructResearchFortuneBagPolicy.Applies(sourceId))
+                    {
+                        if (!ConstructResearchFortuneBagPolicy.TryGrant(count, out RewardGoodsTable ticket)
+                            || RewardHandler.GetRewardType(ticket) is null)
+                            return false;
+                        goods.Add(ticket);
+                        return true;
+                    }
+                    if (AffectionGiftBoxPolicy.Applies(sourceId))
+                    {
+                        if (!AffectionGiftBoxPolicy.TryGrant(sourceId, count, out List<RewardGoodsTable> affection)
+                            || affection.Any(row => RewardHandler.GetRewardType(row) is null))
+                            return false;
+                        goods.AddRange(affection);
+                        return true;
+                    }
                     if (!EquipmentOverclockDropPolicy.TryResolve(sourceId,
                             out IReadOnlyList<RewardGoodsTable> pool, out int countPerBox)
                         || (long)count * countPerBox > int.MaxValue)
@@ -489,6 +625,63 @@ namespace AscNet.GameServer.Handlers
                         TemplateId = entry.Key, Count = entry.Value, Params = []
                     }));
                     return true;
+                case 3:
+                    // Authored choice packs select exactly one reward-goods id per box.
+                    if (item.SubTypeParams.Count < 3 || item.SubTypeParams[2] != 1)
+                        return false;
+                    int selectedCount = selectedIds?.Count ?? 0;
+                    bool oneChoice = selectedCount == 1;
+                    if (selectedCount == 0 || (!oneChoice && selectedCount != count))
+                        return false;
+                    RewardTable? choice = TableReaderV2.Parse<RewardTable>().Find(row => row.Id == sourceId);
+                    List<RewardGoodsTable> options = RewardHandler.GetRewardGoods(sourceId);
+                    if (choice is null || options.Count == 0 || choice.SubIds.Count != options.Count)
+                        return false;
+                    Dictionary<int, RewardGoodsTable> optionsById = new();
+                    foreach (RewardGoodsTable option in options)
+                        if (!optionsById.TryAdd(option.Id, option))
+                            return false;
+                    IEnumerable<int> picks = oneChoice
+                        ? Enumerable.Repeat(selectedIds![0], count)
+                        : selectedIds!;
+                    foreach (int selectedId in picks)
+                    {
+                        if (!optionsById.TryGetValue(selectedId, out RewardGoodsTable? row)
+                            || !choice.SubIds.Contains(selectedId)
+                            || row.Count <= 0)
+                            return false;
+                        RewardType? rewardType = RewardHandler.GetRewardType(row);
+                        if (rewardType is null)
+                            return false;
+                        // Item stacks combine. A frame stays one grant per pack so a duplicate
+                        // converts into that frame's shards instead of being dropped.
+                        if (rewardType == RewardType.Item)
+                        {
+                            RewardGoodsTable? stacked = goods.Find(good => good.Id == row.Id && good.TemplateId == row.TemplateId);
+                            long total = (long)(stacked?.Count ?? 0) + row.Count;
+                            if (total > int.MaxValue)
+                                return false;
+                            if (stacked is null)
+                            {
+                                goods.Add(new RewardGoodsTable
+                                {
+                                    Id = row.Id, TemplateId = row.TemplateId, Count = (int)total,
+                                    Params = row.Params.ToList()
+                                });
+                            }
+                            else
+                                stacked.Count = (int)total;
+                        }
+                        else
+                        {
+                            goods.Add(new RewardGoodsTable
+                            {
+                                Id = row.Id, TemplateId = row.TemplateId, Count = row.Count,
+                                Params = row.Params.ToList()
+                            });
+                        }
+                    }
+                    return goods.Count > 0;
                 default:
                     return false;
             }
@@ -502,6 +695,11 @@ namespace AscNet.GameServer.Handlers
                          .GroupBy(row => row.TemplateId))
             {
                 ItemTable? item = TableReaderV2.Parse<ItemTable>().Find(row => row.Id == group.Key);
+                // A weapon coating is a fashion unlock. The bag row is not the grant, so a coating
+                // already held at MaxCount 1 must not reject the choice.
+                if (item?.ItemType == (int)AscNet.Common.ItemType.WeaponFashion
+                    && RewardHandler.TryResolveWeaponFashionReward(group.Key, out _))
+                    continue;
                 List<Item> stacks = session.inventory.Items.Where(row => row.Id == group.Key).ToList();
                 if (item is null || stacks.Count > 1 || stacks.Any(row => row.Count < 0))
                     return false;

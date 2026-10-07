@@ -51,7 +51,18 @@ For all game-protocol work:
 
 ## Build, run, and test
 
-Prerequisites documented by the repository are .NET SDK 8, MongoDB at `127.0.0.1:27017` (or `mongod` for the runner), Python 3.10+, and mitmproxy/mitmdump for bridge mode.
+When `nix` is available, use `nix develop` in this repo for server builds, tests, and the Windows launcher. Do not wrap those commands in `nix shell`. `.envrc` loads that shell through direnv. The shell is nixos-unstable and provides the .NET 8 SDK, Python 3, mitmproxy, MongoDB, Rust 1.92, and the MinGW linker for `x86_64-pc-windows-gnu`.
+
+Without Nix, the prerequisites are the .NET 8 SDK, MongoDB at `127.0.0.1:27017` (or `mongod` for the runner), Python 3.10+, and mitmproxy/mitmdump for bridge mode.
+
+The launcher is a Windows program. `nix build` produces `result/AscNetLauncher.zip` (the seven-file archive the updater accepts). `nix build .#ascnet-launcher` produces `result/bin/ascnet-launcher.exe`. There is no Linux launcher build. From the dev shell, pass the Windows target explicitly. The shell does not set `CARGO_BUILD_TARGET`.
+
+The zip's `background.bmp`, `background.mp4`, and `background.wav` are the only files taken from the latest published `AscNetLauncher.zip`. That download has no hash, so `nix build` needs impure evaluation (`--impure`, or the flake's accepted `pure-eval = false`). The executable, `launcher.json`, `setup-local.ps1`, and `supported-client.json` come from this tree.
+
+```bash
+cargo build --manifest-path AscNet.Launcher/Cargo.toml --target x86_64-pc-windows-gnu --release
+cargo build --manifest-path AscNet.Patch/Cargo.toml --target x86_64-pc-windows-gnu --release
+```
 
 ```bash
 # Run the server after MongoDB is available
@@ -80,6 +91,9 @@ Focused harness switches are defined in `AscNet.Test/Program.cs`; `README.md` co
 ## Change discipline
 
 - Put game TCP behavior in `AscNet.GameServer/`, HTTP-facing behavior in `AscNet.SDKServer/`, and shared schemas/state/database concerns in `AscNet.Common/`; follow the existing module near the behavior being changed.
+- When a change affects an item id — what the bag does with it, what spends it, its stack cap, a gift subtype, a shop consume, a mode currency, or the name the player sees — update `Docs/items.md` in the same change. Use the player-facing name when it differs from `Item.tsv`. Item 105 is Simulation Score; item 62738 is not that score.
+- Each construct has their own precious affection gift. Precious Gift Box 40693 includes every quality-5 `FavorGift` that is also a `CharacterTrustItem` row. On each client patch, account for every new gift id in the 40693 row and the Gifts table in `Docs/items.md`, in `Docs/closed.md`, and in the expected pool in `AscNet.Test/Program.AutoUseGift.cs`. The current ids are 40601–40645, and that range does not stay valid just because it is contiguous. Quality 6 gifts 40800–40811 are not this box. Normal and Fine boxes stay the shared gifts 40681–40684.
+- Surfaces left closed because a drop table, pity law, shop catalog, or mode table is missing are listed in `Docs/closed.md`. A `Reward.tsv` row that only shares an id is not that surface's contents. Do not fill the gap with an invented pool or weight.
 - Keep nullable-reference handling compatible with the .NET 8 runtime projects, which enable nullable references and implicit usings; do not assume the legacy parser shares their framework or project conventions.
 - For protocol changes, test observable request/state-to-response behavior rather than implementation details. Include distinct-input coverage for any derived fields.
 - Do not commit packet captures of any kind. Also do not commit `.runtime/`, MongoDB files, proxy flow logs, `bin/`, `obj/`, client binaries, runtime logs, or captured credentials.

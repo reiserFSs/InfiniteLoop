@@ -10,17 +10,6 @@ namespace AscNet.GameServer.Handlers
 {
     internal partial class AccountModule
     {
-        private static NotifyAccumulatedPayData BuildCurrentAccumulatedPayData()
-        {
-            return new()
-            {
-                PayId = 1,
-                PayMoney = 0f,
-                PayRewardIds = [],
-                ExtraPayRewardIds = []
-            };
-        }
-
         private static Dictionary<string, object?> BuildNewActivityCalendarPayload() =>
             BuildNewActivityCalendarPayload(DateTimeOffset.UtcNow);
 

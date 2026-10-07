@@ -236,7 +236,10 @@ unsafe fn handle_login(hwnd: HWND) {
 
     match client::login(&username, &password) {
         Ok(session) => {
-            finish_login(session);
+            if !finish_login(session) {
+                MessageBoxW(hwnd, w!("Login failed"), w!("Error"), MB_OK | MB_ICONERROR);
+                return;
+            }
 
             MessageBoxW(
                 hwnd,

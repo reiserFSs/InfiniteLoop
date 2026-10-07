@@ -1449,7 +1449,7 @@ namespace AscNet.GameServer.Handlers
             SendEmptyStartupPush(session, "NotifyLoginItemCollectionData");
             session.SendPush(BigWorld.BigWorldModule.BuildMainRedPoint(session.player));
             session.SendPush(BigWorld.BigWorldModule.BuildExternalRequiredPlayerData(session.player));
-            session.SendPush(BuildCurrentAccumulatedPayData());
+            session.SendPush(PayModule.BuildAccumulatedPayData(session.player));
             SendEmptyStartupPush(session, "NotifyAccumulateExpendData");
             if (arenaResult is not null)
                 session.SendPush(arenaResult);

@@ -1,12 +1,25 @@
 -- AscNet server-owned purchase catalog icons
 -- Keep original artwork when the installed client can resolve it. Package IDs,
 -- reward IDs and asset paths are supplied by the catalog and client tables.
+-- patch_local_store.py replaces this nil with the textures actually inside
+-- the installed purchase image bundles. A folder bundle can be indexed while
+-- the texture the icon table names was never shipped.
+AscNetPurchaseBundleAssets = nil
 local AscNetPurchaseAssetAvailable = {}
 local function AscNetHasPurchaseAsset(path)
     if not path or path == "" then return false end
     if AscNetPurchaseAssetAvailable[path] == nil then
         local bundle = CS.XResourceManager.GetBundleUrl(path)
-        AscNetPurchaseAssetAvailable[path] = bundle ~= nil and bundle ~= ""
+        local available = bundle ~= nil and bundle ~= ""
+        if available and AscNetPurchaseBundleAssets then
+            local lower = string.lower(path)
+            local folder = string.match(lower, "^(.*)/[^/]+$")
+            local listed = folder and AscNetPurchaseBundleAssets[folder .. ".ab"]
+            if listed then
+                available = listed[lower] == true
+            end
+        end
+        AscNetPurchaseAssetAvailable[path] = available
     end
     return AscNetPurchaseAssetAvailable[path]
 end

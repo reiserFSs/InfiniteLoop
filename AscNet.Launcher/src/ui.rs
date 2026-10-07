@@ -73,6 +73,9 @@ const ID_FPS_UNIT: i32 = 135;
 const ID_STATUS_LINE: i32 = 136;
 const ID_NOFADE: i32 = 137;
 const ID_NOFADE_LABEL: i32 = 138;
+/// Settings action. The home button becomes PLAY after setup succeeds, so this
+/// is the way to run that same setup again.
+const ID_RERUN_SETUP: i32 = 139;
 const CENTERED_EDIT_HEIGHT: i32 = 22;
 const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -1065,6 +1068,17 @@ unsafe fn create_controls(hwnd: HWND, state: &Window) {
     control(
         hwnd,
         w!("BUTTON"),
+        w!("Re-run &setup"),
+        WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE((BS_OWNERDRAW | BS_FLAT) as u32),
+        ID_RERUN_SETUP,
+        0,
+        0,
+        0,
+        0,
+    );
+    control(
+        hwnd,
+        w!("BUTTON"),
         w!("FPS &unlock"),
         WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_AUTOCHECKBOX as u32),
         ID_FPS_ENABLED,
@@ -1233,6 +1247,7 @@ unsafe fn create_controls(hwnd: HWND, state: &Window) {
         (ID_CHECK, state.body_font),
         (ID_ACTION, state.heading_font),
         (ID_RESTORE, state.body_font),
+        (ID_RERUN_SETUP, state.body_font),
         (ID_PLAY, state.heading_font),
         (ID_SETTINGS, state.label_font),
         (ID_MINIMIZE, state.heading_font),
@@ -1272,6 +1287,7 @@ unsafe fn create_controls(hwnd: HWND, state: &Window) {
         ID_CHECK,
         ID_ACTION,
         ID_RESTORE,
+        ID_RERUN_SETUP,
         ID_PLAY,
         ID_SETTINGS,
         ID_MINIMIZE,
@@ -1288,6 +1304,7 @@ unsafe fn create_controls(hwnd: HWND, state: &Window) {
         ID_BROWSE,
         ID_CHECK,
         ID_RESTORE,
+        ID_RERUN_SETUP,
         ID_ACTION,
         ID_PLAY,
         ID_FPS_ENABLED,
@@ -1405,6 +1422,7 @@ unsafe fn layout(hwnd: HWND, width: i32, height: i32, settings: bool, client: bo
         ID_PATH,
         ID_BROWSE,
         ID_RESTORE,
+        ID_RERUN_SETUP,
         client::ID_OPEN,
         ID_FPS_ENABLED,
         ID_FPS_VALUE_FIELD,
@@ -1482,13 +1500,16 @@ unsafe fn layout(hwnd: HWND, width: i32, height: i32, settings: bool, client: bo
             40,
             true,
         );
-        let third = (settings_content - 32) / 3;
-        for (index, id) in [ID_CHECK, ID_RESTORE, client::ID_OPEN].into_iter().enumerate() {
+        let button_width = (settings_content - 48) / 4;
+        for (index, id) in [ID_CHECK, ID_RESTORE, ID_RERUN_SETUP, client::ID_OPEN]
+            .into_iter()
+            .enumerate()
+        {
             let _ = MoveWindow(
                 GetDlgItem(hwnd, id),
-                settings_x + index as i32 * (third + 16),
+                settings_x + index as i32 * (button_width + 16),
                 top + 138,
-                third,
+                button_width,
                 42,
                 true,
             );
@@ -1875,7 +1896,7 @@ unsafe fn command(hwnd: HWND, state: &mut Window, id: i32, notification: u16) {
                 start_refresh(hwnd, true, false)
             }
         }
-        ID_ACTION => {
+        ID_ACTION | ID_RERUN_SETUP => {
             if commit_inputs(hwnd, state)
                 && MessageBoxW(
                     hwnd,
@@ -2415,6 +2436,7 @@ unsafe fn update_view(hwnd: HWND, model: &Arc<Mutex<Model>>) {
     );
     let services = runtime || stopping;
     set_enabled(hwnd, ID_ACTION, !busy && !services);
+    set_enabled(hwnd, ID_RERUN_SETUP, !busy && !services);
     set_enabled(hwnd, ID_RESTORE, !busy && !stopping && can_restore);
     set_enabled(hwnd, ID_PLAY, !busy && can_launch);
     set_text(
@@ -2665,6 +2687,7 @@ unsafe fn set_busy(hwnd: HWND, busy: bool, _text: &str) {
         ID_CHECK,
         ID_ACTION,
         ID_RESTORE,
+        ID_RERUN_SETUP,
         ID_PLAY,
         ID_HOME_ACTION,
         ID_FPS_ENABLED,

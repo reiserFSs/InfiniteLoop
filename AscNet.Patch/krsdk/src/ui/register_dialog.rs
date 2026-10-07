@@ -239,7 +239,15 @@ unsafe fn handle_register(hwnd: HWND) {
 
     match client::register(&username, &password) {
         Ok(session) => {
-            finish_login(session);
+            if !finish_login(session) {
+                MessageBoxW(
+                    hwnd,
+                    w!("Registration failed"),
+                    w!("Error"),
+                    MB_OK | MB_ICONERROR,
+                );
+                return;
+            }
             MessageBoxW(
                 hwnd,
                 w!("Registration successful"),
