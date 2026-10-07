@@ -37,6 +37,29 @@ namespace AscNet.GameServer.Handlers
         public List<RewardGoods> RewardGoodsList { get; set; } = new();
     }
 
+    // The bag sends this when a one-choice gift stack is opened. Each entry is one pack.
+    [MessagePackObject(true)]
+    public class ItemUseMultipleEntry
+    {
+        public int Id;
+        public int RecycleTime;
+        public int Count;
+        public List<int>? SelectRewardIds { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class ItemUseMultipleRequest
+    {
+        public List<ItemUseMultipleEntry>? UseList { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class ItemUseMultipleResponse
+    {
+        public int Code;
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
+    }
+
     [MessagePackObject(true)]
     public class ItemSellRequest
     {
@@ -100,11 +123,36 @@ namespace AscNet.GameServer.Handlers
         public static void ItemUseRequestHandler(Session session, Packet.Request packet)
         {
             ItemUseRequest request = packet.Deserialize<ItemUseRequest>();
-            if (request.Id <= 0 || request.Count <= 0 || request.RecycleTime < 0)
+            if (!TryCompleteItemUse(session, request, out RewardApplicationResult? result))
             {
                 session.SendResponse(new ItemUseResponse { Code = 1 }, packet.Id);
                 return;
             }
+
+            result!.SendPushes(session);
+            session.SendResponse(new ItemUseResponse { RewardGoodsList = result.RewardGoods }, packet.Id);
+        }
+
+        [RequestPacketHandler("ItemUseMultipleRequest")]
+        public static void ItemUseMultipleRequestHandler(Session session, Packet.Request packet)
+        {
+            ItemUseMultipleRequest request = packet.Deserialize<ItemUseMultipleRequest>();
+            if (!TryFlattenItemUses(request.UseList, out ItemUseRequest flattened)
+                || !TryCompleteItemUse(session, flattened, out RewardApplicationResult? result))
+            {
+                session.SendResponse(new ItemUseMultipleResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            result!.SendPushes(session);
+            session.SendResponse(new ItemUseMultipleResponse { RewardGoodsList = result.RewardGoods }, packet.Id);
+        }
+
+        private static bool TryCompleteItemUse(Session session, ItemUseRequest request, out RewardApplicationResult? result)
+        {
+            result = null;
+            if (request.Id <= 0 || request.Count <= 0 || request.RecycleTime < 0)
+                return false;
 
             ItemUsePendingOperation? pending = session.player.PendingItemUse;
             if (pending is not null)
@@ -112,10 +160,7 @@ namespace AscNet.GameServer.Handlers
                 if (pending.ItemId != request.Id || pending.Count != request.Count
                     || pending.RecycleTime != request.RecycleTime
                     || !SameSelection(pending.SelectRewardIds, request.SelectRewardIds))
-                {
-                    session.SendResponse(new ItemUseResponse { Code = 1 }, packet.Id);
-                    return;
-                }
+                    return false;
             }
             else
             {
@@ -125,10 +170,7 @@ namespace AscNet.GameServer.Handlers
                     || stacks[0].Count > Inventory.GetMaxCount(item)
                     || !TryBuildItemUseRewards(item, request.Count, request.SelectRewardIds, out List<RewardGoodsTable> goods)
                     || !CanApplyItemUseGoods(session, request.Id, request.Count, goods))
-                {
-                    session.SendResponse(new ItemUseResponse { Code = 1 }, packet.Id);
-                    return;
-                }
+                    return false;
 
                 pending = new ItemUsePendingOperation
                 {
@@ -152,9 +194,60 @@ namespace AscNet.GameServer.Handlers
                 }
             }
 
-            RewardApplicationResult result = CompletePendingItemUse(session);
-            result.SendPushes(session);
-            session.SendResponse(new ItemUseResponse { RewardGoodsList = result.RewardGoods }, packet.Id);
+            result = CompletePendingItemUse(session);
+            return true;
+        }
+
+        // One entry's single RewardGoods id covers that entry's count. Mixed item ids are rejected;
+        // the replicated choice panel sends one item.
+        private static bool TryFlattenItemUses(IReadOnlyList<ItemUseMultipleEntry>? uses, out ItemUseRequest request)
+        {
+            request = new ItemUseRequest();
+            if (uses is null || uses.Count == 0)
+                return false;
+
+            int id = uses[0].Id;
+            int recycleTime = uses[0].RecycleTime;
+            long count = 0;
+            List<int>? selected = null;
+            foreach (ItemUseMultipleEntry entry in uses)
+            {
+                int selectedCount = entry.SelectRewardIds?.Count ?? 0;
+                if (entry.Id != id || entry.RecycleTime != recycleTime
+                    || entry.Id <= 0 || entry.Count <= 0 || entry.RecycleTime < 0
+                    || (selectedCount != 0 && selectedCount != 1 && selectedCount != entry.Count))
+                    return false;
+                try { count = checked(count + entry.Count); }
+                catch (OverflowException) { return false; }
+
+                if (selectedCount == 0)
+                {
+                    if (selected is { Count: > 0 })
+                        return false;
+                    selected ??= [];
+                }
+                else
+                {
+                    if (selected is not null && selected.Count == 0)
+                        return false;
+                    selected ??= [];
+                    if (selectedCount == 1)
+                    {
+                        for (int index = 0; index < entry.Count; index++)
+                            selected.Add(entry.SelectRewardIds![0]);
+                    }
+                    else
+                        selected.AddRange(entry.SelectRewardIds!);
+                }
+            }
+
+            if (count <= 0 || count > int.MaxValue)
+                return false;
+            request.Id = id;
+            request.RecycleTime = recycleTime;
+            request.Count = (int)count;
+            request.SelectRewardIds = selected is { Count: > 0 } ? selected : null;
+            return true;
         }
 
         public static void ResumePendingItemUse(Session session)

@@ -192,7 +192,7 @@ The crystal bill is 50,000 Cogs, Hypertune Crystal α (70001) ×480, and Hypertu
 
 ## Consumables
 
-The server opens fixed gifts (subtype 1 or 5), random pools (subtype 2 or 6), and choice packs (subtype 3) through `ItemUseRequest`. A choice pack needs `SelectRewardIds`: the `RewardGoods` ids of its reward. One id applies to every pack in the stack, or send one id per pack. Every authored choice pack asks for one reward. Open the pack from Items after granting it. Direct Serum (4) and Cogs (1) remain direct grants. These packs do open:
+The server opens fixed gifts (subtype 1 or 5), random pools (subtype 2 or 6), and choice packs (subtype 3). A choice pack needs `SelectRewardIds`: the `RewardGoods` ids of its reward. One id applies to every pack in the stack, or send one id per pack. Every authored choice pack asks for one reward. One copy uses `ItemUseRequest`. A stack of a one-choice pack is what the bag sends as `ItemUseMultipleRequest`: one entry per pack, each with that pack's `RewardGoods` id. Open the pack from Items after granting it. Direct Serum (4) and Cogs (1) remain direct grants. These packs do open:
 
 | ID | Name | Opens into |
 | --- | --- | --- |
@@ -209,6 +209,9 @@ The server opens fixed gifts (subtype 1 or 5), random pools (subtype 2 or 6), an
 | 40691 | Normal Gift Box | Random normal gift |
 | 40692 | Fine Gift Box | Random fine gift |
 | 40693 | Precious Gift Box | Random precious gift |
+| 400076, 400078–400082 | Tactical Assessment Manual Weapon Coating Choice I–VI | One weapon coating from that pack's reward |
+| 40913 | Accumulated Top-up Weapon Coating Choice | One weapon coating from reward 1306 |
+| 40905–40908, 40914–40916, 40918–40925 | Assessment Manual Shard Choice | One inver-shard from that pack's reward |
 | 40904 | Character Upgrade Material Pack | 6★ shards, overclock mats, enhancers, EXP Pod (XL), Skill Points, Cogs |
 | 40909 | Memory Upgrade Material Pack | Memory upgrade set |
 | 40910 | Weapon Upgrade Material Pack | Weapon upgrade set |

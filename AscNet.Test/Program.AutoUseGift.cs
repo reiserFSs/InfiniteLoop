@@ -237,6 +237,156 @@ internal static partial class Program
             AssertEqual(0L, Balance(h, 40901), "Shard pick consumes the packs");
         }
 
+        int[] coatingChoices = [400076, 400078, 400079, 400080, 400081, 400082, 40913];
+        int[] shardChoices = [40905, 40906, 40907, 40908, 40914, 40915, 40916, 40918, 40919, 40920, 40921, 40922, 40923, 40924, 40925];
+        foreach (int choiceId in coatingChoices.Concat(shardChoices))
+        {
+            ItemTable choice = items[choiceId];
+            AssertEqual(3, choice.SubTypeParams[0], $"{choiceId} is a choice pack");
+            AssertEqual(1, choice.SubTypeParams[2], $"{choiceId} selects one reward");
+            RewardTable choiceReward = rewardRows[choice.SubTypeParams[1]];
+            AssertEqual(true, choiceReward.SubIds.Count > 0 && choiceReward.SubIds.All(goodsRows.ContainsKey),
+                $"{choiceId} reward goods exist");
+            foreach (int subId in choiceReward.SubIds)
+            {
+                RewardGoodsTable option = goodsRows[subId];
+                ItemTable granted = items[option.TemplateId];
+                if (coatingChoices.Contains(choiceId))
+                {
+                    AssertEqual((int)AscNet.Common.ItemType.WeaponFashion, granted.ItemType,
+                        $"{choiceId} option {subId} is a weapon coating");
+                    AssertEqual(true, granted.SubTypeParams.Count > 0 && granted.SubTypeParams[0] > 0,
+                        $"{choiceId} coating maps to a fashion id");
+                }
+                else
+                {
+                    AssertEqual((int)AscNet.Common.ItemType.Fragment, granted.ItemType,
+                        $"{choiceId} option {subId} is an inver-shard");
+                }
+            }
+        }
+
+        RewardGoodsTable firstCoating = goodsRows[rewardRows[items[400076].SubTypeParams[1]].SubIds[0]];
+        RewardGoodsTable secondCoating = goodsRows[rewardRows[items[400076].SubTypeParams[1]].SubIds[1]];
+        RewardGoodsTable firstShard = goodsRows[rewardRows[items[40905].SubTypeParams[1]].SubIds[0]];
+        int firstFashion = items[firstCoating.TemplateId].SubTypeParams[0];
+        int secondFashion = items[secondCoating.TemplateId].SubTypeParams[0];
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 400076, Count = 1 }]), "coating-one"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id]
+            });
+            AssertEqual(0, response.Code, "One weapon coating choice succeeds");
+            AssertEqual($"{firstCoating.Id}:{firstCoating.TemplateId}:{firstCoating.Count}",
+                string.Join(";", response.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "One weapon coating choice returns the selected coating");
+            AssertEqual((int)RewardType.Item, response.RewardGoodsList.Single().RewardType, "Coating choice response type");
+            AssertEqual(true, h.Session.character.WeaponFashions.Any(fashion => fashion.Id == firstFashion && fashion.ExpireTime == 0),
+                "One weapon coating choice unlocks the fashion");
+            AssertEqual(0L, Balance(h, 400076), "One weapon coating choice consumes the pack");
+            AssertEqual(0L, Balance(h, firstCoating.TemplateId), "A coating choice does not leave the coating item in the bag");
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 400076, Count = 2 }, new Item { Id = 40905, Count = 2 }]),
+            "choice-stack"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseMultipleResponse coatings = OpenMultiple(h, new ItemUseMultipleRequest
+            {
+                UseList =
+                [
+                    new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id] },
+                    new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [secondCoating.Id] }
+                ]
+            });
+            AssertEqual(0, coatings.Code, "A coating stack opens through ItemUseMultipleRequest");
+            AssertEqual($"{firstCoating.Id}:{firstCoating.TemplateId}:{firstCoating.Count};{secondCoating.Id}:{secondCoating.TemplateId}:{secondCoating.Count}",
+                string.Join(";", coatings.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "A coating stack keeps each selected coating");
+            AssertEqual(true, h.Session.character.WeaponFashions.Any(fashion => fashion.Id == firstFashion)
+                && h.Session.character.WeaponFashions.Any(fashion => fashion.Id == secondFashion),
+                "A coating stack unlocks both fashions");
+            AssertEqual(0L, Balance(h, 400076), "A coating stack consumes both packs");
+
+            ItemUseMultipleResponse shards = OpenMultiple(h, new ItemUseMultipleRequest
+            {
+                UseList =
+                [
+                    new ItemUseMultipleEntry { Id = 40905, Count = 1, SelectRewardIds = [firstShard.Id] },
+                    new ItemUseMultipleEntry { Id = 40905, Count = 1, SelectRewardIds = [firstShard.Id] }
+                ]
+            });
+            AssertEqual(0, shards.Code, "A shard stack opens through ItemUseMultipleRequest");
+            AssertEqual($"{firstShard.Id}:{firstShard.TemplateId}:{2 * firstShard.Count}",
+                string.Join(";", shards.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "A shard stack adds both copies");
+            AssertEqual(2L * firstShard.Count, Balance(h, firstShard.TemplateId), "A shard stack grants both shards");
+            AssertEqual(0L, Balance(h, 40905), "A shard stack consumes both packs");
+
+            RejectMultipleUnchanged(h, new ItemUseMultipleRequest());
+            RejectMultipleUnchanged(h, new ItemUseMultipleRequest
+            {
+                UseList = [new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id] }]
+            });
+            RejectMultipleUnchanged(h, new ItemUseMultipleRequest
+            {
+                UseList =
+                [
+                    new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id] },
+                    new ItemUseMultipleEntry { Id = 40905, Count = 1, SelectRewardIds = [firstShard.Id] }
+                ]
+            });
+            RejectMultipleUnchanged(h, new ItemUseMultipleRequest
+            {
+                UseList = [new ItemUseMultipleEntry { Id = 40905, Count = 1, SelectRewardIds = [1] }]
+            });
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 400076, Count = 2 }]), "coating-pending"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            h.Session.player.PendingItemUse = new ItemUsePendingOperation
+            {
+                ClaimKey = $"item-use:{uid}:coating",
+                ItemId = 400076,
+                Count = 2,
+                SelectRewardIds = [firstCoating.Id, secondCoating.Id],
+                Goods = [PendingGood(firstCoating), PendingGood(secondCoating)]
+            };
+            RejectMultipleUnchanged(h, new ItemUseMultipleRequest
+            {
+                UseList =
+                [
+                    new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id] },
+                    new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id] }
+                ]
+            });
+            ItemUseMultipleResponse resumed = OpenMultiple(h, new ItemUseMultipleRequest
+            {
+                UseList =
+                [
+                    new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id] },
+                    new ItemUseMultipleEntry { Id = 400076, Count = 1, SelectRewardIds = [secondCoating.Id] }
+                ]
+            });
+            AssertEqual(0, resumed.Code, "Matching coating stack retry succeeds");
+            AssertEqual(true, h.Session.character.WeaponFashions.Any(fashion => fashion.Id == firstFashion)
+                && h.Session.character.WeaponFashions.Any(fashion => fashion.Id == secondFashion),
+                "Matching coating stack retry unlocks the stored coatings");
+            AssertEqual(true, h.Session.player.PendingItemUse is null, "Matching coating stack retry clears pending");
+        }
+
         foreach (ItemUseRequest request in new ItemUseRequest[]
         {
             new() { Id = 94008, Count = 1 },
@@ -458,6 +608,54 @@ internal static partial class Program
             AssertEqual(true, response is not null, "Choice gift returns a response");
             AssertNoAvailablePacket(h, "Choice gift has no extra packets");
             return response!;
+        }
+
+        ItemUseMultipleResponse OpenMultiple(LoopbackSessionHarness h, ItemUseMultipleRequest request)
+        {
+            int id = ++packetId;
+            InvokeRegisteredRequestHandler(nameof(ItemUseMultipleRequest), h.Session, id, request);
+            ItemUseMultipleResponse? response = null;
+            for (int index = 0; index < 32; index++)
+            {
+                Packet packet = h.ReadPacket("Multiple gift packet");
+                if (packet.Type == Packet.ContentType.Push)
+                {
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    if (push.Name == nameof(NotifyItemDataList))
+                    {
+                        NotifyItemDataList notification = MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
+                        AssertEqual(notification.ItemDataList.Count,
+                            notification.ItemDataList.Select(item => item.Id).Distinct().Count(),
+                            "Multiple gift item notification has one row per item");
+                    }
+                    continue;
+                }
+                AssertEqual(Packet.ContentType.Response, packet.Type, "Multiple gift terminates with response");
+                Packet.Response envelope = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                AssertEqual(id, envelope.Id, "Multiple gift response identity");
+                response = ReadResponsePayload<ItemUseMultipleResponse>(packet, nameof(ItemUseMultipleResponse));
+                break;
+            }
+            AssertEqual(true, response is not null, "Multiple gift returns a response");
+            AssertNoAvailablePacket(h, "Multiple gift has no extra packets");
+            return response!;
+        }
+
+        void RejectMultipleUnchanged(LoopbackSessionHarness h, ItemUseMultipleRequest request)
+        {
+            byte[] player = h.Session.player.ToBson();
+            byte[] inventory = h.Session.inventory.ToBson();
+            byte[] character = h.Session.character.ToBson();
+            int id = ++packetId;
+            InvokeRegisteredRequestHandler(nameof(ItemUseMultipleRequest), h.Session, id, request);
+            ItemUseMultipleResponse response = ReadResponsePayload<ItemUseMultipleResponse>(
+                h, id, nameof(ItemUseMultipleResponse), "Multiple gift rejected without push");
+            AssertEqual(true, response.Code != 0, "Multiple gift rejection code");
+            AssertEqual(0, response.RewardGoodsList.Count, "Rejected multiple gift exposes no granted goods");
+            AssertNoAvailablePacket(h, "Rejected multiple gift emits no packets beyond response");
+            AssertEqual(Convert.ToHexString(player), Convert.ToHexString(h.Session.player.ToBson()), "Rejected multiple gift leaves player unchanged");
+            AssertEqual(Convert.ToHexString(inventory), Convert.ToHexString(h.Session.inventory.ToBson()), "Rejected multiple gift leaves inventory unchanged");
+            AssertEqual(Convert.ToHexString(character), Convert.ToHexString(h.Session.character.ToBson()), "Rejected multiple gift leaves character unchanged");
         }
 
         ItemUseResponse Use(LoopbackSessionHarness h, ItemUseRequest request, Dictionary<int, long> before, HashSet<int> pool)
