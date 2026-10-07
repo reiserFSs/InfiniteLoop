@@ -73,6 +73,17 @@ class PurchaseIconTests(unittest.TestCase):
     def test_no_valid_resource_does_not_invent_an_icon(self):
         self.lua.execute('assert(XPurchaseConfigs.GetIconPathByIconName("missing", {RewardGoodsList={}}) == nil)')
 
+    def test_indexed_folder_without_the_texture_uses_the_reward_icon(self):
+        self.lua.execute('''
+            TestIcons.shell = {AssetPath = "Assets/Product/Texture/Image/UiPurchase/UiPurchaseV405/Missing.png", CoverImgPath = ""}
+            Available["Assets/Product/Texture/Image/UiPurchase/UiPurchaseV405/Missing.png"] = true
+            AscNetPurchaseBundleAssets = {
+                ["assets/product/texture/image/uipurchase/uipurchasev405.ab"] = {}
+            }
+            local result = XPurchaseConfigs.GetIconPathByIconName("shell", {RewardGoodsList={{TemplateId=2}}})
+            assert(result.AssetPath == "reward")
+        ''')
+
 
 class PatchTests(unittest.TestCase):
     def test_existing_recharge_patch_is_preserved(self):
@@ -83,6 +94,16 @@ class PatchTests(unittest.TestCase):
     def test_changed_resolver_is_rejected(self):
         with self.assertRaises(RuntimeError):
             patch_catalog_lua('XPurchaseConfigs.lua', 'function changed() end')
+
+    def test_coating_list_without_direct_sellout_toggle_still_patches_the_icon_call(self):
+        script = '\n'.join([
+            'local iconPath = XPurchaseConfigs.GetIconPathByIconName(self.ItemData.Icon)',
+            'function XUiPurchaseCoatingLBListItem:SetImgSelloutVisible(isShow)',
+            'end',
+        ])
+        patched = patch_catalog_lua('XUiPurchaseCoatingLBListItem.lua', script)
+        self.assertIn('GetIconPathByIconName(self.ItemData.Icon, self.ItemData)', patched)
+        self.assertNotIn('ImgHave.gameObject:SetActive(false)', patched)
 
     def source_dir(self):
         path = os.environ.get('PGR_RESEARCH_LUA')

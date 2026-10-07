@@ -56,6 +56,10 @@ def patch_catalog_lua(name, script):
             pattern = r'(?m)^([ \t]*)self\.ImgSellout\.gameObject:SetActive\(true\)'
             script, count = re.subn(pattern, lambda match: match.group(0) + newline + match[1]
                 + 'if self.ImgHave then self.ImgHave.gameObject:SetActive(false) end', script)
+            # 4.8 coating cards route sold-out through SetImgSelloutVisible, which
+            # shows the owned badge and returns. There is no direct sell-out toggle.
+            if count == 0 and name == 'XUiPurchaseCoatingLBListItem.lua' and 'SetImgSelloutVisible' in script:
+                return script
             if count != 4:
                 raise RuntimeError(f'{name}: expected four status transitions, found {count}')
     return script
@@ -68,6 +72,44 @@ def digest(data):
 def text_assets(env):
     return {obj.path_id: (obj.read().m_Name, digest(obj.get_raw_data()))
             for obj in env.objects if obj.type.name == 'TextAsset'}
+
+
+def purchase_bundle_assets(game):
+    """Textures shipped inside this install's purchase image bundles.
+
+    The resource index lists a folder bundle even when the icon table names a
+    texture that bundle does not contain. Keys are lowercase bundle paths.
+    """
+    UnityPy.set_assetbundle_decrypt_key(KEY)
+    base = game / 'PGR_Data' / 'StreamingAssets'
+    index = UnityPy.load(str(base / 'resource/matrix/index'))
+    index_asset = next(obj.read() for obj in index.objects if obj.type.name == 'TextAsset')
+    catalog = msgpack.unpackb(index_asset.m_Script.encode('utf-8', 'surrogateescape'), strict_map_key=False)[0]
+    snapshot = {}
+    prefix = 'assets/product/texture/image/uipurchase'
+    for key, value in catalog.items():
+        lowered = str(key).lower()
+        if not (lowered.startswith(prefix) and lowered.endswith('.ab')):
+            continue
+        path = base / 'resource/matrix' / value[0]
+        if not path.is_file():
+            continue
+        env = UnityPy.load(str(path))
+        snapshot[lowered] = sorted(name.lower() for name in env.container)
+    if not snapshot:
+        raise RuntimeError('Installed client has no purchase image bundles to verify icons against')
+    return snapshot
+
+
+def render_purchase_bundle_assets(snapshot):
+    lines = ['AscNetPurchaseBundleAssets = {']
+    for bundle in sorted(snapshot):
+        lines.append(f'    ["{bundle}"] = {{')
+        for asset in snapshot[bundle]:
+            lines.append(f'        ["{asset}"] = true,')
+        lines.append('    },')
+    lines.append('}')
+    return '\n'.join(lines)
 
 
 def prepare(game, output, catalog_patch=False):
@@ -99,6 +141,13 @@ def prepare(game, output, catalog_patch=False):
             data.m_Script = patch_recharge_lua(data.m_Script)
         elif catalog_patch:
             data.m_Script = patch_catalog_lua(data.m_Name, data.m_Script)
+            if data.m_Name == 'XPurchaseConfigs.lua':
+                rendered = render_purchase_bundle_assets(purchase_bundle_assets(game))
+                marker = 'AscNetPurchaseBundleAssets = nil'
+                if data.m_Script.count(marker) != 1:
+                    raise RuntimeError('Purchase icon patch is missing the bundle snapshot marker')
+                newline = '\r\n' if '\r\n' in data.m_Script else '\n'
+                data.m_Script = data.m_Script.replace(marker, rendered.replace('\n', newline), 1)
         if data.m_Script != previous:
             changed.append(target.path_id)
             scripts[data.m_Name] = data.m_Script
