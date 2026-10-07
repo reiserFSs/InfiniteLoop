@@ -4918,6 +4918,8 @@ internal static partial class DrawManager
         group.Tag = row.Tag;
         group.Type = row.Type;
         group.Priority = row.Priority;
+        // Client tabs sort banners by Order descending (XDrawTabBtnEntity:InsertDrawGroupList).
+        // Priority only orders the list before that per-tab sort.
         group.Order = row.Order;
         group.StartTime = row.StartTime;
         group.EndTime = row.EndTime;

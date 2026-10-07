@@ -39,8 +39,9 @@ internal partial class Program
     }
 
     /// <summary>AscNet policy: collab groups open at the 4.8 maintenance end (1790226000), before
-    /// retail 1790676000. Groups 37, 39, and 40 carry client DrawTabs Tag 5 (Collab). Season weapon
-    /// group 4 and CUB group 22 stay on tags 1 and 7. Fate 5613 stays closed.</summary>
+    /// retail 1790676000. Groups 37, 39, and 40 carry client DrawTabs Tag 5 (Collab). The client
+    /// sorts a tab by Order descending, so weapon group 39 uses Order 2 between frame 4002 and CUB 1.
+    /// Season weapon group 4 and CUB group 22 stay on tags 1 and 7. Fate 5613 stays closed.</summary>
     private static void AssertCollabEarlyOpenWindow()
     {
         var manager = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager");
@@ -67,6 +68,19 @@ internal partial class Program
             AssertEqual(5, groups.Single(group => group.Id == 40).Tag, "Collab CUB group 40 uses the Collab tab");
             AssertEqual(1, groups.Single(group => group.Id == 4).Tag, "Season weapon group 4 stays on the Weapon tab");
             AssertEqual(7, groups.Single(group => group.Id == 22).Tag, "Season CUB group 22 stays on the CUB tab");
+            AssertEqual("37,39,40", string.Join(",", groups.Where(group => group.Tag == 5)
+                .OrderByDescending(group => group.Order).ThenByDescending(group => group.Priority)
+                .Select(group => group.Id)),
+                "Collab tab Order descending is frame, weapon, then CUB");
+            AssertEqual(4002, groups.Single(group => group.Id == 37).Order, "Collab frame Order stays 4002");
+            AssertEqual(2, groups.Single(group => group.Id == 39).Order, "Collab weapon Order sits under the frame");
+            AssertEqual(1, groups.Single(group => group.Id == 40).Order, "Collab CUB Order stays 1");
+            AssertEqual(510, groups.Single(group => group.Id == 39).Priority, "Collab weapon priority stays 510");
+            AssertEqual(8100, groups.Single(group => group.Id == 40).Priority, "Collab CUB priority stays 8100");
+            AssertEqual(1, groups.Single(group => group.Id == 4).Order, "Season weapon Order stays 1");
+            AssertEqual(1, groups.Single(group => group.Id == 22).Order, "Season CUB Order stays 1");
+            AssertEqual(500, groups.Single(group => group.Id == 4).Priority, "Season weapon priority stays 500");
+            AssertEqual(8000, groups.Single(group => group.Id == 22).Priority, "Season CUB priority stays 8000");
             AssertEqual(false, groups.Any(group => group.Id == 38), "collab Fate group 38 stays unadvertised");
             AssertEqual(true, drawInfo.Invoke(null, [5612, player]) is not null, "5612 is drawable before retail start");
             AssertEqual(true, drawInfo.Invoke(null, [5613, player]) is null, "5613 stays closed in window");
