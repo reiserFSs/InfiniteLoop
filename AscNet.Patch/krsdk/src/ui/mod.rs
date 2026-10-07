@@ -11,7 +11,11 @@ use windows::Win32::Foundation::HWND;
 pub static PARENT_HWND: Lazy<Mutex<Option<HWND>>> = Lazy::new(|| Mutex::new(None));
 pub static SESSION: Lazy<Mutex<Option<UserSession>>> = Lazy::new(|| Mutex::new(None));
 
-pub fn finish_login(session: UserSession) {
+pub fn current_session() -> Option<UserSession> {
+    SESSION.lock().unwrap().clone()
+}
+
+pub fn finish_login(session: UserSession) -> bool {
     let account_channel_id = match crate::exports::sdk_identity::read_packaged()
         .and_then(|config| {
             config
@@ -22,7 +26,7 @@ pub fn finish_login(session: UserSession) {
         Ok(channel_id) => channel_id,
         Err(error) => {
             crate::diag::log(&crate::diag::failed_line("KRSDK", "login channel from KRSDK.bin", &error));
-            return;
+            return false;
         }
     };
     let response = serde_json::json!({
@@ -37,11 +41,14 @@ pub fn finish_login(session: UserSession) {
         "msg": "",
         "statusCode": 0
     });
+    crate::auth::session::save(&session);
     *SESSION.lock().unwrap() = Some(session);
     send_callback("LOGIN", &response.to_string());
+    true
 }
 
 pub fn logout() {
     *SESSION.lock().unwrap() = None;
+    crate::auth::session::clear();
     send_callback("LOGOUT", "");
 }
