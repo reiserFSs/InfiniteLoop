@@ -211,6 +211,9 @@ The server opens fixed gifts (subtype 1 or 5) and choice packs (subtype 3). A ch
 | 40905–40908, 40914–40916, 40918–40925 | Assessment Manual Shard Choice | One inver-shard from that pack's reward. Refuses with 20012005 when that shard is already at its cap |
 | 400026 | S-Rank Inver-Shard Pack | Six of one S-rank inver-shard from reward 5000232. Same cap refusal as the assessment manuals |
 | 94033 | Construct Research Surprise Fortune Bag | Event Construct R&D Tickets (50005). 10%×250, 15%×225, 20%×200, 25%×175, 30%×150. Not Reward 1011 |
+| 40691 | Normal Gift Box | One random normal affection gift, equal chance: 40681 Best-Seller or 40682 Vinyl Record. Not Reward 1003 |
+| 40692 | Fine Gift Box | One random fine affection gift, equal chance: 40683 Ration Chocolate or 40684 1 Day Tour Tickets x2. Not Reward 1004 |
+| 40693 | Precious Gift Box | One random precious affection gift, equal chance among character favorites 40601–40645. Not Reward 1005. Quality 6 gifts 40800–40811 are not in this box |
 | 40904 | Character Upgrade Material Pack | 6★ shards, overclock mats, enhancers, EXP Pod (XL), Skill Points, Cogs |
 | 40909 | Memory Upgrade Material Pack | Memory upgrade set |
 | 40910 | Weapon Upgrade Material Pack | Weapon upgrade set |
@@ -222,9 +225,6 @@ These packs stay closed. Subtype 2 names a drop group, and those drop tables are
 
 | ID | Name | Why it stays closed |
 | --- | --- | --- |
-| 40691 | Normal Gift Box | One random normal affection gift (quality 3: 40681 Best-Seller, 40682 Vinyl Record). No drop table. Reward 1003 is an unrelated currency bundle |
-| 40692 | Fine Gift Box | One random fine affection gift (quality 4: 40683 Ration Chocolate, 40684 1 Day Tour Tickets x2). No drop table. Reward 1004 is an unrelated currency bundle |
-| 40693 | Precious Gift Box | One random precious affection gift (quality 5: a character favorite from 40601–40645). No drop table. Reward 1005 is an unrelated currency bundle |
 | 60003 | Christmas Decor Blueprint Set | Reward 1006 is absent |
 | 90101, 90110 | Equipment Overclock Black Box (S) and (M) | Reward 9011 is absent |
 | 90104 | Minor HQ Black Box | Reward 9014 is absent |

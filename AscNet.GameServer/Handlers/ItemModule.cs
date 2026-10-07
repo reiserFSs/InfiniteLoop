@@ -602,6 +602,14 @@ namespace AscNet.GameServer.Handlers
                         goods.Add(ticket);
                         return true;
                     }
+                    if (AffectionGiftBoxPolicy.Applies(sourceId))
+                    {
+                        if (!AffectionGiftBoxPolicy.TryGrant(sourceId, count, out List<RewardGoodsTable> affection)
+                            || affection.Any(row => RewardHandler.GetRewardType(row) is null))
+                            return false;
+                        goods.AddRange(affection);
+                        return true;
+                    }
                     if (!EquipmentOverclockDropPolicy.TryResolve(sourceId,
                             out IReadOnlyList<RewardGoodsTable> pool, out int countPerBox)
                         || (long)count * countPerBox > int.MaxValue)

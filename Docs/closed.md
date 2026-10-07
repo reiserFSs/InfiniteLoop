@@ -4,25 +4,15 @@ When the client or this repository has no drop table, pity weights, shop goods, 
 
 ## Affection gift boxes
 
-Normal, Fine, and Precious Gift Boxes give one random affection gift of that tier. They do not pay Black Cards, Cogs, or Skill Points.
+Normal, Fine, and Precious Gift Boxes (40691, 40692, 40693) are open. Each gives one favor gift of the box's quality. The members are the `CharacterTrustItem` rows of that quality: 40681 and 40682, 40683 and 40684, and 40601–40645. The client ships no `DropGroup` weights for ids 1003, 1004, and 1005, and the descriptions give no rates, so `AffectionGiftBoxPolicy.tsv` gives every member of a tier an equal chance. That is the same kind of labeled policy as the overclock boxes, not a recovered retail table.
 
-`Item.tsv` lines the tiers up by quality. Favor gifts are item type `524292`.
-
-| Box | Quality | Affection gifts of that quality |
-| --- | --- | --- |
-| 40691 Normal Gift Box | 3 | 40681 Best-Seller, 40682 Vinyl Record |
-| 40692 Fine Gift Box | 4 | 40683 Ration Chocolate, 40684 1 Day Tour Tickets x2 |
-| 40693 Precious Gift Box | 5 | Character favorites 40601–40645. A precious gift names its preferred construct |
-
-Quality 6 affection items 40800–40811 are a separate tier. They are not these three boxes.
-
-Each box is gift subtype 2. Its second parameter (1003, 1004, 1005) is a drop-group id. No drop table for those ids is in the installed client or in this repository, and the descriptions give no rates, so the box does not open. Rewards 1003, 1004, and 1005 happen to exist and pay Black Card, Cogs, and Skill Points. That collision is not the gift pool.
+Rewards 1003, 1004, and 1005 pay Black Cards, Cogs, and Skill Points. Those rows are not the gift pool. Quality 6 affection items 40800–40811 are a separate tier and are not in these boxes.
 
 94033 Construct Research Surprise Fortune Bag is not one of these boxes. It opens from the chances printed on the item: 10/15/20/25/30% for 250/225/200/175/150 Event Construct R&D Tickets (50005). Reward 1011 pays Cogs and Black Cards and is not that grant.
 
 ## Other packs with no drop table
 
-The same gap covers the other subtype-2 and subtype-4 packs called out with the gift boxes. `Docs/items.md` lists each id.
+The same gap covers the other subtype-2 and subtype-4 packs. `Docs/items.md` lists each id. The affection gift boxes and 94033 are not in this list.
 
 - 60003 Christmas Decor Blueprint Set. Reward 1006 is absent.
 - 90101 and 90110 Equipment Overclock Black Box (S) and (M). Reward 9011 is absent. This is separate from 60001 and 60002, which open under the uniform overclock policy in `EquipmentOverclockDropPolicy.tsv`.

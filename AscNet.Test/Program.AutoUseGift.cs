@@ -452,6 +452,49 @@ internal static partial class Program
             AssertEqual(0L, Balance(h, 94033), "Fortune bag consumes the pack");
         }
 
+        (int BoxId, string Pool)[] affectionBoxes =
+        [
+            (40691, "40681,40682"),
+            (40692, "40683,40684"),
+            (40693, string.Join(",", Enumerable.Range(40601, 45)))
+        ];
+        foreach ((int boxId, string poolText) in affectionBoxes)
+        {
+            AssertEqual(true, AffectionGiftBoxPolicy.TryResolve(items[boxId].SubTypeParams[1],
+                out IReadOnlyList<RewardGoodsTable> pool, out int countPerBox), $"Affection box {boxId} has a pool");
+            AssertEqual(1, countPerBox, $"Affection box {boxId} grants one gift");
+            AssertEqual(poolText, string.Join(",", pool.Select(row => row.TemplateId)), $"Affection box {boxId} pool");
+            using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
+            using LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+                CreateDrawCompatibilityInventory(uid, [new Item { Id = boxId, Count = 4 }]), $"affection-{boxId}");
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            HashSet<int> allowed = pool.Select(row => row.TemplateId).ToHashSet();
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest { Id = boxId, Count = 4 });
+            AssertEqual(0, response.Code, $"Affection box {boxId} succeeds");
+            AssertEqual(4, response.RewardGoodsList.Sum(good => good.Count), $"Affection box {boxId} grants four gifts");
+            AssertEqual(true, response.RewardGoodsList.All(good => allowed.Contains(good.TemplateId) && good.Count > 0),
+                $"Affection box {boxId} stays inside its tier");
+            AssertEqual(0L, Balance(h, boxId), $"Affection box {boxId} consumes the pack");
+            AssertEqual(0L, Balance(h, 1), $"Affection box {boxId} does not pay Cogs");
+            AssertEqual(0L, Balance(h, 2), $"Affection box {boxId} does not pay the free Black Card stack");
+            AssertEqual(0L, Balance(h, 3), $"Affection box {boxId} does not pay the paid Black Card stack");
+            AssertEqual(0L, Balance(h, 12), $"Affection box {boxId} does not pay Skill Points");
+            AssertEqual(4L, allowed.Sum(id => Balance(h, id)), $"Affection box {boxId} inventory matches the grant");
+        }
+        long normalCap = Inventory.GetMaxCount(items[40681]);
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid,
+            [
+                new Item { Id = 40691, Count = 1 },
+                new Item { Id = 40681, Count = (int)normalCap },
+                new Item { Id = 40682, Count = (int)normalCap }
+            ]), "affection-full"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            RejectUnchanged(h, new ItemUseRequest { Id = 40691, Count = 1 }, 20012005);
+        }
+
         using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
             out _, out _, out _))
         using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
@@ -489,11 +532,11 @@ internal static partial class Program
             AssertEqual(true, h.Session.player.PendingItemUse is null, "Matching coating stack retry clears pending");
         }
 
-        // Reasons these packs stay closed, including the affection-gift boxes, are in Docs/closed.md.
+        // Reasons these packs stay closed are in Docs/closed.md. The affection gift boxes are open above.
         int[] closedPacks =
         [
             1050, 1051, 1052, 93000, 92000, 91006, 91000, 90101, 90110, 90107, 90108, 90104,
-            400031, 400032, 400033, 400060, 400061, 400062, 40691, 40692, 40693, 60003
+            400031, 400032, 400033, 400060, 400061, 400062, 60003
         ];
         using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
             out _, out _, out _))
@@ -505,7 +548,7 @@ internal static partial class Program
                 RejectUnchanged(h, new ItemUseRequest { Id = closedId, Count = 1 });
             RejectMultipleUnchanged(h, new ItemUseMultipleRequest
             {
-                UseList = [new ItemUseMultipleEntry { Id = 40691, Count = 1 }]
+                UseList = [new ItemUseMultipleEntry { Id = 60003, Count = 1 }]
             });
         }
 
@@ -552,7 +595,7 @@ internal static partial class Program
 
         int unsupported = items.Values.First(row => row.ItemType == (int)AscNet.Common.ItemType.Gift
             && row.SubTypeParams.Count >= 2 && row.SubTypeParams[0] is 2 or 6
-            && row.SubTypeParams[1] is not (1007 or 1008 or 1011)).Id;
+            && row.SubTypeParams[1] is not (1003 or 1004 or 1005 or 1007 or 1008 or 1011)).Id;
         foreach (ItemUseRequest request in new[]
         {
             new ItemUseRequest { Id = 60001, Count = 0 },
