@@ -48,9 +48,9 @@ internal partial class Program
         var styles = TableReaderV2.Parse<GuildBossFightStyleTable>().OrderBy(r => r.Id).ToArray();
         var skills = TableReaderV2.Parse<GuildBossFightStyleSkillTable>().ToArray();
         var config = TableReaderV2.Parse<ConfigTable>().ToDictionary(r => r.Key, r => r.Value);
-        decimal scoreRatio = decimal.Parse(config["GuildBossScoreCollectionRatio"], CultureInfo.InvariantCulture);
+        decimal damageBoundRatio = decimal.Parse(config["GuildBossScoreCollectionRatio"], CultureInfo.InvariantCulture);
         int uploadCap = int.Parse(config["GuildBossStageUploadCount"], CultureInfo.InvariantCulture);
-        GuildAssert(scoreRatio > 0 && uploadCap > 1 && levels.Length > 1, "Boss authority cannot exercise score/upload/difficulty boundaries");
+        GuildAssert(damageBoundRatio > 0 && uploadCap > 1 && levels.Length > 1, "Boss authority cannot exercise score/upload/difficulty boundaries");
 
         JObject initial = Activity(leader);
         long activityId = initial.Value<long>("ActivityId");
@@ -228,7 +228,8 @@ internal partial class Program
                 "Invalid guild pre-fight mutated the attempt, participation or rewards");
         }
 
-        FightSettleRequest StartFight(LoopbackSessionHarness actor, long score, int fightStage = 0, int contributors = 0)
+        FightSettleRequest StartFight(LoopbackSessionHarness actor, long totalDamage, int fightStage = 0, int contributors = 0,
+            IReadOnlyList<(long Current, long Max)>? hpValues = null)
         {
             if (fightStage == 0) fightStage = bossStage;
             Activity(actor);
@@ -255,7 +256,9 @@ internal partial class Program
             var settle = CreateMissingStageSettleRequest(checked((uint)fightStage), pre["FightData"]!.Value<long>("FightId"), actor.Session.player.PlayerData.Id);
             settle.Result.StartFrame = 0;
             settle.Result.SettleFrame = 20;
-            settle.Result.TotalDamage = checked((long)decimal.Ceiling(score / scoreRatio));
+            settle.Result.TotalDamage = totalDamage;
+            var characterHp = hpValues ?? Enumerable.Repeat((Current: 100L, Max: 100L), team.Length).ToArray();
+            GuildAssert(characterHp.Count == team.Length, "Boss HP fixture must provide one ratio per deployed character");
             settle.Result.NpcHpInfo = team.Select((id, index) => (id, index)).ToDictionary(row => row.index + 1,
                 row => new NpcHp
                 {
@@ -263,7 +266,7 @@ internal partial class Program
                     CharacterId = row.id,
                     BuffIds = [],
                     AttrTable = new()
-                    { [1] = new Dictionary<string, object> { ["Value"] = 100, ["MaxValue"] = 100 } }
+                    { [1] = new Dictionary<string, object> { ["Value"] = characterHp[row.index].Current, ["MaxValue"] = characterHp[row.index].Max } }
                 });
             settle.Result.NpcDpsTable = new()
             {
@@ -306,33 +309,44 @@ internal partial class Program
             });
             return new() { ["Result"] = result };
         }
-        JObject Candidate(LoopbackSessionHarness actor, FightSettleRequest settle)
+        JObject Candidate(LoopbackSessionHarness actor, FightSettleRequest settle, long expectedDamageScore,
+            long expectedHpScore = 10_000, double expectedHpLeftPer = 100)
         {
             byte[] inventoryBefore = LoadInventory(actor.Session.player.PlayerData.Id).ToBson();
             byte[] stageBefore = Stage.collection.Find(s => s.Uid == actor.Session.player.PlayerData.Id).Single().ToBson();
             JObject before = Activity(actor);
             JObject result = Call(actor, nameof(FightSettleRequest), ClientSettle(settle));
             JToken candidate = result["Settle"]!["GuildBossFightResult"]!;
-            long expectedScore = checked((long)decimal.Floor(settle.Result.TotalDamage * scoreRatio));
-            GuildAssert(candidate.Value<long>("Damage") == settle.Result.TotalDamage && candidate.Value<long>("TotalScore") == expectedScore,
-                "Guild candidate score not derived from validated damage and authority ratio");
+            long expectedTotalScore = checked(140_000 + expectedDamageScore + expectedHpScore);
+            GuildAssert(candidate.Value<long>("Damage") == settle.Result.TotalDamage
+                && candidate.Value<long>("DamageScore") == expectedDamageScore
+                && candidate.Value<long>("Base") == 140_000
+                && candidate.Value<long>("HpScore") == expectedHpScore
+                && candidate.Value<long>("HpMaxScore") == 10_000
+                && candidate.Value<long>("TotalScore") == expectedTotalScore
+                && Math.Abs(candidate.Value<double>("HpLeftPer") - expectedHpLeftPer) < 1e-9,
+                "Guild candidate scoring fields do not match raw damage and independent HP oracle");
             GuildAssert(result["Settle"]!.Value<int>("StageId") == settle.Result.StageId
                 && result["Settle"]!.Value<bool>("IsWin") == (settle.Result.IsWin && !settle.Result.IsForceExit)
                 && result["Settle"]!.Value<int>("ChallengeCount") == 1,
                 "Client-shaped settlement lost its stage, outcome or normalized single attempt");
             JObject after = Activity(actor);
-            GuildAssert(before.Value<long>("HpLeft") == after.Value<long>("HpLeft") && before.Value<long>("GuildScoreSum") == after.Value<long>("GuildScoreSum")
-                && JToken.DeepEquals(before["BossList"], after["BossList"]), "Settle committed score/HP before upload");
+            GuildAssert(before.Value<long>("HpLeft") == after.Value<long>("HpLeft")
+                && before.Value<long>("GuildScoreSum") == after.Value<long>("GuildScoreSum")
+                && JToken.DeepEquals(before["BossList"], after["BossList"]),
+                "Settle committed score/HP before upload");
             GuildAssert(inventoryBefore.SequenceEqual(LoadInventory(actor.Session.player.PlayerData.Id).ToBson())
                 && stageBefore.SequenceEqual(Stage.collection.Find(s => s.Uid == actor.Session.player.PlayerData.Id).Single().ToBson()),
                 "Guild generic fight adapter awarded ordinary rewards or ordinary stage progression");
-            GuildAssert(LoadPlayer(actor.Session.player.PlayerData.Id).GuildState.Boss.Attempt is { Settled: true, Uploaded: false }, "Candidate did not persist before response");
+            GuildAssert(LoadPlayer(actor.Session.player.PlayerData.Id).GuildState.Boss.Attempt is { Settled: true, Uploaded: false },
+                "Candidate did not persist before response");
             return result;
         }
 
         Reject(leader, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
-        long firstScore = Math.Max(1, hpMax / 10);
-        FightSettleRequest firstFight = StartFight(leader, firstScore, contributors: 1);
+        const long firstDamage = 5_958_376;
+        const long firstScore = 348_612;
+        FightSettleRequest firstFight = StartFight(leader, firstDamage, contributors: 1);
         GuildAssert(firstFight.Result.FightId == clientFightId, "Settlement must exercise the original omitted-count attempt");
         void RejectFirstSettlement()
         {
@@ -353,7 +367,7 @@ internal partial class Program
         firstFight.Result.StageId = checked((uint)bossStage);
         firstFight.Result.TotalDamage = -1;
         Reject(leader, nameof(FightSettleRequest), firstFight);
-        firstFight.Result.TotalDamage = checked((long)decimal.Ceiling(firstScore / scoreRatio));
+        firstFight.Result.TotalDamage = firstDamage;
         firstFight.Result.TotalDamage++;
         RejectFirstSettlement();
         firstFight.Result.TotalDamage--;
@@ -363,10 +377,10 @@ internal partial class Program
         firstFight.Result.PlayerIds = [memberId];
         Reject(leader, nameof(FightSettleRequest), firstFight);
         firstFight.Result.PlayerIds = [leaderId];
-        firstFight.Result.TotalDamage = checked((long)decimal.Floor(hpMax / scoreRatio) + 1);
+        firstFight.Result.TotalDamage = checked((long)decimal.Floor(hpMax / damageBoundRatio) + 1);
         firstFight.Result.NpcDpsTable[1].DamageTotal = firstFight.Result.TotalDamage;
         Reject(leader, nameof(FightSettleRequest), firstFight);
-        firstFight.Result.TotalDamage = checked((long)decimal.Ceiling(firstScore / scoreRatio));
+        firstFight.Result.TotalDamage = firstDamage;
         firstFight.Result.NpcDpsTable[1].DamageTotal = firstFight.Result.TotalDamage;
         firstFight.Result.NpcDpsTable[1].RoleId = checked((int)memberId);
         RejectFirstSettlement();
@@ -379,7 +393,7 @@ internal partial class Program
         RejectFirstSettlement();
         firstFight.Result.NpcDpsTable.Remove(2);
         firstFight.Result.NpcDpsTable[2] = new NpcDpsTable { RoleId = 0, CharacterId = 0, Cure = 1, DamageTotal = 0 };
-        JObject firstCandidate = Candidate(leader, firstFight);
+        JObject firstCandidate = Candidate(leader, firstFight, 198_612);
         byte[] settledInventory = LoadInventory(leaderId).ToBson();
         byte[] settledPlayer = LoadPlayer(leaderId).GuildState.Boss.ToBson();
         byte[] settledGuild = LoadGuild().Boss.ToBson();
@@ -396,17 +410,30 @@ internal partial class Program
         Reject(leader, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = stageList.First(s => s.Type != 3).StageId });
         LoopbackSessionHarness resumed = scope.OpenPlayer(leaderId);
         JObject uploaded = Call(resumed, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
-        GuildAssert(uploaded.Value<long>("SubHp") == firstScore && Activity(member).Value<long>("HpLeft") == hpMax - firstScore,
-            "Resumed upload did not apply candidate exactly once to shared HP");
+        GuildAssert(uploaded.Value<long>("SubHp") == 348_612 && Activity(member).Value<long>("HpLeft") == 151_388
+            && LoadGuild().Boss.Participants.Single(p => p.PlayerId == leaderId).Stages.Single(s => s.StageId == bossStage).Score == 348_612
+            && Activity(resumed).Value<long>("PlayerFinalScore") == 348_612,
+            "Retail full-HP candidate score was not persisted and applied exactly to shared Boss HP");
+        GuildAssert(uploaded.Value<int>("Contribute") == 348
+            && LoadGuild().Members[leaderId].WeekContribute == 348
+            && LoadGuild().Members[leaderId].TotalContribute == 348
+            && LoadGuild().Members[leaderId].ActiveContribute == 348,
+            "Retail candidate score did not grant its authored goods-38 contribution");
         GuildAssert(LoadGuild().Boss.Participants.Single(p => p.PlayerId == leaderId).Stages.Single(s => s.StageId == bossStage).UploadCount == 1,
             "Omitted-count attempt must consume exactly one upload");
         byte[] committed = LoadGuild().Boss.ToBson();
         Reject(resumed, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
         GuildAssert(committed.SequenceEqual(LoadGuild().Boss.ToBson()), "Duplicate upload changed shared boss state");
+        Candidate(resumed, StartFight(resumed, 12_282_304), 409_410);
+        foreach (var boundary in new[] { (Damage: 29L, Score: 0L), (Damage: 30L, Score: 1L), (Damage: 31L, Score: 1L) })
+            Candidate(resumed, StartFight(resumed, boundary.Damage), boundary.Score);
+        Candidate(resumed, StartFight(resumed, 30, contributors: 2,
+            hpValues: [(98, 100), (97_040, 100_000), (1_219, 1_250)]), 1, 9_752, 97.52);
 
-        long memberScore = firstScore * 2;
-        FightSettleRequest memberFight = StartFight(member, memberScore, contributors: 2);
-        JObject memberCandidate = Candidate(member, memberFight);
+        const long memberDamage = 3_000;
+        const long memberScore = 150_100;
+        FightSettleRequest memberFight = StartFight(member, memberDamage, contributors: 2);
+        JObject memberCandidate = Candidate(member, memberFight, 100);
         byte[] memberSettled = LoadPlayer(memberId).GuildState.Boss.ToBson();
         byte[] memberInventory = LoadInventory(memberId).ToBson();
         byte[] memberGuild = LoadGuild().Boss.ToBson();
@@ -418,14 +445,14 @@ internal partial class Program
             "Two-contributor native settlement retry changed candidate, participation or rewards");
         Call(member, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
         GuildAssert(Activity(resumed).Value<long>("HpLeft") == hpMax - firstScore - memberScore, "Two-player uploads lost or double-counted damage");
-        Candidate(member, StartFight(member, firstScore));
+        Candidate(member, StartFight(member, 0), 0);
         committed = LoadGuild().Boss.ToBson();
         Reject(member, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
         GuildAssert(committed.SequenceEqual(LoadGuild().Boss.ToBson()), "Lower score upload changed best score, HP or upload count");
         for (int count = 2; count <= uploadCap; count++)
         {
-            long improved = firstScore + count;
-            Candidate(resumed, StartFight(resumed, improved));
+            long improvedDamage = firstDamage + 30 * count;
+            Candidate(resumed, StartFight(resumed, improvedDamage), 198_612 + count);
             long before = Activity(member).Value<long>("HpLeft");
             JObject improvement = Call(resumed, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
             long delta = count == 2 ? 2 : 1;
@@ -438,8 +465,6 @@ internal partial class Program
         });
         JObject ranks = Call(resumed, "GuildBossPlayerRankRequest", new GuildEmptyRequest());
         GuildAssert(ranks["RankList"]!.Select(r => r.Value<long>("Id")).ToHashSet().SetEquals(new[] { leaderId, memberId }), "Boss member rank manufactured or omitted participants");
-        JObject stageRanks = Call(resumed, "GuildBossPlayerStageRankRequest", new GuildBossPlayerStageRankRequest { StageId = bossStage });
-        GuildAssert(stageRanks["RankList"]!.First()!.Value<long>("Id") == memberId, "Stage rank is not ordered by committed score");
         JObject guildRanks = Call(resumed, "GuildBossGuildRankRequest", new GuildEmptyRequest());
         GuildAssert(guildRanks["MyRank"]!.Value<uint>("Id") == seeded.Id
             && guildRanks["MyRank"]!.Value<long>("Score") == Activity(resumed).Value<long>("GuildScoreSum"), "Guild rank not derived from local committed participants");
@@ -447,7 +472,7 @@ internal partial class Program
         // Earn the death transition through combat before seeding the separate score-box boundary.
         Reject(resumed, "GuildBossScoreBoxRequest", new GuildBossScoreBoxRequest { BoxId = scoreBoxes.Last().Id });
         Reject(resumed, "GuildBossHpBoxRequest", new GuildBossHpBoxRequest { BoxId = hpBoxes.Last().Id });
-        Candidate(member, StartFight(member, hpMax));
+        Candidate(member, StartFight(member, 30 * hpMax), hpMax);
         long beforeKill = LoadGuild().Boss.HpLeft;
         JObject killingUpload = Call(member, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
         int deathBonus = int.Parse(config["GuildBossDeathAddScore"], CultureInfo.InvariantCulture);
@@ -457,6 +482,16 @@ internal partial class Program
         committed = LoadGuild().Boss.ToBson();
         Reject(member, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = bossStage });
         GuildAssert(committed.SequenceEqual(LoadGuild().Boss.ToBson()), "Repeated killing upload duplicated the death bonus");
+        JObject stageRanks = Call(resumed, "GuildBossPlayerStageRankRequest", new GuildBossPlayerStageRankRequest { StageId = bossStage });
+        GuildBossState rankedBoss = LoadGuild().Boss;
+        GuildBossParticipantState[] rankedParticipants = rankedBoss.Participants.ToArray();
+        GuildAssert(rankedParticipants[0].PlayerId == leaderId && rankedParticipants[1].PlayerId == memberId
+            && stageRanks["RankList"]!.First()!.Value<long>("Id") == memberId
+            && stageRanks["RankList"]![0]!.Value<long>("Score") == 650_000
+            && stageRanks["RankList"]![1]!.Value<long>("Id") == leaderId
+            && stageRanks["RankList"]![1]!.Value<long>("Score") == 348_615,
+            "Stage ranking must order the later-inserted higher-scoring member before the leader");
+
         // Explicit isolated score threshold fixture, never a captured successful reward/upload.
         Guild rewards = LoadGuild();
         rewards.Boss.Participants.Single(p => p.PlayerId == leaderId).Stages.Single(s => s.StageId == bossStage).Score = scoreBoxes.Max(r => r.Score);
@@ -648,19 +683,19 @@ internal partial class Program
         foreach (int type in new[] { 1, 2 })
         {
             int stageId = rolledStages.First(s => s.Type == type).StageId;
-            FightSettleRequest lost = StartFight(resumed, firstScore, stageId);
+            FightSettleRequest lost = StartFight(resumed, memberDamage, stageId);
             lost.Result.IsWin = false;
             lost.Result.IsForceExit = true;
-            Candidate(resumed, lost);
+            Candidate(resumed, lost, 100);
             Reject(resumed, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = stageId });
             int beforeEffects = LoadGuild().Boss.Stages.Single(s => s.StageId == stageId).CurEffectCount;
-            Candidate(resumed, StartFight(resumed, firstScore, stageId));
+            Candidate(resumed, StartFight(resumed, memberDamage, stageId), 100);
             long beforeHp = LoadGuild().Boss.HpLeft;
             JObject lowHighUpload = Call(resumed, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = stageId });
             GuildBossStageState progressed = LoadGuild().Boss.Stages.Single(s => s.StageId == stageId);
             GuildAssert(progressed.CurEffectCount == Math.Min(beforeEffects + 1, progressed.EffectCount)
                 && beforeHp - LoadGuild().Boss.HpLeft == lowHighUpload.Value<long>("SubHp"), "Low/high first upload lost shared effect/HP progress");
-            Candidate(resumed, StartFight(resumed, firstScore + 1, stageId));
+            Candidate(resumed, StartFight(resumed, memberDamage + 30, stageId), 101);
             Call(resumed, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = stageId });
             GuildAssert(LoadGuild().Boss.Stages.Single(s => s.StageId == stageId).CurEffectCount == progressed.CurEffectCount,
                 "Improving one stage retriggered its first-upload effect");
@@ -733,26 +768,73 @@ internal partial class Program
         {
             [1] = new NpcDpsTable { RoleId = checked((int)leaderId), CharacterId = robotCharacters[preservedRobot], DamageTotal = 1 }
         };
-        Candidate(resumed, robotSettle);
+        Candidate(resumed, robotSettle, 0);
 
         // The native countdown is signed and the siege timer is extended by battle score thresholds, so a long
         // fight reports a value below the authored PassTimeLimit; only the int bound guards the checked narrowing.
-        FightSettleRequest timedOut = StartFight(resumed, firstScore, contributors: 1);
+        FightSettleRequest timedOut = StartFight(resumed, memberDamage, contributors: 1);
         timedOut.Result.StartFrame = 1;
         timedOut.Result.SettleFrame = 2423;
         timedOut.Result.PauseFrame = 301;
         timedOut.Result.ExSkillPauseFrame = 225;
         timedOut.Result.LeftTime = -46;
-        JObject timedOutCandidate = Candidate(resumed, timedOut);
+        JObject timedOutCandidate = Candidate(resumed, timedOut, 100);
         GuildAssert(timedOutCandidate["Settle"]!.Value<long>("LeftTime") == -46,
             "Negative native countdown must be echoed unchanged, not rejected or rewritten");
         foreach (long countdown in new[] { (long)int.MaxValue + 1, (long)int.MinValue - 1 })
         {
-            FightSettleRequest overflowCountdown = StartFight(resumed, firstScore);
+            FightSettleRequest overflowCountdown = StartFight(resumed, memberDamage);
             overflowCountdown.Result.LeftTime = countdown;
             JObject overflowRejection = GuildRpc(resumed, nameof(FightSettleRequest), ClientSettle(overflowCountdown));
             GuildAssert(overflowRejection.Value<int?>("Code") == 20063304,
                 "Out-of-int countdown must stay rejected: " + countdown);
         }
+        // Isolate contribution capacity at the settlement boundary; each accepted +1000 stage improvement grants one.
+        int capacity = int.MaxValue - 1;
+        Guild capacityGuild = LoadGuild();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        long contributionDay = GuildModule.DailyPeriod(now);
+        capacityGuild.EconomyDay = contributionDay;
+        capacityGuild.EconomyWeek = GuildModule.WeeklyPeriod(now);
+        capacityGuild.ContributeLeft = capacityGuild.GiftContribute = capacity;
+        capacityGuild.ContributionDays.Clear();
+        capacityGuild.ContributionDays[contributionDay] = capacity;
+        capacityGuild.MemberContributionDays.Clear();
+        foreach (long uid in new[] { leaderId, memberId })
+        {
+            GuildMemberState memberState = capacityGuild.Members[uid];
+            memberState.WeekContribute = memberState.TotalContribute = memberState.ActiveContribute = capacity;
+            capacityGuild.MemberContributionDays.Add(new() { PlayerId = uid, Day = contributionDay, Count = capacity });
+        }
+        int firstCapacityStage = rolledStages.First(stage => stage.Type == 1).StageId;
+        int overflowCapacityStage = rolledStages.First(stage => stage.Type == 2).StageId;
+        GuildBossParticipantState capacityParticipant = capacityGuild.Boss.Participants.Single(p => p.PlayerId == leaderId);
+        GuildAssert(capacityParticipant.Stages.Single(stage => stage.StageId == firstCapacityStage).Score == 150_101
+            && capacityParticipant.Stages.Single(stage => stage.StageId == overflowCapacityStage).Score == 150_101,
+            "Contribution capacity fixture no longer has the expected small score-improvement baseline");
+        capacityGuild.SaveChecked();
+
+        Candidate(resumed, StartFight(resumed, 33_030, firstCapacityStage), 1_101);
+        JObject fittingUpload = Call(resumed, "GuildBossUploadRequest", new GuildBossUploadRequest { StageId = firstCapacityStage });
+        Guild guildAtCapacity = LoadGuild();
+        GuildMemberState leaderAtCapacity = guildAtCapacity.Members[leaderId];
+        GuildAssert(fittingUpload.Value<int>("Contribute") == 1
+            && guildAtCapacity.ContributeLeft == int.MaxValue && guildAtCapacity.GiftContribute == int.MaxValue
+            && leaderAtCapacity.WeekContribute == int.MaxValue && leaderAtCapacity.TotalContribute == int.MaxValue
+            && leaderAtCapacity.ActiveContribute == int.MaxValue
+            && guildAtCapacity.ContributionDays[contributionDay] == int.MaxValue
+            && guildAtCapacity.MemberContributionDays.Single(row => row.PlayerId == leaderId && row.Day == contributionDay).Count == int.MaxValue,
+            "A one-point contribution that fits at the integer boundary was not accepted exactly");
+
+        FightSettleRequest contributionOverflow = StartFight(resumed, 33_030, overflowCapacityStage);
+        byte[] beforeOverflowGuild = LoadGuild().ToBson();
+        byte[] beforeOverflowPlayer = LoadPlayer(leaderId).GuildState.Boss.ToBson();
+        JObject overflowResult = GuildRpc(resumed, nameof(FightSettleRequest), ClientSettle(contributionOverflow));
+        GuildBossAttemptState unacceptedAttempt = LoadPlayer(leaderId).GuildState.Boss.Attempt!;
+        GuildAssert(overflowResult.Value<int?>("Code") == 20063304
+            && !unacceptedAttempt.Settled && unacceptedAttempt.SettleRequest.Length == 0 && unacceptedAttempt.SettleData.Length == 0
+            && beforeOverflowGuild.SequenceEqual(LoadGuild().ToBson())
+            && beforeOverflowPlayer.SequenceEqual(LoadPlayer(leaderId).GuildState.Boss.ToBson()),
+            "Contribution overflow must reject before freezing or mutating the candidate");
     }
 }

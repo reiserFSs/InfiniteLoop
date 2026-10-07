@@ -338,7 +338,7 @@ internal static partial class GuildBossModule
             foreach (GuildBossParticipantState participant in b.Participants.Where(participant => participant.Stages.Count > 0 && !participant.DeathBonus))
             { participant.BonusScore = checked(participant.BonusScore + ConfigInt("GuildBossDeathAddScore")); participant.DeathBonus = true; }
         b.GuildScoreSumBest = Math.Max(b.GuildScoreSumBest, Score(b));
-        int contribute = checked((int)Math.Floor(delta * ConfigDouble("GuildBossScoreContributeRatio")));
+        int contribute = GuildBossContributionForScoreImprovement(delta);
         if (contribute > 0) GuildModule.AddEconomyGoods(m, Uid(m), 38, contribute);
         attempt.Uploaded = true; attempt.SubHp = r.SubHp = oldHp - b.HpLeft; attempt.Contribute = r.Contribute = contribute;
         b.Logs.Add(new()

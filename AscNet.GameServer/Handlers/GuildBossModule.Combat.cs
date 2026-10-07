@@ -219,20 +219,44 @@ internal static partial class GuildBossModule
                 if (frames < 0 || frames / 20 > int.MaxValue) throw new ServerCodeException("Invalid guild boss duration.", 20063304);
                 double ratio = ConfigDouble("GuildBossScoreCollectionRatio");
                 if (!double.IsFinite(ratio) || ratio <= 0) throw new ServerCodeException("Guild boss score rule is invalid.", 20063301);
-                // Explicit local policy: cap raw damage by the period's initial shared HP in score units.
+                // This local raw-damage validation cap is independent of provisional retail-observed scoring.
                 // DPS consistency is not authoritative combat simulation or anti-cheat.
                 decimal maximumDamage = decimal.Floor(mutation.Guild.Boss.HpMax / (decimal)ratio);
                 if (result.TotalDamage > maximumDamage)
                     throw new ServerCodeException("Guild boss damage exceeds the local period bound.", 20063304);
-                long score = checked((long)decimal.Floor(checked(result.TotalDamage * (decimal)ratio)));
+                // Provisional retail-observed scoring policy; partial HP uses the existing fractional double percentage.
+                const long baseScore = 140_000;
+                const long hpMaxScore = 10_000;
+                long damageScore = result.TotalDamage / 30;
+                double hpLeftPer = BossTeamHp(attempt, result);
+                long hpScore = checked((long)Math.Floor(hpLeftPer * 100));
+                long totalScore = checked(baseScore + damageScore + hpScore);
                 GuildBossParticipantState participant = Participant(mutation);
                 long best = participant.Stages.SingleOrDefault(row => row.StageId == result.StageId)?.Score ?? 0;
-                _ = checked(mutation.Guild.Boss.GuildScoreSumBest + Math.Max(0, score - best));
+                long scoreImprovement = Math.Max(0, totalScore - best);
+                _ = checked(mutation.Guild.Boss.GuildScoreSumBest + scoreImprovement);
+                int contribution = scoreImprovement > 0 ? GuildBossContributionForScoreImprovement(scoreImprovement) : 0;
+                if (contribution > 0)
+                {
+                    Guild guildState = mutation.Guild;
+                    GuildMemberState memberState = guildState.Members[session.player.PlayerData.Id];
+                    _ = checked(memberState.WeekContribute + contribution);
+                    _ = checked(memberState.TotalContribute + contribution);
+                    _ = checked(memberState.ActiveContribute + contribution);
+                    _ = checked(guildState.ContributeLeft + contribution);
+                    _ = checked(guildState.GiftContribute + contribution);
+                    long contributionDay = GuildModule.DailyPeriod(DateTimeOffset.UtcNow);
+                    _ = checked(guildState.ContributionDays.GetValueOrDefault(contributionDay) + contribution);
+                    GuildContributionDay? memberDay = guildState.MemberContributionDays
+                        .FirstOrDefault(row => row.PlayerId == session.player.PlayerData.Id && row.Day == contributionDay);
+                    if (memberDay is not null) _ = checked(memberDay.Count + contribution);
+                }
                 bool won = result.IsWin && !result.IsForceExit;
                 attempt.Result = new()
                 {
-                    Damage = result.TotalDamage, DamageScore = score, TotalScore = score, TotalHighScore = best,
-                    UseTime = checked((int)(frames / 20)), HpLeftPer = BossTeamHp(attempt, result)
+                    Damage = result.TotalDamage, Base = baseScore, DamageScore = damageScore, TotalScore = totalScore,
+                    TotalHighScore = best, HpLeftPer = hpLeftPer, HpScore = hpScore, HpMaxScore = hpMaxScore,
+                    UseTime = checked((int)(frames / 20))
                 };
                 attempt.Won = won;
                 attempt.Settled = true;
@@ -328,6 +352,9 @@ internal static partial class GuildBossModule
         }
         return total / BossCharacters(attempt).Count;
     }
+    private static int GuildBossContributionForScoreImprovement(long scoreImprovement) =>
+        checked((int)Math.Floor(scoreImprovement * ConfigDouble("GuildBossScoreContributeRatio")));
+
 
     internal static void OnMembershipChanged(long uid)
     {
