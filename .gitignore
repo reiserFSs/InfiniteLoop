@@ -392,3 +392,11 @@ proxylog
 
 # protocol gap tables
 Resources/table.pre-4.7.7/
+
+# Nix build outputs
+/result
+/result-*
+
+# direnv cache and local editor state
+.direnv/
+.vscode/

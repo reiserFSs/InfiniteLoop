@@ -51,7 +51,18 @@ For all game-protocol work:
 
 ## Build, run, and test
 
-Prerequisites documented by the repository are .NET SDK 8, MongoDB at `127.0.0.1:27017` (or `mongod` for the runner), Python 3.10+, and mitmproxy/mitmdump for bridge mode.
+When `nix` is available, use `nix develop` in this repo for server builds, tests, and the Windows launcher. Do not wrap those commands in `nix shell`. `.envrc` loads that shell through direnv. The shell is nixos-unstable and provides the .NET 8 SDK, Python 3, mitmproxy, MongoDB, Rust 1.92, and the MinGW linker for `x86_64-pc-windows-gnu`.
+
+Without Nix, the prerequisites are the .NET 8 SDK, MongoDB at `127.0.0.1:27017` (or `mongod` for the runner), Python 3.10+, and mitmproxy/mitmdump for bridge mode.
+
+The launcher is a Windows program. `nix build` produces `result/AscNetLauncher.zip` (the seven-file archive the updater accepts). `nix build .#ascnet-launcher` produces `result/bin/ascnet-launcher.exe`. There is no Linux launcher build. From the dev shell, pass the Windows target explicitly. The shell does not set `CARGO_BUILD_TARGET`.
+
+The zip's `background.bmp`, `background.mp4`, and `background.wav` are the only files taken from the latest published `AscNetLauncher.zip`. That download has no hash, so `nix build` needs impure evaluation (`--impure`, or the flake's accepted `pure-eval = false`). The executable, `launcher.json`, `setup-local.ps1`, and `supported-client.json` come from this tree.
+
+```bash
+cargo build --manifest-path AscNet.Launcher/Cargo.toml --target x86_64-pc-windows-gnu --release
+cargo build --manifest-path AscNet.Patch/Cargo.toml --target x86_64-pc-windows-gnu --release
+```
 
 ```bash
 # Run the server after MongoDB is available
