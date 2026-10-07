@@ -387,6 +387,26 @@ internal static partial class Program
             AssertEqual(true, h.Session.player.PendingItemUse is null, "Matching coating stack retry clears pending");
         }
 
+        // Reasons these packs stay closed, including the affection-gift boxes, are in Docs/closed.md.
+        int[] closedPacks =
+        [
+            94033, 1050, 1051, 1052, 93000, 92000, 91006, 91000, 90101, 90110, 90107, 90108, 90104,
+            400031, 400032, 400033, 400060, 400061, 400062, 40691, 40692, 40693, 60003
+        ];
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, closedPacks.Select(id => new Item { Id = id, Count = 1 }).ToList()),
+            "closed-packs"))
+        {
+            foreach (int closedId in closedPacks)
+                RejectUnchanged(h, new ItemUseRequest { Id = closedId, Count = 1 });
+            RejectMultipleUnchanged(h, new ItemUseMultipleRequest
+            {
+                UseList = [new ItemUseMultipleEntry { Id = 40691, Count = 1 }]
+            });
+        }
+
         foreach (ItemUseRequest request in new ItemUseRequest[]
         {
             new() { Id = 94008, Count = 1 },

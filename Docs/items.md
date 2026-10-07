@@ -192,7 +192,7 @@ The crystal bill is 50,000 Cogs, Hypertune Crystal α (70001) ×480, and Hypertu
 
 ## Consumables
 
-The server opens fixed gifts (subtype 1 or 5), random pools (subtype 2 or 6), and choice packs (subtype 3). A choice pack needs `SelectRewardIds`: the `RewardGoods` ids of its reward. One id applies to every pack in the stack, or send one id per pack. Every authored choice pack asks for one reward. One copy uses `ItemUseRequest`. A stack of a one-choice pack is what the bag sends as `ItemUseMultipleRequest`: one entry per pack, each with that pack's `RewardGoods` id. Open the pack from Items after granting it. Direct Serum (4) and Cogs (1) remain direct grants. These packs do open:
+The server opens fixed gifts (subtype 1 or 5) and choice packs (subtype 3). A choice pack needs `SelectRewardIds`: the `RewardGoods` ids of its reward. One id applies to every pack in the stack, or send one id per pack. Every authored choice pack asks for one reward. One copy uses `ItemUseRequest`. A stack of a one-choice pack is what the bag sends as `ItemUseMultipleRequest`: one entry per pack, each with that pack's `RewardGoods` id. Open the pack from Items after granting it. Direct Serum (4) and Cogs (1) remain direct grants. Random pools (subtype 2 or 6) open only for the two overclock material boxes. These packs do open:
 
 | ID | Name | Opens into |
 | --- | --- | --- |
@@ -206,9 +206,6 @@ The server opens fixed gifts (subtype 1 or 5), random pools (subtype 2 or 6), an
 | 90015 | Cog Pack (XXL) | 200,000 Cogs |
 | 60001 | Overclock Material Box (α) | Random low-grade overclock material |
 | 60002 | Overclock Material Box (β) | Random high-grade overclock material |
-| 40691 | Normal Gift Box | Random normal gift |
-| 40692 | Fine Gift Box | Random fine gift |
-| 40693 | Precious Gift Box | Random precious gift |
 | 400076, 400078–400082 | Tactical Assessment Manual Weapon Coating Choice I–VI | One weapon coating from that pack's reward |
 | 40913 | Accumulated Top-up Weapon Coating Choice | One weapon coating from reward 1306 |
 | 40905–40908, 40914–40916, 40918–40925 | Assessment Manual Shard Choice | One inver-shard from that pack's reward |
@@ -218,6 +215,26 @@ The server opens fixed gifts (subtype 1 or 5), random pools (subtype 2 or 6), an
 | 94008 | S-Rank Omniframe Choice | One of Luminance, Entropy, Ember, Tenebrion, Pulse |
 | 94030 | S-Rank Omniframe Pick | One of nine S-rank omniframes |
 | 40901 | S-Rank Character Inver-Shard Pick | One S-rank inver-shard from the pack's list |
+
+These packs stay closed. Subtype 2 names a drop group, and those drop tables are absent from the installed client and from this repository. A `Reward.tsv` row with the same number is a different grant, so the pack does not pay it. Subtype 4 is a red-envelope share chest; the client ships `RedEnvelopeNpc` only. The same rule, and the other surfaces left closed for a missing catalog or pity law, is recorded in `Docs/closed.md`.
+
+| ID | Name | Why it stays closed |
+| --- | --- | --- |
+| 40691 | Normal Gift Box | One random normal affection gift (quality 3: 40681 Best-Seller, 40682 Vinyl Record). No drop table. Reward 1003 is an unrelated currency bundle |
+| 40692 | Fine Gift Box | One random fine affection gift (quality 4: 40683 Ration Chocolate, 40684 1 Day Tour Tickets x2). No drop table. Reward 1004 is an unrelated currency bundle |
+| 40693 | Precious Gift Box | One random precious affection gift (quality 5: a character favorite from 40601–40645). No drop table. Reward 1005 is an unrelated currency bundle |
+| 94033 | Construct Research Surprise Fortune Bag | Reward 1011 pays Cogs x50,000 and Black Card x30. The description's ticket chances are not a reward row |
+| 60003 | Christmas Decor Blueprint Set | Reward 1006 is absent |
+| 90101, 90110 | Equipment Overclock Black Box (S) and (M) | Reward 9011 is absent |
+| 90104 | Minor HQ Black Box | Reward 9014 is absent |
+| 90107 | HQ Black Box (M) | Reward 9017 is absent |
+| 90108 | Memory EXP Set (S) | Reward 9018 is absent |
+| 91000 | 2-4★ Memory Box | Reward 9100's only good is Serum Bundle β (L) (90033) x1 |
+| 91006 | 6★ Memory Box | Reward 9106 is absent |
+| 92000 | 2-4★ Weapon Box | Reward 9200 is absent |
+| 93000 | 5★ Weapon Box | Reward 9300 is absent |
+| 400031–400033, 400060–400062 | Flaming, Cobalt, and Green Eggs | Rewards 370000011–370000013 and 370000030–370000032 are absent. Each description grants 30,000 Cogs plus an Event Construct R&D Ticket count of 5, 10, or 15, and gives no weights |
+| 1050–1052 | New Year Present Test 1–3 | Subtype 4, params `4 1`. The red-envelope drop tables are absent |
 
 ## Gifts
 
