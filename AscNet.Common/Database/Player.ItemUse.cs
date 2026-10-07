@@ -8,6 +8,7 @@ public sealed class ItemUsePendingOperation
     public int ItemId { get; set; }
     public int Count { get; set; }
     public int RecycleTime { get; set; }
+    public List<int> SelectRewardIds { get; set; } = new();
     public List<ItemUsePendingReward> Goods { get; set; } = new();
 }
 

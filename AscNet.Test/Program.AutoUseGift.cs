@@ -130,6 +130,154 @@ internal static partial class Program
             AssertNoAvailablePacket(h, "Fixed-auto has no extra packets");
         }
 
+        ItemTable omniframe = items[94008];
+        AssertEqual(3, omniframe.SubTypeParams[0], "94008 is a choice pack");
+        AssertEqual(1, omniframe.SubTypeParams[2], "94008 selects one reward");
+        RewardTable omniframeReward = rewardRows[omniframe.SubTypeParams[1]];
+        RewardGoodsTable firstFrame = goodsRows[omniframeReward.SubIds[0]];
+        RewardGoodsTable secondFrame = goodsRows[omniframeReward.SubIds[1]];
+        AssertEqual((int)RewardType.Character, (int)RewardHandler.GetRewardType(firstFrame)!, "Omniframe choice grants a frame");
+        AssertEqual(true, firstFrame.TemplateId != secondFrame.TemplateId, "Omniframe choices are different frames");
+        CharacterTable firstCharacter = TableReaderV2.Parse<CharacterTable>().Single(row => row.Id == firstFrame.TemplateId);
+        int decompose = Character.GetMinCharacterFragment(firstCharacter.Id)?.DecomposeCount
+            ?? throw new InvalidDataException("Omniframe choice has no fragment row.");
+        AssertEqual(true, decompose > 0, "Duplicate omniframe converts into shards");
+        ItemTable shardPick = items[40901];
+        RewardGoodsTable shardChoice = goodsRows[rewardRows[shardPick.SubTypeParams[1]].SubIds[0]];
+        AssertEqual((int)RewardType.Item, (int)RewardHandler.GetRewardType(shardChoice)!, "Shard pick grants an item");
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out RecordingMongoCollectionProxy<Player> players, out RecordingMongoCollectionProxy<Character> characters,
+            out RecordingMongoCollectionProxy<Inventory> inventories))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 94008, Count = 1 }]), "choice-one-frame"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 94008, Count = 1, SelectRewardIds = [firstFrame.Id]
+            });
+            AssertEqual(0, response.Code, "One omniframe choice succeeds");
+            AssertEqual($"{firstFrame.Id}:{firstFrame.TemplateId}:{firstFrame.Count}",
+                string.Join(";", response.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "One omniframe choice returns the selected frame");
+            AssertEqual((int)RewardType.Character, response.RewardGoodsList.Single().RewardType, "One omniframe choice reward type");
+            AssertEqual(true, h.Session.character.Characters.Any(character => character.Id == (uint)firstFrame.TemplateId),
+                "One omniframe choice grants the frame");
+            AssertEqual(0L, Balance(h, 94008), "One omniframe choice consumes the pack");
+            AssertEqual(0L, Balance(h, firstCharacter.ItemId), "A new frame is not converted into shards");
+            AssertEqual(true, h.Session.player.PendingItemUse is null, "One omniframe choice clears pending");
+            Character reloaded = BsonSerializer.Deserialize<Character>(characters.LastSuccessfulReplacementBson
+                ?? throw new InvalidDataException("Omniframe choice was not saved."));
+            AssertEqual(true, reloaded.Characters.Any(character => character.Id == (uint)firstFrame.TemplateId),
+                "Omniframe choice survives reload");
+            AssertEqual(0L, BsonSerializer.Deserialize<Inventory>(inventories.LastSuccessfulReplacementBson!)
+                .Items.Single(item => item.Id == 94008).Count, "Omniframe choice consumption survives reload");
+            AssertEqual(true, BsonSerializer.Deserialize<Player>(players.LastSuccessfulReplacementBson!).PendingItemUse is null,
+                "Omniframe choice pending clear survives reload");
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 94008, Count = 2 }]), "choice-repeat-frame"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 94008, Count = 2, SelectRewardIds = [firstFrame.Id]
+            });
+            AssertEqual(0, response.Code, "Repeated omniframe choice succeeds");
+            AssertEqual($"{firstFrame.Id}:{firstFrame.TemplateId}:1;{firstFrame.Id}:{firstFrame.TemplateId}:1",
+                string.Join(";", response.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "One selected id applies to every pack");
+            AssertEqual(1, h.Session.character.Characters.Count(character => character.Id == (uint)firstFrame.TemplateId),
+                "Repeated choice grants the frame once");
+            AssertEqual((long)decompose, Balance(h, firstCharacter.ItemId), "The extra pack converts into that frame's shards");
+            AssertEqual(0L, Balance(h, 94008), "Repeated choice consumes both packs");
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 94008, Count = 2 }]), "choice-two-frames"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 94008, Count = 2, SelectRewardIds = [firstFrame.Id, secondFrame.Id]
+            });
+            AssertEqual(0, response.Code, "Per-pack omniframe choices succeed");
+            AssertEqual($"{firstFrame.Id}:{firstFrame.TemplateId}:1;{secondFrame.Id}:{secondFrame.TemplateId}:1",
+                string.Join(";", response.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "Per-pack choices keep their order");
+            AssertEqual(true, h.Session.character.Characters.Any(character => character.Id == (uint)firstFrame.TemplateId)
+                && h.Session.character.Characters.Any(character => character.Id == (uint)secondFrame.TemplateId),
+                "Per-pack choices grant both frames");
+            AssertEqual(0L, Balance(h, 94008), "Per-pack choices consume both packs");
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 40901, Count = 3 }]), "choice-shard-pick"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 40901, Count = 3, SelectRewardIds = [shardChoice.Id]
+            });
+            AssertEqual(0, response.Code, "Shard pick succeeds");
+            AssertEqual($"{shardChoice.Id}:{shardChoice.TemplateId}:{3 * shardChoice.Count}",
+                string.Join(";", response.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "One shard id grants the whole stack");
+            AssertEqual((int)RewardType.Item, response.RewardGoodsList.Single().RewardType, "Shard pick reward type");
+            AssertEqual(1, h.Session.inventory.Items.Count(item => item.Id == shardChoice.TemplateId), "Shard pick keeps one stack");
+            AssertEqual(3L * shardChoice.Count, Balance(h, shardChoice.TemplateId), "Shard pick grants one shard per pack");
+            AssertEqual(0L, Balance(h, 40901), "Shard pick consumes the packs");
+        }
+
+        foreach (ItemUseRequest request in new ItemUseRequest[]
+        {
+            new() { Id = 94008, Count = 1 },
+            new() { Id = 94008, Count = 1, SelectRewardIds = [1] },
+            new() { Id = 94008, Count = 1, SelectRewardIds = [firstFrame.Id, secondFrame.Id] },
+            new() { Id = 94008, Count = 2, SelectRewardIds = [firstFrame.Id, secondFrame.Id, firstFrame.Id] }
+        })
+        {
+            using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
+            using LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+                CreateDrawCompatibilityInventory(uid, [new Item { Id = 94008, Count = 4 }]), "choice-reject");
+            RejectUnchanged(h, request);
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 94008, Count = 2 }]), "choice-pending-selection"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            h.Session.player.PendingItemUse = new ItemUsePendingOperation
+            {
+                ClaimKey = $"item-use:{uid}:choice",
+                ItemId = 94008,
+                Count = 2,
+                SelectRewardIds = [firstFrame.Id],
+                Goods = [PendingGood(firstFrame), PendingGood(firstFrame)]
+            };
+            RejectUnchanged(h, new ItemUseRequest { Id = 94008, Count = 2, SelectRewardIds = [secondFrame.Id] });
+            RejectUnchanged(h, new ItemUseRequest { Id = 94008, Count = 2, SelectRewardIds = [firstFrame.Id, firstFrame.Id] });
+            ItemUseResponse resumed = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 94008, Count = 2, SelectRewardIds = [firstFrame.Id]
+            });
+            AssertEqual(0, resumed.Code, "Matching choice retry succeeds");
+            AssertEqual(1, h.Session.character.Characters.Count(character => character.Id == (uint)firstFrame.TemplateId),
+                "Matching choice retry grants the stored frame");
+            AssertEqual((long)decompose, Balance(h, firstCharacter.ItemId), "Matching choice retry converts the stored extra pack");
+            AssertEqual(true, h.Session.player.PendingItemUse is null, "Matching choice retry clears pending");
+        }
+
         int unsupported = items.Values.First(row => row.ItemType == (int)AscNet.Common.ItemType.Gift
             && row.SubTypeParams.Count >= 2 && row.SubTypeParams[0] is 2 or 6
             && row.SubTypeParams[1] is not (1007 or 1008)).Id;
@@ -274,6 +422,42 @@ internal static partial class Program
                 expected[good.TemplateId] = expected.GetValueOrDefault(good.TemplateId) + good.Count;
             foreach (int id in expected.Keys.Union(h.Session.inventory.Items.Select(item => item.Id)))
                 AssertEqual(expected.GetValueOrDefault(id), Balance(h, id), $"Gift exact balance {id}");
+        }
+
+        ItemUsePendingReward PendingGood(RewardGoodsTable row) => new()
+        {
+            Id = row.Id, TemplateId = row.TemplateId, Count = row.Count, Params = row.Params.ToList()
+        };
+
+        ItemUseResponse OpenChoice(LoopbackSessionHarness h, ItemUseRequest request)
+        {
+            int id = ++packetId;
+            InvokeRegisteredRequestHandler(nameof(ItemUseRequest), h.Session, id, request);
+            ItemUseResponse? response = null;
+            for (int index = 0; index < 32; index++)
+            {
+                Packet packet = h.ReadPacket("Choice gift packet");
+                if (packet.Type == Packet.ContentType.Push)
+                {
+                    Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                    if (push.Name == nameof(NotifyItemDataList))
+                    {
+                        NotifyItemDataList notification = MessagePackSerializer.Deserialize<NotifyItemDataList>(push.Content);
+                        AssertEqual(notification.ItemDataList.Count,
+                            notification.ItemDataList.Select(item => item.Id).Distinct().Count(),
+                            "Choice gift item notification has one row per item");
+                    }
+                    continue;
+                }
+                AssertEqual(Packet.ContentType.Response, packet.Type, "Choice gift terminates with response");
+                Packet.Response envelope = MessagePackSerializer.Deserialize<Packet.Response>(packet.Content);
+                AssertEqual(id, envelope.Id, "Choice gift response identity");
+                response = ReadResponsePayload<ItemUseResponse>(packet, nameof(ItemUseResponse));
+                break;
+            }
+            AssertEqual(true, response is not null, "Choice gift returns a response");
+            AssertNoAvailablePacket(h, "Choice gift has no extra packets");
+            return response!;
         }
 
         ItemUseResponse Use(LoopbackSessionHarness h, ItemUseRequest request, Dictionary<int, long> before, HashSet<int> pool)
