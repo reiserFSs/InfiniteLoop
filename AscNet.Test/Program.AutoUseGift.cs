@@ -3,6 +3,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.GameServer;
 using AscNet.GameServer.Handlers;
+using AscNet.GameServer.Handlers.Drops;
 using AscNet.Table.V2.share.equip;
 using AscNet.Table.V2.share.character;
 using AscNet.Table.V2.share.item;
@@ -295,6 +296,27 @@ internal static partial class Program
         using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
             out _, out _, out _))
         using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid,
+            [
+                new Item { Id = 400076, Count = 1 },
+                new Item { Id = firstCoating.TemplateId, Count = 1 }
+            ]), "coating-already-held"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 400076, Count = 1, SelectRewardIds = [firstCoating.Id]
+            });
+            AssertEqual(0, response.Code, "A held coating item does not block the choice");
+            AssertEqual(true, h.Session.character.WeaponFashions.Any(fashion => fashion.Id == firstFashion && fashion.ExpireTime == 0),
+                "A held coating item still unlocks the fashion");
+            AssertEqual(1L, Balance(h, firstCoating.TemplateId), "The held coating item stays at its cap");
+            AssertEqual(0L, Balance(h, 400076), "A held coating item still consumes the pack");
+        }
+
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
             CreateDrawCompatibilityInventory(uid, [new Item { Id = 400076, Count = 2 }, new Item { Id = 40905, Count = 2 }]),
             "choice-stack"))
         {
@@ -350,6 +372,86 @@ internal static partial class Program
             });
         }
 
+        long shardCap = Inventory.GetMaxCount(items[firstShard.TemplateId]);
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid,
+            [
+                new Item { Id = 40905, Count = 1 },
+                new Item { Id = firstShard.TemplateId, Count = (int)shardCap }
+            ]), "shard-full"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            RejectUnchanged(h, new ItemUseRequest
+            {
+                Id = 40905, Count = 1, SelectRewardIds = [firstShard.Id]
+            }, 20012005);
+            RejectMultipleUnchanged(h, new ItemUseMultipleRequest
+            {
+                UseList = [new ItemUseMultipleEntry { Id = 40905, Count = 1, SelectRewardIds = [firstShard.Id] }]
+            }, 20012005);
+        }
+
+        ItemTable invertPack = items[400026];
+        RewardGoodsTable invertShard = goodsRows[rewardRows[invertPack.SubTypeParams[1]].SubIds[0]];
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 400026, Count = 1 }]), "invert-shard-pack"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest
+            {
+                Id = 400026, Count = 1, SelectRewardIds = [invertShard.Id]
+            });
+            AssertEqual(0, response.Code, "S-Rank Inver-Shard Pack succeeds");
+            AssertEqual($"{invertShard.Id}:{invertShard.TemplateId}:{invertShard.Count}",
+                string.Join(";", response.RewardGoodsList.Select(good => $"{good.Id}:{good.TemplateId}:{good.Count}")),
+                "S-Rank Inver-Shard Pack grants the selected shards");
+            AssertEqual((long)invertShard.Count, Balance(h, invertShard.TemplateId), "S-Rank Inver-Shard Pack shard balance");
+            AssertEqual(0L, Balance(h, 400026), "S-Rank Inver-Shard Pack consumes the pack");
+        }
+
+        long invertCap = Inventory.GetMaxCount(items[invertShard.TemplateId]);
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid,
+            [
+                new Item { Id = 400026, Count = 1 },
+                new Item { Id = invertShard.TemplateId, Count = (int)invertCap }
+            ]), "invert-shard-full"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            RejectUnchanged(h, new ItemUseRequest
+            {
+                Id = 400026, Count = 1, SelectRewardIds = [invertShard.Id]
+            }, 20012005);
+        }
+
+        AssertEqual("250:10;225:15;200:20;175:25;150:30",
+            string.Join(";", ConstructResearchFortuneBagPolicy.Tiers.Select(tier => $"{tier.Count}:{tier.Weight}")),
+            "Fortune bag odds are the item description");
+        HashSet<int> fortuneCounts = ConstructResearchFortuneBagPolicy.Tiers.Select(tier => tier.Count).ToHashSet();
+        using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out _, out _, out _))
+        using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
+            CreateDrawCompatibilityInventory(uid, [new Item { Id = 94033, Count = 1 }]), "fortune-bag"))
+        {
+            h.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+            ItemUseResponse response = OpenChoice(h, new ItemUseRequest { Id = 94033, Count = 1 });
+            AssertEqual(0, response.Code, "Fortune bag succeeds");
+            RewardGoods ticket = response.RewardGoodsList.Single();
+            AssertEqual(ConstructResearchFortuneBagPolicy.TicketItemId, ticket.TemplateId, "Fortune bag grants Event Construct R&D Tickets");
+            AssertEqual(true, fortuneCounts.Contains(ticket.Count), "Fortune bag count is one published tier");
+            AssertEqual((long)ticket.Count, Balance(h, ticket.TemplateId), "Fortune bag ticket balance");
+            AssertEqual(0L, Balance(h, 1), "Fortune bag does not pay Cogs");
+            AssertEqual(0L, Balance(h, 2), "Fortune bag does not pay the free Black Card stack");
+            AssertEqual(0L, Balance(h, 3), "Fortune bag does not pay the paid Black Card stack");
+            AssertEqual(0L, Balance(h, 94033), "Fortune bag consumes the pack");
+        }
+
         using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
             out _, out _, out _))
         using (LoopbackSessionHarness h = new(CreateDrawCompatibilityCharacter(++uid), CreateDrawCompatibilityPlayer(uid),
@@ -390,7 +492,7 @@ internal static partial class Program
         // Reasons these packs stay closed, including the affection-gift boxes, are in Docs/closed.md.
         int[] closedPacks =
         [
-            94033, 1050, 1051, 1052, 93000, 92000, 91006, 91000, 90101, 90110, 90107, 90108, 90104,
+            1050, 1051, 1052, 93000, 92000, 91006, 91000, 90101, 90110, 90107, 90108, 90104,
             400031, 400032, 400033, 400060, 400061, 400062, 40691, 40692, 40693, 60003
         ];
         using (MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
@@ -450,7 +552,7 @@ internal static partial class Program
 
         int unsupported = items.Values.First(row => row.ItemType == (int)AscNet.Common.ItemType.Gift
             && row.SubTypeParams.Count >= 2 && row.SubTypeParams[0] is 2 or 6
-            && row.SubTypeParams[1] is not (1007 or 1008)).Id;
+            && row.SubTypeParams[1] is not (1007 or 1008 or 1011)).Id;
         foreach (ItemUseRequest request in new[]
         {
             new ItemUseRequest { Id = 60001, Count = 0 },
@@ -661,7 +763,7 @@ internal static partial class Program
             return response!;
         }
 
-        void RejectMultipleUnchanged(LoopbackSessionHarness h, ItemUseMultipleRequest request)
+        void RejectMultipleUnchanged(LoopbackSessionHarness h, ItemUseMultipleRequest request, int? code = null)
         {
             byte[] player = h.Session.player.ToBson();
             byte[] inventory = h.Session.inventory.ToBson();
@@ -671,6 +773,8 @@ internal static partial class Program
             ItemUseMultipleResponse response = ReadResponsePayload<ItemUseMultipleResponse>(
                 h, id, nameof(ItemUseMultipleResponse), "Multiple gift rejected without push");
             AssertEqual(true, response.Code != 0, "Multiple gift rejection code");
+            if (code is int expected)
+                AssertEqual(expected, response.Code, "Multiple gift rejection code");
             AssertEqual(0, response.RewardGoodsList.Count, "Rejected multiple gift exposes no granted goods");
             AssertNoAvailablePacket(h, "Rejected multiple gift emits no packets beyond response");
             AssertEqual(Convert.ToHexString(player), Convert.ToHexString(h.Session.player.ToBson()), "Rejected multiple gift leaves player unchanged");
@@ -711,22 +815,25 @@ internal static partial class Program
             return response;
         }
 
-        void Reject(LoopbackSessionHarness h, ItemUseRequest request)
+        ItemUseResponse Reject(LoopbackSessionHarness h, ItemUseRequest request, int? code = null)
         {
             int id = ++packetId;
             InvokeRegisteredRequestHandler(nameof(ItemUseRequest), h.Session, id, request);
             ItemUseResponse response = ReadResponsePayload<ItemUseResponse>(h, id, nameof(ItemUseResponse), "Auto gift rejected without push");
             AssertEqual(true, response.Code != 0, "Auto gift rejection code");
+            if (code is int expected)
+                AssertEqual(expected, response.Code, "Auto gift rejection code");
             AssertEqual(0, response.RewardGoodsList.Count, "Rejected gift exposes no granted goods");
             AssertNoAvailablePacket(h, "Rejected gift emits no packets beyond response");
+            return response;
         }
 
-        void RejectUnchanged(LoopbackSessionHarness h, ItemUseRequest request)
+        void RejectUnchanged(LoopbackSessionHarness h, ItemUseRequest request, int? code = null)
         {
             byte[] player = h.Session.player.ToBson();
             byte[] inventory = h.Session.inventory.ToBson();
             byte[] character = h.Session.character.ToBson();
-            Reject(h, request);
+            Reject(h, request, code);
             AssertEqual(Convert.ToHexString(player), Convert.ToHexString(h.Session.player.ToBson()), "Rejected gift leaves player unchanged");
             AssertEqual(Convert.ToHexString(inventory), Convert.ToHexString(h.Session.inventory.ToBson()), "Rejected gift leaves inventory unchanged");
             AssertEqual(Convert.ToHexString(character), Convert.ToHexString(h.Session.character.ToBson()), "Rejected gift leaves character unchanged");

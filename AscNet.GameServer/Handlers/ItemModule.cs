@@ -123,9 +123,9 @@ namespace AscNet.GameServer.Handlers
         public static void ItemUseRequestHandler(Session session, Packet.Request packet)
         {
             ItemUseRequest request = packet.Deserialize<ItemUseRequest>();
-            if (!TryCompleteItemUse(session, request, out RewardApplicationResult? result))
+            if (!TryCompleteItemUse(session, request, out RewardApplicationResult? result, out int errorCode))
             {
-                session.SendResponse(new ItemUseResponse { Code = 1 }, packet.Id);
+                session.SendResponse(new ItemUseResponse { Code = errorCode }, packet.Id);
                 return;
             }
 
@@ -137,10 +137,14 @@ namespace AscNet.GameServer.Handlers
         public static void ItemUseMultipleRequestHandler(Session session, Packet.Request packet)
         {
             ItemUseMultipleRequest request = packet.Deserialize<ItemUseMultipleRequest>();
-            if (!TryFlattenItemUses(request.UseList, out ItemUseRequest flattened)
-                || !TryCompleteItemUse(session, flattened, out RewardApplicationResult? result))
+            if (!TryFlattenItemUses(request.UseList, out ItemUseRequest flattened))
             {
                 session.SendResponse(new ItemUseMultipleResponse { Code = 1 }, packet.Id);
+                return;
+            }
+            if (!TryCompleteItemUse(session, flattened, out RewardApplicationResult? result, out int errorCode))
+            {
+                session.SendResponse(new ItemUseMultipleResponse { Code = errorCode }, packet.Id);
                 return;
             }
 
@@ -148,9 +152,11 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new ItemUseMultipleResponse { RewardGoodsList = result.RewardGoods }, packet.Id);
         }
 
-        private static bool TryCompleteItemUse(Session session, ItemUseRequest request, out RewardApplicationResult? result)
+        private static bool TryCompleteItemUse(Session session, ItemUseRequest request,
+            out RewardApplicationResult? result, out int errorCode)
         {
             result = null;
+            errorCode = 1;
             if (request.Id <= 0 || request.Count <= 0 || request.RecycleTime < 0)
                 return false;
 
@@ -168,9 +174,13 @@ namespace AscNet.GameServer.Handlers
                 List<Item> stacks = session.inventory.Items.Where(row => row.Id == request.Id).ToList();
                 if (item is null || stacks.Count != 1 || stacks[0].Count < request.Count
                     || stacks[0].Count > Inventory.GetMaxCount(item)
-                    || !TryBuildItemUseRewards(item, request.Count, request.SelectRewardIds, out List<RewardGoodsTable> goods)
-                    || !CanApplyItemUseGoods(session, request.Id, request.Count, goods))
+                    || !TryBuildItemUseRewards(item, request.Count, request.SelectRewardIds, out List<RewardGoodsTable> goods))
                     return false;
+                if (!CanApplyItemUseGoods(session, request.Id, request.Count, goods))
+                {
+                    errorCode = 20012005;
+                    return false;
+                }
 
                 pending = new ItemUsePendingOperation
                 {
@@ -584,6 +594,14 @@ namespace AscNet.GameServer.Handlers
                     return true;
                 case 2:
                 case 6:
+                    if (ConstructResearchFortuneBagPolicy.Applies(sourceId))
+                    {
+                        if (!ConstructResearchFortuneBagPolicy.TryGrant(count, out RewardGoodsTable ticket)
+                            || RewardHandler.GetRewardType(ticket) is null)
+                            return false;
+                        goods.Add(ticket);
+                        return true;
+                    }
                     if (!EquipmentOverclockDropPolicy.TryResolve(sourceId,
                             out IReadOnlyList<RewardGoodsTable> pool, out int countPerBox)
                         || (long)count * countPerBox > int.MaxValue)
@@ -669,6 +687,11 @@ namespace AscNet.GameServer.Handlers
                          .GroupBy(row => row.TemplateId))
             {
                 ItemTable? item = TableReaderV2.Parse<ItemTable>().Find(row => row.Id == group.Key);
+                // A weapon coating is a fashion unlock. The bag row is not the grant, so a coating
+                // already held at MaxCount 1 must not reject the choice.
+                if (item?.ItemType == (int)AscNet.Common.ItemType.WeaponFashion
+                    && RewardHandler.TryResolveWeaponFashionReward(group.Key, out _))
+                    continue;
                 List<Item> stacks = session.inventory.Items.Where(row => row.Id == group.Key).ToList();
                 if (item is null || stacks.Count > 1 || stacks.Any(row => row.Count < 0))
                     return false;

@@ -16,13 +16,14 @@ Normal, Fine, and Precious Gift Boxes give one random affection gift of that tie
 
 Quality 6 affection items 40800–40811 are a separate tier. They are not these three boxes.
 
-Each box is gift subtype 2. Its second parameter (1003, 1004, 1005) is a drop-group id. No drop table for those ids is in the installed client or in this repository, so the box does not open. Rewards 1003, 1004, and 1005 happen to exist and pay Black Card, Cogs, and Skill Points. That collision is not the gift pool.
+Each box is gift subtype 2. Its second parameter (1003, 1004, 1005) is a drop-group id. No drop table for those ids is in the installed client or in this repository, and the descriptions give no rates, so the box does not open. Rewards 1003, 1004, and 1005 happen to exist and pay Black Card, Cogs, and Skill Points. That collision is not the gift pool.
+
+94033 Construct Research Surprise Fortune Bag is not one of these boxes. It opens from the chances printed on the item: 10/15/20/25/30% for 250/225/200/175/150 Event Construct R&D Tickets (50005). Reward 1011 pays Cogs and Black Cards and is not that grant.
 
 ## Other packs with no drop table
 
 The same gap covers the other subtype-2 and subtype-4 packs called out with the gift boxes. `Docs/items.md` lists each id.
 
-- 94033 Construct Research Surprise Fortune Bag. The description states Event Construct R&D Ticket chances of 10/15/20/25/30% for counts 250/225/200/175/150. Reward 1011 pays Cogs x50,000 and Black Card x30, which is not that split, and the drop table is absent.
 - 60003 Christmas Decor Blueprint Set. Reward 1006 is absent.
 - 90101 and 90110 Equipment Overclock Black Box (S) and (M). Reward 9011 is absent. This is separate from 60001 and 60002, which open under the uniform overclock policy in `EquipmentOverclockDropPolicy.tsv`.
 - 90104 Minor HQ Black Box, 90107 HQ Black Box (M), 90108 Memory EXP Set (S). Rewards 9014, 9017, and 9018 are absent.
