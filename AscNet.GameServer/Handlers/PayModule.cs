@@ -47,6 +47,27 @@ namespace AscNet.GameServer.Handlers
         public bool LocalCompleted { get; set; }
         public List<RewardGoods> RewardList { get; set; } = new();
     }
+
+    [MessagePackObject(true)]
+    public class GetAccumulatePayRequest
+    {
+        public int PayId { get; set; }
+        public int RewardId { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public class GetAccumulatePayResponse
+    {
+        public int Code { get; set; }
+        public int ExtraPayRewardId { get; set; }
+        public List<RewardGoods> RewardGoodsList { get; set; } = new();
+    }
+
+    [MessagePackObject(true)]
+    public class NotifyAccumulatedPayMoney
+    {
+        public float PayMoney { get; set; }
+    }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 

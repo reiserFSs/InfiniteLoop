@@ -22,6 +22,17 @@ public partial class Player
     [BsonElement("recharge_sequence")]
     public long RechargeSequence { get; set; }
 
+    // Rainbow cards credited by completed recharge products. AccumulatedPayReward.Money
+    // uses this count. Giving item 5 directly does not change it.
+    [BsonElement("accumulated_pay_money")]
+    public long AccumulatedPayMoney { get; set; }
+
+    [BsonElement("accumulated_pay_reward_ids")]
+    public List<int> AccumulatedPayRewardIds { get; set; } = new();
+
+    [BsonElement("accumulated_extra_pay_reward_ids")]
+    public List<int> AccumulatedExtraPayRewardIds { get; set; } = new();
+
     [BsonElement("purchase_period_buy_times")]
     [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
     public Dictionary<uint, int> PurchasePeriodBuyTimes { get; set; } = new();

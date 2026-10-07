@@ -71,6 +71,21 @@ Client checks (requires `lupa`, plus the patch script dependencies):
 to the exported `PGR_DATA/en/lua/matrix` directory to also run syntax checks
 and real list timer/overlay tests against that client version.
 
+## Total Recharge
+
+The installed client's `AccumulatedPayReward.Money` values are rainbow-card
+counts (5, 28, 100, …), the same unit as `Pay.MoneyCard`. A completed
+`ShowUIType` 1 recharge adds that product's `MoneyCard` to the persisted
+total and pushes `NotifyAccumulatedPayData`. `Pay.Amount` is the USD price
+and is not this counter. Giving item 5 with `/item` does not count.
+`GetAccumulatePayRequest` pays the tier's big, small, and extra reward rows
+from those client tables. Earlier recharges were not recorded.
+
+The top-up Popular tab is `PurchaseTabControl` group "Popular". The client
+hides that button unless `NotifyPurchaseRecommendConfig` contains recommend
+rows. Those rows are not in the client tables or the installed recommend
+prefabs, so the push stays empty.
+
 ## Daily reward rules
 
 `table/share/pay/PurchaseDailyDuration.tsv` is an explicit local-server

@@ -319,10 +319,21 @@ internal partial class PayModule
                         var result = RewardHandler.ApplyRewardsOnceAndPersist([new RewardGrant(pending.Order,
                             [new RewardGoodsTable { TemplateId = Inventory.HongKa, Count = pending.Count }])], session);
                         long sequence = session.player.RechargeSequence;
+                        long paid = session.player.AccumulatedPayMoney;
+                        long nextPaid = checked(paid + pending.Count);
                         session.player.RechargeSequence = checked(sequence + 1);
+                        session.player.AccumulatedPayMoney = nextPaid;
                         session.player.PendingRecharge = null;
                         try { session.player.SaveChecked(); }
-                        catch { session.player.RechargeSequence = sequence; session.player.PendingRecharge = pending; throw; }
+                        catch
+                        {
+                            session.player.RechargeSequence = sequence;
+                            session.player.AccumulatedPayMoney = paid;
+                            session.player.PendingRecharge = pending;
+                            throw;
+                        }
+                        session.SendPush(BuildAccumulatedPayData(session.player));
+                        session.SendPush(new NotifyAccumulatedPayMoney { PayMoney = nextPaid });
                         response.Code = 0;
                         response.GameOrder = pending.Order;
                         response.LocalCompleted = true;

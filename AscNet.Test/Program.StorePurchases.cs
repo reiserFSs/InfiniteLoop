@@ -4,6 +4,7 @@ using AscNet.Common.Util;
 using AscNet.GameServer.Game;
 using AscNet.GameServer.Handlers;
 using AscNet.Table.V2.share.item;
+using AscNet.Table.V2.share.pay;
 using AscNet.Table.V2.share.reward;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -255,10 +256,83 @@ internal static partial class Program
         AssertEqual(end + 30, harness.Session.player.PurchaseDailyPasses[83028].EndDay, "monthly term survives reload");
         AssertEqual(0, Claim(83028).RewardList.Count, "daily claim survives reload");
         ValidateRechargeCapacity();
+        ValidateAccumulatedRecharge();
         ValidateFullMonthlyCombo();
         ValidateTenDayPackage();
         ValidateBlackCardPoolPackagePurchases();
         Console.WriteLine("Store purchase/recharge compatibility checks passed.");
+    }
+
+    private static void ValidateAccumulatedRecharge()
+    {
+        const long uid = 468604;
+        Player player = CreateDrawCompatibilityPlayer(uid);
+        Inventory inventory = CreateDrawCompatibilityInventory(uid, [new Item { Id = Inventory.HongKa, Count = 0 }]);
+        using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(uid), player, inventory, "accumulated-recharge");
+        harness.Session.stage = CreateLoginAccountCompatibilityStage(uid);
+        int packetId = 1;
+        PayInitiatedResponse Recharge(string key)
+        {
+            int sequence = packetId++;
+            InvokeRegisteredRequestHandler(nameof(PayInitiatedRequest), harness.Session, sequence,
+                new PayInitiatedRequest { Key = key });
+            return ReadResponsePayload<PayInitiatedResponse>(harness, sequence, nameof(PayInitiatedResponse), "accumulated recharge", maxPacketsToRead: 32);
+        }
+        GetAccumulatePayResponse Claim(int payId, int rewardId)
+        {
+            int sequence = packetId++;
+            InvokeRegisteredRequestHandler(nameof(GetAccumulatePayRequest), harness.Session, sequence,
+                new GetAccumulatePayRequest { PayId = payId, RewardId = rewardId });
+            return ReadResponsePayload<GetAccumulatePayResponse>(harness, sequence, nameof(GetAccumulatePayResponse), "accumulated claim", maxPacketsToRead: 32);
+        }
+        long Balance(int id) => inventory.Items.FirstOrDefault(item => item.Id == id)?.Count ?? 0;
+        NotifyAccumulatedPayData LoginPayload() => PayModule.BuildAccumulatedPayData(player);
+        AccumulatedPayTable pay = TableReaderV2.Parse<AccumulatedPayTable>().Single(row => row.Type == 2);
+        AccumulatedPayRewardTable first = TableReaderV2.Parse<AccumulatedPayRewardTable>().Single(row => row.Id == pay.PayRewardId[0]);
+        AccumulatedPayRewardTable second = TableReaderV2.Parse<AccumulatedPayRewardTable>().Single(row => row.Id == pay.PayRewardId[1]);
+        AccumulatedExtraPayRewardTable firstExtra = TableReaderV2.Parse<AccumulatedExtraPayRewardTable>().Single(row => row.Id == first.ExtraPayRewardId);
+        List<RewardGoodsTable> Expected(AccumulatedPayRewardTable reward, AccumulatedExtraPayRewardTable extra)
+        {
+            List<RewardGoodsTable> goods = [];
+            foreach (int rewardId in new[] { reward.BigRewardId, reward.SmallRewardId, extra.ExtraBigRewardId, extra.ExtraSmallRewardId })
+                if (rewardId > 0)
+                    goods.AddRange(RewardHandler.GetRewardGoods(rewardId));
+            return goods;
+        }
+        string ResponseSignature(IEnumerable<RewardGoods> goods) => string.Join(";",
+            goods.OrderBy(good => good.TemplateId).ThenBy(good => good.Count).Select(good => $"{good.TemplateId}:{good.Count}"));
+        string TableSignature(IEnumerable<RewardGoodsTable> goods) => string.Join(";",
+            goods.OrderBy(good => good.TemplateId).ThenBy(good => good.Count).Select(good => $"{good.TemplateId}:{good.Count}"));
+
+        AssertEqual(pay.Id, LoginPayload().PayId, "fresh total recharge uses the forever pay id");
+        AssertEqual(0f, LoginPayload().PayMoney, "fresh total recharge is zero");
+        AssertEqual(0, LoginPayload().PayRewardIds.Count, "fresh total recharge has no claims");
+        AssertEqual(20053031, Recharge("PayWin999999").Code, "unknown recharge does not count");
+        AssertEqual(0L, player.AccumulatedPayMoney, "rejected recharge does not count");
+        AssertEqual(0, Recharge("PayWin5").Code, "five-card recharge succeeds");
+        AssertEqual((long)first.Money, player.AccumulatedPayMoney, "five-card recharge counts its rainbow cards");
+        AssertEqual((float)first.Money, LoginPayload().PayMoney, "login reports the counted rainbow cards");
+        AssertEqual(40001023, Claim(pay.Id, second.Id).Code, "28-card tier stays locked at 5");
+        AssertEqual(0, player.AccumulatedPayRewardIds.Count, "locked tier is not recorded");
+        AssertEqual(40001018, Claim(pay.Id + 9, first.Id).Code, "unknown total recharge id is rejected");
+        AssertEqual(40001021, Claim(pay.Id, 0).Code, "unknown total recharge reward is rejected");
+        List<RewardGoodsTable> expected = Expected(first, firstExtra);
+        Dictionary<int, long> before = expected.GroupBy(good => good.TemplateId).ToDictionary(group => group.Key, group => Balance(group.Key));
+        GetAccumulatePayResponse claimed = Claim(pay.Id, first.Id);
+        AssertEqual(0, claimed.Code, "five-card tier can be claimed");
+        AssertEqual(firstExtra.Id, claimed.ExtraPayRewardId, "claim reports the extra reward id");
+        AssertEqual(TableSignature(expected), ResponseSignature(claimed.RewardGoodsList), "claim pays the published reward rows");
+        foreach (IGrouping<int, RewardGoodsTable> group in expected.GroupBy(good => good.TemplateId))
+            AssertEqual(before[group.Key] + group.Sum(good => (long)good.Count), Balance(group.Key), $"claimed item {group.Key}");
+        AssertEqual(1, player.AccumulatedPayRewardIds.Count, "claimed tier is recorded");
+        AssertEqual(firstExtra.Id, player.AccumulatedExtraPayRewardIds.Single(), "claimed extra reward is recorded");
+        Dictionary<int, long> after = expected.GroupBy(good => good.TemplateId).ToDictionary(group => group.Key, group => Balance(group.Key));
+        AssertEqual(40001022, Claim(pay.Id, first.Id).Code, "claimed tier cannot be claimed again");
+        foreach (KeyValuePair<int, long> pair in after)
+            AssertEqual(pair.Value, Balance(pair.Key), $"repeat claim leaves item {pair.Key}");
+        AssertEqual(0, Recharge("PayWin28").Code, "28-card recharge succeeds");
+        AssertEqual((long)first.Money + 28, player.AccumulatedPayMoney, "later recharges add to the same total");
+        AssertEqual(0, Claim(pay.Id, second.Id).Code, "28-card tier unlocks after that recharge");
     }
 
     private static void ValidateRechargeCapacity()
