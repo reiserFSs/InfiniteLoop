@@ -213,7 +213,7 @@ The server opens fixed gifts (subtype 1 or 5) and choice packs (subtype 3). A ch
 | 94033 | Construct Research Surprise Fortune Bag | Event Construct R&D Tickets (50005). 10%×250, 15%×225, 20%×200, 25%×175, 30%×150. Not Reward 1011 |
 | 40691 | Normal Gift Box | One random normal affection gift, equal chance: 40681 Best-Seller or 40682 Vinyl Record. Not Reward 1003 |
 | 40692 | Fine Gift Box | One random fine affection gift, equal chance: 40683 Ration Chocolate or 40684 1 Day Tour Tickets x2. Not Reward 1004 |
-| 40693 | Precious Gift Box | One random precious affection gift, equal chance among character favorites 40601–40645. Not Reward 1005. Quality 6 gifts 40800–40811 are not in this box |
+| 40693 | Precious Gift Box | One random precious affection gift, equal chance among the character favorites below (40601–40645 on this patch). Each new construct adds their own gift; update this row and the Gifts table. Not Reward 1005. Quality 6 gifts 40800–40811 are not in this box |
 | 40904 | Character Upgrade Material Pack | 6★ shards, overclock mats, enhancers, EXP Pod (XL), Skill Points, Cogs |
 | 40909 | Memory Upgrade Material Pack | Memory upgrade set |
 | 40910 | Weapon Upgrade Material Pack | Weapon upgrade set |
@@ -239,7 +239,7 @@ These packs stay closed. Subtype 2 names a drop group, and those drop tables are
 
 ## Gifts
 
-Everyone accepts 40681 Best-Seller, 40682 Vinyl Record, 40683 Ration Chocolate, and 40684 1 Day Tour Tickets x2. Favorites are in `CharacterTrustItem`:
+Everyone accepts 40681 Best-Seller, 40682 Vinyl Record, 40683 Ration Chocolate, and 40684 1 Day Tour Tickets x2. Each construct has their own favorite in `CharacterTrustItem`. A client patch that adds a construct adds a row here and to Precious Gift Box 40693. The current ids are 40601–40645:
 
 | ID | Gift | For |
 | --- | --- | --- |

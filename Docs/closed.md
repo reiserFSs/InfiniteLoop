@@ -4,7 +4,7 @@ When the client or this repository has no drop table, pity weights, shop goods, 
 
 ## Affection gift boxes
 
-Normal, Fine, and Precious Gift Boxes (40691, 40692, 40693) are open. Each gives one favor gift of the box's quality. The members are the `CharacterTrustItem` rows of that quality: 40681 and 40682, 40683 and 40684, and 40601–40645. The client ships no `DropGroup` weights for ids 1003, 1004, and 1005, and the descriptions give no rates, so `AffectionGiftBoxPolicy.tsv` gives every member of a tier an equal chance. That is the same kind of labeled policy as the overclock boxes, not a recovered retail table.
+Normal, Fine, and Precious Gift Boxes (40691, 40692, 40693) are open. Each gives one favor gift of the box's quality. The members are the `CharacterTrustItem` rows of that quality: 40681 and 40682, 40683 and 40684, and the per-construct favorites 40601–40645. Each construct has their own precious gift, so a client patch that adds a construct adds an id. Account for that id here, in `Docs/items.md`, and in the expected pool in `AscNet.Test/Program.AutoUseGift.cs`. The client ships no `DropGroup` weights for ids 1003, 1004, and 1005, and the descriptions give no rates, so `AffectionGiftBoxPolicy.tsv` gives every member of a tier an equal chance. That is the same kind of labeled policy as the overclock boxes, not a recovered retail table.
 
 Rewards 1003, 1004, and 1005 pay Black Cards, Cogs, and Skill Points. Those rows are not the gift pool. Quality 6 affection items 40800–40811 are a separate tier and are not in these boxes.
 
