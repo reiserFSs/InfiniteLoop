@@ -21,7 +21,8 @@ No game selected: press **SELECT GAME** on the home screen (or **Settings → Ga
 - **PAUSE / CANCEL** while a job runs; **RESUME** continues from the files already verified (also offered after an error or a
   closed launcher). The launcher cannot be closed while a job runs: pause first.
 - When a job finishes the folder becomes the selected game and the normal flow continues: press **SETUP** (supported-client
-  check, local build, patch install), then **PLAY**.
+  check, local build, patch install), then **PLAY**. **Settings → Re-run setup** runs that setup again after the home
+  button has become **PLAY**.
 
 Verify/repair and update never touch files outside the chosen folder, and refuse to run while PGR.exe is running.
 
