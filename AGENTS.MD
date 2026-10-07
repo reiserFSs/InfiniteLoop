@@ -80,6 +80,7 @@ Focused harness switches are defined in `AscNet.Test/Program.cs`; `README.md` co
 ## Change discipline
 
 - Put game TCP behavior in `AscNet.GameServer/`, HTTP-facing behavior in `AscNet.SDKServer/`, and shared schemas/state/database concerns in `AscNet.Common/`; follow the existing module near the behavior being changed.
+- When a change affects an item id — what the bag does with it, what spends it, its stack cap, a gift subtype, a shop consume, a mode currency, or the name the player sees — update `Docs/items.md` in the same change. Use the player-facing name when it differs from `Item.tsv`. Item 105 is Simulation Score; item 62738 is not that score.
 - Keep nullable-reference handling compatible with the .NET 8 runtime projects, which enable nullable references and implicit usings; do not assume the legacy parser shares their framework or project conventions.
 - For protocol changes, test observable request/state-to-response behavior rather than implementation details. Include distinct-input coverage for any derived fields.
 - Do not commit packet captures of any kind. Also do not commit `.runtime/`, MongoDB files, proxy flow logs, `bin/`, `obj/`, client binaries, runtime logs, or captured credentials.
