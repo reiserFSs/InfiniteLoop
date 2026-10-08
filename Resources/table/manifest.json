@@ -2142,7 +2142,7 @@
     },
     {
       "columns": 7,
-      "contentSha256": "023816b80572279d63f4fbda92652cdae367282671a7096f252639badfc289a1",
+      "contentSha256": "9eece0e602ceadbcd5b18a6ef8a5579dc665d893a9b486e4ddd169cf49baa3a5",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/fuben/bosssingle/BossSingleChallengeFeatureGroup.tsv",
@@ -4763,11 +4763,11 @@
     },
     {
       "columns": 2,
-      "contentSha256": "6894f282cddc6549ac5c68256ab56e7a55b90c2be2e0be46b4f2612fc0509bb4",
+      "contentSha256": "87ee6058c7b23e87a74f67eb8466019c95794c4589c18f19dbee029341092c4e",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/fuben/bosssingle/BossSingleChallengeFeature.tsv",
-      "rows": 83,
+      "rows": 85,
       "source": [
         "share/fuben/bosssingle/BossSingleChallengeFeature.json"
       ]

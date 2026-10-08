@@ -606,7 +606,12 @@ internal partial class Program
                     MaxScore = challengeGrades.Single().NeedScore
                 }
             ];
-            player.SimulatedBattlefield.BossChallengeSelectedFeatureGroup = challengeGroups.First(row => row.BuffGroupIds.Any(id => id > 0)).Id;
+            BossSingleChallengeFeatureGroupTable expectedClientFeatureGroup = challengeGroups.Single(row => row.Id == 8);
+            AssertEqual(true, expectedClientFeatureGroup.FeatureIds.SequenceEqual(new[] { 70, 62, 60 }),
+                "Pain Cage intensive group 8 uses client feature order");
+            AssertEqual(true, expectedClientFeatureGroup.BuffGroupIds.SequenceEqual(new[] { 207, 211, 106 }),
+                "Pain Cage intensive group 8 uses client buff-group order");
+            player.SimulatedBattlefield.BossChallengeSelectedFeatureGroup = expectedClientFeatureGroup.Id;
             NotifyFubenBossSingleData challengeLogin = BuildLogin(player, null);
             BossSingleSectionTable challengeSection = sections
                 .Single(row => row.Id == challengeLogin.FubenBossSingleData.ChallengeSectionId
@@ -614,6 +619,8 @@ internal partial class Program
             int challengeStageId = challengeSection.StageId.First();
             BossSingleChallengeFeatureGroupTable challengeFeatureGroup = challengeGroups
                 .Single(row => row.Id == challengeLogin.FubenBossSingleData.ChallengeFeatureGroupId);
+            AssertEqual(expectedClientFeatureGroup.Id, challengeLogin.FubenBossSingleData.ChallengeFeatureGroupId,
+                "Pain Cage intensive login selects client group 8");
             AssertEqual(3, challengeSection.StageId.Count,
                 "Pain Cage intensive current section has three stages");
             AssertEqual(3, challengeFeatureGroup.FeatureIds.Count,
@@ -622,15 +629,26 @@ internal partial class Program
                     challengeSection.StageId.Contains(pair.First)
                     && challengeFeatureGroup.FeatureIds.Contains(pair.Second)),
                 "Pain Cage intensive stage and affix join preserves table order");
-            int challengeBuffGroup = challengeGroups.Single(row => row.Id == challengeLogin.FubenBossSingleData.ChallengeFeatureGroupId).BuffGroupIds.First(id => id > 0);
+            const int clientBuffGroup = 207;
+            PreFightResponse rejectedUnpairedBuffGroup = StartFight(
+                82_048,
+                challengeStageId,
+                stageType: 3,
+                buffGroup: 112);
+            AssertEqual(1, rejectedUnpairedBuffGroup.Code,
+                "Pain Cage rejects a buff group not paired with the selected feature group");
+            AssertEqual(null, harness.Session.fight,
+                "Pain Cage rejects an unpaired buff group without creating a fight");
+            int challengeBuffGroup = clientBuffGroup;
             PreFightResponse intensivePreFight = StartFight(82_030, challengeStageId, stageType: 3, buffGroup: challengeBuffGroup);
             AssertEqual(0, intensivePreFight.Code, "Pain Cage intensive type3 pre-fight");
             int challengeFeatureEvent = TableReaderV2.Parse<BossSingleChallengeFeatureTable>()
                 .Single(row => row.Id == challengeFeatureGroup.FeatureIds[
                     challengeFeatureGroup.BuffGroupIds.IndexOf(challengeBuffGroup)])
                 .FightEventIds;
-            AssertEqual(true, challengeFeatureEvent <= 0
-                || intensivePreFight.FightData.EventIds.Contains(challengeFeatureEvent),
+            AssertEqual(2300070, challengeFeatureEvent,
+                "Pain Cage client feature 70 maps to its authoritative fight event");
+            AssertEqual(true, intensivePreFight.FightData.EventIds.Contains(challengeFeatureEvent),
                 "Pain Cage intensive module applies its table-derived fight event");
             BossSingleStageTable intensiveStage = stages.Single(row => row.StageId == challengeStageId);
             FightSettleResponse intensiveSettle = SettleFight(82_031, intensivePreFight, intensiveStage, 100, 0, fightSeconds: 8);
