@@ -153,6 +153,14 @@ namespace AscNet.Common.Database
 
         public Item Do(int itemId, int amount)
         {
+            long before = Items.FirstOrDefault(x => x.Id == itemId)?.Count ?? 0;
+            Item result = ApplyDelta(itemId, amount);
+            if (amount < 0) RecordSpent(itemId, before - result.Count);
+            return result;
+        }
+
+        private Item ApplyDelta(int itemId, int amount)
+        {
             if (!IsValidClientItemId(itemId))
                 throw new InvalidDataException($"Cannot mutate unknown client item id {itemId}.");
 
@@ -235,6 +243,17 @@ namespace AscNet.Common.Database
 
         [BsonElement("reward_claim_times")]
         public Dictionary<string, long> RewardClaimTimes { get; set; } = new();
+
+        // Cumulative debits per item id (string keys for BSON); the accumulate-expend shop counts Rainbow Card spend from this.
+        [BsonElement("spent_totals")]
+        public Dictionary<string, long> SpentTotals { get; set; } = new();
+
+        internal void RecordSpent(int itemId, long amount)
+        {
+            if (amount <= 0) return;
+            string key = itemId.ToString();
+            SpentTotals[key] = SpentTotals.GetValueOrDefault(key) + amount;
+        }
     }
 
     public partial class ItemConfig

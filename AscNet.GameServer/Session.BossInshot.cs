@@ -16,4 +16,6 @@ public sealed class PendingBossInshotFight
 public partial class Session
 {
     public PendingBossInshotFight? PendingBossInshotFight { get; set; }
+    /// <summary>Practice-stage skill chosen by BossInshotSelectSkillRequest; consumed by the next BossInshot PreFight.</summary>
+    public (int StageId, int EventId)? SelectedBossInshotSkill { get; set; }
 }

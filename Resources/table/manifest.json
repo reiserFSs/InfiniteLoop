@@ -3,6 +3,78 @@
   "sourceCommit": "c5a53f047bb72b3631d3798b06add7f9713c5589",
   "tables": [
     {
+      "columns": 8,
+      "contentSha256": "b131b83c6952023194d1dbe52835b972d97be96ea08c3aff1c6708e62c084e09",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/versiongift/VersionGiftActivity.tsv",
+      "rows": 9,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/miniactivity/versiongift/VersionGiftActivity.json"
+      ],
+      "transformation": "Direct projection; arrays expanded to 1-based columns."
+    },
+    {
+      "columns": 11,
+      "contentSha256": "e0b3465f7d59e2873b894e6437ecd67a62fde095c602ba3f40f9073ba177f50e",
+      "filter": "all",
+      "naturalKey": "ActivityId",
+      "path": "share/miniactivity/versiongift/VersionGiftProcess.tsv",
+      "rows": 9,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/miniactivity/versiongift/VersionGiftProcess.json"
+      ],
+      "transformation": "Direct projection; arrays expanded to 1-based columns."
+    },
+    {
+      "columns": 11,
+      "contentSha256": "8f0cfa7ea4762efa821c990fa500deb6d3bc2aca886b5aec64117293afd3e39e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/accumulateexpendshop/AccumulateExpendShopActivity.tsv",
+      "rows": 1,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/miniactivity/accumulateexpendshop/AccumulateExpendShopActivity.json"
+      ],
+      "transformation": "Direct projection; arrays expanded to 1-based columns."
+    },
+    {
+      "columns": 3,
+      "contentSha256": "430fbe8deab7bf5fa59d6190dd3b27e0f5d72b3ae8fb1ab301790964a0f87217",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/accumulateexpendshop/AccumulateExpendShopSignReward.tsv",
+      "rows": 1,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/miniactivity/accumulateexpendshop/AccumulateExpendShopSignReward.json"
+      ],
+      "transformation": "Direct projection; arrays expanded to 1-based columns."
+    },
+    {
+      "columns": 5,
+      "contentSha256": "9811983043467b5e8b0a26f946e8930abcae2403ed990283f392dc1f99cb494e",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/gamecollection/GameCollection.tsv",
+      "rows": 3,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/miniactivity/gamecollection/GameCollection.json"
+      ],
+      "transformation": "Direct projection; arrays expanded to 1-based columns."
+    },
+    {
+      "columns": 6,
+      "contentSha256": "ee41428b865c77b27c2f27c13b439543e73bfab4145cbc97225cc80c38aa6e15",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/gamecollection/GameCollectionActivity.tsv",
+      "rows": 1,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/miniactivity/gamecollection/GameCollectionActivity.json"
+      ],
+      "transformation": "Direct projection; arrays expanded to 1-based columns."
+    },
+    {
       "path": "share/report/ReportTag.tsv",
       "columns": 6, "rows": 104, "naturalKey": "Id",
       "filter": "all",
@@ -9077,6 +9149,53 @@
       "contentSha256": "cf1931a6ec13c6f87b7a8656a9b2cf927f74be8f14582fe1710e6a26c2f1d4fb",
       "source": ["EN bytes/share/movie/MovieRecordOptions.json (sha256:0696fd17eec8d30328b32bfe9db1e7dd7dbc5db0beea57e6a9741345a7389f5f)"],
       "transformation": ["all authored rows in source order; Options array expanded to 1-based Options[n] columns, shorter lists leave trailing cells blank"]
+    },
+    {
+      "columns": 22,
+      "contentSha256": "ecd3606b383dfb8b45f9818b34e155420a7e0b91c959e9a9c3679e2598682df8",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/miniactivity/stagememory/StageMemoryActivity.tsv",
+      "rows": 2,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/miniactivity/stagememory/StageMemoryActivity.json"
+      ],
+      "transformation": "Direct projection; arrays expanded to 1-based [1..5] columns."
+    },
+    {
+      "columns": 5,
+      "contentSha256": "f532d390baae7b09493582c0e56826dbef8328d0d984efd4a8d54855dfa53cb1",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/boardeffect/BoardEffectActivity.tsv",
+      "rows": 1,
+      "source": [
+        "CN PGR_DATA/cn/bytes/share/boardeffect/BoardEffectActivity.json"
+      ],
+      "transformation": "CN fallback (EN dump lacks the file; EN XTableBoardEffectActivity schema exists). Projection of Id, Name, TimeId, TriggerProbability, TriggerCd; client-only effect columns omitted."
+    },
+    {
+      "columns": 9,
+      "contentSha256": "4b8781022e9c4f7253716e7f64552af32999ecc8a3dcee5e608d41d56624ec64",
+      "filter": "all",
+      "naturalKey": "Id",
+      "path": "share/newbirthdayplot/SingleStory.tsv",
+      "rows": 48,
+      "source": [
+        "EN PGR_DATA/en/bytes/share/newbirthdayplot/SingleStory.json"
+      ],
+      "transformation": "Projection of Id, PeriodChapterIds, CharacterIds (arrays 1-based); presentation columns omitted."
+    },
+    {
+      "columns": 5,
+      "contentSha256": "fc950e92e38c4bc531dccde6b26c115c0a6183adde2a5eb701cb2279171f7601",
+      "filter": "columns:Id,CharacterId,ConditionId,PosId,Millisecond",
+      "naturalKey": "Id",
+      "path": "share/fuben/mainlineluosaita/MainLineLuosaitaCharacterMove.tsv",
+      "rows": 1,
+      "source": [
+        "share/fuben/mainlineluosaita/MainLineLuosaitaCharacterMove.json"
+      ]
     }
   ],
   "validationNotes": [

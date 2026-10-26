@@ -233,7 +233,15 @@ internal partial class Program
             State().Records.Clear();
 
             // ---- move guards ----
-            int held = State().Cards[0];
+            // A revealed fight node may be left unresolved (fights are optional), so the guard only holds after landing
+            // elsewhere. The board is seeded per player and week: choose a card whose target is not a revealed fight.
+            bool LeavesUnresolvable(int card)
+            {
+                int target = MaintainerActionModule.CardRoute(0, false, card, ring)[^1];
+                return State().Nodes.First(n => n.NodeId == target) is not { Revealed: true, NodeType: MaintainerActionModule.TypeFight };
+            }
+            int held = Enumerable.Range(1, cfg.MaxCardNumber).First(LeavesUnresolvable);
+            if (!State().Cards.Contains(held)) State().Cards[0] = held;
             AssertEqual(0, PlayCard(held).Code, "valid card accepted");
             AssertEqual(20103010, PlayCard(State().Cards[0]).Code, "cannot move before the landing's event is resolved");
             State().Triggered = true;

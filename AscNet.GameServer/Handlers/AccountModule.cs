@@ -1111,7 +1111,6 @@ namespace AscNet.GameServer.Handlers
                 ["ChatMessages"] = Array.Empty<object>()
             }),
             ["NotifyGame2048DataDb"] = SerializeStartupPayload(BuildGame2048Payload()),
-            ["NotifyGameCollectionData"] = SerializeStartupPayload(BuildGameCollectionPayload()),
             ["NotifyGoldenMinerGameInfo"] = SerializeStartupPayload(BuildGoldenMinerPayload()),
             ["NotifyTaikoMasterData"] = SerializeStartupPayload(BuildTaikoMasterPayload()),
             ["NotifyTurntableData"] = SerializeStartupPayload(BuildTurntablePayload())
@@ -1353,7 +1352,8 @@ namespace AscNet.GameServer.Handlers
 
             NotifyBirthdayPlot notifyBirthdayPlot = new()
             {
-                IsChange = session.player.PlayerData.Birthday is null ? 0 : 1
+                IsChange = session.player.PlayerData.Birthday is null ? 0 : 1,
+                SingleStoryIds = FavorMemoryModule.BirthdayStoryIds(session.player)
             };
 
             NotifyNewPlayerTaskStatus notifyNewPlayerTaskStatus = new()
@@ -1462,6 +1462,7 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(new NotifyPrequelChallengeRefreshTime() { NextRefreshTime = NextDailyRefreshTime() });
             session.SendPush(new NotifyDailyFubenLoginData() { RefreshTime = NextDailyRefreshTime() });
             session.SendPush(notifyBirthdayPlot);
+            FavorMemoryModule.SendLoginPushes(session);
             SendEmptyStartupPush(session, "NotifyBountyChallengeMonsterDifficultyState");
             session.SendPush(BuildNotifyBriefStoryData(session.player));
             session.SendPush(CerberusGameModule.BuildNotify(session));
@@ -1484,6 +1485,9 @@ namespace AscNet.GameServer.Handlers
             if (fashionStoryData.ActivityId > 0)
                 session.SendPush(fashionStoryData);
             session.SendPush(HitMouseModule.BuildNotifyHitMouseData(session.player));
+            if (SmallRewardsModule.BuildVersionGiftNotify(session.player, DateTimeOffset.UtcNow) is { } versionGiftData)
+                session.SendPush(versionGiftData);
+            session.SendPush(SmallRewardsModule.BuildShopNotify(session, DateTimeOffset.UtcNow));
             DyeMergeStagesRecordNotify dyeMergeData = DyeMergeModule.BuildNotify(session.player);
             if (dyeMergeData.ActivityId > 0)
                 session.SendPush(dyeMergeData);
@@ -1503,7 +1507,7 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(DrawModule.BuildNotifyDrawCanLiverData(session.player));
             session.SendPush(DrawModule.BuildNotifyDateALiveDraw());
             SendEmptyStartupPush(session, "NotifyGame2048DataDb");
-            SendEmptyStartupPush(session, "NotifyGameCollectionData");
+            session.SendPush(SmallRewardsModule.BuildGameCollectionNotify());
             SendCurrentEventTaskBatch(session, RetroArcadeTaskBatchEntry);
             SendEmptyStartupPush(session, "NotifyGoldenMinerGameInfo");
             SendEmptyStartupPush(session, "NotifyGuildSignPlayerData");

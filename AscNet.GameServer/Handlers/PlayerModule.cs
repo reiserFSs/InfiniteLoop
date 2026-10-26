@@ -569,7 +569,7 @@ namespace AscNet.GameServer.Handlers
         {
             ChangePlayerBirthdayRequest request = packet.Deserialize<ChangePlayerBirthdayRequest>();
             session.player.PlayerData.Birthday = request;
-            session.SendPush(new NotifyBirthdayPlot() { IsChange = 1 });
+            session.SendPush(new NotifyBirthdayPlot() { IsChange = 1, SingleStoryIds = FavorMemoryModule.BirthdayStoryIds(session.player) });
 
             session.SendResponse(new ChangePlayerBirthdayResponse(), packet.Id);
         }

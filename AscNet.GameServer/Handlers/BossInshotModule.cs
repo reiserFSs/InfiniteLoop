@@ -3,6 +3,7 @@ using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.fuben.bossinshot;
 using AscNet.Table.V2.share.condition;
+using AscNet.Table.V2.share.config;
 using AscNet.Table.V2.share.robot;
 using AscNet.Table.V2.client.functional;
 using AscNet.GameServer.Game;
@@ -23,6 +24,10 @@ namespace AscNet.GameServer.Handlers;
 [MessagePackObject(true)] public sealed class BossInshotTowerQueryRankRequest { public int CharacterCfgId { get; set; } public int BossId { get; set; } }
 [MessagePackObject(true)] public sealed class BossInshotTowerQueryRankResponse { public int Code { get; set; } public int TowerId { get; set; } public int Score { get; set; } public int Rank { get; set; } public int CharacterId { get; set; } public int TotalCount { get; set; } public List<BossInshotRankPlayerInfo> RankPlayerInfos { get; set; } = new(); }
 [MessagePackObject(true)] public sealed class BossInshotRankPlayerInfo { public long Id { get; set; } public string Name { get; set; } = string.Empty; public uint HeadPortraitId { get; set; } public uint HeadFrameId { get; set; } public int Score { get; set; } public int TowerId { get; set; } public int CharacterId { get; set; } }
+[MessagePackObject(true)] public sealed class BossInshotSelectSkillRequest { public int StageId { get; set; } public int EventId { get; set; } }
+[MessagePackObject(true)] public sealed class BossInshotSelectSkillResponse { public int Code { get; set; } }
+[MessagePackObject(true)] public sealed class BossInshotSelectTalentRequest { public int CharacterId { get; set; } public List<int>? SelectTalentIds { get; set; } }
+[MessagePackObject(true)] public sealed class BossInshotSelectTalentResponse { public int Code { get; set; } }
 [MessagePackObject(true)] public sealed class NotifyBossInshotData { public BossInshotData BossInshotData { get; set; } = new(); }
 [MessagePackObject(true)] public sealed class NotifyBossInshotPlayback { public bool IsPlayback { get; set; } }
 [MessagePackObject(true)] public sealed class BossInshotData { public int ActivityId { get; set; } public bool IsPassTeach { get; set; } public List<BossInshotPassStageData> PassStageDatas { get; set; } = new(); public List<BossInshotBossUnlockData> BossUnlockDatas { get; set; } = new(); public List<BossInshotCharacterData> CharacterDatas { get; set; } = new(); public List<object> RecordForRanks { get; set; } = new(); public int CurrentTowerId { get; set; } public Dictionary<int, BossInshotTowerData> TowerDataDict { get; set; } = new(); public Dictionary<int, object> TowerRankDataDict { get; set; } = new(); }
@@ -37,6 +42,7 @@ internal static class BossInshotModule
     private const int NotOpen = 20215001, NeedPassTeach = 20215009, BossLocked = 20215015, InvalidRank = 20215018, TowerConditionNotMet = 20215019;
     private const int TowerIdError = 20215020, FightDataError = 20215022, PreFightDataError = 20215023, PlayerTowerDataError = 20215025, NotMatchStage = 20215026;
     private const int NotSelectable = 20215027, PassedSelection = 20215028, RepeatSelection = 20215029, SelectionMissing = 20215030, PreviousNotPassed = 20215031, TowerLocked = 20215032, NotAllPassed = 20215033, InvalidLineup = 20215035;
+    private const int RoleDataNotFound = 20215010, TalentLocked = 20215014, SkillNotFound = 20215016, TalentSlotLimit = 20215017, HandWearTalent = 2, DefaultWearTalent = 1;
     private const int LocalRankLimit = 100;
     private static readonly Lazy<List<BossInshotActivityTable>> Activities = new(() => TableReaderV2.Parse<BossInshotActivityTable>());
     private static readonly Lazy<Dictionary<int, BossInshotTowerTable>> Towers = new(() => TableReaderV2.Parse<BossInshotTowerTable>().ToDictionary(x => x.Id));
@@ -45,6 +51,9 @@ internal static class BossInshotModule
     private static readonly Lazy<Dictionary<int, BossInshotCharacterTable>> Characters = new(() => TableReaderV2.Parse<BossInshotCharacterTable>().ToDictionary(x => x.Id));
     private static readonly Lazy<Dictionary<int, RobotTable>> Robots = new(() => TableReaderV2.Parse<RobotTable>().ToDictionary(x => x.Id));
     private static readonly Lazy<List<BossInshotTalentTable>> Talents = new(() => TableReaderV2.Parse<BossInshotTalentTable>());
+    private static readonly Lazy<List<BossInshotSkillTable>> Skills = new(() => TableReaderV2.Parse<BossInshotSkillTable>());
+    private static readonly Lazy<List<BossInshotBossTable>> Bosses = new(() => TableReaderV2.Parse<BossInshotBossTable>());
+    private static readonly Lazy<int> TalentSlotMax = new(() => int.Parse(TableReaderV2.Parse<ConfigTable>().Single(row => row.Key == "BosssInshotTalentSlotMax").Value));
     private static readonly Lazy<Dictionary<int, BossInshotScoreTable>> Scores = new(() => TableReaderV2.Parse<BossInshotScoreTable>().ToDictionary(x => x.Id));
     private static readonly Lazy<Dictionary<int, ConditionTable>> Conditions = new(() => TableReaderV2.Parse<ConditionTable>().ToDictionary(x => x.Id));
     private static readonly Lazy<int[]> FunctionOpenConditions = new(() =>
@@ -233,6 +242,88 @@ internal static class BossInshotModule
             return;
         }
         session.SendResponse(new BossInshotEnterNextTowerResponse { Code = 0, NextTowerData = BuildTower(tower) }, packet.Id);
+    }
+
+    [RequestPacketHandler("BossInshotSelectSkillRequest")]
+    public static void SelectSkill(Session session, Packet.Request packet)
+    {
+        BossInshotSelectSkillRequest request = packet.Deserialize<BossInshotSelectSkillRequest>();
+        session.SendResponse(new BossInshotSelectSkillResponse { Code = SelectSkillCore(session, request) }, packet.Id);
+    }
+
+    private static int SelectSkillCore(Session session, BossInshotSelectSkillRequest request)
+    {
+        if (!TryActive(session, out BossInshotActivityTable activity, out BossInshotState state)) return NotOpen;
+        if (!state.IsPassTeach) return NeedPassTeach;
+        // The client sends the skill's practice stage and fight event (XUiPanelBossInshotTowerRight._OnBtnPracticeClick).
+        BossInshotSkillTable? skill = Skills.Value.FirstOrDefault(row =>
+            (int?)row.PracticeStageId is > 0 && (int)row.PracticeStageId! == request.StageId
+            && (int?)row.FightEventId == request.EventId);
+        if (skill is null || !Bosses.Value.Any(boss => activity.BossIds.Contains(boss.Id) && boss.SkillIds.Contains(skill.Id)))
+            return SkillNotFound;
+        if (!Stages.Value.TryGetValue(request.StageId, out BossInshotStageTable? stage) || !activity.BossIds.Contains(stage.BossId))
+            return NotMatchStage;
+        session.SelectedBossInshotSkill = (request.StageId, request.EventId);
+        return 0;
+    }
+
+    [RequestPacketHandler("BossInshotSelectTalentRequest")]
+    public static void SelectTalent(Session session, Packet.Request packet)
+    {
+        BossInshotSelectTalentRequest request = packet.Deserialize<BossInshotSelectTalentRequest>();
+        session.SendResponse(new BossInshotSelectTalentResponse { Code = SelectTalentCore(session, request) }, packet.Id);
+    }
+
+    private static int SelectTalentCore(Session session, BossInshotSelectTalentRequest request)
+    {
+        if (!TryActive(session, out BossInshotActivityTable activity, out BossInshotState state)) return NotOpen;
+        if (!state.IsPassTeach) return NeedPassTeach;
+        if (!activity.CharacterIds.Any(cfg => ResolveCharacter(cfg, out int id) && id == request.CharacterId)) return RoleDataNotFound;
+        // An empty Lua table arrives as nil: treat as no selection.
+        List<int> ids = request.SelectTalentIds ?? new();
+        if (ids.Count > TalentSlotMax.Value) return TalentSlotLimit;
+        List<int> chosen = ids.Where(id => id != 0).ToList();
+        if (chosen.Count != chosen.Distinct().Count()) return TalentSlotLimit;
+        foreach (int talentId in chosen)
+        {
+            BossInshotTalentTable? talent = Talents.Value.FirstOrDefault(row => row.Id == talentId);
+            if (talent is null || talent.CharacterId != request.CharacterId || talent.TalentType != HandWearTalent
+                || !TalentUnlocked(state, talent))
+                return TalentLocked;
+        }
+
+        BossInshotCharacterState character = state.Characters.FirstOrDefault(row => row.CharacterId == request.CharacterId)
+            ?? new BossInshotCharacterState { CharacterId = request.CharacterId };
+        bool added = !state.Characters.Contains(character);
+        List<int> previous = character.SelectTalentIds;
+        character.SelectTalentIds = ids.Concat(Enumerable.Repeat(0, TalentSlotMax.Value - ids.Count)).ToList();
+        if (added) state.Characters.Add(character);
+        try
+        {
+            session.player.Save();
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            if (added) state.Characters.Remove(character); else character.SelectTalentIds = previous;
+            session.log.Error($"Failed to persist BossInshot talent selection: {exception}");
+            return PreFightDataError;
+        }
+    }
+
+    private static bool TalentUnlocked(BossInshotState state, BossInshotTalentTable talent) =>
+        (int?)talent.UnlockConditionId is not > 0 || ConditionSatisfied(state, (int)talent.UnlockConditionId!, new HashSet<int>());
+
+    /// <summary>Fight events of the default talent plus the unlocked hand-worn talents the player selected for the character.</summary>
+    private static IEnumerable<int> TalentFightEvents(BossInshotState state, int characterId)
+    {
+        List<int> selected = state.Characters.FirstOrDefault(row => row.CharacterId == characterId)?.SelectTalentIds ?? new();
+        return Talents.Value
+            .Where(row => row.CharacterId == characterId
+                && (row.TalentType == DefaultWearTalent
+                    || row.TalentType == HandWearTalent && selected.Contains(row.Id) && TalentUnlocked(state, row)))
+            .Select(row => (int?)row.FightEventId ?? 0)
+            .Where(eventId => eventId > 0);
     }
 
     [RequestPacketHandler("BossInshotTowerSelectBossRequest")]
@@ -692,7 +783,10 @@ internal static class BossInshotModule
         int npcKey = deployed.Key;
         Dictionary<string, object?> augmented = ((object)deployed.Value).GetType().GetProperties().ToDictionary(p => p.Name, p => p.GetValue((object)deployed.Value));
         augmented["BossInshotCharacterCfgUid"] = context.CharacterConfigId;
-        augmented["EventIds"] = Characters.Value[context.CharacterConfigId].FightEventIds > 0 ? new[] { Characters.Value[context.CharacterConfigId].FightEventIds } : Array.Empty<int>();
+        int characterEvent = Characters.Value[context.CharacterConfigId].FightEventIds;
+        BossInshotState fightState = session.player.BossInshot!;
+        augmented["EventIds"] = (characterEvent > 0 ? new[] { characterEvent } : Array.Empty<int>())
+            .Concat(TalentFightEvents(fightState, context.CharacterId)).ToArray();
         augmented["AttrRateTable"] = new Dictionary<int, int>();
         augmented["BaseAttrs"] = null;
         augmented["CurAttrs"] = null;
@@ -701,6 +795,9 @@ internal static class BossInshotModule
 
         int fightEventId = context.IsTower ? context.TowerStage!.FightEventIds : context.OrdinaryStage!.FightEventIds;
         response.FightData.EventIds = fightEventId > 0 ? [(dynamic)fightEventId] : new();
+        if (session.SelectedBossInshotSkill is { } skill && skill.StageId == (int)request.StageId)
+            response.FightData.EventIds.Add((dynamic)skill.EventId);
+        session.SelectedBossInshotSkill = null;
         response.FightData.FightCheckType = 1;
         response.FightData.SegmentFightCheckSecond = 60;
         response.FightData.Restartable = true;
@@ -1094,6 +1191,9 @@ internal static class BossInshotModule
                 }
                 return terms.Length > 0 && (any ? terms.Any(Evaluate) : terms.All(Evaluate));
             }
+            if (condition.Type == 15309)
+                return condition.Params.Count >= 2
+                    && state.Characters.Any(x => x.CharacterId == condition.Params[0] && x.TotalScore >= condition.Params[1]);
             return condition.Type == 15306 && condition.Params.Count >= 2
                 && state.PassStages.Any(x => x.StageId == condition.Params[0] && x.MaxScore >= condition.Params[1]);
         }
@@ -1177,7 +1277,7 @@ internal static class BossInshotModule
         ActivityId = state.ActivityId, IsPassTeach = state.IsPassTeach, CurrentTowerId = state.CurrentTowerId,
         PassStageDatas = state.PassStages.Select(x => new BossInshotPassStageData { StageId = x.StageId, MaxScore = x.MaxScore }).ToList(),
         BossUnlockDatas = state.BossUnlocks.Select(x => new BossInshotBossUnlockData { BossId = x.BossId, DifficultySet = x.DifficultySet.ToList() }).ToList(),
-        CharacterDatas = state.IsPassTeach ? activity.CharacterIds.Where(cfg => ResolveCharacter(cfg, out _)).Select(cfg => { ResolveCharacter(cfg, out int id); var persisted = state.Characters.FirstOrDefault(x => x.CharacterId == id); var talents = Talents.Value.Where(x => x.CharacterId == id).ToList(); return new BossInshotCharacterData { CharacterId = id, DefaultTalentId = talents.FirstOrDefault(x => x.TalentType == 1)?.Id ?? 0, UnlockTalentIds = talents.Where(x => x.TalentType == 2).Select(x => x.Id).ToList(), SelectTalentIds = persisted?.SelectTalentIds.ToList() ?? new(), TotalScore = persisted?.TotalScore ?? 0, PassStageSet = persisted?.PassStageSet.ToList() ?? new() }; }).ToList() : new(),
+        CharacterDatas = state.IsPassTeach ? activity.CharacterIds.Where(cfg => ResolveCharacter(cfg, out _)).Select(cfg => { ResolveCharacter(cfg, out int id); var persisted = state.Characters.FirstOrDefault(x => x.CharacterId == id); var talents = Talents.Value.Where(x => x.CharacterId == id).ToList(); return new BossInshotCharacterData { CharacterId = id, DefaultTalentId = talents.FirstOrDefault(x => x.TalentType == 1)?.Id ?? 0, UnlockTalentIds = talents.Where(x => x.TalentType == HandWearTalent && TalentUnlocked(state, x)).Select(x => x.Id).ToList(), SelectTalentIds = persisted?.SelectTalentIds.ToList() ?? new(), TotalScore = persisted?.TotalScore ?? 0, PassStageSet = persisted?.PassStageSet.ToList() ?? new() }; }).ToList() : new(),
         TowerDataDict = state.Towers.ToDictionary(x => x.TowerId, BuildTower)
     };
     private static BossInshotTowerData BuildTower(BossInshotTowerState tower) => new() { TowerId = tower.TowerId, DrawStageIds = tower.DrawStageIds?.ToList() ?? new(), SelectStageId = tower.SelectStageId, SelectStageIdAfterAllPass = tower.SelectStageIdAfterAllPass, IsPass = tower.IsPass, TriggerProtectCount = tower.TriggerProtectCount, BossMaxScoreDict = (tower.Scores ?? new()).GroupBy(x => x.BossId).ToDictionary(g => g.Key, g => new BossInshotBossMaxScoreData { CharacterScoreDict = g.GroupBy(x => x.CharacterId).ToDictionary(x => x.Key, x => x.Max(score => score.MaxScore)) }) };

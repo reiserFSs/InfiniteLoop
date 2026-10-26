@@ -40,6 +40,8 @@ namespace AscNet.GameServer.Handlers
             TableReaderV2.Parse<PBRActivityTable>());
         private static readonly Lazy<IReadOnlyList<ConcertPreHeatingActivityTable>> ConcertActivities = new(() =>
             TableReaderV2.Parse<ConcertPreHeatingActivityTable>());
+        private static readonly Lazy<IReadOnlyList<ConcertPreHeatingStageTable>> ConcertStages = new(() =>
+            TableReaderV2.Parse<ConcertPreHeatingStageTable>());
         private static readonly Lazy<IReadOnlyList<ConcertVideoConfigTable>> VideoConfigs = new(() =>
             TableReaderV2.Parse<ConcertVideoConfigTable>());
 
@@ -158,6 +160,57 @@ namespace AscNet.GameServer.Handlers
 
             response.Code = 0;
             return response;
+        }
+
+        // Server-side task condition type used by the ConcertPreHeating task group (Condition.tsv type 140001;
+        // the client has no evaluator, progress is pushed via NotifyTask). A condition with a single parameter
+        // counts settled stages; one with a second parameter counts that stage id only.
+        private const int ConcertStageSettledConditionType = 140001;
+
+        [RequestPacketHandler("ConcertPreHeatingSettleRequest")]
+        public static void ConcertPreHeatingSettle(Session session, Packet.Request packet)
+        {
+            ConcertPreHeatingSettleRequest request = packet.Deserialize<ConcertPreHeatingSettleRequest>();
+            session.SendResponse(SettleConcertPreHeating(session, request.StageId, Clock()), packet.Id);
+        }
+
+        /// <summary>
+        /// Marks a stage finished (once) and credits the activity task group; rewards are claimed through the
+        /// task system, so a repeated settle is a no-op that re-sends the finished list.
+        /// </summary>
+        internal static ConcertPreHeatingSettleResponse SettleConcertPreHeating(Session session, int stageId, DateTimeOffset now)
+        {
+            ConcertPreHeatingActivityTable? activity = ActiveConcert(now);
+            if (activity is null)
+                return new() { Code = 20426001 };
+            ConcertPreHeatingStageTable? stage = ConcertStages.Value.FirstOrDefault(row => row.Id == stageId);
+            if (stage is null)
+                return new() { Code = 20426002 };
+            if (!activity.StageIds.Contains(stageId))
+                return new() { Code = 20426003 };
+            // AscNet policy (AGENTS.md missing-calendar availability): the per-stage TimeIds have no ActivitySchedule
+            // row, so such stages are open for the activity window; a scheduled stage window is enforced.
+            if ((int?)stage.TimeId is > 0 && ActivityScheduleService.TryGet((int)stage.TimeId!, out _)
+                && !ActivityScheduleService.IsOpen((int)stage.TimeId!, now))
+                return new() { Code = 20426004 };
+
+            ConcertPreHeatingState state = ReconcileConcert(session.player, activity.Id);
+            if (!state.CompletedStageIds.Contains(stageId))
+            {
+                state.CompletedStageIds.Add(stageId);
+                session.player.Save();
+                TaskModule.RecordTableDrivenProgress(session,
+                [
+                    (ConcertStageSettledConditionType, null, 1),
+                    (ConcertStageSettledConditionType, stageId, 1)
+                ]);
+            }
+            return new()
+            {
+                ActivityId = activity.Id,
+                StageFinish = state.CompletedStageIds.Distinct().Order()
+                    .Select(id => new ConcertPreHeatingStageFinish { StageId = id }).ToList()
+            };
         }
 
         // ---- PBR ----

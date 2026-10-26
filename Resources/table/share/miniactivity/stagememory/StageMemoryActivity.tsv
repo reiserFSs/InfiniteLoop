@@ -1,0 +1,3 @@
+Id	TimeId	StageIds[1]	StageIds[2]	StageIds[3]	StageIds[4]	StageIds[5]	StageTimeIds[1]	StageTimeIds[2]	StageTimeIds[3]	StageTimeIds[4]	StageTimeIds[5]	RequireStages[1]	RequireStages[2]	RequireStages[3]	RequireStages[4]	RequireStages[5]	RewardIds[1]	RewardIds[2]	RewardIds[3]	RewardIds[4]	RewardIds[5]
+1	0	30070231	30161392	30161393	30006796	30006797	888	888	888	888	888	1	2	3	4	5	64721	64722	64723	64724	64725
+2	0	30031782	30031783	30031784	30031785	30031786	42710	42710	42710	42710	42710	1	2	3	4	5	67170	67171	67172	67173	67174

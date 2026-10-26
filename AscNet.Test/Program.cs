@@ -184,7 +184,7 @@ namespace AscNet.Test
                     ValidateGuildWarCompatibility();
                     return;
                 }
-                if (args.Contains("--guild-dorm-compat-only"))
+                if (args.Contains("--guild-dorm-compat-only") || args.Contains("--guild-dorm-rooms-compat-only"))
                 {
                     ValidateGuildDormCompatibility();
                     return;
@@ -1110,9 +1110,27 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--favor-memory-compat-only"))
+                {
+                    ValidateFavorMemoryCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--partial-modes-compat-only"))
+                {
+                    ValidatePartialModesCompatibility();
+                    return;
+                }
+
                 if (args.Contains("--misc-player-compat-only"))
                 {
                     ValidateMiscPlayerCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--small-rewards-compat-only"))
+                {
+                    ValidateSmallRewardsCompatibility();
                     return;
                 }
 
@@ -1355,6 +1373,9 @@ namespace AscNet.Test
                 ValidateWardrobePhotoCompatibility();
                 ValidateMiscSystemCompatibility();
                 ValidateMiscPlayerCompatibility();
+                ValidatePartialModesCompatibility();
+                ValidateSmallRewardsCompatibility();
+                ValidateFavorMemoryCompatibility();
                 ValidateFriendsCompatibility();
                 ValidateWeeklyActivenessCompatibility();
                 ValidateArchiveCompatibility();

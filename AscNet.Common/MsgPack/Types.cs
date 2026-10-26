@@ -1686,6 +1686,7 @@ public sealed class NotifyBfrtProgressInfo
         public UInt32 NextActiveYear { get; set; }
         public Int32 IsChange { get; set; }
         public List<dynamic> UnLockCg { get; set; } = new();
+        public List<int> SingleStoryIds { get; set; } = new();
     }
 
 

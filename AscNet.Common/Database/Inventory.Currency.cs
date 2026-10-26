@@ -27,6 +27,7 @@ public partial class Inventory
                 stack.Count -= debit;
                 stack.RefreshTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 amount -= checked((int)debit);
+                RecordSpent(source, debit);
                 changed.Add(stack);
             }
         }
