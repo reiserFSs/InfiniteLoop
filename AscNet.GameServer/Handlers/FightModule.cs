@@ -2682,13 +2682,15 @@ namespace AscNet.GameServer.Handlers
             if (session.player.Stronghold.PendingStageId == (int)req.Result.StageId)
             {
                 StrongholdFightResult strongholdResult = StrongholdModule.Settle(session.player, req.Result.IsWin, session);
+                // The fought group is the last result line; earlier lines are FinishRelatedId groups it finished.
+                int settledGroupId = strongholdResult.GroupFightResultInfos.LastOrDefault()?.GroupId ?? 0;
                 StrongholdGroupInfo? groupInfo = session.player.Stronghold.GroupInfos
-                    .FirstOrDefault(group => group.Id == strongholdResult.GroupFightResultInfos.FirstOrDefault()?.GroupId);
+                    .FirstOrDefault(group => group.Id == settledGroupId);
                 if (groupInfo is not null)
                     session.SendPush(new NotifyUpdateStrongholdGroupData { GroupInfo = groupInfo });
-                int settledGroupId = strongholdResult.GroupFightResultInfos.FirstOrDefault()?.GroupId ?? 0;
                 bool groupFinished = settledGroupId > 0 && session.player.Stronghold.FinishGroupIds.Contains(settledGroupId);
                 if (groupFinished)
+                {
                     session.SendPush(new NotifyStrongholdFinishGroupId
                     {
                         FinishGroupIds = session.player.Stronghold.FinishGroupIds.ToList(),
@@ -2696,8 +2698,9 @@ namespace AscNet.GameServer.Handlers
                         FinishGroupInfos = session.player.Stronghold.FinishGroupInfos.ToList(),
                         HistoryFinishGroupInfos = session.player.Stronghold.HistoryFinishGroupInfos.ToList()
                     });
-                if (groupFinished)
-                    session.SendPush(new NotifyDeleteStrongholdGroupData { Id = settledGroupId });
+                    foreach (StrongholdFightResultInfo line in strongholdResult.GroupFightResultInfos)
+                        session.SendPush(new NotifyDeleteStrongholdGroupData { Id = line.GroupId });
+                }
                 session.SendPush(new NotifyStrongholdEnduranceData { Endurance = session.player.Stronghold.Endurance });
                 FightSettleResponse.FightSettleResponseSettle settle = new()
                 {

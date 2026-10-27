@@ -1124,23 +1124,27 @@ namespace AscNet.GameServer.Handlers
                 session.player.MissionProgress.ConditionCounters[condition.Id] = value;
                 changedConditions.Add(condition.Id);
             }
+            // Challenge tasks are typed by their condition, not their target: 103003 counts rounds cleared within the
+            // stage time limit, 103002 is the win streak (Eternal Observation targets 14, Eternal Observation II 15).
+            Dictionary<int, int> conditionTypes = TableReaderV2.Parse<AscNet.Table.V2.share.task.ConditionTable>()
+                .GroupBy(condition => condition.Id).ToDictionary(group => group.Key, group => group.First().Type ?? 0);
             foreach (TaskTable task in tasks.Where(task => task.Type == 79))
             {
                 int target = task.Result ?? 1;
                 int current = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition);
-                int value = target < 14 && timeLimit is > 0 && spendTime < timeLimit
-                    ? Math.Min(target, checked(current + 1))
-                    : target == 14 ? Math.Max(current, Math.Min(winStreak, target)) : current;
+                int value = conditionTypes.GetValueOrDefault(task.Condition) switch
+                {
+                    103003 when timeLimit is > 0 && spendTime < timeLimit => Math.Min(target, checked(current + 1)),
+                    103002 => Math.Max(current, Math.Min(winStreak, target)),
+                    _ => current
+                };
                 if (value != current)
                 {
                     session.player.MissionProgress.ConditionCounters[task.Condition] = value;
                     changedConditions.Add(task.Condition);
                 }
             }
-            int? stageGroupType = TableReaderV2.Parse<TransfiniteStageGroupTable>()
-                .SingleOrDefault(group => group.StageGroupId == stageGroupId)?.Type;
-            HashSet<int> achievementTaskGroupIds = TableReaderV2.Parse<TransfiniteAchievementTable>()
-                .Where(achievement => achievement.Type == stageGroupType && achievement.StageGroupId.Contains(stageGroupId))
+            HashSet<int> achievementTaskGroupIds = TransfiniteAchievements(session.player.Transfinite?.RegionId ?? 0, new HashSet<int> { stageGroupId })
                 .Select(achievement => achievement.Id)
                 .ToHashSet();
             HashSet<int> achievementTaskIds = TableReaderV2.Parse<TransfiniteTaskGroupTable>()
@@ -1245,14 +1249,8 @@ namespace AscNet.GameServer.Handlers
             stageGroups.UnionWith(TableReaderV2.Parse<TransfiniteIslandTable>()
                 .Where(island => island.Id == region.IslandId)
                 .SelectMany(island => island.StageGroupId));
-            Dictionary<int, int> stageGroupTypes = TableReaderV2.Parse<TransfiniteStageGroupTable>()
-                .Where(group => stageGroups.Contains(group.StageGroupId))
-                .ToDictionary(group => group.StageGroupId, group => group.Type);
             HashSet<int> taskGroups = [region.TaskGroupId];
-            taskGroups.UnionWith(TableReaderV2.Parse<TransfiniteAchievementTable>()
-                .Where(achievement => achievement.StageGroupId.Any(groupId =>
-                    stageGroupTypes.GetValueOrDefault(groupId) == achievement.Type))
-                .Select(achievement => achievement.Id));
+            taskGroups.UnionWith(TransfiniteAchievements(region.RegionId, stageGroups).Select(achievement => achievement.Id));
             List<TransfiniteTaskGroupTable> groups = TableReaderV2.Parse<TransfiniteTaskGroupTable>()
                 .Where(group => taskGroups.Contains(group.Id))
                 .ToList();
@@ -1270,6 +1268,17 @@ namespace AscNet.GameServer.Handlers
                 .Where(task => taskIds.Contains(task.Id) && task.Type is 79 or 80)
                 .ToList();
         }
+
+        // XViewModelTransfiniteAchievement: a stage group's Normal (Low Power Zone) achievement row is open to every
+        // player, and its Senior (High Power Zone) row only when XTransfiniteRegion:GetIsSeniorRegion (RegionId == 2).
+        // Achievement Type is XTransfiniteConfigs.TaskTypeEnum (Normal 1, Senior 2), unrelated to the stage group's
+        // Type (Normal 1, Island 2). Normal rows' conditions also list the high group's stages, so high clears count.
+        private const int TransfiniteNormalAchievement = 1, TransfiniteSeniorAchievement = 2, TransfiniteSeniorRegion = 2;
+        private static IEnumerable<TransfiniteAchievementTable> TransfiniteAchievements(int regionId, IReadOnlySet<int> stageGroupIds) =>
+            TableReaderV2.Parse<TransfiniteAchievementTable>()
+                .Where(achievement => achievement.StageGroupId.Any(stageGroupIds.Contains)
+                    && (achievement.Type == TransfiniteNormalAchievement
+                        || achievement.Type == TransfiniteSeniorAchievement && regionId == TransfiniteSeniorRegion));
         private static bool IsTransfiniteTask(Session session, int taskId) =>
             TransfiniteTasks(session).Any(task => task.Id == taskId);
 

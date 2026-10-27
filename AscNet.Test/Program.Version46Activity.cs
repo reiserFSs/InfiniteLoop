@@ -1371,7 +1371,7 @@ internal static partial class Program
         AssertEqual(Math.Min((long)resetTotal, Inventory.GetMaxCount(TableReaderV2.Parse<ItemTable>().Single(item => item.Id == 105))),
             resetItems.ItemDataList.Single(item => item.Id == 105).Count, "Transfinite reset tally item push");
         TransfiniteResetStageGroupResponse resetResponse = ReadResponsePayload<TransfiniteResetStageGroupResponse>(
-            flowHarness, 46_285, nameof(TransfiniteResetStageGroupResponse), "Transfinite reset tally");
+            flowHarness, 46_285, nameof(TransfiniteResetStageGroupResponse), "Transfinite reset tally", maxPacketsToRead: 8);
         AssertEqual(0, resetResponse.Code, "Transfinite reset abort code");
         AssertEqual(null, resetResponse.BattleInfo, "Transfinite reset response discards BattleInfo");
         AssertEqual(null, flowPlayer.Transfinite.BattleInfo, "Transfinite reset persists no BattleInfo");

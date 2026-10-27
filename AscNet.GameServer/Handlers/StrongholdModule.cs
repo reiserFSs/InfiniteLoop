@@ -431,8 +431,43 @@ internal static class StrongholdModule
             TaskModule.RecordStageClear(session, stageId, 1, 0, firstClear);
         }
         result.GroupFightResultInfos.Add(new() { GroupId = groupId, RewardGoodsList = goods });
+        // XStrongholdManager.GetGroupCostEndurance: a chapter's last group already charges the endurance of every
+        // unfinished FinishRelatedId group, so winning it finishes them too. XUiStrongholdFightSettleWin shows one
+        // reward line per finished group and treats the last line as the fought group. Sweep finishes them itself.
+        if (groupFinished && consumeEndurance)
+            result.GroupFightResultInfos.InsertRange(0, CompleteRelatedGroups(p, session, groupId));
         p.Save();
         return result;
+    }
+
+    private static List<StrongholdFightResultInfo> CompleteRelatedGroups(Player p, Session session, int groupId)
+    {
+        StrongholdState state = p.Stronghold;
+        var groups = Rows<StrongholdGroupTable>().ToDictionary(row => row.Id);
+        List<StrongholdFightResultInfo> lines = [];
+        HashSet<int> visited = [groupId];
+        void Visit(int id)
+        {
+            if (!groups.TryGetValue(id, out var row)) return;
+            foreach (int relatedId in row.FinishRelatedId.Where(value => value > 0))
+            {
+                if (!visited.Add(relatedId)) continue;
+                Visit(relatedId);
+                if (state.FinishGroupIds.Contains(relatedId)) continue;
+                StrongholdFightResult last = new();
+                while (Next(state, relatedId) is int stageId and > 0)
+                {
+                    state.PendingGroupId = relatedId;
+                    state.PendingStageId = stageId;
+                    last = Settle(p, true, session, consumeEndurance: false);
+                }
+                lines.AddRange(last.GroupFightResultInfos);
+            }
+        }
+        Visit(groupId);
+        state.PendingGroupId = groupId;
+        state.PendingStageId = 0;
+        return lines;
     }
 
     private static int EnduranceCost(StrongholdState state, int groupId)

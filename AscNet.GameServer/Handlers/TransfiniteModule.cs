@@ -241,7 +241,7 @@ internal static class TransfiniteModule
             RewardApplicationResult? applied = null;
             if (terminal)
             {
-                int total = battle.StageInfo.Sum(x => x.Score);
+                int total = checked(battle.StageInfo.Sum(x => x.Score) + AnchorSkippedScore(battle));
                 applied = RewardHandler.ApplyRewardsOnceAndPersist(
                     [new RewardGrant($"transfinite-terminal:{state.ActivityId}:{state.CircleId}:{battle.StageGroupId}", [new RewardGoodsTable { Id = TransfiniteScoreItemId, TemplateId = TransfiniteScoreItemId, Count = total }], EventCause: WheelchairManualGuideManager.GetUniqueWeeklyEventCause(91))], s);
             }
@@ -297,7 +297,8 @@ internal static class TransfiniteModule
         {
             s.player.Transfinite = snapshot;
             s.fight = fightSnapshot;
-            if (applied is not null)
+            // The grant can throw after mutating the inventory (applied stays null), so roll back whenever it ran.
+            if (score > 0)
             {
                 s.inventory = inventorySnapshot;
                 try { s.inventory.SaveChecked(); } catch { }
@@ -436,10 +437,21 @@ internal static class TransfiniteModule
                     return false;
                 total = checked(total + score);
             }
+            // The client only offers Reset once a stage past the anchor is won (IsHideBtnReset).
+            if (battle.StageInfo.Count > 0) total = checked(total + AnchorSkippedScore(battle));
             return true;
         }
         catch (OverflowException) { total = 0; return false; }
     }
+    // A run started at an anchor (TransfiniteStartStageProgress) skips the stages before it, but they still count:
+    // the score-reward ladder runs to 1500 (TransfiniteScoreRewardGroup), which a 15-stage group only reaches with
+    // them included. Anchors stop at stage 8 and no earlier stage has a time bonus, so only base Score is credited.
+    // The skipped stages are the ones before the run's first won stage (StageProgressIndex - StageInfo.Count).
+    private static int AnchorSkippedScore(TransfiniteBattleState battle) =>
+        Groups.Value.TryGetValue(battle.StageGroupId, out var group)
+            ? group.StageId.Take(Math.Clamp(battle.StageProgressIndex - battle.StageInfo.Count, 0, group.StageId.Count))
+                .Sum(id => Stages.Value.TryGetValue(id, out var stage) ? stage.Score ?? 0 : 0)
+            : 0;
     private static int Score(Session s) => checked((int)Math.Min(int.MaxValue, s.inventory.Items.Where(x => x.Id == TransfiniteScoreItemId).Sum(x => (long)x.Count)));
     private static bool ValidTeam(Session s, TransfiniteTeamInfo t) { if (t.CharacterIdList.Count != 3 || t.CaptainPos < 1 || t.CaptainPos > 3 || t.FirstFightPos < 1 || t.FirstFightPos > 3 || t.EnterCgIndex < 0 || t.SettleCgIndex < 0 || t.SelectedGeneralSkill < 0 || (t.SelectedGeneralSkill > 0 && !GeneralSkills.Value.Contains(t.SelectedGeneralSkill)) || t.CharacterIdList[t.CaptainPos - 1] <= 0 || t.CharacterIdList[t.FirstFightPos - 1] <= 0) return false; var ids = t.CharacterIdList.Where(x => x > 0).ToList(); return ids.Count is >= 1 and <= 3 && ids.All(id => id <= uint.MaxValue) && ids.Distinct().Count() == ids.Count && ids.All(id => s.character.Characters.Any(c => c.Id == (uint)id)); }
     private static List<TransfiniteCharacterResultState> Results(Session s, FightSettleResult r)
