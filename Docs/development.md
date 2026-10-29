@@ -1,0 +1,628 @@
+# InfiniteLoop developer guide
+
+Technical reference for working on InfiniteLoop, a branch of [AscNet](https://github.com/rafi1212122/AscNet): client/protocol targets, per-feature implementation notes, running the server directly or through the Steam/PC bridge, testing, and repository rules. Players should start with the [README](../README.md).
+
+This is research/dev infrastructure, not an official service. It expects a local client, a local AscNet process, and a local MongoDB database.
+
+## Current target
+
+The current server data/config target is **4.8**, not a claim of complete 4.8 gameplay compatibility:
+
+| Area | Value |
+| --- | --- |
+| Client package | `com.kurogame.pc.punishing.grayraven.en` |
+| Application version | `4.8.0` |
+| Document version | `4.8.12` |
+| Launch module version | `4.8.12` |
+| Steam/PC channel | `205` |
+| Game server TCP port | `2335` by default |
+| SDK/HTTP URL used by the runner | `http://127.0.0.1:8080` by default |
+
+`Resources/Configs/version_config.json` includes the authoritative `4.8.0 -> 4.8.12` version/hash tuple and retains older tuples. The native launcher's binary allowlist targets client 4.8.0, EN, TW, KR, JP and CN (launcher 1.0.18, patch 0.5.0; CN: see [`cn-sdk-support.md`](cn-sdk-support.md)).
+
+One instance serves every region: the package in the config request picks the `Packages` entry (document/launch version, hashes and its `Region` block of CDNs, channel, server-list label and config rows) in `version_config.json`, and each TCP session reports its own document version from the handshake. Tables, notices and gameplay stay the shared EN-derived set for all regions. KR and JP config tuples come from their live config.tab; KR/JP native hooks are statically checked only (see `AscNet.Launcher/docs/client-download.md`) until a KR/JP client run.
+
+## What changed in this branch
+
+### Current-client config and SDK routing
+
+- Added current-client config generation for the PC package `com.kurogame.pc.punishing.grayraven.en`.
+- Added Steam/PC channel handling with channel `205`.
+- Added current-client CDN and server-list payloads for the config endpoints.
+- Added Kuro SDK compatibility endpoints under `/sdkcom/v2/...`, including:
+  - email/password login
+  - Steam third-party login
+  - auto login
+  - real-name login/check
+  - access token
+  - OAuth code generation
+  - Steam/PC third-login mark/browser helpers
+  - player config/system config payloads
+- Added gate-login fallback via `ASCNET_GATE_FALLBACK_USERNAME`, so Steam/KRSDK handoff can map an unknown external user id to a local AscNet account.
+- Added current notice fixtures and endpoint compatibility checks for the current client.
+
+### Steam/PC bridge
+
+- Added `run_steam.py`, a local runner that starts AscNet, optionally starts MongoDB, starts mitmproxy, performs SDK/config smoke checks, creates or verifies a local AscNet account, and launches the client command with proxy environment variables.
+- Added `proxy.py` routing for current PC/Steam HTTP traffic:
+  - `sdkapi.kurogame-service.com`
+  - `sdkapi.kurogame-service.xyz`
+  - `prod-encdn-*.kurogame.net`
+  - local wildcard `/api/`, `/prod/`, and `/sdkcom/` requests
+- Added redacted proxy flow logging to `.runtime/proxy-flows.log`.
+- Added KRSDK cache repair/seeding helpers for local Steam bridge experiments.
+- Added `launch-pgr-ascnet.sh` as a macOS/CrossOver launch example. Its paths are workstation-specific; adjust them before reuse.
+
+### 4.8 data and feature changes
+
+Installed, SHA-verified client tables and Lua are the source for this update. `Resources/table/manifest.json` records per-table provenance and preserves earlier local-policy projections. This update adds no capture-backed runtime data.
+
+- Kurumi Tokisaki and Adelyde: Anabasis acquisition, normal progression, exhibition rewards, and training-item handling; training maximizes authored level/grade/eligible normal skills, not evolution or Leap.
+- Zafkiel and Kelpie CUB data, five weapons, Pesanteur memories, new coatings/portraits, and authored Harmony II upgrades. Memory resonance discounts now follow the two configured suits rather than the previous single-suit assumption.
+- Observer effects use `CharacterObsTransform` career/element rules, including Overlinker. Stage general-skill bans follow the authored stage flag.
+- Standard 4.8 draw catalogs, Crucible milestone claims, Date A Live acquired-copy task progression, and selected-lottery state. Unsupported collab currencies are not guessed.
+- Free-ticket rewards persist as serial ticket stock, not inventory items. Every paid or free draw freezes its rolled outcome, pity/history and debit plan in one durable write, then grants once through per-document reward receipts; login resumes frozen draws, and a retry cannot charge, grant or advance progress twice. Non-Fate collab banners spend the paid ticket family and combine earned tickets in the same cost plan; the Fate banner remains closed (below).
+- Updated notices, event calendars, multi-round sign-ins, the Farwatch File Passport season, and 487 Study stages, including new frame trials and Celica practice.
+- Chapter 43 (Anchored in Faith), its LifeTree/exhibition dependencies, Wrathful Monsoon boss trials, and Kurumi/Adelyde teaching trials, guides, affection tasks, trust gifts, and dorm interactions.
+- Festival and coating-trial progress is rebuilt from persisted stage clears rather than fixed login payloads. Teaching treasure claims recover partially persisted rewards at login, including after the event closes.
+- Coating self-choice gachas `50–53` use authored rewards, costs, limits, milestones, and calendar `51001`. Selection changes preserve each pool's progress; frozen draw/exchange intents recover without charging or granting twice. Scene rewards persist ownership and notify the client.
+- Music playlist reordering uses the original client's reversed wire/display order and persists across login.
+- Pain Cage intensive-battle feature-group mappings and fight events now match the authoritative EN tables.
+- Envelope invitation/open/bind/story mutations, task notifications, first-day grant, accumulated per-business-day catch-up and earned-but-unclaimed task reissue; server-local Team Recommendation boards with persisted, server-evaluated target progress.
+- FangKuai v2 Start/Sync/Settle state, scoring operands, rewards, and tasks; chapter calendars `50802–50804` inherit the authored parent window. The client owns board generation; snapshot checks do not prove native move history.
+- Equipment mutations push every affected slot in one `NotifyEquipDataList` before the response. Taking a weapon off, or moving one to another character that does not hand back the weapon it displaces, is rejected; login normalization gives a weaponless owned character its authored default weapon and frees incompatible wearables.
+
+Distributed sources do not carry every retail rule. These surfaces state their local policy explicitly:
+
+| Surface | AscNet policy (not retail parity) / remaining gap |
+| --- | --- |
+| Guild Boss scoring | Provisional retail-observed score: Base `140000`, damage `floor(TotalDamage / 30)`, and HP `floor(HpLeftPer * 100)` on a `10000` maximum; partial-HP rounding and universal retail applicability remain unverified. |
+| Collab draws `5612`, `381`, `7068` | AscNet policy (not retail): open at the 4.8 maintenance end, 2026-09-24 05:00 UTC (`1790226000`), instead of retail 2026-09-29 10:00 UTC (`1790676000`); end unchanged. Groups 37/38 (Kurumi and her closed Fate pair), 39 (collab weapon `381`), and 40 (collab CUB `7068`) carry Tag `5` from client `DrawTabs` Id 5 (Collab / Kurumi Tokisaki Pool). The client sorts that tab by Order descending, so group 39 uses Order 2: frame group 37 (4002), then the weapon, then CUB group 40 (1). Their priorities stay 22000, 510, and 8100. Season weapon `383` and CUB `7071` stay on tags 1 and 7 with Order 1. Login pushes `NotifyDateALiveDraw` with `DateALiveActivity` draws that are currently open (`{1:[5612]}` in window, empty otherwise). Paid ticket family `50017–50019` and earned family `50021–50023` fund a single combined cost plan, and the banner presents the paid family's primary item. |
+| Collab Fate `5613` | Pity is published only as an inclusive `80–100` range and the threshold weights are not distributed, so this banner fails closed: not advertised, no draw infos served, requests rejected. The threshold law is still missing and no substitute distribution is invented. |
+| Circuit Calculus / Punishaar | All 19 requests implemented over the authored activity tables: shop blocks map onto remedy/shop groups, stock and level rules, empty starting deck, per-save persisted RNG, and earned-gold accounting (sale refunds excluded). The client Lua simulates the battle; finish-fight results are consistency-checked, not battle proof. |
+| Overclock Simulation / Transfinite Tower | Its six requests are implemented: chapter/floor progression, energy accounting with rollback refunds, MVP, and a server-local rank board whose rank rewards (including ChatBoard unlocks) are delivered through durable receipts resumed at login. |
+| Wreck-It Huhu / FangKuai | Chapter calendars `50802–50804` inherit the authored parent window (permanent when the parent has none); authored `PreStageId` progression still gates entry. |
+| Team Recommendation | "Global" standings are this server's persisted accounts, not a retail leaderboard: eligible authored base formations (all three members owned inside the quality-star window, each with one table-valid weapon, six awareness sites and at most one partner) rank by quality-star, then level, then lowest UID. Snapshots expose template IDs only. |
+| Envelope Enter | Every authored business day from the schedule start through today accrues one daily ticket grant under its own receipt; the first-ever entry day pays the authored first-day reward instead, and earned-but-unclaimed daily tasks are reissued under their period claim key. |
+| Cosmic Wonders `50302` / self-choice lottery `49501` | The 4.8 client contains Cosmic Wonders data, but no authoritative 4.8 event window: `50302` is not scheduled and its calendar remains closed. The separate 3.7 self-choice lottery `49501` retains its user-approved unbounded window because its client UI requires a positive end time. |
+| Simulated Battlefield `50402` / `50403` | Availability follows the 4.8 activity start after the 2026-09-24 05:00 UTC update through the explicitly dated shop expiry on 2026-11-05 05:00 UTC. Applying those same bounds to task calendar `50403` is an AscNet scheduling policy, supported by the paired-ID precedent in 4.7, not a claim of an independently recovered retail task end date. |
+| Theatre6 / Nirvatia | Default buff 10 authors starting-skill family 22, whose composition is not shipped. AscNet policy (not retail parity) resolves it through authored Theatre6BuildTag 31 "Dreamlure": the lowest-id level-1, in-pool Nirvatia skill carrying that tag. Characters without such skills still reject. Character-specific mission counters and the authored skill-level-up trigger are implemented. |
+| Lightning and Thunder / The Meandering Three (`CerberusGame`) | Authoritative activity, chapter, story-line, point, challenge and communication tables supply the content and unlock references. Missing retail calendar/progression rules use explicitly labelled AscNet policy; permanent availability is not an automatic clear, route choice or reward grant. Shops `4008`/`4009` remain closed because their catalogs are absent; guide reward totals are not replacement catalogs. See the mode notes below and `Docs/closed.md`. |
+| Operation Guardians (`MaintainerAction`, functional `1302`) | Authoritative `MaintainerActionConfig`/`Level`/`Event` tables, FunctionalOpen `1302`, Stage/Reward tables and client CodeText supply content, limits, stages, rewards and errors. The node pool for `NodePoolId` is not shipped, so board generation, node composition and card draws are **AscNet policy** (seeded from the persisted per-player weekly seed); `TimeId` `123` has no calendar and is permanently available; only the owner appears on the board; mentor nodes are inert. See the section below and `Docs/closed.md`. |
+
+The table decoder verified 16,113 typed tables; 4,461 ancillary raw assets remain undecoded, outside the imported gameplay dependencies.
+
+Focused verification on 2026-09-24: the `--non-fate-policy-only` compatibility harness passed against a private MongoDB. Ten PacketCodec scenarios completed 154 transactions without collector failures; eight bounded replays through the installed 4.8 client's original Lua passed 1,178 checks. The separate banner/equipment regression scenario completed 15 transactions and 50 client-consumer checks. Fixtures used synthetic accounts only, and dated scenarios injected the handler/scenario clock rather than rewriting production calendars. This is not a full-mode native playthrough: engine adapters, declared out-of-scope login pushes and synthetic skill-merge inputs remain explicit proof boundaries; native combat, rendered UI and movie playback are unverified. Throwaway collectors and private database files were removed after verification; the permanent compatibility harness remains in `AscNet.Test`.
+
+### Game protocol and data compatibility
+
+This branch adds or fixes current-client server behavior for:
+
+- `NotifyLogin` shape and current-client login data.
+- Completed scheduled sign-ins stay marked claimed across login and daily reset; recurring daily sign-ins still advance normally.
+- Dorm commission board replacements notify the client; stale dispatch indexes trigger a board resync without partial acceptance.
+- Dorm commission system upgrades retain the current level until the saved start time plus the table-defined duration has elapsed. Relogs and restarts cannot finish them early; reconciliation completes each upgrade once and recovers previously stuck AscNet upgrades without restarting their timer or charging again.
+- Ultima Awakening checks claimed Exhibition milestones for the relevant construct. Eligible skills still require an unlock request, and learned skills survive character reloads.
+- Character login normalization reuses skill-upgrade, condition, and skill-level indexes within one roster pass; skill eligibility is still evaluated per character against current player state.
+- Observer activation derives from the deployed team, learned observation skills, and authored career/element transformations. Ordinary, guild and roguelike pre-fight builders share this logic; cached mode battle payloads retain the effects, and the base Observer career remains unchanged.
+- Current-client notice payloads.
+- Stage bookmark compatibility.
+- Board mutual push compatibility.
+- Mainline 2 exhibition chapter compatibility.
+- Mainline treasure rewards using current `Treasure.tsv` and `Chapter.tsv` contracts.
+- Story course rewards.
+- Lucia: Lotus's hidden interlude uses table-derived replay flags and persisted objective events, with an immediate hidden-stage notification and relog recovery. Old clear records do not prove objective completion; replay episode 6 after updating. Clearing the episode without its hidden objective does not unlock episode 7.
+- Boss single login payload shape.
+- Pain Cage consumes one Attempt per normal stage's first weekly clear, manual or Auto Clear; replays consume none. Current-week clears do not unlock Auto Clear until weekly rollover archives their records; prior archived eligibility remains unchanged until then. Weekly rollover resets completion flags, and ambiguous legacy clears are also reset. Codex clears update scores and first-clear task progress without marking weekly stages complete. Type 25001 achievements track each table-defined section's cumulative normal `Score` or its isolated Trial/Bestiary score total; earned progress is retained across lower replays and Reset Challenge.
+- Guide table compatibility for current guide TSVs.
+- Player cost-time upload.
+- Player point upload.
+- PR2 quality compatibility.
+- Character progression persistence.
+- Fashion suit rewards (`FashionGetSuitRewardRequest`) require every character fashion listed in the authoritative `FashionSuit.tsv` and grant the configured reward. Login restores completed claims only after both reward-document saves succeed; interrupted saves can be retried without duplicate grants.
+- Character/frame experience rollover and commandant-level caps.
+- Fight settlement commandant EXP and character/card EXP.
+- Current-client first-clear fields such as `FirstTeamExp` and `FirstCardExp`.
+- Mission snapshots refresh after authenticated requests; supported character, equipment, draw, shop, stage, and client-event progress uses current task tables, persisted state, and committed actions. Overlapping task catalogs emit one update per task ID. Historical cumulative events are not fabricated.
+- Group 1 `MemberTarget` draws use an explicitly local, non-retail policy where retail configuration is unavailable:
+  - The numeric `DrawProbShow` profile mixes a 0.5% base S row with a 1.9% aggregate S-with-pity row. This local interpretation excludes the aggregate row, rolls the published 0.5% S chance exactly, then selects among the published non-S figures as relative weights: combined A/B characters 13.95, shards 22.11, memories 28.39, overclock materials 14.42, EXP materials 4.81, and cogs 14.42 (sum 98.1). This handling of the mixed profile is not a claim that those figures are exact unconditional retail probabilities; the values are loaded from the table rather than copied into server logic.
+  - Because no authoritative A/B rank split or member weights are available, the base A/B result is selected uniformly from the visible eligible full-character pool, with the selected target included once; the pool composition therefore determines each rank's chance. Conditional on an A result, `DrawAimProbability` selects the target (normally 80%, or a row-specific 100%); a miss is uniform among other eligible A members. B and S members are uniform within their ranks. Preview goods, up goods, and minimum character quality remain authoritative, so a selected A target is never promoted to an S award.
+  - S is rolled first. Otherwise, nine draws since the last A-or-S force A on the tenth draw; 59 draws since the last S force S on the sixtieth and take precedence. Every A or S resets the ten-draw counter, while only S resets the sixty-draw counter. Both counters are shared across group 1 targets, survive target switches, advance sequentially within batches, and are persisted.
+  - Existing group 1 history is replayed chronologically when it is complete or contains a known S anchor, recognizing character results and conversion-result ranks; migrated progress is capped at nine draws since A-or-S and 59 since S. If history is absent or inadequate, migration preserves the old visible S remainder from the prior pity counter modulo 60 and initializes A progress at zero. These counters remain separate from existing total-draw counters, and other draw groups retain their existing behavior.
+  - Calibration is also an explicitly local, permanent one-use entitlement per player, not a reconstructed retail campaign: authoritative `DrawAdjustActivity` campaign rows are unavailable. Its presentation uses the latest valid `DrawActivityTargetShow` row, stays open without calendar bounds, and derives selectable S characters from the existing eligible group 1 pools. Selecting or clearing a target (`0` means choose later) persists without changing pity. The next raw group 1 S result, whether random or guaranteed, becomes the selected S and consumes the entitlement before duplicate conversion; non-S results, other groups, and S results without a selection do not consume it. Batches resolve sequentially. Selection and consumption survive relog and never reset with time or presentation-table versions. Legacy players start unused because the old server never implemented or recorded calibration; existing draw history does not fabricate consumption.
+  - The calibration banner remains visible and browsable before its introduction, but selecting a new nonzero S target requires completing the authored calibration guide. `DrawCalibrationGuide` links the draw group to its guide using the installed `GuideData` `UiNewDrawMain` / `PanelBanner/<group>` / `PanelSwitchS` focus paths. This local tutorial-before-use rule prevents spending the only check before the later tutorial needs its banner; it does not auto-complete or bypass the guide. Choosing later (`0`) and retrying the same selection remain allowed.
+- CUB archive stories derive unlocks from owned partners and their progression, persist newly unlocked entries, and synchronize after committed changes and login.
+- Norman sweep (`SweepStrongholdStageRequest`) resolves the configured group and its stages, handles already-paid partial clears, and shares normal-clear progression and reward settlement.
+- Legacy Stronghold quick clear (`BfrtOneKeyPassGroupRequest`) validates the formation and computes battle power from character progression, equipment, skills, and authoritative tables instead of the uncomputed persisted `Ability` field. Attribute tables preserve original Q32.32 values as hexadecimal strings for client-compatible rounding.
+- F.O.S. course battle results, exam scoring, rewards, and saved state have compatibility coverage. Lesson result saving remains explicitly blocked because the authoritative lesson-clear rule is missing; no inferred lesson completion or mission credit is awarded.
+- Arcade Anima (`CharacterTower`, FunctionalOpen 10436) implements its seven mode requests from the EN `share/fuben/charactertower` tables: chapter reward, stage reward and star-treasure claims, relation fight-event and story activations, story-card video markers, and one-time trigger-condition acknowledgements. Stage and chapter rewards are manual claims (settlement never grants a first clear); each payout carries a stable per-player receipt, so a retried claim pays once even when the mode save is retried after a partial failure. Relation tiers activate against the authored `FinishNums` thresholds and freeze the conditions that are true at activation; `Stage.Stages` stays the only pass/star authority. Tower availability uses unbounded windows derived from `Tower.OpenTimeId`; the authored promotional chapter windows (`20402`, `34301`) and their activity chapter list are not reconstructed, so those chapters remain gated by their authored open conditions.
+
+Mission coverage is not complete: Basic Research category `27000`, extended character/fashion task filters, and standard client-event subsystem eligibility still need authoritative rules. Unsupported predicates do not receive guessed completion credit.
+
+The legacy power calculation follows the supplied tables, where `PartnerAbilityConvert` is zero. A nonzero future coefficient is rejected explicitly until partner power calculation is implemented; it is not silently omitted.
+
+### Lightning and Thunder / The Meandering Three (CerberusGame)
+
+Cerberus content comes from the authored `share/fuben/cerberusgame` tables, with client role/boss/config data supplying presentation and trial-roster references. Story lines link their ordered points; point types, prerequisite points, conditions, stage references, challenge prerequisites and authored robots remain the source of content, rather than captured response snapshots.
+
+- **Availability and progression policy:** where a current retail calendar or proprietary server progression rule is unavailable, availability and state transitions are explicitly **AscNet policy**, not recovered retail behavior. Permanent availability does not bypass functional-open, chapter/line/point conditions, trial-roster restrictions or earned stage progression. A story acknowledgement is not evidence of a combat win; battle clears and first-clear rewards belong to the shared validated stage flow. The implementation's local choices must not be read as a retail parity claim.
+- **Calendar scope:** `ActivityScheduleService` preserves official schedule windows first; only missing Cerberus windows receive the local permanent-mode policy, ending at the existing positive `UnboundedEnd` (`3000-01-01`) for client countdown compatibility. Current authored activity/chapter references use `901` and `49501`; reachable chapter, story-line and point time conditions are included. Unreferenced historical clocks such as `18142` and `23001` are not opened merely because a Cerberus-named condition exists.
+- **Local state transitions:** select the highest authored activity ID with a positive `TimeId` whose schedule is open; historical rows without a calendar are excluded because the client requires a valid time reference. Progress in shared authored chapters is retained across activity changes; `IsClearData` does not trigger an invented retail recycle/reset window. Story points require the shared `EnterStory` pass before acknowledgement, communications can be acknowledged directly after their gates, and combat points cannot be passed by the acknowledgement request. Chapter/line/point prerequisites, Commandant-level conditions, stage clears and route choices remain enforced.
+- **Branch-result policy:** predecoded installed 4.8 behavior graphs expose route values `1`/`2` through `CustomData[playerId].Dict[3]`. Projecting a validated winning choice into the persisted `StageParams` list consumed by the client is explicitly AscNet policy, not an observed retail-server projection. This source inspection is not a fresh raw-bundle decode/hash or native-combat proof.
+- **Settlement recovery and retry:** durable reward receipts and BSON recovery finish an interrupted reward/progression mutation before the next pre-fight. Exact settlement retries use the latest retained SHA-256 receipt; an older, evicted settlement is rejected rather than replayed. This bounded latest-receipt policy does not promise indefinite settlement replay.
+- **Shared tasks:** current support selects authored stage-clear predicates (`15201`) referring to Cerberus stages whose `TaskTimeLimit.TimeId` matches an authored mode activity/chapter window. Task `120713` (group `757`, calendar `49501`) uses persisted stage clears and mission counters; it is a mainline/rerun event task, not a Cerberus task panel. Historical tasks `120198`, `120529` and `120135` retain their unrelated historical windows and are not reopened. In particular, `120135` / condition `12439` asks for acquisition of `50` Special "Honey Cakes" (`97007`), not a story acknowledgement or a stage clear; this change adds no generic item-acquisition predicate.
+- **Thunderbolt Manual and shops:** guide activity `10007` uses event cause `180001`, references shops `4008`/`4009`, and displays targets of `750` Event Construct R&D Tickets, `2000` Trade Vouchers and one Punk Dynamo coating. These are guide accounting targets, not a direct payout. Neither shop has a catalog in `Resources/Configs/client_shops.json`; both stay closed rather than inventing goods, prices or limits. The existing mode tokens `97007` and `97008` remain separate inventory balances; see `Docs/items.md` and `Docs/closed.md`.
+- **Exercised coverage:** the final test-project build completed with no errors and seven existing BigWorld warnings. The focused Cerberus harness passed original EN login/stage Lua consumers, both route choices, failure after a real reward grant with BSON recovery on the next pre-fight, exact latest-receipt retry and rejection of an evicted older receipt. Neighbor checks `notify-login`, `login-account`, `pre-fight-position`, `fight-settle-achievement` and `fight-settle-retreat` passed. SDK/TCP startup readiness passed and the owned smoke server stopped cleanly. The full harness did **not** pass: after correcting its database-prefix isolation guard, it stopped at an unrelated `NullReferenceException` in `Program.BossSingle.cs:2577` (`resetResponse.Code`). Rendered client flow and native combat remain unverified.
+
+Run the focused compatibility harness (requires Lua; set `ASCNET_LUA` to its executable and, if needed, `ASCNET_CERBERUS_AGENCY` to the original EN `XCerberusGameAgency.lua`):
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --cerberus-game-compat-only
+```
+
+### Operation Guardians (MaintainerAction)
+
+Client `UiFubenMaintaineraction`, opened by `OnOpenMaintainerAction` (functional `1302`, gated by its authored level/story condition). `MaintainerActionModule` serves `MaintainerActionPlayCardRequest`, `MaintainerActionNodeEventRequest` and `MaintainerActionRecordRequest`, pushes `NotifyMaintainerActionData` at login (persisted board) and weekly reset, `NotifyMaintainerActionDailyReset` at daily reset, `NotifyMaintainerActionFightWin` after a won board fight, and never needs `NotifyMaintainerActionNodeChange` (every node change rides a `MaintainerActionNodeEventResponse`). Fights use the generic `PreFight`/`FightSettle` pipeline; the mode only authorises the stage (must be the stage of the fight node the player stands on) and resolves the node on a win.
+
+- **Authoritative:** table limits (`MaxDailyActionCount`, `MaxFightWinCount`, `MaxBoxCount`, `MaxWarehouseFinishCount`, `NodeCount`, `MaxCardNumber`, `MaxHandCardCount`), `Level` stage lists (highest `Level` not above the commandant level) and `BoxRewardIds`, event rows (names/texts), stage drops, client CodeText `20103001`-`20103017`.
+- **AscNet policy (not retail parity):** weekly board generation (3-4 fight nodes, 1 simulated fight, 2-3 boxes, an optional warehouse, one each of sensing/card change/direction change/action point, one forward and one back relocation that never land on each other, 3-4 hidden "Unknown Area" nodes, remainder empty road), card draws, the +1/+2 action grants of events `8`/`12`/`13` (only `13` states its amount), the once-per-day start-node bonus, the warehouse reward (the level's `BoxRewardIds` entry), and permanent availability for `TimeId` `123`. Boards derive from a persisted seed and draw counter, so relog, BSON reload and retries reproduce them.
+- **Resets:** daily (`TaskModule` daily period) clears used/extra actions and the start bonus; weekly clears fight/box/warehouse counters, records and position and builds a new board and hand. Rollovers are applied at login and before every request.
+- **Retry safety:** the accepted node event of a landing is stored and replayed verbatim; rewards use `ApplyRewardsOnceAndPersist` claim keys scoped to config/week/landing; a duplicate fight settlement cannot recount a win.
+- **Inert / closed:** mentor nodes (events `16`-`19`, node type `13`, mails `61002`/`61003`) are never generated because the mentor system is absent; other players, cross-check requests and shared records are not simulated.
+
+Run the focused compatibility harness (requires Lua; set `ASCNET_LUA` and, if needed, `ASCNET_PGR_EN_ROOT` to the EN `PGR_Data/en` directory):
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --maintainer-action-compat-only
+```
+
+### Recitativo di Fantasia (original Theatre)
+
+Original Theatre uses its own persistent adventure, chapter/node offers, event steps, node shops, recruitment, single/multi-team formations, skill choices, keepsakes, power favor, decorations, endings and shared tasks. Its 17 mode requests own the unprefixed Theatre protocol; the unused Bianca copies of the two multi-team requests have been removed. Login restores the real mode snapshot and pending durable outcomes. Combat routes remain separate from Cursed Waves, Matrix and ordinary stages.
+
+The 28 imported original-Theatre tables contain 2,067 authored rows. They supply content IDs, weights, numeric parameters and references, not captured response payloads. **Generation, probability and economics described below are explicitly local rules where the proprietary server formula is unavailable; they are not claims of retail server equivalence.**
+
+- **Nodes and fights:** visit authored chapter node rows in ascending ID order; fixed `Type`/`Param` pairs remain fixed offers, and their authored stage references may cross chapters. Random rows offer positive reward categories, capped by authored `MaxRandom` when present. Their weighted-without-replacement ordering uses `base reward weight + max(0, expected - current) * TheatreFactor[1..4]`; absent level weight is zero. Random stage candidates remain chapter-scoped and use their authored weights and skill bounds. Node randomness is seeded by the unchecked integer expression `(RunId * 397) XOR node-row ID`, and the resulting offers are persisted. Chapter groups advance sequentially without inventing cross-group transitions.
+- **Events:** locally choose the lowest authored step-row ID for an event's initial step, then persist authored transitions and one-based option indices. Reward items use exact configured counts; option kind 1 consumes its configured items, while kind 2 only checks ownership. Event pass-record leaves are locally represented as `true`, matching the client's observed truthy-membership check. Revisiting an event step within the same slot is rejected. Battles and movies use the exact authored stage ID and story token; absent local-reward/keepsake/decoration-option data is not invented.
+- **Node shops:** deterministically sample without replacement from the four reward types using authored `TheatreNodeShop` weights. Stock is `min(MaxCount, InitCount + ShopItemCountBonus)` and insufficient positive-weight candidates reject generation. Skill/level counts are one; currency counts are authored `DecorationCount`/`FavorCount`. Prices are `floor(authored base price * ShopPriceMultiplier)` and persist with the offers. The seed is unchecked `RunId XOR (RunId >> 32) XOR (SlotId * 397) XOR (shop ID * 31)`.
+- **Availability:** no original-Theatre activity clock is invented. Only the user-approved decoration-release clocks `803`, `804` and `805` are permanently unbounded (`0`/`0`), derived from the condition closure of decorations `20003`, `20004` and `20005` by both the runtime calendar and offline generator. Wasteland/Kingdom I/Kingdom II still require chapter clears `8`/`14`/`20`, the preceding decoration at level 1 and their authored cost of 5 Inspiration (`96102`). Decorations are never auto-granted; promotion `24` is not auto-unlocked and other clocks retain their policies.
+- **Starting and recruitment:** availability checks functional-open `10420` conditions and authored difficulty/SP-mode gates; only earned keepsakes can be selected. Locally choose the highest eligible chapter-group ID within the requested mode. The initial free offer and each refresh select one unrecruited role uniformly from each authored pool (no pool-member weights are supplied). Freeze source-valid roles, complete role-level robot mappings and owned-character IDs when the run starts. Recruitment allowance is `sum(chapter RecruitCount through the current chapter) + RecruitBonus * chapter count - recruited roles`; refreshes consume a used-count allowance capped by `RecruitRefreshCount + RefreshBonus`. Reopen usage starts at zero. Login never creates a run or rerolls offers; the last run is retained only where final presentation needs it.
+- **Run currency:** an accepted new adventure journals removal of all positive leftover Marg (`96101`) before its once-per-run `InitialCoinBonus`. This local run-boundary reset does not count as task spending and prevents banking startup bonuses across start/abandon cycles. Rejected starts, reconnects and resumes do not reset currency.
+- **Team ownership:** own-character use requires earned permission, ownership frozen at run start, recruitment of the matching role and the current character's power meeting `UseOwnCharacterFa` (currently `1000`, enforced here as a local rule). Permission becomes available monotonically within the run once the displayed trial roster's mean battle power reaches that threshold; displayed power is the current authored `RoleAttr.FightAbility` plus the current skills' `FightAbility` sum, re-evaluated on recruitment, level changes and skill selection. Trial characters use actual authored levels `5`/`20`/`40`/`60`/`80`, not level indices, with exact level-to-robot mappings; level changes remap saved teams. Single-team index is `0`, multi-team indices are `1..StageCount`, and captain/first-fighter positions must be occupied. Duplicate characters are rejected across owned/trial representations.
+- **Skills:** locally select one weighted power, then offer up to three distinct eligible skills from that power. Use the rule row at `min(PassNodeCount + 1, last row ID)`. A power's weight is `max(1, PowerBasicWeight + Factor5 * (PowerExpect[power] - owned skills for that power) + matching equipped-keepsake PowerFactor)`. Within that power, candidate weight is `max(1, SkillBasicWeight + SkillWeight + Factor6 * (LvExpect[position] - owned core level))`; additional skills omit the positional term. Initial core quality is at least 1 and uses the highest active type-3 favor parameter; upgrades add `1 + highest active type-4 favor parameter`, capped by authored maximum quality. Replacing another power starts at initial quality. Favor type 2 unlocks authored favor-gated additional skills. Existing choices and shop previews stay frozen; skipping a purchased preview does not make it purchasable again.
+- **Settlement and progression economics:** locally compute each of the five settlement-factor contributions as `floor(count * coefficient)`, then checked-sum them; an absent fifth coefficient contributes zero and a run with no node has zero score. Difficulty scales pending currency, not score. Decoration Inspiration/Cadenza multipliers apply once when a node award is earned; settlement grants `floor(accumulated pending amount * Difficulty.RewardFactor)` once for Inspiration (`96102`) and Cadenza (`96103`) through run-fenced receipts, then clears the pending counters. Choose the highest-priority ending whose authored default/run-event/run-chapter conditions pass. Because no server `PassType` is supplied, abandonment uses only achievements actually earned in that run. Power favor uses the current row's cost to buy the next level; a separate claim activates reward types 2/3/4, grants type 1, or unlocks type 5.
+- **Keepsakes and native effects:** keepsake `FightCount` thresholds are consumed per completed node, subtracting the threshold on level-up and stopping at the maximum. Authored skill, difficulty and decoration fight events are passed to native combat; display-only stat substitutes are not used. Original stage graphs own their spawns. Empty monster-level lists retain the native authored fallback rather than inventing level 20 or 100.
+- **Restart and native revival:** whole-fight restart and tracking of used reopen lives are implemented. Native paid revival is not available: all 88 authored `Stage` rows and 80 `LevelControl` rows lack a reboot profile, so there is no authored original-Theatre `RebootId` source. The currently issued reboot values are `0`/`0`; the native normal-death gate therefore suppresses the `Reboot` RPC. Enabling native paid revival requires the missing authoritative reboot profile, not an invented price or allowance.
+- **Shared progression:** chapter, event-step, decoration-level and ending conditions read original-Theatre state, including archive CG unlocks. Original task claims use the mode journal and existing reward receipts; a batch reports foreign task IDs as unprocessed rather than mixing journal ownership. Existing Matrix/Cursed Waves task recovery and epoch handling remain separate. The existing authorized regular/rare shop catalogs (`1193`/`1194`) are retained, including product IDs, rewards, prices and limits; their original conditions are checked before purchase, with no invented catalog.
+- **Shared shop and guide receipts:** the existing regular/rare products use original-Theatre durable purchase receipts for costs, rewards, monotonic purchase limits and shared spend/purchase task counters. The local guide attribution is regular shop → event cause `92004`, rare shop → `92008`; original task claims use `92004` and settlement uses `92008`. These are explicit local producer assignments, not reconstructed retail server event routing. The guide still applies its authored item filters. Original tasks comprise 3 daily claims with period-scoped receipts and 41 permanent claims; a pending shared-shop purchase must finish through its matching retry or reconnect before mission-period resets.
+- **Recovery:** persisted offers, skill choices, role levels, teams, completed multi-stage indices and native attempts survive reconnects. Multi-stage progress uses indices even when stage IDs repeat. Pending mutations retain cost/reward receipts and run fencing; unrelated requests cannot spend an old balance or replay an old successful mutation. Reconnect reconstructs state rather than blindly re-sending additive node or skill notifications.
+
+Verification covers server behavior, encrypted TCP/Mongo normal and SP adventures, and headless replay of the actual EN Lua source. Rendered gameplay, native combat and movie playback have not been exercised.
+
+### Derived from Matrix (Theatre3)
+
+Derived from Matrix uses its own persisted activity, teams and recruitment energy, difficulty unlocks, paired quantum chapters, weighted map offers, event choices, shops, items, equipment boxes, suit workshops, chained fights, reward claims, endings, battle pass, talents, character mastery and shared tasks. Its 25 mode requests use the same inventory reward receipts as ordinary gameplay; shared pre-fight, settlement, revive, restart and leave routes retain the other modes' routing. Login restores the complete mode snapshot and pending ending presentation instead of an empty startup notification. New adventures require the authored functional-open conditions (Commandant level 70).
+
+The 62 imported EN Theatre3 tables supply IDs, numeric operands, weights and foreign keys. Captures are comparison evidence, not runtime payloads. **This is a documented local rules implementation, not a claim of retail server equivalence:** proprietary server-only effect semantics and the original calendar are unavailable.
+
+- **Calendar:** every positive `Theatre3Activity.TimeId` is permanently available with start and end `0` (unbounded), using the same calendar representation as Cursed Waves. The server calendar service and offline schedule generator derive the ID from that table; neither copies a captured timestamp. This explicit local availability policy overrides dated calendar rows for this mode.
+- **Offer generation:** sample only eligible authored pools with their weights. Repeated encounter offers are allowed where the authored slot multiplicity requires them; run-level encounter exhaustion still applies. If eligible content cannot fill the requested slot count within its authored bounds, cap the count rather than inventing encounters or bypassing unlock conditions. Newly foreground equipment choices reconcile entries invalidated by an earlier award without charging a refresh or replacing still-valid choices.
+- **Effects and stacking:** item instances and independent effect sources stack additively; price factors multiply; competing revive prices choose the minimum. Quantum `CoverId` replaces the covered effect, suit thresholds count distinct pieces, character-ending effects apply to their role, purchased talents persist, and event effect groups last for the rest of the run. All imported items omit `ExpireTime`, so they last for the run. The empty `EnergyUnused` table grants no unused-energy bonus.
+- **Run currency:** a successfully accepted new adventure clears leftover positive innercoin (`96189`) through the reward journal before startup grants. This local reset does not count as spending for tasks and does not consume battle-pass or talent currency. Resuming, relogging and rejected attempts to replace an active adventure do not clear the balance.
+- **Quantum battles:** interpret each authored `QubitValue` entry as `channel|threshold` and choose the highest threshold satisfied by the persisted A/B values before the fight. Its same-index `QubitMonsterGroup` replaces `MonsterGroupId[GroupOrder - 1]`; `GroupOrder` is one-based. If no threshold is satisfied, keep the base group. A validated win adds the same-index authored equipment-box, item-box and gold-group rewards, resolving their weighted group references. Lower tiers are not accumulated, and the threshold itself does not grant a quantum-value delta.
+- **Native combat parameters and extra waves:** supply neutral `Theater3AtkFactor` and `Theater3HpFactor` values of `10000`, matching the native fixed-point denominators; authored difficulty fight events still apply. Interpret `FightStageTemplate.ExtraWaveRate` locally as a basis-point chance out of `10000`. Persist the selected weighted extra-wave row and use native `Theater3ExtraWaveTime` and its one-based group index for spawning. Extra-wave bonuses require the validated native result `StringToIntRecord["Theater3ExtraWaveWin"] == 1`.
+- **Restart and revive:** use `Theatre3Reboot` selected by `Difficulty.RebootId`. Restart costs `FubenRestartCost`; revive costs `RebootCost` unless an active system effect overrides it. Both consume the same `MaxRebootCount` allowance under the local policy. A persisted request-ID/seed receipt prevents duplicate restart payment.
+- **Recovery:** offers, step ancestry, purchases, claims, combat attempts and effect-trigger identities are persisted. Inventory grants use durable receipts. A recovered ending is paired with a projected login snapshot so additive destiny and successful-clear updates are not applied twice; there is no invented client settlement-acknowledgement request.
+
+The local system-effect interpretation below follows numeric operands and referenced tables, not stale descriptive percentages. `p1`, `p2`, etc. mean successive `Params` entries:
+
+| Effect type | Explicit local rule |
+| --- | --- |
+| 3 | Add `p1 / 100` to the gold multiplier. |
+| 4 | Grant currency `p1`, amount `p2`, per completed node. |
+| 5 | Add `p1` discounted shop slots. |
+| 8 | Open item box `p2` once per run when chapter `p1` is reached. |
+| 12 | Grant currency `p1`, amount `p2`, once per source activation. |
+| 13 | Multiply shop prices by `p1`. |
+| 16 | Add `p1` capacity to every equipment slot. |
+| 17 | Track clears for equipment `p1`, with channel `p2` identifying HP, attack or pet growth; apply the referenced equipment group's native leveled fight events at the recorded clear count, without invented attribute IDs. |
+| 18 / 19 | Track ordinary-fight / boss-fight clears for suit `p1` after acquisition. |
+| 20 | For equipment `p1`, grant the referenced gold row `p2`'s count multiplied by recorded clears. |
+| 21 | Open item box `p1` on each winning clear. |
+| 22 | Add `p1` recruitment energy. |
+| 23 | Override revive price with `p1`, choosing the minimum active override. |
+| 25 | Open equipment box `p1`, `p2` times. |
+| 26 | Treat `p1` as the branch-switch enable/disable flag. |
+| 27 / 35 | Switch to the opposite line; defer while a node is selected. These two types intentionally share this local interpretation. |
+| 28 | Add a uniformly selected inclusive `p2..p3` amount to quantum channel `p1`, capped by the configured maximum. |
+| 29 | Add `p2` workshop uses for workshop type `p1`. |
+| 30 | Independently roll item chance `p1` and coin-loss chance `p2` in basis points. Select items from weighted item group `p3`; select inclusive coin loss `p4..p5`, capped by balance. Repeated `12345` values in `p6/p7` are explicitly treated as reserved sentinels, not economic operands. |
+| 32 | Add `p2` to quantum channel `p1` per clear. |
+| 33 | Add `p1` free refreshes to each equipment box. |
+| 34 | Multiply paid equipment-box refresh prices by `1 - p1`. |
+
+Trigger and source identities are recorded before grants to prevent retry duplication and recursive grant cycles. Battle effects use authored native fight events and leveled events; currency changes use inventory receipts and mode capacity/energy/quantum notifications carry absolute values.
+
+### Awakening Tundra (Theatre4)
+
+Awakening Tundra persists exploration, event chains, recruitment/teams, item/talent choices, shops, tech, battle-pass progression and rewards. Generated maps, offered choices and authorized encounters survive relog; durable receipts prevent duplicate rewards.
+
+Pending endings include the finalized adventure snapshot and replay on login without regranting rewards. Starting the next adventure clears the pending ending; closing the client UI has no server acknowledgement RPC.
+
+Box grids carry authored box-row IDs; opening resolves the row's drop rather than treating a drop ID as a display ID. Login repairs legacy box identities in the active run, rollback snapshots and pending ending without granting rewards. Battle rooms can save a valid recruited team after encounter allocation, but not after `PreFight` authorizes the battle.
+
+Fight grids expose authored fight-group **row IDs** and basis-point HP (`10000 = 100%`); server encounter buckets and frozen whole-percent HP remain internal. Login repairs unambiguous legacy grid identities and HP together, once, without changing clear state or frozen battle payloads. Talent notifications replace the client's entire colour collection, so they include all three tracks; resource notifications remain per-colour deltas.
+
+Login preserves an unresolved authorized battle for reconnect. Explicit map continuation (`Theatre4EnterRequest`) instead abandons that battle through the retreat path: one HP loss, no battle rewards, and durable retry protection. A locate-only room costs no HP. If the loss ends the run, the activity snapshot clears the client's active adventure before the entry response while retaining the pending ending.
+
+Native settlement `LeftTime` is a signed countdown and may be negative on untimed stages. Theatre, Theatre3 and Theatre4 preserve that value within the response's signed 32-bit range; report identity, frame, damage, roster and authored time-limit checks still apply.
+
+**Authoritative client tables supply content, operands, conditions and rewards. Maintainer-authorized AscNet rules fill missing server generation, effect composition, economy/progression and scaling; this is not a claim of retail gameplay parity.** `AscNet.GameServer/Handlers/Theatre4Module.*.cs` documents these local rules:
+
+- **Map generation:** the authored `Block`/`BlockGrid`/`BlockGroup`/`BlockRelation`/`MapGrid` tables are absent, so the traversable floor share, content distribution, hidden-region reveal, boss placement and route/difficulty selection are `AscNet Theatre4 local policy`, deterministic from the persisted per-run RNG. Colours, route lists and gates stay authored where present.
+- **Effects:** persisted effect instances use authored numeric operands. Authored descriptions inform explicitly labelled local handler rules; production does not parse descriptions to execute effects. Numeric operands take precedence over inconsistent translated text.
+- **Economy/progression:** offer sampling, stock caps and box opening have no authored server algorithm and are local policy; in-run assets, ticket grants, battle-pass EXP/claims, permanent atlas/task/achievement predicates and tech unlock follow authored tables plus the shared counter ledger.
+- **Daily development:** each colour uses the native `round(effective multiplier × effective resources × ColorExtra)` tally, including fractional `ColorExtra`. AscNet policy credits that amount to the colour's development points, credits Military spending points for red, and adds the three amounts to cumulative area score (`Prosperity`). Earned resource multipliers remain separate from point-derived talent levels; daily-resource rates remain until an explicit debit. Temporary tally bonuses do not permanently stack on resource multipliers or replay at run end. Battle reward cards still require selection. The next day uses the corrected tally; missed historical credits are not reconstructed from current rates.
+- **Battle scaling:** encounters use authored fight/mold/monster rows. Native stage parameters include difficulty, the current chapter's authored HP factor, and an action factor from `Theatre4ActionFactor`. AscNet policy counts each successful grid exploration as one action, selects the highest authored `ActionTimes` not exceeding `max(1, ExploreCount)`, and retains the last factor beyond the curve. Missing factors are errors, not neutral fallbacks. This counter selection is local policy, not a claim of retail scaling parity.
+- **Availability:** permanent activity windows derive from authored `Theatre4Activity.TimeId` rows. Functional-open, difficulty prerequisites and costs remain enforced; permanent availability does not grant progression.
+- **Native limits/proof:** the harness drives real registered handlers over the loopback session and asserts durable BSON state and real pushes. Original EN Lua construction, shop controls, colour-cache replacement and fight-grid identity/HP consumers have been replayed with bounded handler output. Recovered installed behavior-node input gates are checked against emitted stage parameters. These checks do not prove native combat, rendering or movie playback, and do not constitute a completed original-Lua full-run replay.
+
+Run the focused server compatibility harness:
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --theatre4-compat-only
+```
+
+### Godfall Revelation (Theatre5)
+
+Godfall implements separate persisted PvE and PvP adventures, mode switching and login recovery. PvE includes storyline branches/backtracking, chapters, events, clues/deduction and rewards; PvP includes persisted-player build matching with explicitly labelled authored NPC fallback, ranks, normal completion and overtime. Both modes support run shops, bags/equipment/runes, boxes, EXP/relic choices, commissions, effects, DLC world `200` entry/settlement, retries and durable task/reward receipts.
+
+First entry follows the authored PvE tutorial. The client exposes the two-mode selector after that tutorial is complete; the shared skill-choice screen is not evidence that the player entered PvP. Skill choices use flat item records, unlike priced shop goods. Existing wrapped skill choices are migrated when saved state is loaded, preserving the active run and pending rewards.
+
+**Authoritative client tables supply content, operands, conditions and rewards. User-approved `LOCAL` policies fill missing proprietary server rules; this is not a claim of retail server equivalence.** The corresponding comments in `AscNet.GameServer/Handlers/Theatre5Module.*.cs` define these boundaries:
+
+- **Generation/economy:** add satisfied condition weights to base item weights, treat positive `ExpectedNum` as an ownership/offer cap, and sample distinct goods/relic choices. PvE chapter-level order selects non-PvP shop tiers and the authored PvP income/skill curve; this shared-economy mapping is local. Unweighted event successors are uniform; backtracking selects the nearest prior branch in the same storyline without erasing completed history. Run/round encounter rotation and saved choices prevent retry rerolls.
+- **Commissions/effects:** one commission per adventure with three distinct offers; visible missions and condition kinds have equal weight. Missing mission-group composition uses round-based difficulty tiers, with groups `1003`/`1004` two tiers higher. Trigger/aggregation and zero-based effect operand decoding are local; relic subscription timing is transcribed from authored item descriptions, not parsed at runtime. Authored numeric operands take precedence over inconsistent translated text.
+- **PvP:** local matchmaking uses authored cup/defeat targets and rank-reduction rules, preferring matching persisted human builds before authored robots. The local rating ledger uses Elo expected score on a 400-point scale with authored `W`/`K` operands, final rounding, completion/overtime bonuses and rank-floor protection. These compositions are not recovered retail formulas.
+- **Permanent availability:** only Godfall calendars `34`, `35` and `46401` are user-approved permanent windows. `ActivityScheduleService` and the calendar generator use start `0` and an exclusive end of `3000-01-01 UTC`: a positive end is required by the PvP client, while year `9999` crashes its Windows `os.date` conversion. This representation stays within the Windows 64-bit CRT range with timezone margin; it is not a recovered retail date. Functional-open `10491`, storyline/chapter conditions, character access, costs and task prerequisites remain enforced; permanent calendars do not grant progression or open other seasons.
+- **Nameplates:** the shared `Character.Nameplates.cs` policy uses authored EXP thresholds in group quality order; new/expired awards start at the awarded tier and extra copies supply EXP. Timed awards refresh from the durable grant clock without shortening an active expiry; expired records reset tier, EXP and acquisition time. These timer/EXP compositions are explicitly user-approved local rules.
+- **Blocked reward shops:** authoritative goods catalogs for `1444`, `1445`, `1446`, `1449`, `1455`, `1457`, `1465` and `1467` are missing. Their ownership references do not supply goods, prices, rewards or limits. These catalogs remain a blocked prerequisite; unavailable shops reject access/purchase rather than invent products. In-run generated shops are separate.
+- **Native limits/proof:** settlement checks source-format invariants and frozen attempt identity, not a server combat simulation; the five battle-check `*Limit=1` operands have no recovered composition. The native result exposes no draw outcome (simultaneous deaths resolve as a loss), and deduction reports correctness rather than an answer ID. Synthetic transport/BSON checks and headless EN Lua replay do not prove rendered UI, movie playback or native combat.
+- **Native attributes:** expectations use the installed client's 148 attribute IDs and are rebuilt from the frozen entry response, frozen effects and authoritative tables; older saved derived snapshots are ignored. Conversion matches the shipped xLua integer boundary: fractional values become `0`, rather than being truncated. Incoming reports still require exact keys and values. Native-DLL numeric probes and handler regressions cover conversion, saved-attempt recovery and rejection of altered attributes; they do not prove native combat.
+
+Run the focused server compatibility harness:
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --theatre5-compat-only
+```
+
+### Shrouded Requiem (Theatre6)
+
+Shrouded Requiem implements persisted story and gameplay runs, task/choice rooms, shops, skill placement/merging/overflow, relics, effects, archives and progression. Phantom Clash uses saved archive lineups, player defences and authored robots, with seasonal ranks and rewards. Theatre6 owns DLC worlds `201` and `202`; Godfall retains its separate routing.
+
+**Authoritative client tables supply content, operands, conditions and rewards. User-approved AscNet policies fill missing server-only data and algorithms; these are not recovered retail server rules or a claim of retail balance parity. Captures are evidence, never runtime payload sources.**
+
+- **Rooms/offers:** follow authored floor/room order and choice lines. Local selection combines authored weights with reward-type bias; task draws reduce weights for repeated material demands, and refreshes choose among eligible replacements. Persisted run RNG freezes offers, rewards, shops and encounters. Optional extra floors remain unentered until acceptance; replay eligibility follows the cleared base difficulty even when the replay selects an alternate stage.
+- **Skill/relic pools:** `Theatre6SkillPool.tsv` and `Theatre6AttrPackPool.tsv` are explicitly AscNet policy, not retail imports. Candidates come from compatible authored catalog entries; skills start at level 1, and relics at their acquisition cap are excluded. Named skill pools use their advertised quality; mixed pools use per-candidate quality weights `50:30:15:4:1`, multiplied by configured level/tag weights. The battle pool advertised as “Universal Stat Relic” is restricted to authored universal stat-only relics (qualities 1–3, weights `50:30:15`); effect relics remain available through other eligible pools.
+- **Effects/scoring:** local trigger, duration and aggregation rules fill the missing retail resolver. Effects change persisted run state or project authored native magic IDs; combat is not simulated server-side. Build score includes equipped skills, base skills in empty active slots, relics and attributes. Settlement composes authored score gates, score-per-unit operands, caps and additive rewards; earned growth currency also advances permanent talent progression.
+- **Phantom Clash:** matchmaking freezes offers from complete saved defences and authored robots within an expanded score window. Robot/human and below/above weights compose locally. Interpreting `Theatre6PvpRankFight.MinScore` as a ladder-score tier is explicitly local policy. Rating uses a 400-point Elo expectation with authored attack/defence coefficients, bonuses, rounding and rank-band clamps. Promotion attempts are free. Two opening losses end a match; two opening wins still require round three. Abandonment and expiry count as losses.
+- **Persistence/retries:** durable mutation intents precede rewards and successful responses. Session/epoch receipts replay committed answers; retired transport attempts reject instead of executing again. Frozen battle attempts prevent retry rerolls. Human defence results use a committed attacker outbox and per-attacker defender watermark; late old-season results are acknowledged without changing the new season's rating. Settled runs remain until archive save/discard acknowledgement.
+- **Availability/tasks/shops:** base PvE is permanent behind its authored level gate; Phantom Clash remains seasonal with its separate progression gate. Missing timed mission calendars derive from authored reward-token lifetimes. Local reward shops pair shop/mission tabs by priority, sell authored preview bundles once per account without resets, and price each at an equal integer share of the group's currency budget (minimum one). Claims and purchases use Theatre6's durable mutation path.
+- **Native boundary:** settlement checks frozen attempt identity, producer-copied actor/world fields, nonnegative simulation time, nonfuture authorization timestamps and combat-record invariants. Native `FinishTime` advances with `TimeScale`, not wall-clock time; no upper duration bound is enforced because the report carries no speed history and no authoritative Theatre6 speed maximum has been recovered. Synthetic battle reports, encrypted TCP/Mongo checks and headless replay of original Lua do not establish native combat, rendered UI or movie-playback correctness. Installed client assets remain unchanged.
+
+Run the focused server compatibility harness:
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --theatre6-compat-only
+```
+
+### Circuit Connect (SameColorGame)
+
+Circuit Connect implements the current `SameColorGame` match-three mode with its own persisted activity, boards, runs, records and shared tasks. The client is a renderer of server-ordered actions, so board generation, matching and cascades, props, summons, boss skills, role skills and passives, score settlement and completion are owned by the server. The eight mode requests (`SameColorGameEnterStage`, `SwapItem`, `UseItem`, `CancelUseItem`, `GiveUp`, `PauseResume`, `CountDown`, `OpenRank`) and the `NotifySameColorGameData`/`NotifySameColorGameUpdate` pushes follow the recovered client contract; login no longer sends the former empty data stub.
+
+- **Authority vs policy:** mode content comes from the authored `Resources/table/share/samecolorgame` tables (activity, attribute factor, ball, boss, boss grade, boss skill, buff, combo, passive skill, role, score, skill, skill group). Board initialization/refill randomness, effect resolution order, score accumulation and completion boundaries, and mode availability are explicitly AscNet policy where no proprietary server algorithm exists; they are not recovered retail server rules or a parity claim. Captures are behavioural oracles only.
+- **Records and login:** `NotifySameColorGameData` carries the selected activity and each boss's best score, best combo and last used role for the player. Records survive relog; no mid-board run is resumed because the client has no resume request.
+- **Tasks:** the 21 authored tasks (`90970`-`90990`, groups `404`/`405`, TimeId `907`) publish at login and in shared task syncs. Boss-grade condition `69005` reports the achieved grade (S publishes `11`, which is also its authored target) and cumulative condition `69002` reports the accumulated total score against each row's authored `Result`. Claims use `FinishTaskRequest`/`FinishMultiTaskRequest` with activity-scoped claim keys, existing reward receipts and checked claim markers, so a retry after a partial save never pays twice, claimed state survives relog, and no Circuit task is reset by the daily or weekly mission rollover.
+- **Availability:** every positive `SameColorGameActivity.TimerId` (`907` for the current row) is permanently available with start and end `0`, derived by `ActivityScheduleService` from the authored activity table. This is the same permanent-mode representation as the other local mode policies; no other schedule entry changes.
+- **Guide and shop:** Circuit claims feed the existing guide activity `10012` (source group `3002`, item `50005` target `350`) and push the guide update. Shop `1291` opens through the shared `GetShopInfoRequest`/`BuyRequest` path using an AscNet local-policy catalog in `Resources/Configs/client_shops.json` (not a retail extract): authored per-mission reward quantities priced in Signal Diffusers, plus a local-policy exchange (6 × Serum Bundle Beta (M) → 50 Signal Diffusers, limit 8) because the current activity's tasks grant the former and never the latter; the exchange pays half the catalog's own `90031` rate so the pair cannot be arbitraged. Purchase counts persist through the shared shop path, and no `shop_base_infos.json` entry is required because the mode panel reads `GetShopInfo`/`GetShopGoodsList` only.
+
+Run the focused server compatibility harness:
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --same-color-game-compat-only
+```
+
+### Babylonia (BigWorld) world core
+
+`AscNet.GameServer/Handlers/BigWorld/BigWorldModule*.cs` owns world enter/leave, instance levels, the engine save channel (`DlcWorldSaveData`, `DlcWorldSceneObjectData`, `DlcSceneObjectStateSet`, `DlcWorldEnterSucceed`, `BigWorldCurNpcPosUpdate`), scene-object collection, box counts, teleporters, guide/fov/custom-param/red-point/map-pin state and the StatusSync XRpc channel. Nothing is replayed from captures; the retail oracles live in `AscNet.Test/Fixtures/BigWorld` for tests only.
+
+- **Scene objects:** `Resources/table/share/statussyncfight/level/sceneconfig/LevelSceneObject.tsv` is extracted from the installed client's level scene config (`Scripts/import_bigworld_scene_objects_4_7.py`): place ids (from 1; the lounge's interaction anchors 1-8 are below 1000), `CollectableComponent` (reward id, POI/course group) and `TeleporterComponent`. Collecting a collectable grants its `BigWorldReward` once, updates the level box count and the course explore POI. The same importer writes `LevelSpot.tsv` (`XTableLevelSpotNew` position/rotation per group).
+- **Dormitory (Commandant's Lounge, 4003):** `BigWorldDormitory.cs` is the server half of `XGameplayDormitory`. Enter snapshot and `SgDormSaveAndApplyLayoutRequest` (applied or re-saved preset) replicate the photo wall, photos, album photos, adorns, frame wall and frame goods of the player's applied layouts as `XSceneObject`s (children of the gameplay actor) at the `DormitoryConfig` spots; `Dormitory*.tsv` map `SgDormFurniture.SceneObjId` to scene object bases. Quest 2002's "View Photo Wall" target (scene object 1) is the `ConfigGroup_5001` anchor whose interaction completes 2002054 through `OnInteract`. Wall-plane placement, place id 0 and the parent uuid are AscNet policy (no retail lounge capture).
+- **Interactions:** `RpcPlayerInteractRequest` resolves the target (scene object or level NPC) and its `LevelInteractOption.tsv` row (same importer; `Config` holds the option's `CompleteActionList`). Order: collect push, `RpcNpcInteractStartNotify`, [`XRpcTeleportResetOnGroundRequest` when the list teleports, then the list via `BigWorldLevelActions.Run`], `RpcNpcInteractFinishNotify` after the client finishes the list, then `BigWorldQuestRuntime.OnInteract`. Unknown actor/option/level or a launcher that is not the player's NPC returns code 4.
+- **Policies:** a world's levels are the `Level` rows sharing its default level's `SectorName` prefix; the entrance red point stays on until the world is entered; an offline engine reports a collected object as `Active = false`.
+- **Engine mode (temporary experiment switch):** `ASCNET_BIGWORLD_ENGINE=online-min` (default) sends `WorldData.Online = true` with a generated `RepFight` (installed-client 11-key layout, `InitialQuests` from persisted quests) and a minimal `RepLevel` (player controller, team-NPC replicates, server controller) and answers `LoadCompleteRequest` with a generated XRpc bootstrap. `ASCNET_BIGWORLD_ENGINE=offline` sends `Online = false` with no `FightData`/`LevelData` (client-hosted engine). Any other value fails the enter. Set `ASCNET_DUMP_BIGWORLD=1` to dump BigWorld requests/responses/pushes to `.runtime/bigworld-packet-dumps`.
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --big-world-core-only
+```
+
+### Gender setup fix
+
+The current client needs gender selection to update both persisted player state and the live in-session player cache.
+
+This branch adds:
+
+- `PlayerData.Gender`
+- `PlayerData.ChangeGenderTime`
+- `ChangePlayerGenderRequest`
+- `ChangePlayerGenderResponse`
+- `NotifyPlayerGender`
+- `ChangePlayerGenderRequestHandler`
+
+Behavior:
+
+- accepts current-client gender values `1..3`
+- rejects invalid values with `20002020` / `PlayerGenderCfgNotExist`
+- returns `20002021` / `PlayerGenderIsSame` only after setup has completed
+- treats `Gender <= 0` or `ChangeGenderTime <= 0` as incomplete first setup
+- grants first-setup `Inventory.FreeGem x50`
+- sends `NotifyItemDataList` for the 50 Black Card reward
+- includes `RewardGoodsList` in the response
+- sends `NotifyPlayerGender` before the success response so the profile can refresh without a client restart
+- persists inventory and player state
+
+This also covers the earlier broken state where `Gender` may have been written but no reward or `ChangeGenderTime` was recorded; that account can still receive the first-setup reward once.
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `AscNet/` | Main host process. Starts the TCP game server and ASP.NET SDK server. |
+| `AscNet.GameServer/` | TCP game protocol, request handlers, commands, combat/settlement logic. |
+| `AscNet.SDKServer/` | HTTP SDK/config/login/KRSDK endpoints. |
+| `AscNet.Common/` | Shared database models, MessagePack schemas, config, utility code. |
+| `AscNet.Table/` | Table generator/parser support. |
+| `AscNet.Test/` | Focused compatibility harness and regression checks. |
+| `Resources/` | Runtime configs, current client tables, data fixtures, notices. |
+| `Mods/` | Launcher-managed Lua/table client mods and authoring instructions. |
+| `proxy.py` | mitmproxy script that routes client HTTP traffic back to local AscNet. |
+| `run_steam.py` | Steam/PC bridge runner for AscNet + proxy + optional MongoDB + launch command. |
+| `launch-pgr-ascnet.sh` | macOS/CrossOver launch example for the Steam client. |
+
+## Requirements
+
+Minimum local tooling:
+
+- .NET SDK 8
+- MongoDB reachable at `127.0.0.1:27017`, or `mongod` available for `run_steam.py --with-mongo`
+- Python 3.10 or newer for `run_steam.py`
+- mitmproxy/mitmdump for Steam/PC bridge mode
+- A local Punishing: Gray Raven PC/Steam installation for client testing
+
+The .NET server and `run_steam.py` run natively on Linux. The game client and `AscNet.Launcher` are Windows programs. Under Wine, the launcher installs Git, the .NET 8 SDK, Rust 1.92 (MSVC), and MongoDB from official archives. It does not use PowerShell or WinGet. It passes `diagnosticDataCollectionEnabled=false` to Windows `mongod`. Under Wine it also downloads the MSVC toolset and Windows SDK from the Visual Studio 2022 release channel into the local tools directory. It does not run the Visual Studio installer. An existing unpacked tree at `C:\msvc` or `ASCNET_MSVC` is used when `VC\Auxiliary\Build\vcvars64.bat` is already there. When the configured Git remote cannot be fetched, a clean checkout that is already on that branch is built at its current revision.
+
+Optional/macOS-specific:
+
+- CrossOver or another Wine launcher if you use `launch-pgr-ascnet.sh`
+
+## Running AscNet directly
+
+Start MongoDB first, then run:
+
+```bash
+dotnet run --project AscNet/AscNet.csproj -- --urls http://127.0.0.1:8080
+```
+
+Default config values come from `AscNet.Common/Config.cs`:
+
+| Setting | Default |
+| --- | --- |
+| Game server host | `127.0.0.1` |
+| Game server port | `2335` |
+| MongoDB host | `127.0.0.1` |
+| MongoDB port | `27017` |
+| MongoDB database | `asc_net` |
+
+`Resources/Configs/config.json` may be left empty to use those defaults, or populated with overrides.
+
+### Launcher client mods
+
+The launcher's **SETTINGS → CLIENT MODS** section manages the checked-in [Mods](../Mods/README.md) catalogue, including the Lua GM menu
+(**Ctrl+Shift+D**, or **GM Menu** in the main screen's second menu). Setup refreshes the retained source checkout;
+the catalogue is read directly from `<local runtime root>/checkout/Mods`, including when server binaries are cached.
+Close the game, turn on **Client mods (game debug mode)** and switch each wanted mod ON in its own row; changes
+save and apply immediately, without an Apply button. Restart the server and game. The master switch defaults off and enables the
+game's external Lua/table loaders, not the Proxima inspector. A client-version diff mismatch skips the affected
+mod and reports its reason rather than patching a different shipped source. Switching mods off or removing them removes only
+tracked overrides; unrelated files are preserved. See [mod authoring and research tools](../Mods/README.md) and
+[player diagnostics](../AscNet.Launcher/docs/player-diagnostics.md).
+
+### Client debug environment (local research)
+
+`"Client": { "Debug": true }` in `config.json` makes the SDK server send remote-config `Debug = 1` to every client
+that fetches its config (`"ShowInspector": true` also sends `IsShowInspector = 1`; the client opens its Proxima
+inspector only when both are on: tap the like count on the player info page 5 times, then browse to port 7378,
+password `HaruGames`; verified on 4.8 EN, it gives a live hierarchy, component editor, log and console, and it
+**listens on all interfaces**, so only enable it on a trusted network). Both default to off; the client reads them at start-up, so restart the game after
+changing them. Verified on 4.8 EN: the login screen gains the debug server-address field; plain-text Lua in
+`<persistentDataPath>/Lua/Matrix/<module>.lua` is loaded before the game's own module (per module; a missing file
+falls back to the shipped one, a broken file is an error; the game's `XHotReload.Reload("<module>")` re-reads an
+edited override into the running client, UI changes showing when the screen next opens); and a TSV at `<persistentDataPath>/Table/<requested path>`
+replaces that one table (e.g. `Table/Client/UiPc/UiPcScreenResolution.tab`: header row of column names, tab-separated,
+CRLF; the path is case-sensitive and indexed at start-up; non-ASCII text is GBK on EN). From disassembly, not yet
+exercised: `Lua/Launch/` for `XLaunch*` modules, `Lua/DlcFight/` for fight Lua, and compiled IFix patches at
+`InjectFix/<assembly>.patch.bytes`. On the Windows client Debug also turns on the game's editor-debug Lua paths
+(class wrapping, extra network checks, timer stack traces), so it is not for normal play. `persistentDataPath` is
+`%USERPROFILE%\AppData\LocalLow\kurogame\PGR`.
+
+## Running with the Steam/PC bridge
+
+Basic local bridge with MongoDB managed by the runner:
+
+```bash
+python3 run_steam.py --with-mongo
+```
+
+Run AscNet, proxy traffic, and launch the client command:
+
+```bash
+python3 run_steam.py --with-mongo --launch-cmd ./launch-pgr-ascnet.sh
+```
+
+Useful options:
+
+```bash
+python3 run_steam.py --help
+```
+
+Common options:
+
+| Option | Purpose |
+| --- | --- |
+| `--sdk-url http://127.0.0.1:8080` | Local SDK/config URL exposed by AscNet. |
+| `--proxy-host 127.0.0.1` | mitmproxy bind host. |
+| `--proxy-port 8081` | mitmproxy bind port. |
+| `--with-mongo` | Start local MongoDB if it is not already reachable. |
+| `--ascnet-username test` | Local AscNet account used for Steam login handoff. |
+| `--ascnet-password test` | Password used when creating that local account. |
+| `--gate-fallback-username <name>` | Map unknown Steam/KRSDK gate logins to an existing local account. |
+| `--no-ensure-account` | Skip local account creation/checking and disable implicit unknown-user fallback. |
+| `--seed-krsdk-cache` | Opt in to writing local AscNet account data into KRSDK cache files. |
+| `--krsdk-cache-dir <path>` | Override the KRSDK login-cache directory (default: `KR_<ProjectId>/<ProductId>` read from the installed client's `KRSDK.bin`). |
+| `--client-dir <path>` | Installed game directory used to auto-detect the region (default `$ASCNET_CLIENT_DIR`/`$PGR_ASCNET_DIR`, else the Steam path in `launch-pgr-ascnet.sh`). |
+| `--client-region en\|tw\|kr\|jp` | Override region detection; unreadable clients fall back to EN. |
+| `--no-proxy` | Run only AscNet; skip mitmproxy. |
+| `--no-smoke` | Skip config smoke checks before launching. |
+| `--proxy-log <path>` | Write redacted request/response diagnostics. |
+| `--launch-cmd ...` | Command to start after AscNet/proxy are ready. |
+
+On native Windows, pass the client's actual `%APPDATA%\KR_<ProjectId>\<ProductId>` directory with `--krsdk-cache-dir` when using KRSDK cache repair or `--seed-krsdk-cache`; the default path targets the macOS/CrossOver launch example.
+
+The runner sets:
+
+- `ASCNET_PUBLIC_HTTP_ORIGIN`
+- `ASCNET_GATE_FALLBACK_USERNAME`
+- proxy variables for the launch command
+- `ASCNET_PROXY_TARGET`
+- `ASCNET_PROXY_LOG`
+
+## Local account flow
+
+The runner can create or verify a local account before the client launches:
+
+```bash
+python3 run_steam.py --with-mongo --ascnet-username test --ascnet-password test
+```
+
+The underlying account endpoints are:
+
+- `POST /api/AscNet/register`
+- `POST /api/AscNet/login`
+- `POST /api/AscNet/verify`
+- `GET /api/Login/Login`
+
+Steam/KRSDK login callbacks can be mapped to the local account through `ASCNET_GATE_FALLBACK_USERNAME`.
+
+Register, login, and verify accept JSON bodies up to 16 KiB, including chunked requests. Malformed or missing credentials return HTTP 400; oversized bodies return HTTP 413. Successful account responses omit passwords. Password storage and local gate-fallback behavior are unchanged.
+
+SDK/proxy diagnostics omit query values, and proxy diagnostics omit URL userinfo. Inbound TCP decoding uses untrusted MessagePack settings with a 64 MiB decompression ceiling; the existing 4 MiB wire-frame limit remains. Inbound packet diagnostics record metadata rather than raw payloads.
+
+## Testing
+
+Run the focused compatibility harness:
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj
+```
+
+Run one focused check:
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --player-gender-compat-only
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --theatre-compat-only
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --version-48-compat-only
+```
+
+Available focused switches:
+
+```text
+--first-batch-safety-only
+--dorm-dispatch-compat-only
+--ultima-awaken-compat-only
+--notify-login-compat-only
+--stage-bookmark-compat-only
+--mainline2-exhibition-compat-only
+--mainline-treasure-reward-compat-only
+--boss-single-login-compat-only
+--guide-table-compat-only
+--player-cost-time-upload-compat-only
+--record-player-point-compat-only
+--player-gender-compat-only
+--board-mutual-push-compat-only
+--character-progression-persistence-compat-only
+--fashion-suit-reward-compat-only
+--exp-level-compat-only
+--story-course-reward-compat-only
+--hidden-stage-compat-only
+--pr2-quality-compat-only
+--current-client-notice-endpoints-only
+--theatre-compat-only
+--theatre6-compat-only
+--theatre6-visibility-only
+--version-48-compat-only
+--version-48-frames-only
+--version-48-draw-cub-compat-only
+--version-48-equipment-cosmetics-only
+--version-48-audio-only
+--date-alive-task-progress-only
+--team-recommend-only
+--fangkuai-only
+--punishaar-only
+--non-fate-policy-only
+--stage-general-skill-ban-only
+--transfinite-tower-boundary-only
+```
+
+Build the main projects:
+
+```bash
+dotnet build AscNet.Common/AscNet.Common.csproj
+dotnet build AscNet.GameServer/AscNet.GameServer.csproj
+dotnet build AscNet.SDKServer/AscNet.SDKServer.csproj
+dotnet build AscNet.Test/AscNet.Test.csproj
+dotnet build AscNet/AscNet.csproj
+```
+
+## Runtime data
+
+Local runtime state should stay out of commits:
+
+- `.runtime/`
+- `.runtime/mongo`
+- `.runtime/proxy-flows.log`
+- build outputs under `bin/` and `obj/`
+- packet captures (`.pcap`, `.pcapng`, `.cap`), `proxylog`, and `.DS_Store`
+
+Do not commit runtime logs, MongoDB files, client binaries, or captured credentials.
+
+The host's resource-copy rules exclude local `.runtime/`, `bin/`, and `obj/` directories, logs, packet captures, and macOS metadata. Runtime JSON and MessagePack resources remain included. Use a fresh output directory when checking packaging; exclusions do not remove files left by older builds.
+
+Ignore rules do not untrack existing files or remove them from Git history. Removing sensitive files from the index is not a substitute for credential revocation or a separate history review.
+
+## Current caveats
+
+- This remains a compatibility/research server, not a complete production backend.
+- Some modules are still skeletal or best-effort.
+- Steam support is local-bridge based: it relies on local SDK/config responses plus mitmproxy routing.
+- HTTPS proxying for pinned KRSDK hosts may break; the runner keeps HTTPS proxying opt-in through `--proxy-https`.
+- `launch-pgr-ascnet.sh` is an example for one macOS/CrossOver setup and should be edited for other machines.
+
+## Upstream
+
+Original AscNet project:
+
+```text
+https://github.com/rafi1212122/AscNet
+```
+
+This branch is intended to document and preserve the current-client compatibility work separately from upstream.

@@ -88,7 +88,7 @@ python3 run_steam.py --with-mongo
 python3 -m unittest test_run_steam.py test_proxy.py
 ```
 
-Focused harness switches are defined in `AscNet.Test/Program.cs`; `README.md` contains examples only. Prefer the narrow `--...-only` switch covering the changed behavior, then run the full harness when warranted.
+Focused harness switches are defined in `AscNet.Test/Program.cs`; `Docs/development.md` contains examples only. Prefer the narrow `--...-only` switch covering the changed behavior, then run the full harness when warranted.
 
 ## Change discipline
 
