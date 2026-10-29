@@ -379,6 +379,11 @@ namespace AscNet.Test
                     ValidateRewardQuantities();
                     return;
                 }
+                if (args.Contains("--passport-tasks-only"))
+                {
+                    ValidatePassportTasks();
+                    return;
+                }
                 if (args.Contains("--reset-boundary-only"))
                 {
                     ValidateResetBoundary();
@@ -1329,6 +1334,7 @@ namespace AscNet.Test
                 ValidateStrongholdCycle();
                 ValidateResetBoundary();
                 ValidateRewardQuantities();
+                ValidatePassportTasks();
                 ValidateStrongholdRolloverCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
                 ValidateBossSingleLoginRollover();

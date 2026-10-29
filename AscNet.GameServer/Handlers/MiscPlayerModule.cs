@@ -210,6 +210,8 @@ namespace AscNet.GameServer.Handlers
             session.player.AutoFightRecords.Add(record);
             session.player.SaveChecked();
             session.inventory.Save();
+            if (cost > 0 && RepeatChallengeModule.IsStage((uint)request.StageId))
+                RepeatChallengeModule.AddSerumSpentProgress(session, request.StageId, checked((int)cost));
             if (items.ItemDataList.Count > 0)
                 session.SendPush(items);
             return 0;

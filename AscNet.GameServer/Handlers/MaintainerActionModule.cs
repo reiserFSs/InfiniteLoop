@@ -383,6 +383,8 @@ public static class MaintainerActionModule
                 return true;
             });
         }
+        if (code == 0)
+            TaskModule.AddPassportConditionProgress(session, 44001, 1);
         session.SendResponse(new MaintainerActionPlayCardResponse { Code = code, NodeId = nodeId, NewCard = newCard }, packet.Id);
     }
 

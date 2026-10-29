@@ -514,6 +514,9 @@ internal static class PassportModule
             state.IsGetSupplyReward = false;
             state.IsActivateRegressionTask = false;
             state.IsActivateNewbieTask = false;
+            state.LoginDays = 0;
+            state.LastLoginPeriod = 0;
+            TaskModule.ResetPassportSeasonTasks(session);
             playerChanged = true;
             Item? expItem = session.inventory.Items
                 .FirstOrDefault(item => item.Id == Inventory.PassportExp);
@@ -534,6 +537,14 @@ internal static class PassportModule
                     playerChanged = true;
                 }
             }
+        }
+
+        long period = TaskModule.CurrentDailyResetPeriod(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        if (period > state.LastLoginPeriod)
+        {
+            state.LoginDays = checked(state.LoginDays + 1);
+            state.LastLoginPeriod = period;
+            playerChanged = true;
         }
 
         if (playerChanged) session.player.SaveChecked();

@@ -219,11 +219,16 @@ namespace AscNet.GameServer.Handlers
             {
                 throw;
             }
+            AddSerumSpentProgress(session, data.Stage.Id, totalCost);
             TaskModule.RecordStageClear(session, data.Stage.Id, count, totalCost, false);
             for (int i = 0; i < count; i++)
                 rewards.Add(new SweepReward { RewardGoods = application.RewardGoods.Skip(i * configured.Count).Take(configured.Count).ToList() });
             return true;
         }
+
+        // Passport 15223: Serum spent in this mode; call only after the spend is committed.
+        internal static void AddSerumSpentProgress(Session session, int stageId, int amount) =>
+            TaskModule.AddPassportConditionProgress(session, 15223, amount, condition => condition.Params.Count > 1 && condition.Params[1] == stageId);
 
         private static Data Load()
         {

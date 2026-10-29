@@ -21,6 +21,13 @@ public sealed class PassportState
 
     [BsonElement("is_activate_newbie_task")]
     public bool IsActivateNewbieTask { get; set; }
+
+    // Season-scoped distinct daily-reset periods logged in (condition 10202); reset on season rollover.
+    [BsonElement("login_days")]
+    public int LoginDays { get; set; }
+
+    [BsonElement("last_login_period")]
+    public long LastLoginPeriod { get; set; }
 }
 
 public sealed class PassportStateInfo

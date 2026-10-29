@@ -2564,15 +2564,8 @@ internal partial class Program
                 harness.Session,
                 99_703,
                 new BossSingleResetStageRequest { StageId = firstStageId });
-            BossSingleResetStageResponse resetResponse = default!;
-            while (harness.TryReadAvailablePacket("Normal PPC reset", out Packet resetPacket))
-            {
-                if (resetPacket.Type != Packet.ContentType.Response) continue;
-                Packet.Response response = MessagePackSerializer.Deserialize<Packet.Response>(resetPacket.Content);
-                if (response.Id != 99_703) continue;
-                resetResponse = MessagePackSerializer.Deserialize<BossSingleResetStageResponse>(response.Content);
-                break;
-            }
+            BossSingleResetStageResponse resetResponse = ReadResponsePayload<BossSingleResetStageResponse>(
+                harness, 99_703, nameof(BossSingleResetStageResponse), "Normal PPC reset", maxPacketsToRead: 32);
             AssertEqual(0, resetResponse.Code, "Normal PPC Reset Challenge succeeds");
             foreach (int conditionId in qualifyingConditions)
                 AssertEqual(candidate, player.MissionProgress.ConditionCounters.GetValueOrDefault(conditionId),

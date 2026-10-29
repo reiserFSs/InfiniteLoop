@@ -1194,6 +1194,7 @@ namespace AscNet.GameServer.Handlers
             return condition?.Type switch
             {
                 10101 => 1,
+                10202 => session.player.Passport.LoginDays,
                 11203 => checked((int)Math.Min(int.MaxValue, balance?.Invoke(Inventory.DailyActiveness)
                     ?? session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.DailyActiveness)?.Count ?? 0)),
                 _ => session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition)
@@ -2814,6 +2815,41 @@ namespace AscNet.GameServer.Handlers
             session.player.MissionProgress.ClaimedTaskIds.RemoveAll(taskIds.Contains);
             foreach (int conditionId in tasks.Select(task => task.Condition).Distinct())
                 session.player.MissionProgress.ConditionCounters.Remove(conditionId);
+        }
+
+        // Season rollover: every Passport activity task (type 51) is season-scoped; rewards are claim-keyed per activity.
+        internal static void ResetPassportSeasonTasks(Session session)
+        {
+            List<TaskTable> tasks = TableReaderV2.Parse<TaskTable>().Where(task => task.Type == 51).ToList();
+            HashSet<int> taskIds = tasks.Select(task => task.Id).ToHashSet();
+            session.player.MissionProgress.ClaimedTaskIds.RemoveAll(taskIds.Contains);
+            foreach (int conditionId in tasks.Select(task => task.Condition).Distinct())
+                session.player.MissionProgress.ConditionCounters.Remove(conditionId);
+        }
+
+        // Committed gameplay event: credit active Passport conditions of one type, persist, then push the changed tasks.
+        internal static void AddPassportConditionProgress(Session session, int conditionType, int amount, Func<ConditionTable, bool>? filter = null)
+        {
+            if (amount <= 0) return;
+            EnsureMissionResets(session);
+            HashSet<int> active = BuildPassportTaskProgress(session).Select(task => task.ConditionId).ToHashSet();
+            List<int> ids = TableReaderV2.Parse<ConditionTable>()
+                .Where(condition => condition.Type == conditionType && active.Contains(condition.Id) && (filter?.Invoke(condition) ?? true))
+                .Select(condition => condition.Id).ToList();
+            if (ids.Count == 0) return;
+            Dictionary<int, int> counters = session.player.MissionProgress.ConditionCounters;
+            Dictionary<int, int> previous = ids.ToDictionary(id => id, id => counters.GetValueOrDefault(id));
+            try
+            {
+                foreach (int id in ids) counters[id] = checked(previous[id] + amount);
+                session.player.SaveChecked();
+            }
+            catch
+            {
+                foreach ((int id, int value) in previous) counters[id] = value;
+                throw;
+            }
+            SendPassportConditionTypeSync(session, conditionType);
         }
 
         private static (bool Inventory, bool Character) ResetDormMissionType(Session session, int taskType)

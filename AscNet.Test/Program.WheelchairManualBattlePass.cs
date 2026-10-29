@@ -38,6 +38,7 @@ internal static partial class Program
         var rewardRows = TableReaderV2.Parse<WheelchairManualBattlePassRewardTable>();
         var rewards = TableReaderV2.Parse<RewardTable>().ToDictionary(row => row.Id);
         var goods = TableReaderV2.Parse<RewardGoodsTable>();
+        var goodsById = goods.ToDictionary(row => row.Id);
         Type module = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.WheelchairManualModule");
         MethodInfo builder = RequiredMethod(module, "BuildPayload", BindingFlags.Static | BindingFlags.Public,
             [typeof(Session), typeof(DateTimeOffset)]);
@@ -116,8 +117,10 @@ internal static partial class Program
             .Except(Payload(harness).GetRewardManualRewardIds).OrderBy(id => id).ToArray();
         List<RewardGoods> AssertClaim(int tier, int[] expected)
         {
-            var expectedGoods = expected.SelectMany(id => goods.Where(row => rewards[rewardRows.Single(reward => reward.Id == id).RewardId].SubIds.Contains(row.Id)))
-                .Select(row => new RewardGoods { TemplateId = row.TemplateId, Count = row.Count });
+            // Indexed lookups: this runs between two live requests, and the session drops a socket idle for 10 s.
+            var expectedGoods = expected.SelectMany(id => rewards[rewardRows.Single(reward => reward.Id == id).RewardId].SubIds
+                    .Where(goodsById.ContainsKey).Select(subId => goodsById[subId]))
+                .Select(row => new RewardGoods { TemplateId = row.TemplateId, Count = row.Count }).ToList();
             var result = Claim(tier, out var push);
             AssertEqual(0, result.Code, "Manual tier claim succeeds");
             AssertEqual(Signature(expectedGoods), Signature(result.RewardList), "Manual claim grants every eligible table reward");
