@@ -225,9 +225,108 @@ internal static class StrongholdModule
         state.LevelId = level.Id;
         state.ElectricEnergy = level.InitElectricEnergy;
         state.Endurance = level.InitEndurance;
-        state.CurDay = 0;
+        state.CurDay = 1;
+        state.SettledPeriod = GuildModule.DailyPeriod(DateTimeOffset.FromUnixTimeSeconds(state.FightBeginTime));
         EnsureGroups(p, level);
         p.SaveChecked();
+    }
+
+    // Achievement claims and settlement mails are per cycle: the same reward ID is earned again every cycle.
+    private static string RewardKey(Player player, int rewardId) =>
+        $"stronghold:{player.PlayerData.Id}:{player.Stronghold.ActivityId}:{player.Stronghold.BeginTime}:achievement:{rewardId}";
+
+    internal static void Reconcile(Session s) => Reconcile(s, DateTimeOffset.UtcNow, push: true);
+
+    /// <summary>
+    /// Settles every missed daily boundary (authored DailyResetTimestamp, GuildModule.DailyPeriod) of the active cycle once,
+    /// in one state mutation. Day c -> c+1 adds StrongholdEndurance/StrongholdElectric row c (XStrongholdManager.GetMaxEndurance,
+    /// XStrongholdConfigs.GetElectricAdd); a day in StayDays holds the boundary and consumes the pause; each settled day mines
+    /// ceil(miners * MinerEfficiency) and miners then grow by MinerGrowRate percent (XStrongholdManager.GetPredictMinerCount).
+    /// </summary>
+    internal static bool Reconcile(Session s, DateTimeOffset now, bool push)
+    {
+        Player p = s.player;
+        Normalize(p.Stronghold);
+        StrongholdActivityTable? activity = Activity(p.Stronghold.ActivityId);
+        if (p.Stronghold.ActivityId <= 0 || p.Stronghold.BeginTime == 0 || p.Stronghold.LevelId <= 0
+            || activity is null || activity.OneCycleSeconds <= 0)
+            return false;
+        long begin = p.Stronghold.BeginTime;
+        long clock = Math.Min(now.ToUnixTimeSeconds(), begin + activity.OneCycleSeconds);
+        if (clock < begin) return false;
+        long period = GuildModule.DailyPeriod(DateTimeOffset.FromUnixTimeSeconds(clock));
+        int totalDay = (int)Math.Ceiling(activity.FightContinueSeconds / 86400d);
+
+        StrongholdState x = BsonSerializer.Deserialize<StrongholdState>(p.Stronghold.ToBson());
+        Normalize(x);
+        bool changed = false;
+        if (x.SettledPeriod == 0)
+        {
+            // One-time cutover for documents saved before daily settlement: an untouched state counts from its fight
+            // start; one the old stay handler already moved (CurDay/StayDays) or that holds records is anchored to now
+            // so its hand-advanced days are never settled a second time.
+            bool pristine = x.CurDay == 0 && x.StayDays.Count == 0 && x.MineRecords.Count == 0;
+            x.SettledPeriod = pristine
+                ? GuildModule.DailyPeriod(DateTimeOffset.FromUnixTimeSeconds(x.FightBeginTime > 0 ? x.FightBeginTime : begin))
+                : period;
+            changed = !pristine; // a pristine anchor is derived from FightBeginTime, so it need not be written until a day settles
+        }
+        x.CurDay = Math.Max(1, x.CurDay);
+
+        StrongholdEnduranceTable[] endurance = Rows<StrongholdEnduranceTable>().ToArray();
+        StrongholdElectricTable[] electric = Rows<StrongholdElectricTable>().ToArray();
+        int levelIndex = x.LevelId - 1;
+        int Add(IEnumerable<int> perLevel) => perLevel.ElementAtOrDefault(levelIndex);
+        int minerItem = Config("MinerId");
+        long miners = minerItem > 0 ? s.inventory.SpendableCount(minerItem) : 0;
+        long startMiners = miners;
+        int efficiency = Config("MinerEfficiency"), growRate = Config("MinerGrowRate");
+        int lastMinedDay = 0;
+        bool anyBoundary = false;
+        for (; x.SettledPeriod < period; x.SettledPeriod++)
+        {
+            changed = anyBoundary = true;
+            x.BorrowCount = 0;
+            int day = x.CurDay;
+            if (day > totalDay) continue;
+            if (x.StayDays.Remove(day)) continue;
+            if (x.MineRecords.Any(record => record.Day == day)) continue;
+            int mined = checked((int)(miners * efficiency));
+            x.MineRecords.Add(new() { Day = day, MinerCount = checked((int)miners), MineralCount = mined });
+            x.MineralLeft = checked(x.MineralLeft + mined);
+            x.TotalMineral = checked(x.TotalMineral + mined);
+            miners = (miners * (100L + growRate) + 99) / 100;
+            lastMinedDay = day;
+            if (day < totalDay)
+            {
+                x.CurDay = day + 1;
+                x.Endurance += Add(endurance.FirstOrDefault(row => row.Id == day)?.Endurance ?? []);
+                x.ElectricEnergy += Add(electric.FirstOrDefault(row => row.Id == day)?.ElectricEnerge ?? []);
+            }
+        }
+        if (!changed) return false;
+
+        RewardApplicationResult? grown = null;
+        if (miners > startMiners)
+            grown = RewardHandler.ApplyRewardsOnceAndPersist(
+                [new RewardGrant($"stronghold:{p.PlayerData.Id}:{x.ActivityId}:{x.BeginTime}:miners:{lastMinedDay}",
+                    [new RewardGoodsTable { Id = minerItem, TemplateId = minerItem, Count = checked((int)(miners - startMiners)), Params = [] }])], s);
+        p.Stronghold = x;
+        p.SaveChecked();
+        grown?.SendPushes(s);
+        if (push && anyBoundary)
+            s.SendPush(new NotifyStrongholdChangeDay
+            {
+                CurDay = x.CurDay,
+                FightBeginTime = x.FightBeginTime,
+                MineralLeft = x.MineralLeft,
+                Endurance = x.Endurance,
+                ElectricEnergy = x.ElectricEnergy,
+                BorrowCount = x.BorrowCount,
+                StayDays = x.StayDays.ToList(),
+                MineRecords = x.MineRecords.ToList()
+            });
+        return true;
     }
 
     private static void SettleExpiredCycle(Player player, long now)
@@ -248,7 +347,7 @@ internal static class StrongholdModule
             if (goods.Count == 0)
                 throw new InvalidDataException($"Empty Stronghold settlement reward {reward.RewardId}.");
             AddSettlementMail(player, Config("UnGetRewardMail"), reward.Id, now, goods,
-                $"stronghold:{player.PlayerData.Id}:achievement:{reward.Id}",
+                RewardKey(player, reward.Id),
                 $"Unclaimed reward: {reward.Desc}");
             state.RewardIds.Add(reward.Id);
             state.ClaimedRewardIds.Add(reward.Id);
@@ -294,7 +393,10 @@ internal static class StrongholdModule
         state.ActivityId = id;
         state.BeginTime = checked((uint)begin);
         state.FightBeginTime = checked((int)begin);
-        state.CurDay = 0;
+        state.CurDay = 1;
+        state.SettledPeriod = GuildModule.DailyPeriod(DateTimeOffset.FromUnixTimeSeconds(begin));
+        state.RewardIds.Clear();
+        state.ClaimedRewardIds.Clear();
         state.LevelId = level.Id;
         state.AssistCharacterId = 0;
         state.SetAssistCharacterTime = 0;
@@ -538,16 +640,29 @@ internal static class StrongholdModule
     [RequestPacketHandler("GetStrongholdMineralRequest")]
     public static void GetMineral(Session s, Packet.Request p)
     {
+        Reconcile(s);
         StrongholdState state = State(s);
         int mineral = state.MineralLeft;
+        int itemId = Config("MineralId");
+        if (mineral <= 0 || itemId <= 0)
+        {
+            s.SendResponse(new GetStrongholdMineralResponse { Code = Invalid }, p.Id);
+            return;
+        }
+        // TotalMineral only grows when MineralLeft does, so it names this claim; a retried claim re-finds the same key.
+        RewardApplicationResult grant = RewardHandler.ApplyRewardsOnceAndPersist(
+            [new RewardGrant($"stronghold:{s.player.PlayerData.Id}:{state.ActivityId}:{state.BeginTime}:mineral:{state.TotalMineral}",
+                [new RewardGoodsTable { Id = itemId, TemplateId = itemId, Count = mineral, Params = [] }])], s);
         state.MineralLeft = 0;
         Save(s);
-        s.SendResponse(new GetStrongholdMineralResponse { Code = mineral > 0 ? 0 : Invalid, MineralCount = mineral }, p.Id);
+        grant.SendPushes(s);
+        s.SendResponse(new GetStrongholdMineralResponse { Code = 0, MineralCount = mineral }, p.Id);
     }
 
     [RequestPacketHandler("SetStrongholdElectricTeamRequest")]
     public static void SetElectric(Session s, Packet.Request p)
     {
+        Reconcile(s);
         SetStrongholdElectricTeamRequest request = p.Deserialize<SetStrongholdElectricTeamRequest>();
         if (request.CharacterIds.Count > Config("MaxElectricTeamMemberCount")
             || request.CharacterIds.Distinct().Count() != request.CharacterIds.Count
@@ -564,6 +679,7 @@ internal static class StrongholdModule
     [RequestPacketHandler("ResetStrongholdGroupRequest")]
     public static void ResetGroup(Session s, Packet.Request p)
     {
+        Reconcile(s);
         ResetStrongholdGroupRequest request = p.Deserialize<ResetStrongholdGroupRequest>();
         StrongholdGroupInfo? group = State(s).GroupInfos.FirstOrDefault(value => value.Id == request.Id);
         if (group is null)
@@ -579,6 +695,7 @@ internal static class StrongholdModule
     [RequestPacketHandler("ResetStrongholdStageRequest")]
     public static void ResetStage(Session s, Packet.Request p)
     {
+        Reconcile(s);
         ResetStrongholdStageRequest request = p.Deserialize<ResetStrongholdStageRequest>();
         StrongholdGroupInfo? group = State(s).GroupInfos.FirstOrDefault(value => value.Id == request.GroupId);
         int code = group is not null && group.FinishStageIds.Remove(request.StageId) ? 0 : 20113021;
@@ -588,6 +705,7 @@ internal static class StrongholdModule
     [RequestPacketHandler("SetStrongholdFightTeamRequest")]
     public static void SetFightTeam(Session s, Packet.Request p)
     {
+        Reconcile(s);
         SetStrongholdFightTeamRequest request = p.Deserialize<SetStrongholdFightTeamRequest>();
         StrongholdState state = State(s);
         bool valid = request.Id > 0
@@ -608,6 +726,7 @@ internal static class StrongholdModule
     [RequestPacketHandler("SetStrongholdTeamRequest")]
     public static void SetTeam(Session s, Packet.Request p)
     {
+        Reconcile(s);
         SetStrongholdTeamRequest request = p.Deserialize<SetStrongholdTeamRequest>();
         bool valid = request.TeamInfos.Count > 0
             && request.TeamInfos.Count <= Config("MaxPreTeamCount")
@@ -623,12 +742,13 @@ internal static class StrongholdModule
     [RequestPacketHandler("GetStrongholdAssistCharacterListRequest")]
     public static void AssistList(Session s,Packet.Request p){s.SendResponse(new GetStrongholdAssistCharacterListResponse{Code=0,CharacterDetails=[]},p.Id);}
     [RequestPacketHandler("SetStrongholdAssistCharacterRequest")]
-    public static void Assist(Session s,Packet.Request p){var r=p.Deserialize<SetStrongholdAssistCharacterRequest>();bool ok=r.CharacterId==0||Own(s,r.CharacterId);if(ok){var x=State(s);x.AssistCharacterId=r.CharacterId;x.SetAssistCharacterTime=(int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();Save(s);}s.SendResponse(new SetStrongholdAssistCharacterResponse{Code=ok?0:20113003},p.Id);}
+    public static void Assist(Session s,Packet.Request p){Reconcile(s);var r=p.Deserialize<SetStrongholdAssistCharacterRequest>();bool ok=r.CharacterId==0||Own(s,r.CharacterId);if(ok){var x=State(s);x.AssistCharacterId=r.CharacterId;x.SetAssistCharacterTime=(int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();Save(s);}s.SendResponse(new SetStrongholdAssistCharacterResponse{Code=ok?0:20113003},p.Id);}
     [RequestPacketHandler("GetStrongholdLendDetailRequest")]
     public static void Lend(Session s,Packet.Request p)=>s.SendResponse(new GetStrongholdLendDetailResponse{Code=0,LendDayInfos=[]},p.Id);
     [RequestPacketHandler("GetStrongholdRewardRequest")]
     public static void Reward(Session s, Packet.Request p)
     {
+        Reconcile(s);
         GetStrongholdRewardRequest request = p.Deserialize<GetStrongholdRewardRequest>();
         StrongholdState state = State(s);
         List<int> ids = request.Ids.Distinct().ToList();
@@ -650,7 +770,7 @@ internal static class StrongholdModule
             return;
         }
         RewardApplicationResult grant = RewardHandler.ApplyRewardsOnceAndPersist(
-            rows.Select(row => new RewardGrant($"stronghold:{s.player.PlayerData.Id}:achievement:{row.Id}",
+            rows.Select(row => new RewardGrant(RewardKey(s.player, row.Id),
                 RewardHandler.GetRewardGoods(row.RewardId),
                 EventCause: WheelchairManualGuideManager.GetUniqueWeeklyEventCause(44))).ToList(), s);
         state.RewardIds.AddRange(ids);
@@ -669,6 +789,7 @@ internal static class StrongholdModule
     [RequestPacketHandler("SweepStrongholdStageRequest")]
     public static void Sweep(Session s, Packet.Request p)
     {
+        Reconcile(s);
         SweepStrongholdStageRequest request = p.Deserialize<SweepStrongholdStageRequest>();
         StrongholdState state = State(s);
         var groups = Rows<StrongholdGroupTable>().ToDictionary(row => row.Id);
@@ -743,6 +864,7 @@ internal static class StrongholdModule
     [RequestPacketHandler("SelectStrongholdLevelRequest")]
     public static void SelectLevel(Session s, Packet.Request p)
     {
+        Reconcile(s);
         SelectStrongholdLevelRequest request = p.Deserialize<SelectStrongholdLevelRequest>();
         StrongholdState state = State(s);
         StrongholdLevelTable? level = Rows<StrongholdLevelTable>().FirstOrDefault(row => row.Id == request.LevelId
@@ -769,5 +891,16 @@ internal static class StrongholdModule
     }
     // ponytail: server-only distribution rules are unavailable; use the typed eligible stage groups, deterministic per player, and persist the result.
     [RequestPacketHandler("SetStrongholdStayRequest")]
-    public static void Stay(Session s,Packet.Request p){var x=State(s);int d=++x.CurDay;if(!x.StayDays.Contains(d))x.StayDays.Add(d);Save(s);s.SendResponse(new SetStrongholdStayResponse{Code=0,StayDays=x.StayDays},p.Id);}
+    public static void Stay(Session s, Packet.Request p)
+    {
+        Reconcile(s);
+        StrongholdState x = State(s);
+        // The client only sends this while a day is live; recording the reconciled day twice is a no-op.
+        if (x.CurDay > 0 && !x.StayDays.Contains(x.CurDay))
+        {
+            x.StayDays.Add(x.CurDay);
+            Save(s);
+        }
+        s.SendResponse(new SetStrongholdStayResponse { Code = 0, StayDays = x.StayDays }, p.Id);
+    }
 }

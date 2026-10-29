@@ -242,7 +242,7 @@ internal static partial class Program
                 .Select(row => (row.Value<int>("TemplateId"), row.Value<int>("Count")))),
             "real Norman achievement grants table-defined goods");
         var normanReceipt = modePlayer.WheelchairManualGuideRewardReceipts
-            .Single(row => row.ClaimKey == $"stronghold:{modePlayer.PlayerData.Id}:achievement:{achievement.Row.Id}");
+            .Single(row => row.ClaimKey == $"stronghold:{modePlayer.PlayerData.Id}:{modePlayer.Stronghold.ActivityId}:{modePlayer.Stronghold.BeginTime}:achievement:{achievement.Row.Id}");
         AssertEqual(true, normanDisplay.EventCause.Contains(normanReceipt.EventCause),
             "real Norman achievement records the configured producer");
         AssertEqual(RewardSignature(normanGoods.Select(row => (row.TemplateId, row.Count))),

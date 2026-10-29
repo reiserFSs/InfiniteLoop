@@ -73,7 +73,6 @@ internal partial class Program
             string history = Snapshot(state.HistoryFinishGroupInfos.Single());
             state.RewardIds = rewards.Where(row => row.Id != eligible.Id && row.Id != ineligible.Id).Select(row => row.Id).Order().ToList();
             state.ClaimedRewardIds = state.RewardIds.ToList();
-            int[] lifetimeClaims = state.RewardIds.ToArray();
             state.PendingGroupId = completedGroup;
             state.PendingStageId = (int)stages.StageIds[0];
             state.TeamInfos[1] = new() { Id = 1, CharacterInfos = [new() { Id = 1_021_001, Pos = 1 }] };
@@ -114,8 +113,8 @@ internal partial class Program
                 $"Norman {oldId} successor retains playable table-derived stages");
             AssertEqual(history, Snapshot(login.HistoryFinishGroupInfos.Single(row => row.Id == completedGroup)),
                 $"Norman {oldId} preserves lifetime best history");
-            AssertEqual(true, lifetimeClaims.All(id => login.RewardIds.Contains(id) && player.Stronghold.ClaimedRewardIds.Contains(id)),
-                $"Norman {oldId} preserves lifetime reward claims");
+            AssertEqual(true, login.RewardIds.Count == 0 && player.Stronghold.ClaimedRewardIds.Count == 0,
+                $"Norman {oldId} starts the new cycle with no achievement claims (claims are per cycle)");
             AssertEqual(0, player.Stronghold.PendingGroupId, $"Norman {oldId} clears pending group");
             AssertEqual(0, player.Stronghold.PendingStageId, $"Norman {oldId} clears pending stage");
             AssertEqual(0, login.TeamInfos.Count, $"Norman {oldId} IsClearTeam clears saved team");
@@ -126,10 +125,10 @@ internal partial class Program
             AssertEqual(0, login.TotalMineral, $"Norman {oldId} clears current mineral total");
             AssertEqual(rosterBefore, Snapshot(harness.Session.character), $"Norman {oldId} preserves roster");
             AssertEqual(inventoryBefore, Snapshot(harness.Session.inventory), $"Norman {oldId} settlement does not directly credit inventory");
-            AssertEqual(true, player.Stronghold.ClaimedRewardIds.Contains(eligible.Id), $"Norman {oldId} settles eligible unclaimed group reward");
-            AssertEqual(false, player.Stronghold.ClaimedRewardIds.Contains(ineligible.Id), $"Norman {oldId} does not settle uncompleted-group reward");
+            AssertEqual(true, player.Mails.Any(mail => mail.RewardClaimKey?.EndsWith($":achievement:{eligible.Id}") == true), $"Norman {oldId} settles eligible unclaimed group reward by mail");
+            AssertEqual(false, player.Mails.Any(mail => mail.RewardClaimKey?.EndsWith($":achievement:{ineligible.Id}") == true), $"Norman {oldId} does not settle uncompleted-group reward");
             AssertEqual(2, player.Mails.Count, $"Norman {oldId} produces achievement and cycle-result mails");
-            PlayerMail achievementMail = player.Mails.Single(mail => mail.RewardClaimKey == $"stronghold:{player.PlayerData.Id}:achievement:{eligible.Id}");
+            PlayerMail achievementMail = player.Mails.Single(mail => mail.RewardClaimKey == $"stronghold:{player.PlayerData.Id}:{oldId}:{savedBegin}:achievement:{eligible.Id}");
             var reward = TableReaderV2.Parse<AscNet.Table.V2.share.reward.RewardTable>().Single(row => row.Id == eligible.RewardId);
             var goods = TableReaderV2.Parse<AscNet.Table.V2.share.reward.RewardGoodsTable>()
                 .Where(row => reward.SubIds.Contains(row.Id)).ToList();
@@ -258,7 +257,7 @@ internal partial class Program
             prepare.Invoke(null, [player, expiry]);
             AssertEqual(completedRollover, Convert.ToHexString(player.ToBson()),
                 "Norman rollover retry and subsequent login leave a stable cycle and mailbox");
-            string claimKey = $"stronghold:{playerId}:achievement:{fixture.Achievement.Id}";
+            string claimKey = $"stronghold:{playerId}:79:{begin}:achievement:{fixture.Achievement.Id}";
             PlayerMail mail = player.Mails.Single(value => value.RewardClaimKey == claimKey);
             Character character = CreateDrawCompatibilityCharacter(playerId);
             Inventory inventory = CreateDrawCompatibilityInventory(playerId, fixture.Goods
@@ -378,6 +377,7 @@ internal partial class Program
             prepare.Invoke(null, [player, DateTimeOffset.FromUnixTimeSeconds(begin)]);
             player.Stronghold.RewardIds = achievements.Where(row => row.Id != achievement.Id).Select(row => row.Id).Order().ToList();
             player.Stronghold.ClaimedRewardIds = player.Stronghold.RewardIds.ToList();
+            player.Stronghold.SettledPeriod = long.MaxValue; // this fixture's cycle is long past; daily settlement is covered by --stronghold-cycle-only
             player.Stronghold.HistoryFinishGroupInfos = [History(originalParams[1] + 1)];
             return player;
         }
@@ -420,16 +420,15 @@ internal partial class Program
             AssertEqual(false, onlyOld.Stronghold.ClaimedRewardIds.Contains(achievement.Id),
                 "Norman history-only over-threshold rollover does not claim reward");
             Player settlement = Fresh(48_996);
-            int[] lifetimeClaims = settlement.Stronghold.ClaimedRewardIds.ToArray();
             settlement.Stronghold.HistoryFinishGroupInfos.Add(History(originalParams[1]));
             prepare.Invoke(null, [settlement, expiry]);
-            string key = $"stronghold:{settlement.PlayerData.Id}:achievement:{achievement.Id}";
+            string key = $"stronghold:{settlement.PlayerData.Id}:79:{begin}:achievement:{achievement.Id}";
             PlayerMail mail = settlement.Mails.Single(value => value.RewardClaimKey == key);
             AssertEqual(2, settlement.Mails.Count, "Norman later qualifying history yields achievement and result mails");
             AssertEqual(expectedGoods, string.Join(",", mail.RewardGoodsList!.GroupBy(row => row.TemplateId).OrderBy(group => group.Key)
                 .Select(group => $"{group.Key}:{group.Sum(row => row.Count)}")), "Norman history settlement contains exact authoritative goods");
-            AssertEqual(true, lifetimeClaims.Append(achievement.Id).All(id => settlement.Stronghold.RewardIds.Contains(id)
-                && settlement.Stronghold.ClaimedRewardIds.Contains(id)), "Norman history settlement preserves previous and newly settled lifetime claims");
+            AssertEqual(true, settlement.Stronghold.RewardIds.Count == 0 && settlement.Stronghold.ClaimedRewardIds.Count == 0,
+                "Norman history settlement leaves the new cycle with no claims (claims are per cycle)");
             Player reloaded = BsonSerializer.Deserialize<Player>(settlement.ToBson());
             string settled = Convert.ToHexString(reloaded.ToBson());
             prepare.Invoke(null, [reloaded, expiry]);

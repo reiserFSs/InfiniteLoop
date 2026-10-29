@@ -1294,6 +1294,8 @@ namespace AscNet.GameServer.Handlers
             session.player.NormalizeTeamPrefabs();
             session.ClampPlayerLevelToConfiguredMaximum();
             (ActivityResultNotify? arenaResult, NotifyArenaActivity arenaActivity) = ArenaModule.ReconcileLogin(session);
+            // The login payload below carries the settled state, so no ChangeDay push here.
+            StrongholdModule.Reconcile(session, DateTimeOffset.UtcNow, push: false);
             StrongholdModule.PrepareLogin(session.player);
             if (PartnerModule.RefreshArchive(session.player, session.character))
                 session.player.SaveChecked();

@@ -2611,23 +2611,22 @@ namespace AscNet.GameServer.Handlers
             session.player.MissionProgress.ConditionCounters[conditionId] = checked(current + Math.Max(0, increment));
         }
 
-        internal static long CurrentDailyResetPeriod(long timestamp) => timestamp / 86_400;
+        // One implementation (Config.tsv DailyResetTimestamp/DayOfWeeklyReset), shared with GuildModule.
+        internal static long CurrentDailyResetPeriod(long timestamp) =>
+            GuildModule.DailyPeriod(DateTimeOffset.FromUnixTimeSeconds(timestamp));
 
         internal static long CurrentWeeklyResetPeriod(long timestamp) =>
-            (CurrentDailyResetPeriod(timestamp) + 3) / 7;
+            GuildModule.WeeklyPeriod(DateTimeOffset.FromUnixTimeSeconds(timestamp));
 
-        internal static int WeeklyResetDayIndex(long timestamp)
-        {
-            long day = CurrentDailyResetPeriod(timestamp);
-            long weekStartDay = checked(CurrentWeeklyResetPeriod(timestamp) * 7 - 3);
-            return checked((int)(day - weekStartDay));
-        }
+        // Days elapsed since the latest weekly reset day (0 on the reset day itself).
+        internal static int WeeklyResetDayIndex(long timestamp) =>
+            checked((int)(CurrentDailyResetPeriod(timestamp) - (CurrentDailyResetPeriod(NextWeeklyResetTime(timestamp)) - 7)));
 
-        internal static long RemainingSecondsInWeeklyResetPeriod(long timestamp)
-        {
-            long nextWeekStartDay = checked((CurrentWeeklyResetPeriod(timestamp) + 1) * 7 - 3);
-            return checked(nextWeekStartDay * 86_400 - timestamp);
-        }
+        private static long NextWeeklyResetTime(long timestamp) =>
+            GuildModule.NextWeeklyReset(DateTimeOffset.FromUnixTimeSeconds(timestamp)).ToUnixTimeSeconds();
+
+        internal static long RemainingSecondsInWeeklyResetPeriod(long timestamp) =>
+            NextWeeklyResetTime(timestamp) - timestamp;
 
         internal static void RecordLoginDay(Session session, long? timestamp = null)
         {
@@ -2678,7 +2677,10 @@ namespace AscNet.GameServer.Handlers
                 EnsureMissionResets(session);
         }
 
-        internal static void EnsureMissionResets(Session session)
+        internal static void EnsureMissionResets(Session session) =>
+            EnsureMissionResets(session, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+        internal static void EnsureMissionResets(Session session, long timestamp)
         {
             // The owner must match/recover its pending intent before shared resets can mutate it.
             if (session.player.Theatre5.PendingMutation is not null || session.player.Theatre4.PendingMutation is not null
@@ -2692,12 +2694,31 @@ namespace AscNet.GameServer.Handlers
             if (session.player.Theatre3.PendingMutation?.ResponseName is nameof(FinishTaskResponse) or nameof(FinishMultiTaskResponse))
                 Theatre3Module.ReplayPending(session);
             session.player.MissionProgress ??= new MissionProgressState();
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             long day = CurrentDailyResetPeriod(timestamp);
             long week = CurrentWeeklyResetPeriod(timestamp);
             bool changed = false;
             bool inventoryChanged = false;
             bool characterChanged = false;
+
+            // One-time cutover: periods persisted before ResetEpoch 1 were UTC-midnight based (ts / 86400,
+            // (ts / 86400 + 3) / 7). A value that is still "today/this week" under that scheme is the same
+            // authored period now, so rebase it instead of firing a spurious reset in the 00:00-DailyResetTimestamp window.
+            if (session.player.MissionProgress.ResetEpoch < 1)
+            {
+                long legacyDay = timestamp / 86_400;
+                if (session.player.MissionProgress.DailyResetDay == legacyDay && legacyDay != day)
+                {
+                    session.player.MissionProgress.DailyResetDay = day;
+                    changed = true;
+                }
+                if (session.player.MissionProgress.WeeklyResetWeek == (legacyDay + 3) / 7 && (legacyDay + 3) / 7 != week)
+                {
+                    session.player.MissionProgress.WeeklyResetWeek = week;
+                    changed = true;
+                }
+                // Only persisted together with a rebase or later saves; an unchanged document needs no write.
+                session.player.MissionProgress.ResetEpoch = 1;
+            }
 
             if (session.player.MissionProgress.DailyResetDay < 0)
             {

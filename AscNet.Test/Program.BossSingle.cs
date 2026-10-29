@@ -2705,8 +2705,8 @@ internal partial class Program
                 out RecordingMongoCollectionProxy<Player> playerCollection,
                 out RecordingMongoCollectionProxy<Stage> stageCollection);
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            long WeeklyPeriod(long timestamp) => (timestamp / 86_400 + 3) / 7;
-            long boundary = checked((WeeklyPeriod(now) + 1) * 7 - 3) * 86_400;
+            long WeeklyPeriod(long timestamp) => TaskModule.CurrentWeeklyResetPeriod(timestamp);
+            long boundary = now + TaskModule.RemainingSecondsInWeeklyResetPeriod(now);
             long beforeBoundary = boundary - 1;
             long atBoundary = boundary;
             int beforeActivity = checked((int)WeeklyPeriod(beforeBoundary));

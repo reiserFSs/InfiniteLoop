@@ -347,6 +347,11 @@ namespace AscNet.Test
                     ValidateEquipGuideGoalCompatibility();
                     return;
                 }
+                if (args.Contains("--stronghold-cycle-only"))
+                {
+                    ValidateStrongholdCycle();
+                    return;
+                }
                 if (args.Contains("--stronghold-sweep-only"))
                 {
                     ValidateStrongholdSweepCompatibility();
@@ -367,6 +372,16 @@ namespace AscNet.Test
                 if (args.Contains("--simulate-train-compat-only"))
                 {
                     ValidateSimulateTrainCompatibility();
+                    return;
+                }
+                if (args.Contains("--reward-quantity-only"))
+                {
+                    ValidateRewardQuantities();
+                    return;
+                }
+                if (args.Contains("--reset-boundary-only"))
+                {
+                    ValidateResetBoundary();
                     return;
                 }
                 if (args.Contains("--transfinite-anchor-achievement-only"))
@@ -1311,6 +1326,9 @@ namespace AscNet.Test
                 ValidateStrongholdSweepCompatibility();
                 ValidateStrongholdRelatedFightCompatibility();
                 ValidateTransfiniteAnchorAchievementCompatibility();
+                ValidateStrongholdCycle();
+                ValidateResetBoundary();
+                ValidateRewardQuantities();
                 ValidateStrongholdRolloverCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();
                 ValidateBossSingleLoginRollover();

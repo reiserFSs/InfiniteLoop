@@ -195,7 +195,8 @@ namespace AscNet.GameServer.Handlers
                     continue;
 
                 List<RewardGoodsTable> goods = goodsByRewardId[reward.Id];
-                foreach (int subId in reward.SubIds.Distinct())
+                // The client's GetRewardList iterates every SubIds entry, so repeated ids are repeated grants.
+                foreach (int subId in reward.SubIds)
                 {
                     if (!rewardsByGoodsId.TryGetValue(subId, out List<List<RewardGoodsTable>>? rewards))
                     {
@@ -1229,9 +1230,11 @@ namespace AscNet.GameServer.Handlers
                         result.GatherRewardIds.Add(baselineReward.Id);
                     break;
                 case RewardType.Equip:
-                    EquipData? equip = session.character.AddEquip((uint)reward.Id, level: reward.Level);
-                    if (equip is not null)
+                    for (int copy = 0; copy < Math.Max(1, reward.Count); copy++)
                     {
+                        EquipData? equip = session.character.AddEquip((uint)reward.Id, level: reward.Level);
+                        if (equip is null)
+                            break;
                         equip.IsRecycle = reward.IsRecycle;
                         equipDataList.Add(reward.NotifyAsRecycle
                             ? CloneEquipForNotification(equip, isRecycle: true)
@@ -1294,12 +1297,15 @@ namespace AscNet.GameServer.Handlers
                     if (!TableReaderV2.Parse<AscNet.Table.V2.share.partner.PartnerTable>().Any(row => row.Id == reward.Id))
                         break;
                     session.character.Partners ??= [];
-                    PartnerData acquiredPartner = PartnerModule.CreatePartner(
-                        PartnerModule.AllocatePartnerId(session.character),
-                        reward.Id);
-                    session.character.Partners.Add(acquiredPartner);
-                    result.PartnerData.PartnerDataList.Add(acquiredPartner);
-                    result.PartnerData.OperateTypes.Add(1);
+                    for (int copy = 0; copy < Math.Max(1, reward.Count); copy++)
+                    {
+                        PartnerData acquiredPartner = PartnerModule.CreatePartner(
+                            PartnerModule.AllocatePartnerId(session.character),
+                            reward.Id);
+                        session.character.Partners.Add(acquiredPartner);
+                        result.PartnerData.PartnerDataList.Add(acquiredPartner);
+                        result.PartnerData.OperateTypes.Add(1);
+                    }
                     break;
                 case RewardType.Nameplate:
                     NameplateData grantedNameplate = session.character.GrantNameplate(

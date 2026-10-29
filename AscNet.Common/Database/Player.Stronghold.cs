@@ -12,6 +12,8 @@ public sealed class StrongholdState
     [BsonElement("begin_time")] public uint BeginTime { get; set; }
     [BsonElement("fight_begin_time")] public int FightBeginTime { get; set; }
     [BsonElement("cur_day")] public int CurDay { get; set; }
+    /// <summary>Authored daily-reset period (GuildModule.DailyPeriod) up to which day boundaries are settled; 0 = pre-reconciliation document.</summary>
+    [BsonElement("settled_period")] public long SettledPeriod { get; set; }
     [BsonElement("level_id")] public int LevelId { get; set; }
     [BsonElement("assist_character_id")] public int AssistCharacterId { get; set; }
     [BsonElement("set_assist_character_time")] public int SetAssistCharacterTime { get; set; }

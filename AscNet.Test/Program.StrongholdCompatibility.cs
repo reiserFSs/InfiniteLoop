@@ -259,7 +259,7 @@ internal partial class Program
             "Stronghold eligible reward batch persists claimed IDs");
         int claimedRewardId = missingEnergy.reward.Id;
         int claimCount = h.Session.inventory.AppliedRewardClaims.Count(key =>
-            key == $"stronghold:{uid}:achievement:{claimedRewardId}");
+            key.StartsWith($"stronghold:{uid}:") && key.EndsWith($":achievement:{claimedRewardId}"));
         byte[] beforeDuplicateClaim = player.ToBson();
         InvokeRegisteredRequestHandler(nameof(GetStrongholdRewardRequest), h.Session, rewardPacketId,
             new GetStrongholdRewardRequest { Ids = [claimedRewardId] });
@@ -267,7 +267,7 @@ internal partial class Program
             h, rewardPacketId++, out _).Code,
             "Stronghold duplicate reward claim uses retail rejection code");
         AssertEqual(claimCount, h.Session.inventory.AppliedRewardClaims.Count(key =>
-            key == $"stronghold:{uid}:achievement:{claimedRewardId}"),
+            key.StartsWith($"stronghold:{uid}:") && key.EndsWith($":achievement:{claimedRewardId}")),
             "Stronghold duplicate reward claim does not grant twice");
         AssertEqual(Convert.ToHexString(beforeDuplicateClaim), Convert.ToHexString(player.ToBson()),
             "Stronghold duplicate reward claim does not mutate player state");
@@ -470,7 +470,7 @@ internal partial class Program
 
         byte[] beforeClaimedOnlyRetry = player.ToBson();
         int claimedOnlyClaimCount = h.Session.inventory.AppliedRewardClaims.Count(key =>
-            key == $"stronghold:{uid}:achievement:{claimedOnlyRewardId}");
+            key.StartsWith($"stronghold:{uid}:") && key.EndsWith($":achievement:{claimedOnlyRewardId}"));
         int claimedOnlyRetryPacketId = rewardPacketId++;
         InvokeRegisteredRequestHandler(nameof(GetStrongholdRewardRequest), h.Session, claimedOnlyRetryPacketId,
             new GetStrongholdRewardRequest { Ids = [claimedOnlyRewardId] });
@@ -478,7 +478,7 @@ internal partial class Program
             h, claimedOnlyRetryPacketId, out _).Code,
             "claimed-only legacy reward retry uses retail rejection code");
         AssertEqual(claimedOnlyClaimCount, h.Session.inventory.AppliedRewardClaims.Count(key =>
-            key == $"stronghold:{uid}:achievement:{claimedOnlyRewardId}"),
+            key.StartsWith($"stronghold:{uid}:") && key.EndsWith($":achievement:{claimedOnlyRewardId}")),
             "claimed-only legacy reward retry does not grant twice");
         AssertEqual(Convert.ToHexString(beforeClaimedOnlyRetry), Convert.ToHexString(player.ToBson()),
             "claimed-only legacy reward retry does not mutate state");

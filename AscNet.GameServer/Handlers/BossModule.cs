@@ -1475,7 +1475,7 @@ namespace AscNet.GameServer.Handlers
                 if (!stage.Stages.TryGetValue(stageId, out StageDatum? datum) || !datum.Passed)
                     continue;
 
-                // TaskModule maps Unix seconds to the weekly period as (timestamp / 86_400 + 3) / 7.
+                // TaskModule maps Unix seconds to the weekly period via Config.tsv DailyResetTimestamp/DayOfWeeklyReset.
                 // Zero, future, or non-current timestamps are ambiguous and cannot prove a legacy pass.
                 bool provenCurrentLegacyPass = legacy
                     && datum.LastPassTime > 0

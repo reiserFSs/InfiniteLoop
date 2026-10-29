@@ -534,6 +534,7 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new PreFightResponse { Code = explorePreFightCode }, packet.Id);
                 return;
             }
+            StrongholdModule.Reconcile(session);
             if (StrongholdModule.TryAuthorizePreFight(session.player, req.PreFightData.StageId, out int strongholdCode))
             {
                 if (strongholdCode != 0)
