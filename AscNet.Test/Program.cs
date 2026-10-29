@@ -632,6 +632,11 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--boss-score-rate-only"))
+                {
+                    ValidateBossSingleChallengeScoreRate();
+                    return;
+                }
 
                 if (args.Contains("--theatre6-compat-only"))
                 {
@@ -1334,6 +1339,7 @@ namespace AscNet.Test
                 ValidateStrongholdCycle();
                 ValidateResetBoundary();
                 ValidateRewardQuantities();
+                ValidateBossSingleChallengeScoreRate();
                 ValidatePassportTasks();
                 ValidateStrongholdRolloverCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();

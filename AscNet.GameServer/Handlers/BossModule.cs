@@ -673,6 +673,13 @@ namespace AscNet.GameServer.Handlers
             _ = TryGetChallengeBuffGroup(fight.PreFight.PreFightData.BossSingleChallengeBuffGroup,
                 session.player.SimulatedBattlefield, out pendingBuffGroup, out pendingFeatureIds, out pendingBuffChoices);
             int buffGroup = pendingBuffGroup;
+            // "Current Progress +x%" in the client settlement: ScoreRate (1/100 %) of each selected Type 2 feature,
+            // summed (XUiPanelFubenBossSingleChallengeModePreview / Settlement:_RefreshTotalScoreRate), applies to
+            // the total Progress. The client does no rounding or score math; flooring is AscNet policy.
+            long scoreRate = TableReaderV2.Parse<BossSingleChallengeFeatureTable>()
+                .Where(row => row.Type == 2 && pendingFeatureIds.Contains(row.Id))
+                .Sum(row => (long)(row.ScoreRate ?? 0));
+            bossResult.TotalScore = checked((int)(bossResult.TotalScore + bossResult.TotalScore * scoreRate / 10000));
             session.PendingBossSingleScore = new BossSinglePendingScore
             {
                 StageId = stageId,
