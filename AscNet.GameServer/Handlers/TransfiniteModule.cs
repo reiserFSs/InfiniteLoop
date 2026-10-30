@@ -81,12 +81,47 @@ internal static class TransfiniteModule
             claim.StartsWith(terminalPrefix, StringComparison.Ordinal)
             || claim.StartsWith(resetPrefix, StringComparison.Ordinal)
             || claim.StartsWith(legacyPrefix, StringComparison.Ordinal));
-        if (score <= 0 || !newRotation && backedByCurrentRotation)
-            return;
-
-        session.inventory.Do(TransfiniteScoreItemId, -score);
-        session.inventory.SaveChecked();
+        if (score > 0 && (newRotation || !backedByCurrentRotation))
+        {
+            session.inventory.Do(TransfiniteScoreItemId, -score);
+            session.inventory.SaveChecked();
+        }
+        RepairLegacyAnchoredTerminal(session, current);
     }
+
+    // Runs paid before AnchorSkippedScore existed missed the skipped stages' base score. The run's anchor was never stored,
+    // but it is the one PrepareLogin derived from the outgoing progress, which the rotate-settle state/receipt still holds.
+    // Grant that shortfall once. Untraceable: a SetTeam ResetStageIndex restart with no won stage (leaves no claim), and
+    // runs paid after the fix but before TerminalPaidGroupId existed (indistinguishable, so they would be over-granted).
+    // One-time migration cutoff (commit d6364b4 time, 2026-10-27T15:19:54Z): before it no server contained the anchor fix. Not gameplay data.
+    private const long AnchorFixCutoff = 1793114394;
+    private static void RepairLegacyAnchoredTerminal(Session session, TransfiniteState state)
+    {
+        string prefix = $"{state.ActivityId}:{state.CircleId}:";
+        List<string> claims = session.inventory.AppliedRewardClaims;
+        string repairKey = $"transfinite-terminal-anchor-repair:{prefix}{state.StageGroupId}";
+        int outgoing = state.RotateSettleInfo?.MaxStageProgressIndex ?? state.LastRotateReceipt?.MaxStageProgressIndex ?? 0;
+        long rotation = state.RotateSettleInfo?.RotationId ?? state.LastRotateReceipt?.RotationId ?? 0;
+        var schedule = GetAnchoredActivities().FirstOrDefault(x => x.Activity.Id == state.ActivityId);
+        if (state.TerminalPaidGroupId != 0 || state.LastModifyTime <= 0 || state.LastModifyTime >= AnchorFixCutoff || schedule.Activity is null || rotation <= 0 || rotation >= state.CircleId
+            // The outgoing circle must belong to this activity's schedule, else PrepareLogin never applied an anchor.
+            || rotation - schedule.Schedule.StartTime / schedule.Activity.CycleSeconds - 1 < 0
+            || !claims.Contains($"transfinite-terminal:{prefix}{state.StageGroupId}")
+            || claims.Contains(repairKey)
+            || claims.Any(c => c.StartsWith($"transfinite-reset:{prefix}{state.StageGroupId}:", StringComparison.Ordinal)
+                || c.StartsWith($"transfinite-score:{prefix}", StringComparison.Ordinal))
+            || session.inventory.Items.All(x => x.Id != TransfiniteScoreItemId))
+            return;
+        int anchor = StartProgressFor(outgoing);
+        if (anchor <= 1 || !Groups.Value.TryGetValue(state.StageGroupId, out var group)) return;
+        int skipped = group.StageId.Take(Math.Min(anchor - 1, group.StageId.Count))
+            .Sum(id => Stages.Value.TryGetValue(id, out var stage) ? stage.Score ?? 0 : 0);
+        if (skipped <= 0) return;
+        RewardHandler.ApplyRewardsOnceAndPersist(
+            [new RewardGrant(repairKey, [new RewardGoodsTable { Id = TransfiniteScoreItemId, TemplateId = TransfiniteScoreItemId, Count = skipped }], EventCause: WheelchairManualGuideManager.GetUniqueWeeklyEventCause(91))], session);
+    }
+    private static int StartProgressFor(int outgoing) =>
+        StartProgress.Value.Where(x => x.LastProgress <= outgoing).OrderByDescending(x => x.LastProgress).Select(x => x.StartProgress).FirstOrDefault();
 
     internal static void PrepareLogin(Player player, long now)
     {
@@ -129,7 +164,7 @@ internal static class TransfiniteModule
                 outgoing = Math.Max(outgoing, old.BattleInfo.StageProgressIndex);
             if (old.ActivityId == next.ActivityId)
             {
-                int progressAnchor = StartProgress.Value.Where(x => x.LastProgress <= outgoing).OrderByDescending(x => x.LastProgress).Select(x => x.StartProgress).FirstOrDefault();
+                int progressAnchor = StartProgressFor(outgoing);
                 if (progressAnchor > 0)
                     next.BattleInfo = new() { StageGroupId = next.StageGroupId, StageProgressIndex = progressAnchor - 1, StartStageProgress = progressAnchor };
                 next.MaxRotateStageProgressIndex = outgoing;
@@ -230,6 +265,8 @@ internal static class TransfiniteModule
         if (terminal)
         {
             int total = battle.StageInfo.Sum(x => x.Score);
+            state.TerminalPaidGroupId = battle.StageGroupId;
+            state.TerminalSkippedScore = AnchorSkippedScore(battle);
             int spend = battle.StageInfo.Sum(x => x.SpendTime);
             if (!state.BestSpendTime.TryGetValue(battle.StageGroupId, out int best) || spend < best) state.BestSpendTime[battle.StageGroupId] = spend;
             state.BattleInfo = null;

@@ -394,6 +394,11 @@ namespace AscNet.Test
                     ValidateTransfiniteAnchorAchievementCompatibility();
                     return;
                 }
+                if (args.Contains("--transfinite-anchor-repair-only"))
+                {
+                    ValidateTransfiniteAnchorRepair();
+                    return;
+                }
                 if (args.Contains("--transfinite-compat-only"))
                 {
                     ValidateTransfiniteCompatibility();
@@ -728,6 +733,11 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--arena-effect-zone-score-only"))
+                {
+                    ValidateArenaEffectZoneScore();
+                    return;
+                }
 
 
                 string? liveResonanceUid = args.FirstOrDefault(value =>
@@ -1340,6 +1350,8 @@ namespace AscNet.Test
                 ValidateResetBoundary();
                 ValidateRewardQuantities();
                 ValidateBossSingleChallengeScoreRate();
+                ValidateArenaEffectZoneScore();
+                ValidateTransfiniteAnchorRepair();
                 ValidatePassportTasks();
                 ValidateStrongholdRolloverCompatibility();
                 ValidateBossSingleLoginCompatibilityShape();

@@ -260,11 +260,12 @@ namespace AscNet.GameServer.Handlers
             int timePoint = Evaluate(mark.TimePoint, metrics, mark.MaxTimePoint);
             int npcPoint = Evaluate(mark.NpcGroupPoint, metrics, mark.MaxNpcGroupPoint);
             int point = Math.Clamp(enemyPoint + myHpPoint + timePoint + npcPoint, mark.MinPoint, mark.MaxPoint);
-            int oldStage = state.ArenaStageMaxPoints.GetValueOrDefault(result.StageId);
+            // Several areas (e.g. Nihil and an Entropic Distortion tab) share one StageId, so the best is tracked per area only.
             int oldArea = state.ArenaAreaMaxPoints.GetValueOrDefault(areaId);
-            if (point > oldStage)
+            int oldStage = oldArea;
+            if (point > oldArea)
             {
-                state.ArenaStageMaxPoints[result.StageId] = point;
+                state.ArenaStageMaxPoints[result.StageId] = Math.Max(point, state.ArenaStageMaxPoints.GetValueOrDefault(result.StageId));
                 state.ArenaAreaMaxPoints[areaId] = point;
                 state.ArenaPoint = state.ArenaAreaMaxPoints.Values.Sum();
                 foreach (int type in activeAreas.SelectMany(activeAreaId => AreaStages.Value[activeAreaId].DistributeTypes).Distinct())
@@ -458,7 +459,7 @@ namespace AscNet.GameServer.Handlers
                 ["AreaId"] = areaId, ["Lock"] = 0, ["Point"] = state.ArenaAreaMaxPoints.GetValueOrDefault(areaId),
                 ["LordList"] = new[] { BuildAreaLeader(session, state.ArenaAreaMaxPoints.GetValueOrDefault(areaId)) },
                 ["StageInfos"] = ResolveConfiguredStageId(AreaStages.Value.GetValueOrDefault(areaId)) is { } configuredStageId
-                    && state.ArenaStageMaxPoints.TryGetValue((uint)configuredStageId, out int stagePoint)
+                    && state.ArenaAreaMaxPoints.TryGetValue(areaId, out int stagePoint)
                         ? new List<Dictionary<string, object>> { new() { ["StageId"] = (uint)configuredStageId, ["Point"] = stagePoint } }
                         : null,
             }).ToList();

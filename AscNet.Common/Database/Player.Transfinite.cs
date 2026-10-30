@@ -22,6 +22,9 @@ public sealed class TransfiniteState
     [BsonElement("score_reward_group_id")] public int ScoreRewardGroupId { get; set; }
     [BsonElement("rotate_settle_info")] public TransfiniteRotateSettleState? RotateSettleInfo { get; set; }
     [BsonElement("last_rotate_receipt")] public TransfiniteRotateSettleReceipt? LastRotateReceipt { get; set; }
+    // Set when the rotation's terminal payout was paid with the anchor-skipped stages included (post-fix runs); absent = legacy run.
+    [BsonElement("terminal_paid_group_id")] public int TerminalPaidGroupId { get; set; }
+    [BsonElement("terminal_skipped_score")] public int TerminalSkippedScore { get; set; }
 }
 
 [BsonIgnoreExtraElements]
