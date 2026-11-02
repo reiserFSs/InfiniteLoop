@@ -1,0 +1,12 @@
+--- XLoginManager.lua
++++ XLoginManager.lua
+@@ -1472,3 +1472,9 @@
+         end)
+     end
+ end
++
++-- AscNet core: registers the Mod List second-menu entry. Runs while the game requires its managers: never throw.
++do
++    local ok, err = pcall(require, "XAscNet/XAscNetModList")
++    if not ok then XLog.Error("AscNet core failed to load: " .. tostring(err)) end
++end

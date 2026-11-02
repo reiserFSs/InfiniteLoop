@@ -104,7 +104,10 @@ Close `PGR.exe` before changing a selection. Turn on **Client mods (game debug m
 Lua/table loaders, then switch individual mods on or off; every mod has its own ON/OFF row with its description.
 Changes save and apply immediately; there is no Apply button. Restart the server and game afterward. The master
 switch defaults off and does not enable the Proxima inspector. The GM menu opens with **Ctrl+Shift+D** or the main screen's second-menu
-**GM Menu** button. Some GM commands need stripped debug APIs or unsupported server requests and report errors;
+**GM Menu** button; the **Mod List** button beside it lists every installed mod and reloads its Lua modules. The always-installed
+`core` mod (a `"core": true` mod) provides the second-menu registry and Mod List: it has no ON/OFF row, is installed whenever the master
+switch is on, and `Lua/Matrix/XAscNet/XAscNetModCatalog.lua` (generated at each apply) tells the Mod List what is installed. If `core`
+cannot be built (for example after a client update), nothing is installed and the apply reports why. Some GM commands need stripped debug APIs or unsupported server requests and report errors;
 that is different from an installation failure.
 
 When reporting a mod problem, include the selected client folder and region, selected mod IDs, whether the master

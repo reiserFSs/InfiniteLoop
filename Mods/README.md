@@ -14,11 +14,20 @@ Setup and Play reapply the saved master switch and mod selections before startin
 
 The target is resolved from the selected client's `PGR_Data/app.info` company/product values and Windows' LocalLow known folder, including folder redirection; it is not hardcoded to the EN `kurogame/PGR` directory.
 
-## Included mod
+## Included mods
 
-`gm-menu/` revives the built-in `XManager/XGmTestManager` menu. A Lua UGUI panel (`XAscNet/XAscNetGmPanel`) replaces the stripped C# panel, with English labels in `XAscNet/XAscNetGmLabels`. **Ctrl+Shift+D** toggles it; menus are built on first open. The main screen's second menu also has **GM Menu**. The extra **AscNet** submenu hot-reloads a module by name.
+`core/` is installed whenever client mods are installed (the launcher never shows a switch for it; the research builder always installs it). It has `"core": true` in `mod.json` and provides:
 
-The button is appended in Lua after `XUiConfigs.GetSystemSubMenuList()` filters timed rows: a table row would be hidden without an open server-sent TimeId. It uses skip ID `990001`, claimed by the panel in `XFunctionManager.SkipInterface`. Commands needing stripped C# debug APIs or unsupported server GM requests report errors in the panel; installing the menu does not implement those commands.
+- `XAscNet/XAscNetSubMenu`: the only code that wraps `XUiConfigs.GetSystemSubMenuList` and `XFunctionManager.SkipInterface`. Mods add main-screen second-menu entries with `XAscNetSubMenu.Add{ key, skipId, title, subtitle, icon, open }`; re-adding a key replaces it, and the wrap survives hot reload. Entries are appended in Lua after the game's time filter (a table row would be hidden without an open server-sent TimeId) with the full `UiMainSubMenu` row shape (list columns are empty tables), and a skip ID that must not exist in the shipped `SkipFunctional.tab` (4.8: highest 11080106). IDs in use: `990001` GM Menu, `990002` Mod List.
+- `XAscNet/XAscNetPanel`: the runtime-built UGUI overlay panel (`XAscNetPanel.New{...}`), shared by the GM menu and the Mod List. Esc or Close hides it.
+- `XAscNet/XAscNetModList`: the **Mod List** entry in the main screen's second menu. It lists each installed mod (name, description, `[core]` marker, module and table counts, modules) with a **Reload** button that calls `XHotReload.Reload` for each of the mod's modules that is already loaded.
+- `XManager/XLoginManager.diff`: appends a guarded `require` of `XAscNet/XAscNetModList`, so the entry exists before the main screen builds its grid.
+
+Both builders also write `Lua/Matrix/XAscNet/XAscNetModCatalog.lua`, the generated list of installed mods (id, name, description, `core`, installed `modules` and `tables`; core first, then by id) that the Mod List reads. It is tracked in the manifest and removed with the other outputs; do not edit it.
+
+`gm-menu/` revives the built-in `XManager/XGmTestManager` menu. A Lua UGUI panel (`XAscNet/XAscNetGmPanel`, built on core's panel) replaces the stripped C# panel, with English labels in `XAscNet/XAscNetGmLabels`. **Ctrl+Shift+D** toggles it; menus are built on first open. The main screen's second menu also has **GM Menu** (registered through `XAscNetSubMenu`). The extra **AscNet** submenu hot-reloads a module by name.
+
+Commands needing stripped C# debug APIs or unsupported server GM requests report errors in the panel; installing the menu does not implement those commands.
 
 ## Authoring
 
@@ -34,7 +43,7 @@ The launcher shows the description on one line under the mod's switch (about 90 
 - `<name>/<Module/Path>.diff`: a unified diff against the shipped module. The launcher requires exact context, with no fuzz or offset. Generate with `diff -u --label X.lua --label X.lua original modified`.
 - `<name>/Table/<path>.tab`: a whole replacement table at the exact requested path; header row, tab-separated, CRLF. Keep EN text ASCII (the client decodes GBK). Tables are indexed at game start, so restart after changes.
 
-Directories beginning with `_` are ignored. Two selected mods cannot own the same output. Do not commit extracted shipped originals here.
+Directories beginning with `_` are ignored. Set `"core": true` only for always-installed foundations (hidden from the launcher's switches, listed first in the Mod List). Two selected mods cannot own the same output; core owns `XManager/XLoginManager`. Do not commit extracted shipped originals here.
 
 ## Research tools
 

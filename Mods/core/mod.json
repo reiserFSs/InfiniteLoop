@@ -1,0 +1,5 @@
+{
+  "name": "AscNet core",
+  "description": "Shared client-mod foundation: the Mod List in the main screen's second menu and its entry registry.",
+  "core": true
+}
