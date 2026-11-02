@@ -1,5 +1,5 @@
-//! Native outbound calls: DNS lookups of known telemetry / public-IP-lookup hosts are always redirected to an
-//! unresolvable name (`blocked.invalid`), so the lookup fails like an offline host; with `ASCNET_PATCH_NETAUDIT=1`
+//! Native outbound calls: DNS lookups of known telemetry / public-IP-lookup hosts are always failed in place
+//! with `WSAHOST_NOT_FOUND`, like an offline host, without reaching the resolver; with `ASCNET_PATCH_NETAUDIT=1`
 //! every outbound call is also logged once per destination and calling module. Arguments are otherwise untouched.
 use std::{cell::Cell, collections::HashSet, ffi::c_void, net::{Ipv4Addr, Ipv6Addr}, sync::{LazyLock, Mutex, mpsc::{sync_channel, SyncSender}, atomic::{AtomicBool, Ordering}}};
 use ilhook::x64::Registers;
@@ -13,7 +13,6 @@ extern "system" {
     fn GetProcAddress(module: *mut c_void, name: *const u8) -> *mut c_void;
     fn GetModuleHandleExW(flags: u32, address: *const u16, module: *mut *mut c_void) -> i32;
     fn GetModuleFileNameW(module: *mut c_void, name: *mut u16, size: u32) -> u32;
-    fn RtlCaptureStackBackTrace(skip: u32, count: u32, frames: *mut *mut c_void, hash: *mut u32) -> u16;
     fn ReadProcessMemory(process: *mut c_void, address: *const c_void, buffer: *mut c_void, size: usize, read: *mut usize) -> i32;
     fn GetLastError() -> u32;
     fn SetLastError(error: u32);
@@ -21,16 +20,6 @@ extern "system" {
 
 const LIMIT: usize = 512;
 static AUDIT: AtomicBool = AtomicBool::new(false);
-static BLOCKED_A: &[u8] = b"blocked.invalid\0";
-static BLOCKED_W: [u16; 16] = {
-    let mut wide = [0u16; 16];
-    let mut i = 0;
-    while i < BLOCKED_A.len() {
-        wide[i] = BLOCKED_A[i] as u16;
-        i += 1;
-    }
-    wide
-};
 /// Seen by the 4.8 client (network audit, 2026-10-23): CrashSight's upload host (`pc.crashsight.wetest.net`)
 /// and the public-IP lookup `XNoticeManager.RequestIp` runs at start-up (icanhazip, then ipify / ifconfig /
 /// inet-ip as fallbacks). The client has no consumer of that IP; blocking leaves it empty.
@@ -48,10 +37,16 @@ static EVENTS: LazyLock<SyncSender<Event>> = LazyLock::new(|| {
         let mut seen = HashSet::with_capacity(LIMIT);
         let mut full = false;
         while let Ok(event) = receiver.recv() {
+            // Module lookups run here, not inside the hooked call.
+            let caller = unsafe { module_at(event.caller_address) }.unwrap_or_else(|| "<unknown>".into());
+            let source = event.source
+                .or_else(|| (!system_module(&caller) && caller != "<unknown>").then(|| caller.clone()))
+                .unwrap_or_else(|| "<unknown>".into());
+            let key = dedup_key(event.api, event.destination, &source);
             if OVERFLOW.swap(false, Ordering::Relaxed) {
                 diag::log(&diag::failed_line("lucia", "net audit", "audit queue full; some calls were not audited"));
             }
-            if seen.contains(&event.key) { continue; }
+            if seen.contains(&key) { continue; }
             if seen.len() == LIMIT {
                 if !full {
                     full = true;
@@ -60,19 +55,19 @@ static EVENTS: LazyLock<SyncSender<Event>> = LazyLock::new(|| {
                 continue;
             }
             let line = if event.blocked {
-                format!("{} ({}) from {}; the lookup fails as if offline", event.key.destination, event.key.api, event.source)
+                format!("{} ({}) from {source}; the lookup fails as if offline", key.destination, key.api)
             } else {
-                format!("{} {} from {} (caller {})", event.key.api, event.key.destination, event.source, event.caller)
+                format!("{} {} from {source} (caller {caller})", key.api, key.destination)
             };
             let what = if event.blocked { "telemetry blocked" } else { "net audit" };
-            seen.insert(event.key);
+            seen.insert(key);
             diag::log(&diag::ok_line("lucia", what, &line));
         }
     });
     sender
 });
 static OVERFLOW: AtomicBool = AtomicBool::new(false);
-struct Event { key: AuditKey, source: String, caller: String, blocked: bool }
+struct Event { api: &'static str, destination: String, caller_address: usize, source: Option<String>, blocked: bool }
 thread_local! { static ACTIVE: Cell<bool> = const { Cell::new(false) }; }
 
 #[derive(Hash, PartialEq, Eq)]
@@ -90,31 +85,33 @@ pub unsafe fn install() {
 
 unsafe fn install_hooks() -> Mutex<Interceptor> {
         let mut owner = Interceptor::new();
-        let dns: &[(&str, ilhook::x64::JmpBackRoutine)] =
+        let dns: &[(&str, ilhook::x64::JmpToRetRoutine)] =
             &[("getaddrinfo", dns_a), ("GetAddrInfoW", dns_w), ("GetAddrInfoExW", dns_ex_w), ("gethostbyname", host_a)];
-        let mut libraries: Vec<(&str, &[(&str, ilhook::x64::JmpBackRoutine)])> = vec![("ws2_32.dll", dns)];
+        install_library(&mut owner, "ws2_32.dll", dns, |owner, address, routine| owner.redirect(address, routine));
         if AUDIT.load(Ordering::Relaxed) {
-            libraries.push(("ws2_32.dll", &[("connect", connect)]));
-            libraries.push(("winhttp.dll", &[("WinHttpConnect", http_connect)]));
-            libraries.push(("wininet.dll", &[("InternetConnectW", internet_connect_w), ("InternetConnectA", internet_connect_a), ("InternetOpenUrlW", url_w), ("InternetOpenUrlA", url_a)]));
-        }
-        for (dll, targets) in libraries {
-            let wide: Vec<u16> = dll.encode_utf16().chain(Some(0)).collect();
-            // Retain LoadLibrary's reference for the lifetime of the installed hooks.
-            let module = LoadLibraryW(wide.as_ptr());
-            for &(api, routine) in targets {
-                let name: Vec<u8> = api.bytes().chain(Some(0)).collect();
-                let address = if module.is_null() { std::ptr::null_mut() } else { GetProcAddress(module, name.as_ptr()) };
-                if address.is_null() {
-                    diag::log(&diag::failed_line("lucia", "net hook", &format!("{dll}!{api} unavailable; calls through this API are neither blocked nor audited")));
-                } else if let Err(error) = owner.attach(address as usize, routine) {
-                    diag::log(&diag::failed_line("lucia", "net hook", &format!("{dll}!{api}: {error}; calls through this API are neither blocked nor audited")));
-                } else if AUDIT.load(Ordering::Relaxed) {
-                    diag::log(&diag::ok_line("lucia", "net audit hook", &format!("{dll}!{api}")));
-                }
-            }
+            let attach = |owner: &mut Interceptor, address, routine| owner.attach(address, routine);
+            install_library(&mut owner, "ws2_32.dll", &[("connect", connect as ilhook::x64::JmpBackRoutine)], attach);
+            install_library(&mut owner, "winhttp.dll", &[("WinHttpConnect", http_connect as ilhook::x64::JmpBackRoutine)], attach);
+            install_library(&mut owner, "wininet.dll", &[("InternetConnectW", internet_connect_w as ilhook::x64::JmpBackRoutine), ("InternetConnectA", internet_connect_a), ("InternetOpenUrlW", url_w), ("InternetOpenUrlA", url_a)], attach);
         }
         Mutex::new(owner)
+}
+
+unsafe fn install_library<R: Copy>(owner: &mut Interceptor, dll: &str, targets: &[(&str, R)], hook: impl Fn(&mut Interceptor, usize, R) -> anyhow::Result<()>) {
+    let wide: Vec<u16> = dll.encode_utf16().chain(Some(0)).collect();
+    // Retain LoadLibrary's reference for the lifetime of the installed hooks.
+    let module = LoadLibraryW(wide.as_ptr());
+    for &(api, routine) in targets {
+        let name: Vec<u8> = api.bytes().chain(Some(0)).collect();
+        let address = if module.is_null() { std::ptr::null_mut() } else { GetProcAddress(module, name.as_ptr()) };
+        if address.is_null() {
+            diag::log(&diag::failed_line("lucia", "net hook", &format!("{dll}!{api} unavailable; calls through this API are neither blocked nor audited")));
+        } else if let Err(error) = hook(owner, address as usize, routine) {
+            diag::log(&diag::failed_line("lucia", "net hook", &format!("{dll}!{api}: {error}; calls through this API are neither blocked nor audited")));
+        } else if AUDIT.load(Ordering::Relaxed) {
+            diag::log(&diag::ok_line("lucia", "net audit hook", &format!("{dll}!{api}")));
+        }
+    }
 }
 
 unsafe fn copy_memory(address: usize, bytes: &mut [u8]) -> bool {
@@ -234,9 +231,11 @@ impl Drop for Guard {
     fn drop(&mut self) { ACTIVE.with(|flag| flag.set(false)); unsafe { SetLastError(self.0); } }
 }
 
-/// Logs `destination` once (always for blocks, otherwise only with the audit on).
+/// Queues `destination` for logging (always for blocks, otherwise only with the audit on). Runs inside the
+/// hooked call, so it only reads the caller's return address; stack unwinding stays with the developer audit.
 unsafe fn observe(reg: *mut Registers, api: &'static str, blocked: bool, destination: impl FnOnce(&Registers) -> String) {
-    if !blocked && !AUDIT.load(Ordering::Relaxed) { return; }
+    let audit = AUDIT.load(Ordering::Relaxed);
+    if !blocked && !audit { return; }
     let error = GetLastError();
     if ACTIVE.with(|flag| flag.replace(true)) { return; }
     let _guard = Guard(error);
@@ -244,17 +243,11 @@ unsafe fn observe(reg: *mut Registers, api: &'static str, blocked: bool, destina
     let destination = destination(regs);
     let mut return_address = [0u8; 8];
     let caller_address = if copy_memory(regs.rsp as usize, &mut return_address) { usize::from_le_bytes(return_address) } else { 0 };
-    let caller = module_at(caller_address).unwrap_or_else(|| "<unknown>".into());
-    let mut source = if !system_module(&caller) && caller != "<unknown>" { Some(caller.clone()) } else { None };
-    let mut frames = [std::ptr::null_mut(); 16];
-    // Required bounded capture is diagnostic only: never attribute through the
-    // unregistered trampoline using these callback-stack frames.
-    let _count = RtlCaptureStackBackTrace(0, frames.len() as u32, frames.as_mut_ptr(), std::ptr::null_mut());
-    if source.is_none() { source = original_source(regs, caller_address); }
-    let source = source.unwrap_or_else(|| "<unknown>".into());
-    let key = dedup_key(api, destination, &source);
+    let source = if audit && module_at(caller_address).is_none_or(|caller| system_module(&caller)) {
+        original_source(regs, caller_address)
+    } else { None };
     // ponytail: bounded handoff; logging and dedup never hold up a network thread.
-    if EVENTS.try_send(Event { key, source, caller, blocked }).is_err() {
+    if EVENTS.try_send(Event { api, destination, caller_address, source, blocked }).is_err() {
         OVERFLOW.store(true, Ordering::Relaxed);
     }
 }
@@ -270,25 +263,42 @@ macro_rules! host_hook {
     };
 }
 
-/// DNS entry points: the host is the first argument (rcx). A deny-listed host is swapped for `blocked.invalid`
-/// (a reserved TLD that never resolves) before the original runs, so the caller sees an ordinary lookup failure.
+// Stand-ins for a deny-listed lookup: the same result as an unresolvable name, without a resolver round-trip.
+// WSASetLastError is SetLastError on Windows and Wine.
+const WSAHOST_NOT_FOUND: i32 = 11001;
+unsafe extern "system" fn fail_addrinfo(_: *const c_void, _: *const c_void, _: *const c_void, result: *mut *mut c_void) -> i32 {
+    if !result.is_null() { *result = std::ptr::null_mut(); }
+    SetLastError(WSAHOST_NOT_FOUND as u32);
+    WSAHOST_NOT_FOUND
+}
+#[allow(clippy::too_many_arguments)]
+unsafe extern "system" fn fail_addrinfo_ex(_: *const u16, _: *const u16, _: u32, _: *const c_void, _: *const c_void, result: *mut *mut c_void, _: *const c_void, _: *const c_void, _: *const c_void, _: *const c_void) -> i32 {
+    if !result.is_null() { *result = std::ptr::null_mut(); }
+    SetLastError(WSAHOST_NOT_FOUND as u32);
+    WSAHOST_NOT_FOUND
+}
+unsafe extern "system" fn fail_hostent(_: *const u8) -> *mut c_void {
+    SetLastError(WSAHOST_NOT_FOUND as u32);
+    std::ptr::null_mut()
+}
+
+/// DNS entry points: the host is the first argument (rcx). A deny-listed lookup jumps to the matching stand-in
+/// with the caller's registers and stack intact; every other lookup continues into the original function.
 macro_rules! dns_hook {
-    ($name:ident, $api:literal, $wide:expr) => {
-        unsafe extern "win64" fn $name(reg: *mut Registers, _: usize) {
-            if ACTIVE.with(|flag| flag.get()) { return; }
+    ($name:ident, $api:literal, $wide:expr, $fail:ident) => {
+        unsafe extern "win64" fn $name(reg: *mut Registers, original: usize, _: usize) -> usize {
+            if ACTIVE.with(|flag| flag.get()) { return original; }
             let host = text((*reg).rcx as usize, $wide);
             let blocked = blocked_host(&host);
-            if blocked {
-                (*reg).rcx = if $wide { BLOCKED_W.as_ptr() as u64 } else { BLOCKED_A.as_ptr() as u64 };
-            }
             observe(reg, $api, blocked, |_| host);
+            if blocked { $fail as *const () as usize } else { original }
         }
     };
 }
-dns_hook!(dns_a, "getaddrinfo", false);
-dns_hook!(dns_w, "GetAddrInfoW", true);
-dns_hook!(dns_ex_w, "GetAddrInfoExW", true);
-dns_hook!(host_a, "gethostbyname", false);
+dns_hook!(dns_a, "getaddrinfo", false, fail_addrinfo);
+dns_hook!(dns_w, "GetAddrInfoW", true, fail_addrinfo);
+dns_hook!(dns_ex_w, "GetAddrInfoExW", true, fail_addrinfo_ex);
+dns_hook!(host_a, "gethostbyname", false, fail_hostent);
 host_hook!(http_connect, "WinHttpConnect", rdx, true, true);
 host_hook!(internet_connect_w, "InternetConnectW", rdx, true, true);
 host_hook!(internet_connect_a, "InternetConnectA", rdx, false, true);
@@ -344,6 +354,5 @@ mod block_tests {
         for host in ["notwetest.net", "icanhazip.com.evil.example", "prod-encdn-ak.pgr-game.com", "127.0.0.1", ""] {
             assert!(!blocked_host(host), "{host}");
         }
-        assert_eq!(&BLOCKED_W[..BLOCKED_A.len()], BLOCKED_A.iter().map(|&b| u16::from(b)).collect::<Vec<_>>().as_slice());
     }
 }

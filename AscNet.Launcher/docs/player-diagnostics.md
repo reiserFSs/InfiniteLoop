@@ -327,7 +327,10 @@ Always on. `lucia` hooks the DNS entry points of `ws2_32.dll` (`getaddrinfo`, `G
 `gethostbyname`) as soon as it loads and makes lookups of these hosts (and their subdomains) fail as if offline:
 `wetest.net` (CrashSight crash/exception uploads, `pc.crashsight.wetest.net`) and the public-IP services the
 client queries at start-up (`XNoticeManager.RequestIp`: `icanhazip.com`, `ipify.org`, `ifconfig.me`, `ifconfig.co`,
-`inet-ip.info`; the client has no consumer of that IP, so it simply stays empty). Each blocked host is logged once:
+`inet-ip.info`; the client has no consumer of that IP, so it simply stays empty). A blocked lookup never reaches the
+resolver: the call returns `WSAHOST_NOT_FOUND` (11001) with an empty result, exactly like an unknown host, so it does
+not depend on how the player's network answers unknown names. Each blocked host is logged once with the module that
+called it:
 
 ```
 [lucia] OK telemetry blocked: ipv4.icanhazip.com (getaddrinfo) from UnityPlayer.dll; the lookup fails as if offline

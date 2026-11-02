@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use ilhook::x64::{
-    CallbackOption, HookFlags, HookPoint, HookType, Hooker, JmpBackRoutine, RetnRoutine,
+    CallbackOption, HookFlags, HookPoint, HookType, Hooker, JmpBackRoutine, JmpToRetRoutine, RetnRoutine,
 };
 
 unsafe impl Send for Interceptor {}
@@ -28,6 +28,17 @@ impl Interceptor {
             bail!("Failed to attach 0x{addr:X}")
         };
 
+        self.hooks.push(hook_point);
+        Ok(())
+    }
+
+    /// The routine returns where execution continues, with the caller's registers and stack restored: the
+    /// original function pointer it receives, or a stand-in with the same signature.
+    pub unsafe fn redirect(&mut self, addr: usize, routine: JmpToRetRoutine) -> Result<()> {
+        let hooker = Hooker::new(addr, HookType::JmpToRet(routine), CallbackOption::None, 0, HookFlags::empty());
+        let Ok(hook_point) = hooker.hook() else {
+            bail!("Failed to redirect 0x{addr:X}")
+        };
         self.hooks.push(hook_point);
         Ok(())
     }
