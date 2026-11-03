@@ -104,5 +104,8 @@ Focused harness switches are defined in `AscNet.Test/Program.cs`; `Docs/developm
 ## Client dump and native research
 An authoritative client source of the 4.8 update (4.8.10 EN and CN live) is available at /PGR-native-research/PGR_DATA/en/. You can use /cn/ if it has the required data if /en/ does not. Additional tooling is available in the root directory /PGR-native-research.
 
+## Agent skills
+Task-specific procedures live in `.claude/skills/<name>/SKILL.md`; the index is `.claude/skills/README.md`. Read the matching skill before starting: `ascnet-handler-checklist` (implementing or fixing a request handler and its test), `ascnet-player-report-triage` (player bug reports), `ascnet-differential-full-harness` (full-suite regression check with `--keep-going`), `ascnet-parallel-agent-work` (several agents on one checkout), `pgr-packet-contract-reconstruction` (rebuilding a flow from client Lua and captures), `ascnet-installed-client-upgrade` (moving to a new client version), `pgr-lua-mods` (client mods and live probes via `Scripts/pgr.py`), plus the BigWorld, benchmark and Lua-replay skills listed in the index.
+
 # Agent responses
 Keep your responses brief, terse  

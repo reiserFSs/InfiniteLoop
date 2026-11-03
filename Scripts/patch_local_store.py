@@ -1,6 +1,6 @@
 """Prepare/apply a reversible local-recharge callback patch to the installed client.
 
-Requires UnityPy, pycryptodome and msgpack. The optional --catalog patch adds
+Requires UnityPy and pycryptodome. The optional --catalog patch adds
 reward-based missing-icon resolution and mutually exclusive ownership/status
 overlays. Existing local recharge patches are preserved. Preparation never
 modifies the installed game.
@@ -13,8 +13,12 @@ import re
 import subprocess
 from pathlib import Path
 
-import msgpack
 import UnityPy
+
+try:
+    from . import pgr_bundles
+except ImportError:  # run as a script
+    import pgr_bundles
 
 MARKER = '-- AscNet local recharge completion'
 KEY = bytes.fromhex('587865636f6472506547616b61326536')
@@ -81,19 +85,15 @@ def purchase_bundle_assets(game):
     texture that bundle does not contain. Keys are lowercase bundle paths.
     """
     UnityPy.set_assetbundle_decrypt_key(KEY)
-    base = game / 'PGR_Data' / 'StreamingAssets'
-    index = UnityPy.load(str(base / 'resource/matrix/index'))
-    index_asset = next(obj.read() for obj in index.objects if obj.type.name == 'TextAsset')
-    catalog = msgpack.unpackb(index_asset.m_Script.encode('utf-8', 'surrogateescape'), strict_map_key=False)[0]
+    resolver = pgr_bundles.Resolver(game)
     snapshot = {}
     prefix = 'assets/product/texture/image/uipurchase'
-    for key, value in catalog.items():
-        lowered = str(key).lower()
-        if not (lowered.startswith(prefix) and lowered.endswith('.ab')):
+    for key in resolver.names(prefix, '.ab', scope='resource'):
+        try:
+            path = resolver.resolve(key, scope='resource')
+        except FileNotFoundError:
             continue
-        path = base / 'resource/matrix' / value[0]
-        if not path.is_file():
-            continue
+        lowered = key.lower()
         env = UnityPy.load(str(path))
         snapshot[lowered] = sorted(name.lower() for name in env.container)
     if not snapshot:
@@ -116,13 +116,7 @@ def prepare(game, output, catalog_patch=False):
     if output.exists() and any(output.iterdir()):
         raise RuntimeError('Output must be empty to preserve existing rollback backups')
     UnityPy.set_assetbundle_decrypt_key(KEY)
-    base = game / 'PGR_Data' / 'StreamingAssets'
-    index = UnityPy.load(str(base / 'document/matrix/index'))
-    index_asset = next(obj.read() for obj in index.objects if obj.type.name == 'TextAsset')
-    catalog = msgpack.unpackb(index_asset.m_Script.encode('utf-8', 'surrogateescape'), strict_map_key=False)[0]
-    filename = catalog['assets/temp/lua/matrix.ab'][0]
-    source = next(path for folder in ('document/matrix', 'resource/matrix')
-                  if (path := base / folder / filename).is_file())
+    source = pgr_bundles.resolve('assets/temp/lua/matrix.ab', game)
     original = source.read_bytes()
     env = UnityPy.load(original)
     before = text_assets(env)

@@ -1,6 +1,6 @@
 """Behavioral Lua tests; set PGR_RESEARCH_LUA to the exported matrix Lua directory
 to additionally validate the real client call sites and timer transitions.
-Requires lupa, UnityPy and msgpack.
+Requires lupa and UnityPy.
 """
 import json
 import os

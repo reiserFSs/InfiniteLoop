@@ -10,6 +10,8 @@ import json
 import urllib.request
 from pathlib import Path
 
+import pgr_bundles
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group(required=True)
@@ -28,7 +30,6 @@ spec = importlib.util.spec_from_file_location("pgr_table_decoder", TOOL)
 dec = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(dec)
 assets = dec.load_module(dec.ASSET_VIEWER, "pgr_assets_upgrade")
-starter = dec.load_module(dec.STARTER, "pgr_starter_upgrade")
 OUT = ROOT / ".runtime/upgrade-4.8/tables"
 BASE = ROOT.parent / "PGR_Data/en/bytes"
 DOMAINS = ("character", "skill", "enhanceskill", "equip", "fashion", "weaponfashion", "partner", "draw", "item", "robot", "npc", "attrib", "grade", "quality", "headportrait")
@@ -301,14 +302,14 @@ def refresh_schema_deltas():
 def run(roots_only=False, recover_only=False, discover_only=False):
     install = Path(json.loads(dec.DEFAULT_MANIFEST.read_text())["source_install"])
     matrix = install / "PGR_Data/StreamingAssets"
-    indexes = {scope: starter.decode_matrix_index_file(assets, matrix / scope / "matrix/index")[2]
-               for scope in ("resource", "document")}
+    resolver = pgr_bundles.Resolver(install)
+    indexes = {scope: resolver.indexes.get(scope, {}) for scope in ("resource", "document")}
     effective = {**indexes["resource"], **indexes["document"]}
     baseline = {r["Name"].lower(): r["Sha1"] for r in json.loads((BASE / "Sha1.json").read_text())}
     inventory = json.loads((OUT / "manifest.json").read_text()) if roots_only or recover_only or discover_only else {}
     failures = json.loads((OUT / "errors.json").read_text()) if roots_only or recover_only or discover_only else {}
     deltas = json.loads((OUT / "delta.json").read_text()) if roots_only or recover_only or discover_only else {}
-    candidates = sorted(k for k in effective if k.startswith("assets/temp/bytes/") and k.endswith(".ab"))
+    candidates = resolver.names("assets/temp/bytes/", ".ab")  # index names + names found by scanning bundle contents
     if roots_only:
         candidates = [k for k in candidates if
                       f"{k.removeprefix('assets/temp/bytes/').removesuffix('.ab')}/{Path(k).stem}.tab".lower() not in inventory]
@@ -316,32 +317,39 @@ def run(roots_only=False, recover_only=False, discover_only=False):
     if recover_only:
         candidates = [k for k in candidates if k in failures]
     for number, logical in enumerate(candidates, 1):
-        entry = effective[logical]
+        entry = effective.get(logical)
         rel = logical.removeprefix("assets/temp/bytes/").removesuffix(".ab")
         scope = "document" if logical in indexes["document"] else "resource"
         try:
-            path = matrix / scope / "matrix" / str(entry[0])
-            if not path.is_file() and scope == "document":
-                alternative = indexes["resource"].get(logical)
-                if alternative and alternative[1:] == entry[1:]:
-                    path = matrix / "resource/matrix" / str(alternative[0])
             source_url = None
-            raw = path.read_bytes() if path.is_file() else b""
-            if len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
-                alternative = indexes["resource"].get(logical)
-                fallback = matrix / "resource/matrix" / str(alternative[0]) if alternative and alternative[1:] == entry[1:] else None
-                if fallback and fallback.is_file():
-                    physical = fallback.read_bytes()
-                    if len(physical) == entry[2] and hashlib.sha1(physical).hexdigest().lower() == str(entry[1]).lower():
-                        path, raw = fallback, physical
+            if entry is None:  # index no longer maps the name (4.9+): locate by bundle contents; SHA1 cannot be checked
+                path = resolver.resolve(logical)
+                raw = path.read_bytes()
+                scope = path.parent.parent.name
+                entry = [path.name, hashlib.sha1(raw).hexdigest(), len(raw)]
+            else:
+                path = matrix / scope / "matrix" / str(entry[0])
+                if not path.is_file() and scope == "document":
+                    alternative = indexes["resource"].get(logical)
+                    if alternative and alternative[1:] == entry[1:]:
+                        path = matrix / "resource/matrix" / str(alternative[0])
+                raw = path.read_bytes() if path.is_file() else b""
                 if len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
-                    source_url = f"{CDN_PATCH}/{entry[0]}"
-                    raw = urllib.request.urlopen(source_url, timeout=30).read()
+                    alternative = indexes["resource"].get(logical)
+                    fallback = matrix / "resource/matrix" / str(alternative[0]) if alternative and alternative[1:] == entry[1:] else None
+                    if fallback and fallback.is_file():
+                        physical = fallback.read_bytes()
+                        if len(physical) == entry[2] and hashlib.sha1(physical).hexdigest().lower() == str(entry[1]).lower():
+                            path, raw = fallback, physical
                     if len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
-                        raise ValueError(f"no bundle with effective index SHA1/size: {logical} {entry[1:]}")
-                    path = OUT / "bundles" / str(entry[0])
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(raw)
+                        source_url = f"{CDN_PATCH}/{entry[0]}"
+                        raw = urllib.request.urlopen(source_url, timeout=30).read()
+                        if len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
+                            raise ValueError(f"no bundle with effective index SHA1/size: {logical} {entry[1:]}")
+                        path = OUT / "bundles" / str(entry[0])
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_bytes(raw)
+
             payload = assets.decode_bundle_payload(raw)[2]
             failures.pop(logical, None)
             # Accept serialized paths, baseline-known names, or independently
@@ -412,7 +420,7 @@ def run(roots_only=False, recover_only=False, discover_only=False):
     dump(OUT / "delta.json", deltas)
     dump(OUT / "errors.json", failures)
     dump(OUT / "index-delta.json", {"index_sha1": {scope: hashlib.sha1((matrix / scope / "matrix/index").read_bytes()).hexdigest()
-                                                    for scope in indexes},
+                                                    for scope in resolver.indexes},
                                      "resource_only": sorted(indexes["resource"].keys() - indexes["document"].keys()),
                                      "document_only": sorted(indexes["document"].keys() - indexes["resource"].keys()),
                                      "overrides": sorted(k for k in indexes["document"].keys() & indexes["resource"].keys()

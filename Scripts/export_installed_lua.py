@@ -10,6 +10,8 @@ from io import BytesIO
 import json
 from pathlib import Path
 
+import pgr_bundles
+
 FOCUS = Path(__file__).resolve().parents[2] / "tools/build_re_focus_index.py"
 BUNDLES = ("matrix", "dlcfight")
 UNITY_INSPECT = Path(__file__).resolve().parents[2] / "tools/unitypy_asset_inspect.py"
@@ -27,7 +29,6 @@ def main() -> None:
     focus = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(focus)
     assets = focus.load_module(focus.ASSET_VIEWER, "pgr_assets")
-    starter = focus.load_module(focus.STARTER, "pgr_starter")
     inspector_spec = importlib.util.spec_from_file_location("unity_inspect", UNITY_INSPECT)
     inspector = importlib.util.module_from_spec(inspector_spec)
     inspector_spec.loader.exec_module(inspector)
@@ -35,45 +36,48 @@ def main() -> None:
     UnityPy.set_assetbundle_decrypt_key(inspector.DEFAULT_KEY)
     install = Path(json.loads(focus.DEFAULT_MANIFEST.read_text())["source_install"])
     root = install / "PGR_Data/StreamingAssets"
-    indexes = {}
-    for scope in ("resource", "document"):
-        path = root / scope / "matrix/index"
-        if path.exists():
-            indexes[scope] = {"sha1": hashlib.sha1(path.read_bytes()).hexdigest(),
-                              "entries": starter.decode_matrix_index_file(assets, path)[2]}
-    effective = {**indexes["resource"]["entries"], **indexes.get("document", {}).get("entries", {})}
+    resolver = pgr_bundles.Resolver(install)
+    indexes = {scope: {"sha1": hashlib.sha1((root / scope / "matrix/index").read_bytes()).hexdigest(), "entries": table}
+               for scope, table in resolver.indexes.items()}
+    effective = {**resolver.indexes.get("resource", {}), **resolver.indexes.get("document", {})}
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     bundle_report = []
     module_report = []
     for group in BUNDLES:
         logical = f"assets/temp/lua/{group}.ab"
-        entry = effective[logical]
+        entry = effective.get(logical)
         data = None
         origin = None
-        for scope in ("document", "resource"):
-            scoped = indexes.get(scope, {}).get("entries", {}).get(logical)
-            if scoped is None or scoped[1:] != entry[1:]:
-                continue
-            path = root / scope / "matrix" / str(scoped[0])
-            if path.is_file():
-                candidate = path.read_bytes()
-                if len(candidate) == entry[2] and hashlib.sha1(candidate).hexdigest() == entry[1]:
-                    data, origin = candidate, str(path)
-                    break
-        if data is None:
-            if not args.cdn_root:
-                raise ValueError(f"Missing unmodified indexed bundle {logical}: {entry}; supply --cdn-root")
-            from urllib.request import urlopen
-            url = f"{args.cdn_root.rstrip('/')}/{entry[0]}"
-            with urlopen(url, timeout=120) as response:
-                candidate = response.read()
-            if len(candidate) != entry[2] or hashlib.sha1(candidate).hexdigest() != entry[1]:
-                raise ValueError(f"Official bundle identity mismatch: {url}")
-            data, origin = candidate, url
-            raw = output / "bundles" / str(entry[0])
-            raw.parent.mkdir(parents=True, exist_ok=True)
-            raw.write_bytes(data)
+        if entry is None:  # index no longer maps the name (4.9+): locate by bundle contents; sha1 cannot be checked
+            path = resolver.resolve(logical)
+            data = path.read_bytes()
+            origin = f"{path} (scan, unverified)"
+            entry = [path.name, hashlib.sha1(data).hexdigest(), len(data)]
+        else:
+            for scope in ("document", "resource"):
+                scoped = indexes.get(scope, {}).get("entries", {}).get(logical)
+                if scoped is None or scoped[1:] != entry[1:]:
+                    continue
+                path = root / scope / "matrix" / str(scoped[0])
+                if path.is_file():
+                    candidate = path.read_bytes()
+                    if len(candidate) == entry[2] and hashlib.sha1(candidate).hexdigest() == entry[1]:
+                        data, origin = candidate, str(path)
+                        break
+            if data is None:
+                if not args.cdn_root:
+                    raise ValueError(f"Missing unmodified indexed bundle {logical}: {entry}; supply --cdn-root")
+                from urllib.request import urlopen
+                url = f"{args.cdn_root.rstrip('/')}/{entry[0]}"
+                with urlopen(url, timeout=120) as response:
+                    candidate = response.read()
+                if len(candidate) != entry[2] or hashlib.sha1(candidate).hexdigest() != entry[1]:
+                    raise ValueError(f"Official bundle identity mismatch: {url}")
+                data, origin = candidate, url
+                raw = output / "bundles" / str(entry[0])
+                raw.parent.mkdir(parents=True, exist_ok=True)
+                raw.write_bytes(data)
         _, _, payload = assets.decode_bundle_payload(data)
         expected = Counter((item["name"], item["sha1"]) for item in focus.iter_lua_text_assets(assets, payload))
         exported = Counter()

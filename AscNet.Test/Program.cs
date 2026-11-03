@@ -80,6 +80,7 @@ namespace AscNet.Test
             try
             {
                 UseResourceWorkingDirectory();
+                keepGoing = args.Contains("--keep-going");
                 if (args.Contains("--profile-compat-only"))
                 {
                     ValidateProfileCompatibility();
@@ -637,11 +638,6 @@ namespace AscNet.Test
                     return;
                 }
 
-                if (args.Contains("--boss-score-rate-only"))
-                {
-                    ValidateBossSingleChallengeScoreRate();
-                    return;
-                }
 
                 if (args.Contains("--theatre6-compat-only"))
                 {
@@ -733,11 +729,6 @@ namespace AscNet.Test
                     return;
                 }
 
-                if (args.Contains("--arena-effect-zone-score-only"))
-                {
-                    ValidateArenaEffectZoneScore();
-                    return;
-                }
 
 
                 string? liveResonanceUid = args.FirstOrDefault(value =>
@@ -881,6 +872,18 @@ namespace AscNet.Test
                 if (args.Contains("--boss-activity-compat-only"))
                 {
                     ValidateBossActivityCompatibility();
+                    return;
+                }
+
+                if (args.Contains("--boss-score-rate-only"))
+                {
+                    ValidateBossSingleChallengeScoreRate();
+                    return;
+                }
+
+                if (args.Contains("--arena-effect-zone-score-only"))
+                {
+                    ValidateArenaEffectZoneScore();
                     return;
                 }
 
@@ -1310,171 +1313,198 @@ namespace AscNet.Test
                     return;
                 }
 
-                ValidateCerberusGameCompatibility();
-                ValidateProfileCompatibility();
-                ValidateMaintainerActionCompatibility();
-                ValidateUltimaAwakenCompatibility();
-                ValidateLoadingOptionCompatibility();
-                ValidateDormDispatchAllCompatibility();
-                ValidatePacketInputSafety();
-                ValidateReportBanChatCompatibility();
-                ValidateSdkInputSafety().GetAwaiter().GetResult();
-                ValidateTablePerformanceCompatibility();
+                Step("ValidateCerberusGameCompatibility", () => ValidateCerberusGameCompatibility());
+                Step("ValidateProfileCompatibility", () => ValidateProfileCompatibility());
+                Step("ValidateMaintainerActionCompatibility", () => ValidateMaintainerActionCompatibility());
+                Step("ValidateUltimaAwakenCompatibility", () => ValidateUltimaAwakenCompatibility());
+                Step("ValidateLoadingOptionCompatibility", () => ValidateLoadingOptionCompatibility());
+                Step("ValidateDormDispatchAllCompatibility", () => ValidateDormDispatchAllCompatibility());
+                Step("ValidatePacketInputSafety", () => ValidatePacketInputSafety());
+                Step("ValidateReportBanChatCompatibility", () => ValidateReportBanChatCompatibility());
+                Step("ValidateSdkInputSafety", () => ValidateSdkInputSafety().GetAwaiter().GetResult());
+                Step("ValidateTablePerformanceCompatibility", () => ValidateTablePerformanceCompatibility());
                 _ = JsonConvert.DeserializeObject<NotifyLogin>(File.ReadAllText(ResourcePath("Data", "NotifyLogin.json")))!;
                 _ = JsonConvert.DeserializeObject<NotifyTaskData>(File.ReadAllText(ResourcePath("Data", "NotifyTaskData.json")))!;
-                ValidateNotifyLoginCurrentClientCompatibilityShape();
-                ValidateLoginAccountCompatibility();
-                ValidateSessionClientLoopFramingCompatibility();
-                ValidateStageBookmarkCompatibility();
-                ValidateStageRewardClaimsCompatibility();
-                ValidateMainLine2UpdateExhibitionChapterCompatibility();
-                ValidateMainLine2LoginDataBsonCompatibility();
-                ValidateMainLine2ReceiveMainTreasureCompatibility();
-                ValidateMainLine2MessageStateUpdateCompatibility();
-                ValidateMainLineLuosaitaEnterCompatibility();
-                ValidateMainLineTreasureRewardCompatibility();
-                ValidateGatherAwakenRewardCompatibility();
-                ValidateTaskProgressCompatibility();
-                ValidateCharacterTaskProgressCompatibility();
-                ValidateEquipTaskProgressCompatibility();
-                ValidateSweepTaskProgressCompatibility();
-                ValidateShopTaskProgressCompatibility();
-                ValidateDrawTaskProgressCompatibility();
-                ValidatePartnerStoryCompatibility();
-                ValidateCourseCompatibility();
-                ValidateEquipGuideGoalCompatibility();
-                ValidateStrongholdSweepCompatibility();
-                ValidateStrongholdRelatedFightCompatibility();
-                ValidateTransfiniteAnchorAchievementCompatibility();
-                ValidateStrongholdCycle();
-                ValidateResetBoundary();
-                ValidateRewardQuantities();
-                ValidateBossSingleChallengeScoreRate();
-                ValidateArenaEffectZoneScore();
-                ValidateTransfiniteAnchorRepair();
-                ValidatePassportTasks();
-                ValidateStrongholdRolloverCompatibility();
-                ValidateBossSingleLoginCompatibilityShape();
-                ValidateBossSingleLoginRollover();
-                ValidateBossSingleSharedTimestampBoundary();
-                ValidateBossSingleReconnectStageSnapshot();
-                ValidateBossActivityCompatibility();
-                ValidateBossSingleCompatibility();
-                ValidateBossSectionScoreProgress();
-                ValidateBossSingleIntensiveStageHydration();
-                ValidateBossSingleCycleStageScoreSync();
-                ValidateSimulatedBattlefieldCompatibility();
-                ValidateCurrentClientGuideTableCompatibility();
-                ValidateWheelchairManualFullCompatibility();
-                ValidatePlayerCostTimeUploadCompatibility();
-                ValidateRecordPlayerPointCompatibility();
-                ValidateBoardMutualClientPushCompatibility();
-                ValidatePlayerGenderCompatibility();
-                ValidateCharacterSwitchLiberateMagicCompatibility();
-                ValidateCharacterSwitchSkillCompatibility();
-                ValidateCharacterSendGiftCompatibility();
-                ValidateTeamPrefabCompatibility();
-                ValidatePreFightPositionCompatibility();
-                ValidateRobotDeploymentFashionCompatibility();
-                ValidateSegmentCheckFightCompatibility();
-                ValidateFightRestartCompatibility();
-                ValidatePartnerDecomposeCompatibilitySuite();
+                Step("ValidateNotifyLoginCurrentClientCompatibilityShape", () => ValidateNotifyLoginCurrentClientCompatibilityShape());
+                Step("ValidateLoginAccountCompatibility", () => ValidateLoginAccountCompatibility());
+                Step("ValidateSessionClientLoopFramingCompatibility", () => ValidateSessionClientLoopFramingCompatibility());
+                Step("ValidateStageBookmarkCompatibility", () => ValidateStageBookmarkCompatibility());
+                Step("ValidateStageRewardClaimsCompatibility", () => ValidateStageRewardClaimsCompatibility());
+                Step("ValidateMainLine2UpdateExhibitionChapterCompatibility", () => ValidateMainLine2UpdateExhibitionChapterCompatibility());
+                Step("ValidateMainLine2LoginDataBsonCompatibility", () => ValidateMainLine2LoginDataBsonCompatibility());
+                Step("ValidateMainLine2ReceiveMainTreasureCompatibility", () => ValidateMainLine2ReceiveMainTreasureCompatibility());
+                Step("ValidateMainLine2MessageStateUpdateCompatibility", () => ValidateMainLine2MessageStateUpdateCompatibility());
+                Step("ValidateMainLineLuosaitaEnterCompatibility", () => ValidateMainLineLuosaitaEnterCompatibility());
+                Step("ValidateMainLineTreasureRewardCompatibility", () => ValidateMainLineTreasureRewardCompatibility());
+                Step("ValidateGatherAwakenRewardCompatibility", () => ValidateGatherAwakenRewardCompatibility());
+                Step("ValidateTaskProgressCompatibility", () => ValidateTaskProgressCompatibility());
+                Step("ValidateCharacterTaskProgressCompatibility", () => ValidateCharacterTaskProgressCompatibility());
+                Step("ValidateEquipTaskProgressCompatibility", () => ValidateEquipTaskProgressCompatibility());
+                Step("ValidateSweepTaskProgressCompatibility", () => ValidateSweepTaskProgressCompatibility());
+                Step("ValidateShopTaskProgressCompatibility", () => ValidateShopTaskProgressCompatibility());
+                Step("ValidateDrawTaskProgressCompatibility", () => ValidateDrawTaskProgressCompatibility());
+                Step("ValidatePartnerStoryCompatibility", () => ValidatePartnerStoryCompatibility());
+                Step("ValidateCourseCompatibility", () => ValidateCourseCompatibility());
+                Step("ValidateEquipGuideGoalCompatibility", () => ValidateEquipGuideGoalCompatibility());
+                Step("ValidateStrongholdSweepCompatibility", () => ValidateStrongholdSweepCompatibility());
+                Step("ValidateStrongholdRelatedFightCompatibility", () => ValidateStrongholdRelatedFightCompatibility());
+                Step("ValidateTransfiniteAnchorAchievementCompatibility", () => ValidateTransfiniteAnchorAchievementCompatibility());
+                Step("ValidateStrongholdCycle", () => ValidateStrongholdCycle());
+                Step("ValidateResetBoundary", () => ValidateResetBoundary());
+                Step("ValidateRewardQuantities", () => ValidateRewardQuantities());
+                Step("ValidateBossSingleChallengeScoreRate", () => ValidateBossSingleChallengeScoreRate());
+                Step("ValidateArenaEffectZoneScore", () => ValidateArenaEffectZoneScore());
+                Step("ValidateTransfiniteAnchorRepair", () => ValidateTransfiniteAnchorRepair());
+                Step("ValidatePassportTasks", () => ValidatePassportTasks());
+                Step("ValidateStrongholdRolloverCompatibility", () => ValidateStrongholdRolloverCompatibility());
+                Step("ValidateBossSingleLoginCompatibilityShape", () => ValidateBossSingleLoginCompatibilityShape());
+                Step("ValidateBossSingleLoginRollover", () => ValidateBossSingleLoginRollover());
+                Step("ValidateBossSingleSharedTimestampBoundary", () => ValidateBossSingleSharedTimestampBoundary());
+                Step("ValidateBossSingleReconnectStageSnapshot", () => ValidateBossSingleReconnectStageSnapshot());
+                Step("ValidateBossActivityCompatibility", () => ValidateBossActivityCompatibility());
+                Step("ValidateBossSingleCompatibility", () => ValidateBossSingleCompatibility());
+                Step("ValidateBossSectionScoreProgress", () => ValidateBossSectionScoreProgress());
+                Step("ValidateBossSingleIntensiveStageHydration", () => ValidateBossSingleIntensiveStageHydration());
+                Step("ValidateBossSingleCycleStageScoreSync", () => ValidateBossSingleCycleStageScoreSync());
+                Step("ValidateSimulatedBattlefieldCompatibility", () => ValidateSimulatedBattlefieldCompatibility());
+                Step("ValidateCurrentClientGuideTableCompatibility", () => ValidateCurrentClientGuideTableCompatibility());
+                Step("ValidateWheelchairManualFullCompatibility", () => ValidateWheelchairManualFullCompatibility());
+                Step("ValidatePlayerCostTimeUploadCompatibility", () => ValidatePlayerCostTimeUploadCompatibility());
+                Step("ValidateRecordPlayerPointCompatibility", () => ValidateRecordPlayerPointCompatibility());
+                Step("ValidateBoardMutualClientPushCompatibility", () => ValidateBoardMutualClientPushCompatibility());
+                Step("ValidatePlayerGenderCompatibility", () => ValidatePlayerGenderCompatibility());
+                Step("ValidateCharacterSwitchLiberateMagicCompatibility", () => ValidateCharacterSwitchLiberateMagicCompatibility());
+                Step("ValidateCharacterSwitchSkillCompatibility", () => ValidateCharacterSwitchSkillCompatibility());
+                Step("ValidateCharacterSendGiftCompatibility", () => ValidateCharacterSendGiftCompatibility());
+                Step("ValidateTeamPrefabCompatibility", () => ValidateTeamPrefabCompatibility());
+                Step("ValidatePreFightPositionCompatibility", () => ValidatePreFightPositionCompatibility());
+                Step("ValidateRobotDeploymentFashionCompatibility", () => ValidateRobotDeploymentFashionCompatibility());
+                Step("ValidateSegmentCheckFightCompatibility", () => ValidateSegmentCheckFightCompatibility());
+                Step("ValidateFightRestartCompatibility", () => ValidateFightRestartCompatibility());
+                Step("ValidatePartnerDecomposeCompatibilitySuite", () => ValidatePartnerDecomposeCompatibilitySuite());
 
-                ValidateCharacterProgressionPersistenceCompatibility();
-                ValidateCharacterSkillGroupTableBackedCompatibility();
-                ValidateCharacterEnhanceSkillTableBackedCompatibility();
-                ValidateExpLevelCompatibility();
-                ValidateStoryCourseRewardCompatibility();
-                ValidatePrequelRewardCompatibility();
-                ValidateHiddenStageCompatibility();
-                ValidateStoryDeployVersionGapCompatibility();
-                ValidateStudyCharacterCompatibility();
-                ValidateStudyProgressionCompatibility();
-                ValidateFightSettleRetreatCompatibility();
-                ValidateFightSettleAchievementCompatibility();
-                ValidatePr2QualityCompatibility();
-                ValidateInventoryEquipCompatibility();
-                ValidateEquipDecomposeCompatibility();
-                ValidateEquipChipRecycleCompatibility();
-                ValidateDrawCompatibility();
-                ValidateDrawRules();
-                ValidateItemUseCompatibility();
-                ValidateItemBuyAssetCompatibility();
-                ValidateAutoUseGiftCompatibility();
-                ValidateItemSellCompatibility();
-                ValidateInventoryMaxCountCompatibility();
-                ValidateChatCompatibility();
-                ValidateCommandCompatibility();
-                ValidateSceneCommandCompatibility();
-                ValidateMissingFeatureCompatibility();
-                ValidateFashionSuitRewardCompatibility();
-                ValidateBiancaTheatreCompatibility();
-                ValidateTheatreCompatibility();
-                ValidateTheatre4Compatibility();
-                ValidateTheatre5Compatibility();
-                ValidateTheatre6Compatibility();
-                ValidateCharacterTowerCompatibility();
-                ValidateShopCompatibility();
-                ValidateShopRefreshCompatibility();
-                ValidatePurchasesCompatibility();
-                ValidateChatSocialCompatibility();
-                ValidateEquipPartnerCompatibility();
-                ValidateCollectionMiscCompatibility();
-                ValidateWardrobePhotoCompatibility();
-                ValidateMiscSystemCompatibility();
-                ValidateMiscPlayerCompatibility();
-                ValidatePartialModesCompatibility();
-                ValidateSmallRewardsCompatibility();
-                ValidateFavorMemoryCompatibility();
-                ValidateFriendsCompatibility();
-                ValidateWeeklyActivenessCompatibility();
-                ValidateArchiveCompatibility();
-                ValidateWheelchairManualPurchaseCompatibility();
-                ValidateCurrentClientNoticeFixtures();
-                ValidateCurrentClientNoticeEndpoints().GetAwaiter().GetResult();
-                ValidateLifeTreeFinishProcessRequestCompatibility();
-                ValidateSteamClientConfig();
-                RunAudioPlayerCompatibility();
-                RunAudioPlayerUpgradeCompatibility();
-                ValidateVersion48Frames();
-                ValidateVersion48DrawCubCompatibility();
-                ValidateDateALiveTaskProgressCompatibility();
-                ValidateVersion48EquipmentCosmetics();
-                ValidatePassportCompatibility();
-                ValidateStageGeneralSkillBanCompatibility();
-                ValidateTeamRecommendCompatibility();
-                ValidateTeamRecommendGlobalStandings();
-                ValidateEnvelopeCatchUpAndReissue();
-                ValidateMissingCalendarAscNetPolicy();
-                ValidateCosmicDailyTasks();
-                RunMineSweepingCompatibility();
-                ValidateEquipmentSlotNotifications();
-                RunFangKuaiCompatibility();
-                RunPunishaarCompatibility();
-                ValidateTransfiniteTowerBoundary();
-                ValidateTransfiniteTowerRanking();
-                ValidateTransfiniteTowerProgression();
-                ValidateChatBoardRewardGrants();
-                ValidateVersion48MainLine43();
-                ValidateVersion48BossTrialWindows();
-                ValidateRosterLife48Compatibility();
-                ValidateVersion48GuideCompletion();
-                ValidateVersion48EventPanelTasks();
-                ValidateVersion48AffectionStoryTask();
-                ValidateFestivalExperimentClearRelogin();
-                ValidateVersion48TeachingTreasureClaims();
-                ValidateCoatingGacha48Compatibility();
-                ValidateBackgroundRewardGrants();
-                ValidateGuildWarPopupActionCompatibility();
-                ValidateVersion47ConcertStartCompatibility();
-                ValidateKuroSdkCompatibilityEndpoints().GetAwaiter().GetResult();
-                ValidateCnSdkConfiguration().GetAwaiter().GetResult();
-                ValidateCnSdkLogin().GetAwaiter().GetResult();
+                Step("ValidateCharacterProgressionPersistenceCompatibility", () => ValidateCharacterProgressionPersistenceCompatibility());
+                Step("ValidateCharacterSkillGroupTableBackedCompatibility", () => ValidateCharacterSkillGroupTableBackedCompatibility());
+                Step("ValidateCharacterEnhanceSkillTableBackedCompatibility", () => ValidateCharacterEnhanceSkillTableBackedCompatibility());
+                Step("ValidateExpLevelCompatibility", () => ValidateExpLevelCompatibility());
+                Step("ValidateStoryCourseRewardCompatibility", () => ValidateStoryCourseRewardCompatibility());
+                Step("ValidatePrequelRewardCompatibility", () => ValidatePrequelRewardCompatibility());
+                Step("ValidateHiddenStageCompatibility", () => ValidateHiddenStageCompatibility());
+                Step("ValidateStoryDeployVersionGapCompatibility", () => ValidateStoryDeployVersionGapCompatibility());
+                Step("ValidateStudyCharacterCompatibility", () => ValidateStudyCharacterCompatibility());
+                Step("ValidateStudyProgressionCompatibility", () => ValidateStudyProgressionCompatibility());
+                Step("ValidateFightSettleRetreatCompatibility", () => ValidateFightSettleRetreatCompatibility());
+                Step("ValidateFightSettleAchievementCompatibility", () => ValidateFightSettleAchievementCompatibility());
+                Step("ValidatePr2QualityCompatibility", () => ValidatePr2QualityCompatibility());
+                Step("ValidateInventoryEquipCompatibility", () => ValidateInventoryEquipCompatibility());
+                Step("ValidateEquipDecomposeCompatibility", () => ValidateEquipDecomposeCompatibility());
+                Step("ValidateEquipChipRecycleCompatibility", () => ValidateEquipChipRecycleCompatibility());
+                Step("ValidateDrawCompatibility", () => ValidateDrawCompatibility());
+                Step("ValidateDrawRules", () => ValidateDrawRules());
+                Step("ValidateItemUseCompatibility", () => ValidateItemUseCompatibility());
+                Step("ValidateItemBuyAssetCompatibility", () => ValidateItemBuyAssetCompatibility());
+                Step("ValidateAutoUseGiftCompatibility", () => ValidateAutoUseGiftCompatibility());
+                Step("ValidateItemSellCompatibility", () => ValidateItemSellCompatibility());
+                Step("ValidateInventoryMaxCountCompatibility", () => ValidateInventoryMaxCountCompatibility());
+                Step("ValidateChatCompatibility", () => ValidateChatCompatibility());
+                Step("ValidateCommandCompatibility", () => ValidateCommandCompatibility());
+                Step("ValidateSceneCommandCompatibility", () => ValidateSceneCommandCompatibility());
+                Step("ValidateMissingFeatureCompatibility", () => ValidateMissingFeatureCompatibility());
+                Step("ValidateFashionSuitRewardCompatibility", () => ValidateFashionSuitRewardCompatibility());
+                Step("ValidateBiancaTheatreCompatibility", () => ValidateBiancaTheatreCompatibility());
+                Step("ValidateTheatreCompatibility", () => ValidateTheatreCompatibility());
+                Step("ValidateTheatre4Compatibility", () => ValidateTheatre4Compatibility());
+                Step("ValidateTheatre5Compatibility", () => ValidateTheatre5Compatibility());
+                Step("ValidateTheatre6Compatibility", () => ValidateTheatre6Compatibility());
+                Step("ValidateCharacterTowerCompatibility", () => ValidateCharacterTowerCompatibility());
+                Step("ValidateShopCompatibility", () => ValidateShopCompatibility());
+                Step("ValidateShopRefreshCompatibility", () => ValidateShopRefreshCompatibility());
+                Step("ValidatePurchasesCompatibility", () => ValidatePurchasesCompatibility());
+                Step("ValidateChatSocialCompatibility", () => ValidateChatSocialCompatibility());
+                Step("ValidateEquipPartnerCompatibility", () => ValidateEquipPartnerCompatibility());
+                Step("ValidateCollectionMiscCompatibility", () => ValidateCollectionMiscCompatibility());
+                Step("ValidateWardrobePhotoCompatibility", () => ValidateWardrobePhotoCompatibility());
+                Step("ValidateMiscSystemCompatibility", () => ValidateMiscSystemCompatibility());
+                Step("ValidateMiscPlayerCompatibility", () => ValidateMiscPlayerCompatibility());
+                Step("ValidatePartialModesCompatibility", () => ValidatePartialModesCompatibility());
+                Step("ValidateSmallRewardsCompatibility", () => ValidateSmallRewardsCompatibility());
+                Step("ValidateFavorMemoryCompatibility", () => ValidateFavorMemoryCompatibility());
+                Step("ValidateFriendsCompatibility", () => ValidateFriendsCompatibility());
+                Step("ValidateWeeklyActivenessCompatibility", () => ValidateWeeklyActivenessCompatibility());
+                Step("ValidateArchiveCompatibility", () => ValidateArchiveCompatibility());
+                Step("ValidateWheelchairManualPurchaseCompatibility", () => ValidateWheelchairManualPurchaseCompatibility());
+                Step("ValidateCurrentClientNoticeFixtures", () => ValidateCurrentClientNoticeFixtures());
+                Step("ValidateCurrentClientNoticeEndpoints", () => ValidateCurrentClientNoticeEndpoints().GetAwaiter().GetResult());
+                Step("ValidateLifeTreeFinishProcessRequestCompatibility", () => ValidateLifeTreeFinishProcessRequestCompatibility());
+                Step("ValidateSteamClientConfig", () => ValidateSteamClientConfig());
+                Step("RunAudioPlayerCompatibility", () => RunAudioPlayerCompatibility());
+                Step("RunAudioPlayerUpgradeCompatibility", () => RunAudioPlayerUpgradeCompatibility());
+                Step("ValidateVersion48Frames", () => ValidateVersion48Frames());
+                Step("ValidateVersion48DrawCubCompatibility", () => ValidateVersion48DrawCubCompatibility());
+                Step("ValidateDateALiveTaskProgressCompatibility", () => ValidateDateALiveTaskProgressCompatibility());
+                Step("ValidateVersion48EquipmentCosmetics", () => ValidateVersion48EquipmentCosmetics());
+                Step("ValidatePassportCompatibility", () => ValidatePassportCompatibility());
+                Step("ValidateStageGeneralSkillBanCompatibility", () => ValidateStageGeneralSkillBanCompatibility());
+                Step("ValidateTeamRecommendCompatibility", () => ValidateTeamRecommendCompatibility());
+                Step("ValidateTeamRecommendGlobalStandings", () => ValidateTeamRecommendGlobalStandings());
+                Step("ValidateEnvelopeCatchUpAndReissue", () => ValidateEnvelopeCatchUpAndReissue());
+                Step("ValidateMissingCalendarAscNetPolicy", () => ValidateMissingCalendarAscNetPolicy());
+                Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
+                Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());
+                Step("ValidateEquipmentSlotNotifications", () => ValidateEquipmentSlotNotifications());
+                Step("RunFangKuaiCompatibility", () => RunFangKuaiCompatibility());
+                Step("RunPunishaarCompatibility", () => RunPunishaarCompatibility());
+                Step("ValidateTransfiniteTowerBoundary", () => ValidateTransfiniteTowerBoundary());
+                Step("ValidateTransfiniteTowerRanking", () => ValidateTransfiniteTowerRanking());
+                Step("ValidateTransfiniteTowerProgression", () => ValidateTransfiniteTowerProgression());
+                Step("ValidateChatBoardRewardGrants", () => ValidateChatBoardRewardGrants());
+                Step("ValidateVersion48MainLine43", () => ValidateVersion48MainLine43());
+                Step("ValidateVersion48BossTrialWindows", () => ValidateVersion48BossTrialWindows());
+                Step("ValidateRosterLife48Compatibility", () => ValidateRosterLife48Compatibility());
+                Step("ValidateVersion48GuideCompletion", () => ValidateVersion48GuideCompletion());
+                Step("ValidateVersion48EventPanelTasks", () => ValidateVersion48EventPanelTasks());
+                Step("ValidateVersion48AffectionStoryTask", () => ValidateVersion48AffectionStoryTask());
+                Step("ValidateFestivalExperimentClearRelogin", () => ValidateFestivalExperimentClearRelogin());
+                Step("ValidateVersion48TeachingTreasureClaims", () => ValidateVersion48TeachingTreasureClaims());
+                Step("ValidateCoatingGacha48Compatibility", () => ValidateCoatingGacha48Compatibility());
+                Step("ValidateBackgroundRewardGrants", () => ValidateBackgroundRewardGrants());
+                Step("ValidateGuildWarPopupActionCompatibility", () => ValidateGuildWarPopupActionCompatibility());
+                Step("ValidateVersion47ConcertStartCompatibility", () => ValidateVersion47ConcertStartCompatibility());
+                Step("ValidateKuroSdkCompatibilityEndpoints", () => ValidateKuroSdkCompatibilityEndpoints().GetAwaiter().GetResult());
+                Step("ValidateCnSdkConfiguration", () => ValidateCnSdkConfiguration().GetAwaiter().GetResult());
+                Step("ValidateCnSdkLogin", () => ValidateCnSdkLogin().GetAwaiter().GetResult());
+                if (keepGoingFailures > 0)
+                    Environment.ExitCode = 1;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(ex);
                 Environment.ExitCode = 1;
+            }
+        }
+
+        // `--keep-going` runs every full-sequence test, printing @@PASS/@@FAIL per test, instead of stopping at the
+        // first failure; the process still exits non-zero if any test failed.
+        private static bool keepGoing;
+        private static int keepGoingFailures;
+
+        private static void Step(string name, Action test)
+        {
+            if (!keepGoing)
+            {
+                test();
+                return;
+            }
+            try
+            {
+                test();
+                Console.WriteLine($"@@PASS {name}");
+            }
+            catch (Exception ex)
+            {
+                keepGoingFailures++;
+                Exception inner = ex is System.Reflection.TargetInvocationException { InnerException: { } cause } ? cause : ex;
+                Console.WriteLine($"@@FAIL {name} {inner.GetType().Name}: {inner.Message.Split('\n')[0]}");
             }
         }
 

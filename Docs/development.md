@@ -455,6 +455,47 @@ exercised: `Lua/Launch/` for `XLaunch*` modules, `Lua/DlcFight/` for fight Lua, 
 (class wrapping, extra network checks, timer stack traces), so it is not for normal play. `persistentDataPath` is
 `%USERPROFILE%\AppData\LocalLow\kurogame\PGR`.
 
+`Scripts/pgr.py` drives that inspector from a terminal: `python3 Scripts/pgr.py lua 'return XPlayer.Id'` runs Lua in the game and prints the result, `reload <module>` hot-reloads a module, and `cmd ?` lists the inspector's own commands (`--host` for a client on another machine).
+
+### Resolving client bundles (`Scripts/pgr_bundles.py`)
+
+Client bundles under `PGR_Data/StreamingAssets/{resource,document}/matrix` are content-addressed `<sha1>.uab` files; the
+matrix `index` maps logical names (`assets/temp/lua/matrix.ab`) to them, and 4.9 reportedly drops that mapping for most
+bundles. `pgr_bundles.py` resolves names without it: the import-time API is `resolve(logical, scope=None)`,
+`find_asset(asset_path)` (both trees, case-insensitive) and `Resolver(install).names(prefix, suffix)`; the real index is tried first, then a scan cache
+(`.runtime/pgr_bundles_cache.json`, keyed by file name + size + mtime, so rescans are incremental) built from each bundle's
+own `AssetBundle` object, in both the `matrix` and the separate `launch` tree (`StreamingAssets/<scope>/launch/`, own index; holds `assets/temp/lua/launch.ab`, `launchmanifest`, `assets/launch/*`) (`m_Name` plus container asset paths; only the first LZ4 blocks are decoded, in parallel).
+Document overrides resource; among stale duplicates the newest wins. The install defaults to the native-starter manifest's
+`source_install`.
+
+```bash
+python3 Scripts/pgr_bundles.py scan                      # first run ~80-120 s, later runs ~0.3 s
+python3 Scripts/pgr_bundles.py resolve --no-index assets/temp/lua/matrix.ab   # --no-index simulates 4.9
+python3 Scripts/pgr_bundles.py find assets/temp/lua/matrix/xmanager/xluavideomanager.lua.bytes
+python3 Scripts/pgr_bundles.py validate                  # scan-derived name -> file vs the real index
+python3 Scripts/pgr_bundles.py verify-live --host H --dump-path <persistentDataPath>/ascnet-urltable.tsv   # vs the client's UrlTable
+python3 -m unittest Scripts.test_pgr_bundles
+```
+
+On the installed 4.8 client `validate` matches all 42,496 UnityFS index entries (matrix 42,477 + launch 19) by the bundle's own name and by the name
+derived from container paths alone (single-asset bundle `<asset>.ab`, else `<common dir>.ab` or an ancestor; 4,959
+audio/video index entries are raw non-Unity files and stay index-only; one more, `launchmanifest`, matches via its single container asset).
+
+`verify-live` compares the scan with the running client's own table, the ground truth: `XResourceManager.UrlTable`, a
+private static `IDictionary<string,string>` (original-case asset path -> logical bundle; 460,827 entries on 4.8 EN),
+read by Lua reflection (`typeof(CS.XResourceManager):GetField("UrlTable", 40):GetValue(nil)`, 40 = NonPublic|Static).
+`CS.XResourceManager.GetBundleUrl` is **case-sensitive** (`Assets/Product/...` resolves, the lowercase path returns nil), so
+compare case-insensitively. With `--dump-path` the client writes the table to `<persistentDataPath>/ascnet-urltable.tsv`
+with `io.open` (1-2 s on a fresh client) and the script reads and deletes it; the Proxima-only fallback (no `--dump-path`)
+returns the log over the inspector in chunks and is impractical (~30 s per call, large replies kill the connection, a
+second call on a connection can reset). Result on 4.8 EN against the scan: 460,827 match, 0 bundle differences, 0
+client-only; 680 scan-only assets in 131 bundles that are on disk and in the index but absent from `matrixmanifest`/UrlTable
+(never loaded by the client, mostly `assets/product/texture|ui|effect`). Raw audio/video entries are not in UrlTable. On 4.9
+the UrlTable dump is the ground truth for validating the scan. The Scripts that read installed bundles (`export_installed_lua.py`,
+`scan_client_upgrade.py`, `import_bigworld_*.py`, `patch_local_store.py`) resolve through it; the first two keep verifying
+the index SHA1/size where the index still has an entry and otherwise use the scanned bundle unverified. Launcher design for 4.9:
+[bundle resolution](../AscNet.Launcher/docs/bundle-resolution.md).
+
 ## Running with the Steam/PC bridge
 
 Basic local bridge with MongoDB managed by the runner:
@@ -543,44 +584,17 @@ dotnet run --project AscNet.Test/AscNet.Test.csproj -- --theatre-compat-only
 dotnet run --project AscNet.Test/AscNet.Test.csproj -- --version-48-compat-only
 ```
 
-Available focused switches:
+Run the whole suite without stopping at the first failure (prints `@@PASS`/`@@FAIL` per test and exits non-zero if any failed). One guild test needs `Database.Name` in `AscNet.Test/bin/Debug/net8.0/Configs/config.json` to start with `ascnet_manual_full_`:
 
-```text
---first-batch-safety-only
---dorm-dispatch-compat-only
---ultima-awaken-compat-only
---notify-login-compat-only
---stage-bookmark-compat-only
---mainline2-exhibition-compat-only
---mainline-treasure-reward-compat-only
---boss-single-login-compat-only
---guide-table-compat-only
---player-cost-time-upload-compat-only
---record-player-point-compat-only
---player-gender-compat-only
---board-mutual-push-compat-only
---character-progression-persistence-compat-only
---fashion-suit-reward-compat-only
---exp-level-compat-only
---story-course-reward-compat-only
---hidden-stage-compat-only
---pr2-quality-compat-only
---current-client-notice-endpoints-only
---theatre-compat-only
---theatre6-compat-only
---theatre6-visibility-only
---version-48-compat-only
---version-48-frames-only
---version-48-draw-cub-compat-only
---version-48-equipment-cosmetics-only
---version-48-audio-only
---date-alive-task-progress-only
---team-recommend-only
---fangkuai-only
---punishaar-only
---non-fate-policy-only
---stage-general-skill-ban-only
---transfinite-tower-boundary-only
+```bash
+dotnet build AscNet.Test/AscNet.Test.csproj
+cd AscNet.Test/bin/Debug/net8.0 && dotnet AscNet.Test.dll --keep-going
+```
+
+Every focused switch is an `args.Contains("--...-only")` block in `AscNet.Test/Program.cs`; list them with:
+
+```bash
+grep -o -- '"--[a-z0-9-]*-only"' AscNet.Test/Program.cs | tr -d '"' | sort -u
 ```
 
 Build the main projects:

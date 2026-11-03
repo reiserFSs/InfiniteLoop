@@ -20,6 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from decode_pgr_pcap import MessagePackReader  # noqa: E402
 from import_client_tables import parse, project, render  # noqa: E402
+import pgr_bundles  # noqa: E402
 
 CORPUS = Path('../PGR_DATA/en/bytes')
 TARGET = Path('Resources/table')
@@ -92,7 +93,6 @@ _upstream_read_value = dbt.Reader.read_value
 dbt.Reader.read_value = _read_value
 _manifest = dbt.load_json(dbt.DEFAULT_MANIFEST)
 _assets = dbt.load_module(dbt.ASSET_VIEWER, 'pgr_assets')
-_starter = dbt.load_module(dbt.STARTER, 'pgr_starter')
 _bundles: dict[str, dict] = {}
 
 
@@ -101,7 +101,7 @@ def bundle_tables(directory: str) -> dict:
     if directory not in _bundles:
         tables = {}
         try:
-            _, _, path = dbt.resolve_matrix_bundle(_starter, _assets, _manifest, f'assets/temp/bytes/{directory}.ab', 'resource')
+            path = pgr_bundles.resolve(f'assets/temp/bytes/{directory}.ab', scope='resource')
             _, _, payload = _assets.decode_bundle_payload(path.read_bytes())
             for item in dbt.iter_text_assets(_assets, payload):
                 name = str(item['name']).rsplit('/', 1)[-1]
@@ -214,7 +214,7 @@ def import_quests(report):
     """Native quest config (XTableDlcQuest/Step/Objective) from QuestData_* into three TSVs.
     Objectives keep their native ObjectiveList position (Order): Serial steps run in that order,
     which is not id order."""
-    _, _, path = dbt.resolve_matrix_bundle(_starter, _assets, _manifest, 'assets/temp/bytes/share/statussyncfight/quest.ab', 'resource')
+    path = pgr_bundles.resolve('assets/temp/bytes/share/statussyncfight/quest.ab', scope='resource')
     _, _, payload = _assets.decode_bundle_payload(path.read_bytes())
     quests, steps, objectives = [], [], []
     for item in dbt.iter_text_assets(_assets, payload):
