@@ -61,6 +61,8 @@ The launcher is a Windows program. `nix build` produces `result/AscNetLauncher.z
 
 The zip's `background.bmp`, `background.mp4`, and `background.wav` are the only files taken from the latest published `AscNetLauncher.zip`. That download has no hash, so the zip build is `nix build --impure --option tarball-ttl 0`. `nix develop` stays pure. The executable, `launcher.json`, `setup-local.ps1`, and `supported-client.json` come from this tree.
 
+Those three files come from the client's login screen. `python3 Scripts/extract_launcher_background.py --install <game dir> --out <dir> all` rebuilds them from an installed client: the `UiLoginSpineAnimPath` Spine rigs rendered in headless Chrome and encoded to H.264 (`background.mp4`, loop = the rigs' `idle` length), frame 0 as `background.bmp`, and the UiLogin `XPlayMusic` BGM cue decoded to a 48 kHz PCM16 stereo WAV with the HCA loop as a `smpl` chunk (`background.wav`). Needs UnityPy (shared vendor dir), `vgmstream-cli`, node, swift and Pillow. To ship new media, replace the three files in a new `AscNetLauncher.zip` GitHub release (flake takes them from the latest published zip); the script publishes nothing.
+
 ```bash
 cargo build --manifest-path AscNet.Launcher/Cargo.toml --target x86_64-pc-windows-gnu --release
 cargo build --manifest-path AscNet.Patch/Cargo.toml --target x86_64-pc-windows-gnu --release
@@ -102,7 +104,7 @@ Focused harness switches are defined in `AscNet.Test/Program.cs`; `Docs/developm
 - `launch-pgr-ascnet.sh` contains workstation-specific macOS/CrossOver paths; treat it as an example, not a portable default.
 
 ## Client dump and native research
-An authoritative client source of the 4.8 update (4.8.10 EN and CN live) is available at /PGR-native-research/PGR_DATA/en/. You can use /cn/ if it has the required data if /en/ does not. Additional tooling is available in the root directory /PGR-native-research.
+An authoritative client source of the 4.9 update (4.9.1 EN, extracted from the installed client) is available at /PGR-native-research/PGR_DATA/en-4.9/ (`lua/`, `bytes/`). The 4.8 update (4.8.10 EN and CN live) remains at /PGR-native-research/PGR_DATA/en/ and /cn/; use /cn/ if it has data /en/ lacks. Additional tooling is available in the root directory /PGR-native-research.
 
 ## Agent skills
 Task-specific procedures live in `.claude/skills/<name>/SKILL.md`; the index is `.claude/skills/README.md`. Read the matching skill before starting: `ascnet-handler-checklist` (implementing or fixing a request handler and its test), `ascnet-player-report-triage` (player bug reports), `ascnet-differential-full-harness` (full-suite regression check with `--keep-going`), `ascnet-parallel-agent-work` (several agents on one checkout), `pgr-packet-contract-reconstruction` (rebuilding a flow from client Lua and captures), `ascnet-installed-client-upgrade` (moving to a new client version), `pgr-lua-mods` (client mods and live probes via `Scripts/pgr.py`), plus the BigWorld, benchmark and Lua-replay skills listed in the index.

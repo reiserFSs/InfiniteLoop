@@ -173,11 +173,6 @@ namespace AscNet.Test
                     ValidateVersion49EventAvailability();
                     return;
                 }
-                if (args.Contains("--phylotree-rerun-only"))
-                {
-                    ValidatePhylotreeRerun49();
-                    return;
-                }
                 if (args.Contains("--draw-rules-only"))
                 {
                     ValidateDrawRules();
@@ -1498,7 +1493,6 @@ namespace AscNet.Test
                 Step("ValidateEnvelopeCatchUpAndReissue", () => ValidateEnvelopeCatchUpAndReissue());
                 Step("ValidateMissingCalendarAscNetPolicy", () => ValidateMissingCalendarAscNetPolicy());
                 Step("ValidateVersion49EventAvailability", () => ValidateVersion49EventAvailability());
-                Step("ValidatePhylotreeRerun49", () => ValidatePhylotreeRerun49());
                 Step("ValidateAnniversaryPreHeatingCompatibility", () => ValidateAnniversaryPreHeatingCompatibility());
                 Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
                 Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());

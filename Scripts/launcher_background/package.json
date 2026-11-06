@@ -1,0 +1,9 @@
+{
+  "name": "launcher-background-render",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@esotericsoftware/spine-webgl": "4.3.13",
+    "puppeteer": "25.12.0"
+  }
+}

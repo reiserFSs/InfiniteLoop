@@ -96,7 +96,7 @@ public static class ActivityScheduleService
     /// client tables reference these TimeIds and no authoritative window exists yet. Each opens unbounded
     /// (positive end keeps client countdowns valid) and any official or derived window for the same TimeId
     /// wins because DistinctBy keeps the earlier entry. Fate draws and client-only gates (ActivityBriefGroup,
-    /// ActivityBtn, SkipFunctional, Draw*) are not opened, except the DrawExtraTagGroup TimeIds 47912/47913 that gate the Phylotree Nexus rerun. Listed in Docs/closed.md.
+    /// ActivityBtn, SkipFunctional, Draw*) are not opened. Listed in Docs/closed.md.
     /// </summary>
     private static IEnumerable<ActivityScheduleEntry> MissingCalendar49Entries() =>
         MissingCalendar49.Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
@@ -232,8 +232,6 @@ public static class ActivityScheduleService
         (1290, "MailCollectionBoxActivity.TimeId"),
         (1291, "MailCollectionBoxActivity.TimeId"),
         (14103, "TaskTimeLimit.TimeId"),
-        (47912, "DrawExtraTagGroup.TimeId"),
-        (47913, "DrawExtraTagGroup.TimeId"),
         (50200, "PunishaarActivity.TimeId"),
         (51101, "NewActivityCalendarActivity.MainTimeId"),
         (51102, "NewActivityCalendarPeriod.TimeId"),

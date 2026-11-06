@@ -1,0 +1,46 @@
+<!doctype html>
+<html><body style="margin:0;background:#000">
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="/node_modules/@esotericsoftware/spine-webgl/dist/iife/spine-webgl.js"></script>
+<script>
+// Official spine-webgl 4.3 renderer (runtime-default alpha handling, per-slot normal/additive/screen blend); skeletons composited back-to-front at world origin,
+// camera centered on the 1920x1080 design canvas (Spine y-up, so authored "up" stays up).
+window.setup = async (layers, scale) => {
+  const canvas = document.getElementById("c");
+  const ctx = new spine.ManagedWebGLRenderingContext(canvas, { alpha: false, preserveDrawingBuffer: true, premultipliedAlpha: false });
+  const renderer = new spine.SceneRenderer(canvas, ctx, true);
+  renderer.camera.position.set(0, 0, 0);
+  renderer.camera.setViewport(1920, 1080);
+  const assets = new spine.AssetManager(ctx, "/skel/");
+  for (const l of layers) { assets.loadTextureAtlas(`${l}/${l}.atlas`); assets.loadText(`${l}/${l}.json`); }
+  await assets.loadAll();
+  const rigs = layers.map((l) => {
+    const json = new spine.SkeletonJson(new spine.AtlasAttachmentLoader(assets.require(`${l}/${l}.atlas`)));
+    json.scale = scale;
+    const data = json.readSkeletonData(assets.require(`${l}/${l}.json`));
+    const skeleton = new spine.Skeleton(data);
+    const state = new spine.AnimationState(new spine.AnimationStateData(data));
+    return { name: l, skeleton, state, data };
+  });
+  window.draw = (t, hidden) => {
+    const gl = ctx.gl;
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    renderer.begin();
+    for (const r of rigs) {
+      r.skeleton.setupPose();
+      r.state.clearTracks();
+      const entry = r.state.setAnimation(0, "idle", true);
+      entry.trackTime = t;
+      r.state.apply(r.skeleton);
+      for (const slot of r.skeleton.slots) if (hidden.includes(slot.data.name)) slot.pose.setAttachment(null);
+      r.skeleton.updateWorldTransform(spine.Physics.none);
+      renderer.drawSkeleton(r.skeleton);
+    }
+    renderer.end();
+    return canvas.toDataURL("image/png");
+  };
+  return rigs.map((r) => ({ name: r.name, idle: r.data.findAnimation("idle").duration, slots: r.data.slots.length }));
+};
+</script>
+</body></html>

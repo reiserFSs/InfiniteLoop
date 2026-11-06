@@ -5353,9 +5353,9 @@
     },
     {
       "path": "share/draw/DrawServerCatalog.tsv",
-      "rows": 20,
-      "columns": 13,
-      "contentSha256": "738ee2cfc92c46e2bc473cb40c59aea3fb5022b8b1cb832f6a4c3b8916d42fd5",
+      "rows": 16,
+      "columns": 12,
+      "contentSha256": "468db32e10c1b3e7df165b047b65cebb945b15ac3167f486213214af6120080e",
       "source": [
         {
           "path": "client/draw/drawpreview.tab",
@@ -5376,35 +5376,11 @@
           "rawTabSha1": "9d10d09d5349987aa8dd728e4df2ae70a856bb5f"
         },
         {
-          "path": "client/draw/drawextrataggroup.tab",
-          "authority": "4.9 EN install client table; rawTabSha1 b1dd05d9a0c2f16eb9b28188265a77a11f4c4863 (GroupSubType = DrawExtraTagGroup.Id; Tag/TimeId)"
-        },
-        {
-          "path": "client/draw/drawtabs.tab",
-          "authority": "4.9 EN install client table; rawTabSha1 73f7bbc3e2ff4f2b99b14539b1fbd93a78d00ac5 (tab 8 Phylotree Nexus, 1 Weapon, 7 CUB)"
-        },
-        {
-          "path": "client/draw/drawgrouprelation.tab",
-          "authority": "4.9 EN install client table; rawTabSha1 e0dbfe05d435511b8fca08dfef98db9cc9ff18ef (Fate group 15 of 11)"
-        },
-        {
-          "path": "client/draw/drawaimprobability.tab",
-          "authority": "4.9 EN install client table; rawTabSha1 0fec082597e940b128da3e49a5453786137e0701 (target rates)"
-        },
-        {
-          "path": "client/lifetree/lifetreecharactercatalog.tab",
-          "authority": "4.9 EN install client table; rawTabSha1 ad1acd18fbf477ca5c27dd520aa6361e099f6364 (Liv: Limpidity 1031005 = 4.5 Mercy Phylotree Frame)"
-        },
-        {
-          "path": "share/equip/equip.tab",
-          "authority": "4.9 EN install client table; rawTabSha1 69de934fd017a501d7468474b52f6bbe0042ce41 (weapon 2606001 RecommendCharacterId 1031005)"
-        },
-        {
           "path": "Resources/Configs/Notices/4.8.0/client/notice/html/6ab46150f1b4a12f7f8a7adb.html",
           "authority": "official 4.8 event schedule; derived server availability windows"
         }
       ],
-      "transformation": "4.8 banner IDs/targets from preview and client group rules; window from official 4.8 notice; collab groups 37–40 (draws 5612/5613/381/7068) open at the 4.8 maintenance end 1790226000 (AscNet user-approved early-open policy; retail start 1790676000), end unchanged; Tag 5 from client DrawTabs Id=5 (Collab / Kurumi Tokisaki Pool) on 5612/5613 and on collab weapon 381 (group 39, Order 2) and CUB 7068 (group 40, Order 1). The client sorts that tab by Order descending: frame 4002, weapon 2, CUB 1. Priorities stay 22000, 510, and 8100. Season weapon 383 and CUB 7071 stay on tags 1 and 7 with Order 1. Collab Fate 5613 stays fail-closed (published pity only an 80–100 range). 4.9 rows 1526/2520/384/7073: AscNet missing-calendar policy (start = 4.8 official end, no end); Fate 2520 closed. GroupSubType column (4.9): 0 = normal banner; >0 = client DrawExtraTagGroup.Id. Phylotree Nexus rerun rows 1498 (group 11, Liv: Limpidity 1031005, Tag 8, subtype 1), 2492 (Fate, subtype 2, closed), 379 (group 4 weapon 2606001, subtype 3), 7065 (group 22 CUB Levvi 16340000, subtype 4): every field derived from the client tables listed in source (DrawExtraTagGroup Tag/TimeId -> group by DrawTabs tab and DrawGroupRule/DrawGroupRelation; target = the 4.5 Phylotree frame Liv: Limpidity 1031005 via LifeTreeCharacterCatalog, her weapon 2606001 via Equip.RecommendCharacterId and CUB Levvi 16340000 via Partner.RecommendCharacterId); the one non-derivable link, which of two same-target DrawPreview draws is the rerun (1438/1498, 2432/2492, 373/379, 7055/7065: identical pools), is AscNet missing-retail policy = the later draw (a captured 4.7 draw list agrees and is used only as a test oracle, never read at runtime); rates/pity from DrawAimProbability and DrawServerRule of each group; window by AscNet missing-calendar policy (user-approved), TimeIds 47912/47913 opened under the same label",
+      "transformation": "4.8 banner IDs/targets from preview and client group rules; window from official 4.8 notice; collab groups 37–40 (draws 5612/5613/381/7068) open at the 4.8 maintenance end 1790226000 (AscNet user-approved early-open policy; retail start 1790676000), end unchanged; Tag 5 from client DrawTabs Id=5 (Collab / Kurumi Tokisaki Pool) on 5612/5613 and on collab weapon 381 (group 39, Order 2) and CUB 7068 (group 40, Order 1). The client sorts that tab by Order descending: frame 4002, weapon 2, CUB 1. Priorities stay 22000, 510, and 8100. Season weapon 383 and CUB 7071 stay on tags 1 and 7 with Order 1. Collab Fate 5613 stays fail-closed (published pity only an 80–100 range). 4.9 rows 1526/2520/384/7073: AscNet missing-calendar policy (start = 4.8 official end, no end); Fate 2520 closed.",
       "naturalKey": "Id"
     },
     {
