@@ -76,6 +76,27 @@ impl Manifest {
                 .is_some_and(|allowed| allowed.iter().any(|expected| expected == hash))
         })
     }
+
+    /// A stock file the game's own updater may have written over a managed patch file: an accepted original
+    /// (KRSDK.dll) or a known stock PGRBase.dll.
+    pub fn is_stock(&self, path: &str, hash: Option<&str>) -> bool {
+        self.accepts_original(path, hash)
+            || (path == "PGRBase.dll"
+                && hash.is_some_and(|hash| self.pgr_base.as_ref().is_some_and(|b| b.originals.iter().any(|o| o == hash))))
+    }
+
+    /// Stock-file hashes compiled into this launcher (used by restore, which has no package).
+    pub fn bundled() -> Result<Manifest> {
+        let metadata = parse_supported_client(include_bytes!("../supported-client.json"))?;
+        Ok(Manifest {
+            schema_version: SCHEMA_VERSION,
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+            application_version: metadata.application_version,
+            originals: metadata.originals,
+            pgr_base: metadata.pgr_base,
+            files: Vec::new(),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

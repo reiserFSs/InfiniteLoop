@@ -94,6 +94,30 @@ fn has_stray(client: &Path) -> bool {
     is_cn_layout(client) && client.join(KRSDK).exists()
 }
 
+/// Managed paths whose file is now a stock one the game's updater wrote; restore leaves them alone.
+fn restored_paths(manifest: &crate::package::Manifest, client: &Path, state: &State) -> Result<std::collections::BTreeSet<String>> {
+    let mut paths = std::collections::BTreeSet::new();
+    for (relative, record) in &state.files {
+        if game_restored(&manifest, relative, file_hash(&client.join(relative))?.as_deref(), record) {
+            paths.insert(relative.clone());
+        }
+    }
+    Ok(paths)
+}
+
+/// The game's own updater wrote a stock file over a managed one: neither our patch nor the saved original, but a
+/// known stock file. That is a game update, not tampering.
+fn game_restored(manifest: &crate::package::Manifest, path: &str, actual: Option<&str>, record: &FileState) -> bool {
+    actual != Some(record.installed.as_str()) && actual != record.original.as_deref() && manifest.is_stock(path, actual)
+}
+
+fn modified_message(path: &str) -> String {
+    format!(
+        "managed patch file {path} was modified or removed (it is not a known game or AscNet file). \
+         Run Verify & Repair on the game client, then Setup; or delete the {STATE_DIR} folder in the game directory to start over"
+    )
+}
+
 /// Stock PGRBase.dll candidate for `current`: the first known stock export entry whose recovery hashes into `originals`.
 fn recover_stock(build: &crate::package::PgrBaseBuild, current: &[u8], game: &[u8], unity: &[u8]) -> Result<Vec<u8>> {
     use sha2::{Digest, Sha256};
@@ -174,8 +198,11 @@ fn inspect_prepared(client: &Path, package: &PatchPackage) -> Result<PatchState>
     if let Some(state) = read_state(&client)? {
         if let Some(base) = state.files.get("PGRBase.dll") {
             let actual = file_hash(&client.join("PGRBase.dll"))?;
-            if actual.as_deref() != Some(&base.installed) && actual.as_deref() != base.original.as_deref() {
-                return Ok(PatchState::RepairRequired("managed PGRBase.dll was modified".into()));
+            if actual.as_deref() != Some(&base.installed)
+                && actual.as_deref() != base.original.as_deref()
+                && !game_restored(&package.manifest, "PGRBase.dll", actual.as_deref(), base)
+            {
+                return Ok(PatchState::RepairRequired(modified_message("PGRBase.dll")));
             }
         }
         if state.schema_version != 1 {
@@ -190,7 +217,13 @@ fn inspect_prepared(client: &Path, package: &PatchPackage) -> Result<PatchState>
         if global != state.originals.contains_key(KRSDK) || (!global && state.files.contains_key(KRSDK)) {
             return Ok(PatchState::RepairRequired("saved launcher state belongs to a different client region".into()));
         }
+        // A KRSDK.dll the game's updater restored makes the saved original irrelevant: install saves the new one.
+        let krsdk_restored = state
+            .files
+            .get(KRSDK)
+            .is_some_and(|record| game_restored(&package.manifest, KRSDK, file_hash(&client.join(KRSDK)).ok().flatten().as_deref(), record));
         if global
+            && !krsdk_restored
             && !package
                 .manifest
                 .accepts_original(KRSDK, state.originals.get(KRSDK).map(String::as_str))
@@ -211,7 +244,7 @@ fn inspect_prepared(client: &Path, package: &PatchPackage) -> Result<PatchState>
         }
         let mut all_target = true;
         let mut all_original = true;
-        let mut all_known = true;
+        let mut unknown = None;
         for file in &package.manifest.files {
             let actual = file_hash(&client.join(&file.path))?;
             let old = state.files.get(&file.path);
@@ -219,12 +252,19 @@ fn inspect_prepared(client: &Path, package: &PatchPackage) -> Result<PatchState>
             let matches_target = !new_base && actual.as_deref() == Some(&file.sha256);
             let matches_installed = old.is_some_and(|old| actual.as_deref() == Some(&old.installed));
             // A saved original of null means the patch added the file. Matching it means the file is absent.
-            let matches_original = new_base || old.is_some_and(|old| actual.as_deref() == old.original.as_deref());
+            // A stock file written by the game's updater is as good as the saved original.
+            let matches_original = new_base
+                || old.is_some_and(|old| {
+                    actual.as_deref() == old.original.as_deref()
+                        || game_restored(&package.manifest, &file.path, actual.as_deref(), old)
+                });
             all_target &= matches_target;
             all_original &= matches_original;
             // Retail copies and the previous patch are both known bytes. An unknown
             // replacement is not, even when the other files are still intact.
-            all_known &= matches_target || matches_installed || matches_original;
+            if !(matches_target || matches_installed || matches_original) && unknown.is_none() {
+                unknown = Some(file.path.as_str());
+            }
         }
         if all_target {
             return Ok(if has_stray(client) { PatchState::UpdateAvailable } else { PatchState::Current });
@@ -232,12 +272,10 @@ fn inspect_prepared(client: &Path, package: &PatchPackage) -> Result<PatchState>
         if all_original {
             return Ok(PatchState::Unpatched);
         }
-        if all_known {
-            return Ok(PatchState::UpdateAvailable);
-        }
-        return Ok(PatchState::RepairRequired(
-            "a managed patch file was modified or removed".into(),
-        ));
+        return Ok(match unknown {
+            None => PatchState::UpdateAvailable,
+            Some(path) => PatchState::RepairRequired(modified_message(path)),
+        });
     }
 
     if let Some((_path, legacy)) = find_legacy(client, package)? {
@@ -355,6 +393,7 @@ pub fn restore_with_consent(client: &Path, progress: &mut dyn FnMut(String)) -> 
         let client = checked_client(client)?;
         let state = read_state(&client)?.context("no launcher-managed installation to restore")?;
         verify_saved_backups(&client, &state)?;
+        let restored = restored_paths(&crate::package::Manifest::bundled()?, &client, &state)?;
         elevate(&client, None, progress)?;
         if let Some(stray) = &state.stray {
             if file_hash(&client.join(KRSDK))?.as_deref() != Some(&stray.sha256) {
@@ -362,7 +401,7 @@ pub fn restore_with_consent(client: &Path, progress: &mut dyn FnMut(String)) -> 
             }
         }
         for (relative, record) in state.files {
-            if file_hash(&client.join(&relative))? != record.original {
+            if !restored.contains(&relative) && file_hash(&client.join(&relative))? != record.original {
                 bail!("elevated restore did not restore the verified original: {relative}");
             }
         }
@@ -702,7 +741,12 @@ pub fn install(
     for file in &package.manifest.files {
         let target = client.join(&file.path);
         check_target(&client, &target)?;
-        let old = prior.as_ref().and_then(|s| s.files.get(&file.path));
+        let actual = file_hash(&target)?;
+        // A stock file the game's updater wrote over the patch is backed up as the new original below.
+        let old = prior
+            .as_ref()
+            .and_then(|s| s.files.get(&file.path))
+            .filter(|old| !game_restored(&package.manifest, &file.path, actual.as_deref(), old));
         let (original, backup) = if let Some(old) = old {
             if let Some(rel) = &old.backup {
                 let source = client.join(STATE_DIR).join(rel);
@@ -752,6 +796,9 @@ pub fn install(
                 backup,
             },
         );
+    }
+    if let Some(FileState { original: Some(hash), .. }) = files.get(KRSDK) {
+        originals.insert(KRSDK.into(), hash.clone());
     }
     let state = State {
         schema_version: 1,
@@ -859,6 +906,11 @@ pub fn install(
 }
 
 pub fn restore(client: &Path, progress: &mut dyn FnMut(String)) -> Result<()> {
+    restore_with(client, progress, crate::package::Manifest::bundled()?)
+}
+
+/// `stock` names the files the game's updater may legitimately have written over managed ones.
+fn restore_with(client: &Path, progress: &mut dyn FnMut(String), stock: crate::package::Manifest) -> Result<()> {
     let _lock = OperationLock::acquire()?;
     if game_running()? {
         bail!("refusing to restore while PGR.exe is running");
@@ -867,14 +919,19 @@ pub fn restore(client: &Path, progress: &mut dyn FnMut(String)) -> Result<()> {
     recover_if_needed(&client)?;
     let state = read_state(&client)?.context("no launcher-managed installation to restore")?;
     verify_saved_backups(&client, &state)?;
+    let restored = restored_paths(&stock, &client, &state)?;
     for (relative, record) in &state.files {
         let target = client.join(relative);
         check_target(&client, &target)?;
         let actual = file_hash(&target)?;
         if actual.as_deref() != Some(&record.installed)
             && actual.as_deref() != record.original.as_deref()
+            && !restored.contains(relative)
         {
-            bail!("refusing to overwrite modified managed file: {relative}");
+            bail!(
+                "refusing to overwrite modified managed file: {relative} (not a known game or AscNet file). \
+                 Run Verify & Repair on the game client, then Setup; or delete the {STATE_DIR} folder in the game directory to start over"
+            );
         }
     }
     if let Some(stray) = &state.stray {
@@ -928,6 +985,9 @@ pub fn restore(client: &Path, progress: &mut dyn FnMut(String)) -> Result<()> {
     )?;
     let result = (|| -> Result<()> {
         for (relative, record) in &state.files {
+            if restored.contains(relative) {
+                continue;
+            }
             progress(format!("Restoring {relative}"));
             let target = client.join(relative);
             if let Some(backup) = &record.backup {
@@ -2494,5 +2554,95 @@ mod tests {
             other => panic!("{other:?}"),
         }
         fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod game_update_tests {
+    use super::*;
+    use crate::package::{File as Payload, Manifest};
+    use sha2::{Digest, Sha256};
+
+    fn hash(bytes: &[u8]) -> String {
+        format!("{:x}", Sha256::digest(bytes))
+    }
+
+    /// A Steam update replaces the patched KRSDK.dll with an accepted stock one; Setup must adopt it, Restore must
+    /// leave it alone, and an unknown file is still refused with an actionable message.
+    #[test]
+    fn game_update_over_managed_krsdk_is_not_tampering() {
+        let root = std::env::temp_dir().join(format!("ascnet-install-test-{}", Uuid::new_v4()));
+        let client = root.join("game");
+        let directory = root.join("package");
+        fs::create_dir_all(client.join("PGR_Data/Plugins")).unwrap();
+        fs::create_dir_all(&directory).unwrap();
+        let sdk = client.join(KRSDK);
+        fs::write(client.join("PGR.exe"), b"exe").unwrap();
+        fs::write(client.join("GameAssembly.dll"), b"assembly").unwrap();
+        fs::write(&sdk, b"sdk-4.8").unwrap();
+        let mut originals: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        originals.insert("PGR.exe".into(), vec![hash(b"exe")]);
+        originals.insert("GameAssembly.dll".into(), vec![hash(b"assembly")]);
+        originals.insert(KRSDK.into(), vec![hash(b"sdk-4.8"), hash(b"sdk-4.9"), hash(b"sdk-4.9-cdn")]);
+        let files = [("version.dll", "version.dll"), ("lucia.dll", "lucia.dll"), (KRSDK, "KRSDK.dll"), ("libraries.txt", "libraries.txt")]
+            .map(|(path, source)| {
+                let bytes = format!("payload {source}");
+                fs::write(directory.join(source), &bytes).unwrap();
+                Payload { path: path.into(), source: source.into(), sha256: hash(bytes.as_bytes()), size: bytes.len() as u64 }
+            });
+        let package = PatchPackage {
+            manifest: Manifest {
+                schema_version: 1,
+                version: "1.0.0".into(),
+                application_version: "fixture".into(),
+                originals,
+                pgr_base: None,
+                files: files.into(),
+            },
+            directory,
+        };
+        let sdk_backup = |client: &Path| {
+            let state = read_state(client).unwrap().unwrap();
+            let record = state.files.get(KRSDK).unwrap().clone();
+            (state.originals[KRSDK].clone(), record.original.unwrap(), fs::read(client.join(STATE_DIR).join(record.backup.unwrap())).unwrap())
+        };
+
+        // Installed on the old game version: backup holds the 4.8 stock SDK.
+        install(&client, &package, &mut |_| {}).unwrap();
+        assert_eq!(inspect(&client, &package).unwrap(), PatchState::Current);
+        assert_eq!(sdk_backup(&client).2, b"sdk-4.8");
+
+        // Steam updates the game: KRSDK.dll is stock 4.9 again, the other managed files survive.
+        fs::write(&sdk, b"sdk-4.9").unwrap();
+        assert_eq!(inspect(&client, &package).unwrap(), PatchState::UpdateAvailable);
+        install(&client, &package, &mut |_| {}).unwrap();
+        assert_eq!(inspect(&client, &package).unwrap(), PatchState::Current);
+        let (saved, original, backup) = sdk_backup(&client);
+        assert_eq!((saved, original, backup), (hash(b"sdk-4.9"), hash(b"sdk-4.9"), b"sdk-4.9".to_vec()));
+        assert_eq!(fs::read(&sdk).unwrap(), b"payload KRSDK.dll");
+
+        // Restore after a second update puts nothing over the game's own file.
+        fs::write(&sdk, b"sdk-4.9-cdn").unwrap();
+        restore_with(&client, &mut |_| {}, package.manifest.clone()).unwrap();
+        assert_eq!(fs::read(&sdk).unwrap(), b"sdk-4.9-cdn");
+        assert!(read_state(&client).unwrap().is_none());
+        assert!(!client.join("lucia.dll").exists());
+
+        // Restore of an untouched patched install still restores the recorded backup.
+        install(&client, &package, &mut |_| {}).unwrap();
+        restore_with(&client, &mut |_| {}, package.manifest.clone()).unwrap();
+        assert_eq!(fs::read(&sdk).unwrap(), b"sdk-4.9-cdn");
+
+        // Unknown bytes (foreign injector, hand edit) are still refused, naming the file and the way out.
+        install(&client, &package, &mut |_| {}).unwrap();
+        fs::write(&sdk, b"foreign").unwrap();
+        let PatchState::RepairRequired(reason) = inspect(&client, &package).unwrap() else { panic!("expected RepairRequired") };
+        assert!(reason.contains("KRSDK.dll") && reason.contains("Verify & Repair") && reason.contains(STATE_DIR), "{reason}");
+        let error = install(&client, &package, &mut |_| {}).unwrap_err().to_string();
+        assert!(error.starts_with("refusing installation:") && error.contains("KRSDK.dll"), "{error}");
+        let error = restore_with(&client, &mut |_| {}, package.manifest.clone()).unwrap_err().to_string();
+        assert!(error.contains("modified managed file: PGR_Data/Plugins/KRSDK.dll") && error.contains("Verify & Repair"), "{error}");
+        assert_eq!(fs::read(&sdk).unwrap(), b"foreign");
+        let _ = fs::remove_dir_all(root);
     }
 }
