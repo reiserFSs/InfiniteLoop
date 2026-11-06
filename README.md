@@ -13,7 +13,7 @@ This is a fan project, not an official service. Everything runs locally: your pr
 - About 72 GB of free space if the launcher downloads the game for you.
 - An internet connection for the first setup and the game download.
 
-Game version **4.8.0** is supported, in these editions: English (Global), 繁體中文 (Taiwan), 한국어 (Korea), 日本語 (Japan) and 简体中文 (China).
+Game version **4.9.0** is supported, in these editions: English (Global), 繁體中文 (Taiwan), 한국어 (Korea), 日本語 (Japan) and 简体中文 (China).
 
 ## Getting started
 
