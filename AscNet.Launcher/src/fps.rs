@@ -1,4 +1,4 @@
-use crate::{bundle::{resolve, read_bounded, decode, rewrite}, install};
+use crate::{bundle::{resolve, read_bounded, decode, rewrite, Active}, install};
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -41,11 +41,8 @@ pub fn remove_legacy_hook(game: &Path) -> Result<Option<i32>> {
     }
     let game = fs::canonicalize(game)
         .with_context(|| format!("invalid game directory: {}", game.display()))?;
-    let active = resolve(&game)?;
-    if active.scope != "document" {
-        bail!("refusing to modify packaged resource bundle");
-    }
-    let original = read_bounded(&active.path)?;
+    let found = resolve(&game)?;
+    let original = read_bounded(&found.path)?;
     let decoded = decode(&original)?;
     let (content_offset, content) = text_asset(&decoded.payload)?;
     let text = std::str::from_utf8(content).context("XUiMain.lua is not UTF-8")?;
@@ -53,12 +50,29 @@ pub fn remove_legacy_hook(game: &Path) -> Result<Option<i32>> {
     let output = rewrite(&original, decoded, content_offset, replacement)?;
 
     // Reject an updater race before creating a provenance record or committing.
-    if sha256(&read_bounded(&active.path)?) != sha256(&original) {
+    if sha256(&read_bounded(&found.path)?) != sha256(&original) {
         bail!("matrix bundle changed while removing the old FPS patch; retry after the update finishes");
     }
+    let active = stage_in_document(&game, found)?;
     save_backup(&game, &active.path, &original, &output)?;
     write_atomic(&active.path, &output)?;
     Ok(Some(fps))
+}
+
+/// The launcher only writes `document`. When the matrix bundle ships in `resource` (4.9), put a copy in
+/// `document/matrix` under the same physical name first; the document file overrides the resource one by name.
+fn stage_in_document(game: &Path, active: Active) -> Result<Active> {
+    if active.scope == "document" {
+        return Ok(active);
+    }
+    let name = active.path.file_name().context("matrix bundle has no file name")?;
+    let directory = game.join("PGR_Data/StreamingAssets/document/matrix");
+    fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
+    let target = directory.join(name);
+    write_new(&target, &read_bounded(&active.path)?)
+        .with_context(|| format!("copying the packaged matrix bundle to {}", target.display()))?;
+    sync_dir(&directory)?;
+    Ok(Active { path: fs::canonicalize(target)?, scope: "document" })
 }
 
 fn owned_fps(text: &str) -> Result<Option<i32>> {

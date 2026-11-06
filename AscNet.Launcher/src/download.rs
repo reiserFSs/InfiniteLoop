@@ -2110,7 +2110,7 @@ mod tests {
         let found = sources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("supported-client.json")).unwrap();
         assert_eq!(found.iter().map(|s| s.region()).collect::<Vec<_>>(), Region::ALL);
         for s in &found {
-            assert_eq!(s.version(), "4.8.0");
+            assert_eq!(s.version(), "4.9.1");
             assert!(s.full_size() > 60_000_000_000, "{:?}", s.region());
             assert!(s.data.patches.len() >= 13 && s.data.cdns.len() >= 3);
             assert!(s.data.originals.contains_key("PGR.exe"));

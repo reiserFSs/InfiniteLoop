@@ -1,6 +1,11 @@
-# Matrix bundle resolution for PGR 4.9 (design note, Rust not changed yet)
+# Matrix bundle resolution for PGR 4.9 (implemented in launcher 1.0.20)
 
-Status: `src/bundle.rs` / `src/fps.rs` are unchanged and do **not** work on 4.9. The research implementation, proven on a
+Status: `src/bundle.rs` / `src/fps.rs` implement the "Required launcher changes" below (prefix strip/rewrite with the
+`file_size` check, unprotected index bundles through `decode_index`, `m_Name` scan with document-first order, snapshot
+filtering of obsolete resource files, sha1/size tie-break, `fps.rs` staging a resource-only matrix bundle into
+`document/matrix`). 4.8 installs still resolve through the logical index. Tests: synthetic prefixed/plain/protected
+bundles in `bundle.rs`, plus ignored read-only runs against real installs (`real_49_*`, `real_48_*`).
+The research implementation, proven on a
 4.8.0 install and the 4.9.1 Steam install, is `Scripts/pgr_bundles.py` (see `Docs/development.md`). Everything below
 marked "observed" was decoded from `PGR_Data/StreamingAssets` of the EN Steam 4.9.1 client (package 4.9.1,
 `document/ver` LeastVersionFile 1739029).

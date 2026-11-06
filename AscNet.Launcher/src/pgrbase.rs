@@ -522,4 +522,30 @@ mod tests {
         assert_eq!(format!("{:x}", Sha256::digest(&recovered)), "6c2abc3486218a2ee21ecbe55540e3f2083022a339a2e10b698eaa4293f9102d");
         assert_eq!(recovered, stock);
     }
+
+    /// Read-only 4.9.1 check (`ASCNET_CLIENT_49` holds PGR.exe + UnityPlayer.dll; `ASCNET_BASE_49` is a folder with a
+    /// retail-CDN `PGRBase.dll`, default /tmp/cdn49). The Steam-folder PGRBase may already carry our startup stub:
+    /// both must patch/recover to the allowlisted retail hash through the allowlisted export jumps.
+    #[test]
+    #[ignore]
+    fn real_49_pgrbase_is_patched_and_recovers_to_allowlisted_stock() {
+        use sha2::{Digest, Sha256};
+        let dir = |var: &str, default: &str| std::path::PathBuf::from(std::env::var(var).unwrap_or_else(|_| default.into()));
+        let client = dir("ASCNET_CLIENT_49", "/Volumes/Lucia/Steam Games/SteamLibrary/steamapps/common/Punishing Gray Raven");
+        let retail = dir("ASCNET_BASE_49", "/tmp/cdn49");
+        let read = |d: &std::path::Path, name: &str| std::fs::read(d.join(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let metadata: serde_json::Value = serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/supported-client.json")).unwrap()).unwrap();
+        let originals: Vec<&str> = metadata["pgrBase"]["originals"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        let jumps: Vec<Vec<u8>> = metadata["pgrBase"]["originalExportJumps"].as_array().unwrap().iter().map(|j| j.as_array().unwrap().iter().map(|b| b.as_u64().unwrap() as u8).collect()).collect();
+        let (game, unity) = (read(&client, "PGR.exe"), read(&client, "UnityPlayer.dll"));
+        let hash = |b: &[u8]| format!("{:x}", Sha256::digest(b));
+        assert!(metadata["pgrBase"]["unityPlayers"].as_array().unwrap().iter().any(|v| v == &hash(&unity)));
+        for (label, base) in [("retail", read(&retail, "PGRBase.dll")), ("steam folder", read(&client, "PGRBase.dll"))] {
+            let recovered = jumps.iter().filter_map(|j| original(&base, &game, &unity, j).ok()).find(|o| originals.contains(&hash(o).as_str()));
+            let recovered = recovered.unwrap_or_else(|| panic!("{label}: no allowlisted recovery"));
+            let patched = patch(&recovered, &game, &unity).unwrap();
+            assert!(is_patched(&patched, &game, &unity).unwrap() && !is_patched(&recovered, &game, &unity).unwrap());
+            eprintln!("{label}: {} -> stock {} -> patched {}", hash(&base), hash(&recovered), hash(&patched));
+        }
+    }
 }

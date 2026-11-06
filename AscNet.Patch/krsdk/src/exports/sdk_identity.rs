@@ -10,7 +10,7 @@ pub(crate) fn read_packaged() -> Result<HashMap<String, String>, String> {
         .ok_or_else(|| "game executable has no parent directory".to_string())?
         .join(PACKAGED_BIN);
     let text = std::fs::read_to_string(&path)
-        .map_err(|error| format!("cannot read {} ({error}); the client install is incomplete or not a PGR 4.8.0 client", path.display()))?;
+        .map_err(|error| format!("cannot read {} ({error}); the client install is incomplete or not a supported PGR client", path.display()))?;
     Ok(parse(&text))
 }
 
@@ -70,19 +70,20 @@ pub(crate) fn identity(config: &HashMap<String, String>) -> Result<Identity, Str
 mod tests {
     use super::{identity, parse};
 
-    // Identity lines copied from each region's live 4.8.0 KRSDK.bin; the rest of the file is not read.
+    // Identity lines copied from each region's live KRSDK.bin (4.8.0; the EN Steam line is 4.9.1); the rest of the file is not read.
     const KR: &str = "KR_GameName=海外正式\r\nKR_PackageName=com.herogame.pc.punishing.grayraven.kr\r\nKR_ProductId=A1794\r\nKR_ProjectId=G286\r\nKR_ChannelID=240\r\nKR_ChannelOp=null\r\nKR_ChannelName=PC\r\nKR_SDKAPI_URL=https://sdkapi.kurogame-service.com;https://sdkapi2.kurogame-service.com\r\n";
     const JP: &str = "KR_GameName=海外正式\nKR_PackageName=com.herogame.pc.punishing.grayraven.jp\nKR_ProductId=A1778\nKR_ProjectId=G282\nKR_ChannelID=240\nKR_ChannelOp=null\nKR_ChannelName=PC\n";
     const EN: &str = "KR_ProductId=A1728\nKR_ProjectId=G143\nKR_ChannelID=240\nKR_ChannelOp=null\nKR_ChannelName=PC\n";
+    const EN_STEAM_491: &str = "KR_GameName=海外正式\r\nKR_GameVersion=4.9.1\r\nKR_PackageName=com.kurogame.pc.punishing.grayraven.en\r\nKR_ProductId=A1855\r\nKR_ProjectId=G143\r\nKR_ChannelID=205\r\nKR_ChannelOp=null\r\nKR_ChannelName=PC\r\n";
 
     #[test]
     fn each_region_reports_its_own_packaged_identity() {
-        for (bin, project, product) in [(KR, "G286", "A1794"), (JP, "G282", "A1778"), (EN, "G143", "A1728")] {
+        for (bin, project, product, channel) in [(KR, "G286", "A1794", "240"), (JP, "G282", "A1778", "240"), (EN, "G143", "A1728", "240"), (EN_STEAM_491, "G143", "A1855", "205")] {
             let id = identity(&parse(bin)).unwrap();
             assert_eq!((id.project_id.as_str(), id.product_id.as_str()), (project, product));
             assert_eq!(
                 (id.channel_id.as_str(), id.channel_name.as_str(), id.channel_op.as_str()),
-                ("240", "PC", "null")
+                (channel, "PC", "null")
             );
         }
     }
