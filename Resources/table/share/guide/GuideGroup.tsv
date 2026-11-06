@@ -39,7 +39,7 @@ Id	Priority	Ignore	Desc	GuideType	ConditionId[1]	ConditionId[2]	ConditionId[3]	C
 50932	50932	0	Complete 1-12 Guide: Memory Purchase	1	863070	863060	770422		50932	UiActivityBriefShop	BtnTong1422	0	50932
 53401	53401	0	Lv16 引导装备目标推荐	1	84100112	349	770422		53401	UiMain		0	53401
 53402	53402	0	Complete 1-12 Guide: Using Equipment Goal	1	84100112	770422			53402	UiTeamRecommendRoleTargetDetail		705032	53402
-53403	53403	0	引导根据玩法一键养成	1	862848	84100112			53403	UiCharacterSystemV2P6	BtnRecommend	0	53403
+53403	53403	1	引导根据玩法一键养成	1	862848	84100112			53403	UiCharacterSystemV2P6	BtnRecommend	0	53403
 53404	53404	0	引导角色一键养成	1	84100112				53404	UiCharacterSystemV2P6	BtnOneClick	0	53404
 64731	64731	0	完成1-12 Lv15 引导进入生命树系统	1	200000				64731	UiMain		0	64731
 64732	64732	0	完成1-12 Lv15 引导生命树系统	1	770431	863156			64732	UiLifeTreeMain		0	64732
@@ -546,7 +546,7 @@ Id	Priority	Ignore	Desc	GuideType	ConditionId[1]	ConditionId[2]	ConditionId[3]	C
 63332	63332	1	v3.0 Guide Chief FPS - Sensitivity Settings	1	862112	774800	862740		63332	UiSet		0	63332
 63333	63333	1	v3.0 Guide Chief FPS - Begin Operations	1	862112	774800			63333	UiFpsGameChapter		0	63333
 63340	63340	0	v3.0 Guide Layout Settings	1	850000				63340	UiFightCustom		0	63340
-63350	63350	0	v3.0 Guide Thunderbolt Manual Transfer Entrance	1	770307				63350	UiMain		0	63350
+63350	63350	1	v3.0 Guide Thunderbolt Manual Transfer Entrance	1	770307				63350	UiMain		0	63350
 63401	63401	1	v3.1 Guide Lone Gunner - Welcome	1	862112	774800			63401	UiMaverick3Main		0	63401
 63402	63402	1	v3.1 Guide Lone Gunner - Daily Reward	1	862112	774800			63402	UiMaverick3Main		0	63402
 63403	63403	1	v3.1 Guide Lone Gunner - Battle Preparation Main Interface	1	862112	774800	1050000	862760	63403	UiMaverick3Main		0	63403
@@ -629,9 +629,9 @@ Id	Priority	Ignore	Desc	GuideType	ConditionId[1]	ConditionId[2]	ConditionId[3]	C
 63732	63732	0	v3.4 Guide: High Difficulty Mode 2.0: Chapter 3	1	862112	772280	863010		63732	UiSucceedBossChapter		0	63732
 63733	63733	0	v3.4 Guide: High Difficulty Mode 2.0: Auto Clear Tutorial	1	862112	772280	862711		63733	UiBattleRoleRoom		0	63733
 63741	63741	1	v3.4 Guide: Vera Connection: First Try	1	862112	774800			63741	UiConnectingLineGame		0	63741
-63800	63800	0	v3.5 Guide Limit Break 6.0 First Entry	1	862112	775600			63800	UiReform2		0	63800
-63801	63801	0	v3.5 Guide Limit Break 6.0 Stage 2	1	862112	775600	863021		63801	UiReformList		0	63801
-63802	63802	0	v3.5 Guide Limit Break 6.0 Hard Mode	1	862112	775600	863022		63802	UiReform2		0	63802
+63800	63800	1	v3.5 Guide Limit Break 6.0 First Entry	1	862112	775600			63800	UiReform2		0	63800
+63801	63801	1	v3.5 Guide Limit Break 6.0 Stage 2	1	862112	775600	863021		63801	UiReformList		0	63801
+63802	63802	1	v3.5 Guide Limit Break 6.0 Hard Mode	1	862112	775600	863022		63802	UiReform2		0	63802
 63810	63810	1	v3.5 Guide Bytebite Invasion: First Try	1	862112	774800			63810	UiPacMan2Main		0	63810
 63820	63820	1	v3.5 Guide Devil May Cry Trial Stage	1	862112	770402			63820	UiCharacterFileMainRoot	UiCharacterFileR3VergilMainV305(Clone)	0	63820
 63900	63900	0	v3.6 Guide: Roguelike 5: First Entry PVE	1	862112	774800	863034		63900	UiTheatre5ChooseCharacter		0	63900
@@ -701,7 +701,7 @@ Id	Priority	Ignore	Desc	GuideType	ConditionId[1]	ConditionId[2]	ConditionId[3]	C
 64207	64207	1	v4.0 引导丽芙2048 3.0 第15关	1	862112	774800	863110		64207	UiGame2048Game		0	64207
 64211	64211	0	v4.0 引导跑马-赛程内	1	862112	774800	863112	863113	64211	UiRaceMain		0	64211
 64212	64212	0	v4.0 引导跑马-赛程结束	1	862112	774800	863115	863114	64212	UiRaceMain		0	64212
-64301	64301	0	v4.1 引导吃豆人2.0	1	862112	774800			64301	UiPacMan2Main		0	64301
+64301	64301	1	v4.1 引导吃豆人2.0	1	862112	774800			64301	UiPacMan2Main		0	64301
 64311	64311	0	v4.1 引导全服决战4期首次进入	1	862112	84601200			64311	UiAreaWarMain		0	64311
 64312	64312	0	v4.1 引导全服决战4期战斗关卡详情	1	862112	84601200			64312	UiAreaWarStageDetail	PanelDispatch	0	64312
 64313	64313	0	v4.1 引导全服决战4期特派任务	1	862112	84601200			64313	UiAreaWarStageDetail	PanelAutoConsume	0	64313
@@ -823,7 +823,7 @@ Id	Priority	Ignore	Desc	GuideType	ConditionId[1]	ConditionId[2]	ConditionId[3]	C
 64827	64827	0	v4.6 大染色4-5	1	862112	774800	863173		64827	UiDyeMergeGame		0	64827
 64831	64831	0	v4.6 引导玩家好感剧情领角色（海伦汀）	1	862112	863261			64831	UiMain		0	64831
 64841	64841	0	v4.6 引导mini改造-首次进入	1	862112	774800			64841	UiSoloReformMain		0	64841
-64842	64842	0	v4.6 引导超难关第五关	1	862112	774800			64842	UiActivityBossSingleRoot	goHardRoot	0	64842
+64842	64842	1	v4.6 引导超难关第五关	1	862112	774800			64842	UiActivityBossSingleRoot	goHardRoot	0	64842
 64901	64901	0	v4.7 Luna Coating Pool Guide	1	862112	774800			64901	UiLottoLuna		0	64901
 64902	64902	0	v4.7 Vera Coating Pool Guide	1	862112	774800			64902	UiLottoVera		0	64902
 64903	64903	0	v4.7 Karenina Coating Pool Guide	1	862112	774800			64903	UiLottoKarenina		0	64903
@@ -869,3 +869,23 @@ Id	Priority	Ignore	Desc	GuideType	ConditionId[1]	ConditionId[2]	ConditionId[3]	C
 65046	65046	0	v4.8 忽忽破坏王5021详情	1	862112	774800	863196		65046	UiFangKuaiChapterDetail		0	65046
 65047	65047	0	v4.8 忽忽破坏王5023战斗	1	862112	774800	863197		65047	UiFangKuaiFight		0	65047
 65051	65051	0	v4.8 好感剧情送阿德莱德	1	862112	863265			65051	UiMain		0	65051
+65101	65101	0	v4.9 吃豆人3.0	1	862112	774800			65101	UiPacMan2Main		0	65101
+65111	65111	0	v4.9 界限构解主界面	1	862112	774800			65111	UiReform2		0	65111
+65112	65112	0	v4.9 界限构解配平	1	862112	774800			65112	UiReformEnterTips		0	65112
+65113	65113	0	v4.9 界限构解困难模式	1	862112	774800	863022		65113	UiReform2		0	65113
+65120	65120	0	v4.9 通天塔主界面	1	862112	774800			65120	UiSkyTowerEntrance		0	65120
+65121	65121	0	v4.9 通天塔制作流程	1	862112	774800			65121	UiSkyTowerCommon		0	65121
+65123	65122	0	v4.9 通天塔快速完成	1	862112	774800			65123	UiSkyTowerCommon		0	65123
+65122	65123	0	v4.9 通天塔采购酬宾流程	1	862112	774800			65122	UiSkyTowerWork	PanelNoChoose	0	65122
+65133	65124	0	v4.9 通天塔产线趋势	1	862112	774800	863277		65133	UiSkyTowerCommon		0	65133
+65124	65125	0	v4.9 通天塔大楼升级	1	862112	774800	863272		65124	UiSkyTowerCommon		0	65124
+65134	65126	0	v4.9 通天塔新订单任务	1	862112	774800	863276		65134	UiSkyTowerCommon		0	65134
+65131	65127	0	v4.9 通天塔引导员工升级	1	862112	774800	863275	863276	65131	UiSkyTowerCommon		0	65131
+65132	65128	0	v4.9 通天塔员工升级	1	862112	774800			65132	UiSkyTowerCook		0	65132
+65135	65129	0	v4.9 通天塔订单页面更改	1	862112	774800	863278		65135	UiSkyTowerWork	PanelBtnExpedite	0	65135
+65125	65130	1	v4.9 通天塔二层比安卡上阵（废弃）	1	862112	774800	863271		65125	UiSkyTowerUnlockFood|UiSkyTowerCommon		0	65125
+65126	65131	0	v4.9 通天塔六层卡穆	1	862112	774800	863273		65126	UiSkyTowerUnlockFood|UiSkyTowerCommon		0	65126
+65130	65132	0	v4.9 通天塔卡穆换位	1	862112	774800	863270		65130	UiSkyTowerCommon		0	65130
+65127	65133	0	v4.9 通天塔八层	1	862112	774800	863274		65127	UiSkyTowerUnlockFood		0	65127
+65128	65134	0	v4.9 通天塔十一层指定工位	1	862112	774800	863279		65128	UiSkyTowerCommon		0	65128
+65129	65135	1	v4.9 通天塔建筑订单	1	862112	774800			65129	UiSkyTowerCommon		0	65129

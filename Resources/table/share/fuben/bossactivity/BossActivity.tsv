@@ -45,4 +45,5 @@ Id	Name	PrefabAddress	ActivityTimeId	FightTimeId
 44	Nebulous Vigil	Assets/Product/Ui/ComponentPrefab/UiActivityBossSingle/UiActivityBossSingleLucia.prefab		
 45	Bier's Echoes	Assets/Product/Ui/ComponentPrefab/UiActivityBossSingle/UiActivityBossSingleRequiem.prefab		
 46	Waves in Wrath	Assets/Product/Ui/ComponentPrefab/UiActivityBossSingle/UiActivityBossSingleKarenina.prefab	0	0
-47	Wrathful Monsoon	Assets/Product/Ui/ComponentPrefab/UiActivityBossSingle/UiActivityBossSingleAdelyde.prefab	50502	50502
+47	Wrathful Monsoon	Assets/Product/Ui/ComponentPrefab/UiActivityBossSingle/UiActivityBossSingleAdelyde.prefab	0	0
+48	Astral Obscura	Assets/Product/Ui/ComponentPrefab/UiActivityBossSingle/UiActivityBossSingleLeia.prefab	51201	51201

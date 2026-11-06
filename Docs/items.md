@@ -38,6 +38,7 @@ Main Story collectible rewards are not bag items. For example, **13019636 — St
 | 63 | Signal Diffuser | 99,999 | Circuit Connect shop 1291 |
 | 102 | Trade Voucher | 999,999,999 | Voucher exchange, including S-Rank Inver-Shard shop 6001 |
 | 103 | Dispatch Certificate | 9,999,999 | Dorm decor sets |
+| 107 | Welcome Back Letter | 99,999 | Regression4 Homecoming Missions letter-record levels. New in 4.9; the server has no Regression4 handler yet (`Docs/closed.md`) |
 | 200 | Phantom Pain Scar | 99,999 | A-Rank Omniframe, S-Rank Omniframe, Weapon Harmony |
 
 Commandant level is `/level`. Item 7 is the Squad EXP counter, and `/item` does not apply it.
@@ -60,6 +61,7 @@ Guild contribution (38), Command Bureau EXP (40), Beacon Amplifier Points (46), 
 | 50022 | Date A Live Weapon R&D Ticket | Earned stack of the same banner. |
 | 50019 | Date A Live Armament R&D Ticket | Shares a balance with 50023. 50023 is spent first. |
 | 50023 | Date A Live Armament R&D Ticket | Earned stack of the same banner. |
+| 50179 | Expedition R&D Ticket | Timed event ticket (item rows: starts 2026/11/12 10:00, lasts 2,984,400 s, then recycles by mail into Reward 826). Not part of a banner the server serves yet |
 
 ## Simulation Score and mode currencies
 
@@ -217,11 +219,13 @@ The server opens fixed gifts (subtype 1 or 5) and choice packs (subtype 3). A ch
 | 94033 | Construct Research Surprise Fortune Bag | Event Construct R&D Tickets (50005). 10%×250, 15%×225, 20%×200, 25%×175, 30%×150, from `ConstructResearchFortuneBagPolicy.tsv` keyed on this item. Not Reward 1011 |
 | 40691 | Normal Gift Box | One random normal affection gift, equal chance: 40681 Best-Seller or 40682 Vinyl Record. Not Reward 1003 |
 | 40692 | Fine Gift Box | One random fine affection gift, equal chance: 40683 Ration Chocolate or 40684 1 Day Tour Tickets x2. Not Reward 1004 |
-| 40693 | Precious Gift Box | One random precious affection gift, equal chance among the character favorites below (40601–40645 on this patch). Each new construct adds their own gift; update this row and the Gifts table. Not Reward 1005. Quality 6 gifts 40800–40811 are not in this box |
+| 40693 | Precious Gift Box | One random precious affection gift, equal chance among the character favorites below (40601–40646 on this patch). Each new construct adds their own gift; update this row and the Gifts table. Not Reward 1005. Quality 6 gifts 40800–40811 are not in this box |
 | 40904 | Character Upgrade Material Pack | 6★ shards, overclock mats, enhancers, EXP Pod (XL), Skill Points, Cogs |
 | 40909 | Memory Upgrade Material Pack | Memory upgrade set |
 | 40910 | Weapon Upgrade Material Pack | Weapon upgrade set |
 | 94008 | S-Rank Omniframe Choice | One of Luminance, Entropy, Ember, Tenebrion, Pulse |
+| 94076 | S-Rank Omniframe Choice Pack | Choose 1 of 33 S-rank omniframes from reward 1485 (subtype `3 1485 1`). New in 4.9 |
+| 94077 | S-Rank CUB Choice | Choose 1 of 23 S-rank CUBs from reward 1488 (subtype `3 1488 1`). New in 4.9 |
 | 94030 | S-Rank Omniframe Pick | One of nine S-rank omniframes |
 | 40901 | S-Rank Character Inver-Shard Pick | One S-rank inver-shard from the pack's list |
 
@@ -243,7 +247,7 @@ These packs stay closed. Subtype 2 names a drop group, and those drop tables are
 
 ## Gifts
 
-Everyone accepts 40681 Best-Seller, 40682 Vinyl Record, 40683 Ration Chocolate, and 40684 1 Day Tour Tickets x2. Each construct has their own favorite in `CharacterTrustItem`. A client patch that adds a construct adds a row here and to Precious Gift Box 40693. The current ids are 40601–40645:
+Everyone accepts 40681 Best-Seller, 40682 Vinyl Record, 40683 Ration Chocolate, and 40684 1 Day Tour Tickets x2. Each construct has their own favorite in `CharacterTrustItem`. A client patch that adds a construct adds a row here and to Precious Gift Box 40693. The current ids are 40601–40646:
 
 | ID | Gift | For |
 | --- | --- | --- |
@@ -292,6 +296,7 @@ Everyone accepts 40681 Best-Seller, 40682 Vinyl Record, 40683 Ration Chocolate, 
 | 40643 | Vintage Notebook | Helentine |
 | 40644 | Black Forest Cake | Kurumi Tokisaki |
 | 40645 | A Testament to Triumph | Adelyde |
+| 40646 | Pearl Hairpin | Leia |
 
 ## Construct shards
 

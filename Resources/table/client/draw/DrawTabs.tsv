@@ -1,6 +1,6 @@
 Id	TxtName1	TxtName2	TxtName3	TabBg	Priority	ParentName	IsLifeTreePower	Condition[1]
 1	1	Weapon	Weapon Target	Assets/Product/Texture/Image/UiChouka/UiChoukaJichu.png	9	PanelCardsStandard	0	
-2	2	Current Season	Recommended Character(s)	Assets/Product/Texture/Image/UiNewDrawMainV4P5/UiNewDrawMainV4P7Karenina.png	7	PanelCardsActivity	1	
+2	2	Current Season	Recommended Character(s)	Assets/Product/Texture/Image/UiNewDrawMainV4P5/UiNewDrawMainV4P9Laya.png	7	PanelCardsActivity	1	
 3	3	Rerun	Previous Characters	Assets/Product/Texture/Image/UiChouka/UiChoukaHuodong.png	8	PanelCardsStandard	0	
 4	4	Omniframe	A-Rank Character & Standard Weapon & Uniframe	Assets/Product/Texture/Image/UiChouka/UiChoukaShougezhe.png	12	PanelCardsActivity	0	
 5	5	Collab	Kurumi Tokisaki Pool	Assets/Product/Texture/Image/UiNewDrawMainV4P5/UiNewDrawMainV4P8Kurumi.png	5	PanelCardsStandard	1	

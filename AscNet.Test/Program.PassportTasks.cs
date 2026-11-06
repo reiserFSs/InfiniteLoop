@@ -17,7 +17,7 @@ internal static partial class Program
     // 80006/80020 (44001 Operation Guardians card plays) and season-rollover reset of type-51 claims/counters.
     private static void ValidatePassportTasks()
     {
-        PassportActivityTable newest = AscNet.Common.Util.TableReaderV2.Parse<PassportActivityTable>().MaxBy(row => row.Id)!;
+        PassportActivityTable newest = ScheduledPassportSeasons().Last();
         ActivityScheduleEntry[] schedules = (ActivityScheduleEntry[])ActivityScheduleService.All;
         int seasonIndex = Array.FindIndex(schedules, entry => entry.Id == newest.TimeId);
         if (seasonIndex < 0) throw new InvalidDataException("Passport season has no authored schedule.");
@@ -39,7 +39,7 @@ internal static partial class Program
     {
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForBiancaCompatibility(out _, out _, out _, out _);
         PacketFactory.LoadPacketHandlers();
-        List<PassportActivityTable> seasons = AscNet.Common.Util.TableReaderV2.Parse<PassportActivityTable>().OrderBy(row => row.Id).ToList();
+        List<PassportActivityTable> seasons = ScheduledPassportSeasons();
         int previousSeasonId = seasons[^2].Id;
 
         const long uid = 99_470;

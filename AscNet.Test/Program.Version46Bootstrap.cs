@@ -294,9 +294,54 @@ internal partial class Program
             AssertEqual("2048", enAgain["MemoryLimit"], "EN MemoryLimit after JP/KR requests");
             AssertEqual(false, enAgain.ContainsKey("DisableGuide"), "EN does not inherit KR-only rows");
         }
+        ValidateEn49ConfigTab();
+        ValidateEn49NoticeEndpoints().GetAwaiter().GetResult();
     }
 
-    private static void AssertRegionTabMatchesRetail(string served, string region, string label, string[] ownedKeys)
+    // 4.9.x clients take the document/launch-module "already current" shortcut (XLaunchUpdateManager._IsSkipUpdate and
+    // XModuleUpdateInfo._IsSkipUpdate) only when DocumentVersion == LaunchModuleVersion == CS.XInfo.Version, so the
+    // served versions follow the requested application version (retail serves 4.9.9, which makes the client download from
+    // Kuro's CDN). Every other en49.tab row is the live Kuro config.tab for EN key clEoudH0zUSDQsQa, byte for byte
+    // (index sha1 7be18b2e.../b069d45a... equal the sha1 of the CDN's 1739029 matrix/launch index).
+    private static void ValidateEn49ConfigTab()
+    {
+        Type controller = Type.GetType("AscNet.SDKServer.Controllers.ConfigController, AscNet.SDKServer", throwOnError: true)!;
+        MethodInfo handle = RequiredMethod(controller, "HandleConfigRequest", BindingFlags.Static | BindingFlags.NonPublic, [typeof(HttpContext)]);
+        string Serve(string package, string version, string? cdnKey)
+        {
+            DefaultHttpContext context = new();
+            context.Request.Scheme = "http";
+            context.Request.Host = new HostString("127.0.0.1:8080");
+            context.Request.RouteValues["package"] = package;
+            context.Request.RouteValues["version"] = version;
+            if (cdnKey is not null)
+                context.Request.RouteValues["cdnKey"] = cdnKey;
+            return (string)handle.Invoke(null, [context])!;
+        }
+
+        string[] owned = ["DocumentVersion", "PayCallbackUrl", "ServerListStr", "AndroidPayCallbackList", "AndroidPayCallbackUrl", "IosPayCallbackUrl", "IosPayCallbackList", "LaunchModuleVersion", "PcPayCallbackList", "ChannelServerListStr"];
+        foreach (string? cdnKey in new[] { null, "clEoudH0zUSDQsQa" })
+        {
+            AssertRegionTabMatchesRetail(Serve("com.kurogame.punishing.grayraven.en", "4.9.0", cdnKey), "en49", "EN 4.9.0", owned,
+                new() { ["DocumentVersion"] = "4.9.0", ["LaunchModuleVersion"] = "4.9.0" });
+            string en491 = Serve("com.kurogame.punishing.grayraven.en", "4.9.1", cdnKey);
+            foreach (string row in new[] { "ApplicationVersion\tstring\t4.9.1", "DocumentVersion\tstring\t4.9.1", "LaunchModuleVersion\tstring\t4.9.1" })
+                if (!en491.Contains(row, StringComparison.Ordinal))
+                    throw new InvalidDataException($"EN 4.9.1 config.tab lost row '{row}'.");
+
+            // Every region at 4.9 must stay in the skip shortcut: Application == Document == LaunchModule.
+            foreach (string package in new[] { "com.kurogame.punishing.grayraven.tw", "com.kurogame.punishing.grayraven.kr", "com.kurogame.punishing.grayraven.jp", "com.kurogame.haru.kuro", "com.kurogame.pc.punishing.grayraven.en" })
+            {
+                Dictionary<string, string> rows = Serve(package, "4.9.0", cdnKey).Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(line => line.TrimEnd('\r').Split('\t')).Where(cells => cells.Length >= 3).ToDictionary(cells => cells[0], cells => cells[2]);
+                AssertEqual("4.9.0", rows["ApplicationVersion"], $"{package} 4.9 ApplicationVersion");
+                AssertEqual("4.9.0", rows["DocumentVersion"], $"{package} 4.9 DocumentVersion");
+                AssertEqual("4.9.0", rows["LaunchModuleVersion"], $"{package} 4.9 LaunchModuleVersion");
+            }
+        }
+    }
+
+    private static void AssertRegionTabMatchesRetail(string served, string region, string label, string[] ownedKeys, Dictionary<string, string>? policyRows = null)
     {
         string[] retail = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Region", $"{region}.tab")).Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
         string[] actual = served.Split('\n', StringSplitOptions.RemoveEmptyEntries);
@@ -305,10 +350,14 @@ internal partial class Program
         for (int i = 0; i < retail.Length; i++)
         {
             // The capture's own login/pay hosts are the only values AscNet replaces.
-            string expected = System.Text.RegularExpressions.Regex.Replace(retail[i], @"http://(prod-pay-(kr|jp)\.pgr-game\.com|101\.33\.70\.36:55556|8\.209\.200\.222:2333)", "http://127.0.0.1:8080");
+            string expected = System.Text.RegularExpressions.Regex.Replace(retail[i], @"http://(prod-pay-(kr|jp)\.pgr-game\.com|prod-pay-en-(na|eu|sea)\.pgr-game\.com|101\.33\.70\.36:55556|8\.209\.200\.222:2333|161\.117\.238\.242:(1300|2333)|47\.77\.201\.91:2333|8\.209\.96\.201:2333|47\.245\.98\.102:2333)", "http://127.0.0.1:8080");
             // CN lists the official gate plus raw-IP mirrors per login channel; AscNet serves one isolated Login-cn gate for each.
             expected = System.Text.RegularExpressions.Regex.Replace(expected, @"https://haru-gf-login\.kurogame\.com/api/Login/Login(;http://\d+\.\d+\.\d+\.\d+/api/Login/Login)*", "http://127.0.0.1:8080/api/Login/Login-cn");
             expected = expected.Replace("http://haru-gf-pay.kurogame.com", "http://127.0.0.1:8080");
+            // Policy rows: AscNet deliberately serves a value other than the retail one (documented where the caller passes them).
+            string[] cells = retail[i].Split('\t');
+            if (policyRows is not null && policyRows.TryGetValue(cells[0], out string? policyValue))
+                expected = $"{cells[0]}\t{cells[1]}\t{policyValue}";
             AssertEqual(expected, actual[i], $"{label} config.tab line {i}");
             if (expected != retail[i])
                 owned.Add(retail[i].Split('\t')[0]);
@@ -346,7 +395,9 @@ internal partial class Program
         AssertEqual("5f41e51783a5183a619d14d586638dbdb557a996", current.IndexSha1, "4.7 live IndexSha1");
         AssertEqual("2ea1ce3cc9271c9e75df7a16b5465cfb8922abc7", current.LaunchIndexSha1, "4.7 live LaunchIndexSha1");
         ServerVersionConfig fallback = (ServerVersionConfig)getVersion.Invoke(null, ["99.0.0"])!;
-        AssertEqual(((ServerVersionConfig)getVersion.Invoke(null, ["4.8.0"])!).IndexSha1, fallback.IndexSha1, "unknown future version uses latest live metadata");
+        AssertEqual("7be18b2e546dbf95442e098be024a89c22041a52", fallback.IndexSha1, "unknown future version uses latest live metadata (4.9 matrix index sha1)");
+        AssertEqual("b069d45a6b7d7679e6ab66c82c661ddd85b92ef3", fallback.LaunchIndexSha1, "unknown future version uses latest live metadata (4.9 launch index sha1)");
+        AssertEqual("4.8.12", ((ServerVersionConfig)getVersion.Invoke(null, ["4.8.0"])!).DocumentVersion, "4.8.0 entry kept");
         ServerVersionConfig previous = (ServerVersionConfig)getVersion.Invoke(null, ["4.5.0"])!;
         if (previous.IndexSha1 == live.IndexSha1)
             throw new InvalidDataException("4.6 configuration metadata did not remain distinct from 4.5.");
@@ -555,13 +606,14 @@ internal partial class Program
             BindingFlags.Static | BindingFlags.NonPublic,
             [typeof(AscNet.Common.Database.Player), typeof(DateTimeOffset)]);
         NotifyDrawCanLiverData inactiveCanLiver = (NotifyDrawCanLiverData)canLiverBuilder.Invoke(null, [player, DateTimeOffset.FromUnixTimeSeconds(canLiverSchedule.StartTime - 1)])!;
-        AssertEqual(0, inactiveCanLiver.DrawCanLiverData.ActivityId, "4.6 inactive DrawCanLiver uses the Lua-safe zero activity");
+        if (inactiveCanLiver.DrawCanLiverData.ActivityId is not null)
+            throw new InvalidDataException("4.6 inactive DrawCanLiver must send a nil ActivityId; Lua treats 0 as an activity.");
         AssertEqual(0, inactiveCanLiver.DrawCanLiverData.DrawCount, "4.6 inactive DrawCanLiver has no progress");
         if (inactiveCanLiver.DrawCanLiverData.RewardIndex.Count != 0)
             throw new InvalidDataException("4.6 inactive DrawCanLiver must retain the nested empty reward-index contract.");
 
         NotifyDrawCanLiverData freshCanLiver = (NotifyDrawCanLiverData)canLiverBuilder.Invoke(null, [player, DateTimeOffset.FromUnixTimeSeconds(canLiverSchedule.StartTime)])!;
-        AssertEqual(canLiverActivity.Id, freshCanLiver.DrawCanLiverData.ActivityId, "4.6 DrawCanLiver activity comes from the active table row");
+        AssertEqual<int?>(canLiverActivity.Id, freshCanLiver.DrawCanLiverData.ActivityId, "4.6 DrawCanLiver activity comes from the active table row");
         AssertEqual(0, freshCanLiver.DrawCanLiverData.DrawCount, "4.6 fresh DrawCanLiver progress");
 
         FieldInfo drawsByIdField = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager")

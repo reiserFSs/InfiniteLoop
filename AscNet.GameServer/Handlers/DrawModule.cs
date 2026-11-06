@@ -75,7 +75,8 @@ namespace AscNet.GameServer.Handlers
     [MessagePackObject(true)]
     public sealed class DrawCanLiverData
     {
-        public int ActivityId { get; set; }
+        // Lua treats only nil as "no activity" (0 is truthy and crashes XUiDrawPanelCanLiverJourneyReward).
+        public int? ActivityId { get; set; }
         public int DrawCount { get; set; }
         public List<int> RewardIndex { get; set; } = new();
     }
@@ -311,13 +312,13 @@ namespace AscNet.GameServer.Handlers
                 .OrderByDescending(row => row.Id)
                 .FirstOrDefault();
 
-            // The Lua consumer dereferences DrawCanLiverData, so inactive windows retain
-            // the nested zero/empty state rather than emitting a null payload.
+            // The Lua consumer dereferences DrawCanLiverData, so inactive windows keep the nested
+            // object with a nil ActivityId and zero/empty progress.
             return new()
             {
                 DrawCanLiverData = new()
                 {
-                    ActivityId = activity?.Id ?? 0,
+                    ActivityId = activity?.Id,
                     DrawCount = activity is null ? 0 : DrawManager.GetProgressForDrawIds(player, activity.DrawIds),
                     RewardIndex = activity is null ? [] : player.DrawState.ClaimedDrawMilestones.GetValueOrDefault(activity.Id, []).ToList()
                 }

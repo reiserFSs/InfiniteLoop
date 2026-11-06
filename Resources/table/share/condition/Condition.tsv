@@ -3263,7 +3263,7 @@ Id	Type	Params[1]	Params[2]	Params[3]	Params[4]	Params[5]	Params[6]	Params[7]	Pa
 845001	10101	40																																Commandant Level reached 40	
 845010	10101	120																																Unlocked when Commandant Level reached 120	
 845020	10123	1																																Player is currently on Return Missions	
-845030	10192	1																																玩家是回归玩家	
+845030	10192	1																																Player is a Returning player	
 850001	15103	13005001	3																															Collect 3 Crimson Love	
 850002	15103	13005001	6																															Collect 6 Crimson Love	
 850003	15103	13005001	10																															Collect 10 Crimson Love	
@@ -7085,8 +7085,8 @@ Id	Type	Params[1]	Params[2]	Params[3]	Params[4]	Params[5]	Params[6]	Params[7]	Pa
 1002908	10150	6041																																Phase IV Story Unlocked	
 1002909	10150	6046																																Unlock Phase V Birthday Story Replay	
 1002910	10150	6046																																Unlocks on Phase V Birthday	
-1002911	10150	6046																																Unlock Phase VI Birthday Story Replay	
-1002912	10150	6046																																Phase VI Birthday Unlocked	
+1002911	10150	6051																																Unlock Phase VI Birthday Story Replay	
+1002912	10150	6051																																Phase VI Birthday Unlocked	
 1002027	17003	2																																Clear Chapter 3 Ending A - Pay attention to changes	
 1002018	17003	3																																Clear Chapter 5 Ending B	
 1002019	23001	801																																The roguelike event enters the 2nd week	
@@ -7924,7 +7924,7 @@ Id	Type	Params[1]	Params[2]	Params[3]	Params[4]	Params[5]	Params[6]	Params[7]	Pa
 1007122	10105	15021423																																Clear [Floating Record ER12-24]	
 1007123	10105	15021424																																Clear [Floating Record ER12-25]	
 1007124	15204	15010314	150103141	1																														Unlocks after using Dante's midair taunt move in DMC-14 to trigger Vergil's response gesture	
-1007125	20112	904																																Download story video resources pack	
+1007125	20112	905																																下载活动视频资源包	
 1007126	10105	10350117																																After clearing prerequisite Main Story [Normal Story 35-17]	
 1007127	10105	10350136																																After clearing prerequisite Main Story [Normal Story 36-14]	
 1007128	15204	10350130	10350230	1																															
@@ -8026,67 +8026,67 @@ Id	Type	Params[1]	Params[2]	Params[3]	Params[4]	Params[5]	Params[6]	Params[7]	Pa
 1007268	10105	10410126																																Clear prerequisite Main Story [Normal Story 42-26]	
 1007269	10105	10420123																																Clear prerequisite Main Story [Normal Story 43-23]	
 1007270	0																																	通关前置主线关卡	1007266&1007269
-1008102	20114	1002																																Download story video resources pack	
-1008103	20114	1003																																Download story video resources pack	
-1008104	20114	1004																																Download story video resources pack	
-1008105	20114	1005																																Download story video resources pack	
+1008102	20114	5010																																Download story video resources pack	
+1008103	20114	5011																																Download story video resources pack	
+1008104	20114	5012																																Download story video resources pack	
+1008105	20114	1004																																Download story video resources pack	
 1008106	20114	1006																																Download story video resources pack	
 1008107	20114	1007																																Download story video resources pack	
-1008108	20114	1008																																Download story video resources pack	
-1008109	20114	1009																																Download story video resources pack	
+1008108	20114	5016																																Download story video resources pack	
+1008109	20114	5017																																Download story video resources pack	
 1008110	20114	1010																																Download story video resources pack	
-1008111	20114	1011																																Download story video resources pack	
-1008112	20114	1012																																Download story video resources pack	
-1008113	20114	1013																																Download story video resources pack	
+1008111	20114	1018																																Download story video resources pack	
+1008112	20114	5020																																Download story video resources pack	
+1008113	20114	5021																																Download story video resources pack	
 1008114	20114	1014																																Download story video resources pack	
-1008115	20114	1015																																Download story video resources pack	
-1008116	20114	1016																																Download story video resources pack	
-1008117	20114	1017																																Download story video resources pack	
-1008118	20114	1018																																Download story video resources pack	
-1008119	20114	1019																																Download story video resources pack	
-1008120	20114	1020																																Download story video resources pack	
-1008121	20114	1021																																Download story video resources pack	
-1008122	20114	1022																																Download story video resources pack	
-1008123	20114	1023																																Download story video resources pack	
-1008124	20114	1024																																Download story video resources pack	
+1008115	20114	5023																																Download story video resources pack	
+1008116	20114	1034																																Download story video resources pack	
+1008117	20114	5025																																Download story video resources pack	
+1008118	20114	5026																																Download story video resources pack	
+1008119	20114	1044																																Download story video resources pack	
+1008120	20114	5028																																Download story video resources pack	
+1008121	20114	5029																																Download story video resources pack	
+1008122	20114	5030																																Download story video resources pack	
+1008123	20114	5031																																Download story video resources pack	
+1008124	20114	5032																																Download story video resources pack	
 1008125	20114	1025																																Download story video resources pack	
-1008126	20114	1026																																Download story video resources pack	
-1008127	20114	1027																																Download story video resources pack	
-1008128	20114	1028																																Download story video resources pack	
-1008129	20114	1029																																Download story video resources pack	
-1008130	20114	1030																																Download story video resources pack	
-1008131	20114	1031																																Download story video resources pack	
-1008132	20114	1032																																Download story video resources pack	
-1008133	20114	1033																																Download story video resources pack	
-1008134	20114	1034																																Download story video resources pack	
-1008135	20114	1035																																Download story video resources pack	
-1008136	20114	1036																																Download story video resources pack	
-1008137	20114	1037																																Download story video resources pack	
-1008138	20114	1038																																Download story video resources pack	
-1008139	20114	1039																																Download story video resources pack	
+1008126	20114	5034																																Download story video resources pack	
+1008127	20114	5500																																Download story video resources pack	
+1008128	20114	1017																																Download story video resources pack	
+1008129	20114	5502																																Download story video resources pack	
+1008130	20114	5503																																Download story video resources pack	
+1008131	20114	1030																																Download story video resources pack	
+1008132	20114	5505																																Download story video resources pack	
+1008133	20114	5506																																Download story video resources pack	
+1008134	20114	5507																																Download story video resources pack	
+1008135	20114	5508																																Download story video resources pack	
+1008136	20114	5509																																Download story video resources pack	
+1008137	20114	1073																																Download story video resources pack	
+1008138	20114	1079																																Download story video resources pack	
+1008139	20114	5512																																Download story video resources pack	
 1008140	20114	1040																																Download story video resources pack	
 1008141	20114	1041																																Download story video resources pack	
-1008142	20114	1042																																Download story video resources pack	
-1008143	20114	1043																																Download story video resources pack	
-1008144	20114	1044																																Download story video resources pack	
+1008142	20114	6003																																Download story video resources pack	
+1008143	20114	5014																																Download story video resources pack	
+1008144	20114	6005																																Download story video resources pack	
 1008145	20114	1045																																Download story video resources pack	
 1008146	20114	1046																																Download story video resources pack	
 1008147	20114	1047																																Download story video resources pack	
-1008148	20114	1048																																Download story video resources pack	
-1008149	20114	1049																																Download story video resources pack	
+1008148	20114	1084																																Download story video resources pack	
+1008149	20114	5035																																Download story video resources pack	
 1008150	20114	202																																Complete the download of Main Story Pack 2	
 1008151	20114	9999																																Complete the download of required resource packs	
-1008152	20114	1052																																Download story video resources pack	
-1008153	20114	1053																																Download story video resources pack	
-1008154	20114	1054																																Download story video resources pack	
-1008155	20114	1055																																Download story video resources pack	
-1008156	20114	1056																																Download story video resources pack	
-1008157	20114	1057																																Download story video resources pack	
-1008158	20114	1058																																Download story video resources pack	
-1008159	20114	1059																																Download story video resources pack	
-1008160	20114	1060																																Download story video resources pack	
-1008161	20114	1061																																Download story video resources pack	
-1008215	20114	2015																																下载玩法视频资源包	
+1008152	20114	1089																																Download story video resources pack	
+1008153	20114	1091																																Download story video resources pack	
+1008154	20114	1093																																Download story video resources pack	
+1008155	20114	5039																																Download story video resources pack	
+1008156	20114	5040																																Download story video resources pack	
+1008157	20114	5515																																Download story video resources pack	
+1008158	20114	5041																																Download story video resources pack	
+1008159	20114	1099																																Download story video resources pack	
+1008160	20114	5042																																Download story video resources pack	
+1008161	20114	5043																																Download story video resources pack	
+1008215	20114	2015																																Download Gameplay Video Resource Pack	
 890002	22002	1	2																																
 890003	16100	2																																Unlocked at Guild Lv.2	
 890004	22004	16																																	
@@ -10241,3 +10241,258 @@ Id	Type	Params[1]	Params[2]	Params[3]	Params[4]	Params[5]	Params[6]	Params[7]	Pa
 990419																																		Clear Main Story 42-15 and wait until 08/26 03:00 (UTC) to unlock.	1007267&990418
 990420																																		Clear Main Story 42-26 and wait until 08/26 03:00 (UTC) to unlock.	1007268&990418
 990421	23001	912																																Not yet available	
+386	10102	1431003																																Own Omniframe Leia: Fortunaster	
+60485	11102	1431003	4																															Awaken Fortunaster's Ultima Rank	
+770308	17438	1																																Thunderbolt Manual completed	
+770309	0																																	Conditions to unlock the entry displayed in the top left corner of the Thunderbolt Manual main interface.	770303&770304&770308
+853028	10105	10430101																																Placeholder_通关主线普通剧情44-1后解锁	
+853029	10102	1431003																																Placeholder_解锁成员莱亚·祈星	
+853030	0																																	Placeholder_生命树档案解锁莱亚·祈星使用	853028|853029
+6004607	11105	6004607																																Coating owned	
+6006604	11105	6006604																																Coating owned	
+7004515	0																																	You do not own this Coating and have cleared 1-12.	770400&6006604
+7004516	0																																	You do not own this Coating and have cleared 1-12.	770400&6004607
+845031	23601	1																																Player is a Returning player	
+990422	15103	13019741	2																															Obtain 2	
+990423	15103	13019741	3																															Obtain 3	
+990424	15103	13019741	5																															Obtain 5	
+990428	15103	13019743	2																															Obtain 2	
+990429	15103	13019743	3																															Obtain 3	
+990430	15103	13019743	4																															Obtain 4	
+84103505	10105	10430101																																Unlocks after clearing Main Story (Normal) 44-1	
+84103506	10105	10430102																																Unlocks after clearing Main Story (Normal) 44-2	
+84103507	10105	10430103																																Unlocks after clearing Main Story (Normal) 44-3	
+84103508	10105	10430104																																Unlocks after clearing Main Story (Normal) 44-4	
+84103509	10105	10430105																																Unlocks after clearing Main Story (Normal) 44-5	
+84103510	10105	10430106																																Unlocks after clearing Main Story (Normal) 44-6	
+84103511	10105	10430107																																Unlocks after clearing Main Story (Normal) 44-7	
+84103512	10105	10430108																																Unlocks after clearing Main Story (Normal) 44-8	
+84103513	10105	10430109																																Unlocks after clearing Main Story (Normal) 44-9	
+84103514	10105	10430110																																Unlocks after clearing Main Story (Normal) 44-10	
+84103515	10105	10430111																																Unlocks after clearing Main Story (Normal) 44-11	
+84103516	10105	10430112																																Unlocks after clearing Main Story (Normal) 44-12	
+84103517	10105	10430113																																Unlocks after clearing Main Story (Normal) 44-13	
+84103518	10105	10430114																																Unlocks after clearing Main Story (Normal) 44-14	
+84103519	10105	10430115																																Unlocks after clearing Main Story (Normal) 44-15	
+84103520	10105	10430116																																Unlocks after clearing Main Story (Normal) 44-16	
+84103521	10105	10430117																																Unlocks after clearing Main Story (Normal) 44-17	
+84103522	10105	10430118																																Unlocks after clearing Main Story (Normal) 44-18	
+84103523	10105	10430119																																Unlocks after clearing Main Story (Normal) 44-19	
+84103524	10105	10430120																																Unlocks after clearing Main Story (Normal) 44-20	
+84103525	10105	10430121																																Unlocks after clearing Main Story (Normal) 44-21	
+84103526	10105	10430122																																Unlocks after clearing Main Story (Normal) 44-22	
+84103527	10105	10430123																																Unlocks after clearing Main Story (Normal) 44-23	
+84103528	10105	10430124																																Unlocks after clearing Main Story (Normal) 44-24	
+84103529	10105	10430125																																Unlocks after clearing Main Story (Normal) 44-25	
+84103530	10105	10430126																																Unlocks after clearing Main Story (Normal) 44-26	
+84103531	10105	10430127																																Unlocks after clearing Main Story (Normal) 44-27	
+84103532	10105	10430128																																Unlocks after clearing Main Story (Normal) 44-28	
+84103533	10105	10430129																																Unlocks after clearing Main Story (Normal) 44-29	
+84103534	10105	10430130																																Unlocks after clearing Main Story (Normal) 44-30	
+84330040	11104	6006604																																Unlocks from owning the Coating "Brilliant Instant"	
+84330041	11104	6004607																																Unlocks from owning the Coating "Cradled Moonfrost"	
+84602906	10105	13021606																																Unlocks after clearing [Endeavorer's Charm - Night and...]	
+12700001	11113	12700001																																Coating owned	
+1000128	10136	16440000	0	10																														Have any Vulpecula reach Lv.10 (no Overclock)	
+1000129	10137	16440000	4																															Have any Vulpecula reach SS-Rank	
+1000130	10138	16440000	10																															Total skill level of any Vulpecula reaches Lv.10	
+1001042	10142	16440000																																Unlock Vulpecula	
+1002153	10142	16440000																																Combine CUB "Vulpecula" to unlock	
+1002913	10150	6051																																Reserved String	
+1002914	10150	6051																																Reserved String	
+1007156	10105	10420129																																Clear prerequisite Main Story [Hidden Story 43-29]	
+1007271	15204	10430102	10430199	1																															
+1007272	15204	10430110	10430198	1																															
+1007273	15204	10430102	104301022	1																															
+1008162	20114	1005																																Download story video resources pack	
+1008163	20114	1006																																Download story video resources pack	
+1008164	20114	1008																																Download story video resources pack	
+1008165	20114	1020																																Download story video resources pack	
+1008166	20114	1021																																Download story video resources pack	
+1008167	20114	1024																																Download story video resources pack	
+1008168	20114	1026																																Download story video resources pack	
+1008169	20114	1027																																Download story video resources pack	
+1008170	20114	1029																																Download story video resources pack	
+1008171	20114	1036																																Download story video resources pack	
+1008172	20114	1037																																Download story video resources pack	
+1008173	20114	1038																																Download story video resources pack	
+1008174	20114	1046																																Download story video resources pack	
+1008175	20114	1047																																Download story video resources pack	
+1008176	20114	1048																																Download story video resources pack	
+1008177	20114	1050																																Download story video resources pack	
+1008178	20114	1051																																Download story video resources pack	
+1008179	20114	1053																																Download story video resources pack	
+1008180	20114	1054																																Download story video resources pack	
+1008181	20114	1061																																Download story video resources pack	
+1008182	20114	1062																																Download story video resources pack	
+1008183	20114	1063																																Download story video resources pack	
+1008184	20114	1064																																Download story video resources pack	
+1008185	20114	1066																																Download story video resources pack	
+1008186	20114	1068																																Download story video resources pack	
+1008187	20114	1069																																Download story video resources pack	
+1008188	20114	1070																																Download story video resources pack	
+1008189	20114	1071																																Download story video resources pack	
+1008190	20114	1072																																Download story video resources pack	
+1008191	20114	1076																																Download story video resources pack	
+1008192	20114	1077																																Download story video resources pack	
+1008193	20114	1078																																Download story video resources pack	
+1008194	20114	1022																																Download story video resources pack	
+1008195	20114	1032																																Download story video resources pack	
+1008196	20114	1035																																Download story video resources pack	
+1008197	20114	1055																																Download story video resources pack	
+1008198	20114	1057																																Download story video resources pack	
+1008199	20114	1059																																Download story video resources pack	
+1008200	20114	1065																																Download story video resources pack	
+1008201	20114	1074																																Download story video resources pack	
+1008202	20114	1081																																Download story video resources pack	
+1008203	20114	1082																																Download story video resources pack	
+1008204	20114	1085																																Download story video resources pack	
+1008205	20114	1086																																Download story video resources pack	
+1008206	20114	1092																																Download story video resources pack	
+1008207	20114	1095																																Download story video resources pack	
+1008208	20114	1096																																Download story video resources pack	
+1008209	20114	1102																																Download story video resources pack	
+1008210	20114	1097																																Download story video resources pack	
+1008211	20114	1098																																Download story video resources pack	
+1008212	20114	1100																																Download story video resources pack	
+1008213	20114	1101																																Download story video resources pack	
+1008216	20114	2065																																Download Gameplay Video Resource Pack	
+1008217	20114	1019																																Download Cage Video Resource Pack	
+1008218	20114	1023																																Download Cage Video Resource Pack	
+1008219	20114	1033																																Download Cage Video Resource Pack	
+1008220	20114	1028																																Download Cage Video Resource Pack	
+1008221	20114	1031																																Download Cage Video Resource Pack	
+1008222	20114	1049																																Download Cage Video Resource Pack	
+1008223	20114	1052																																Download Cage Video Resource Pack	
+1008224	20114	1056																																Download Cage Video Resource Pack	
+1008225	20114	1058																																Download Cage Video Resource Pack	
+1008226	20114	1060																																Download Cage Video Resource Pack	
+1008227	20114	1080																																Download Cage Video Resource Pack	
+1008228	20114	1075																																Download Cage Video Resource Pack	
+1008229	20114	1067																																Download Cage Video Resource Pack	
+1008230	20114	1083																																Download Cage Video Resource Pack	
+1008231	20114	1090																																Download Cage Video Resource Pack	
+1022001	23504	101																																Complete Daily Event 01	
+1022002	23504	102																																Complete Daily Event 02	
+1022003	23504	103																																Complete Daily Event 03	
+1022004	23504	104																																Complete Daily Event 04	
+1022005	23504	105																																Complete Daily Event 05	
+1022006	23504	106																																Complete Daily Event 06	
+1022007	23504	107																																Complete Daily Event 07	
+1022008	23504	108																																Complete Daily Event 08	
+1022009	23504	109																																Complete Daily Event 09	
+1022010	23504	110																																Complete Daily Event 10	
+1022011	23504	111																																Complete Daily Event 11	
+1022012	23504	112																																Complete Daily Event 12	
+1022013	23504	113																																Complete Daily Event 13	
+1022020	23502	2																																Unlocks when [Kuroro Building] reaches Lv.2	
+1022021	23502	5																																Unlocks when [Kuroro Building] reaches Lv.5	
+1022022	23502	8																																Unlocks when [Kuroro Building] reaches Lv.8	
+1022023	23502	11																																Unlocks when [Kuroro Building] reaches Lv.11	
+1022024	23502	16																																Unlocks when [Kuroro Building] reaches Lv.16	
+1022025	23502	19																																Unlocks when [Kuroro Building] reaches Lv.19	
+1022026	23502	22																																Unlocks when [Kuroro Building] reaches Lv.22	
+1022027	23502	25																																Unlocks when [Kuroro Building] reaches Lv.25	
+1022028	23502	30																																Unlocks when [Kuroro Building] reaches Lv.30	
+1022029	23502	33																																Unlocks when [Kuroro Building] reaches Lv.33	
+1022030	23502	36																																Unlocks when [Kuroro Building] reaches Lv.36	
+1022031	23502	39																																Unlocks when [Kuroro Building] reaches Lv.39	
+1022032	23502	3																																Unlocks when [Kuroro Building] reaches Lv.3	
+1022033	23502	6																																Unlocks when [Kuroro Building] reaches Lv.6	
+1022034	23502	9																																Unlocks when [Kuroro Building] reaches Lv.9	
+1022035	23502	12																																Unlocks when [Kuroro Building] reaches Lv.12	
+1022036	23502	14																																Unlocks when [Kuroro Building] reaches Lv.14 and Building Order 04 is completed	
+1022037	23502	15																																Unlocks when [Kuroro Building] reaches Lv.15	
+1022038	23502	17																																Unlocks when [Kuroro Building] reaches Lv.17	
+1022039	23502	20																																Unlocks when [Kuroro Building] reaches Lv.20	
+1022040	23502	23																																Unlocks when [Kuroro Building] reaches Lv.23	
+1022041	23502	26																																Unlocks when [Kuroro Building] reaches Lv.26	
+1022042	23502	28																																Unlocks when [Kuroro Building] reaches Lv.28	
+1022043	23502	29																																Unlocks when [Kuroro Building] reaches Lv.29	
+1022044	23502	31																																Unlocks when [Kuroro Building] reaches Lv.31	
+1022045	23502	34																																Unlocks when [Kuroro Building] reaches Lv.34	
+1022046	23502	37																																Unlocks when [Kuroro Building] reaches Lv.37	
+1022047	23502	40																																Unlocks when [Kuroro Building] reaches Lv.40	
+1022048	23502	42																																Unlocks when [Kuroro Building] reaches Lv.42	
+1022049	23502	43																																Unlocks when [Kuroro Building] reaches Lv.43	
+1022050	23502	44																																Unlocks when [Kuroro Building] reaches Lv.44 and Building Order 16 is completed	
+1022051	23502	46																																Unlocks when [Kuroro Building] reaches Lv.46 and Building Order 17 is completed	
+1022052	23502	47																																Unlocks when [Kuroro Building] reaches Lv.47 and Building Order 18 is completed	
+1022053	23502	48																																Unlocks when [Kuroro Building] reaches Lv.48 and Building Order 19 is completed	
+1022054	23502	49																																Unlocks when [Kuroro Building] reaches Lv.49 and Building Order 20 is completed	
+1022055	23502	50																																Unlocks when [Kuroro Building] reaches Lv.50 and Building Order 21 is completed	
+1022056	23502	3																																Unlocks when [Kuroro Building] reaches Lv.3 and event "Out of Reach" is completed	
+1022057	23502	6																																Unlocks when [Kuroro Building] reaches Lv.6 and Building Order 01 is completed	
+1022058	23502	9																																Unlocks when [Kuroro Building] reaches Lv.9 and Building Order 02 is completed	
+1022059	23502	12																																Unlocks when [Kuroro Building] reaches Lv.12 and Building Order 03 is completed	
+1022064	23502	3																																Unlocks when [Kuroro Building] reaches Lv.3	
+1022065	23502	3																																Unlocks when [Kuroro Building] reaches Lv.3	
+1022066	23502	4																																Unlocks when [Kuroro Building] reaches Lv.4	
+1022067	23502	6																																Unlocks when [Kuroro Building] reaches Lv.6	
+1022068	23502	6																																Unlocks when [Kuroro Building] reaches Lv.6	
+1022069	23502	7																																Unlocks when [Kuroro Building] reaches Lv.7	
+1022070	23502	9																																Unlocks when [Kuroro Building] reaches Lv.9	
+1022071	23502	9																																Unlocks when [Kuroro Building] reaches Lv.9	
+1022072	23502	10																																Unlocks when [Kuroro Building] reaches Lv.10	
+1022073	23502	12																																Unlocks when [Kuroro Building] reaches Lv.12	
+1022074	23502	12																																Unlocks when [Kuroro Building] reaches Lv.12	
+1022075	23502	13																																Unlocks when [Kuroro Building] reaches Lv.13	
+1022076	23502	14																																Unlocks when [Kuroro Building] reaches Lv.14	
+1022077	23504	240																																Complete 3 Starlit Blossoms orders	
+1022078	23504	231																																Complete Order 3	
+1022079	23504	234																																Complete Order 6	
+1022080	23504	237																																Complete Order 9	
+1022081	23504	245																																Complete Order 16	
+1022082	23502	18																																Unlocks when [Kuroro Building] reaches Lv.18	
+1022083	23504	248																																Complete Order 19	
+1022084	23502	21																																Unlocks when [Kuroro Building] reaches Lv.21	
+1022085	23504	251																																Complete Order 22	
+1022086	23502	24																																Unlocks when [Kuroro Building] reaches Lv.24	
+1022087	23504	254																																Complete Order 25	
+1022088	23502	27																																Unlocks when [Kuroro Building] reaches Lv.27	
+1022089	23504	257																																Complete Order 28	
+1022090	23504	259																																Complete Order 29	
+1022091	23502	32																																Unlocks when [Kuroro Building] reaches Lv.32	
+1022092	23504	262																																Complete Order 32	
+1022093	23502	35																																Unlocks when [Kuroro Building] reaches Lv.35	
+1022094	23502	38																																Unlocks when [Kuroro Building] reaches Lv.38	
+1022095	23502	41																																Unlocks when [Kuroro Building] reaches Lv.41	
+1022096	23504	269																																Complete Order 39	
+1022097	23504	229																																Complete Order 1	
+1022098	23504	231																																Complete Order 3	
+1022099	23504	242																																Complete Order 13	
+1022100	23504	232																																Complete Order 4	
+1022101	23504	235																																Complete Order 7	
+1022102	23504	238																																Complete Order 10	
+1022103	23504	246																																Complete Order 17	
+1022104	23504	249																																Complete Order 20	
+1022105	23504	252																																Complete Order 23	
+1022106	23504	255																																Complete Order 26	
+1022107	23504	260																																Complete Order 30	
+1022108	23504	263																																Complete Order 33	
+1022109	23504	266																																Complete Order 36	
+1022110	23504	268																																Complete Order 38	
+1022111	23502	45																																Unlocks when [Kuroro Building] reaches Lv.45	
+1022112	23504	272																																Complete Order 41	
+1022113	23504	273																																Complete Order 42	
+1022114	23504	275																																Complete Order 44	
+1022115	23504	276																																Complete Order 45	
+1022116	23502	51																																Unlocks when [Kuroro Building] reaches Lv.51	
+1022117	23504	278																																Complete Order 47	
+1022118	23502	52																																Unlocks when [Kuroro Building] reaches Lv.52	
+1022119	23504	279																																Complete Order 48	
+1022120	23502	53																																Unlocks when [Kuroro Building] reaches Lv.53	
+1022121	23502	54																																Unlocks when [Kuroro Building] reaches Lv.54	
+1022122	23504	281																																Complete Order 50	
+1022123	23502	55																																Unlocks when [Kuroro Building] reaches Lv.55	
+1022124	23504	282																																Complete Order 51	
+863270	10187	1	65126																															引导通天塔-已完成引导65126	
+863271	23501	2																																引导通天塔-已解锁第2层	
+863272	23504	101																																引导通天塔-完成日常事件101	
+863273	23501	6																																引导通天塔-已解锁第6层	
+863274	23501	8																																引导通天塔-已解锁第8层	
+863275	10187	0	65132																															引导通天塔-未完成引导65132	
+863276	23502	3																																引导通天塔-大楼等级达到3级	
+863277	10187	1	65122																															引导通天塔-已完成引导65122	
+863278	10187	1	65123																															引导通天塔-已完成引导65123	
+863279	23501	11																																引导通天塔-已解锁第11层	

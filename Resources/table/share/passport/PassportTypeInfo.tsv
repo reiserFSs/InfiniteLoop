@@ -140,3 +140,6 @@ Id	ActivityId	Name	IsFree	BuyDesc	CostItemId	CostItemCount	RewardId	Icon
 139	47	Basic Intel	1	<color=#000000>※6★ Memory Shard\n※</color><color=#0E70BD>Trade Voucher</color>\n<color=#000000>※Equipment & CUB Enhancement Material</color>	0	0	0	
 140	47	Encrypted Intel	0	Grants <color=#0E70BD>10</color> Rating Levels upon purchase.	5	30	800014	
 141	47	Top-Secret Intel	0	Grants <color=#0E70BD>10</color> Rating Levels upon purchase.	5	68	800015	Assets/Product/Texture/Image/UIPassport/UIPassportShopBg1.png
+142	48	Basic Intel	1	<color=#000000>※6★ Memory Shard\n※</color><color=#0E70BD>Trade Voucher</color>\n<color=#000000>※Equipment & CUB Enhancement Material</color>	0	0	0	
+143	48	Encrypted Intel	0	Grants <color=#0E70BD>10</color> Rating Levels upon purchase.	5	30	800014	
+144	48	Top-Secret Intel	0	Grants <color=#0E70BD>10</color> Rating Levels upon purchase.	5	68	800015	Assets/Product/Texture/Image/UIPassport/UIPassportShopBg1.png

@@ -45,7 +45,7 @@ internal static partial class Program
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
             out _, out RecordingMongoCollectionProxy<Character> characters, out _);
         Inventory inventory = CreateDrawCompatibilityInventory(uid,
-            [new Item { Id = 62738, Count = 1691 }]);
+            [new Item { Id = 62738, Count = 2230 }]);
         using LoopbackSessionHarness harness = new(character, player, inventory);
         foreach (EquipData equip in character.Equips)
         {
@@ -70,10 +70,10 @@ internal static partial class Program
 
         EquipConfigTable[] discounts = TableReaderV2.Parse<EquipConfigTable>()
             .Where(row => row.ItemId == 62738).ToArray();
-        AssertEqual(2, discounts.Length, "two authored resonance discounts");
+        AssertEqual(3, discounts.Length, "three authored resonance discounts (4.8 suits 1665/1613 plus 4.9 suit 1666)");
         AssertEqual(true, discounts.All(row => row.DiscountCount == 539), "authored discounted material count");
-        int[] suitIds = [discounts[0].SuitId, discounts[1].SuitId, 1664];
-        int[] costs = [discounts[0].DiscountCount, discounts[1].DiscountCount, 613];
+        int[] suitIds = [..discounts.Select(row => row.SuitId), 1664];
+        int[] costs = [..discounts.Select(row => row.DiscountCount), 613];
         for (int index = 0; index < suitIds.Length; index++)
         {
             EquipTable memory = TableReaderV2.Parse<EquipTable>()

@@ -153,9 +153,19 @@ namespace AscNet.Test
                     ValidateBigWorldTask();
                     return;
                 }
+                if (args.Contains("--version49-events-only"))
+                {
+                    ValidateVersion49EventAvailability();
+                    return;
+                }
                 if (args.Contains("--draw-rules-only"))
                 {
                     ValidateDrawRules();
+                    return;
+                }
+                if (args.Contains("--draw-canliver-only"))
+                {
+                    ValidateDrawCanLiverActivityId();
                     return;
                 }
                 if (args.Contains("--guild-compat-only"))
@@ -1401,6 +1411,7 @@ namespace AscNet.Test
                 Step("ValidateEquipChipRecycleCompatibility", () => ValidateEquipChipRecycleCompatibility());
                 Step("ValidateDrawCompatibility", () => ValidateDrawCompatibility());
                 Step("ValidateDrawRules", () => ValidateDrawRules());
+                Step("ValidateDrawCanLiverActivityId", () => ValidateDrawCanLiverActivityId());
                 Step("ValidateItemUseCompatibility", () => ValidateItemUseCompatibility());
                 Step("ValidateItemBuyAssetCompatibility", () => ValidateItemBuyAssetCompatibility());
                 Step("ValidateAutoUseGiftCompatibility", () => ValidateAutoUseGiftCompatibility());
@@ -1449,6 +1460,7 @@ namespace AscNet.Test
                 Step("ValidateTeamRecommendGlobalStandings", () => ValidateTeamRecommendGlobalStandings());
                 Step("ValidateEnvelopeCatchUpAndReissue", () => ValidateEnvelopeCatchUpAndReissue());
                 Step("ValidateMissingCalendarAscNetPolicy", () => ValidateMissingCalendarAscNetPolicy());
+                Step("ValidateVersion49EventAvailability", () => ValidateVersion49EventAvailability());
                 Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
                 Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());
                 Step("ValidateEquipmentSlotNotifications", () => ValidateEquipmentSlotNotifications());
@@ -7285,7 +7297,8 @@ namespace AscNet.Test
                 nameof(LottoInfoResponse),
                 "LottoInfoRequest response");
             AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse table-driven Code");
-            AssertEqual(1, lottoInfoResponse.LottoInfos.Count, "LottoInfoResponse table-driven LottoInfos");
+            // Open lotto windows: 49501 (3.7 choice coating lottery) and 51401 (4.9, missing-calendar policy).
+            AssertEqual(2, lottoInfoResponse.LottoInfos.Count, "LottoInfoResponse table-driven LottoInfos");
 
             const int gachaInfoPacketId = 13_006;
             InvokeRegisteredRequestHandler(nameof(GetGachaInfoRequest), harness.Session, gachaInfoPacketId, new GetGachaInfoRequest { Id = 49 });
@@ -11106,7 +11119,8 @@ namespace AscNet.Test
                 nameof(LottoInfoResponse),
                 "LottoInfoRequest response");
             AssertEqual(0, lottoInfoResponse.Code, "LottoInfoResponse table-driven Code");
-            AssertEqual(1, lottoInfoResponse.LottoInfos.Count, "LottoInfoResponse table-driven LottoInfos");
+            // Open lotto windows: 49501 (3.7 choice coating lottery) and 51401 (4.9, missing-calendar policy).
+            AssertEqual(2, lottoInfoResponse.LottoInfos.Count, "LottoInfoResponse table-driven LottoInfos");
 
             const int enterWorldChatPacketId = 11_013;
             InvokeRegisteredRequestHandler(nameof(EnterWorldChatRequest), harness.Session, enterWorldChatPacketId, new EnterWorldChatRequest());

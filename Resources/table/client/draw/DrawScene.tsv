@@ -2178,3 +2178,26 @@ Id	Type	ModelId	ScenePath	UiModelPath	ModelPosition	ModelRotation	ModelScale	Dra
 170837	1	1021005	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
 170838	1	1241003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
 170839	1	1331003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+384	2	2706001	Assets/Product/Ui/Scene3DPrefab/UiMain3dWuqi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainArms.prefab	0.52|0.435|-23.37	2.7|0|0	1|1|1	0
+7073	3	16440000	Assets/Product/Ui/Scene3DPrefab/UiMain3dWuqi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainPartner.prefab	0.6|-0.45|-24.26	0|-121|0	1|1|1	0
+7074	3	16440000	Assets/Product/Ui/Scene3DPrefab/UiMain3dWuqi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainPartner.prefab	0.6|-0.45|-24.26	0|-121|0	1|1|1	0
+1526	1	1431003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1527	1	1291003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1528	1	1171004	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1529	1	1391003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1530	1	1071005	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1531	1	1131004	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1532	1	1531005	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1533	1	1021006	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1534	1	1141004	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+1535	1	1381003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi_01.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRoleDescending.prefab				0
+2520	1	1431003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2521	1	1291003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2522	1	1171004	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2523	1	1391003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2524	1	1071005	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2525	1	1131004	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2526	1	1531005	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2527	1	1021006	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2528	1	1141004	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0
+2529	1	1381003	Assets/Product/Ui/Scene3DPrefab/UiMain3dQishi.prefab	Assets/Product/Ui/UiModel/UiNewDrawMain/UiNewDrawMainRolePredestined.prefab				0

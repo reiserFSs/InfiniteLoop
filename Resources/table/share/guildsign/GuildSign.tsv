@@ -33,3 +33,4 @@ Id	Name	Type	Weight	SignType[1]	SignType[2]	SignNum[1]	SignNum[2]	RewardId[1]	Re
 32	2026 New Year Day 3	3		14	17	2	1	350604		10000	
 33	2026 Labor Day	3		21	4	2	1	350605		10000	
 34	2026 Dragon Boat Festival Sign-in	3		18	4	2	1	350605		10000	
+37	2026 7th Anniversary	3	0	23	4	1	1	350605		10000	

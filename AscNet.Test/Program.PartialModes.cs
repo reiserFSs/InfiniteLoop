@@ -20,12 +20,25 @@ internal partial class Program
     private static void ValidatePartialModesCompatibility()
     {
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForBossInshotCompatibility(out _, out _);
-        // The 4.8 schedule has no window for the BossInshot TimeId; open it in the in-memory calendar for this test only.
+        // 4.9 retail zeroed BossInshotActivity/BossInshotTower TimeId; the client (XBossInshotModel, CheckInTimeByTimeId
+        // without defaultOpen) treats that as closed, so the server must reject every request with NotOpen.
         BossInshotActivityTable inshot = TableReaderV2.Parse<BossInshotActivityTable>()
-            .Single(row => row.TimeId is > 0 && row.TowerConditions is > 0 && row.TowerBossIds.Count > 0);
+            .Single(row => row.TowerConditions is > 0 && row.TowerBossIds.Count > 0);
+        AssertEqual(0, inshot.TimeId ?? 0, "4.9 BossInshotActivity retail TimeId");
+        Type inshotModule = typeof(BossInshotData).Assembly.GetType("AscNet.GameServer.Handlers.BossInshotModule", throwOnError: true)!;
+        System.Reflection.MethodInfo selectOpen = inshotModule.GetMethod("SelectOpenActivity",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        AssertEqual(true, selectOpen.Invoke(null, [DateTimeOffset.UtcNow]) is null, "BossInshot with TimeId 0 selects no open activity");
+        // Flow coverage: restore the last authored TimeIds in memory (test-only) and open the activity in the calendar.
+        using RetailTimeIdScope inshotScope = new("TimeId", 48501, [inshot]);
+        using RetailTimeIdScope towerScope = new("TimeId", 48502, TableReaderV2.Parse<BossInshotTowerTable>());
+        AssertEqual(true, selectOpen.Invoke(null, [DateTimeOffset.UtcNow]) is null,
+            "BossInshot with an authored TimeId but no calendar window stays closed");
         ActivityScheduleEntry[] calendar = (ActivityScheduleEntry[])ActivityScheduleService.All;
         ActivityScheduleEntry replaced = calendar[0];
         calendar[0] = new ActivityScheduleEntry(inshot.TimeId!.Value, 0, 32_503_680_000, "test-only:partial-modes");
+        AssertEqual(inshot.Id, ((BossInshotActivityTable)selectOpen.Invoke(null, [DateTimeOffset.UtcNow])!).Id,
+            "BossInshot opens once its TimeId has a window");
         try { ValidatePartialModesBossInshot(); }
         finally { calendar[0] = replaced; }
         ValidatePartialModesConcert();
@@ -51,13 +64,24 @@ internal partial class Program
             AssertEqual(20240001, Call<Maverick3ExitStageResponse>("Maverick3ExitStage", new Maverick3ExitStageRequest { StageId = stageId }).Code, $"maverick3 exit {stageId}");
     }
 
+    private static bool ConcertActiveAt(DateTimeOffset now) =>
+        typeof(Version47EventModule).GetMethod("ActiveConcert", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(null, [now]) is not null;
+
     private static void ValidatePartialModesConcert()
     {
         const long playerId = 99_497;
         Player player = CreateDrawCompatibilityPlayer(playerId);
         using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(playerId), player, sessionId: "partial-modes-concert");
-        ConcertPreHeatingActivityTable activity = TableReaderV2.Parse<ConcertPreHeatingActivityTable>().Single(row => row.TimeId > 0);
+        ConcertPreHeatingActivityTable activity = TableReaderV2.Parse<ConcertPreHeatingActivityTable>().Single();
+        // 4.9 retail zeroed the TimeId; the client (xconcertpreheatingagency) opens an activity with an invalid TimeId,
+        // so the real rows are open on any clock. The windowed flow below restores the last authored TimeId in memory.
+        AssertEqual(0, activity.TimeId, "4.9 ConcertPreHeatingActivity retail TimeId");
+        AssertEqual(true, ConcertActiveAt(DateTimeOffset.FromUnixTimeSeconds(1)) && ConcertActiveAt(DateTimeOffset.UtcNow),
+            "Concert with TimeId 0 is open on any clock");
+        using RetailTimeIdScope activityScope = new("TimeId", 48801, [activity]);
         Dictionary<int, ConcertPreHeatingStageTable> stages = TableReaderV2.Parse<ConcertPreHeatingStageTable>().ToDictionary(row => row.Id);
+        using RetailTimeIdScope lateStageScope = new("TimeId", 48815, [stages[activity.StageIds[^1]]]); // last authored stage window (4.8)
         ActivityScheduleService.TryGet(activity.TimeId, out ActivityScheduleEntry window);
         DateTimeOffset open = DateTimeOffset.FromUnixTimeSeconds(window.StartTime);
         int first = activity.StageIds[0];

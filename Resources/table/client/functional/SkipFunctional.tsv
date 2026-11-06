@@ -687,7 +687,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 445	7	OnOpenMainLineStage		Main Story - Chapter xx (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10150101												
 446	7	OnOpenMainLineStage		Main Story - Chapter xx (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10160101												
 447	7	OnOpenMainLineStage		Main Story - Chapter xx (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	11160101												
-448	7	OpenMainLine3DStage		Main Story - Chapter 17 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)		1	0	10170101											
+448	7	OpenMainLine3DStage		Main Story - Chapter 17 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)		1	0	10170101				1050153							
 449	7	OnOpenMainLineStage		Main Story - Chapter xx (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10180101												
 501	7	OnOpenMainLineStage		Main Story - Chapter xx (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10190101												
 502	7	OnOpenMainLineStage		Main Story - Chapter xx (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10200101												
@@ -1233,11 +1233,11 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 5010	7	OnOpenMainLineStage		Main Story - Chapter 10 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10100101												
 5011	7	OnOpenMainLineStage		Main Story - Chapter 11 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10110101												
 5012	7	OnOpenMainLineStage		Main Story - Chapter 12 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10120101												
-5013	7	SkipTRPGMain		Main Story - Chapter 13 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1													
+5013	7	SkipTRPGMain		Main Story - Chapter 13 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1						1050153							
 5014	7	OnOpenMainLineStage		Main Story - Chapter 14 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10140101												
 5015	7	OnOpenMainLineStage		Main Story - Chapter 15 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10150101												
 5016	7	OnOpenMainLineStage		Main Story - Chapter 16 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10160101												
-5017	7	OpenMainLine3DStage		Main Story - Chapter 17 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	0	10170101											
+5017	7	OpenMainLine3DStage		Main Story - Chapter 17 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	0	10170101				1050153							
 5018	7	OnOpenMainLineStage		Main Story - Chapter 18 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10180101												
 5019	7	OnOpenMainLineStage		Main Story - Chapter 19 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10190101												
 5020	7	OnOpenMainLineStage		Main Story - Chapter 20 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)	10308	1	10200101												
@@ -1347,22 +1347,22 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 7202	1	UiCharacterSystemV2P6		Go to Upgrade Your Member	101	1	0												
 7203	7	OnOpenUiPrequel		Go to Interlude (Lotus)	1701	1	1001001												
 7204	1	UiTrial		Go to Memory Rescue	1601	1	22						1						
-7205	6	UiNewDrawMain		Go to Research	401	1	1	1											
-7206	6	UiNewDrawMain		Go to Coating Pool	401	1	2	2											
-7207	6	UiNewDrawMain		Go to Collab Pool	401	1	1	19											
-7208	6	UiNewDrawMain		Go to Arrival Pool	401	1	1	12											
-7209	6	UiNewDrawMain		Go to Topic Pool	401	1	1	11											
-7210	6	UiNewDrawMain		Go to SP Pool	401	1	1	16											
-7211	6	UiNewDrawMain		Go to Weapon Target	401	1	1	4											
-7212	6	UiNewDrawMain		Go to CUB Research	401	1	1	22										2021/4/15 11:00	
-7213	6	UiNewDrawMain		Go to Event-Limited Research	401	1	1	23											
-7214	6	UiNewDrawMain		Coating Research	401	1	2	2											
-7215	6	UiNewDrawMain		Anniversary Limited Research	401	1	1	17						42723					
+7205	7	SkipToNewDrawGroup		Go to Research	401	1	1												
+7206	7	OpenLotto		Go to Coating Pool	401	1	2												
+7207	7	SkipToNewDrawGroup		Go to Collab Pool	401	1	19												
+7208	7	SkipToNewDrawGroup		Go to Arrival Pool	401	1	12												
+7209	7	SkipToNewDrawGroup		Go to Topic Pool	401	1	11												
+7210	7	SkipToNewDrawGroup		Go to SP Pool	401	1	16												
+7211	7	SkipToNewDrawGroup		Go to Weapon Target	401	1	4												
+7212	7	SkipToNewDrawGroup		Go to CUB Research	401	1	22											2021/4/15 11:00	
+7213	7	SkipToNewDrawGroup		Go to Event-Limited Research	401	1	23												
+7214	7	OpenLotto		Coating Research	401	1	2												
+7215	7	SkipToNewDrawGroup		Anniversary Limited Research	401	1	17							42723					
 7216	7	SkipToDrawAimWeapon		Go to Research - Target Weapon	401	1	1	4											
-7217	6	UiNewDrawMain		Go to Early Summer-Limited Research	401	1	1	27											
-7218	6	UiNewDrawMain		Go to Crucible Pool	401	1	1	35											
-7219	6	UiNewDrawMain		Go to Phylotree Nexus CUB Research	401	1	1	22	7064										
-7220	6	UiNewDrawMain	0	Go to Kurumi Collab Research - Otherworld Armament	401	1	1	40	7068			0	0	0					
+7217	7	SkipToNewDrawGroup		Go to Early Summer-Limited Research	401	1	27												
+7218	7	SkipToNewDrawGroup		Go to Crucible Pool	401	1	35												
+7219	7	SkipToNewDrawMain		Go to Phylotree Nexus CUB Research	401	1	7064												
+7220	7	SkipToNewDrawMain	0	Go to Kurumi Collab Research - Otherworld Armament	401	1	7068					0	0	0					
 7300	1	UiNewFuben		Go to Commandant Level Up (new battle screen)		1													
 7301	7	OnOpenMainlineSubtab		Go to Interlude	1701	1	2												
 7302	7	OnOpenUiArena		Go to War Zone	10204	1							1						
@@ -1388,7 +1388,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 7801	7	OnOpenMainLineStage		Main Story Chapter 9		1	10090101												
 7802	7	OnOpenMainLineStage		Main Story Chapter 9		1	10090101												
 7803	6	UiFubenPractice		Go to Member Tutorial Stage (original Celica)	1800	1	3	1	2				1						
-7804	6	UiNewDrawMain		Go to Research (Member A)	401	1	1	1											
+7804	7	SkipToNewDrawGroup		Go to Research (Member A)	401	1	1												
 7805	7	OnOpenRepeatChallengeActivity		Advance to Simulated Battlefield	10309	1	1						1						
 7806	1	UiCharacterSystemV2P6		Go to Members	101	1	0												
 7807	6	UiBag		Go to Inventory (Weapon)	301	1	1	0	0										
@@ -1397,7 +1397,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 7812	7	OnOpenRepeatChallengeActivity		Advance to Simulated Battlefield	10309	1	1						1						
 7813	1	UiNewFuben		Go to Main Story Stage		1													
 7814	1	UiTrial		Go to Memory Rescue	1601	1							1						
-7815	6	UiNewDrawMain		Go to Research (Member A)	401	1	1	1											
+7815	7	SkipToNewDrawGroup		Go to Research (Member A)	401	1	1												
 7816	1	UiCharacterSystemV2P6		Go to Members	101	1	0												
 7817	1	UiCharacterSystemV2P6		Go to Members	101	1	0												
 7818	6	UiBag		Go to Inventory (Weapon)	301	1	1	0	0										
@@ -1446,7 +1446,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 8006	6	UiBag		Go to Inventory (Weapon)	301	1	1	0	0										
 8007	1	UiNewFuben		Main Story Chapter 3		1													
 8008	7	OnOpenMainLineStage		Main Story Chapter 5		1	10010101												
-8009	6	UiNewDrawMain		Main Story Chapter 7	401	1	1	1											
+8009	7	SkipToNewDrawMain		Main Story Chapter 7	401	1													
 8010	7	OnOpenMainLineStage		Main Story Chapter 1		1	10010101												
 8011	6	UiTask		Go to Mission (Guide)	10435	1	1	0	0										
 8012	7	OnOpenMainLineStage		Main Story Chapter 9		1	10090101												
@@ -1689,11 +1689,11 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 10044	7	SkipToShopByShopTypeAndShopId		Advance to Phantom Pain Cage: Shop	1002	1	102	303											
 10045	1	UiExpensiveItemsTips		Open rare item window.															
 10046	7	SkipToNewDrawMain		Collab Research	401	1												2023/8/24 18:00	2023/9/22 9:59
-10047	7	SkipToNewDrawMain		BLACK★ROCK SHOOTER Collab Research	401	1	1	25	5508									2023/8/24 18:00	2023/9/22 9:59
+10047	7	SkipToNewDrawMain		BLACK★ROCK SHOOTER Collab Research	401	1	5508											2023/8/24 18:00	2023/9/22 9:59
 10048	6	UiShop	3	Voucher: S-Rank Inver-Shard	1003	1	3	0	6001						UiShop				
-10049	7	SkipToNewDrawMain		Go to Devil May Cry Collab Research - Vergil	401	1	1	31	5608									2025/8/6 2:00	2025/9/18 1:59
-10050	7	SkipToNewDrawMain		Go to Devil May Cry Collab Research - Dante	401	1	1	29	5609									2025/8/6 2:00	2025/9/18 1:59
-10051	7	SkipToNewDrawMain		Go to Devil May Cry Collab Research - Netherworld Arm	401	1	1	34	7049									2025/8/6 2:00	2025/9/18 1:59
+10049	7	SkipToNewDrawMain		Go to Devil May Cry Collab Research - Vergil	401	1	5608											2025/8/6 2:00	2025/9/18 1:59
+10050	7	SkipToNewDrawMain		Go to Devil May Cry Collab Research - Dante	401	1	5609											2025/8/6 2:00	2025/9/18 1:59
+10051	7	SkipToNewDrawMain		Go to Devil May Cry Collab Research - Netherworld Arm	401	1	7049											2025/8/6 2:00	2025/9/18 1:59
 15001	7	OnOpenGuildDorm		Go to Guild Dorm	1901	1							1						
 15002	6	UiShop	3	Point Shop	1001	1	1	0	4001						UiDlcMultiPlayerShop				
 15004	6	UiShop	3	Go to Ore Shop	1001	1	1	0	5001										
@@ -1795,7 +1795,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20007	7	OnOpenUiOnlineBoss		Co-op	10302	1													
 20008	7	OnOpenMainlineSubtab		Interlude	1701	1	2												
 20009	6	UiActivityBriefBase		Frozen Darkness	10303	1	0	0	0										
-20010	6	UiNewDrawMain		Theme-limited Research	401	1	1	15											
+20010	7	SkipToNewDrawGroup		Theme-limited Research	401	1	11												
 20011	6	UiPurchase	0	Purchase Skin Supply Pack	3	1	2	0	5			0	0	0					
 20012	7	OnOpenFestivalActivity		Christmas	10306	1	1	0	0										
 20013	6	UiActivityBriefBase		Echo Aria — Analysis Lab	10306	1	3	0	0									2021/2/25 5:00	
@@ -1808,7 +1808,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20020	6	UiPurchase	0	Coating Pack	3	1	2	0	5			0	0	0					
 20021	7	OnOpenFestivalActivity		Moonlit Night	10306	1	8												
 20022	7	OnOpenFestivalActivity		Metropolis Preview	10306	1	6												
-20023	6	UiNewDrawMain		Uniframe Research	401	1	1	16											
+20023	7	SkipToNewDrawGroup		Uniframe Research	401	1	16												
 20024	2	UiActivityBase	1	Open the Puzzle Menu in the Tanabata event.		1	1	204											
 20025	7	OnOpenFestivalActivity		Taoist Resolve	10306	1	9												
 20026	7	OnOpenFestivalActivity		Rosetta Preview	10306	1	10												
@@ -1889,7 +1889,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20102	7	SkipToAreaWar		To Server Final Battle	10349	1													
 20103	7	OnOpenNewCharActivity		New Character Theme Trial - Coating Trial (CustomParams is the number of the current season)	10325	1	5	2											
 20104	7	SkipToSuperSmashBros		Ultimate Brawl	10350	1													
-20105	7	OpenMainLine3DStage		Main Story - Chapter 17 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)		1	0	10170101											
+20105	7	OpenMainLine3DStage		Main Story - Chapter 17 (check Share-Fuben-Mainline-Chapter.tab, fill in the 1st stage ID of the chapter)		1	0	10170101				1050153							
 20106	6	UiMemorySave		To Memory Wars Anniversary	10351	1													
 20107	7	SkipToDiceGame		Go to Dice Minigame	10415	1													
 20108	7	OnOpenUiPrequel		Capriccio's Interlude	1701	1	1027	1018002											
@@ -1915,7 +1915,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20128	7	SkipToRpgMakerGameMain		Go to the Plum Snow event.	10345	1							1						
 20129	7	OnOpenFestivalActivity		Complete the mission, Fortune of Tiger.	10306	1	23												
 20130	1	UiNewFuben		Go to the Main Story stage.		1													
-20131	6	UiNewDrawMain		Go to Research.	401	1	1												
+20131	7	SkipToNewDrawMain		Go to Research.	401	1													
 20132	7	OnOpenPassport		Tactical Assessment Manual	10342	1												2022/1/28 5:00	2022/3/10 4:59
 20133	7	OnOpenFestivalActivity		Clear the story mission "White Day"	10306	1	24												
 20134	7	SkipToInvertCardGame		Advance to the poker guessing minigame	10331	1	2												
@@ -2018,12 +2018,12 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20232	7	OnOpenGacha		V2.17 Pool Story [Lost in Whitebloom]	10306	1	19	1											
 20233	6	UiWelfare		Complete "Dusk's Shade" event missions	10476	1	1	104											
 20234	6	UiFubenPracticeCharacterDetail		Skip to Celica's tutorial	1800	1	1021005	30100099											
-20235	7	OnOpenCharacterFileFubenActivity	0	New Character Theme Trial (Edit event no. after the 33rd event)	10325	1	52					0	0	0					
+20235	7	OnOpenCharacterFileFubenActivity	0	New Character Theme Trial (Edit event no. after the 33rd event)	10325	1	53					0	0	0					
 20236	6	UiFubenPracticeStageListRoot		To Celica Crammer (New jump id after the 33rd event)	10325	1	33						1						
 20237	7	OpenLotto		Advance to event [Luna Pool Story].	10306	1	16	2											
 20238	6	UiWelfare		Complete "King's Gambit" event missions	1	1	1	105											
 20239	7	SkipToGachaCanLiverMainUi		[Insatiable Research] Lilith Research Event	403	1	1												
-20240	6	UiNewDrawMain		[Ishmael: Parhelion] Advance to the themed pool	401	1	1	11										2024/11/7 7:00	2024/12/19 5:00
+20240	7	SkipToNewDrawGroup		[Ishmael: Parhelion] Advance to the themed pool	401	1	11											2024/11/7 7:00	2024/12/19 5:00
 20241	6	UiPurchase	0	[Ishmael: Parhelion] Advance to the Coating Supply Pack	3	1	2	0	5			0	0	0				2024/11/7 7:00	2024/12/19 5:00
 20242	6	UiFavorabilityStory		Advance to Lilith: Daemonissa Affection Story		1	1331003												
 20243	6	UiFubenPracticeStageListRoot			10325	1	34												
@@ -2036,7 +2036,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20250	6	UiFubenPracticeStageListRoot		To Celica Crammer (New jump id after the 33rd event)	10325	1	35						1						
 20251	6	UiFubenPracticeCharacterDetail		To Celica Tutorial (Echo Leap)	1800	1	1261003	30100135											
 20252	6	UiPurchase	0	[Selena: Pianissimo] Advance to Coating Supply Pack	3	1	2	0	5			0	0	0				2025/1/23 7:00	2025/3/6 5:00
-20253	6	UiNewDrawMain		[Selena: Pianissimo] Advance to themed pool	401	1	1	11										2025/1/23 7:00	2025/3/6 5:00
+20253	7	SkipToNewDrawGroup		[Selena: Pianissimo] Advance to themed pool	401	1	11											2025/1/23 7:00	2025/3/6 5:00
 20254	1	UiGachaFashionSelfChoiceEntrance			403	1													
 20255	7	OnOpenGacha			403	1	32												
 20256	7	OnOpenGacha			10306	1	32	1											
@@ -2048,23 +2048,23 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20262	6	UiWelfare		Complete the "Intertwined Fate" event missions	1	1	1	107											
 20263	6	UiFubenPracticeStageListRoot		To Celica Crammer (New jump id after the 33rd event)	10325	1	36						1						
 20264	6	UiPurchase	0	[Jetavie: Daybreak] Advance to Coating Supply Pack	3	1	2	0	5			0	0	0				2025/3/6 7:00	2025/4/10 7:00
-20265	6	UiNewDrawMain		[Jetavie: Daybreak] Advance to themed pool	401	1	1	1										2025/3/6 7:00	2025/4/10 7:00
+20265	7	SkipToNewDrawGroup		[Jetavie: Daybreak] Advance to themed pool	401	1	1											2025/3/6 7:00	2025/4/10 7:00
 20266	6	UiPuzzleActivity	0	Jump to Phantoms in the Mirror	10324	1	12	102				0	0	0					
 20267	6	UiFavorabilityStory		Advance to Vera Affection Story		1	1131004												
 20268	6	UiFubenPracticeStageListRoot		To Celica Crammer (New jump id after the 33rd event)	10325	1	39						1						
-20269	6	UiNewDrawMain		[Vera: Geiravor] Advance to themed pool	401	1	1	11										2025/4/10 7:00	2025/5/22 5:00
+20269	7	SkipToNewDrawGroup		[Vera: Geiravor] Advance to themed pool	401	1	11											2025/4/10 7:00	2025/5/22 5:00
 20270	6	UiPurchase	0	[Vera: Geiravor] Advance to Coating Supply Pack	3	1	2	0	5			0	0	0				2025/4/10 7:00	2025/5/22 5:00
 20271	6	UiWelfare		Complete "Phantoms in the Mirror" event missions	1	1	1	90											
 20272	6	UiWelfare		Complete "Light in Indigo Waves" Event Mission	10476	1	1	104											
 20273	7	OnOpenCharacterFileFubenActivity		New Character Theme Trial (Edit event no. after the 33rd event)	10325	1	37												
 20274	7	OnOpenCharacterFileFubenActivity		New Character Theme Trial (Edit event no. after the 33rd event)	10325	1	38												
-20275	7	SkipToNewDrawMain		Devil May Cry Collab Research - Vergil	401	1	1	31	5608									2025/8/6 2:00	2025/9/18 1:59
-20276	7	SkipToNewDrawMain		Devil May Cry Collab Research - Dante	401	1	1	29	5609									2025/8/6 2:00	2025/9/18 1:59
+20275	7	SkipToNewDrawMain		Devil May Cry Collab Research - Vergil	401	1	5608											2025/8/6 2:00	2025/9/18 1:59
+20276	7	SkipToNewDrawMain		Devil May Cry Collab Research - Dante	401	1	5609											2025/8/6 2:00	2025/9/18 1:59
 20277	6	UiFubenPracticeStageListRoot		To Celica Crammer (New jump id after the 33rd event)	10325	1	37						1						
 20278	6	UiFubenPracticeStageListRoot		To Celica Crammer (New redirection after the 33rd event)	10325	1	38						1						
 20279	6	UiWelfare		Complete "Ding Dong Hammer" Event Mission	1	1	1	99											
 20280	6	UiFubenPracticeStageListRoot		To Celica Crammer (New redirection after the 33rd event)	10325	1	40						1						
-20281	6	UiNewDrawMain		[Bianca: Crepuscule] Proceed to themed pool	401	1	1	11										2025/9/19 2:00	2025/11/12 21:00
+20281	7	SkipToNewDrawGroup		[Bianca: Crepuscule] Proceed to themed pool	401	1	11											2025/9/19 2:00	2025/11/12 21:00
 20282	6	UiPurchase	0	[Bianca: Crepuscule] Proceed to Coating Supply Pack	3	1	2	0	5			0	0	0				2025/9/19 2:00	2025/11/12 21:00
 20283	6	UiWelfare		Complete "Piercing the Heavens" event missions	1	1	1	99											
 20284	6	UiFavorabilityStory		Proceed to Bianca Affection Story		1	1041005						1						
@@ -2077,13 +2077,13 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20291	7	OnOpenGacha			1308	1	38	1											
 20292	7	OnOpenGacha			1308	1	39	1											
 20293	6	UiFubenPracticeCharacterDetail		To Celica Tutorial (Watanabe Leap)	1800	1	1081004	30100166											
-20294	6	UiNewDrawMain		[Discord: Secator] Advance to themed pool	401	1	1	1										2025/9/26 7:00	2025/11/12 21:00
+20294	7	SkipToNewDrawGroup		[Discord: Secator] Advance to themed pool	401	1	1											2025/9/26 7:00	2025/11/12 21:00
 20295	6	UiPurchase	0	[Discord: Secator] Advance to Coating Supply Pack	3	1	2	0	5			0	0	0				2025/9/26 7:00	2025/11/12 21:00
 20296	6	UiFubenPracticeStageListRoot		To Discord Celica Crammer (New jump id after the 33rd event)	10325	1	41						1						
 20297	7	OpenLotto		To Departure Card Pool 3.8		1	21												
 20298	7	OpenLotto		To 4.0 Card Pool	403	1	22	1				774800							
 20299	7	OpenLotto		To 4.0 Pool Story	1308	1	22	2											
-20300	6	UiNewDrawMain		[Veronica: Aegis] Go to themed pool	401	1	1	11										2025/10/10 7:00	2025/11/12 21:00
+20300	7	SkipToNewDrawGroup		[Veronica: Aegis] Go to themed pool	401	1	11											2025/10/10 7:00	2025/11/12 21:00
 20301	6	UiPurchase	0	[Veronica: Aegis] Go to Coating Supply Pack	3	1	2	0	5			0	0	0				2025/10/10 7:00	2025/11/12 21:00
 20302	6	UiFubenPracticeStageListRoot		To Veronica Celica Crammer (New jump id after the 33rd event)	10325	1	42						1						
 20303	6	UiWelfare		完成“捕梦遮网”活动任务	1	1	1	99											
@@ -2093,7 +2093,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20309	6	UiFubenPracticeStageListRoot		神丽芙赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	43						1						
 20310	6	UiFavorabilityStory		Go to Liv Affection Story		1	1031005						1						
 20311	6	UiWelfare		Complete "Arctic Amalgamation" event missions	1	1	1	106											
-20312	6	UiNewDrawMain		【布偶熊】前往主题卡池	401	1	1	11										2025/12/23 5:00	2026/2/2 5:00
+20312	7	SkipToNewDrawGroup		【布偶熊】前往主题卡池	401	1	11											2025/12/23 5:00	2026/2/2 5:00
 20313	6	UiPurchase	0	【布偶熊】前往涂装补给包	3	1	2	0	5			0	0	0				2025/12/23 5:00	2026/2/2 5:00
 20314	6	UiFubenPracticeStageListRoot		布偶熊赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	44						1						
 20315	1	UiFubenExperiment	18	Coating Set Trial_The Godfall Revelation_Watanabe_Hell Sing		1	18											2025/12/23 5:00	2026/2/2 5:00
@@ -2105,10 +2105,10 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20321	7	OnOpenGacha		v4.2比安卡剧情跳转	1308	1	40	1											
 20322	6	UiWelfare		Complete "Dicey Mystery" event missions	1	1	1	106											
 20323	6	UiFubenPracticeStageListRoot		罗塞塔赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	45						1						
-20324	6	UiNewDrawMain		【v4.3涅缇娅】前往主题卡池	401	1	1	35										2026/3/17 0:00	2026/4/20 23:00
+20324	7	SkipToNewDrawGroup		【v4.3涅缇娅】前往主题卡池	401	1	35											2026/3/17 0:00	2026/4/20 23:00
 20325	6	UiPurchase	0	【v4.3涅缇娅】前往涂装补给包	3	1	2	0	5			0	0	0				2026/3/17 0:00	2026/4/20 23:00
 20326	6	UiFubenPracticeStageListRoot		【v4.3涅缇娅】赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	46						1						
-20327	6	UiNewDrawMain		【v4.2罗塞塔】前往主题卡池	401	1	1	11										2026/2/3 0:00	2026/3/16 23:00
+20327	7	SkipToNewDrawGroup		【v4.2罗塞塔】前往主题卡池	401	1	11											2026/2/3 0:00	2026/3/16 23:00
 20328	6	UiPurchase	0	【v4.2罗塞塔】前往涂装补给包	3	1	2	0	5			0	0	0				2026/2/3 0:00	2026/3/16 23:00
 20329	7	SkipToCharacterStory		【v4.3涅缇娅】限时通关好感剧情领取角色跳转		1	1391003												
 20330	6	UiFavorabilityStory		前往罗塞塔好感度剧情		1	1141004						1						
@@ -2116,7 +2116,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20332	6	UiWelfare		Complete "Promised Dawn" event missions	1	1	1	106											
 20333	6	UiFavorabilityStory		Go to Kamui Affection Story		1	1061004						1						
 20334	6	UiFubenPracticeCharacterDetail		To Celica Tutorial (Hanying Leap)	1800	1	1241003	30100213											
-20335	6	UiNewDrawMain		【v4.4神威】前往主题卡池	401	1	1	11										2026/4/21 0:00	2026/6/1 23:00
+20335	7	SkipToNewDrawGroup		【v4.4神威】前往主题卡池	401	1	11											2026/4/21 0:00	2026/6/1 23:00
 20336	6	UiPurchase	0	【v4.4神威】前往涂装补给包	3	1	2	0	5			0	0	0				2026/4/21 0:00	2026/6/1 23:00
 20337	6	UiFubenPracticeStageListRoot		神威赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	47						1						
 20338	7	OnOpenGacha			403	1	41					774800							
@@ -2142,11 +2142,11 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20358	7	SkipToCharacterV2P6			101	1	1391003												
 20359	7	SkipToCharacterV2P6			101	1	1061004												
 20360	7	SkipToCharacterV2P6			101	1	1021007												
-20361	7	SkipToNewDrawMain		4.4前往心选研发	401	1	1	23										2026/4/28 10:00	2026/6/2 5:00
+20361	7	SkipToNewDrawGroup		4.4前往心选研发	401	1	23											2026/4/28 10:00	2026/6/2 5:00
 20362	6	UiFavorabilityStory		Go to Alpha Affection Story		1	1021007						1						
 20363	7	OnOpenGacha			403	1	49					1050153							
 20364	7	OnOpenGacha			1308	1	49	1				1050153							
-20365	6	UiNewDrawMain		【v4.5冰毛】前往主题卡池	401	1	1	11	1488									2026/6/2 0:00	2026/7/16 23:00
+20365	7	SkipToNewDrawMain		【v4.5冰毛】前往主题卡池	401	1	1488											2026/6/2 0:00	2026/7/16 23:00
 20366	6	UiPurchase	0	【v4.5冰毛】前往涂装补给包	3	1	2	0	5			0	0	0				2026/6/2 0:00	2026/7/16 23:00
 20367	6	UiFubenPracticeStageListRoot		To Lucia: Inverse Crown Celica Crammer (New jump id after the 33rd event)	10325	1	48						1						
 20368	6	UiFavorabilityStory		Go to Helentine's Affection Story		1	1401003						1						
@@ -2162,19 +2162,19 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20378	6	UiWelfare		Complete the "Summer's Rhythm" event missions	1	1	1	99											
 20379	7	SkipToCharacterStory				1	1401003					1050153							
 20380	6	UiFubenPracticeStageListRoot		海伦汀赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	49						1						
-20381	6	UiNewDrawMain		【v4.6海伦汀】前往主题卡池	401	1	1	35	1499									2026/7/17 0:00	2026/8/18 23:00
+20381	7	SkipToNewDrawMain		【v4.6海伦汀】前往主题卡池	401	1	1499											2026/7/17 0:00	2026/8/18 23:00
 20382	6	UiPurchase	0	【v4.6海伦汀】前往涂装补给包	3	1	2	0	5			0	0	0				2026/7/17 0:00	2026/8/18 23:00
-20383	7	SkipToUiWelfare	0	Complete the "Scarlet Arrival" event mission	1	1	9	47	418			0	0	0					
+20383	7	SkipToUiWelfare	0	Complete the "Scarlet Arrival" event mission	1	1	9	47	424			0	0	0					
 20384	6	UiFubenPracticeCharacterDetail		跳转赛利卡教学（七实跃升）	1800	1	1051005	30100229											
 20385	6	UiFavorabilityStory		Advance to Karenina's Affection Story		1	1071005					1050153	1						
 20386	6	UiFubenPracticeStageListRoot		To Karenina: Celica's Class (New jump id after the 33rd event)	10325	1	50						1						
-20387	6	UiNewDrawMain		【v4.7卡列】前往主题卡池	401	1	1	11										2026/8/19 0:00	2026/9/23 23:00
+20387	7	SkipToNewDrawGroup		【v4.7卡列】前往主题卡池	401	1	11											2026/8/19 0:00	2026/9/23 23:00
 20388	6	UiPurchase	0	【v4.7卡列】前往涂装补给包	3	1	2	0	5			0	0	0				2026/8/19 0:00	2026/9/23 23:00
-20389	7	SkipToUiWelfare	0	Complete "Ripples of the Past" event missions	1	1	9	47	428			0	0	0					
+20389	7	SkipToUiWelfare	0	Complete "Ripples of the Past" event missions	1	1	9	47	429			0	0	0					
 20390	7	SkipToMainLine2				1	1042					1050153							
 20391	7	SkipToCharacterV2P6			101	1	1071005												
 20395	7	OnOpenCharacterFileFubenActivity	0	新角色主题试玩（狂三）	10325	1	51					0	0	0					
-20393	7	SkipToNewDrawMain	0	Research	401	1	1	37	5612			0	0	0				2026/9/29 10:00	2026/11/3 23:59
+20393	7	SkipToNewDrawMain	0	Research	401	1	5612					0	0	0				2026/9/29 10:00	2026/11/3 23:59
 20394	6	UiFubenPracticeStageListRoot	0	【v4.8狂三】赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	51					0	1	0					
 20392	6	UiFubenPracticeCharacterDetail		跳转赛利卡教学（火露跃升）	1800	1	1021006	30100230											
 20396	7	OnOpenGacha	0	v4.8比安卡剧情跳转·自选复刻	1308	1	50	1				0	0	0					
@@ -2191,10 +2191,10 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 20407	7	SkipToCharacterV2P6	0		101	1	1421003					0	0	0					
 20408	7	SkipToCharacterStory	0		0	1	1421003					1050153	0	0					
 20409	7	SkipToUiWelfare	0	Complete "Cosmic Wonders" event missions	1	1	9	47	430			0	0	0					
-20410	7	SkipToNewDrawMain	0	【v4.8阿德莱德】前往主题卡池	401	1	1	35	1516			0	0	0				2026/9/24 0:00	2026/11/4 23:00
+20410	7	SkipToNewDrawMain	0	【v4.8阿德莱德】前往主题卡池	401	1	1516					0	0	0				2026/9/24 0:00	2026/11/4 23:00
 20411	6	UiPurchase	0	【v4.8阿德莱德】前往涂装补给包	3	1	2	0	5			0	0	0				2026/9/24 0:00	2026/11/4 23:00
 20412	6	UiFubenPracticeStageListRoot	0	阿德莱德赛利卡补习班跳转（33期之后，新增跳转id）	10325	1	52					0	1	0					
-20413	7	SkipToNewDrawMain	0	Research	401	1	1	40	7068			0	0	0				2026/9/29 10:00	2026/11/3 23:59
+20413	7	SkipToNewDrawMain	0	Research	401	1	7068					0	0	0				2026/9/29 10:00	2026/11/3 23:59
 11010101	3	UiNewFuben	11010101	困难1-1		1													
 11010102	3	UiNewFuben	11010102	困难1-2		1													
 11010103	3	UiNewFuben	11010103	困难1-3		1													
@@ -2515,7 +2515,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 11735	7	OnOpenWorldBoss		World Boss	10320	1													
 11736	7	RpgTower		To Mycenaean Protocol: Wargame	10321	1													
 11737	7	OnOpenMaintainerAction		Operation Guardians	1302	1							1		UiDlcMultiPlayerShop				
-11738	7	SkipTRPGMain		New Main Roleplay - Fake Ascension	1304	1													
+11738	7	SkipTRPGMain		New Main Roleplay - Fake Ascension	1304	1						1050153							
 15003	7	OnOpenMentorSystem		Advance to Mentorship System	1303	1							1						
 11739	1	UiGuardCampMain		Go to Faction War event screen		1													
 11740	7	OnNieREasterEgg		Nier's Surprise Interface	1305	1													
@@ -2586,7 +2586,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 80000	6	UiPurchase	0	Purchase coating care package	3	1	2	0	5			0	0	0					
 80001	6	UiShop	3	Character—Rainbow Card Shop	1001	1	1	0	502										
 80002	2	UiActivityBase	1	Total Spending Reward		1	1	213										2021/2/4 10:00	2021/2/18 10:00
-80003	6	UiNewDrawMain		Secret Pact	401	1	2	1										2021/2/4 10:00	2021/2/25 10:00
+80003	7	OpenLotto		Secret Pact	401	1	1											2021/2/4 10:00	2021/2/25 10:00
 80004	7	SkipToSpecialShop	1150	Good Old Days	1001	1												2021/2/4 10:00	2021/2/24 9:59
 80005	6	UiPurchase	0	Purchase coating care package	3	1	2	0	5			0	0	0				2021/2/4 10:00	2021/2/24 9:59
 80006	6	UiPurchase	0	Purchase coating care package	3	1	2	0	5			0	0	0				2021/2/26 10:00	2021/3/25 9:59
@@ -2609,7 +2609,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 80023	6	UiPurchase	0	Purchase coating care package	3	1	2	0	5			0	0	0				2021/8/13 10:00	2021/9/9 10:00
 80024	6	UiShop	3	Coating Shop	1001	1	1	0	501									2021/7/29 10:00	
 80025	6	UiPurchase	0	Purchase coating care package	3	1	2	0	5			0	0	0				2021/7/22 10:00	2021/8/19 10:00
-80026	6	UiNewDrawMain		Endless Summer Blue	401	1	2	2										2021/7/15 10:00	2021/8/12 10:00
+80026	7	OpenLotto		Endless Summer Blue	401	1	2											2021/7/15 10:00	2021/8/12 10:00
 80027	7	OnOpenGachaOrganize		Deep Blue Warzone	403	1	2											2021/7/1 5:00	2021/8/5 5:00
 80028	2	UiSignBanner	26	Summer Breeze		1												2021/7/15 10:00	2021/7/29 5:00
 80029	6	UiPurchase	0	Purchase coating care package	3	1	2	0	5			0	0	0				2021/8/13 10:00	2021/9/9 9:59
@@ -3114,7 +3114,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 90022	7	SkipToWeekChallenge		To Top Left Weekly Missions		1	1												
 90023	7	SkipToConnectingLine		Connection Minigame	10456	1	4												
 90024	7	OnOpenDMCFestivalActivity		Clear mission "Lamento di Phantasma"	10306	1	45												
-90025	7	SkipToUiPacMan2Main		Pac-Man Mode	10490	1							1	43701					
+90025	7	SkipToUiPacMan2Main		Pac-Man Mode	10490	1							1	51101					
 90026	7	OpenLotto		Advance to event [Tainted Moonrise]	10306	1	17	1											
 90027	7	OpenLotto		Advance to event [Vera Pool]	10306	1	18	1											
 90028	7	OpenLotto		Advance to event [Karenina Pool]	10306	1	19	1											
@@ -3140,7 +3140,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 90048	7	SkipToCloudGame		Cloud Gaming															
 90049	7	SkipToTeamPrefab		Skip to Squad Presets			1												
 90050	1	UiLoginVideoV4P0		4.0 Opening CG		1													
-90051	7	SkipToNewDrawMain		Go to Phylotree Research	401	1	1	11	1438										
+90051	7	SkipToNewDrawMain		Go to Phylotree Research	401	1	1438												
 90052	7	SkipToUiWelfare		To 1st Recharge Event Screen			3	3											
 90053	7	SkipToUiPurchase		跳转到采购6元礼包			0	206											
 90054	7	SkipToUiPurchase		跳转到采购12&48礼包			0	207											
@@ -3155,8 +3155,8 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 90063	7	SkipToSelfChoiceGacha		跳转到4.4Gacha自选卡池（有拉	10489	1	4												
 90064	1	UiLoginVideoV4P5		4.5开屏cg		1													
 90065	1	UiSignCardPopup		Monthly Pass Popup															
-90066	7	SkipToNewDrawMain		Go to Phylotree Alpha Research	401	1	1	11	1488										
-90067	7	SkipToNewDrawMain		Go to Phylotree Liv Research	401	1	1	11	1498										
+90066	7	SkipToNewDrawMain		Go to Phylotree Alpha Research	401	1	1488												
+90067	7	SkipToNewDrawMain		Go to Phylotree Liv Research	401	1	1498												
 90068	7	SkipToConcertPreHeatingMain		Go to Event [Dimensional Tuner]	10505							1050153		48801					
 90069	7	OpenLotto		Advance to event [Tainted Moonrise]	10306	1	2001	1											
 90070	7	OpenLotto		Advance to event [Vera Pool]	10306	1	2002	1											
@@ -3211,7 +3211,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300121	7	OnOpenUiSpecialTrainActivity		en1.16夏日复刻跳转	10306		10001												
 1300122	6	UiActivityBriefBase		EN1.16deeplink功能，跳转至终焉福音活动界面														2022/5/2 0:00	2022/7/4 23:59
 1300123	6	UiDrawMain		EN1.16deeplink功能，跳转至露娜抽卡界面	401		2	0	0									2022/5/2 0:00	2022/6/23 7:59
-1300124	6	UiNewDrawMain		EN1.17deeplink联动卡池跳转	401		1	19						2160013					
+1300124	7	SkipToNewDrawGroup		EN1.17deeplink联动卡池跳转	401		19							2160013					
 1300125	1	UiActivityBriefBase		EN1.17deeplink尼尔活动主界面跳转										2160014					
 1300126	7	OnOpenGacha		En1.17白毛卡池跳转	401		10002												
 1300130	2	UiSignBanner	1300100	En1.17一周年七天签到跳转															
@@ -3219,100 +3219,100 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300140	6	UiPurchase	0	En1.17涂装限时返场公告跳转	3	0	2	0	5			0	0	0					
 1300141	2	UiAutoWindow	1002																
 1300142	2	UiAutoWindow	1003																
-1300143	6	UiNewDrawMain		En1.17deeplink跳转至白毛和服卡池	401		2	100001						2160018					
+1300143	7	SkipToNewDrawMain		En1.17deeplink跳转至白毛和服卡池	401									2160018					
 1300150	2	UiSignBanner	1300150	Spring Tribute Sign-in															
 1300160	2	UiSignBanner	1300160	Spring Festival Sign-in															
 1300170	2	UiSignBanner	1300170	En1.18中秋三日签到跳转															
-1300171	6	UiNewDrawMain		EN1.18版本Deeplink跳转至赛琳娜授格者卡池	106		1	16						2160032					
+1300171	7	SkipToNewDrawGroup		EN1.18版本Deeplink跳转至赛琳娜授格者卡池	106		16							2160032					
 1300172	1	UiActivityBriefBase		EN1.18版本Deeplink跳转至活动主界面			1	1	0					2160031					
 1300173	1	UiActivityBriefBase		EN1.18版本Banner跳转至活动主界面			1	1	0										
-1300174	6	UiNewDrawMain		EN1.18版本Banner跳转至赛琳娜授格者卡池	106		1	16											
-1300175	6	UiNewDrawMain		EN1.18版本Banner跳转至成员狙击卡池	401		1	1											
-1300176	6	UiNewDrawMain		EN1.18版本Banner跳转至武器狙击卡池	401		1	4											
-1300177	6	UiNewDrawMain		EN1.18版本Banner跳转至S级轮换池	401		1	12											
+1300174	7	SkipToNewDrawGroup		EN1.18版本Banner跳转至赛琳娜授格者卡池	106		16												
+1300175	7	SkipToNewDrawGroup		EN1.18版本Banner跳转至成员狙击卡池	401		1												
+1300176	7	SkipToNewDrawGroup		EN1.18版本Banner跳转至武器狙击卡池	401		4												
+1300177	7	SkipToNewDrawGroup		EN1.18版本Banner跳转至S级轮换池	401		12												
 1300178	6	UiPurchase	0	EN1.18版本Banner跳转至涂装礼包商店	3	0	2	0	5			0	0	0					
 1300179	2	UiAutoWindow	1300179	EN1.19版本比安卡特效皮复刻打脸图															
 1300180	1	UiActivityBriefBase		EN1.19deeplink活动主界面跳转										2160041					
-1300181	6	UiNewDrawMain		EN1.19deeplinkr跳转至库洛姆卡池	401		1	11						2160042					
+1300181	7	SkipToNewDrawGroup		EN1.19deeplinkr跳转至库洛姆卡池	401		11							2160042					
 1300190	1	UiActivityBriefBase		EN1.20deeplink迷境刻痕版本活动页跳转										2160052					
-1300191	6	UiNewDrawMain		EN1.20deeplink21号抽卡卡池跳转	401		1	1						2160053					
+1300191	7	SkipToNewDrawGroup		EN1.20deeplink21号抽卡卡池跳转	401		1							2160053					
 1300192	6	UiPurchase	0	EN1.20Banner跳转至涂装礼包商店	3	0	2	0	5			0	0	0					
 1300200	1	UiActivityBriefBase		EN1.21deeplink绝海星火版本活动页跳转										2160071					
-1300201	6	UiNewDrawMain		EN1.21deeplinkS薇拉卡池跳转	401		1	11						2160072					
+1300201	7	SkipToNewDrawGroup		EN1.21deeplinkS薇拉卡池跳转	401		11							2160072					
 1300210	2	UiSignBanner	1300210	EN1.22元旦签到															
 1300220	6	UiChristmasTreeMain		EN1.22通行证版本任务，跳转圣诞树装扮活动界面	10326		1							2160086					
 1300221	1	UiActivityBriefBase		EN1.22版本+deeplink永夜胎动活动页跳转+Skipfunctional+正式配置										2160087					
-1300222	6	UiNewDrawMain		EN1.22版本+deeplink罗兰卡池跳转+Skipfunctional+正式配置	401		1	16						2160088					
-1300223	6	UiNewDrawMain		EN1.22版本+deeplink尼尔卡池跳转+Skipfunctional+正式配置	401		1	19						2160089					
+1300222	7	SkipToNewDrawGroup		EN1.22版本+deeplink罗兰卡池跳转+Skipfunctional+正式配置	401		16							2160088					
+1300223	7	SkipToNewDrawGroup		EN1.22版本+deeplink尼尔卡池跳转+Skipfunctional+正式配置	401		19							2160089					
 1300224	7	OnUiFubenNierEnter		EN1.22版本+deeplink尼尔剧情玩法页跳转+Skipfunctional+正式配置	1305									2160090					
-1300225	6	UiNewDrawMain		EN1.22版本+Banner尼尔武器卡池跳转+Skipfunctional+正式配置	401		1	21						2160089					
+1300225	7	SkipToNewDrawGroup		EN1.22版本+Banner尼尔武器卡池跳转+Skipfunctional+正式配置	401		21							2160089					
 1300230	2	UiSignBanner	1300230	EN1.23元宵签到															
 1300231	1	UiActivityBriefBase		EN超丽芙版本+deeplink湮灭残昼版本活动页跳转+Skipfunctional+正式配置										2160098					
-1300232	6	UiNewDrawMain		EN超丽芙版本+deeplink丽芙极昼卡池跳转+Skipfunctional+正式配置	401		1	11						2160099					
+1300232	7	SkipToNewDrawGroup		EN超丽芙版本+deeplink丽芙极昼卡池跳转+Skipfunctional+正式配置	401		11							2160099					
 1300233	7	OnOpenSlotmachine		能源回收作战复刻			3												
-1300234	6	UiNewDrawMain		EN1.24deeplink赛琳娜卡池跳转	401		1	15						5206					
+1300234	7	SkipToNewDrawGroup		EN1.24deeplink赛琳娜卡池跳转	401		15							5206					
 1300235	1	UiActivityBriefBase		EN1.24deeplink活动主界面跳转										5201					
 1300240	1	UiActivityBriefBase		EN1.25deeplink活动主界面跳转										2160130					
-1300241	6	UiNewDrawMain		EN1.25deeplink蒲牢卡池跳转	401	1	1	16						2160131					
+1300241	7	SkipToNewDrawGroup		EN1.25deeplink蒲牢卡池跳转	401	1	16							2160131					
 1300250	2	UiAutoWindow	24	EN1.25末世柑华打脸图		1													
 1300251	7	OpenLotto		EN1.25末世柑华卡池跳转			110001	1											
 1300252	2	UiActivityBase	1	Event Tab		1	-1	1											
 1300260	1	UiActivityBriefBase		EN1.26deeplink曙星致意活动面板										2160141					
-1300261	6	UiNewDrawMain		EN1.26deeplinkS七实卡池	401	1	1	11						2160142					
+1300261	7	SkipToNewDrawGroup		EN1.26deeplinkS七实卡池	401	1	11							2160142					
 1300262	7	SkipToWeekChallenge		Weekly Mission	10353	1													
 1300270	2	UiAutoWindow	1300179	EN1.27幽涧青卞复刻打脸跳转		1													
 1300271	1	UiActivityBriefBase		EN1.27deeplink遥岸方舟活动面板										2160150					
-1300272	6	UiNewDrawMain		EN1.27deeplink哈卡玛卡池	401	1	1	16						2160151					
+1300272	7	SkipToNewDrawGroup		EN1.27deeplink哈卡玛卡池	401	1	16							2160151					
 1300280	2	UiAutoWindow	28	EN1.28长夜魅影打脸图跳转		1													
 1300281	2	UiSignBanner	1300240	EN1.28两周年签到			1							2160161					
 1300282	7	OnOpenGacha		EN1.28和服皮卡池跳转	401		11002												
 1300283	2	UiAutoWindow	1300282	EN1.28和服打脸图跳转															
-1300284	6	UiPurchase		Purchase Terminal Code Bundle			2	0	1										
+1300284	6	UiPurchase		Purchase Terminal Code Bundle			2	0	2										
 1300285	1	UiActivityBriefBase		EN1.28deeplink空晓界限活动面板										2160164					
-1300286	6	UiNewDrawMain		EN1.28deeplink卡列卡池	401	1	1	11						2160165					
+1300286	7	SkipToNewDrawGroup		EN1.28deeplink卡列卡池	401	1	11							2160165					
 1300287	7	SkipToMoeWar		EN1.28deeplink伊甸文化纪	1310	1								2160166					
 1300290	1	UiActivityBriefBase		EN1.29deeplink枯朽为灯活动面板										2160170					
-1300291	6	UiNewDrawMain		EN1.29deeplink诺安卡池	401	1	1	16						2160171					
+1300291	7	SkipToNewDrawGroup		EN1.29deeplink诺安卡池	401	1	16							2160171					
 1300301	2	UiAutoWindow	8	EN1.30万灵游行复刻打脸		1													
 1300302	1	UiActivityBriefBase		EN1.30deeplink烬海异途活动面板										2160181					
-1300303	6	UiNewDrawMain		EN1.30deeplink超比安卡卡池	401	1	1	11						2160182					
+1300303	7	SkipToNewDrawGroup		EN1.30deeplink超比安卡卡池	401	1	11							2160182					
 1300304	7	OpenLotto		EN1.30deeplink超丽芙涂装卡池		1	5							2160183					
 1300305	2	UiAutoWindow	1003	EN1.30泳装返场复刻打脸		1													
 1300400	1	UiActivityBriefBase		EN1.31deeplink未语庭言活动面板										2160192					
 1300401	6	UiPurchase	0	EN1.31deeplink罗塞塔涂装购买页	3	1	2	0	5			0	0	2160193					
-1300402	6	UiNewDrawMain		EN1.31deeplink邦比卡池	401		1	1						2160194					
+1300402	7	SkipToNewDrawGroup		EN1.31deeplink邦比卡池	401		1							2160194					
 1300500	1	UiActivityBriefBase		EN1.32deeplink刻命螺旋活动面板										2160200					
-1300501	6	UiNewDrawMain		EN1.32deeplink超里卡池	401	1	1	11						2160201					
+1300501	7	SkipToNewDrawGroup		EN1.32deeplink超里卡池	401	1	11							2160201					
 1300502	2	UiSignBanner	1300250	EN1.32元旦签到			1												
 1300503	2	UiSignBanner	1300260	EN1.32圣诞签到			1												
 1300504	2	UiSignBanner	1300270	EN2.0春节签到			1												
 1300510	1	UiActivityBriefBase		EN2.0deeplink创绘映想活动面板										2160227					
-1300511	6	UiNewDrawMain		EN2.0deeplink艾拉卡池	401	1	1	11						2160228					
+1300511	7	SkipToNewDrawGroup		EN2.0deeplink艾拉卡池	401	1	11							2160228					
 1300520	1	UiActivityBriefBase		EN2.1Deeplink活动面板跳转										2160240					
-1300521	6	UiNewDrawMain		EN2.1Deeplink雷白毛卡池跳转	401	1	1	11						2160241					
+1300521	7	SkipToNewDrawGroup		EN2.1Deeplink雷白毛卡池跳转	401	1	11							2160241					
 1300522	7	OnOpenFestivalActivity		EN2.1Deeplink春节剧情跳转	10306	1	29							2160242					
 1300523	7	OnOpenGacha		EN2.1Deeplink比安卡特效涂装卡池跳转	403	1	14							2160243					
 1300530	1	UiActivityBriefBase		EN2.2deeplink浮英枕梦行活动面板										2160262					
-1300531	6	UiNewDrawMain		EN2.2deeplink含英卡池	401	1	1	1						2160263					
+1300531	7	SkipToNewDrawGroup		EN2.2deeplink含英卡池	401	1	1							2160263					
 1300540	1	UiActivityBriefBase		EN2.3版本deeplink萦森歧路活动面板										2160273					
-1300541	6	UiNewDrawMain		EN2.3版本deeplinkS21号卡池	401	1	1	11						2160274					
+1300541	7	SkipToNewDrawGroup		EN2.3版本deeplinkS21号卡池	401	1	11							2160274					
 1300542	1	UiActivityBriefBase		EN2.4deeplink怒逐沉沙活动面板										2160286					
-1300543	6	UiNewDrawMain		EN2.4deeplink诺克提卡池跳转	401	1	1	1						2160287					
+1300543	7	SkipToNewDrawGroup		EN2.4deeplink诺克提卡池跳转	401	1	1							2160287					
 1300544	2	UiAutoWindow	1300544	EN2.5和服打脸图跳转															
 1300545	1	UiActivityBriefBase		EN2.5deeplink爝火长明活动面板										2160300					
-1300546	6	UiNewDrawMain		EN2.5deeplink回音卡池	401	1	1	11						2160301					
+1300546	7	SkipToNewDrawGroup		EN2.5deeplink回音卡池	401	1	11							2160301					
 1300547	7	OnOpenGacha		EN1.28和服皮卡池跳转	401		11003												
 1300548	1	UiActivityBriefBase		EN2.6Deeplink活动面板跳转										2160330					
-1300549	6	UiNewDrawMain		EN2.6Deeplink拉弥亚卡池跳转	401	1	1	11						2160331					
+1300549	7	SkipToNewDrawGroup		EN2.6Deeplink拉弥亚卡池跳转	401	1	11							2160331					
 1300550	2	UiAutoWindow	1300545	EN2.7涂装复刻打脸图跳转															
 1300551	1	UiActivityBriefBase		EN2.7Deeplink镜焰迷城活动面板跳转										2160349					
-1300552	7	SkipToNewDrawMain		EN2.7Deeplink黑岩卡池跳转	401	1	1	25	5508					2160350					
+1300552	7	SkipToNewDrawMain		EN2.7Deeplink黑岩卡池跳转	401	1	5508							2160350					
 1300553	2	UiAutoWindow	1300553	EN2.8涂装复刻打脸图跳转															
 1300554	1	UiActivityBriefBase		EN2.8Deeplink碑火铸脊活动面板跳转										2160360					
-1300555	6	UiNewDrawMain		EN2.8Deeplink渡边卡池跳转	401	1	1	11						2160361					
+1300555	7	SkipToNewDrawGroup		EN2.8Deeplink渡边卡池跳转	401	1	11							2160361					
 1300556	2	UiAutoWindow	1300556	EN2.8涂装复刻打脸图跳转															
 1300557	1	UiActivityBriefBase		EN2.8Deeplink碑火铸脊活动面板跳转										2160374					
-1300558	6	UiNewDrawMain		EN2.8Deeplink渡边卡池跳转	401	1	1	11						2160375					
+1300558	7	SkipToNewDrawGroup		EN2.8Deeplink渡边卡池跳转	401	1	11							2160375					
 1300559	7	OnOpenNewCharActivity		EN2.12v211角色试玩关	10325	1	26												
 1300560	7	OnOpenNewCharActivity		EN2.12v210角色试玩关	10325	1	25												
 1300561	7	OnOpenNewCharActivity		EN2.12v212角色试玩关	10325	1	27												
@@ -3322,7 +3322,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300565	2	UiSignBanner	1300560	EN2.12版本14日签到跳转			1												
 1300566	7	SkipToSpecialShop	1410	EN2.12涂装返场商店跳转	1001	1													
 1300567	1	UiActivityBriefBase		EN2.12Deeplink活动面板跳转										2160406					
-1300568	6	UiNewDrawMain		EN2.12Deeplink露娜卡池跳转	401	1	1	11						2160407					
+1300568	7	SkipToNewDrawGroup		EN2.12Deeplink露娜卡池跳转	401	1	11							2160407					
 1300569	7	SkipToUiAccumulateExpendMainComb		FRESH DAWNING															
 1300570	7	OnOpenNewCharActivity		EN2.14含英角色试玩关	10325	1	28												
 1300571	7	OnOpenNewCharActivity		EN2.14万事角色试玩关	10325	1	29												
@@ -3330,7 +3330,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300573	7	OnOpenUiActivityBossSingle		EN2.14Boss超难关	10304	1	2												
 1300574	2	UiSignBanner	1300570	EN2.14版本14日签到跳转			1												
 1300575	1	UiActivityBriefBase		EN2.14Deeplink活动面板跳转										2160440				2025/2/20 2:00	2025/4/2 1:59
-1300576	6	UiNewDrawMain		EN2.14Deeplink含英卡池跳转	401	1	1	11						2160441				2025/2/20 2:00	2025/4/2 1:59
+1300576	7	SkipToNewDrawGroup		EN2.14Deeplink含英卡池跳转	401	1	11							2160441				2025/2/20 2:00	2025/4/2 1:59
 1300577	7	OpenLotto		EN2.14Deeplink炸裂霓虹卡池跳转		1	13	1						2160442				2025/2/27 8:00	2025/5/14 1:59
 1300578	7	OnOpenUiActivityBossSingle		EN2.17Boss超难关	10304	1	1												
 1300579	7	OnOpenUiActivityBossSingle		EN2.17Boss超难关	10304	1	2												
@@ -3343,16 +3343,16 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300586	7	OnOpenUiActivityBossSingle		Brutal Level	10304	1	2												
 1300587	7	OnOpenUiActivityBossSingle		Brutal Level	10304	1	3												
 1300588	1	UiActivityBriefBase		EN2.17Deeplink活动面板跳转										2160464				2025/4/2 2:00	2025/5/14 1:59
-1300589	6	UiNewDrawMain		EN2.17Deeplink火露卡池跳转	401	1	1	11						2160465				2025/4/2 2:00	2025/5/14 1:59
+1300589	7	SkipToNewDrawGroup		EN2.17Deeplink火露卡池跳转	401	1	11							2160465				2025/4/2 2:00	2025/5/14 1:59
 1300590	7	OnOpenGacha		EN2.17Deeplink雷白毛卡池跳转	403	1	17							2160466				2025/4/2 2:00	2025/6/25 1:59
 1300591	2	UiSignBanner	1300590	EN3.1版本14日签到跳转		1													
 1300592	1	UiActivityBriefBase		EN3.1Deeplink活动面板跳转										2160483				2025/5/14 2:00	2025/6/25 6:59
-1300593	6	UiNewDrawMain		EN3.1Deeplink慈悲者卡池跳转	401	1	1	11						2160484				2025/5/14 2:00	2025/6/25 6:59
+1300593	7	SkipToNewDrawGroup		EN3.1Deeplink慈悲者卡池跳转	401	1	11							2160484				2025/5/14 2:00	2025/6/25 6:59
 1200196	7	OnOpenCharacterFileFubenActivity		EN3.1慈悲者试玩关	10325	1	33												
 1200197	7	OnOpenCharacterFileFubenActivity		EN3.1莉莉丝试玩关	10325	1	34												
 1200198	7	OnOpenUiActivityBossSingle		EN3.1超难关	10304	1	1												
 1200199	7	OnOpenUiActivityBossSingle		EN3.1超难关	10304	1	2												
-1200200	6	UiNewDrawMain		EN3.1Deeplink慈悲者卡池跳转	401	1	1	11						2160504				2025/5/14 2:00	2025/6/25 1:59
+1200200	7	SkipToNewDrawGroup		EN3.1Deeplink慈悲者卡池跳转	401	1	11							2160504				2025/5/14 2:00	2025/6/25 1:59
 1200201	1	UiActivityBriefBase		EN3.1Deeplink活动面板跳转										2160505				2025/5/14 2:00	2025/6/25 1:59
 1200202	7	OpenLotto		EN3.1Deeplink露娜涂装卡池跳转	10306	1	16	1						2160506				2025/5/21 8:00	2025/8/6 1:59
 1200203	7	OnOpenCharacterFileFubenActivity		Character Trial Stage	10325		35								1				
@@ -3363,15 +3363,15 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1200208	7	OnOpenUiActivityBossSingle		Brutal Level	10304		3								1				
 1200209	2	UiSignBanner	1300600	EN3.4版本签到跳转															
 1300594	1	UiActivityBriefBase		EN3.4Deeplink活动面板跳转										2160528				2025/6/25 2:00	2025/8/6 1:59
-1300595	6	UiNewDrawMain		EN3.4Deeplink卡池跳转	401	1	1							2160529	1			2025/6/25 2:00	2025/8/6 1:59
+1300595	7	SkipToNewDrawMain		EN3.4Deeplink卡池跳转	401	1								2160529	1			2025/6/25 2:00	2025/8/6 1:59
 1300596	7	OnOpenGacha		EN3.4Deeplink露西亚花嫁皮	403		31							2160530	1			2025/6/25 2:00	2025/9/19 1:59
 1300597	6	UiWelfare		Complete "Phantoms in the Mirror" event missions	10324	1	36	102											
 1300598	2	UiAutoWindow	1300557	v3.4赛琳娜外部跳转打脸		1													
 1300599	7	OnOpenCharacterFileFubenActivity			10325	1	35												
 1300600	7	OnOpenCharacterFileFubenActivity			10325	1	39												
 1300601	1	UiActivityBriefBase		EN3.5Deeplink活动面板跳转										2160567				2025/8/6 2:00	2025/9/19 1:59
-1300602	7	SkipToNewDrawMain		EN3.5Deeplink跳转但丁研发	401	1	1	29	5609					2160568				2025/8/6 2:00	2025/9/18 1:59
-1300603	7	SkipToNewDrawMain		EN3.5Deeplink维吉尔研发	401	1	1	31	5608					2160569				2025/8/6 2:00	2025/9/18 1:59
+1300602	7	SkipToNewDrawMain		EN3.5Deeplink跳转但丁研发	401	1	5609							2160568				2025/8/6 2:00	2025/9/18 1:59
+1300603	7	SkipToNewDrawMain		EN3.5Deeplink维吉尔研发	401	1	5608							2160569				2025/8/6 2:00	2025/9/18 1:59
 1300604	7	OnOpenCharacterFileFubenActivity			10325	1	37												
 1300605	7	OnOpenCharacterFileFubenActivity			10325	1	38												
 1300606	7	OnOpenUiActivityBossSingle		3.6超难关	10304	1	1												
@@ -3383,24 +3383,24 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300612	7	OnOpenCharacterFileFubenActivity		3.8角色试玩关	10325	1	42												
 1300616	2	UiSignBanner	1300620	EN3.8五周年签到跳转															
 1300621	6	UiActivityBriefBase		EN4.0活动面板deeplink	10303	1	0	0	0					2160700					
-1300622	6	UiNewDrawMain		EN4.0丽芙角色卡池deeplink	401	1	1	11						2160701					
+1300622	7	SkipToNewDrawGroup		EN4.0丽芙角色卡池deeplink	401	1	11							2160701					
 1300623	7	OpenLotto		EN4.0慈悲者皮肤卡池deeplink	403	1	22	1				774800		2160702					
 1300624	6	UiActivityBriefBase		EN4.1活动面板deeplink	10303	1	0	0	0					2160703					
-1300625	6	UiNewDrawMain		EN4.1布偶熊角色卡池deeplink	401	1	1	11						2160704					
+1300625	7	SkipToNewDrawGroup		EN4.1布偶熊角色卡池deeplink	401	1	11							2160704					
 1300700	6	UiActivityBriefBase		EN4.2活动面板deeplink	10303	1	0	0	0					2160705					
-1300701	6	UiNewDrawMain		EN4.2丽芙角色卡池deeplink	401	1	1	11						2160706					
+1300701	7	SkipToNewDrawGroup		EN4.2丽芙角色卡池deeplink	401	1	11							2160706					
 1300702	7	OnOpenGacha		EN4.2比安卡皮肤卡池deeplink	403	1	40							2160707					
 1300703	6	UiActivityBriefBase		EN4.3活动主题面板deeplink	10303	1	0	0	0					2160708					
-1300704	6	UiNewDrawMain		EN4.3涅缇娅角色卡池deeplink	401	1	1	11						2160709					
+1300704	7	SkipToNewDrawGroup		EN4.3涅缇娅角色卡池deeplink	401	1	11							2160709					
 1300705	6	UiActivityBriefBase		EN4.4活动主题面板deeplink	10303	1	0	0	0					2160710					
-1300706	6	UiNewDrawMain		EN4.4神威角色卡池deeplink	401	1	1	11						2160711					
+1300706	7	SkipToNewDrawGroup		EN4.4神威角色卡池deeplink	401	1	11							2160711					
 1300707	6	UiActivityBriefBase		EN4.5活动主题面板deeplink	10303	1	0	0	0					2160712					
-1300708	6	UiNewDrawMain		EN4.5神白毛角色卡池deeplink	401	1	1	11	1488					2160713					
+1300708	7	SkipToNewDrawMain		EN4.5神白毛角色卡池deeplink	401	1	1488							2160713					
 1300709	7	OnOpenGacha		EN4.5神丽芙涂装卡池deeplink	403	1	49							2160714					
 1300710	6	UiActivityBriefBase		EN4.6活动主题面板deeplink	10303	1	0	0	0					2160715					
-1300711	6	UiNewDrawMain	0	EN4.6海伦汀角色卡池deeplink	401	1	1	35				0	0	2160716					
+1300711	7	SkipToNewDrawGroup	0	EN4.6海伦汀角色卡池deeplink	401	1	35					0	0	2160716					
 1300712	6	UiActivityBriefBase		EN4.7活动主题面板deeplink	10303	1	0	0	0					2160717					
-1300713	6	UiNewDrawMain		EN4.7卡列角色卡池deeplink	401	1	1	11						2160718					
+1300713	7	SkipToNewDrawGroup		EN4.7卡列角色卡池deeplink	401	1	11							2160718					
 1300714	6	UiActivityBriefBase	0	EN4.8活动主题面板deeplink	10303	1	0	0	0			0	0	2160719					
 1300715	6	UiNewDrawMain	0	EN4.8阿德莱德卡池deeplink	401	1	1	35				0	0	2160720					
 1300716	6	UiNewDrawMain	0	EN4.8联动狂三卡池deeplink	401	1	1	37	5612			0	0	2160721					
@@ -3421,7 +3421,7 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300639	7	OpenUiPaintingExperiencePass		涂装试玩-4.4神威			120												
 1300640	1	UiMiniGamesCollectionMain		To Minigame Collection	10503							1050153	1	47501					
 1300641	6	UiPurchase	0	黄油小狗礼包界面	0	0	2	0	1			0	0	0					
-1300642	2	UiPassportAutoWindow	1300642	BP Face Close-Up	0	0	1792962000	1793566800				775500	0	0					
+1300642	2	UiPassportAutoWindow	1300642	BP Face Close-Up	0	0	1796590800	1797195600				775500	0	0					
 1300643	7	OpenUiPaintingExperiencePass		涂装试玩-4.5白毛			121												
 1300644	7	OpenUiPaintingExperiencePass		涂装试玩-4.5奶龙			122												
 1300645	7	OpenUiPaintingExperiencePass		涂装试玩-4.6海伦汀			124					1050153							
@@ -3433,3 +3433,33 @@ SkipId	Origin	UiName	ParamId	Explain	FunctionalId	IsHideFunc	CustomParams[1]	Cus
 1300651	7	OpenUiPaintingExperiencePass		涂装试玩-4.7露娜涂鸦			133					1050153							
 1300652	7	OpenUiPaintingExperiencePass	0	涂装试玩-4.8阿德莱德试玩	0	0	139					1050153	0	0					
 1300653	7	OpenUiPaintingExperiencePass	0	涂装试玩-4.8涅缇娅试玩	0	0	138					1050153	0	0					
+40205	2	UiRegression4AutoWindow	206	Reserved String	0	1						0	0	0					
+40206	2	UiAutoWindow	207	4.8跨4.9预热打脸	0	1						1050153	0	0					
+40207	2	UiAutoWindow	208	4.9莱亚特效皮	0	1						1050153	0	0					
+40208	2	UiAutoWindow	209	4.9小梅特效皮	0	1						1050153	0	0					
+50128	2	UiSignBanner	120	Reserved String	0	1						0	0	51910					
+538	7	SkipToMainLine2	0	Reserved String	10308	1	1044					1050153	0	0					
+7146	7	SkipToPartnerTeachingChapter	0	To CUB Tutorial Trial - Chapter 39	1801	1	39					0	0	0					
+19085	7	SkipToCharacterV2P6	0	Go to Members	101	1	1431003					0	0	0					
+20414	7	OpenLotto	0	Reserved String	0	1	23					0	0	0					
+20415	6	UiFavorabilityStory	0	Go to Leia Affection Story	0	1	1431003					1050153	1	0					
+20416	6	UiFubenPracticeStageListRoot	0	Reserved String	10325	1	53					0	1	0					
+20417	7	SkipToNewDrawGroup	0	Reserved String	401	1	11					0	0	0				2026/11/5 5:00	2026/12/16 23:00
+20418	6	UiPurchase	0	Reserved String	3	1	2	0	5			0	0	0				2026/11/5 5:00	2026/12/16 23:00
+20419	7	SkipToMainLine2	0		0	1	1044					1050153	0	0					
+20420	7	SkipToCharacterV2P6	0		101	1	1431003					0	0	0					
+20421	7	SkipToAnniversaryPreHeating	0		10522	1						0	0	0					
+80330	6	UiPurchase	0	Purchase Coating Supply Pack	5	1	2	0	5			0	0	0				2026/11/5 0:00	2026/12/16 23:00
+80331	6	UiShop	3	Coating Shop	1001	1	1	0	504			0	0	0				2026/12/16 23:00	
+80332	6	UiPurchase	0	Purchase Coating Supply Pack	5	1	2	0	5			0	0	0				2026/11/5 0:00	2026/12/16 23:00
+80333	6	UiShop	3	Coating Shop	1001	1	1	0	502			0	0	0				2026/12/16 23:00	
+80334	6	UiPurchase	0	Purchase Coating Supply Pack	5	1	2	0	5			0	0	0				2026/11/5 0:00	2026/12/16 23:00
+80335	6	UiPurchase	0	Purchase Coating Supply Pack	5	1	2	0	5			0	0	0				2026/11/5 0:00	2026/12/16 23:00
+80336	6	UiPurchase	0	Purchase Coating Supply Pack	5	1	2	0	5			0	0	0				2026/11/5 0:00	2026/12/16 23:00
+189074	9		19	Reserved String	0	0						0	0	0					
+89115	7	SkipToRegression4	0	Reserved String	0	1						0	0	0					
+90082	7	SkipToSkyTowerMain	0	Reserved String	10514	1						774800	1	51011					
+1300718	6	UiActivityBriefBase	0	EN4.9活动主题面板deeplink	10303	1	0	0	0			0	0	2160723					
+1300719	7	SkipToNewDrawMain	0	EN4.9莱亚卡池deeplink	401	1	1526					0	0	2160724					
+1300654	7	OpenUiPaintingExperiencePass	0	涂装试玩-4.9莱亚	0	0	141					1050153	0	0					
+1300655	7	OpenUiPaintingExperiencePass	0	涂装试玩-4.9小梅	0	0	140					1050153	0	0					

@@ -29,7 +29,11 @@ internal static partial class Program
         AssertEqual("AscNet.GameServer.Handlers.Version47EventModule", handler.DeclaringType?.FullName, "ConcertPreHeatingStartRequest handler module");
 
         // Authoritative stage set + open window from the current tables/schedule.
-        ConcertPreHeatingActivityTable concert = TableReaderV2.Parse<ConcertPreHeatingActivityTable>().Single(row => row.TimeId > 0);
+        ConcertPreHeatingActivityTable concert = TableReaderV2.Parse<ConcertPreHeatingActivityTable>().Single();
+        // 4.9 retail zeroed the TimeId and the client opens an activity with an invalid TimeId, so the real row is open
+        // on any clock; the boundary checks below restore the last authored TimeId in memory (test-only).
+        AssertEqual(0, concert.TimeId, "4.9 ConcertPreHeatingActivity retail TimeId");
+        using RetailTimeIdScope concertScope = new("TimeId", 48801, [concert]);
         if (!ActivityScheduleService.TryGet(concert.TimeId, out ActivityScheduleEntry schedule))
             throw new InvalidDataException($"ConcertPreHeating TimeId {concert.TimeId} is not staged in ActivitySchedule.tsv.");
         if (schedule.StartTime <= 0 || schedule.EndTime <= schedule.StartTime)

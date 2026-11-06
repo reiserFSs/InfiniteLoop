@@ -4947,7 +4947,8 @@ internal static partial class DrawManager
                 if (!existing.OptionalDrawIdList.Contains(row.Id))
                     existing.OptionalDrawIdList.Add(row.Id);
                 existing.UseDrawIdDict.TryAdd(0, row.Id);
-                if (existing.EndTime != 0 && row.EndTime > existing.EndTime)
+                // EndTime 0 is an unbounded (missing-calendar) season and outlasts any dated one.
+                if (existing.EndTime != 0 && (row.EndTime == 0 || row.EndTime > existing.EndTime))
                 {
                     existing.EndTime = row.EndTime;
                     existing.Tag = row.Tag;
@@ -5131,7 +5132,7 @@ internal static partial class DrawManager
             else if (DrawServerCatalog.Any(row => row.GroupId == group.Id && row.GroupId is not (4 or 22)))
             {
                 value.BannerBeginTime = activeDraws.Min(x => x.StartTime);
-                value.BannerEndTime = activeDraws.Max(x => x.EndTime);
+                value.BannerEndTime = activeDraws.Any(x => x.EndTime == 0) ? 0 : activeDraws.Max(x => x.EndTime);
                 value.StartTime = value.BannerBeginTime;
                 value.EndTime = value.BannerEndTime;
                 value.OptionalDrawIdList = activeDraws.Select(x => x.Id).ToList();

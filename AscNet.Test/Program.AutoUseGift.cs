@@ -478,7 +478,7 @@ internal static partial class Program
         [
             (40691, "40681,40682"),
             (40692, "40683,40684"),
-            (40693, string.Join(",", Enumerable.Range(40601, 45)))
+            (40693, string.Join(",", Enumerable.Range(40601, 46)))
         ];
         foreach ((int boxId, string poolText) in affectionBoxes)
         {

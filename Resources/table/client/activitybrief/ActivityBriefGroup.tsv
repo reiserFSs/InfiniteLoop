@@ -1,12 +1,12 @@
 Id	Name	SkipId	TimeId	BtnInitMethodName	IsRemindWhenOpen	RemindPriority	RedConditions[1]	RedConditions[2]	RedConditions[3]	ActivityRewardIds[1]	RewardShowTimeIds[1]	TagCondition	RedParam	TagParam	ConstShowRewardId
-1	3.4主线活动	537	50401	RefreshActivityMainLine2	1	14									
+1	3.4主线活动	538	51701	RefreshActivityMainLine2	1	11									
 2	Side Event	8000		RefreshActivityBranch											
-3	3.4超难关	11724	50501	RefreshActivityBossSingle	1	3	CONDITION_ACTIVITY_BOSS_SINGLE_REWARD								
+3	3.4超难关	11724	51201	RefreshActivityBossSingle	1	3	CONDITION_ACTIVITY_BOSS_SINGLE_REWARD								
 4	8/6-8/20	20019		RefreshActivityBossOnline											
 5	Interlude 1	20117		RefreshAllActivityPrequel											
 6	Babel Tower	20015		RefreshNormal			CONDITION_ACTIVITYBRIE_BABELTOWER_REWARD								
 7	Roguelike Ascension	20018		RefreshActivityRogueLike											
-8	Multi Clear	20017	50402	RefreshActivityRepeateChallenge	1	2	CONDITION_REPEAT_CHALLENGE_ENTRANCE			69533	50402				
+8	Multi Clear	20017	51501	RefreshActivityRepeateChallenge	1	1	CONDITION_REPEAT_CHALLENGE_ENTRANCE			69881	51501				
 9	Regional Co-op	11723		RefreshActivityArenaOnline											
 10	Sniper Battle	11722		RefreshActivityUnionKill											
 11	Short Story	11729		RefreshActivityShortStories											
@@ -25,8 +25,8 @@ Id	Name	SkipId	TimeId	BtnInitMethodName	IsRemindWhenOpen	RemindPriority	RedCondi
 24	RPG Mode	11736		RefreshRpgTower											
 25	Event Draw	20053		RefreshDrawActivity											
 26	Fake Ascension - Main Roleplay Event	11738		RefreshTRPG											
-27	3.4新角色试玩	20235	50602	RefreshNewCharActivity	1	4	CONDITION_KOROMCHARACTIVITYMAINRED					CONDITION_NEWCHARACT_ISCHALLENGEABLE			
-28	涂装试玩关	10035	50107	RefreshFubenActivityTrial	1	8						CONDITION_NEWCHARACT_SKIP_TRIAL			
+27	3.4新角色试玩	20235	51205	RefreshNewCharActivity	1	4	CONDITION_KOROMCHARACTIVITYMAINRED					CONDITION_NEWCHARACT_ISCHALLENGEABLE			
+28	涂装试玩关	10035	51202	RefreshFubenActivityTrial	1	6						CONDITION_NEWCHARACT_SKIP_TRIAL			
 29	Mentorship System	15003		RefreshShiTu											
 30	Nier Mode	11749		RefreshNier											
 31	Micawberism Cloisters	11750		RefreshPokemon											
@@ -42,7 +42,7 @@ Id	Name	SkipId	TimeId	BtnInitMethodName	IsRemindWhenOpen	RemindPriority	RedCondi
 41	Poker Guessing	11761		RefreshPokerGuessing											
 42	Hacking Mode	11758		RefreshHack											
 43	Push Box	20128		RefreshRpgMaker			CONDITION_RPG_MAKER_GAME_RED								
-44	Limit Break	81104		RefreshReform			CONDITION_REFORM_All_RED_POINT								
+44	Limit Break	81104	51301	RefreshReform	1	5	CONDITION_REFORM_All_RED_POINT								
 45	双人同行	82001		RefreshCoupleCombat											
 46	Super Tower Climb	20084		RefreshSuperTower											
 47	Summer Event Stages	20088		RefreshSummerSeries											
@@ -119,7 +119,7 @@ Id	Name	SkipId	TimeId	BtnInitMethodName	IsRemindWhenOpen	RemindPriority	RedCondi
 119	Card Game	90016					CONDITION_PCG_ACTIVITY								
 120	Valentine's Day	90018					CONDITION_POKER_GUESSING2								
 121	New Mine	89091					CONDITION_SCORETOWER_MAIN								
-122	Pac-Man	90025					CONDITION_PACMAN2_NEW_STAGE								
+122	Pac-Man	90025	51101		1	7	CONDITION_PACMAN2_NEW_STAGE								
 123	Roguelike 5	89092					CONDITION_THEATRE5_PVP_NEW_ACTIVITY								
 124	3.6 Second Half Main Event	526		RefreshActivityMainLine2											
 125	Holographic Replay Bonuses	89093	0		0	0	CONDITION_BOUNTY_CHALLENGE								
@@ -135,20 +135,23 @@ Id	Name	SkipId	TimeId	BtnInitMethodName	IsRemindWhenOpen	RemindPriority	RedCondi
 137	relink	90047					CONDITION_DLC_RELINK_MAIN								
 138	卡池皮肤试玩	20363													
 139	情人节打牌	90018					CONDITION_POKER_GUESSING2								
-140	Service Shop	90055	50937		1	13									69535
+140	Service Shop	90055	0		0	0									0
 141	Service Mission	90057					CONDITION_TASK_CANLIVER								
 142	Roguelike 4	89090													
-143	大好感	20405	50651		1	6	CONDITION_FAVORABILITY_STORY_GIFT_TASK								703162
+143	大好感	20415	51651		1	2	CONDITION_FAVORABILITY_STORY_GIFT_TASK								0
 144	PGR Brothers	1300635	0		0	0	CONDITION_PBRGAME_MAIN								
 145	Minigame Collection	1300640					CONDITION_GAMECOLLECTION_CAN_REWARD_OR_BUY								
-146	Roguelike 6	89102	50947		1	10	CONDITION_THEATRE6_MAIN								
+146	Roguelike 6	89102	0		0	0	CONDITION_THEATRE6_MAIN								
 147	Grand Dyeing	89105					CONDITION_DYEMERGE_MAIN								
 148	夏日剧情活动	89106	0		0	0	CONDITION_FASHION_STORY_ENTRANCE								
 149	Mini Modification	89094					CONDITION_SOLO_REFORM_MAIN								
 150	七夕开包	89113	0		0	0	CONDITION_ENVELOPE_GUESSING_ENTRANCE								
-152	Circuit Calculus	90074	50201		1	1	CONDITION_PUNISHAAR_MAIN						0		0
-153	破坏王	89049	50801		1	7	CONDITION_FANGKUAI_MAIN						0		0
-154	联动试玩	20395	50601		1	9	CONDITION_KOROMCHARACTIVITYMAINRED					CONDITION_NEWCHARACT_ISCHALLENGEABLE	0		0
-155	Collab Story	90073	50202		1	11							0		0
-156	卡池复刻	20400	51001		1	12	CONDITION_GACHA_FASHION_SELF_CHOICE						0		0
-157	Overclock Simulation	90077	50100		1	5							0		0
+152	Circuit Calculus	90074	0		0	0	CONDITION_PUNISHAAR_MAIN						0		0
+153	破坏王	89049	0		0	0	CONDITION_FANGKUAI_MAIN						0		0
+154	联动试玩	20395	0		0	0	CONDITION_KOROMCHARACTIVITYMAINRED					CONDITION_NEWCHARACT_ISCHALLENGEABLE	0		0
+155	Collab Story	90073	0		0	0							0		0
+156	卡池复刻	20400	0		0	0	CONDITION_GACHA_FASHION_SELF_CHOICE						0		0
+157	Overclock Simulation	90077	0		0	0							0		0
+151	Dreamhouse Tycoon	90082	51011		1	10	CONDITION_SKY_TOWER_ENTRANCE						0		0
+158	人传人H5	189074	51021		1	8	CONDITION_RECALL_H5_RED_POINT	CONDITION_ACTIVITY_BTN_ONCE					0		0
+159	Preview	20421	51503		1	9	CONDITION_ANNIVERSARY_PREHEATING_ENTRANCE						0		0

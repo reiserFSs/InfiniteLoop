@@ -679,7 +679,11 @@ namespace AscNet.GameServer.Handlers
                 controls[control.Id] = control;
             foreach (TimeLimitCtrlConfigList control in GuildBossModule.BuildTimeLimits(now))
                 controls[control.Id] = control;
-            return controls.Values.OrderBy(control => control.Id).ToList();
+            return controls.Values.OrderBy(control => control.Id).Select(control =>
+            {
+                (long start, long end) = ActivityScheduleService.ClientWindow(control.StartTime, control.EndTime, now);
+                return start == control.StartTime && end == control.EndTime ? control : MakeTimeLimitControl(control.Id, start, end);
+            }).ToList();
         }
 
         private static List<FunctionOpenTimeConfig> BuildFunctionOpenTimeConfigList(

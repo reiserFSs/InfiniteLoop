@@ -121,8 +121,9 @@ internal static class Theatre6PvpModule
     }
 
     // The challenge state the client derives in XTheatre6Control:IsPVPChallengeState: the rank's own
-    // score ceiling is reached, a next rank exists, and that rank is enterable right now. An authored
-    // TimeId of 0 means permanently enterable.
+    // score ceiling is reached, a next rank exists, and that rank is enterable right now. Theatre6PvpRank.TimeId 0
+    // means enterable (the client returns true for an invalid id); Theatre6PvpActivity.TimeId 0 instead means the
+    // season is closed (Theatre6Module.LoadAvailability).
     private static bool IsChallengeState(Theatre6PvpState s, DateTimeOffset now)
     {
         Theatre6PvpRankTable? rank = Rank(s.RankId);

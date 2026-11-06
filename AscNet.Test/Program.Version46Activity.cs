@@ -2056,8 +2056,8 @@ internal static partial class Program
         Player lottoFresh = CreateDrawCompatibilityPlayer(46_200);
         LottoInfoResponse lottoFreshResponse = ReadLotto(lottoFresh, 46_200, 46_700);
         AssertEqual(0, lottoFreshResponse.Code, "Wheelchair LottoInfo fresh Code");
-        AssertEqual(1, lottoFreshResponse.LottoInfos.Count, "Wheelchair LottoInfo fresh row count");
-        LottoInfoResponse.LottoInfo freshLotto = lottoFreshResponse.LottoInfos.Single();
+        AssertEqual(2, lottoFreshResponse.LottoInfos.Count, "Wheelchair LottoInfo fresh row count (49501 and the 4.9 lotto 51401)");
+        LottoInfoResponse.LottoInfo freshLotto = lottoFreshResponse.LottoInfos.Single(info => info.Id == lotto.Id);
         AssertEqual(lotto.Id, freshLotto.Id, "Wheelchair LottoInfo table-derived Id");
         AssertEqual(primary.Id, freshLotto.LottoPrimaryId, "Wheelchair LottoInfo table-derived primary");
         AssertEqual(0, freshLotto.ExtraRewardState, "Wheelchair LottoInfo fresh extra reward");
@@ -2065,7 +2065,7 @@ internal static partial class Program
         AssertEqual(0, freshLotto.LottoRecords.Count, "Wheelchair LottoInfo fresh records");
         JObject freshWire = JObject.Parse(MessagePackSerializer.ConvertToJson(
             MessagePackSerializer.Serialize(lottoFreshResponse)));
-        JObject freshInfoWire = (JObject?)freshWire["LottoInfos"]?.Single()
+        JObject freshInfoWire = freshWire["LottoInfos"]?.Cast<JObject>().Single(row => row.Value<int>("Id") == lotto.Id)
             ?? throw new InvalidDataException("Wheelchair LottoInfo fresh wire row missing.");
         AssertEqual(5, freshInfoWire.Properties().Count(), "Wheelchair LottoInfo exact wire key count");
         AssertEqual(true, freshInfoWire.Properties().Select(property => property.Name).ToHashSet()
@@ -2089,10 +2089,10 @@ internal static partial class Program
         LottoInfoResponse lottoRelogResponse = ReadLotto(lottoRelog, 46_201, 46_701);
         AssertEqual(0, lottoRelogResponse.Code, "Wheelchair LottoInfo seeded relog Code");
         AssertIntegerList(seededRewards.Select(row => (long)row.Id).ToArray(),
-            lottoRelogResponse.LottoInfos.Single().LottoRewards.Select(Convert.ToInt64).ToArray(),
+            lottoRelogResponse.LottoInfos.Single(info => info.Id == lotto.Id).LottoRewards.Select(Convert.ToInt64).ToArray(),
             "Wheelchair LottoInfo seeded relog claims");
         AssertIntegerList(seededRewards.Select(row => (long)row.TemplateId).ToArray(),
-            lottoRelogResponse.LottoInfos.Single().LottoRecords.Select(record => (long)record.RewardGoods.TemplateId).ToArray(),
+            lottoRelogResponse.LottoInfos.Single(info => info.Id == lotto.Id).LottoRecords.Select(record => (long)record.RewardGoods.TemplateId).ToArray(),
             "Wheelchair LottoInfo seeded relog table-derived records");
         Player invalidLotto = CreateDrawCompatibilityPlayer(46_202);
         invalidLotto.Lotto.Infos.Add(new LottoStateInfo
@@ -2102,6 +2102,10 @@ internal static partial class Program
             LottoRewards = [seededRewards[0].Id, seededRewards[0].Id]
         });
         LottoInfoResponse invalidLottoResponse = ReadLotto(invalidLotto, 46_202, 46_702);
-        AssertEqual(1, invalidLottoResponse.Code, "Wheelchair LottoInfo rejects invalid persisted state");
+        // The handler answers CatalogUnavailable only when no lotto is publishable. The 4.9 lotto 51401 stays publishable,
+        // so the corrupt wheelchair state must instead be withheld from the response.
+        AssertEqual(0, invalidLottoResponse.Code, "Wheelchair LottoInfo still serves the independent 4.9 lotto");
+        AssertEqual(false, invalidLottoResponse.LottoInfos.Any(info => info.Id == lotto.Id),
+            "Wheelchair LottoInfo rejects invalid persisted state");
     }
 }

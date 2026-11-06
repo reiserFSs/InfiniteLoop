@@ -15,3 +15,14 @@ GiftPackGridFadeInAnimInterval	0.1
 TeachingStageLockTips	You have not completed the previous stage yet	
 ExMainEntranceBubbleText	Character	
 ExmainEntranceBubbleResPath	Assets/Product/Ui/Prefab/CommonRewardLeftTips.prefab	
+BpBuyCountdownFormat	Ends in: {0}	
+BpLimitedTag	Time-limited	
+BpLimitedBuyTag	Limited-Time Offer	
+BpPurchasePermanentTip	[Advanced Protocol] Permanently claimable after purchase	
+BpUnlockLabel	Tap To Unlock	
+BpSaleEndedLabel	No Longer Available	
+BpSaleEndedTip	Advanced Protocol is no longer available	
+BpBuyUnavailableTip	Advanced Protocol is currently unavailable for purchase	
+BpBuyLabel	Purchase	
+BpOwnedLabel	Owned	
+BpUnavailableLabel	Unavailable	

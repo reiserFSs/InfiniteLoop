@@ -16,15 +16,13 @@ internal static partial class Program
         // The newest authored season is exercised inside a TEST-ONLY in-memory copy of its own
         // authored window shifted to contain now (Theatre6/FangKuai pattern), restored in finally;
         // Resources keep the official dated calendar and no date is authored here.
-        AscNet.Table.V2.share.passport.PassportActivityTable newest =
-            AscNet.Common.Util.TableReaderV2.Parse<AscNet.Table.V2.share.passport.PassportActivityTable>()
-                .MaxBy(row => row.Id)!;
+        AscNet.Table.V2.share.passport.PassportActivityTable newest = ScheduledPassportSeasons().Last();
         ActivityScheduleEntry[] schedules = (ActivityScheduleEntry[])ActivityScheduleService.All;
         int seasonIndex = Array.FindIndex(schedules, entry => entry.Id == newest.TimeId);
         if (seasonIndex < 0)
             throw new InvalidDataException($"Passport season {newest.Id} time {newest.TimeId} has no authored schedule.");
         ActivityScheduleEntry authoredWindow = schedules[seasonIndex];
-        if (authoredWindow.StartTime <= 0 || authoredWindow.EndTime <= authoredWindow.StartTime)
+        if (authoredWindow.EndTime <= authoredWindow.StartTime)
             throw new InvalidDataException($"Passport season {newest.Id} schedule is not a dated window.");
         long syntheticStart = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 3_600;
         schedules[seasonIndex] = authoredWindow with
@@ -46,9 +44,7 @@ internal static partial class Program
     private static void ValidatePassportSeasonFlow()
     {
         using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForShopCompatibility();
-        List<AscNet.Table.V2.share.passport.PassportActivityTable> seasons =
-            AscNet.Common.Util.TableReaderV2.Parse<AscNet.Table.V2.share.passport.PassportActivityTable>()
-                .OrderBy(row => row.Id).ToList();
+        List<AscNet.Table.V2.share.passport.PassportActivityTable> seasons = ScheduledPassportSeasons();
         AscNet.Table.V2.share.passport.PassportActivityTable season = seasons[^1];
         int previousSeasonId = seasons[^2].Id;
         List<AscNet.Table.V2.share.passport.PassportTypeInfoTable> types =

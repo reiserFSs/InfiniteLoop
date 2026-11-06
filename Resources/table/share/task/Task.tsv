@@ -816,7 +816,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 8014	91	996	BP Mission	Upgrade 3 members to Lv.15 (Recommended: Lucia: Crimson Weave)	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8014	3	702013	8014	Target													
 8015	91	995	BP Mission	Pass F.O.S. Rating Committee - General Course C2 (Unlocked at Lv.30)	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8015	1	702014	8015	Target													
 8016	91	998	BP Mission	Complete any 3 Main Story Normal stages (Chapter 9 recommended)	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8016	3	702015	8016	Target													
-8017	91	1000	BP Mission	Crimson Weave - Signature acceleration advanced gear reaches 50% completion	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8017	1	702016	8017	Target													
+8017	91	1000	BP Mission	Crimson Weave - Signature Booster - Advanced gear reaches 50% completion	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8017	1	702016	8017	Target													
 8018	91	999	BP Mission	Crimson Weave's 6★ weapon Nightblaze reaches Lv.30	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8018	1	702017	8018	Target													
 8019	91	998	BP Mission	Conduct Dormitory Chores once	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8019	1	702018	8019	Target													
 8020	91	997	BP Mission	Join or create a guild	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	8020	1	702019	8020	Target													
@@ -2370,12 +2370,12 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 12540	11	9500	Event - The Last Light: Part II	Clear [Phantasm]	Assets/Product/Texture/Image/IconTask/TaskIconActiveV401.png	80211	1	67455	11724	Event	598						2026/4/13 5:00	1060031			2026/3/17 0:00		
 12541	11	9400	Event - Research Protocol: Part I	Use a total of 10000 Event Construct R&D Tickets	Assets/Product/Texture/Image/IconTask/TaskIconActiveV401.png	80212	10000	67456	20131	Event	598						2026/4/20 23:00	1060031			2026/3/17 0:00		
 12542	11	9300	Event - Research Protocol: Part II	Use a total of 25000 Event Construct R&D Tickets	Assets/Product/Texture/Image/IconTask/TaskIconActiveV401.png	80213	25000	67457	20131	Event	598						2026/4/20 23:00	1060031			2026/3/17 0:00		
-12543	11	9260	Return: Homeward-Bound Voyage I	Log in for a total of 1 day	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80219	1	68880		Event	599						2026/7/16 5:00	845030			2026/5/26 5:00		
-12544	11	9250	Return: Homeward-Bound Voyage II	Log in for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80220	3	68890		Event	599						2026/7/16 5:00	845030			2026/5/26 5:00		
-12545	11	9240	Return: Homeward-Bound Voyage III	Log in for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80221	7	68900		Event	599						2026/7/16 5:00	845030			2026/5/26 5:00		
-12546	11	9230	Return: Homeward-Bound Voyage IV	Use a total of 500 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80222	500	68910	40756	Event	599						2026/7/16 5:00	845030			2026/5/26 5:00		
-12547	11	9220	Return: Homeward-Bound Voyage V	Use a total of 800 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80223	800	68920	40756	Event	599						2026/7/16 5:00	845030			2026/5/26 5:00		
-12548	11	9210	Return: Homeward-Bound Voyage VI	Use a total of 1200 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80224	1200	68930	40756	Event	599						2026/7/16 5:00	845030			2026/5/26 5:00		
+12543	11	9260	Return: Homeward-Bound Voyage I	Log in for a total of 1 day	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80219	1	68880		Event	0						2026/11/5 5:00	845031			2026/5/26 5:00		
+12544	11	9250	Return: Homeward-Bound Voyage II	Log in for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80220	3	68890		Event	0						2026/11/5 5:00	845031			2026/5/26 5:00		
+12545	11	9240	Return: Homeward-Bound Voyage III	Log in for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80221	7	68900		Event	0						2026/11/5 5:00	845031			2026/5/26 5:00		
+12546	11	9230	Return: Homeward-Bound Voyage IV	Use a total of 500 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80222	500	68910	40756	Event	0						2026/11/5 5:00	845031			2026/5/26 5:00		
+12547	11	9220	Return: Homeward-Bound Voyage V	Use a total of 800 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80223	800	68920	40756	Event	0						2026/11/5 5:00	845031			2026/5/26 5:00		
+12548	11	9210	Return: Homeward-Bound Voyage VI	Use a total of 1200 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80224	1200	68930	40756	Event	0						2026/11/5 5:00	845031			2026/5/26 5:00		
 12549	11	10000	Emerging Reflections I	Log in to the game for the 1st time today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv405.png	12139	1	69084		Event						45011							
 12550	11	9900	Emerging Reflections II	Use a total of 200 Serum today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv405.png	12140	200	69085	2016	Event						45011							
 12551	11	9800	Emerging Reflections III	Total Activity has reached 100 points today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv405.png	12141	100	69086	20038	Event						45011							
@@ -2385,9 +2385,9 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 12555	11	10000	Scarlet Arrival	Log in to the game for the 1st time today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv407.png	12139	1	69346		Event						45011							
 12556	11	9900	Scarlet Arrival	Use a total of 200 Serum today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv407.png	12140	200	69347	2016	Event						45011							
 12557	11	9800	Scarlet Arrival	Total Activity has reached 100 points today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv407.png	12141	100	69348	20038	Event						45011							
-12558	11	10000	Cosmic Wonders	Log in to the game for the 1st time today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanV305.png	12139	1	69470	0	Event	0	0	0	0	0	0		0	0			0	0
-12559	11	9900	Cosmic Wonders	Use a total of 200 Serum today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanV305.png	12140	200	69471	2016	Event	0	0	0	0	0	0		0	0			0	0
-12560	11	9800	Cosmic Wonders	Total Activity has reached 100 points today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanV305.png	12141	100	69472	20038	Event	0	0	0	0	0	0		0	0			0	0
+12558	11	10000	Cosmic Wonders I	Log in to the game for the 1st time today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv408.png	12139	1	69470	0	Event	0	0	0	0	0	0		0	0			0	0
+12559	11	9900	Cosmic Wonders II	Use a total of 200 Serum today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv408.png	12140	200	69471	2016	Event	0	0	0	0	0	0		0	0			0	0
+12560	11	9800	Cosmic Wonders III	Total Activity has reached 100 points today	Assets/Product/Texture/Image/IconTask/TaskIconActiveYureguanv408.png	12141	100	69472	20038	Event	0	0	0	0	0	0		0	0			0	0
 120001	11	9700	Machine Precursor I	Clear [Machine Precursor] 1 time	Assets/Product/Texture/Image/IconTask/TaskIconAcitive1.png	12245	1	12775	20017	Clear													
 120002	11	9600	Machine Precursor II	Clear [Machine Precursor] 5 times	Assets/Product/Texture/Image/IconTask/TaskIconAcitive1.png	12246	5	12776	20017	Clear													
 120003	11	9500	Extremis Collaboration	Clear [Extremis Collaboration] 1 time	Assets/Product/Texture/Image/IconTask/TaskIconAcitive1.png	12247	1	12782	84020	Clear													
@@ -4086,7 +4086,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 80133	51	8300	Special Supply - Total Logins I	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80133	3	800027		Event													
 80134	51	8200	Special Supply - Total Logins II	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80134	7	800028		Event													
 80135	51	8100	Special Supply - Total Logins III	Log in for a total of 15 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80135	15	800029		Event													
-80136	51	8000	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	800030	20017	Event													
+80136	51	8000	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	800030	20017	Event													
 80137	51	10000	Event - Stellar Witching Hour	Clear 30 Dimension Domain stages for the first time	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80137	30	800037	88003	Event													
 80138	51	9900	Event - Cosmic Odyssey	Obtain 1000 Starry Whispers	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80138	1000	800038	89075	Event													
 80139	51	9800	Event - Cat Grab	Participate in Cat Grab for 3 days in total	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80139	3	800039	20177	Event													
@@ -4099,7 +4099,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 80146	51	9700	Special Supply - Total Logins I	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80133	3	800027		Event													
 80147	51	9600	Special Supply - Total Logins II	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80134	7	800028		Event													
 80148	51	9500	Special Supply - Total Logins III	Log in for a total of 15 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80135	15	800029		Event													
-80149	51	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	800030	20017	Event													
+80149	51	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	800030	20017	Event													
 80150	51	10000	Event - Crouching Cat, Hidden Rat	Prestige Level reaches 30	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80150	30	800037	89057	Event													
 80151	51	9900	Event - Trial of Simulacrums	Clear Trial of Simulacrums - "Echo" on any difficulty	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80151	1	800038	89061	Event													
 80152	51	9800	Event - Shuffling Duel	Obtain 24 stars in the event	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80152	24	800039	90016	Event													
@@ -4109,7 +4109,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 80156	51	9700	Special Supply - Total Logins I	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80156	3	800027															
 80157	51	9600	Special Supply - Total Logins II	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80157	7	800028															
 80158	51	9500	Special Supply - Total Logins III	Log in for a total of 15 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80158	15	800029															
-80159	51	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80159	750	800030	20017														
+80159	51	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80159	750	800030	20017														
 80160	51	10000	Event - Game of Thorns	Clear Chapter 2	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80160	1	800037	89028	Event													
 80161	51	9900	Event - Armored Up	Clear Chapter 1	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80161	1	800038	89073	Event													
 80162	51	9800	Event - Blade on the Waves	Obtain Oceanic Riches x1500	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80162	1500	800039	89075	Event													
@@ -4125,7 +4125,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 80172	51	9700	Special Supply - Total Logins I	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80172	3	800027															
 80173	51	9600	Special Supply - Total Logins II	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80173	7	800028															
 80174	51	9500	Special Supply - Total Logins III	Log in for a total of 15 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80174	15	800029															
-80175	51	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80175	750	800030	20017														
+80175	51	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80175	750	800030	20017														
 80176	51	10000	Path of Buried Wishes	Clear 15 Arena stages for the first time	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80176	15	800037	80201	Event													
 80177	51	9900	Cat Grab	Used a total of 15 Modifications to complete the game	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80177	15	800038	20177	Event													
 80178	51	9800	Pathfinder	Obtain 30 stars in total	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80178	30	800039	20128	Event													
@@ -4136,7 +4136,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 80183	51	9900	Event - Debugging Frenzy	Clear 9 stages with any number of stars for the first time	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80183	9	800038	90025	Event													
 80184	51	9800	Event - Rapid Pursuit	Use Vera to clear [Lloyd] on Nightmare difficulty once	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80184	1	800039	89093	Event													
 80185	51	9700	Special Supply - Total Logins	Log in for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80185	3	800027															
-80186	51	9600	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80186	750	800030	20017														
+80186	51	9600	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80186	750	800030	20017														
 80200	51	10000	Hyperlink Array	Complete [Radiant Dragon] on Hard difficulty for the first time	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80200	1	800037	90047	Event													
 80201	51	9900	Crouching Cat, Hidden Rat	Play [Sleepless Marketplace] 3 times	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80201	3	800038	89057	Event													
 80202	51	9800	The Godfall Revelation	Complete matches with at least 3 wins in Desperado Clash mode	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80202	3	800039	89092	Event													
@@ -12230,7 +12230,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 3000949	1001	8300	Special Supplies - Total Logins I	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80133	3	5001773		Event													
 3000950	1001	8200	Special Supplies - Total Logins II	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80134	7	5001774		Event													
 3000951	1001	8100	Special Supplies - Total Logins III	Log in for a total of 15 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80135	15	5001775		Event													
-3000952	1001	8000	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	5001776	20017	Event													
+3000952	1001	8000	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	5001776	20017	Event													
 3000953	1001	10000	Event - Stellar Witching Hour	Clear 30 Dimension Domain stages for the first time	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80137	30	5001783	88003	Event													
 3000954	1001	9900	Event - Cosmic Odyssey	Obtain 1000 Starry Whispers	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80138	1000	5001784	89075	Event													
 3000955	1001	9800	Event - Cat Grab	Participate in Cat Grab for 3 days in total	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80139	3	5001785	20177	Event													
@@ -12379,7 +12379,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 3001098	1001	9700	Special Supplies - Total Logins I	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80133	3	800027		Event													
 3001099	1001	9600	Special Supplies - Total Logins II	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80134	7	800028		Event													
 3001100	1001	9500	Special Supplies - Total Logins III	Log in for a total of 15 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80135	15	800029		Event													
-3001101	1001	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	800030	20017	Event													
+3001101	1001	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80136	750	800030	20017	Event													
 3001102	2	10000	Daily Login	Daily 1st Login	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	2000	1	5002483		Login							2025/6/25 7:00				2025/5/14 7:00		
 3001103	2	9635	Daily Battle 4	Clear any 5 stages	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	2003	5	5002487	2003	Clear							2025/6/25 7:00				2025/5/14 7:00		
 3001104	2	9960	Daily Battle 1	Clear a stage	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	2004	1	5002484	2004	Clear							2025/6/25 7:00				2025/5/14 7:00		
@@ -12539,7 +12539,7 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 3001258	1001	9700	Special Supplies - Total Logins I	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80156	3	5002920															
 3001259	1001	9600	Special Supplies - Total Logins II	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80157	7	5002921															
 3001260	1001	9500	Special Supplies - Total Logins III	Log in for a total of 15 days	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80158	15	5002952															
-3001261	1001	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield.	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80159	750	5002953	20017														
+3001261	1001	9400	Special Supply - Simulated Battlefield	Consume a total of 750 Serum in the Simulated Battlefield	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80159	750	5002953	20017														
 3001262	1001	10000	Event - Crouching Cat, Hidden Rat	Prestige Level reaches 30	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80150	30	5001783	89057	Event													
 3001263	1001	9900	Event - Shuffling Duel	Obtain 24 stars in the event	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80152	24	5001784	90016	Event													
 3001264	1001	9800	Event - Game of Thorns	Clear Chapter 2	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80160	1	5001785	89028	Event													
@@ -13700,3 +13700,175 @@ Id	Type	Priority	Title	Desc	Icon	Condition[1]	Result	RewardId	SkipId	Suffix	Grou
 140374	11	9500	Wrathful Monsoon	Clear [Updraft]	Assets/Product/Texture/Image/IconTask/TaskIconActiveV401.png	140374	1	67455	11724	Event	783	0	0	0	0	0	2026/10/19 5:00	1060038	0		2026/9/23 23:00	0	0
 140375	11	9400	Event - Research Protocol: Part I	Use a total of 10000 Event/Date A Live Construct R&D Tickets	Assets/Product/Texture/Image/IconTask/TaskIconActiveV401.png	140375	10000	67456	20131	Event	783	0	0	0	0	0	2026/11/5 5:00	1060038	0		2026/9/23 23:00	0	0
 140376	11	9300	Event - Research Protocol: Part II	Use a total of 25000 Event/Date A Live Construct R&D Tickets	Assets/Product/Texture/Image/IconTask/TaskIconActiveV401.png	140376	25000	67457	20131	Event	783	0	0	0	0	0	2026/11/5 5:00	1060038	0		2026/9/23 23:00	0	0
+11645	116	9741		1		571	1	3300	0	Collect	0	0	0	0	0	0		0	0			0	0
+11646	116	9741		1		571	1	3300	0	Collect	0	0	0	0	0	0		0	0			0	0
+12561	117	9260	Homecoming Missions	Login for a total of 1 day	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80219	1	68880	0	Event	789	0	0	0	0	0		845031	0			0	0
+12562	117	9250	Homecoming Missions	Login for a total of 3 days	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80220	3	68890	0	Event	789	0	0	0	0	0		845031	0			0	0
+12563	117	9240	Homecoming Missions	Login for a total of 7 days	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80221	7	68900	0	Event	789	0	0	0	0	0		845031	0			0	0
+12564	117	9230	Homecoming Missions	Use a total of 500 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80222	500	68910	40756	Event	789	0	0	0	0	0		845031	0			0	0
+12565	117	9220	Homecoming Missions	Use a total of 800 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80223	800	68920	40756	Event	789	0	0	0	0	0		845031	0			0	0
+12566	117	9210	Homecoming Missions	Use a total of 1200 Serum	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	80224	1200	68930	40756	Event	789	0	0	0	0	0		845031	0			0	0
+22201	115	10000	Homecoming Daily I	Daily 1st Login	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22101	1	69713	0	Daily	0	0	0	0	0	0		0	0			0	0
+22202	115	9990	Homecoming Daily II	Use 300ml of Serum	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22102	300	69714	2014	Daily	0	0	0	0	0	0		0	0			0	0
+22203	115	9970	Homecoming Daily III	Total Activity has reached 100 points today	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22203	100	69715	20033	Daily	0	0	0	0	0	0		0	0			0	0
+22301	115	9900	Homecoming Long-Term	(1/6) Clear 3 Phantom Pain Cage stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22301	3	69716	30001	Long-Term	0	0	0	0	0	0		0	0			0	0
+22302	115	9890	Homecoming Long-Term	(2/6) Clear 6 Phantom Pain Cage stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22302	6	69717	30001	Long-Term	0	0	0	22301	0	0		0	0			0	0
+22303	115	9880	Homecoming Long-Term	(3/6) Clear 9 Phantom Pain Cage stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22303	9	69718	30001	Long-Term	0	0	0	22302	0	0		0	0			0	0
+22304	115	9870	Homecoming Long-Term	(4/6) Clear 12 Phantom Pain Cage stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22304	12	69719	30001	Long-Term	0	0	0	22303	0	0		0	0			0	0
+22305	115	9860	Homecoming Long-Term	(5/6) Clear 15 Phantom Pain Cage stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22305	15	69720	30001	Long-Term	0	0	0	22304	0	0		0	0			0	0
+22306	115	9850	Homecoming Long-Term	(6/6) Clear 18 Phantom Pain Cage stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22306	18	69721	30001	Long-Term	0	0	0	22305	0	0		0	0			0	0
+22307	115	9840	Homecoming Long-Term	(1/4) Clear 1 War Zone stage for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22307	1	69722	30013	Long-Term	0	0	0	0	0	0		0	0			0	0
+22308	115	9830	Homecoming Long-Term	(2/4) Clear 2 War Zone stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22308	2	69723	30013	Long-Term	0	0	0	22307	0	0		0	0			0	0
+22309	115	9820	Homecoming Long-Term	(3/4) Clear 3 War Zone stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22309	3	69724	30013	Long-Term	0	0	0	22308	0	0		0	0			0	0
+22310	115	9810	Homecoming Long-Term	(4/4) Clear 4 War Zone stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22310	4	69725	30013	Long-Term	0	0	0	22309	0	0		0	0			0	0
+22311	115	9800	Homecoming Long-Term	(1/4) Use a total of 1,000 Serum	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22311	1000	69726	2014	Long-Term	0	0	0	0	0	0		0	0			0	0
+22312	115	9790	Homecoming Long-Term	(2/4) Use a total of 2,000 Serum	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22312	2000	69727	2014	Long-Term	0	0	0	22311	0	0		0	0			0	0
+22313	115	9780	Homecoming Long-Term	(3/4) Use a total of 3,000 Serum	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22313	3000	69728	2014	Long-Term	0	0	0	22312	0	0		0	0			0	0
+22314	115	9770	Homecoming Long-Term	(4/4) Use a total of 4,000 Serum	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22314	4000	69729	2014	Long-Term	0	0	0	22313	0	0		0	0			0	0
+22315	115	9760	Homecoming Long-Term	(1/2) Clear 3 Simulated Siege stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22315	3	69730	15001	Long-Term	0	0	0	0	0	0		0	0			0	0
+22316	115	9750	Homecoming Long-Term	(2/2) Clear 6 Simulated Siege stages for the first time	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22316	6	69731	15001	Long-Term	0	0	0	22315	0	0		0	0			0	0
+22317	115	9740	Homecoming Long-Term	(1/4) Participate in Operation Guardians 8 times	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22317	8	69732	11737	Long-Term	0	0	0	0	0	0		0	0			0	0
+22318	115	9730	Homecoming Long-Term	(2/4) Participate in Operation Guardians 16 times	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22318	16	69733	11737	Long-Term	0	0	0	22317	0	0		0	0			0	0
+22319	115	9720	Homecoming Long-Term	(3/4) Participate in Operation Guardians 24 times	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22319	24	69734	11737	Long-Term	0	0	0	22318	0	0		0	0			0	0
+22320	115	9710	Homecoming Long-Term	(4/4) Participate in Operation Guardians 32 times	Assets/Product/Texture/Image/UiRegression/UiRegressionTask.png	22320	32	69735	11737	Long-Term	0	0	0	22319	0	0		0	0			0	0
+80256	51	10000	Munchy Pixels	Clear 9 stages with any number of stars for the first time	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80256	9	800037	90025	Event	0	0	0	0	0	0		0	0			0	0
+80257	51	9900	Dreamhouse Tycoon	Upgrade Kuroro Building to Lv.15	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80257	15	800038	90082	Event	0	0	0	0	0	0		0	0			0	0
+80258	51	9800	Dreamscape Disequilibrium	Accumulate 3,000 Wish Mass in Hard mode	Assets/Product/Texture/Image/IconTask/TaskIconLifu1.png	80258	3000	800039	81104	Event	0	0	0	0	0	0		0	0			0	0
+4536	4	25131	Where the Light Clears I	Upgrade Fortunaster to Lv.10	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4536	1	34300	3430	Train	0	0	0	0	0	0		0	3			0	0
+4537	4	25130	Where the Light Clears II	Upgrade Fortunaster to Lv.20	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4537	1	34310	3431	Train	0	0	0	4536	0	0		0	3			0	0
+4538	4	25129	Where the Light Clears III	Upgrade Fortunaster to Lv.30	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4538	1	34320	3432	Train	0	0	0	4537	0	0		0	3			0	0
+4539	4	25128	Where the Light Clears IV	Upgrade Fortunaster to Lv.40	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4539	1	34330	3433	Train	0	0	0	4538	0	0		0	3			0	0
+4540	4	25127	Where the Light Clears V	Upgrade Fortunaster to Lv.50	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4540	1	34340	3434	Train	0	0	0	4539	0	0		0	3			0	0
+4541	4	25126	Where the Light Clears VI	Upgrade Fortunaster to Lv.60	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4541	1	34350	3435	Train	0	0	0	4540	0	0		0	3			0	0
+4542	4	25125	Where the Light Clears VII	Upgrade Fortunaster to Lv.70	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4542	1	34360	3436	Train	0	0	0	4541	0	0		0	3			0	0
+4543	4	25124	Where the Light Clears VIII	Upgrade Fortunaster to Lv.80	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	4543	1	34370	3437	Train	0	0	0	4542	0	0		0	3			0	0
+21058611	4	25629	The True Power of Fortunaster I	Evolve Fortunaster to SS	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	21058611	1	37086	3300	Train	0	0	0	0	0	0		0	3			0	0
+21058612	4	25628	The True Power of Fortunaster II	Evolve Fortunaster to SSS	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	21058612	1	37186	3300	Train	0	0	0	0	0	0		0	3			0	0
+21078601	4	25414	Fortunaster: Ultima Awaken	Awaken Fortunaster's Ultima Rank	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	21078601	1	37286	19085	Train	0	0	0	0	0	0		0	3			0	0
+21088601	4	24916	Fortunaster: Infinitas Awaken	Awaken Fortunaster's Infinitas Rank	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	21088601	1	37500	19085	Train	0	0	0	0	0	0		0	3			0	0
+23014401	4	24727	Vulpecula Deployed I	Upgrade Vulpecula to Lv.10	Assets/Product/Texture/Image/UIAchievemen/UIAchievementTaskPet45.png	23014401	1	374211	20110	Train	0	0	0	0	0	0		0	3			0	0
+23014402	4	24726	Vulpecula Deployed II	Upgrade Vulpecula to Lv.15	Assets/Product/Texture/Image/UIAchievemen/UIAchievementTaskPet45.png	23014402	1	374212	20110	Train	0	0	0	23014401	0	0		0	3			0	0
+23014403	4	24725	Vulpecula Deployed III	Upgrade Vulpecula to Lv.25	Assets/Product/Texture/Image/UIAchievemen/UIAchievementTaskPet45.png	23014403	1	374213	20110	Train	0	0	0	23014402	0	0		0	3			0	0
+23014404	4	24724	Vulpecula Deployed IV	Upgrade Vulpecula to Lv.30	Assets/Product/Texture/Image/UIAchievemen/UIAchievementTaskPet45.png	23014404	1	374214	20110	Train	0	0	0	23014403	0	0		0	3			0	0
+23044401	4	24413	Leave That Vulpecula to Me I	Evolve Vulpecula to SS	Assets/Product/Texture/Image/UIAchievemen/UIAchievementTaskPet45.png	23044401	1	37419	20110	Train	0	0	0	0	0	0		0	3			0	0
+23044402	4	24412	Leave That Vulpecula to Me II	Evolve Vulpecula to SSS	Assets/Product/Texture/Image/UIAchievemen/UIAchievementTaskPet45.png	23044402	1	37544	20110	Train	0	0	0	0	0	0		0	3			0	0
+31098601	4	19516	Fortunaster's Gift	Fortunaster's Affection reaches Lv.8	Assets/Product/Texture/Image/IconTask/TaskIconR3Laiya.png	31098601	1	37386	3653	Challenge	0	0	0	0	0	0		0	2			0	0
+99052	94	10000	Leia Affection 1	Clear Story 3		99073	1	64880	0	Event	0	0	0	0	0	0		0	0			0	0
+99053	94	9900	Leia Affection 2	Clear Story 6		99074	1	64881	0	Event	0	0	0	0	0	0		0	0			0	0
+131011	111	9990	Phylotree Dossier	Unlock Dossier - Leia: Fortunaster	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	131011	1	69080	20419	Phylotree	0	0	0	0	0	0		0	0			0	0
+91192	11	9000	Permanent Material	Use a total of 240 Serum in material stages	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLineV212.png	91192	240	67001	20017	Event	0	0	0	0	0	0		0	0			0	0
+91193	11	8900	Permanent Material	Use a total of 840 Serum in material stages	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLineV212.png	91193	840	67002	20017	Event	0	0	0	0	0	0		0	0			0	0
+91194	11	8800	Permanent Material	Use a total of 1710 Serum in material stages	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLineV212.png	91194	1710	67003	20017	Event	0	0	0	0	0	0		0	0			0	0
+91195	11	8700	Permanent Material	Use a total of 2820 Serum in material stages	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLineV212.png	91195	2820	67004	20017	Event	0	0	0	0	0	0		0	0			0	0
+91196	11	8600	Permanent Material	Use a total of 4050 Serum in material stages	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLineV212.png	91196	4050	67005	20017	Event	0	0	0	0	0	0		0	0			0	0
+120766	11	10000	Simulated Battlefield	Clear [Simulated Battlefield] once	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLinev409.png	120766	1	15215	20017	Event	0	0	0	0	0	0		0	0			0	0
+120767	11	9900	Simulated Battlefield	Clear [Simulated Battlefield] 5 times	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLinev409.png	120767	5	15215	20017	Event	0	0	0	0	0	0		0	0			0	0
+120768	11	9800	Munchy Pixels	Clear 2 stages with any number of stars for the first time	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLinev409.png	120768	2	15216	90025	Event	0	0	0	0	0	0		0	0			0	0
+120769	11	9700	Dreamhouse Tycoon	Upgrade Kuroro Building to Lv.5	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLinev409.png	120769	5	15216	90082	Event	0	0	0	0	0	0		0	0			0	0
+120770	11	9600	Dreamscape Disequilibrium	Clear [Rising Sun in the Dark]	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLinev409.png	120770	1	15216	81104	Event	0	0	0	0	0	0		0	0			0	0
+120771	11	9500	Astral Obscura	Clear [Opposition]	Assets/Product/Texture/Image/IconTask/TaskIconActiveMainLinev409.png	120771	1	15219	11724	Event	0	0	0	0	0	0		0	0			0	0
+120772	11	9400	Endeavorer's Charm I	Complete Character Challenge Stage [Nebula Promenade] Stage 1	Assets/Product/Texture/Image/IconTask/TaskIconActiveCharacterTryv409.png	120772	1	15217	20235	Event	0	0	0	0	0	0		0	0			0	0
+120773	11	9300	Endeavorer's Charm II	Complete Character Challenge Stage [Nebula Promenade] Stage 2	Assets/Product/Texture/Image/IconTask/TaskIconActiveCharacterTryv409.png	120773	1	15217	20235	Event	0	0	0	0	0	0		0	0			0	0
+120774	11	9200	Endeavorer's Charm III	Complete Character Challenge Stage [Nebula Promenade] Stage 3	Assets/Product/Texture/Image/IconTask/TaskIconActiveCharacterTryv409.png	120774	1	15217	20235	Event	0	0	0	0	0	0		0	0			0	0
+120775	11	9100	Adaptation Fitting - Vulpecula	Complete [Adaptation Fitting: Vulpecula]	Assets/Product/Texture/Image/IconTask/TaskIconActivePartnerTryv409.png	120775	1	15218	7107	Event	0	0	0	0	0	0		0	0			0	0
+120776	11	9000	Brilliant Instant	Clear the trial stage of Coating: [Brilliant Instant]	Assets/Product/Texture/Image/IconTask/TaskIconActiveLeiaEffectCoatingv409.png	120776	1	15215	10035	Event	0	0	0	0	0	49002		0	0			0	0
+120777	11	8900	Cradled Moonfrost	Clear the trial stage of Coating: [Cradled Moonfrost]	Assets/Product/Texture/Image/IconTask/TaskIconActiveIshmaelEffectCoatingv409.png	120777	1	15216	10035	Event	0	0	0	0	0	49003		0	0			0	0
+140400	118	0		Craft <Icon=IconFoodA|35|35|0.5/>Twilight Bloom Knot x1		140400	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140401	118	0		Sell <Icon=IconFoodA|35|35|0.5/>Twilight Bloom Knot x1		140401	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140402	118	0		Level up any character to Lv.10		140402	10	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140403	118	0		Sell <Icon=IconFoodC|35|35|0.5/>Lingering Interlude x1		140403	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140404	118	0		Sell <Icon=IconFoodE|35|35|0.5/>Starlit Blossoms x1		140404	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140405	118	0		Sell <Icon=IconFoodF|35|35|0.5/>Dawnlight Ampoule x1		140405	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140406	118	0		Sell <Icon=IconFoodG|35|35|0.5/>Soothing Honey x1		140406	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140407	118	0		Sell <Icon=IconFoodH|35|35|0.5/>Cozy Protein x1		140407	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140408	118	0		Sell <Icon=IconFoodI|35|35|0.5/>Morningstar Spark x1		140408	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140409	118	0		Sell <Icon=IconFoodJ|35|35|0.5/>Sweet Moonmist x5		140409	5	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140410	118	0		Sell <Icon=IconFoodK|35|35|0.5/>Twilight Blend x10		140410	10	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140411	118	0		Sell <Icon=IconFoodL|35|35|0.5/>Crimson Dewstone x15		140411	15	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140412	118	0		Sell <Icon=IconFoodL|35|35|0.5/>Crimson Dewstone x20		140412	20	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140435	11	10000	Dreamscape Disequilibrium I	Clear Stage 1 in Normal mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140435	1	69780	0		0	0	0	0	0	49007		0	0			0	0
+140436	11	9900	Dreamscape Disequilibrium II	Clear Stage 2 in Normal mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140436	1	69781	0		0	0	0	0	0	49007		0	0			0	0
+140437	11	9800	Dreamscape Disequilibrium III	Clear Stage 3 in Normal mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140437	1	69782	0		0	0	0	0	0	49007		0	0			0	0
+140438	11	9700	Dreamscape Disequilibrium IV	Clear Stage 4 in Normal mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140438	1	69783	0		0	0	0	0	0	49007		0	0			0	0
+140439	11	9600	Dreamscape Disequilibrium V	Clear Stage 5 in Normal mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140439	1	69784	0		0	0	0	0	0	49007		0	0			0	0
+140440	11	9500	Dreamscape Disequilibrium VI	Clear Stage 6 in Normal mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140440	1	69785	0		0	0	0	0	0	49007		0	0			0	0
+140441	11	9400	Dreamscape Disequilibrium VII	Accumulate 800 Wish Mass in Hard mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140441	800	69786	0		0	0	0	0	0	49007		0	0			0	0
+140442	11	9300	Dreamscape Disequilibrium VIII	Accumulate 1,600 Wish Mass in Hard mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140442	1600	69787	0		0	0	0	0	0	49007		0	0			0	0
+140443	11	9200	Dreamscape Disequilibrium IX	Accumulate 3,000 Wish Mass in Hard mode	Assets/Product/Texture/Image/IconTask/TaskIconCommon.png	140443	3000	69788	0		0	0	0	0	0	49007		0	0			0	0
+140444	11	10000	Dreamhouse Tycoon 1	Upgrade Kuroro Building to Lv.5		140444	5	69789	0		0	0	0	0	0	49004		0	0			0	0
+140445	11	9900	Dreamhouse Tycoon 2	Upgrade Kuroro Building to Lv.10		140445	10	69790	0		0	0	0	0	0	49004		0	0			0	0
+140446	11	9800	Dreamhouse Tycoon 3	Upgrade Kuroro Building to Lv.15		140446	15	69791	0		0	0	0	0	0	49004		0	0			0	0
+140447	11	9700	Dreamhouse Tycoon 4	Upgrade Kuroro Building to Lv.20		140447	20	69792	0		0	0	0	0	0	49004		0	0			0	0
+140448	11	9600	Dreamhouse Tycoon 5	Upgrade Kuroro Building to Lv.25		140448	25	69793	0		0	0	0	0	0	49004		0	0			0	0
+140449	11	9500	Dreamhouse Tycoon 6	Upgrade Kuroro Building to Lv.30		140449	30	69794	0		0	0	0	0	0	49004		0	0			0	0
+140450	11	9400	Dreamhouse Tycoon 7	Upgrade Kuroro Building to Lv.35		140450	35	69795	0		0	0	0	0	0	49004		0	0			0	0
+140451	11	9300	Dreamhouse Tycoon 8	Upgrade Kuroro Building to Lv.40		140451	40	69796	0		0	0	0	0	0	49004		0	0			0	0
+140452	11	9200	Dreamhouse Tycoon 9	Upgrade Kuroro Building to Lv.45		140452	45	69797	0		0	0	0	0	0	49004		0	0			0	0
+140453	11	9100	Dreamhouse Tycoon 10	Upgrade Kuroro Building to Lv.50		140453	50	69798	0		0	0	0	0	0	49004		0	0			0	0
+140454	11	9000	Dreamhouse Tycoon 11	Have 1 staff reach Lv.15		140454	1	69799	0		0	0	0	0	0	49004		0	0			0	0
+140455	11	8900	Dreamhouse Tycoon 12	Have 2 staff reach Lv.15		140455	2	69800	0		0	0	0	0	0	49004		0	0			0	0
+140456	11	8800	Dreamhouse Tycoon 13	Have 2 staff reach Lv.30		140456	2	69801	0		0	0	0	0	0	49004		0	0			0	0
+140457	11	8700	Dreamhouse Tycoon 14	Have 5 staff reach Lv.30		140457	5	69802	0		0	0	0	0	0	49004		0	0			0	0
+140458	11	8600	Dreamhouse Tycoon 15	Have 10 staff reach Lv.30		140458	10	69803	0		0	0	0	0	0	49004		0	0			0	0
+140459	11	8500	Dreamhouse Tycoon 16	Complete 2 daily events		140459	2	69804	0		0	0	0	0	0	49004		0	0			0	0
+140460	11	8400	Dreamhouse Tycoon 17	Complete 4 daily events		140460	4	69805	0		0	0	0	0	0	49004		0	0			0	0
+140461	11	8300	Dreamhouse Tycoon 18	Complete 6 daily events		140461	6	69806	0		0	0	0	0	0	49004		0	0			0	0
+140462	11	8200	Dreamhouse Tycoon 19	Complete 8 daily events		140462	8	69807	0		0	0	0	0	0	49004		0	0			0	0
+140463	11	8100	Dreamhouse Tycoon 20	Complete 10 daily events		140463	10	69808	0		0	0	0	0	0	49004		0	0			0	0
+140464	11	10000	Dreamhouse Tycoon - Daily	Obtain 100 Dream Funds		140464	100	69809	0		0	0	0	0	0	0		0	0			0	0
+140465	11	9900	Dreamhouse Tycoon - Daily	Use 3 Dispatch Orders		140465	3	69810	0		0	0	0	0	0	0		0	0			0	0
+140472	118	0		Order <Icon=IconIngredientB|35|35|0.5/>Starfall Petals x1		140472	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140473	118	0		Level up Bianca to Lv.3		140473	3	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140474	118	0		Craft <Icon=IconFoodB|35|35|0.5/>Iridescent Flower Crown x1		140474	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140475	118	0		Order <Icon=IconIngredientC|35|35|0.5/>Moon-Woven Silver x1		140475	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140476	118	0		Level up Rosetta to Lv.7		140476	7	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140477	118	0		Craft <Icon=IconFoodC|35|35|0.5/>Lingering Interlude x1		140477	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140478	118	0		Order <Icon=IconIngredientO|35|35|0.5/>Curtainfall Star x1		140478	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140479	118	0		Order <Icon=IconIngredientD|35|35|0.5/>Blue Hour Crystal x1		140479	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140480	118	0		Craft <Icon=IconFoodE|35|35|0.5/>Starlit Blossoms x1		140480	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140481	118	0		Order <Icon=IconIngredientC|35|35|0.5/>Moon-Woven Silver x3		140481	3	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140482	118	0		Order <Icon=IconIngredientD|35|35|0.5/>Blue Hour Crystal x3		140482	3	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140483	118	0		Craft <Icon=IconFoodE|35|35|0.5/>Starlit Blossoms x1		140483	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140484	118	0		Challenge - Reach 12000/h Zone Income		140484	12000	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140485	118	0		Sell <Icon=IconFoodB|35|35|0.5/>Iridescent Flower Crown x1		140485	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140486	118	0		Level up Ishmael to Lv.11		140486	11	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140487	118	0		Level up Leia to Lv.15		140487	15	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140488	118	0		Craft <Icon=IconFoodF|35|35|0.5/>Dawnlight Ampoule x1		140488	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140489	118	0		Order <Icon=IconIngredientF|35|35|0.5/>Wispy Down x1		140489	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140490	118	0		Level up Karenina to Lv.8		140490	8	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140491	118	0		Craft <Icon=IconFoodG|35|35|0.5/>Soothing Honey x1		140491	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140492	118	0		Order <Icon=IconIngredientG|35|35|0.5/>Lumina Matrix x1		140492	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140493	118	0		Level up Wanshi to Lv.10		140493	10	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140494	118	0		Craft <Icon=IconFoodH|35|35|0.5/>Cozy Protein x1		140494	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140495	118	0		Order <Icon=IconIngredientD|35|35|0.5/>Blue Hour Crystal x1		140495	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140496	118	0		Level up Helentine to Lv.12		140496	12	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140497	118	0		Craft <Icon=IconFoodI|35|35|0.5/>Morningstar Spark x1		140497	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140498	118	0		Order <Icon=IconIngredientD|35|35|0.5/>Blue Hour Crystal x1		140498	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140499	118	0		Level up Lucia to Lv.14		140499	14	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140500	118	0		Order <Icon=IconIngredientE|35|35|0.5/>Soothing Amber x1		140500	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140501	118	0		Challenge - Reach 38K/h Zone Income		140501	38000	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140502	118	0		Craft <Icon=IconFoodJ|35|35|0.5/>Sweet Moonmist x1		140502	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140503	118	0		Order <Icon=IconIngredientI|35|35|0.5/>Twilight Crystal Cluster x1		140503	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140504	118	0		Level up Changyu to Lv.10		140504	10	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140505	118	0		Craft <Icon=IconFoodK|35|35|0.5/>Twilight Blend x1		140505	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140506	118	0		Order <Icon=IconIngredientJ|35|35|0.5/>Crimson Nectar x1		140506	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140507	118	0		Level up Hanying to Lv.13		140507	13	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140508	118	0		Craft <Icon=IconFoodL|35|35|0.5/>Crimson Dewstone x1		140508	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140509	118	0		Order <Icon=IconIngredientH|35|35|0.5/>Healing Crystal x1		140509	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140510	118	0		Order <Icon=IconIngredientJ|35|35|0.5/>Crimson Nectar x1		140510	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140511	118	0		Order <Icon=IconIngredientK|35|35|0.5/>Starlight Slumber x1		140511	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140512	118	0		Craft <Icon=IconFoodM|35|35|0.5/>Moontear Blossom x1		140512	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140513	118	0		Challenge - Reach 130K/h Zone Income		140513	130000	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140514	118	0		Sell <Icon=IconFoodN|35|35|0.5/>Opening Score x30		140514	30	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140515	118	0		Order <Icon=IconIngredientM|35|35|0.5/>Jazz Note x1		140515	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140516	118	0		Craft <Icon=IconFoodO|35|35|0.5/>Tipsy Night x1		140516	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140517	118	0		Sell <Icon=IconFoodO|35|35|0.5/>Tipsy Night x30		140517	30	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140518	118	0		Order <Icon=IconIngredientL|35|35|0.5/>Groove Rhythm x1		140518	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140519	118	0		Order <Icon=IconIngredientM|35|35|0.5/>Jazz Note x1		140519	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140520	118	0		Order <Icon=IconIngredientM|35|35|0.5/>Jazz Note x1		140520	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140521	118	0		Order <Icon=IconIngredientN|35|35|0.5/>Iridescent Disc x1		140521	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140522	118	0		Craft <Icon=IconFoodP|35|35|0.5/>Rave Wave x1		140522	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140523	118	0		Sell <Icon=IconFoodP|35|35|0.5/>Rave Wave x30		140523	30	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140524	118	0		Order <Icon=IconIngredientP|35|35|0.5/>Private Audio Box x1		140524	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140525	118	0		Craft <Icon=IconFoodQ|35|35|0.5/>Neon Night Finale x1		140525	1	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0
+140526	118	0		Challenge - Reach 1700K/h Zone Income		140526	1700000	0	0		0	0	0	0	0	0	2026/12/16 5:00	0	0			0	0

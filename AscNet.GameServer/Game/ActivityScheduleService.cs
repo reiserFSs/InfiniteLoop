@@ -11,6 +11,10 @@ using AscNet.Table.V2.share.theatre3;
 using AscNet.Table.V2.share.theatre4;
 using AscNet.Table.V2.share.miniactivity.fangkuai;
 using AscNet.Table.V2.share.fuben.transfinitetower;
+using AscNet.Table.V2.client.activitybrief;
+using AscNet.Table.V2.client.functional;
+using AscNet.Table.V2.client.fuben;
+using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.share.punishaar;
 
 namespace AscNet.GameServer.Game;
@@ -28,7 +32,7 @@ public readonly record struct ActivityScheduleEntry(long Id, long StartTime, lon
 /// <summary>Event availability derived from version tables, public notices, and documented local mode policies.</summary>
 public static class ActivityScheduleService
 {
-    private const long UnboundedEnd = 32503680000; // 3000-01-01 UTC; see the Theatre5 note below.
+    internal const long UnboundedEnd = 32503680000; // 3000-01-01 UTC; see the Theatre5 note below.
 
     private static readonly Lazy<IReadOnlyList<ActivityScheduleEntry>> Entries = new(() =>
         TableReaderV2.Parse<Theatre3ActivityTable>()
@@ -70,9 +74,113 @@ public static class ActivityScheduleService
             .Concat(new[] { new ActivityScheduleEntry(49501, 0, UnboundedEnd,
                 "local-policy:missing-calendar:unbounded-calendar:"
                 + "LottoPrimary:Id=5(3.7 Choice self-choice coating lottery):TimeId=49501:user-approved") })
+            .Concat(MissingCalendar49Entries())
+            .Concat(ClientCalendarEntries())
             .DistinctBy(row => row.Id)
             .OrderBy(row => row.Id)
             .ToArray());
+
+    /// <summary>
+    /// AscNet policy (user-approved missing-calendar availability, AGENTS.md; not retail parity): the 4.9
+    /// client tables reference these TimeIds and no authoritative window exists yet. Each opens unbounded
+    /// (positive end keeps client countdowns valid) and any official or derived window for the same TimeId
+    /// wins because DistinctBy keeps the earlier entry. Fate draws and client-only gates (ActivityBriefGroup,
+    /// ActivityBtn, SkipFunctional, Draw*) are not opened. Listed in Docs/closed.md.
+    /// </summary>
+    private static IEnumerable<ActivityScheduleEntry> MissingCalendar49Entries() =>
+        MissingCalendar49.Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
+            $"local-policy:missing-calendar:unbounded-calendar:{row.Source}:TimeId={row.TimeId}:4.9:user-approved"));
+
+    /// <summary>
+    /// AscNet policy (user-approved missing-calendar availability, AGENTS.md; not retail parity): every TimeId the
+    /// client's own entry tables reference gets an unbounded window unless an official or derived window exists
+    /// (DistinctBy keeps the earlier entry). Derived from the tables, not a per-version list, so a re-import is the
+    /// only step a new version needs: FubenClientConfig.MainPanelTimeId and FubenActivityTimeTips.TimeId drive the
+    /// Battle Screen "Limited Event" button/caption, FubenActivity.TimeId the timed Battle Screen entries, and
+    /// ActivityBriefGroup.TimeId the Events page entries listed by ActivityBrief.GroupIdList. An entry whose skip
+    /// the server cannot serve stays closed: ActivityUrl skips (Origin 9) hand the player token to a retail web page,
+    /// and Dreamhouse Tycoon (SkipToSkyTowerMain) issues 13 requests no handler answers. Fate draws are not here.
+    /// </summary>
+    private static IEnumerable<ActivityScheduleEntry> ClientCalendarEntries()
+    {
+        Dictionary<int, SkipFunctionalTable> skips = TableReaderV2.Parse<SkipFunctionalTable>()
+            .GroupBy(skip => skip.SkipId).ToDictionary(group => group.Key, group => group.First());
+        bool Served(int? skipId) => skipId is not int id || !skips.TryGetValue(id, out SkipFunctionalTable? skip)
+            || skip.Origin != 9 && skip.UiName != "SkipToSkyTowerMain";
+        Dictionary<int, ActivityBriefGroupTable> groups = TableReaderV2.Parse<ActivityBriefGroupTable>()
+            .ToDictionary(group => group.Id);
+
+        IEnumerable<(string Source, int TimeId)> references =
+            TableReaderV2.Parse<FubenClientConfigTable>()
+                .Where(row => row.Key == "MainPanelTimeId")
+                .Select(row => ("FubenClientConfig.MainPanelTimeId", int.Parse(row.Values[0])))
+            .Concat(TableReaderV2.Parse<FubenActivityTimeTipsTable>()
+                .Select(row => ("FubenActivityTimeTips.TimeId", row.TimeId)))
+            .Concat(TableReaderV2.Parse<FubenActivityTable>()
+                .Where(row => Served(row.SkipId))
+                .Select(row => ("FubenActivity.TimeId", row.TimeId)))
+            .Concat(TableReaderV2.Parse<ActivityBriefTable>()
+                .SelectMany(brief => brief.GroupIdList)
+                .Where(groupId => groups.ContainsKey(groupId) && Served(groups[groupId].SkipId))
+                .Select(groupId => ("ActivityBriefGroup.TimeId", groups[groupId].TimeId ?? 0)));
+        return references.Where(row => row.TimeId > 0).DistinctBy(row => row.TimeId)
+            .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
+                $"local-policy:missing-calendar:unbounded-calendar:{row.Source}:TimeId={row.TimeId}:user-approved"));
+    }
+
+    /// <summary>
+    /// The window the client is told for a missing-calendar (0, UnboundedEnd) entry. The client has no "permanent"
+    /// convention for window-driven entries (<c>RefreshAcitivityTime</c> needs end &gt; now; <c>MM.dd</c> and the
+    /// "Remaining Time" banner format the raw bounds), so 0 / 3000-01-01 rendered as "01.01-01.01, 355436 days".
+    /// The push instead carries the current UTC month and the next three, recomputed at every login; the server's
+    /// own checks keep the unbounded entry. ponytail: a session left running over ~2 months expires client timers.
+    /// </summary>
+    public static (long Start, long End) ClientWindow(long startTime, long endTime, DateTimeOffset now)
+    {
+        if (startTime != 0 || endTime != UnboundedEnd)
+            return (startTime, endTime);
+        DateTime utc = now.UtcDateTime;
+        DateTimeOffset month = new(utc.Year, utc.Month, 1, 0, 0, 0, TimeSpan.Zero);
+        return (month.ToUnixTimeSeconds(), month.AddMonths(3).ToUnixTimeSeconds());
+    }
+
+    private static readonly (int TimeId, string Source)[] MissingCalendar49 =
+    [
+        (730, "TransfiniteActivity.TimeId"),
+        (731, "TransfiniteActivity.TimeId"),
+        (1282, "MailCollectionBoxActivity.TimeId"),
+        (1283, "MailCollectionBoxActivity.TimeId"),
+        (1284, "MailCollectionBoxActivity.TimeId"),
+        (1285, "MailCollectionBoxActivity.TimeId"),
+        (1286, "MailCollectionBoxActivity.TimeId"),
+        (1287, "MailCollectionBoxActivity.TimeId"),
+        (1288, "MailCollectionBoxActivity.TimeId"),
+        (1289, "MailCollectionBoxActivity.TimeId"),
+        (1290, "MailCollectionBoxActivity.TimeId"),
+        (1291, "MailCollectionBoxActivity.TimeId"),
+        (14103, "TaskTimeLimit.TimeId"),
+        (50200, "PunishaarActivity.TimeId"),
+        (51101, "NewActivityCalendarActivity.MainTimeId"),
+        (51102, "NewActivityCalendarPeriod.TimeId"),
+        (51201, "BossActivity.ActivityTimeId+BossActivity.FightTimeId+NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId"),
+        (51202, "ExperimentLevel.TimeId+NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId+TaskTimeLimit.TimeId"),
+        (51203, "ExperimentLevel.TimeId+NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId+TaskTimeLimit.TimeId"),
+        (51204, "TaskTimeLimit.TimeId"),
+        (51205, "NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId+TaskTimeLimit.TimeId"),
+        (51206, "ExperimentLevel.TimeId"),
+        (51207, "ExperimentLevel.TimeId"),
+        (51301, "NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId+TaskTimeLimit.TimeId"),
+        (51401, "Lotto.TimeId+LottoPrimary.TimeId"),
+        (51502, "TaskTimeLimit.TimeId"),
+        (51503, "NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId"),
+        (51701, "MainLine2Chapter.ActivityTimeId"),
+        (51903, "TaskTimeLimit.TimeId"),
+        (51909, "ActivityBrief.TimeId"),
+        (51910, "SignIn.TimeId"),
+        (51912, "PassportActivity.TimeId+PassportTaskGroup.TimeId"),
+        (51920, "PassportTimeLimitTaskReward.ExTimeId"),
+        (51942, "NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId"),
+    ];
 
     public static IReadOnlyList<ActivityScheduleEntry> All => Entries.Value;
 

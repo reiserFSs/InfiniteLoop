@@ -1,7 +1,7 @@
 Key	Desc	Values[1]	Values[2]	Values[3]	Values[4]	Values[5]	Values[6]	Values[7]	Values[8]	Values[9]	Values[10]	Values[11]	Values[12]	Values[13]	Values[14]	Values[15]	Values[16]	Values[17]	Values[18]	Values[19]	Values[20]	Values[21]	Values[22]	Values[23]	Values[24]	Values[25]	Values[26]
 MergeEquipSpecialResonanceList	Memory Resonance Attack/Critical Skill ID List	33	31	32	30																						
 MergeEquipSpecialCharacters	Critical Stats and Effect Characters	1041002	1041004	1241003	1351003	1371002	1031003	1141003	1261003	1531005	1071005	1241002	1381003	1551003	1201003	1191003	1181003	1521003	1091002	1021003	1011003	1081002	1061002	1051001	1031001	1421003	1141004
-RecommendNeedTimes	Minimum Team Recommendations for Leaderboard Eligibility	50																									
+RecommendNeedTimes	Minimum Team Recommendations for Leaderboard Eligibility	7																									
 CharacterTargetLimit	Maximum Character Targets	6																									
 ExtraPermittedPartners	A-Rank CUBs Included	16070000																									
 TargetFinishPercentage	Objective Progress	50																									

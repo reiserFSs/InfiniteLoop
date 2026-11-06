@@ -74,7 +74,7 @@ internal static partial class Theatre6Module
     // Phantom Clash keeps its authored season window (Theatre6PvpActivity.TimeId, 48601/48602)
     // here; its separate functional 10506 unlock condition (stage clear AND two archives) is the
     // Phantom Clash gate's own check, not part of whether a season exists for the account.
-    private readonly record struct Availability(int BaseActivityId, int RequiredLevel, int PvpSeasonId, int PvpTimeId);
+    private readonly record struct Availability(int BaseActivityId, int RequiredLevel, int PvpSeasonId);
 
     private static readonly Lazy<Availability?> CurrentAvailability = new(LoadAvailability);
 
@@ -107,11 +107,14 @@ internal static partial class Theatre6Module
             || levelCondition.Params.Count != 1)
             return null;
 
-        Theatre6PvpActivityTable? season = Rows<Theatre6PvpActivityTable>().OrderBy(row => row.Id).FirstOrDefault(row => row.TimeId > 0);
+        // 4.9 retail zeroed Theatre6PvpActivity.TimeId. The client (XTheatre6Control.IsPvpInActivityTime ->
+        // CheckInTimeByTimeId without defaultOpen) treats an invalid id as closed, so the season still exists
+        // for the base PvE gate but its window never opens (IsOpen(0) is false).
+        Theatre6PvpActivityTable? season = Rows<Theatre6PvpActivityTable>().OrderBy(row => row.Id).FirstOrDefault();
         if (season is null)
             return null;
 
-        return new Availability(activity.Id, levelCondition.Params[0], season.Id, season.TimeId);
+        return new Availability(activity.Id, levelCondition.Params[0], season.Id);
     }
 
     private static int PvpConfig(string key) => Rows<Theatre6PvpConfigTable>().Single(row => row.Key == key).Values;
@@ -141,10 +144,12 @@ internal static partial class Theatre6Module
         timeId = 0;
         if (CurrentAvailability.Value is not Availability availability || !IsBaseAvailable(player))
             return false;
-        if (!ActivityScheduleService.IsOpen(availability.PvpTimeId, now))
+        // The season's TimeId is read per call (not cached with the availability) so a 0 TimeId stays closed.
+        int pvpTimeId = Rows<Theatre6PvpActivityTable>().FirstOrDefault(row => row.Id == availability.PvpSeasonId)?.TimeId ?? 0;
+        if (!ActivityScheduleService.IsOpen(pvpTimeId, now))
             return false;
         pvpSeasonId = availability.PvpSeasonId;
-        timeId = availability.PvpTimeId;
+        timeId = pvpTimeId;
         return true;
     }
 

@@ -24,3 +24,4 @@ Id	Title	Name	NameFontSize	Icon	StoryType	GroupId	OrderId	ChapterIds[1]	ChapterI
 2016	ER16	Of Solitude and Stillness		Assets/Product/Texture/Image/UiFubenMainTabChapter/InstanceIconPicER16.png	2		17	2016				23						201601	Assets/Product/Texture/Image/BgStory/Bgstory460.jpg	770400	
 1042	42	Steering By Light		Assets/Product/Texture/Image/UiFubenMainTabChapter/InstanceIconPic42.png	1	10	42	1042	1142	1242		24						104201	Assets/Product/Texture/Image/BgStory/Bgstory460.jpg	770400	
 1043	43	Anchored in Faith	0	Assets/Product/Texture/Image/UiFubenMainTabChapter/InstanceIconPic43.png	1	10	43	1043	1143			25	0	0			0	104301	Assets/Product/Texture/Image/BgStory/Bgstory460.jpg	770400	0
+1044	44	A Comet's Afterglow	0	Assets/Product/Texture/Image/UiFubenMainTabChapter/InstanceIconPic44.png	1	10	44	1044				26	0	0			0	104401	Assets/Product/Texture/Image/BgStory/Bgstory460.jpg	770400	0

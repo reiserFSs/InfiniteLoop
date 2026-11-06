@@ -70,6 +70,14 @@ internal partial class Program
         PacketFactory.LoadPacketHandlers();
         RequiemCalls.Clear();
         RequiemSuccessfulCalls.Clear();
+        // 4.9 retail zeroed Theatre6PvpActivity.TimeId. The client (XTheatre6Control.IsPvpInActivityTime ->
+        // CheckInTimeByTimeId without defaultOpen) treats that as closed: the season never opens, on any clock.
+        Theatre6PvpActivityTable retailSeason = TableReaderV2.Parse<Theatre6PvpActivityTable>().OrderBy(row => Convert.ToInt32(row.Id)).First();
+        AssertEqual(0, Convert.ToInt32(retailSeason.TimeId), "4.9 Theatre6PvpActivity retail TimeId");
+        ValidateRequiemClosedSeason();
+        // The flows below were written against the last authored season (48601): restore it on the cached in-memory
+        // row for their scope only (test-only; the window itself comes from ActivitySchedule).
+        using RetailTimeIdScope seasonScope = new("TimeId", 48601, [retailSeason]);
         ValidateRequiemAvailabilityChecks();
         ValidateRequiemCharacterBattleMissionChecks();
         ValidateRequiemNirvatiaTagBuffChecks();
@@ -132,7 +140,7 @@ internal partial class Program
             .Where(functions.ContainsKey).Select(id => functions[id])
             .Where(function => !function.Condition.Select(Convert.ToInt32).Contains(pvpCondition)).ToList();
         Theatre6PvpActivityTable? season = TableReaderV2.Parse<Theatre6PvpActivityTable>()
-            .OrderBy(row => Convert.ToInt32(row.Id)).FirstOrDefault(row => Convert.ToInt32(row.TimeId) > 0);
+            .OrderBy(row => Convert.ToInt32(row.Id)).FirstOrDefault();
         if (season is not null && baseFunctions is [FunctionalOpenTable function] && function.Condition.Count == 1
             && conditions.TryGetValue(Convert.ToInt32(function.Condition[0]), out ConditionTable? condition)
             && Convert.ToInt32(condition.Type) == 10101 && condition.Params.Count == 1)
@@ -151,6 +159,20 @@ internal partial class Program
         if (!ActivityScheduleService.IsOpen(timeId, moment))
             throw new InvalidDataException($"Theatre6 PVP time {timeId} is not open inside its own authored window.");
         return moment;
+    }
+
+    private static void ValidateRequiemClosedSeason()
+    {
+        (_, int timeId, int requiredLevel) = RequiemGate();
+        AssertEqual(0, timeId, "Theatre6 PVP season TimeId is 0 in the 4.9 tables");
+        using RequiemCase eligible = new("season-closed", level: requiredLevel);
+        // Distinct clocks: the epoch and now. A zero TimeId has no window, so neither projects an open season.
+        foreach (DateTimeOffset moment in new[] { DateTimeOffset.FromUnixTimeSeconds(1), DateTimeOffset.UtcNow })
+            AssertEqual(false, eligible.PureAvailable(moment), $"Theatre6 projection with TimeId 0 is closed at {moment:u}");
+        eligible.Login();
+        AssertEqual(0, eligible.State.Pvp.AuthorizedSeasonId, "A level-eligible login never authorizes a TimeId-0 season");
+        AssertEqual(20427001, eligible.Call("Theatre6PvpStartRequest", null, success: false).Value<int>("Code"),
+            "Theatre6 PVP start on a TimeId-0 season answers NotOpen");
     }
 
     private static void ValidateRequiemAvailabilityChecks()

@@ -1,0 +1,16 @@
+Key	Values[1]	Values[2]	Values[3]	Values[4]	Values[5]	Values[6]	Values[7]	Values[8]
+ActivityPanelPrefab	Assets/Product/Ui/ComponentPrefab/FuBenNew/ActivityChapter.prefab							
+MainPanelTimeId	51921							
+MainPanelName	Limited Event							
+MainPanelItemId	62738							
+MainFestivalBg	Assets/Product/Texture/Image/UiNewFuBen/NewFuBenHuodongBg1.png							
+Main3DBgPrefab								
+Main3DCameraPrefab	Assets/Product/Ui/UiModel/UiNewFuben/UiNewFuben.prefab							
+MianVideoBgUrl								
+StageSettleWinSoundId	3							
+StageSettleLoseSoundId	4							
+UiFubenQxmsTryIcon	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenTry.png							
+UiFubenQxmsUseIcon	Assets/Product/Texture/Image/UiFubenPracticeCharacter/UiFubenPersonalUse.png							
+ChallengeShowGridCount	3							
+ChallengeShowGridList	10	5	91	44	106	92	81	60
+ChallengeGridShowCondition	0	862851	862854	862852	862852	862854	862853	862851

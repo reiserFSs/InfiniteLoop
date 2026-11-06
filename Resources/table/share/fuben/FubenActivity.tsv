@@ -1,0 +1,101 @@
+Id	Name	ManagerName	Icon	TimeId	FunctionNameId	SkipId	Order	RedPointConditions[1]	RedPointConditions[2]	RedParam	Note	IsAgency	ShowConditionId	IsRecord	CustomParams[1]
+1	Leaf-Ferried Dreams	RpgTowerManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner21.png	0	10321	11736	0	CONDITION_RPGTOWER_TASK_RED	CONDITION_RPGTOWER_DAILYREWARD_RED	0	RPG Mode	0	0	0	
+2	Babel Tower: Dimming Surge	FubenBabelTowerManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner197.png	0	10307	20015	0	CONDITION_ACTIVITYBRIE_BABELTOWER_REWARD		0	Babel Tower	0	0	0	
+3	Magpie's Fortune	PokerGuessingManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner155.png	0	10333	11761	0	CONDITION_POKER_GUESSING_RED		0	Double Seventh Festival Poker Guessing	0	0	0	
+4	Simulated Battlefield	FubenRepeatChallengeManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner146.png	51501	10309	20017	1	CONDITION_REPEAT_CHALLENGE_ENTRANCE		0	Multi Clear	0	0	0	
+5	Astral Obscura	FubenActivityBossSingleManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner251.png	51201	10304	11724	3	CONDITION_ACTIVITYBRIE_BOSSSINGLE		0	Brutal Level	0	0	1	
+6	Operation Uniframe		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner60.png	0	10422	82070	0	CONDITION_PIVOTCOMBAT_ALL_RED_POINT		0	Operation Uniframe	0	0	0	
+8	Path of Buried Wishes	XRiftAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner205.png	0	10437	80201	0	CONDITION_RIFT_ENTRANCE		0	Deep Blue 2.0	1	0	1	
+9	Co-op Mode	DlcHuntManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBannerDlcHunt.png	0	0	87001	0			0	Hunt DLC	0	0	0	
+10	Cat Grab	XGoldenMinerAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner165.png	0	10426	20177	0	CONDITION_GOLDEN_MINER_REWARD		0	Gold Miner	1	0	1	
+11	Spectroscopic Binary Star		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner68.png	0	10343	82001	0	CONDITION_COUPLE_COMBAT_TASK_REWARD		0	It Takes Two	0	0	0	
+12	Endless Summer Blue		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner86.png	0	0	11773	0	CONDITION_FASHION_STORY_HAVE_STAGE		0	Coating Story	0	0	0	
+13	Palette Clash	ColorTableManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner94.png	0	0	0	0	CONDITION_COLORTABLE_ENTRANCE		0	Palette Clash	0	0	0	
+14	Blazing Trails		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner92.png	0	10439	89001	0			0	Lazer Event	0	0	0	
+15	Memory Rescue - Canvas Chronicle	MemorySaveManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner91.png	0	10351	88005	0	CONDITION_MEMORYSAVE_ALL_RED_POINT		0	Memory Rescue	0	0	0	
+16	Endeavorer's Charm	FubenNewCharActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner248.png	51205	10325	20235	2	CONDITION_KOROMCHARACTIVITYMAINRED		0	Character Trial Stage	0	0	0	53
+17	Ultimate Brawl - Deadlocked		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner99.png	0	10350	20104	0			0	Ultimate Brawl	0	0	0	
+18	Crafting Lulu	XRestaurantAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner142.png	0	10443	89008	0	CONDITION_RESTAURANT_ENTRANCE		0	Simulated Restaurant	1	0	0	
+19	Arcade Anima: Noan	CharacterTowerManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner124.png	0	10436	11795	0			0	Arcade Anima	0	0	0	
+20	Corrupted Battlefront		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner98.png	0	10445	89011	0	CONDITION_MAVERICK2		0	Corrupted Battlefront	0	0	0	
+21	Lost in Whitebloom: Rerun		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner102.png	0	403	20260	0			0	Coating Story	0	1050114	0	
+22	Pathfinder	XRpgMakerGameAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner207.png	0	10345	20128	0	CONDITION_RPG_MAKER_GAME_RED		0	Push Box	1	0	1	
+23	Forever Racer	XTwoSideTowerAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner103.png	0	10431	85013	0	CONDITION_TWO_SIDE_TOWER_TASK		0	Yin-Yang Tower	1	0	0	
+24	Skylark Nightsong	MazeManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner104.png	0	10445	89013	0	CONDITION_MAZE		0	Valentine's Day Maze	0	0	0	
+25	Space Odyssey		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner108.png	0	10446	89015	0	CONDITION_PLANET_RUNNING_ACTIVITY		0	Space Odyssey	0	0	0	
+26	Nemesis Brawl		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner110.png	0	10447	89016	0	CONDITION_MONSTER_COMBAT_ACTIVITY		0	BVB	0	0	0	
+27	Dreamscape Disequilibrium	Reform2ndManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner249.png	51301	10337	81104	4	CONDITION_REFORM_All_RED_POINT		0	Limit Break	0	0	0	
+28	Special Dispatch: Wasteland Merchant		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner213.png	0	10349	80176	0	XRedPointConditionAreaWarActivity		0	Special Dispatch	0	0	0	
+29	Into the Deep	AreaWarManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner116.png	0	10339	20083	0	XRedPointConditionKillZoneActivity		0	Unrivaled Massacre	0	0	0	
+30	Lightning and Thunder: Rerun	XCerberusGame	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner131.png	0	10448	90034	0	CERBERUSE_GAME_CHECK_BTN_FASHION_STORY_RED	CERBERUSE_GAME_CHECK_BTN_FASHION_CHALLENGE_RED	0	Cerberus	0	1050135	0	
+31	Devour Wave Escape: Time Gap	EscapeManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner58.png	0	10423	82080	0	XRedPointConditionEscapeTask		0	Battle Royale	0	0	0	
+32	Midsummer Rewind	FubenSpecialTrainManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner80.png	0	10316	89025	0	CONDITION_SPECIALTRAIN_RED		0	Co-op Relax	0	0	0	
+33	Guild Expedition	GuildWarManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner119.png	0	10425	85016	0	CONDITION_GUILDWAR_Main		0	Guild War	0	0	0	
+34	Game of Thorns	XBlackRockChessAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBannerFubenActivityBanner171.png	0	10455	89028	0	CONDITION_BLACK_ROCK_CHESS_ENTRANCE		0	Game of Thorns	1	0	1	
+35	Summer Stroll		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner195.png	0	10341	89095	0	CONDITION_FASHION_STORY_ENTRANCE		0	Coating Story	0	0	0	
+36	Blazing Simulacrum	XBlackRockStageAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner127.png	0	10443	89030	0			0	BLACK★ROCK SHOOTER Collab Story	1	0	0	
+37	Brandishing Tunes	XTaikoMasterAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner69.png	0	10430	84010	0	CONDITION_ACTIVITY_TAIKO_MASTER_TASK		0	Punishing: Gray Raven Rhythm Game	1	0	0	
+38	Alternate World: Spice and Salt	XRogueSimAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner132.png	0	10457	89044	0	CONDITION_ROGUESIM_ACTIVITY		0	Roguelike Merchant Simulation	1	0	0	
+39	Magic Square Bounce	XDlcCasualAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner73.png	0	10458	89045	0	CONDITION_DLC_CASUAL_ACTIVITY		0	DLC Cube	1	0	0	
+40	Pulao's Cultivation	XKotodamaActivityAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner145.png	0	10459	89050	0	CONDITION_KOTODAMA_MAIN		0	Pulao's Cultivation	1	0	0	
+41	Wreck-It Huhu	XFangKuaiAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner243.png	0	10461	89049	0	CONDITION_FANGKUAI_MAIN		0	Remove Space	1	0	1	
+42	Spring Gala	XTempleAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner137.png	0	10463	89052	0	CONDITION_TEMPLE_MAIN		0	Decorate the Temple Fair	1	0	0	
+43	Nexus Trek	XLinkCraftActivityAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner140.png	0	10465	89058	0	CONDITION_LINKCRAFT_MAIN		0	Nexus Trek	1	0	0	
+44	Trial of Simulacrums	XBossInshotAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner178.png	0	10467	89061	0	CONDITION_BOSS_INSHOT		0	Boss Leap	1	0	1	
+45	Crouching Cat, Hidden Rat	XDlcMultiMouseHunterAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner143.png	0	10464	89057	0	CONDITION_DLC_MOUSE_HUNTER_ACTIVITY		0	DLC Hide and Seek	1	0	1	
+46	Paint of Dunhuang	XDunhuangAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner144.png	0	10466	89060	0	CONDITION_DUNHUANG		0	Paint of Dunhuang	1	0	0	
+47	Infinity Algorithm	XMechanismActivityAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner147.png	0	10469	89063	0	CONDITION_MECHANISM_MAIN		0	Mechanism	1	0	0	
+48	Sweet Respite	XLineArithmeticAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner148.png	0	10468	89062	0	CONDITION_LINE_ARITHMETIC		0	Wanshi Connect	1	0	0	
+49	Hydrangea Gala	XTemple2Agency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner162.png	0	10472	89074	0	CONDITION_TEMPLE2		0	Garden Fair	1	0	0	
+50	Holographic Replay	XSimulateTrainAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner158.png	0	10474	89071	0	CONDITION_SIMULATE_TRAIN		0	Holographic Replay	1	0	0	
+51	Lazy Delivery	XBagOrganizeActivityAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner184.png	0	10473	90020	0	CONDITION_BAGORGANIZE_ANY		0	Inventory Sorting	1	0	0	
+52	Armored Up	XSucceedBossAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner161.png	0	10471	89073	0	CONDITION_SUCCEED_BOSS		0	New Super Hard Boss	1	0	1	
+53	Fluffy Snooze	XGame2048Agency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner164.png	0	10475	89075	0	CONDITION_GAME2048_MAIN		0	2048 Relax	1	0	1	
+54	Shape of Thunder: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner154.png	0	10306	20256	0			0	Coating Story	0	1050112	0	
+55	Sinking Mermaid: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner136.png	0	10306	20258	0			0	Coating Story	0	1050113	0	
+56	Operation SimTerra	XFpsGameAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBannerFubenActivityBanner170.png	0	10477	89079	0	CONDITION_FPSGAME_MAIN		0	Chief FPS	1	0	0	
+57	Tactical Analysis Compilation	XStageMemoryAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBannerStageMemory.png	0	10480	90010	0	CONDITION_STAGE_MEMORY		0	Designer's Pick Stage	1	0	0	
+58	Scorched Moon: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner170.png	0	10306	90030	0			0	Coating Story	0	1050134	0	
+59	Corrupted Battlefront: Pioneers of Peril	XMaverick3Agency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner173.png	0	10483	90011	0	CONDITION_MAVERICK3_MAIN		0	Lone Gunner	1	0	0	
+60	Cyber Checkmate	XLuckyTenant2Agency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner172.png	0	10481	90014	0	CONDITION_LUCKY_TENANT2		0	Lucky Tenant	1	0	1	
+61	Shuffling Duel	XPcgAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner179.png	0	10485	90016	0	CONDITION_PCG_ACTIVITY		0	Punishing: Gray Raven Card Game	1	0	0	
+62	A Flash of Love	XPokerGuessing2Agency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner201.png	0	10486	90018	0	CONDITION_POKER_GUESSING2		0	Valentine's Day Poker Guessing 3	1	0	0	
+63	A Love Story Across Time		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner180.png	0	10432	20245	0			0	Coating Story	0	0	0	
+64	Permanent Rift	XScoreTowerAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner183.png	0	10488	89091	0	CONDITION_SCORETOWER_MAIN		0	Permanent Rift	1	0	0	
+65	Vanquishing Embers	XConnectingLineAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner189.png	0	10456	90023	0	CONDITION_CONNECTING_LINE		0	Vera Connection	1	0	0	
+66	Lamento di Phantasma	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner188.png	0	10306	90024	0	CONDITION_ACTIVITY_FESTIVAL_DMC		15010306	DMC Collab Story	0	0	0	
+67	Munchy Pixels	XPacMan2Agency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner192.png	51101	10490	90025	6	CONDITION_PACMAN2_NEW_STAGE		0	Pac-Man Mode	1	0	1	
+68	Viva la Nina: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner121.png	0	10306	90031	0			0	Coating Story	0	1050136	0	
+69	Slumberland: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner83.png	0	10306	90032	0			0	Coating Story	0	1050137	0	
+70	Dreams at Twilight		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner196.png	0	10432	90036	0			0	Coating Story	0	0	0	
+71	Rapid Pursuit	XBountyChallengeAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner228.png	0	10492	89093	0	CONDITION_BOUNTY_CHALLENGE		0	Bounty Challenge	1	0	1	
+72	Shattered Mirage	XSoloReformAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner237.png	0	10353	89094	0	CONDITION_SOLO_REFORM_MAIN		0	Mini Modification	1	0	1	
+73	Earthy Camping	XLineArithmetic3Agency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner148.png	0	10468	89062	0	CONDITION_LINE_ARITHMETIC		0	Connection 3	1	0	1	
+74	Lost in Whitebloom: Rerun		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner102.png	0	1308	20292	0			0	Coating Story	0	1050218	0	
+75	Shape of Thunder: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner154.png	0	1308	20290	0			0	Coating Story	0	1050216	0	
+76	Sinking Mermaid: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner136.png	0	1308	20291	0			0	Coating Story	0	1050217	0	
+77	A Love Story Across Time: Rerun		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner180.png	0	1308	20289	0			0	Coating Story	0	1050215	0	
+81	Stellar Rush	XRaceAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner208.png	0	10354	89100	0	CONDITION_RACE_MAIN		0	Horse Betting	1	0	0	
+83	Her Merciful Gaze	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner209.png	0	1308	20299	0			0	Coating Story	0	0	0	
+84	Hyperlink Array	XDlcRelinkAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner216.png	0	10493	90047	0	CONDITION_DLC_RELINK_MAIN		0	DlcRelink	1	0	1	
+85	Behind the Curtain	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner218.png	0	1308	20321	0			0	Coating Story	0	0	0	
+86	Blazing Rhapsody	XPBRGameAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner224.png	0	10500	1300635	0	CONDITION_PBRGAME_MAIN		0	Placeholder_战双兄弟	1	774800	1	
+87	Dreams at Twilight: Rerun		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner196.png	0	1308	20342	0			0	Coating Story	0	863242	0	
+88	A Love Story Across Time: Rerun		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner180.png	0	1308	20343	0			0	Coating Story	0	863243	0	
+89	Shape of Thunder: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner154.png	0	1308	20344	0			0	Coating Story	0	863244	0	
+90	Sinking Mermaid: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner136.png	0	1308	20345	0			0	Coating Story	0	863245	0	
+91	A Love Story Across Time: Rerun		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner180.png	0	1308	20350	0			0	Coating Story	0	863246	0	
+92	Shape of Thunder: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner154.png	0	1308	20351	0			0	Coating Story	0	863247	0	
+93	Sinking Mermaid: Rerun	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner136.png	0	1308	20352	0			0	Coating Story	0	863248	0	
+94	Lost in Whitebloom: Rerun		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner102.png	0	1308	20353	0			0	Coating Story	0	863249	0	
+95	Retro Arcade		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner227.png	0	10503	1300640	0	CONDITION_GAMECOLLECTION_CAN_REWARD_OR_BUY		0	Retro Arcade	0	774800	1	
+96	Path of Unclouded Hearts		Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner230.png	0	1308	20364	0			0	Coating Story	0	0	0	
+97	Huhu's Fantastic Garden	XDyeMergeGameAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner236.png	0	10504	89105	0	CONDITION_DYEMERGE_MAIN		0	Grand Dyeing	1	0	1	
+98	Tidal Wishes	XFashionStoryAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner232.png	0	10341	89106	0	CONDITION_FASHION_STORY_ENTRANCE		0	4.6+4.7 Summer Coating Story	1	0	0	
+99	Love's Leisure Hour	XEnvelopeGuessingAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner242.png	0	10507	89113	0	CONDITION_ENVELOPE_GUESSING_ENTRANCE		0	Double Seventh Festival Card Opening	1	0	1	
+100	Dimensional Tuner	XConcertPreHeatingAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner235.png	0	10505	90068	0	CONDITION_CONCERT_PRE_HEATING_MAIN		0	4.6+4.7音乐会预热	1	774800	0	
+101	Dream of Stagnant Cycle	FubenFestivalActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner240.png	0	10513	90073	0			0	Date A Live Collab Story	0	100001	1	
+102	Circuit Calculus	XPunishaarAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner246.png	0	10509	90074	0	CONDITION_PUNISHAAR_MAIN		0	4.8战双扎活动	1	774800	1	
+103	Against the Flow of Time	FubenNewCharActivityManager	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner238.png	0	10325	20395	0	CONDITION_KOROMCHARACTIVITYMAINRED		0	Character Trial Stage	0	0	0	51
+104	Overclock Simulation	XTransfiniteTowerAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner245.png	0	10510	90077	0	CONDITION_TRANSFINITE_TOWER_MAIN		0	4.8超限	1	774800	1	
+105	Dreamhouse Tycoon	XSkyTowerAgency	Assets/Product/Texture/Image/UiFubenActivityBanner/FubenActivityBanner250.png	51011	10514	90082	5	CONDITION_SKY_TOWER_ENTRANCE		0	Dreamhouse Tycoon	1	774800	1	

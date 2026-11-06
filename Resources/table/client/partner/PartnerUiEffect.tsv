@@ -134,3 +134,6 @@ Id	PartnerId	ModelType	EffectType	EffectRootName	EffectPath
 136	16430000	CombatModel	Disappear		Assets/Product/Effect/Prefab/FxPet3SailfishonPrefab/Common/FxPet3SailfishonEfChange02.prefab
 137	16430000	CombatModel	ControlByAnimationEvent		Assets/Product/Effect/Prefab/FxPet3SailfishonPrefab/Common/FxPet3SailfishonUiStand1.prefab
 138	16430000	CombatModel	ControlByAnimationEvent	SharkBone00	Assets/Product/Effect/Prefab/FxPet3SailfishonPrefab/Common/FxPet3SailfishonUiStand1Trail.prefab
+139	16440000	StandbyModel	Disappear	QiuBone01	Assets/Product/Effect/Prefab/FxPet3GemfoxPrefab/Off/FxPet3GemfoxoffChange01.prefab
+140	16440000	CombatModel	Appear	TailBoneM01	Assets/Product/Effect/Prefab/FxPet3GemfoxPrefab/On/FxPet3GemfoxonEfChange01.prefab
+141	16440000	CombatModel	Disappear	TailBoneM01	Assets/Product/Effect/Prefab/FxPet3GemfoxPrefab/On/FxPet3GemfoxonEfChange02.prefab

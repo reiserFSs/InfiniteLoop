@@ -39,7 +39,16 @@ internal static partial class Program
         HashSet<int> rewardIds = TableReaderV2.Parse<AscNet.Table.V2.share.reward.RewardTable>().Select(row => row.Id).ToHashSet();
         foreach (BossStarRewardTable tier in TableReaderV2.Parse<BossStarRewardTable>().Where(row => section.StarRewardId.Contains(row.Id)))
             AssertEqual(true, rewardIds.Contains(tier.RewardId), $"Boss star tier {tier.Id} reward {tier.RewardId} exists");
-        AssertEqual(null, At(window.StartTime - 1), "Boss before season window: earlier seasons stay closed");
+        // 4.9: the only season with a TimeId (51201) has an unbounded AscNet missing-calendar window, so there is no
+        // "before" instant to probe; seasons whose retail TimeId is 0 (row 47) must stay closed instead.
+        if (window.StartTime > 0)
+            AssertEqual(null, At(window.StartTime - 1), "Boss before season window: earlier seasons stay closed");
+        else
+        {
+            AssertEqual(true, window.Source.StartsWith("local-policy:missing-calendar:unbounded-calendar:"), "Undated boss season is missing-calendar policy");
+            AssertEqual(false, activities.Where(row => (row.ActivityTimeId ?? 0) <= 0).Any(row => row.Id == open.ActivityId),
+                "A boss season with retail TimeId 0 is never published");
+        }
         AssertEqual(null, At(window.EndTime + 1), "Boss after season window");
 
         // Character trials: each OnOpenCharacterFileFubenActivity route's TeachingActivity TimeId is emitted with a real window.
@@ -55,10 +64,11 @@ internal static partial class Program
             long probe = ActivityScheduleService.TryGet(teaching.TimeId!.Value, out ActivityScheduleEntry own)
                 ? own.StartTime + 3600
                 : window.StartTime + 3600;
+            bool undated = (own.Id != 0 ? own.StartTime : window.StartTime) == 0; // 4.9 missing-calendar windows start at 0
             TimeLimitCtrlConfigList control = ((List<TimeLimitCtrlConfigList>)controls.Invoke(null, [DateTimeOffset.FromUnixTimeSeconds(probe), false])!)
                 .SingleOrDefault(row => row.Id == teaching.TimeId)
                 ?? throw new InvalidDataException($"Trial {teaching.Id} TimeId {teaching.TimeId} has no window (skip {skipId}).");
-            AssertEqual(true, control.StartTime > 0 && control.StartTime <= probe && probe < control.EndTime,
+            AssertEqual(true, (control.StartTime > 0 || undated) && control.StartTime <= probe && probe < control.EndTime,
                 $"Trial {teaching.Id} window contains probe");
         }
     }

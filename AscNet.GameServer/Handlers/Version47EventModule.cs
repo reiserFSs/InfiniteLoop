@@ -118,8 +118,8 @@ namespace AscNet.GameServer.Handlers
 
         private static ConcertPreHeatingActivityTable? ActiveConcert(DateTimeOffset now) =>
             ConcertActivities.Value
-                .Where(candidate => candidate.TimeId > 0
-                    && ActivityScheduleService.IsOpen(candidate.TimeId, now))
+                // Client (xconcertpreheatingagency:479) opens an activity whose TimeId is invalid (0), as 4.9 authors it.
+                .Where(candidate => candidate.TimeId <= 0 || ActivityScheduleService.IsOpen(candidate.TimeId, now))
                 .OrderByDescending(candidate => candidate.Id)
                 .FirstOrDefault();
 

@@ -40,5 +40,6 @@ Id	NpcId	Name	Desc	RecommendElement[1]	Icon	LiHuiPath	Priority	InitQuality	Carry
 16390000	4239	Allos	Damage, Control	3	Assets/Product/Texture/Image/RolePartner/Pet3Motordragon1.png	Assets/Product/Texture/Image/Pets/Pet3MotordragononMd010011.png	390	3	0	239	30	0			62	150	1021007	0	1	0
 16400000	4240	Grand Duke	Pull, Damage	4	Assets/Product/Texture/Image/RolePartner/Pet3Chandelier1.png	Assets/Product/Texture/Image/Pets/Pet3ChandelieronMd010011.png	400	3	0	240	30	0			62	150	1401003	1	1	0
 16410000	4241	Patrick	Pull, Damage	1	Assets/Product/Texture/Image/RolePartner/Pet3Starfish1.png	Assets/Product/Texture/Image/Pets/Pet3StarfishonMd010011.png	410	3	0	241	30	0			62	150	1071005	0	1	0
-16420000	4242	Zafkiel	DMG	5	Assets/Product/Texture/Image/RolePartner/Pet3Kekedi1.png	Assets/Product/Texture/Image/Pets/Pet3KekediMd010011.png	420	3	0	242	30	0			62	150	1411003	1	2	0
+16420000	4242	Zafkiel	DMG	5	Assets/Product/Texture/Image/RolePartner/Pet3Kekedi1.png	Assets/Product/Texture/Image/Pets/Pet3KekediMd010011.png	420	3	0	242	30	0			62	150	1411003	1	2	910
 16430000	4243	Kelpie	Pull, Damage	5	Assets/Product/Texture/Image/RolePartner/Pet3Sailfish1.png	Assets/Product/Texture/Image/Pets/Pet3SailfishonMd010011.png	430	3	0	243	30	0			62	150	1421003	0	1	0
+16440000	4244	Vulpecula	Pull, Damage	3	Assets/Product/Texture/Image/RolePartner/Pet3Gemfox1.png	Assets/Product/Texture/Image/Pets/Pet3GemfoxonMd010011.png	440	3	0	244	30	0			62	150	1431003	0	1	0

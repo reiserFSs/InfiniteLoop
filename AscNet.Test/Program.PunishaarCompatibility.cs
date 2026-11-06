@@ -369,12 +369,22 @@ internal partial class Program
         MongoDB.Bson.Serialization.BsonSerializer.Deserialize<Player>(
             players.LastSuccessfulReplacementBson ?? throw new InvalidDataException("Punishaar run saved nothing."));
 
-    // First instant of the authored parent window: the single authority every Punishaar schedule follows.
+    // First instant after every authored stage-group window opens. 4.9 moved PunishaarActivity.TimeId to 50200
+    // (AscNet missing-calendar policy, unbounded) while its stage groups keep the officially dated TimeId 50201, so
+    // the stage windows are the authority the frozen clock must satisfy; the activity window must be open there too.
     private static DateTimeOffset PunishaarFrozenNow(PunishaarActivityTable activity)
     {
-        if (!ActivityScheduleService.TryGet(activity.TimeId, out ActivityScheduleEntry window) || window.EndTime <= window.StartTime)
-            throw new InvalidDataException($"Punishaar activity TimeId {activity.TimeId} has no authored window in ActivitySchedule.");
-        return DateTimeOffset.FromUnixTimeSeconds(window.StartTime + 1);
+        long start = 0;
+        foreach (int timeId in TableReaderV2.Parse<PunishaarStageGroupTable>()
+            .Where(stage => stage.GroupId == activity.StageGroup && stage.TimeId > 0).Select(stage => stage.TimeId).Distinct())
+        {
+            if (!ActivityScheduleService.TryGet(timeId, out ActivityScheduleEntry stageWindow))
+                throw new InvalidDataException($"Punishaar stage TimeId {timeId} has no window in ActivitySchedule.");
+            start = Math.Max(start, stageWindow.StartTime); // permanent inherited windows start at 0
+        }
+        DateTimeOffset now = DateTimeOffset.FromUnixTimeSeconds(start + 1);
+        AssertEqual(true, ActivityScheduleService.IsOpen(activity.TimeId, now), "Punishaar activity window is open at the frozen clock");
+        return now;
     }
 
     private static void PunishaarSessionLifecycle()
