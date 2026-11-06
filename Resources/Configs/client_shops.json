@@ -24522,6 +24522,438 @@
         "BuyPriority": 0,
         "ActivityConsumeCount": 0,
         "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060379,
+        "Priority": 9956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3016065,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060380,
+        "Priority": 8956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3026065,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060381,
+        "Priority": 7956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3036065,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060382,
+        "Priority": 6956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3046065,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060383,
+        "Priority": 5956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3056065,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060384,
+        "Priority": 4956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3066065,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060385,
+        "Priority": 9956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3016066,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060386,
+        "Priority": 8956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3026066,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060387,
+        "Priority": 7956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3036066,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060388,
+        "Priority": 6956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3046066,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060389,
+        "Priority": 5956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3056066,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 4060390,
+        "Priority": 4956,
+        "RewardGoods": {
+          "RewardType": 3,
+          "TemplateId": 3066066,
+          "Count": 1,
+          "Level": 1,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 29,
+            "Count": 150
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
       }
     ],
     "ScreenGroupList": [
