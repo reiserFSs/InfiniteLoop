@@ -18,9 +18,11 @@ Status: design agreed 2026-09-27; not implemented. Related: `client-download.md`
 4. Apply the Rosetta client patches in Rust, with hash-recorded backups:
    - `PGRBase.dll`: `0F 1F C2` → `90 90 90` at the unique signature
      `21 ca 21 ca 81 f2 b3 a5 d6 7a [0f 1f c2] 41 8b 0a 50 48 8d 05` (stable across builds so far).
-   - `GameAssembly.dll`: register-form NOP inside `.tvm0`, located by a masked pattern. The pattern changes
-     with most game updates (4.8.0 matched the fifth variant of `pgr_apply_patches.py`), so each supported client
-     version pins its pattern in `supported-client.json`; the launcher never guesses.
+   - `GameAssembly.dll`: the single register-form NOP (`[REX] 0F 1F C0-C7` followed by a load, e.g.
+     `41 0F 1F C1 | 44 8B 0A`, CN `0F 1F C2 | 41 8B 11`) inside `.tvm0`. The per-build masked patterns of
+     `pgr_apply_patches.py` stopped matching TW/KR/JP/CN 4.9.1; the structural signature in
+     `Scripts/apply_rosetta_patches.py` is unique in all five 4.9.1 builds (EN reproduces the installed `3e9e3d54…`).
+     TW/KR/JP/CN patched files are untested in game; their hashes are in `supported-client.json`.
    - Unity startup stub: already implemented in `src/pgrbase.rs`.
    `supported-client.json` already accepts the Rosetta-patched `GameAssembly.dll` hash.
 5. Server: macOS setup installs the .NET 8 SDK and MongoDB from official archives

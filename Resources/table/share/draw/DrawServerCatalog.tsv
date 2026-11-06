@@ -1,17 +1,21 @@
-Id	GroupId	Category	TargetId	StartTime	EndTime	MaxBottomTimes	Tag	Type	Priority	Order	Source
-1509	11	Themed	1071005	1787115600	1790204400	60	2	2	21000	4002	
-2503	15	Fate	1071005	1787115600	1790204400	100	2	2	20000	4001	
-382	4	Weapon	2676001	1787115600	1790204400	30	1	0	500	1	
-7069	22	Cub	16410000	1787115600	1790204400	20	7	8	8000	1	
-1516	11	Themed	1421003	1790226000	1793833200	60	9	2	21000	4002	
-2510	15	Fate	1421003	1790226000	1793833200	100	9	2	20000	4001	
-383	4	Weapon	2696001	1790226000	1793833200	30	1	0	500	1	
-7071	22	Cub	16430000	1790226000	1793833200	20	7	8	8000	1	
-5612	37	Collab	1411003	1790226000	1793750400	60	5	2	22000	4002	
-5613	38	CollabFate	1411003	1790226000	1793750400	100	5	2	22000	4001	
-381	39	CollabWeapon	2686001	1790226000	1793750400	30	5	0	510	2	
-7068	40	Otherworld	16420000	1790226000	1793750400	20	5	8	8100	1	
-1526	11	Themed	1431003	1793833200	0	60	2	2	21000	4002	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=1526
-2520	15	Fate	1431003	1793833200	0	100	2	2	20000	4001	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=2520
-384	4	Weapon	2706001	1793833200	0	30	1	0	500	1	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=384
-7073	22	Cub	16440000	1793833200	0	20	7	8	8000	1	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=7073
+Id	GroupId	Category	TargetId	StartTime	EndTime	MaxBottomTimes	Tag	Type	Priority	Order	Source	GroupSubType
+1509	11	Themed	1071005	1787115600	1790204400	60	2	2	21000	4002		0
+2503	15	Fate	1071005	1787115600	1790204400	100	2	2	20000	4001		0
+382	4	Weapon	2676001	1787115600	1790204400	30	1	0	500	1		0
+7069	22	Cub	16410000	1787115600	1790204400	20	7	8	8000	1		0
+1516	11	Themed	1421003	1790226000	1793833200	60	9	2	21000	4002		0
+2510	15	Fate	1421003	1790226000	1793833200	100	9	2	20000	4001		0
+383	4	Weapon	2696001	1790226000	1793833200	30	1	0	500	1		0
+7071	22	Cub	16430000	1790226000	1793833200	20	7	8	8000	1		0
+5612	37	Collab	1411003	1790226000	1793750400	60	5	2	22000	4002		0
+5613	38	CollabFate	1411003	1790226000	1793750400	100	5	2	22000	4001		0
+381	39	CollabWeapon	2686001	1790226000	1793750400	30	5	0	510	2		0
+7068	40	Otherworld	16420000	1790226000	1793750400	20	5	8	8100	1		0
+1526	11	Themed	1431003	1793833200	0	60	2	2	21000	4002	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=1526	0
+2520	15	Fate	1431003	1793833200	0	100	2	2	20000	4001	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=2520	0
+384	4	Weapon	2706001	1793833200	0	30	1	0	500	1	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=384	0
+7073	22	Cub	16440000	1793833200	0	20	7	8	8000	1	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawAimProbability/DrawPreview/DrawCombinations row Id=7073	0
+1498	11	Themed	1031005	1793833200	0	60	8	2	21000	4002	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawExtraTagGroup Id=1 (Phylotree Nexus Rerun, Tag 8 = DrawTabs 8, TimeId 47913); group 11 = DrawGroupRule Themed Construct; target 1031005 = LifeTreeCharacterCatalog Liv: Limpidity (4.5 Mercy Phylotree Frame); DrawPreview UpGoodsId 1031005 on 1438/1498. AscNet missing-retail policy: no client table names the rerun draw; the rerun is the later DrawPreview draw of a target whose earlier draw is the 4.5 original (1438), because their pools are identical.	1
+2492	15	Fate	1031005	1793833200	0	100	8	2	20000	4001	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawExtraTagGroup Id=2 (Fate Phylotree Nexus Rerun, Tag 8, TimeId 47913); group 15 = DrawGroupRelation Fate of 11; target 1031005 = LifeTreeCharacterCatalog Liv: Limpidity; DrawPreview UpGoodsId 1031005 on 2432/2492. Closed: Fate has no threshold law. AscNet missing-retail policy: no client table names the rerun draw; the rerun is the later DrawPreview draw of a target whose earlier draw is the 4.5 original (2432), because their pools are identical.	2
+379	4	Weapon	2606001	1793833200	0	30	1	0	500	1	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawExtraTagGroup Id=3 (Phylotree Nexus Weapon Target, Tag 1 = DrawTabs 1 Weapon, TimeId 47912); group 4 = DrawGroupRule Target Weapon Research; target 2606001 = Equip RecommendCharacterId 1031005 (Liv: Limpidity); DrawPreview UpGoodsId 2606001 on 373/379. AscNet missing-retail policy: no client table names the rerun draw; the rerun is the later DrawPreview draw of a target whose earlier draw is the 4.5 original (373), because their pools are identical.	3
+7065	22	Cub	16340000	1793833200	0	20	7	8	8000	1	local-policy:missing-calendar:unbounded-calendar:4.9:user-approved; StartTime = 4.8 official EndTime (4.9 patch start); client DrawExtraTagGroup Id=4 (Phylotree Nexus CUB, Tag 7 = DrawTabs 7 CUB, TimeId 47912); group 22 = DrawGroupRule CUB Target; target 16340000 = Partner Levvi RecommendCharacterId 1031005 (Liv: Limpidity); DrawPreview UpGoodsId 16340000 on 7055/7065. AscNet missing-retail policy: no client table names the rerun draw; the rerun is the later DrawPreview draw of a target whose earlier draw is the 4.5 original (7055), because their pools are identical.	4

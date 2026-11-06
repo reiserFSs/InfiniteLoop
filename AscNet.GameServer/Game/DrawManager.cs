@@ -4901,6 +4901,7 @@ internal static partial class DrawManager
         draw.EndTime = row.EndTime;
         draw.MaxBottomTimes = row.MaxBottomTimes;
         draw.BottomTimes = row.MaxBottomTimes;
+        draw.GroupSubType = row.GroupSubType;
         return draw;
     }
 
@@ -4946,6 +4947,15 @@ internal static partial class DrawManager
                 // historical draws but present the current season's tab/window.
                 if (!existing.OptionalDrawIdList.Contains(row.Id))
                     existing.OptionalDrawIdList.Add(row.Id);
+                if (row.GroupSubType > 0)
+                {
+                    // DrawExtraTagGroup option: hidden from the group's normal tab (client reads TagBlackListDrawIds);
+                    // the client falls back to the option's first draw until the player picks one, so the default
+                    // selection and the group's presentation stay with the normal banner.
+                    if (!existing.TagBlackListDrawIds.Contains(row.Id))
+                        existing.TagBlackListDrawIds.Add(row.Id);
+                    continue;
+                }
                 existing.UseDrawIdDict.TryAdd(0, row.Id);
                 // EndTime 0 is an unbounded (missing-calendar) season and outlasts any dated one.
                 if (existing.EndTime != 0 && (row.EndTime == 0 || row.EndTime > existing.EndTime))
@@ -5327,7 +5337,7 @@ internal static partial class DrawManager
                     defaults[slot] = drawId;
         }
         if (defaults.Count == 0)
-            defaults[0] = DrawsByGroup[group.Id].First(IsActive).Id;
+            defaults[0] = DefaultDraw(group).Id;
         return defaults;
     }
 
@@ -5335,15 +5345,19 @@ internal static partial class DrawManager
     {
         foreach (int id in GetSelections(player, group).OrderByDescending(x => x.Key).Select(x => x.Value))
             if (DrawsById.TryGetValue(id, out DrawInfo? draw) && draw.GroupId == group.Id && IsActive(draw)) return draw;
-        return DrawsByGroup[group.Id].First(IsActive);
+        return DefaultDraw(group);
     }
+
+    // A DrawExtraTagGroup rerun (GroupSubType > 0) is never the group's default banner.
+    private static DrawInfo DefaultDraw(DrawGroupInfo group) =>
+        DrawsByGroup[group.Id].FirstOrDefault(draw => draw.GroupSubType == 0 && IsActive(draw))
+        ?? DrawsByGroup[group.Id].First(IsActive);
 
     private static int GetSelectionSlot(DrawInfo draw)
     {
         DrawGroupInfo group = GroupsById[draw.GroupId];
         foreach ((int slot, int id) in group.UseDrawIdDict) if (id == draw.Id) return slot;
-        if (group.TagBlackListDrawIds.Contains(draw.Id)) return draw.GroupId switch { 4 => 3, 22 => 4, _ => 0 };
-        return 0;
+        return draw.GroupSubType;
     }
 
     private static DrawInfo BuildDrawInfo(DrawInfo template, Player player)

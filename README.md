@@ -29,7 +29,7 @@ After the first time, just open the launcher and press **PLAY**.
 
 - **Chat commands:** type `/help` in the in-game chat for commands that give currency, items, characters, levels and stage clears.
 - **GM menu and client mods:** in the launcher, open **SETTINGS → CLIENT MODS**, switch on **Client mods (game debug mode)**, and enable the mods you want. Restart the game afterwards. The included GM menu opens with **Ctrl+Shift+D**. More in [Mods](Mods/README.md).
-- **Repairing the game:** **SETTINGS → Game client…** has **VERIFY & REPAIR**, which re-checks every game file and re-downloads anything damaged.
+- **Repairing the game:** **SETTINGS → Game client…** has **VERIFY & REPAIR**, which re-checks every game file and re-downloads anything damaged. For the Global (EN) client it also restores the in-game patch files (`PGR_Data/StreamingAssets/document`: the newest audio, video and script patch) from Kuro's patch servers, so the game doesn't need to download them itself. That is about 3.7 GB the first time.
 
 ## What works
 

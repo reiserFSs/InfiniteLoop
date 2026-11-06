@@ -35,7 +35,11 @@
       "b4c697800fc9b1dd934bb1f739dc2987233b1bb4d96a5a782363ef29fe3fc8a0",
       "5e41f816613d1379a08b05f0525c6833aaf5b5ba70b57addb39129170b671254",
       "002f818960728f3a7ae424ae071f9d5d8facc5147f837c665bac6b2f20600600",
-      "2df7b095972f92431def3b39c0bcabe1f248634c09d9fdd65d397a105489fb20"
+      "2df7b095972f92431def3b39c0bcabe1f248634c09d9fdd65d397a105489fb20",
+      "c45344a7f74c133eaa42720f21c308e40668e7620516ba953588b5aff448079d",
+      "a18db6b966de19c039d9d1d812efe547b2ef98adc2537e92115b87716c88dc68",
+      "e4fe4f09435b63d403ceacdd96ded5cf44b597330df361959f4df29ddf2bbfc1",
+      "641486e2ffaecf6c4a131fd36c66060e88af399cde9ce9f2bcb7d9af6c3c1a41"
     ],
     "PGR_Data/Plugins/KRSDK.dll": [
       "2a1d8f5def0e3a0ccb712a471d7f0b2097d6444d701e399524663c87c1d34c88",
@@ -63,6 +67,15 @@
       "indexFile": "launcher/game/G143/50015/4.9.0/QQGkKrpYIBdJPKpXTzGsGHGwAMhTQTXE/resource/50015/4.9.0/indexFile.json",
       "indexFileMd5": "b823c24ef71fc4825416f3b103c02956",
       "size": 68417752404,
+      "documentPatch": {
+        "cdns": ["https://prod-encdn-ak.pgr-game.com/prod/", "https://prod-encdn-aliyun.kurogame.net/prod/"],
+        "key": "clEoudH0zUSDQsQa",
+        "identifier": "com.kurogame.punishing.grayraven.en",
+        "defaultVersion": "4.9.0",
+        "versions": {"1709830": "4.9.1"},
+        "defaultBuild": "1739029",
+        "builds": {"1739029": {"matrixSha1": "7be18b2e546dbf95442e098be024a89c22041a52", "launchSha1": "b069d45a6b7d7679e6ab66c82c661ddd85b92ef3"}}
+      },
       "patches": [
         {"version": "2.17.0.0", "baseUrl": "launcher/game/G143/50015/4.9.0/QQGkKrpYIBdJPKpXTzGsGHGwAMhTQTXE/resource/50015/4.9.0/2.17.0.0/resources/", "indexFile": "launcher/game/G143/50015/4.9.0/QQGkKrpYIBdJPKpXTzGsGHGwAMhTQTXE/resource/50015/4.9.0/2.17.0.0/indexFile.json", "indexFileMd5": "27f90b9d1020513e336baa56d9bb810a", "size": 67057695995},
         {"version": "3.1.0.0", "baseUrl": "launcher/game/G143/50015/4.9.0/QQGkKrpYIBdJPKpXTzGsGHGwAMhTQTXE/resource/50015/4.9.0/3.1.0.0/resources/", "indexFile": "launcher/game/G143/50015/4.9.0/QQGkKrpYIBdJPKpXTzGsGHGwAMhTQTXE/resource/50015/4.9.0/3.1.0.0/indexFile.json", "indexFileMd5": "b87c481f5958465d9d28d12a9921da23", "size": 67057695995},
@@ -92,6 +105,14 @@
       "indexFile": "launcher/game/G279/50016/4.9.1/kpmyVjymSnjnNNnlaJrbljwuqlWsYBHT/resource/50016/4.9.1/indexFile.json",
       "indexFileMd5": "98b4acf7dd55ad2e2db62d410d946cc9",
       "size": 68163103891,
+      "documentPatch": {
+        "cdns": ["https://prod-twcdn-ak.pgr-game.com/prod/", "https://prod-twcdn-aliyun.kurogame.net/prod/"],
+        "key": "KaWGXt8A8wm5iqm5",
+        "identifier": "com.kurogame.punishing.grayraven.tw",
+        "defaultVersion": "4.9.0",
+        "defaultBuild": "1739062",
+        "builds": {"1739062": {"matrixSha1": "f1bfc3ff0e893ba4cad1f4faa304fe4ff5fc85e8", "launchSha1": "13fc5f87f1a8042b230a408b932faed8d312b60f"}}
+      },
       "patches": [
         {"version": "2.7.9", "baseUrl": "launcher/game/G279/50016/4.9.1/kpmyVjymSnjnNNnlaJrbljwuqlWsYBHT/resource/50016/4.9.1/2.7.9/resources/", "indexFile": "launcher/game/G279/50016/4.9.1/kpmyVjymSnjnNNnlaJrbljwuqlWsYBHT/resource/50016/4.9.1/2.7.9/indexFile.json", "indexFileMd5": "4a96faa90f1100da2d400d6f695bdb91", "size": 66771406977},
         {"version": "3.2.0", "baseUrl": "launcher/game/G279/50016/4.9.1/kpmyVjymSnjnNNnlaJrbljwuqlWsYBHT/resource/50016/4.9.1/3.2.0/resources/", "indexFile": "launcher/game/G279/50016/4.9.1/kpmyVjymSnjnNNnlaJrbljwuqlWsYBHT/resource/50016/4.9.1/3.2.0/indexFile.json", "indexFileMd5": "7910125c4d03ffcb6064309a7b9096b0", "size": 66804004293},
@@ -120,6 +141,14 @@
       "indexFile": "launcher/game/G286/50011/4.9.1/JrJxYAyJoKcrsVDerRMeUxezGocuAIAq/resource/50011/4.9.1/indexFile.json",
       "indexFileMd5": "6c97c40cc27c21b1322f3ba5e527f058",
       "size": 68467720433,
+      "documentPatch": {
+        "cdns": ["https://prod-krcdn-ak.pgr-game.com/prod/", "https://prod-krcdn-aliyun.kurogame.net/prod/"],
+        "key": "vxUrzyBXEyY1L5T8",
+        "identifier": "com.kurogame.punishing.grayraven.kr",
+        "defaultVersion": "4.9.0",
+        "defaultBuild": "1739050",
+        "builds": {"1739050": {"matrixSha1": "e7fe14e02065dd1483ad1a4786690942731d3b95", "launchSha1": "b5ac6ab5e0666bf780cba0ec98921ee4465b178d"}}
+      },
       "patches": [
         {"version": "3.1.0", "baseUrl": "launcher/game/G286/50011/4.9.1/JrJxYAyJoKcrsVDerRMeUxezGocuAIAq/resource/50011/4.9.1/3.1.0/resources/", "indexFile": "launcher/game/G286/50011/4.9.1/JrJxYAyJoKcrsVDerRMeUxezGocuAIAq/resource/50011/4.9.1/3.1.0/indexFile.json", "indexFileMd5": "ca40b365095a59b5030cb5f8e8e5efe0", "size": 67106931554},
         {"version": "3.4.0", "baseUrl": "launcher/game/G286/50011/4.9.1/JrJxYAyJoKcrsVDerRMeUxezGocuAIAq/resource/50011/4.9.1/3.4.0/resources/", "indexFile": "launcher/game/G286/50011/4.9.1/JrJxYAyJoKcrsVDerRMeUxezGocuAIAq/resource/50011/4.9.1/3.4.0/indexFile.json", "indexFileMd5": "1974753e188465d423a15ba0fd1f2306", "size": 67074382490},
@@ -149,6 +178,14 @@
       "indexFile": "launcher/game/G282/50007/4.9.1/lRjDUchscFPSlqPGHXlKYLKvyIGyZPJl/resource/50007/4.9.1/indexFile.json",
       "indexFileMd5": "79f2bda3d60005753e9f5889ef3072d2",
       "size": 68369245496,
+      "documentPatch": {
+        "cdns": ["https://prod-jpcdn-ak.pgr-game.com/prod/", "https://prod-jpcdn-aliyun.kurogame.net/prod/"],
+        "key": "u6ubWH4wy50y8LDz",
+        "identifier": "com.kurogame.punishing.grayraven.jp",
+        "defaultVersion": "4.9.0",
+        "defaultBuild": "1739043",
+        "builds": {"1739043": {"matrixSha1": "5cd2da9e8ecde6f51951f9d8e0bf007bdc56431a", "launchSha1": "cd697877a58f93032680fa96ae16e2975ce231ea"}}
+      },
       "patches": [
         {"version": "3.2.0.0", "baseUrl": "launcher/game/G282/50007/4.9.1/lRjDUchscFPSlqPGHXlKYLKvyIGyZPJl/resource/50007/4.9.1/3.2.0.0/resources/", "indexFile": "launcher/game/G282/50007/4.9.1/lRjDUchscFPSlqPGHXlKYLKvyIGyZPJl/resource/50007/4.9.1/3.2.0.0/indexFile.json", "indexFileMd5": "dea9e5e553da3ff7189216ec83aa4257", "size": 67013465233},
         {"version": "3.4.0.0", "baseUrl": "launcher/game/G282/50007/4.9.1/lRjDUchscFPSlqPGHXlKYLKvyIGyZPJl/resource/50007/4.9.1/3.4.0.0/resources/", "indexFile": "launcher/game/G282/50007/4.9.1/lRjDUchscFPSlqPGHXlKYLKvyIGyZPJl/resource/50007/4.9.1/3.4.0.0/indexFile.json", "indexFileMd5": "1a6afe731d3d120064378978ce8674e8", "size": 66980916169},
@@ -176,6 +213,14 @@
       "indexFile": "launcher/game/G148/10012/4.9.0/oZAVZdjVyCofYySVooaLxbTABngpVFhu/resource/10012/4.9.0/indexFile.json",
       "indexFileMd5": "06b9f70449183a73bd87a4c06cf7d434",
       "size": 68754938042,
+      "documentPatch": {
+        "cdns": ["https://prod-zspns-txcdn.kurogame.com/prod/", "https://prod-zspnsalicdn.kurogame.com/prod/"],
+        "key": "tAWC541FSRl5WHwq",
+        "identifier": "com.kurogame.haru.kuro",
+        "defaultVersion": "4.9.0",
+        "defaultBuild": "1738992",
+        "builds": {"1738992": {"matrixSha1": "25b65d333c633ca9335abcd71947dfeaa92f4b89", "launchSha1": "01a7b73d7ca7f402dec79b58065f46354caf9d35"}}
+      },
       "patches": [
         {"version": "3.2.0", "baseUrl": "launcher/game/G148/10012/4.9.0/oZAVZdjVyCofYySVooaLxbTABngpVFhu/resource/10012/4.9.0/3.2.0/resources/", "indexFile": "launcher/game/G148/10012/4.9.0/oZAVZdjVyCofYySVooaLxbTABngpVFhu/resource/10012/4.9.0/3.2.0/indexFile.json", "indexFileMd5": "983a54dcb3dd84ba1314d12bbaadd86f", "size": 67321378371},
         {"version": "3.3.0", "baseUrl": "launcher/game/G148/10012/4.9.0/oZAVZdjVyCofYySVooaLxbTABngpVFhu/resource/10012/4.9.0/3.3.0/resources/", "indexFile": "launcher/game/G148/10012/4.9.0/oZAVZdjVyCofYySVooaLxbTABngpVFhu/resource/10012/4.9.0/3.3.0/indexFile.json", "indexFileMd5": "894869d647ce5155fd768b885a25c1da", "size": 67353928255},

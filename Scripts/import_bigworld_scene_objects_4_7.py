@@ -23,7 +23,9 @@ XGameplayDormitory places the photo wall / frame wall / frame goods at spots of 
 Scene place ids start at 1: the lounge's interaction anchors (ConfigGroup_5001 place ids 1-8: photo wall, frame wall, DIY)
 are below 1000 (Level_4003_Present.lua GetSceneObjectUUID(1|2|5|8)).
 
-Run from the AscNet root: python3 Scripts/import_bigworld_scene_objects_4_7.py
+Run from the AscNet root: python3 Scripts/import_bigworld_scene_objects_4_7.py [--version 4.8|4.9]
+(--version is parsed by the tables importer this file execs; the config groups themselves always come from the
+installed client, document layer first).
 """
 import json
 import re
@@ -466,9 +468,9 @@ def main():
     # Group ids are unique only per sector bundle (sceneconfig/<Level.SectorName lower>.ab): ConfigGroup_1001 exists in
     # seven bundles, ConfigGroup_5001 in skygarden (District B) and skygarden_sushe (Commandant's Lounge). Rows carry Sector.
     groups = {}
-    for bundle in (k for k in pgr_bundles.Resolver().names(PREFIX, scope='resource') if k.count('/') == 7):
+    for bundle in (k for k in sorted(set(pgr_bundles.Resolver().names(PREFIX))) if k.count('/') == 7):
         sector = bundle.rsplit('/', 1)[1].removesuffix('.ab')
-        path = pgr_bundles.resolve(bundle, scope='resource')
+        path = pgr_bundles.resolve(bundle)
         payload = pgr_bundles.payload(path)
         for item in dbt.iter_text_assets(_assets, payload):
             name = str(item['name'])

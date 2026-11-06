@@ -158,6 +158,11 @@ namespace AscNet.Test
                     ValidateBigWorldTask();
                     return;
                 }
+                if (args.Contains("--big-world-49-only"))
+                {
+                    ValidateBigWorld49Scenes();
+                    return;
+                }
                 if (args.Contains("--anniversary-preheating-only"))
                 {
                     ValidateAnniversaryPreHeatingCompatibility();
@@ -166,6 +171,11 @@ namespace AscNet.Test
                 if (args.Contains("--version49-events-only"))
                 {
                     ValidateVersion49EventAvailability();
+                    return;
+                }
+                if (args.Contains("--phylotree-rerun-only"))
+                {
+                    ValidatePhylotreeRerun49();
                     return;
                 }
                 if (args.Contains("--draw-rules-only"))
@@ -403,6 +413,11 @@ namespace AscNet.Test
                 if (args.Contains("--passport-tasks-only"))
                 {
                     ValidatePassportTasks();
+                    return;
+                }
+                if (args.Contains("--passport-weekly-only"))
+                {
+                    ValidatePassportWeekly();
                     return;
                 }
                 if (args.Contains("--reset-boundary-only"))
@@ -1387,6 +1402,7 @@ namespace AscNet.Test
                 Step("ValidateArenaEffectZoneScore", () => ValidateArenaEffectZoneScore());
                 Step("ValidateTransfiniteAnchorRepair", () => ValidateTransfiniteAnchorRepair());
                 Step("ValidatePassportTasks", () => ValidatePassportTasks());
+                Step("ValidatePassportWeekly", () => ValidatePassportWeekly());
                 Step("ValidateStrongholdRolloverCompatibility", () => ValidateStrongholdRolloverCompatibility());
                 Step("ValidateBossSingleLoginCompatibilityShape", () => ValidateBossSingleLoginCompatibilityShape());
                 Step("ValidateBossSingleLoginRollover", () => ValidateBossSingleLoginRollover());
@@ -1482,6 +1498,7 @@ namespace AscNet.Test
                 Step("ValidateEnvelopeCatchUpAndReissue", () => ValidateEnvelopeCatchUpAndReissue());
                 Step("ValidateMissingCalendarAscNetPolicy", () => ValidateMissingCalendarAscNetPolicy());
                 Step("ValidateVersion49EventAvailability", () => ValidateVersion49EventAvailability());
+                Step("ValidatePhylotreeRerun49", () => ValidatePhylotreeRerun49());
                 Step("ValidateAnniversaryPreHeatingCompatibility", () => ValidateAnniversaryPreHeatingCompatibility());
                 Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
                 Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());

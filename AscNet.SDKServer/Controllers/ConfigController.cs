@@ -195,7 +195,9 @@ namespace AscNet.SDKServer.Controllers
             if (!Directory.Exists(noticesRoot))
                 return Array.Empty<string>();
 
-            return Directory.GetDirectories(noticesRoot).OrderByDescending(Path.GetFileName);
+            // Version sets, then each one's per-package (region) sets, so their pictures and html pages resolve too.
+            string[] versionDirectories = Directory.GetDirectories(noticesRoot).OrderByDescending(Path.GetFileName).ToArray();
+            return versionDirectories.Concat(versionDirectories.SelectMany(dir => Directory.GetDirectories(dir).Where(sub => Path.GetFileName(sub) != "client")));
         }
 
         private static bool TryGetNoticeVersionDirectory(string version, out string versionDirectory)
@@ -479,7 +481,9 @@ namespace AscNet.SDKServer.Controllers
                 return false;
             }
 
-            string path = Path.Combine(versionDirectory, fileName);
+            // A region's own live notice set (Notices/<version>/<package>/) wins; without one the version's set is served.
+            string regionDirectory = Path.Combine(versionDirectory, Path.GetFileName(GetRouteValue(ctx, "package")));
+            string path = Path.Combine(Directory.Exists(regionDirectory) ? regionDirectory : versionDirectory, fileName);
             if (!File.Exists(path))
             {
                 fixtureJson = string.Empty;

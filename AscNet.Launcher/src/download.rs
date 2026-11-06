@@ -19,6 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod document;
+
 const STATE_DIR: &str = ".ascnet-download";
 const MARKER: &str = "job.json";
 const KRSDK_BIN: &str = "PGR_Data/Plugins/KRSDKRes/KRSDK.bin";
@@ -160,6 +162,10 @@ pub struct Outcome {
     pub deleted: usize,
     /// Files that differ from the official index but were kept: "path (reason)".
     pub skipped_variants: Vec<String>,
+    /// In-game document patch files (`document/{matrix,launch}`) fetched because they were missing or wrong.
+    pub document_files: usize,
+    /// Why part of the document patch was not restored (no pinned data for the region/build, CDN index drift).
+    pub document_notes: Vec<String>,
 }
 
 /// Root cause of the `Err` returned by [`run`] when `cancel` stopped it; the folder stays resumable.
@@ -353,6 +359,13 @@ pub fn plan(source: &ClientSource, job: Job) -> Result<Plan> {
             files += 1;
         }
     }
+    let document = document::inspect(source, &net, &dir, &full, &no_cancel).context("checking the in-game document patch")?;
+    let (document_bytes, document_files) = document::estimate(&document, &dir);
+    download += document_bytes;
+    files += document_files;
+    if !document.notes.is_empty() {
+        note = Some(note.into_iter().chain(document.notes).collect::<Vec<_>>().join("\n"));
+    }
     let required = if download + extracted == 0 { 0 } else { download + extracted + SPACE_MARGIN };
     let free = free_space(&dir)?;
     ensure_space(free, required, &dir)?;
@@ -423,6 +436,7 @@ pub fn run(plan: Plan, cancel: &AtomicBool, progress: &mut dyn FnMut(Progress)) 
             runner.fix(&scope, &data.base_url, true)?;
         }
     }
+    runner.document(&prep.source, &prep.full)?;
     runner.ctx.begin(Phase::Finalizing, 0, 0);
     runner.tick();
     runner.outcome.downloaded_bytes = ctx.net_bytes.load(SeqCst);
@@ -459,6 +473,8 @@ struct RawSource {
     index_file_md5: String,
     size: u64,
     patches: Vec<RawPatch>,
+    #[serde(default)]
+    document_patch: Option<document::RawDocument>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -481,6 +497,7 @@ struct SourceData {
     index_md5: String,
     patches: Vec<RawPatch>,
     originals: BTreeMap<String, Vec<String>>,
+    document: Option<document::Document>,
 }
 
 impl RawSource {
@@ -535,6 +552,7 @@ impl RawSource {
                     .map(|p| RawPatch { index_file_md5: p.index_file_md5.to_ascii_lowercase(), ..p.clone() })
                     .collect(),
                 originals: originals.iter().map(|(k, v)| (k.clone(), v.iter().map(|h| h.to_ascii_lowercase()).collect())).collect(),
+                document: self.document_patch.as_ref().map(|d| d.validate(label)).transpose()?,
             }),
         })
     }
@@ -964,6 +982,36 @@ fn md5_file(path: &Path) -> Result<String> {
     md5_range(&mut file, 0, len)
 }
 
+/// Digest a list entry is pinned with: Kuro's launcher lists use MD5, the in-game document indexes SHA-1.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Hash {
+    Md5,
+    Sha1,
+}
+
+impl Hash {
+    /// Lowercase hex digest of `len` bytes of `file` starting at `start`; errors if the file is shorter.
+    fn range(self, file: &mut File, start: u64, len: u64) -> Result<String> {
+        match self {
+            Hash::Md5 => md5_range(file, start, len),
+            Hash::Sha1 => {
+                use sha1::{Digest, Sha1};
+                file.seek(SeekFrom::Start(start))?;
+                let mut sha = Sha1::new();
+                let mut buf = vec![0u8; 256 * 1024];
+                let mut left = len;
+                while left > 0 {
+                    let want = buf.len().min(left as usize);
+                    file.read_exact(&mut buf[..want])?;
+                    sha.update(&buf[..want]);
+                    left -= want as u64;
+                }
+                Ok(sha.finalize().iter().map(|b| format!("{b:02x}")).collect())
+            }
+        }
+    }
+}
+
 // ───────────────────────────── network ─────────────────────────────
 
 struct Net {
@@ -979,6 +1027,10 @@ struct NetState {
 
 impl Net {
     fn new(data: &SourceData) -> Result<Net> {
+        Net::with_hosts(&data.discovery, &data.cdns)
+    }
+
+    fn with_hosts(discovery: &[String], cdns: &[String]) -> Result<Net> {
         let client = wine_safe(
             reqwest::blocking::Client::builder()
                 .user_agent(concat!("AscNetLauncher/", env!("CARGO_PKG_VERSION")))
@@ -990,8 +1042,8 @@ impl Net {
         .context("creating the HTTP client")?;
         Ok(Net {
             client,
-            discovery: data.discovery.clone(),
-            state: Mutex::new(NetState { cdns: data.cdns.iter().map(|c| (c.clone(), 0)).collect(), discovered: false }),
+            discovery: discovery.to_vec(),
+            state: Mutex::new(NetState { cdns: cdns.iter().map(|c| (c.clone(), 0)).collect(), discovered: false }),
         })
     }
 
@@ -1401,7 +1453,9 @@ fn verdict(dir: &Path, guard: &Guard, dest: &str, size: u64, md5: &str) -> Resul
 struct Item {
     dest: String,
     size: u64,
+    /// Expected digest (hex) in `hash`'s algorithm.
     md5: String,
+    hash: Hash,
     chunks: Option<Vec<Chunk>>,
     /// URL path below the CDN root.
     url: String,
@@ -1471,6 +1525,7 @@ impl Runner<'_> {
                 chunks: e.chunk_infos.clone(),
                 url: format!("{base}{}", e.dest),
                 members: None,
+                hash: Hash::Md5,
                 repair,
             })
             .collect();
@@ -1479,9 +1534,13 @@ impl Runner<'_> {
     }
 
     fn download(&mut self, items: Vec<Item>) -> Result<()> {
+        self.download_via(self.net, items)
+    }
+
+    fn download_via(&mut self, net: &Net, items: Vec<Item>) -> Result<()> {
         let total: u64 = items.iter().map(|i| i.size).sum();
         self.ctx.begin(Phase::Downloading, items.len(), total);
-        let (ctx, net, dir, state, guard) = (self.ctx, self.net, self.dir, self.state, self.guard);
+        let (ctx, dir, state, guard) = (self.ctx, self.dir, self.state, self.guard);
         let notes = Mutex::new(Vec::new());
         let repaired = AtomicUsize::new(0);
         self.pool(&items, WORKERS.min(items.len()), &|item: &Item| {
@@ -1555,6 +1614,7 @@ impl Runner<'_> {
                 chunks: e.chunk_infos.clone(),
                 url: format!("{from}{}", e.dest),
                 members,
+                hash: Hash::Md5,
                 repair: false,
             });
         }
@@ -1602,7 +1662,7 @@ type Notes = Mutex<Vec<(String, &'static str)>>;
 /// krzip archive has its listed members extracted with per-entry MD5 and is then discarded.
 fn fetch_item(ctx: &Ctx, net: &Net, dir: &Path, state: &Path, guard: &Guard, item: &Item, notes: &Notes) -> Result<()> {
     let part = state.join("parts").join(format!("{}.part", part_name(&item.dest)));
-    download_file(ctx, net, &item.url, item.size, &item.md5, item.chunks.as_deref(), &part)?;
+    download_file(ctx, net, &item.url, item.size, item.hash, &item.md5, item.chunks.as_deref(), &part)?;
     match &item.members {
         None => install_file(&part, &safe_path(dir, &item.dest)?),
         Some(members) => {
@@ -1665,7 +1725,8 @@ fn extract(ctx: &Ctx, dir: &Path, state: &Path, guard: &Guard, archive: &Path, m
 
 /// Leaves a complete, verified copy of the file in `part`. Chunked files resume at chunk granularity (verified
 /// prefix is kept); plain files resume from the existing length and are discarded if the final MD5 disagrees.
-fn download_file(ctx: &Ctx, net: &Net, url: &str, size: u64, md5: &str, chunks: Option<&[Chunk]>, part: &Path) -> Result<()> {
+#[allow(clippy::too_many_arguments)]
+fn download_file(ctx: &Ctx, net: &Net, url: &str, size: u64, hash: Hash, md5: &str, chunks: Option<&[Chunk]>, part: &Path) -> Result<()> {
     let mut file = OpenOptions::new().read(true).write(true).create(true).truncate(false).open(part)?;
     let have = file.metadata()?.len();
     let mut segments: Vec<(u64, u64, &str)> = match chunks {
@@ -1679,7 +1740,7 @@ fn download_file(ctx: &Ctx, net: &Net, url: &str, size: u64, md5: &str, chunks: 
             if ctx.stop() {
             return Err(cancelled());
         }
-            if have >= end && md5_range(&mut file, start, end - start)? == sum {
+            if have >= end && hash.range(&mut file, start, end - start)? == sum {
                 resume = end;
                 ctx.bytes_done.fetch_add(end - start, SeqCst);
             } else {
@@ -1695,7 +1756,7 @@ fn download_file(ctx: &Ctx, net: &Net, url: &str, size: u64, md5: &str, chunks: 
         }
     }
     for (start, end, sum) in segments {
-        fetch_segment(ctx, net, url, &mut file, start, end, sum, if chunks.is_some() { start } else { resume })?;
+        fetch_segment(ctx, net, url, &mut file, hash, start, end, sum, if chunks.is_some() { start } else { resume })?;
     }
     file.set_len(size)?;
     Ok(())
@@ -1703,7 +1764,7 @@ fn download_file(ctx: &Ctx, net: &Net, url: &str, size: u64, md5: &str, chunks: 
 
 /// Fetches bytes `start..end` into `file`, retrying (failing over CDNs inside `Net::open`) until they hash to `md5`.
 #[allow(clippy::too_many_arguments)]
-fn fetch_segment(ctx: &Ctx, net: &Net, url: &str, file: &mut File, start: u64, end: u64, md5: &str, resume_from: u64) -> Result<()> {
+fn fetch_segment(ctx: &Ctx, net: &Net, url: &str, file: &mut File, hash: Hash, start: u64, end: u64, md5: &str, resume_from: u64) -> Result<()> {
     let mut at = resume_from.clamp(start, end);
     let mut last = anyhow!("download failed");
     for attempt in 0..SEGMENT_ATTEMPTS {
@@ -1713,7 +1774,7 @@ fn fetch_segment(ctx: &Ctx, net: &Net, url: &str, file: &mut File, start: u64, e
         file.set_len(at)?;
         match transfer(ctx, net, url, file, at, end) {
             Ok(()) => {
-                if md5_range(file, start, end - start)? == md5 {
+                if hash.range(file, start, end - start)? == md5 {
                     return Ok(());
                 }
                 // Corrupt data: forget the segment (and its progress) and fetch it again.
@@ -2022,6 +2083,7 @@ mod tests {
                     index_md5: self.full_md5.clone(),
                     patches: self.patches.clone(),
                     originals: originals.iter().map(|(k, v)| (k.to_string(), v.iter().map(|b| sha(b)).collect())).collect(),
+                    document: None,
                 }),
             }
         }
@@ -2648,8 +2710,317 @@ mod tests {
                 index_md5: self.index_md5.clone(),
                 patches: self.patches.clone(),
                 originals: self.originals.clone(),
+                document: self.document.clone(),
             }
         }
+    }
+
+    // ── in-game document patch ──
+
+    const DOC: &str = "PGR_Data/StreamingAssets/document";
+    const DOC_BASE: &str = "client/patch/k3y/com.test.en/4.9.0/standalone/Release";
+
+    fn sha1h(data: &[u8]) -> String {
+        format!("{:x}", sha1::Sha1::digest(data))
+    }
+
+    /// A launcher release plus a patch CDN. matrix: `a` is held by the package (same sha1), `b` is flagged
+    /// package-never-holds, `c` differs from the package copy, `d` is absent from the package and belongs to build
+    /// 1709830 (version path 4.9.1). launch: `l1` held, `l2` needed.
+    struct Docs {
+        world: World,
+        source: ClientSource,
+        files: Vec<(&'static str, Vec<u8>, Option<usize>)>,
+        /// document files that must end up on disk: (path below the install, bytes)
+        needed: Vec<(String, Vec<u8>)>,
+        matrix_index: Vec<u8>,
+        launch_index: Vec<u8>,
+        store: Arc<Mutex<HashMap<String, Vec<u8>>>>,
+        log: Arc<Mutex<Vec<(String, u64)>>>,
+    }
+
+    fn docs(extra_matrix_row: Option<&str>) -> Docs {
+        let (a, b, c, c_pkg, d) = (blob(11, 3000), blob(12, 5000), blob(13, 700), blob(14, 700), blob(15, 9000));
+        let (l1, l2) = (blob(16, 400), blob(17, 600));
+        let (fa, fb, fc, fd) = ("aaaaaaaaaaaaaaaa.uab", "bbbbbbbbbbbbbbbb.uab", "cccccccccccccccc.uab", "dddddddddddddddd.uab");
+        let (f1, f2) = ("1111111111111111.uab", "2222222222222222.uab");
+        let row = |f: &'static str, data: &[u8], svn: u64, flag: u64| (f, sha1h(data), data.len() as u64, svn, flag);
+        let mut cdn_matrix = vec![row(fa, &a, 1739029, 0), row(fb, &b, 1739029, 0), row(fc, &c, 1739029, 0), row(fd, &d, 1709830, 0)];
+        if let Some(name) = extra_matrix_row {
+            cdn_matrix.push((name, sha1h(b"evil"), 4, 1739029, 0));
+        }
+        let pkg_matrix = [row(fa, &a, 1739029, 0), row(fb, &b, 1739029, 1), row(fc, &c_pkg, 1739029, 0)];
+        let cdn_launch = [row(f1, &l1, 1739029, 0), row(f2, &l2, 1739029, 0)];
+        let pkg_launch = [row(f1, &l1, 1739029, 0)];
+        let matrix_index = crate::bundle::tests::synthetic_index(&cdn_matrix);
+        let launch_index = crate::bundle::tests::synthetic_index(&cdn_launch);
+
+        let mut files = release();
+        files.push(("PGR_Data/StreamingAssets/resource/matrix/InPkgIndex", crate::bundle::tests::synthetic_index(&pkg_matrix), None));
+        files.push(("PGR_Data/StreamingAssets/resource/launch/index", crate::bundle::tests::synthetic_index(&pkg_launch), None));
+        let world = World::new(&files);
+
+        let store: Arc<Mutex<HashMap<String, Vec<u8>>>> = Default::default();
+        let log: Arc<Mutex<Vec<(String, u64)>>> = Default::default();
+        {
+            let mut s = store.lock().unwrap();
+            s.insert(format!("{DOC_BASE}/1739029/matrix/index"), matrix_index.clone());
+            s.insert(format!("{DOC_BASE}/1739029/launch/index"), launch_index.clone());
+            for (f, data) in [(fb, &b), (fc, &c), (fa, &a)] {
+                s.insert(format!("{DOC_BASE}/1739029/matrix/{f}"), data.clone());
+            }
+            s.insert("client/patch/k3y/com.test.en/4.9.1/standalone/Release/1709830/matrix/dddddddddddddddd.uab".into(), d.clone());
+            s.insert(format!("{DOC_BASE}/1739029/launch/{f2}"), l2.clone());
+        }
+        let cdn = World::spawn(&store, &log, &Default::default());
+        let raw: document::RawDocument = serde_json::from_value(json!({
+            "cdns": [cdn],
+            "key": "k3y",
+            "identifier": "com.test.en",
+            "defaultVersion": "4.9.0",
+            "versions": {"1709830": "4.9.1"},
+            "defaultBuild": "1739029",
+            "builds": {"1739029": {"matrixSha1": sha1h(&matrix_index), "launchSha1": sha1h(&launch_index)}}
+        }))
+        .unwrap();
+        let base = world.source();
+        let mut data = base.data.clone_data();
+        data.document = Some(raw.validate("EN").unwrap());
+        let source = ClientSource { data: Arc::new(data), ..base };
+        let needed = vec![
+            (format!("{DOC}/matrix/{fb}"), b),
+            (format!("{DOC}/matrix/{fc}"), c),
+            (format!("{DOC}/matrix/{fd}"), d),
+            (format!("{DOC}/launch/{f2}"), l2),
+        ];
+        Docs { world, source, files, needed, matrix_index, launch_index, store, log }
+    }
+
+    fn install_docs(d: &Docs) -> Tmp {
+        let tmp = Tmp::new();
+        let p = plan(&d.source, Job::Install { dir: tmp.path("g") }).unwrap();
+        run(p, &no_cancel(), &mut |_| {}).unwrap();
+        tmp
+    }
+
+    #[test]
+    fn install_restores_exactly_the_files_the_package_does_not_hold_and_writes_the_indexes() {
+        let d = docs(None);
+        let tmp = Tmp::new();
+        let dir = tmp.path("g");
+        let p = plan(&d.source, Job::Install { dir: dir.clone() }).unwrap();
+        let listed: u64 = d.files.iter().map(|f| f.1.len() as u64).sum();
+        let patch: u64 = d.needed.iter().map(|(_, b)| b.len() as u64).sum();
+        assert_eq!((p.download_bytes, p.files), (listed + patch, d.files.len() + 4));
+        let outcome = run(p, &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!((outcome.document_files, outcome.downloaded_bytes), (4, listed + patch));
+        assert!(outcome.document_notes.is_empty(), "{:?}", outcome.document_notes);
+        for (rel, bytes) in &d.needed {
+            assert_eq!(&tmp.read(&format!("g/{rel}")), bytes, "{rel}");
+        }
+        assert_eq!(tmp.read(&format!("g/{DOC}/matrix/index")), d.matrix_index);
+        assert_eq!(tmp.read(&format!("g/{DOC}/launch/index")), d.launch_index);
+        // Held by the package: not copied into document/.
+        assert!(!tmp.path(&format!("g/{DOC}/matrix/aaaaaaaaaaaaaaaa.uab")).exists());
+        assert!(!tmp.path(&format!("g/{DOC}/launch/1111111111111111.uab")).exists());
+        assert!(!dir.join(STATE_DIR).exists());
+    }
+
+    #[test]
+    fn repair_refetches_only_missing_or_wrong_document_files_and_keeps_extras() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        let dir = tmp.path("g");
+        let b = format!("g/{DOC}/matrix/bbbbbbbbbbbbbbbb.uab");
+        let mut bad = tmp.read(&b);
+        bad[100] ^= 0xff; // same size, wrong sha1
+        tmp.write(&b, &bad);
+        fs::remove_file(tmp.path(&format!("g/{DOC}/matrix/dddddddddddddddd.uab"))).unwrap();
+        fs::remove_file(tmp.path(&format!("g/{DOC}/launch/index"))).unwrap();
+        tmp.write(&format!("g/{DOC}/matrix/extra.uab"), b"not in the index");
+        d.log.lock().unwrap().clear();
+
+        let p = plan(&d.source, Job::Repair { dir: dir.clone() }).unwrap();
+        assert!(p.note.is_none());
+        assert_eq!((p.files, p.download_bytes), (1, 9000));
+        let outcome = run(p, &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(outcome.document_files, 2);
+        for (rel, bytes) in &d.needed {
+            assert_eq!(&tmp.read(&format!("g/{rel}")), bytes, "{rel}");
+        }
+        assert_eq!(tmp.read(&format!("g/{DOC}/launch/index")), d.launch_index);
+        assert_eq!(tmp.read(&format!("g/{DOC}/matrix/extra.uab")), b"not in the index");
+        let asked: Vec<String> = d.log.lock().unwrap().iter().map(|(p, _)| p.clone()).collect();
+        for good in ["cccccccccccccccc.uab", "2222222222222222.uab"] {
+            assert!(!asked.iter().any(|p| p.ends_with(good)), "{good} was valid and must not be fetched again: {asked:?}");
+        }
+        assert!(asked.iter().any(|p| p.ends_with("bbbbbbbbbbbbbbbb.uab")) && asked.iter().any(|p| p.ends_with("/1709830/matrix/dddddddddddddddd.uab")));
+    }
+
+    #[test]
+    fn a_broken_package_index_is_repaired_before_the_document_diff() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        let pkg = format!("g/{PREFIX}/matrix/InPkgIndex");
+        tmp.write(&pkg, b"damaged");
+        fs::remove_file(tmp.path(&format!("g/{DOC}/matrix/bbbbbbbbbbbbbbbb.uab"))).unwrap();
+        let p = plan(&d.source, Job::Repair { dir: tmp.path("g") }).unwrap();
+        let outcome = run(p, &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(outcome.document_files, 1);
+        assert_eq!(tmp.read(&pkg), d.files.iter().find(|f| f.0.ends_with("InPkgIndex")).unwrap().1);
+    }
+
+    #[test]
+    fn ver_and_client2cdn_decide_where_the_files_come_from() {
+        let d = docs(None);
+        let tmp = Tmp::new();
+        let dir = tmp.path("g");
+        run(plan(&d.world.source(), Job::Install { dir: dir.clone() }).unwrap(), &no_cancel(), &mut |_| {}).unwrap();
+        // Move every patch file to another key/identifier/version path, as a differently built client would use.
+        {
+            let mut s = d.store.lock().unwrap();
+            let moved: Vec<(String, Vec<u8>)> = s.drain().collect();
+            for (path, bytes) in moved {
+                let parts: Vec<&str> = path.split('/').collect();
+                let version = if parts[7] == "1739029" { "9.9.9" } else { "8.8.8" };
+                s.insert(format!("client/patch/ALT/com.alt/{version}/standalone/Release/{}", parts[7..].join("/")), bytes);
+            }
+        }
+        tmp.write(&format!("g/{DOC}/ver"), br#"{"LeastVersionFile":"1739029","VersionPath":{"1739029":{"version":"9.9.9","key":"ALT"},"1709830":{"version":"8.8.8","key":"ALT"}}}"#);
+        tmp.write(&format!("g/{DOC}/client2cdn"), br#"{"1739029":{"KuroGameIdentifier":"com.alt"},"1709830":{"KuroGameIdentifier":"com.alt"}}"#);
+        let outcome = run(plan(&d.source, Job::Repair { dir }).unwrap(), &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(outcome.document_files, 4);
+        for (rel, bytes) in &d.needed {
+            assert_eq!(&tmp.read(&format!("g/{rel}")), bytes, "{rel}");
+        }
+    }
+
+    #[test]
+    fn a_build_without_a_pin_and_a_drifted_index_are_reported_not_restored() {
+        let d = docs(None);
+        let tmp = Tmp::new();
+        let dir = tmp.path("g");
+        run(plan(&d.world.source(), Job::Install { dir: dir.clone() }).unwrap(), &no_cancel(), &mut |_| {}).unwrap();
+        tmp.write(&format!("g/{DOC}/ver"), br#"{"LeastVersionFile":"5"}"#);
+        let p = plan(&d.source, Job::Repair { dir: dir.clone() }).unwrap();
+        assert!(p.note.as_deref().unwrap().contains("build 5"), "{:?}", p.note);
+        let outcome = run(p, &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(outcome.document_files, 0);
+        assert!(outcome.document_notes[0].contains("build 5"));
+        assert!(!tmp.path(&format!("g/{DOC}/matrix")).exists());
+
+        fs::remove_file(tmp.path(&format!("g/{DOC}/ver"))).unwrap();
+        d.store.lock().unwrap().insert(format!("{DOC_BASE}/1739029/matrix/index"), b"a different index".to_vec());
+        let outcome = run(plan(&d.source, Job::Repair { dir }).unwrap(), &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(outcome.document_files, 1); // launch still restored
+        assert!(outcome.document_notes[0].contains("matrix document index") && outcome.document_notes[0].contains("changed"), "{:?}", outcome.document_notes);
+        assert!(!tmp.path(&format!("g/{DOC}/matrix")).exists());
+    }
+
+    #[test]
+    fn a_region_without_a_pin_says_so() {
+        let world = World::new(&release());
+        let tmp = Tmp::new();
+        let outcome = install(&world, &tmp.path("g"));
+        assert_eq!(outcome.document_files, 0);
+        assert!(outcome.document_notes[0].contains("no in-game document patch is pinned"), "{:?}", outcome.document_notes);
+        assert!(!tmp.path(&format!("g/{DOC}")).exists());
+    }
+
+    #[test]
+    fn a_file_that_fails_its_sha1_is_never_installed_and_the_index_stays_unwritten() {
+        let d = docs(None);
+        let mut wrong = d.needed[2].1.clone(); // dddd…
+        wrong[0] ^= 0xff;
+        d.store.lock().unwrap().insert("client/patch/k3y/com.test.en/4.9.1/standalone/Release/1709830/matrix/dddddddddddddddd.uab".into(), wrong);
+        let tmp = Tmp::new();
+        let dir = tmp.path("g");
+        let error = run(plan(&d.source, Job::Install { dir }).unwrap(), &no_cancel(), &mut |_| {}).unwrap_err();
+        assert!(format!("{error:#}").contains("giving up"), "{error:#}");
+        assert!(!tmp.path(&format!("g/{DOC}/matrix/index")).exists());
+        assert!(!tmp.path(&format!("g/{DOC}/matrix/dddddddddddddddd.uab")).exists());
+        // launch is a separate tree and already complete.
+        assert_eq!(tmp.read(&format!("g/{DOC}/launch/index")), d.launch_index);
+    }
+
+    #[test]
+    fn index_names_that_escape_document_are_rejected() {
+        for name in ["../evil", "sub/evil", "..", "a\\b"] {
+            let d = docs(Some(name));
+            let tmp = Tmp::new();
+            let error = format!("{:#}", plan(&d.source, Job::Install { dir: tmp.path("g") }).err().expect(name));
+            assert!(error.contains("unsafe file name"), "{name}: {error}");
+            assert!(!tmp.path("evil").exists());
+        }
+    }
+
+    #[test]
+    fn pins_are_validated() {
+        let ok = json!({"cdns": ["https://cdn.example/prod/"], "key": "k", "identifier": "id", "defaultVersion": "4.9.0", "defaultBuild": "1",
+            "builds": {"1": {"matrixSha1": "a".repeat(40), "launchSha1": "b".repeat(40)}}});
+        let check = |patch: &dyn Fn(&mut Value)| {
+            let mut v = ok.clone();
+            patch(&mut v);
+            serde_json::from_value::<document::RawDocument>(v).map_err(anyhow::Error::from).and_then(|r| r.validate("EN").map(|_| ()))
+        };
+        assert!(check(&|_| {}).is_ok());
+        assert!(check(&|v| v["cdns"] = json!(["http://cdn.example/prod/"])).is_err());
+        assert!(check(&|v| v["cdns"] = json!(["https://cdn.example/prod"])).is_err());
+        assert!(check(&|v| v["key"] = json!("a/b")).is_err());
+        assert!(check(&|v| v["defaultBuild"] = json!("2")).is_err());
+        assert!(check(&|v| v["builds"]["1"]["matrixSha1"] = json!("abc")).is_err());
+        assert!(check(&|v| v["extra"] = json!(1)).is_err());
+    }
+
+    /// Manual: Kuro's real patch CDN for every pinned region's build. `cargo test -- --ignored live_document`.
+    /// Checks both indexes against the pins on every CDN host, then downloads and sha1-verifies the smallest file
+    /// each tree still needs on an empty install.
+    #[test]
+    #[ignore]
+    fn live_document_patch_matches_the_pins() {
+        for region in Region::ALL {
+            live_document_patch_matches_the_pins_for(region);
+        }
+    }
+
+    fn live_document_patch_matches_the_pins_for(region: Region) {
+        eprintln!("{}: checking the pinned document patch", region.label());
+        let found = sources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("supported-client.json")).unwrap();
+        let source = found.iter().find(|s| s.region == region).unwrap();
+        let doc = source.data.document.as_ref().expect("every region pins the document patch");
+        let net = Net::new(&source.data).unwrap();
+        let cancel = no_cancel();
+        let full = get_list(&net, &source.data.index_file, &source.data.index_md5, &cancel).unwrap();
+        let empty = Tmp::new();
+        let plan = document::inspect(source, &net, &empty.path("g"), &full, &cancel).unwrap();
+        assert!(plan.notes.is_empty(), "{:?}", plan.notes);
+        assert_eq!(plan.trees.len(), 2);
+        let locator = plan.locator.as_ref().unwrap();
+        // inspect() already matched the first answering host's indexes to the pins; every host must serve the same bytes.
+        let mut seen: HashMap<&str, String> = HashMap::new();
+        for host in &doc.cdns {
+            let one = Net::with_hosts(&[], std::slice::from_ref(host)).unwrap();
+            for t in &plan.trees {
+                let bytes = one.get(&locator.url(&doc.default_build, t.tree, "index"), &cancel).unwrap();
+                assert_eq!(seen.entry(t.tree).or_insert_with(|| sha1h(&bytes)), &sha1h(&bytes), "{host} {}", t.tree);
+                assert!(!t.need.is_empty(), "{}: the package holds everything?", t.tree);
+            }
+        }
+        let patch_net = plan.net.as_ref().unwrap();
+        for t in &plan.trees {
+            let row = t.need.iter().min_by_key(|r| r.size).unwrap();
+            eprintln!("{}: {} files need restoring, smallest {} ({} bytes)", t.tree, t.need.len(), row.file, row.size);
+            let ctx = Ctx::new(&cancel);
+            let part = empty.path("part");
+            let url = locator.url(&row.svn.to_string(), t.tree, &row.file);
+            download_file(&ctx, patch_net, &url, row.size, Hash::Sha1, &row.sha1, None, &part).unwrap();
+            assert_eq!(Hash::Sha1.range(&mut File::open(&part).unwrap(), 0, row.size).unwrap(), row.sha1);
+            fs::remove_file(&part).unwrap();
+        }
+        // The plan on an empty folder asks for the same files on top of the launcher list.
+        let (bytes, files) = document::estimate(&plan, &empty.path("g"));
+        eprintln!("document patch for an empty install: {files} files, {bytes} bytes");
+        assert!(files > 0 && bytes > 0);
     }
 
     /// Manual: hits Kuro's real CDN (indexes and a few small files only). `cargo test -- --ignored live`.
@@ -2665,7 +3036,9 @@ mod tests {
             let fresh = std::env::temp_dir().join(format!("ascnet-live-{}", uuid::Uuid::new_v4()));
             let p = plan(&source, Job::Install { dir: fresh }).unwrap();
             eprintln!("{} install plan: {} bytes (pinned size {}), {} files, needs {}", source.region.label(), p.download_bytes, source.full_size, p.files, p.required_free_bytes);
-            assert_eq!(p.download_bytes, full.resource.iter().map(|e| e.size).sum::<u64>());
+            let listed = full.resource.iter().map(|e| e.size).sum::<u64>();
+            // A pinned document patch adds the CDN files the package does not hold on top of the launcher list.
+            assert!(if source.data.document.is_some() { p.download_bytes > listed } else { p.download_bytes == listed }, "{} {listed}", p.download_bytes);
             for p in &source.data.patches {
                 let list = get_list(&net, &p.index_file, &p.index_file_md5, &cancel).unwrap();
                 validate_patch(&list).unwrap();
@@ -2676,7 +3049,7 @@ mod tests {
                 let e = full.resource.iter().find(|e| e.dest == dest).unwrap();
                 let ctx = Ctx::new(&cancel);
                 let part = tmp.path("part");
-                download_file(&ctx, &net, &format!("{}{}", source.data.base_url, e.dest), e.size, &e.md5, e.chunk_infos.as_deref(), &part).unwrap();
+                download_file(&ctx, &net, &format!("{}{}", source.data.base_url, e.dest), e.size, Hash::Md5, &e.md5, e.chunk_infos.as_deref(), &part).unwrap();
                 assert_eq!(md5_file(&part).unwrap(), e.md5);
             }
             // Every pinned CDN host must answer a ranged request for a real file.

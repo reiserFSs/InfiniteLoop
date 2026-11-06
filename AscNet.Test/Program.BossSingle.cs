@@ -2565,8 +2565,10 @@ internal partial class Program
             player = persisted;
             harness.Session.player = player;
             bool taskSynced = false;
-            while (harness.TryReadAvailablePacket("Normal PPC achievement sync", out Packet packet))
+            // RecordStageClear queues the push on the session writer; DataAvailable can be false while it is in flight.
+            for (int read = 0; read < 32 && !taskSynced; read++)
             {
+                Packet packet = harness.ReadPacket("Normal PPC achievement sync");
                 if (packet.Type != Packet.ContentType.Push) continue;
                 Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
                 if (push.Name != nameof(NotifyTask)) continue;

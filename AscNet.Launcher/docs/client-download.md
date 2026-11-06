@@ -26,6 +26,9 @@ No game selected: press **SELECT GAME** on the home screen (or **Settings → Ga
 
 Verify/repair and update never touch files outside the chosen folder, and refuse to run while PGR.exe is running.
 
+Verify/repair, update and a fresh install also restore the in-game patch files (`PGR_Data/StreamingAssets/document/{matrix,launch}`) for
+regions that pin them (EN so far; the log line says when a region or build is not pinned). About 3.75 GB (2,405 files) on an empty EN install.
+
 ## Engine (`src/download.rs`)
 - **Pinned sources**: `supported-client.json` `"downloads"` holds, per region, the 4.8.0 CDN list (priority order), `baseUrl`,
   `indexFile` + `indexFileMd5`, `size`, every `patchConfig` entry (version, baseUrl, indexFile, MD5, size), the
@@ -59,6 +62,22 @@ Verify/repair and update never touch files outside the chosen folder, and refuse
 - Tests: local fixture HTTP server (resume after cancel, corrupt chunk/file, failover incl. dead/503/dropped hosts, host discovery,
   tampered list, traversal, Update with whole files + krzip + deletes + launcher-patched file, Steam-like adopt, region refusal);
   `cargo test --offline --lib -- --ignored live` re-checks the real CDN (all lists/patch lists, small files, ranges on every host).
+- **In-game document patch** (`src/download/document.rs`, port of `Scripts/restore_document_patch.py`; run after the normal job, planned in
+  `plan()` so size/space include it): the 4.9 client loads `document/<tree>/index` when its sha1 equals the served `IndexSha1`/`LaunchIndexSha1`
+  and maps every file the package index (`resource/matrix/InPkgIndex`, `resource/launch/index`) does not hold (same name, flag != 1, same sha1) to
+  `document/<tree>/<file>`. The launcher fetches the CDN's own index, pins it by sha1, diffs it against the package index, sha1-verifies and
+  downloads what is missing or wrong with the same multi-CDN/range/resume machinery (`Hash::Sha1` instead of MD5), and writes the tree's index
+  last. Files outside the index are left alone; names from the index must be single path components (untrusted input). Because `resource/` is
+  game-managed and never repaired, the two package indexes are MD5-checked against the official list first and re-fetched if damaged.
+  URL: `<cdn>client/patch/<key>/<KuroGameIdentifier>/<version>/standalone/Release/<svn>/<tree>/<file>`; key/version come from `document/ver`
+  `VersionPath`, identifier from `document/client2cdn`, build from `ver.LeastVersionFile`, else the pinned defaults. The pins live in
+  `supported-client.json` `downloads.<region>.documentPatch` (`cdns` = the region's `PrimaryCdns`/`SecondaryCdns` with https and a trailing `/`,
+  `key`, `identifier`, `defaultVersion`, `versions` svn->version, `defaultBuild` for a fresh install without `document/ver`, `builds` svn ->
+  `matrixSha1`/`launchSha1` = the `IndexSha1`/`LaunchIndexSha1` the server serves). A region without `documentPatch`, a build without a pinned
+  index, or an index whose sha1 drifted from its pin is reported in `Outcome.document_notes` (and the plan note) and skipped, never guessed.
+  A fresh install does not write `document/ver`/`client2cdn` (the CDN zip does not ship them). Tests: synthetic indexes (held/flagged/changed/
+  absent files, svn-specific version path, ver/client2cdn override, drift, wrong sha1, escaping names, pin validation) plus
+  `cargo test --lib -- --ignored live_document` against the real EN patch CDN.
 
 ## Official source (global PC, no auth)
 - Game index: `https://prod-alicdn-gamestarter.kurogame.com/launcher/game/G143/50015_LWdk9D2Ep9mpJmqBZZkcPBU2YNraEWBQ/index.json`

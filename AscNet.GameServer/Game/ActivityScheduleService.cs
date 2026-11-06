@@ -1,3 +1,4 @@
+using AscNet.Table.V2.share.passport;
 using AscNet.Table.V2.share.skytower;
 using TaskTimeLimitTable = AscNet.Table.V2.share.task.TaskTimeLimitTable;
 using AscNet.Common.Util;
@@ -80,6 +81,7 @@ public static class ActivityScheduleService
             .Concat(new[] { new ActivityScheduleEntry(49501, 0, UnboundedEnd,
                 "local-policy:missing-calendar:unbounded-calendar:"
                 + "LottoPrimary:Id=5(3.7 Choice self-choice coating lottery):TimeId=49501:user-approved") })
+            .Concat(PassportSeasonEntries())
             .Concat(MissingCalendar49Entries())
             .Concat(SkyTowerEntries())
             .Concat(ClientCalendarEntries())
@@ -94,11 +96,51 @@ public static class ActivityScheduleService
     /// client tables reference these TimeIds and no authoritative window exists yet. Each opens unbounded
     /// (positive end keeps client countdowns valid) and any official or derived window for the same TimeId
     /// wins because DistinctBy keeps the earlier entry. Fate draws and client-only gates (ActivityBriefGroup,
-    /// ActivityBtn, SkipFunctional, Draw*) are not opened. Listed in Docs/closed.md.
+    /// ActivityBtn, SkipFunctional, Draw*) are not opened, except the DrawExtraTagGroup TimeIds 47912/47913 that gate the Phylotree Nexus rerun. Listed in Docs/closed.md.
     /// </summary>
     private static IEnumerable<ActivityScheduleEntry> MissingCalendar49Entries() =>
         MissingCalendar49.Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
             $"local-policy:missing-calendar:unbounded-calendar:{row.Source}:TimeId={row.TimeId}:4.9:user-approved"));
+
+    /// <summary>
+    /// AscNet policy (missing-calendar, user-approved, not retail parity): a Passport season whose TimeId has no authored window
+    /// starts when the previous season (PassportActivity.Id - 1) ends, and stays open-ended like the other 4.9 policy windows.
+    /// A dated start is what lets the weekly rounds (PassportRoundWindows) unlock one after another; an official window wins.
+    /// </summary>
+    private static IEnumerable<ActivityScheduleEntry> PassportSeasonEntries()
+    {
+        Dictionary<int, ActivityScheduleTable> authored = TableReaderV2.Parse<ActivityScheduleTable>().ToDictionary(row => row.Id);
+        Dictionary<int, PassportActivityTable> seasons = TableReaderV2.Parse<PassportActivityTable>().ToDictionary(row => row.Id);
+        foreach (PassportActivityTable season in seasons.Values.Where(row => row.TimeId is > 0 && !authored.ContainsKey(row.TimeId.Value)))
+            if (seasons.TryGetValue(season.Id - 1, out PassportActivityTable? previous)
+                && previous.TimeId is > 0 && authored.TryGetValue(previous.TimeId.Value, out ActivityScheduleTable? previousWindow)
+                && previousWindow.EndTime > 0)
+                yield return new ActivityScheduleEntry(season.TimeId!.Value, previousWindow.EndTime, UnboundedEnd,
+                    $"local-policy:missing-calendar:season-after-previous:PassportActivity:Id={season.Id}:TimeId={season.TimeId}:"
+                    + $"start=end of PassportActivity Id={previous.Id} TimeId={previous.TimeId}:unbounded-end:user-approved");
+    }
+
+    /// <summary>
+    /// Window of every weekly round (PassportTaskGroup Type 2 of WeekTaskGroup, ordered by TimeId). Retail defines no dates, so this is
+    /// AscNet policy derived from the season window: week 1 opens at the season start and runs to the first weekly task reset,
+    /// week N opens N-2 weeks after that reset (N-1 weeks after the season start when it starts on a reset), and the last round runs to
+    /// the season end. Rounds must change on the weekly reset because that reset clears the per-week Passport task claims and counters
+    /// (TaskModule.EnsureMissionResets). The client gates each round by CheckInTimeByTimeId. Empty when the season has no dated start.
+    /// </summary>
+    internal static List<(long TimeId, long Start, long End)> PassportRoundWindows(PassportActivityTable season)
+    {
+        List<(long, long, long)> windows = [];
+        if (season.TimeId is not > 0 || !TryGet(season.TimeId.Value, out ActivityScheduleEntry schedule) || schedule.StartTime <= 0)
+            return windows;
+        long[] rounds = TableReaderV2.Parse<PassportTaskGroupTable>()
+            .Where(group => group.Group == season.WeekTaskGroup && group.Type == 2 && group.TimeId is > 0)
+            .Select(group => (long)group.TimeId!.Value).OrderBy(id => id).ToArray();
+        long firstReset = schedule.StartTime + Handlers.TaskModule.RemainingSecondsInWeeklyResetPeriod(schedule.StartTime);
+        for (int index = 0; index < rounds.Length; index++)
+            windows.Add((rounds[index], index == 0 ? schedule.StartTime : firstReset + (index - 1) * 604_800L,
+                index == rounds.Length - 1 ? schedule.EndTime : firstReset + index * 604_800L));
+        return windows;
+    }
 
     /// <summary>
     /// AscNet policy (user-approved missing-calendar availability, AGENTS.md; not retail parity): Dreamhouse Tycoon has no
@@ -159,19 +201,20 @@ public static class ActivityScheduleService
     }
 
     /// <summary>
-    /// The window the client is told for a missing-calendar (0, UnboundedEnd) entry. The client has no "permanent"
+    /// The window the client is told for a missing-calendar (x, UnboundedEnd) entry. The client has no "permanent"
     /// convention for window-driven entries (<c>RefreshAcitivityTime</c> needs end &gt; now; <c>MM.dd</c> and the
     /// "Remaining Time" banner format the raw bounds), so 0 / 3000-01-01 rendered as "01.01-01.01, 355436 days".
-    /// The push instead carries the current UTC month and the next three, recomputed at every login; the server's
-    /// own checks keep the unbounded entry. ponytail: a session left running over ~2 months expires client timers.
+    /// The push instead carries the current UTC month and the next three, recomputed at every login (a dated start, such as the
+    /// policy Passport season start, is kept); the server's own checks keep the unbounded entry.
+    /// ponytail: a session left running over ~2 months expires client timers.
     /// </summary>
     public static (long Start, long End) ClientWindow(long startTime, long endTime, DateTimeOffset now)
     {
-        if (startTime != 0 || endTime != UnboundedEnd)
+        if (endTime != UnboundedEnd)
             return (startTime, endTime);
         DateTime utc = now.UtcDateTime;
         DateTimeOffset month = new(utc.Year, utc.Month, 1, 0, 0, 0, TimeSpan.Zero);
-        return (month.ToUnixTimeSeconds(), month.AddMonths(3).ToUnixTimeSeconds());
+        return (startTime != 0 ? startTime : month.ToUnixTimeSeconds(), month.AddMonths(3).ToUnixTimeSeconds());
     }
 
     private static readonly (int TimeId, string Source)[] MissingCalendar49 =
@@ -189,6 +232,8 @@ public static class ActivityScheduleService
         (1290, "MailCollectionBoxActivity.TimeId"),
         (1291, "MailCollectionBoxActivity.TimeId"),
         (14103, "TaskTimeLimit.TimeId"),
+        (47912, "DrawExtraTagGroup.TimeId"),
+        (47913, "DrawExtraTagGroup.TimeId"),
         (50200, "PunishaarActivity.TimeId"),
         (51101, "NewActivityCalendarActivity.MainTimeId"),
         (51102, "NewActivityCalendarPeriod.TimeId"),
@@ -207,7 +252,6 @@ public static class ActivityScheduleService
         (51903, "TaskTimeLimit.TimeId"),
         (51909, "ActivityBrief.TimeId"),
         (51910, "SignIn.TimeId"),
-        (51912, "PassportActivity.TimeId+PassportTaskGroup.TimeId"),
         (51920, "PassportTimeLimitTaskReward.ExTimeId"),
         (51942, "NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId"),
     ];

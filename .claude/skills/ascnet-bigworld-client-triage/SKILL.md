@@ -21,6 +21,6 @@ description: Use for AscNet Babylonia (BigWorld) symptoms in a real client: infi
 - `RpcPlayerSwitchLevelNotify` carries the world-entry RepLevel with the team at the target pose and empty `NpcTravelInfos` (inferred, confirmed working).
 
 # Fix discipline
-- Data comes from importers (`Scripts/import_bigworld_tables_4_7.py`, `Scripts/import_bigworld_scene_objects_4_7.py`); diff old and new TSVs to prove existing rows are unchanged.
+- Data comes from importers (`Scripts/import_bigworld_tables_4_7.py`, `Scripts/import_bigworld_scene_objects_4_7.py`, `Scripts/import_scene_colliders_4_8.py`; all take `--version 4.8|4.9`, default 4.9; tables tracked in `manifest.json` are skipped); diff old and new TSVs to prove existing rows are unchanged.
 - Add a regression assertion to the matching `--big-world-*-only` selector (`grep -n 'big-world' AscNet.Test/Program.cs`); run every selector the change touches, plus Theatre5/6 when DTOs are shared.
 - Account repairs in the `players` / `big_world_state` collections are destructive: preview, get consent, stop the server first.

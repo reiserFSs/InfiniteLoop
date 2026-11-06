@@ -1,15 +1,18 @@
 """Import BigWorld/SkyGarden/DlcWorld tables from the installed client into Resources/table.
 
-For every EN corpus JSON table in SOURCES, decode the matching .tab from the installed
-client's resource matrix bundle (../tools/decode_binary_table.py). Binary decode is the
-authority; the corpus JSON is used only when the bundle/table is absent or uses a column
+For every table of the selected version's corpus (.tab or .json), decode the matching .tab from the installed
+client's matrix bundles (document layer first, then resource; ../tools/decode_binary_table.py). Binary decode is
+the authority; the corpus JSON is used only when the bundle/table is absent or uses a column
 type the decoder cannot read. List columns become Field[1..N] (N >= 2 so the generator
 emits List<T>). DlcWorld.tsv is projected onto its existing schema (all worlds).
 Writes .runtime/bigworld-tables-manifest.json (path, source, rows).
 
-Run from the AscNet root: python3 Scripts/import_bigworld_tables_4_7.py
+Run from the AscNet root: python3 Scripts/import_bigworld_tables_4_7.py [--version 4.8|4.9]
+(the installed client is the source of truth; --version picks the corpus for the JSON fallback and
+the table list; the scene-object importer and import_scene_colliders_4_8.py take the same flag).
 """
 from __future__ import annotations
+import argparse
 
 import importlib.util
 import json
@@ -22,7 +25,17 @@ from decode_pgr_pcap import MessagePackReader  # noqa: E402
 from import_client_tables import parse, project, render  # noqa: E402
 import pgr_bundles  # noqa: E402
 
-CORPUS = Path('../PGR_DATA/en/bytes')
+VERSIONS = {'4.8': Path('../PGR_DATA/en/bytes'), '4.9': Path('../PGR_DATA/en-4.9/bytes')}
+
+
+def _version():
+    """--version of this script and of the scene-object importer, which execs this file up to main()."""
+    ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n\n')[0])
+    ap.add_argument('--version', choices=sorted(VERSIONS), default='4.9')
+    return ap.parse_args().version
+
+
+CORPUS = VERSIONS[_version()]
 TARGET = Path('Resources/table')
 MANIFEST = Path('.runtime/bigworld-tables-manifest.json')
 # Whole directories (recursive) and single tables, relative to CORPUS.
@@ -101,7 +114,7 @@ def bundle_tables(directory: str) -> dict:
     if directory not in _bundles:
         tables = {}
         try:
-            path = pgr_bundles.resolve(f'assets/temp/bytes/{directory}.ab', scope='resource')
+            path = pgr_bundles.resolve(f'assets/temp/bytes/{directory}.ab')  # document layer overrides resource (4.9: npc, fashion)
             payload = pgr_bundles.payload(path)
             for item in dbt.iter_text_assets(_assets, payload):
                 name = str(item['name']).rsplit('/', 1)[-1]
@@ -214,7 +227,7 @@ def import_quests(report):
     """Native quest config (XTableDlcQuest/Step/Objective) from QuestData_* into three TSVs.
     Objectives keep their native ObjectiveList position (Order): Serial steps run in that order,
     which is not id order."""
-    path = pgr_bundles.resolve('assets/temp/bytes/share/statussyncfight/quest.ab', scope='resource')
+    path = pgr_bundles.resolve('assets/temp/bytes/share/statussyncfight/quest.ab')
     payload = pgr_bundles.payload(path)
     quests, steps, objectives = [], [], []
     for item in dbt.iter_text_assets(_assets, payload):
@@ -287,13 +300,34 @@ def import_level_action_exec_modes(report, quests, objectives):
     print(f'{target}: {len(rows)} action types')
 
 
+def _same_content(target, header, rows):
+    """True when the committed TSV already holds `rows`. Blank, 0, 0.0 and False are one value: the 4.9 binary tables spell
+    the defaults the 4.8 JSON left blank, and rewriting them would turn nullable columns into plain ones for no change."""
+    def norm(value):
+        text = str(value)
+        try:
+            return '' if float(text) == 0 else str(float(text))
+        except ValueError:
+            return '' if text.lower() == 'false' else text
+    old_header, old_rows = parse(target.read_text(encoding='utf-8-sig'))
+    columns = [*old_header, *(c for c in header if c not in old_header)]
+    keyed = lambda rs: [tuple(norm(r.get(c, '')) for c in columns) for r in rs]
+    return keyed(old_rows) == keyed(rows)
+
+
 def main():
-    sources = sorted({*(str(p.relative_to(CORPUS)) for d in SOURCE_DIRS for p in (CORPUS / d).rglob('*.json')
-                          if not str(p.relative_to(CORPUS)).startswith(SKIP_DIRS)),
+    sources = sorted({*(str((p.parent / (p.stem + '.json')).relative_to(CORPUS)) for d in SOURCE_DIRS for p in (CORPUS / d).rglob('*')
+                          if p.suffix in ('.json', '.tab') and not str(p.relative_to(CORPUS)).startswith(SKIP_DIRS)),
                       *SOURCE_FILES, *PROJECT_ONTO_EXISTING, *REPLACE_EXISTING})
     report = {}
+    tracked = {t['path'] for t in json.loads((TARGET / 'manifest.json').read_text(encoding='utf-8'))['tables']}
     for rel in sources:
-        columns, rows, source = decode(rel)
+        try:
+            columns, rows, source = decode(rel)
+        except FileNotFoundError:  # undecodable column types and no corpus JSON: keep the committed TSV
+            report[rel] = {'skipped': 'binary decode failed and the corpus has no JSON'}
+            print(f'SKIP {rel}: not decodable')
+            continue
         if any(isinstance(v, (dict,)) or (isinstance(v, list) and any(isinstance(x, (dict, list)) for x in v))
                for r in rows for v in r.values()):
             report[rel] = {'skipped': 'nested object values cannot be TSV cells'}
@@ -301,6 +335,9 @@ def main():
             continue
         rows = [{k: ([_text(x) for x in v] if isinstance(v, list) else _text(v)) for k, v in r.items()} for r in rows]
         target = TARGET / rel.replace('.json', '.tsv')
+        if str(target.relative_to(TARGET)) in tracked:  # provenance-tracked: import_tables_4_9.py owns the refresh
+            report[rel] = {'skipped': 'tracked in Resources/table/manifest.json'}
+            continue
         key = KEYS.get(rel, columns[0][0])
         if rel in PROJECT_ONTO_EXISTING and target.exists():
             header, current = parse(target.read_text(encoding='utf-8-sig'))
@@ -309,6 +346,10 @@ def main():
         else:
             header = header_for(columns, rows)
             projected = project(rows, header, [], key=key)
+        if target.exists() and _same_content(target, header, projected):
+            report[str(target)] = {'source': source, 'rows': len(projected), 'from': rel, 'unchanged': True}
+            print(f'{target}: unchanged ({source})')
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(render(header, projected), encoding='utf-8')
         report[str(target)] = {'source': source, 'rows': len(projected), 'from': rel}

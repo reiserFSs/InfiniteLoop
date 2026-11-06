@@ -296,6 +296,7 @@ internal partial class Program
         }
         ValidateEn49ConfigTab();
         ValidateEn49NoticeEndpoints().GetAwaiter().GetResult();
+        ValidateRegions49().GetAwaiter().GetResult();
     }
 
     // 4.9.x clients take the document/launch-module "already current" shortcut (XLaunchUpdateManager._IsSkipUpdate and
@@ -350,7 +351,7 @@ internal partial class Program
         for (int i = 0; i < retail.Length; i++)
         {
             // The capture's own login/pay hosts are the only values AscNet replaces.
-            string expected = System.Text.RegularExpressions.Regex.Replace(retail[i], @"http://(prod-pay-(kr|jp)\.pgr-game\.com|prod-pay-en-(na|eu|sea)\.pgr-game\.com|101\.33\.70\.36:55556|8\.209\.200\.222:2333|161\.117\.238\.242:(1300|2333)|47\.77\.201\.91:2333|8\.209\.96\.201:2333|47\.245\.98\.102:2333)", "http://127.0.0.1:8080");
+            string expected = System.Text.RegularExpressions.Regex.Replace(retail[i], @"http://(prod-pay-(kr|jp|tw)\.pgr-game\.com|prod-pay-en-(na|eu|sea)\.pgr-game\.com|101\.33\.70\.36:55556|175\.97\.184\.50:55556|8\.209\.200\.222:2333|161\.117\.238\.242:(1300|2333)|47\.77\.201\.91:2333|8\.209\.96\.201:2333|47\.245\.98\.102:2333)", "http://127.0.0.1:8080");
             // CN lists the official gate plus raw-IP mirrors per login channel; AscNet serves one isolated Login-cn gate for each.
             expected = System.Text.RegularExpressions.Regex.Replace(expected, @"https://haru-gf-login\.kurogame\.com/api/Login/Login(;http://\d+\.\d+\.\d+\.\d+/api/Login/Login)*", "http://127.0.0.1:8080/api/Login/Login-cn");
             expected = expected.Replace("http://haru-gf-pay.kurogame.com", "http://127.0.0.1:8080");
@@ -550,13 +551,29 @@ internal partial class Program
 
     private static void ValidateVersion46TableDrivenDrawCatalog()
     {
+        // The 4.6 expectations hold inside the 4.6 banner window (1509: 1787115600-1790204400), not at the real clock.
+        System.Reflection.FieldInfo clock = RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager")
+            .GetField("UtcNow", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        Func<DateTimeOffset> prior = (Func<DateTimeOffset>)clock.GetValue(null)!;
+        clock.SetValue(null, (Func<DateTimeOffset>)(() => DateTimeOffset.FromUnixTimeSeconds(1788591600)));
+        try { ValidateVersion46TableDrivenDrawCatalogAt46(); }
+        finally { clock.SetValue(null, prior); }
+    }
+
+    private static void PinDrawClock(long unix) => RequiredAscNetGameServerType("AscNet.GameServer.Game.DrawManager")
+        .GetField("UtcNow", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+        .SetValue(null, (Func<DateTimeOffset>)(() => DateTimeOffset.FromUnixTimeSeconds(unix)));
+
+    private static void ValidateVersion46TableDrivenDrawCatalogAt46()
+    {
         const long uid = 46_002;
         AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(uid);
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
         using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(uid), player, CreateDrawCompatibilityInventory(uid, []), "v46-table-draw");
         InvokeRegisteredRequestHandler(nameof(DrawGetDrawGroupListRequest), harness.Session, 46_020, new DrawGetDrawGroupListRequest());
         DrawGetDrawGroupListResponse catalog = ReadResponsePayload<DrawGetDrawGroupListResponse>(harness, 46_020, nameof(DrawGetDrawGroupListResponse), "4.6 table draw catalog");
-        int[] expectedGroups = [1, 2, 4, 12, 16, 22, 11];
+        // No DrawPredict rotation resolves inside the 4.6 window, so the Arrival group 12 is not advertised.
+        int[] expectedGroups = [1, 2, 4, 16, 22, 11];
         AssertEqual(string.Join(',', expectedGroups), string.Join(',', catalog.DrawGroupInfoList.Select(group => group.Id)), "4.6 server-pushed draw groups");
         if (catalog.DrawGroupInfoList.Any(group => group.Id is 13 or 15 or 35 or 36))
             throw new InvalidDataException("4.6 catalog must not advertise groups whose pity law or window is unavailable.");
@@ -684,6 +701,9 @@ internal partial class Program
         if (!harness.Session.character.Characters.Any(character => character.Id == 1071005))
             throw new InvalidDataException("4.6 group 11 forced pity draw did not create character 1071005.");
 
+        // Group 12 needs an active DrawPredict rotation, none of which overlaps the 4.6 window: use the 10/29 rotation.
+        PinDrawClock(1793343600);
+        _ = getDrawGroupInfos.Invoke(null, [player]); // creates group 12's pity round, as the group list did at the original clock
         // Pity belongs to the group, not to an individual optional banner.
         player.DrawState.PityRounds[12].Misses = 59;
         player.DrawState.PityRounds[12].GuaranteedTarget = true;
@@ -714,6 +734,7 @@ internal partial class Program
         pityReload = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
         AssertEqual(0, pityReload.DrawState.PityRounds[12].Misses, "4.6 group 12 reset pity BSON roundtrip");
 
+        PinDrawClock(1788591600); // back inside the 1509 window
         InvokeRegisteredRequestHandler(nameof(DrawSetUseDrawIdRequest), harness.Session, 46_023, new DrawSetUseDrawIdRequest { DrawId = 1509 });
         DrawSetUseDrawIdResponse selected = ReadResponsePayload<DrawSetUseDrawIdResponse>(harness, 46_023, nameof(DrawSetUseDrawIdResponse), "4.6 group 11 selection");
         AssertEqual(0, selected.Code, "4.6 group 11 selection code");

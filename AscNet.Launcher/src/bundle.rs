@@ -55,10 +55,19 @@ pub(crate) struct Active {
     pub(crate) scope: &'static str,
 }
 /// One row of a 4.9 index: physical file, whole-file sha1 (hex) and size, prefix included.
-struct Entry {
-    file: String,
-    sha1: String,
-    size: u64,
+pub(crate) struct Entry {
+    pub(crate) file: String,
+    pub(crate) sha1: String,
+    pub(crate) size: u64,
+    /// SVN build the file belongs to (row element 3); 0 when absent.
+    pub(crate) svn: u64,
+    /// Row element 5; 1 = the package never holds this file (`IsInnerResource`).
+    pub(crate) flag: u64,
+}
+
+/// Rows of a 4.9 `index` / `InPkgIndex` file (a whole index bundle, as downloaded or as stored on disk).
+pub(crate) fn index_table(data: &[u8]) -> Result<Vec<Entry>> {
+    file_table(&decode_index(data)?.payload)?.context("no 4.9 file table in the index")
 }
 const STREAMING: &str = "PGR_Data/StreamingAssets";
 pub(crate) fn resolve(game: &Path) -> Result<Active> {
@@ -620,7 +629,8 @@ fn file_table(payload: &[u8]) -> Result<Option<Vec<Entry>>> {
             let (Some(Value::String(sha1)), Some(Value::Int(size))) = (parts.get(1), parts.get(2)) else {
                 continue 'candidates;
             };
-            table.push(Entry { file, sha1: sha1.clone(), size: *size });
+            let int = |i: usize| if let Some(Value::Int(n)) = parts.get(i) { *n } else { 0 };
+            table.push(Entry { file, sha1: sha1.clone(), size: *size, svn: int(3), flag: int(5) });
         }
         if !table.is_empty() {
             return Ok(Some(table));
@@ -943,7 +953,7 @@ pub(crate) fn extract_text_asset<'a>(payload: &'a [u8], name: &str) -> Result<&'
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn append_asset(payload: &mut Vec<u8>, name: &[u8], content: &[u8]) {
@@ -1160,6 +1170,25 @@ mod tests {
 
     fn row(file: &str, data: &[u8]) -> (String, String, u64) {
         (file.into(), format!("{:x}", Sha1::digest(data)), data.len() as u64)
+    }
+
+    /// An index file as Kuro's CDN serves it (unprotected, prefixed bundle) with rows
+    /// (file, sha1 hex, size, svn build, flag).
+    pub(crate) fn synthetic_index(rows: &[(&str, String, u64, u64, u64)]) -> Vec<u8> {
+        let mut v = vec![0x96, 0xdf];
+        v.extend((rows.len() as u32).to_be_bytes());
+        for (file, sha1, size, svn, flag) in rows {
+            v.extend(str8(file));
+            v.extend([0x96, 0xa0]);
+            v.extend(str8(sha1));
+            v.push(0xce);
+            v.extend((*size as u32).to_be_bytes());
+            v.push(0xce);
+            v.extend((*svn as u32).to_be_bytes());
+            v.extend([0x90, *flag as u8]);
+        }
+        v.extend([0xc0; 5]);
+        bundle(&v, false, true, 4096)
     }
 
     #[test]

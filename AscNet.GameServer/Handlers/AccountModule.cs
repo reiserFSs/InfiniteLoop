@@ -570,26 +570,8 @@ namespace AscNet.GameServer.Handlers
                     && ActivityScheduleService.TryGet(activity.TimeId.Value, out ActivityScheduleEntry schedule)
                     && schedule.IsOpen(now)))
             {
-                ActivityScheduleService.TryGet(passport.TimeId!.Value, out ActivityScheduleEntry schedule);
-                PassportTaskGroupTable[] rounds = TableReaderV2.Parse<PassportTaskGroupTable>()
-                    .Where(group => group.Group == passport.WeekTaskGroup
-                        && group.Type == 2
-                        && group.TimeId is > 0)
-                    .OrderBy(group => group.TimeId)
-                    .ToArray();
-                long firstWeeklyReset = checked(schedule.StartTime
-                    + TaskModule.RemainingSecondsInWeeklyResetPeriod(schedule.StartTime));
-                for (int index = 0; index < rounds.Length; index++)
-                {
-                    long start = index == 0
-                        ? schedule.StartTime
-                        : checked(firstWeeklyReset + (index - 1) * 604_800L);
-                    long nextStart = checked(firstWeeklyReset + index * 604_800L);
-                    long end = index == rounds.Length - 1 && schedule.EndTime != 0
-                        ? schedule.EndTime - 60
-                        : nextStart - 60;
-                    AddDerived(rounds[index].TimeId!.Value, start, end);
-                }
+                foreach ((long timeId, long start, long end) in ActivityScheduleService.PassportRoundWindows(passport))
+                    AddDerived(timeId, start, end);
             }
 
 

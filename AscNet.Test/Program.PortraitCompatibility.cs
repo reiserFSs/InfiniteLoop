@@ -303,6 +303,7 @@ internal partial class Program
     private static void AssertNoAvailablePacket(LoopbackSessionHarness harness, string name)
     {
         if (harness.TryReadAvailablePacket(name, out Packet packet))
-            throw new InvalidDataException($"{name}: unexpected {packet.Type} packet.");
+            throw new InvalidDataException($"{name}: unexpected {packet.Type} packet"
+                + (packet.Type == Packet.ContentType.Push ? $" {MessagePackSerializer.Deserialize<Packet.Push>(packet.Content).Name}." : "."));
     }
 }

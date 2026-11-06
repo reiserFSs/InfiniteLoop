@@ -18,14 +18,14 @@ Id	Type	Category	NameTextId	DescTextId	FinishTipTextId	GameplayType	IsAllowAutoA
 2018	2	1	1	2	3	0	1	6002	0					1	2	1	1	0	0	201801	3	0	0	1	Assets/Product/Texture/Atlas/BigWorld/Common/UiCommon/UiBigWorldTaskMainIcon02.png		{"ClearPlaceArgs":{}}
 3004	3	0	1	2	3	0	1	4001	0	2005				0	0	0	0	3004	7000145	300401	0	1		1	Assets/Product/Texture/Atlas/BigWorld/Common/UiCommon/UiBigWorldTaskMainIcon02.png		
 3005	3	0	1	2	3	0	1	4001	0	2004				1	0	0	0	3005	7000146	300501	0	1	0	1	Assets/Product/Texture/Atlas/BigWorld/Common/UiCommon/UiBigWorldTaskMainIcon02.png		{"ClearPlaceArgs":{}}
-3006	2	0	1	2	3	0	1	5001	0					0	0	0	0	0	0	300601	0	0		0			
-3007	2	0	1	2	3	0	1	5001	0					0	0	0	0	0	0	300701	3	1		0			
-3008	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	300801	0	0		0			
-3009	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	300901	0	0	0	0			
-3010	3	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301001	0	0		0			
-3011	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301101	0	0		0			
-3012	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301201	0	0		0			
-3013	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301301	0	0	0	0			
+3006	2	0	1	2	3	0	1	5001	0					0	0	0	0	0	0	300601	3	0	0	0			{"ClearPlaceArgs":{}}
+3007	2	0	1	2	3	0	1	5001	0					0	0	0	0	0	0	300701	3	1	0	0			{"ClearPlaceArgs":{}}
+3008	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	300801	3	0	0	0			{"ClearPlaceArgs":{}}
+3009	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	300901	3	0	0	0			{"ClearPlaceArgs":{}}
+3010	3	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301001	3	0	0	0			{"ClearPlaceArgs":{}}
+3011	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301101	3	0	0	0			{"ClearPlaceArgs":{}}
+3012	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301201	3	0	0	0			{"ClearPlaceArgs":{}}
+3013	2	0	1	2	3	0	1	0	0					0	0	0	0	0	0	301301	3	0	0	0			{"ClearPlaceArgs":{}}
 3014	0	0	1	2	3	0	1	6001	0					0	0	0	0	0	0	301401	3	1	0	0			{"ClearPlaceArgs":{}}
 3015	0	0	1	2	3	0	1	6001	0					0	0	0	0	0	0	301501	3	1	0	0			{"ClearPlaceArgs":{}}
 3016	0	0	1	2	3	0	1	6001	0					0	0	0	0	0	0	301601	3	1	0	0			{"ClearPlaceArgs":{}}

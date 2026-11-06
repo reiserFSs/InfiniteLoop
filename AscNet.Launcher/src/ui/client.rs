@@ -702,13 +702,17 @@ pub(super) unsafe fn finish(hwnd: HWND, state: &mut Window, work: Work) {
             let dir = state.client.dir.clone();
             state.client.fraction = None;
             let mut message = format!(
-                "Game files ready: {} repaired, {} downloaded, {} removed",
+                "Game files ready: {} repaired, {} downloaded, {} removed, {} patch files restored",
                 outcome.repaired,
                 fmt_bytes(outcome.downloaded_bytes),
-                outcome.deleted
+                outcome.deleted,
+                outcome.document_files
             );
             if !outcome.skipped_variants.is_empty() {
                 message += &format!(" (left as is: {})", outcome.skipped_variants.join(", "));
+            }
+            for note in &outcome.document_notes {
+                message += &format!("\n{note}");
             }
             append_log(hwnd, state, &message);
             let Some(dir) = dir.filter(|d| crate::steam::valid_game_directory(d)) else {
