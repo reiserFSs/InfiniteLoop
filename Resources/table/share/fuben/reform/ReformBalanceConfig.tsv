@@ -1,0 +1,9 @@
+Key	Desc	Value[1]
+PerfectBalanceMassBonusRate		10
+NormalBalanceMassDifferenceRate		20
+MaxWaveCount		5
+MaxSingleWeightMass		9999
+MinSelectCharacterCount		1
+MinSelectEnemyCount		2
+SevereMassDifferenceRate		50
+SpineTweenTime		0.1

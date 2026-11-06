@@ -877,7 +877,9 @@ namespace AscNet.GameServer.Handlers
                 .Select(ToLoginTask));
             tasks.AddRange(BuildTransfiniteTowerTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildCerberusGameTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
+            tasks.AddRange(BuildSkyTowerLoginTasks(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildPunishaarTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
+            tasks.AddRange(BuildReformTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildDayTaskProgress(session)
                 .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
@@ -937,7 +939,9 @@ namespace AscNet.GameServer.Handlers
                         .Concat(BuildFangKuaiTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildTransfiniteTowerTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildCerberusGameTaskProgress(session).Select(ToSyncTask))
+                        .Concat(BuildSkyTowerTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildPunishaarTaskProgress(session).Select(ToSyncTask))
+                        .Concat(BuildReformTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildDayTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildPassportTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildTransfiniteTaskProgress(session).Select(ToSyncTask))
@@ -1997,7 +2001,7 @@ namespace AscNet.GameServer.Handlers
                 });
         }
 
-        private enum TaskClaimKind { Current, Transfinite, Passport, Dorm, Story, LifeTree, GuildAchievement, SameColorGame, LinkageDraw, Envelope, FangKuai, DayTask, TransfiniteTower, Punishaar, CerberusGame }
+        private enum TaskClaimKind { Current, Transfinite, Passport, Dorm, Story, LifeTree, GuildAchievement, SameColorGame, LinkageDraw, Envelope, FangKuai, DayTask, TransfiniteTower, Punishaar, CerberusGame, Reform, SkyTower }
 
         private sealed record PreparedTaskClaim(int TaskId, TaskClaimKind Kind, string ClaimKey, List<RewardGoodsTable> Goods);
 
@@ -2066,6 +2070,13 @@ namespace AscNet.GameServer.Handlers
                 achieved = BuildPunishaarTaskProgress(session, claimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
                 goods = RewardHandler.GetRewardGoods(punishaar.RewardId ?? 0);
             }
+            else if (TaskRowsById.Value.GetValueOrDefault(taskId) is { } reform && IsReformTask(reform))
+            {
+                kind = TaskClaimKind.Reform;
+                key = $"reform-task:{taskId}";
+                achieved = BuildReformTaskProgress(session, claimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
+                goods = RewardHandler.GetRewardGoods(reform.RewardId ?? 0);
+            }
             else if (TaskRowsById.Value.GetValueOrDefault(taskId) is { } tower && IsTransfiniteTowerTask(tower))
             {
                 kind = TaskClaimKind.TransfiniteTower;
@@ -2079,6 +2090,13 @@ namespace AscNet.GameServer.Handlers
                 key = $"cerberus-game-task:{taskId}";
                 achieved = BuildCerberusGameTaskProgress(session, claimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
                 goods = RewardHandler.GetRewardGoods(cerberus.RewardId ?? 0);
+            }
+            else if (IsSkyTowerActivityTask(taskId) && SkyTowerModule.Catalog.Value[taskId] is { } skyTower)
+            {
+                kind = TaskClaimKind.SkyTower;
+                key = SkyTowerClaimKey(session, taskId);
+                achieved = BuildSkyTowerTaskProgress(session, claimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
+                goods = RewardHandler.GetRewardGoods(skyTower.Row.RewardId ?? 0);
             }
             else if (DayTasks.Value.GetValueOrDefault(taskId) is { } dayTask)
             {

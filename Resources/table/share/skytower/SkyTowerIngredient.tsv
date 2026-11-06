@@ -1,0 +1,17 @@
+Id	Name	Icon	ProduceNeedTime	Priority	UnlockItemIds[1]	UnlockItemIds[2]	UnlockItemCounts[1]	UnlockItemCounts[2]	Desc
+1	Dancing Plumage	Assets/Product/Texture/Image/IconTools/IconActivityConsume2028001.png	20	16					Dancing on the breeze, like the lingering whisper of a smile.
+2	Starfall Petals	Assets/Product/Texture/Image/IconTools/IconActivityConsume2029001.png	20	15					Drifting petals fluttering softly into your dreams.
+3	Moon-Woven Silver	Assets/Product/Texture/Image/IconTools/IconActivityConsumeTic2017001.png	20	14					Tonight, the starlight and moonlight are all yours.
+4	Blue Hour Crystal	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon02.png	60	1					A childhood dream shining bright through the blue hour.
+5	Soothing Amber	Assets/Product/Texture/Image/IconTools/UiNonogramItem17.png	60	12					Grants a wondrously peaceful dream.
+6	Wispy Down	Assets/Product/Texture/Image/IconTools/IconMain4003.png	60	11					Fresh on the nose yet hard to catch, like a fleeting moment of inspiration.
+7	Lumina Matrix	Assets/Product/Texture/Image/IconTools/UiConnectingLineGameItem02.png	60	10					The foundation of all good health.
+8	Healing Crystal	Assets/Product/Texture/Image/IconTools/IconGameCollection01.png	80	9					A fragment snapped from frosted moonlight.
+9	Twilight Crystal Cluster	Assets/Product/Texture/Image/IconTools/IconRougeItem07.png	80	8					Holding the last trace of the night's tenderness.
+10	Crimson Nectar	Assets/Product/Texture/Image/IconTools/UiNonogramItem09.png	80	7					Sweet as the moon. A full moon, of course.
+11	Starlight Slumber	Assets/Product/Texture/Image/IconTools/IconActivityConsumeTic2001001.png	80	6					A sweet dream of love.
+12	Groove Rhythm	Assets/Product/Texture/Image/IconTools/IconTheatre03.png	120	5					Sway your body to the cadence of pure joy.
+13	Jazz Note	Assets/Product/Texture/Image/IconTools/PBRItemsIconCoin.png	120	4					Let the opening notes set the stage for tonight.
+14	Iridescent Disc	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon09.png	120	3					In the quiet moment, savor a private favorite tune.
+15	Curtainfall Star	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon03.png	20	2					A secret wish, tucked away.
+16	Private Audio Box	Assets/Product/Texture/Image/IconTools/IconSuperTower01.png	120	1					Hidden within is a melody too precious to skip, along with a little bit of joy.

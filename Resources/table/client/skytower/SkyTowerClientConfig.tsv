@@ -1,0 +1,166 @@
+Key	Notes	Values[1]	Values[2]	Values[3]	Values[4]	Values[5]	Values[6]	Values[7]	Values[8]	Values[9]
+ScenePrefab		Assets/Product/Scene/ScenePrefab/System_SkyTower01.prefab								
+CharacterProperty		0.5	0|1.2|0	4|8	40|120					
+Ui3DOffset		-1|1.2|0	0|1.5|0	-0.2|0.8|0	0|2.1|0					
+StorageCountDesc		%s in stock	<size=32><color=#7de4e9>%s</color></size>/%s							
+SkillAdditionDesc		Staff Skill Description	Promo Price	Price						
+ProduceDesc		[%s] has started ordering [%s]!	[%s] has started crafting [%s]!	[%s] has started promoting [%s]!	Please select a staff member first.	Crafting %s requires:	Insufficient Rough Materials			
+ProduceTimeUnit		per hour	/dish							
+StorageFullTip		Full Counter Stock	Checkout counter currency is <color=#b55252>FULL</color>. Staff cannot start promotion immediately!\nContinue promotion for [<color=#b55252>%s</color>]?\n(Staff will resume promotion once checkout currency falls below the limit.)	Full Stock	Stock for [<color=#b55252>%s</color>] is <color=#b55252>FULL</color>. Staff cannot start work immediately!\nSelect [<color=#b55252>%s</color>] anyway?\n(Staff will begin work once stock falls below the limit.)					
+ProductNotEnough		Insufficient Materials	Insufficient materials for [<color=#b55252>%s</color>]. Staff cannot start work immediately!\nContinue crafting [<color=#b55252>%s</color>]?\n(Staff will resume crafting [<color=#b55252>%s</color>] once there are enough materials.)	Insufficient Shining Products	Stock of [<color=#b55252>%s</color>] is at <color=#b55252>0</color>. Staff cannot start promotion immediately!\nContinue promotion for [<color=#b55252>%s</color>]?\n(Staff will begin promotion once stock is greater than 0.)					
+StopProduceTip		Cancel Order [%s]	Cancel Order for [%s] Rough Materials	Cancel Crafting [%s]	Cancel Crafting [%s]. The system will refund Rough Materials (%s).	Cancel Crafting [%s]	Cancel Promo [%s]	Cancel Promo [%s]. The system will refund (%s).	Cancel Promo [%s]	
+IngredientStatisticsTip		Ordering Yield	Expected Cost	Expected Changes						
+FoodStatisticsTip		Crafting Output	Expected Cost	Expected Changes						
+StatisticsUnit		in total								
+StoragePreviewTip1		Reaching stock limit in %s hours.	Estimated to be used up in %s hours.	Continuous Production						
+StoragePreviewTip2		Reaching stock limit in %s hours.	Estimated to be used up in %s hours.	Estimated Rough Materials depleted in %sh	Continuous Production					
+StoragePreviewTip3		Reaching stock limit in %s hours.	Estimated to be used up in %s hours.	Continuous Production						
+RImgUpgradeIcon		Assets/Product/Texture/Atlas/UiRestaurant/UiRestaurantUpgrade.png	Assets/Product/Texture/Atlas/UiRestaurant/UiRestaurantUpgrade2.png							
+StaffStateBtnText		Level Up	Hire	At max						
+SkyTowerLvUpConditionText		Hire %s staff member(s).	%s staff member(s) reached <color=#ff8346>%s</color>.	Level effect unlocked.	Level effect unlocked. Kuroro Building has reached MAX level.	Upgrade requirement not met.				
+StaffWorkTip		[%s] is working somewhere else.								
+OfflineBillText		Commandant is away for: %s								
+BubbleProperty		2								
+ShopBuyTxtColor		ffffff	B73131							
+ShopBuyLimitColor		ffd070	ffd070							
+ShopTimeTxt		Time Remaining: <color=#9b9de3>%s</color>								
+ShopRewardId		63682								
+FoodQualityIcon3DUI		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerCommonImgQuality01.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerCommonImgQuality01.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerCommonImgQuality01.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerCommonImgQuality01.png					
+FoodQualityIcon2DUI		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerQualitySmallGreen.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerQualitySmallBlue.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerQualitySmallPurple.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerQualitySmallOrange.png					
+CommonQualityIconUI		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerCommonImgQuality01.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerQualitySmallGreen.png							
+RequestFrequentlyTip		Frequent requests. Try again %ss later.								
+SignNpcProperty		28.6|0|12.5	0|1.5|0							
+CharacterEffect		Assets/Product/Effect/Prefab/FxSushe/FxSuSheZSCFyanwu.prefab	Assets/Product/Effect/Prefab/FxSushe/FxSuSheZSCFzuocai01.prefab	Assets/Product/Effect/Prefab/FxSushe/FxSuSheZSCFzuocai02.prefab	Assets/Product/Effect/Prefab/FxSushe/FxQHappy01.prefab	Assets/Product/Effect/Prefab/FxSushe/FxQAngry.prefab				
+CharacterEffectPos		0|0|0	0	0.063|0.384|0.3	0|0|0					
+SignNPCEffect		Assets/Product/Effect/Prefab/FxSushe/FxSuSheZSCFyanwu.prefab	Assets/Product/Effect/Prefab/FxSushe/FxSuSheZSCFliwu.prefab	Assets/Product/Effect/Prefab/FxSushe/FxQGift.prefab						
+UiEffect		Assets/Product/Effect/Prefab/FxUi/FxUiFubenYuandan/FxUiFuBenYanhua001.prefab								
+WorkPauseReason		— Work Paused: Out of Rough Materials —	— Work Paused: Out of Promo Shining Products —	—   Suspension of work due to Counter limit reached   —	—   Suspension of work due to full stock   —					
+OrderNpcBehaviourId		Order_1	Order_1	Order_2						
+SignNpcBehaviourId		Sign_1	Sign_2							
+CustomerProperty		15	20							
+RecipeTaskTriggerTip		Congratulations on triggering [%s]! Keep practicing to unlock new Shining Products!								
+CommonUnlockText		Unlocks in %s.	Unlocks at Kuroro Building Lv.%s	This Shining Product is not yet unlocked	Kuroro Building Lv.%s					
+SkyTowerNotInBusiness		Kuroro Building is already closed								
+BuffUpdateText		[%s] unlocked.	%s Buff replaced by [%s].							
+BuffAdditionText		Production Speed Boost (%) for Active Rough Materials	Production Speed Boost (%) for Active Shining Products	Promo Price Boost (%) for Active Shining Products						
+TaskDescText		<size=40><color=#a2a8e7>%s</color></size>/%s								
+NoStaffWorkText		No stuff at work.								
+OrderTitleText		Building Order from %s								
+BehaviorTreeEffect		Assets/Product/Effect/Prefab/FxSushe/FxSuSheZSCFliwu.prefab	Assets/Product/Effect/Prefab/FxSushe/FxSuSheZSCFyanwu.prefab	Assets/Product/Effect/Prefab/FxSushe/FxCanTinbeicai02.prefab	Assets/Product/Effect/Prefab/FxSushe/FxCanTinbeicai01.prefab	Assets/Product/Effect/Prefab/FxSushe/FxCanTinpengren02.prefab	Assets/Product/Effect/Prefab/FxSushe/FxCanTinpengren01.prefab	Assets/Product/Effect/Prefab/FxSushe/FxCanTinxiaoshou.prefab	Assets/Product/Effect/Prefab/FxSushe/FxQHappy01.prefab	Assets/Product/Effect/Prefab/FxSushe/FxQAngry.prefab
+SkyTowerInfo		Lv	Required for Upgrade							
+PerformUnlockText		<color=#70A998>%s</color>解锁	<color=#70A998>%s</color>解锁							
+PerformTypeIcon		Assets/Product/Texture/Image/UiRestaurant/UiRestaurantStory.png	Assets/Product/Texture/Image/UiRestaurant/UiRestaurantIndent.png							
+PerformTypeTitle		Daily Event	Building Order	Sudden Event						
+PerformTypeTitleIocn		Assets/Product/Texture/Image/UiRestaurant/UiRestaurantPopupStoryTxt.png	Assets/Product/Texture/Image/UiRestaurant/UiRestaurantPopupStoryTxt.png							
+SwitchStaffContent		Switch Staff	[<color=#b55252>%s</color>] is currently working at [<color=#b55252>%s%s</color>]. Reassign to a new task?							
+PerformNotStartText		Please claim %s first.								
+SkyTowerActivityProgressText		Restaurant Level: %s								
+RunningTimeStr		Open Hours Left: %s	Exchange Time Left: %s							
+InstantiateFloorRange		5								
+SkyTowerLevelText		Dream Level: %s								
+EnoughColor		FFFFFF	FF4949							
+ImproveColor		70A998	313850							
+FloorLevelUpLongPress		500	2							
+MaxFloorId		20								
+MaxLv		55								
+FloorLevelUpWorkText		New Floor	——Dream Stage automatically enters a new floor	New Workstation	New Content	Offline Income Cap				
+FloorLevelUpEffectText		Dream Fund Income	Activation Time	Cooldown	Auto Charge Rate	Enhance Work Time Bonus	Enhance Zone Expansion	New Content		
+FloorUnlockWorkbenchText		All workstations on this floor	All workstations on the %s floor(s) above	All workstations on the %s floor(s) below						
+FloorUnlockNewFunctionalText		Daily Event	Building Order	Character	Shining Product	Rough Material				
+DanceUnlockNewFunctionalText		Amplification	Movable	Auto-Charge						
+DirectionText		Left	Central	Right	All					
+FloorText		Floor %s								
+WorkbenchText		Workstation								
+FloorLevelUpMaxShowItemCount		3	6							
+Symbol		、	&							
+NewText		New								
+UnlockAreaDefaultValue		99								
+UnlockNewGroupTitle		New Zone Unlocked	New Content Unlocked							
+ItemTagName		Rough Material	Shining Product							
+MenuBonus		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerMenuBonus01.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerMenuBonus02.png							
+PerformProgressFinishColor		27B057								
+ProductSpeedText		Crafting Speed: %ss/item								
+SaleSpeedText		Promo Speed: %ss/item	Promo Speed: %ss/%s items							
+MaterialsSpeedText		Order Speed: %ss/item								
+ProductionNeedText		Crafting %s requires:								
+StaffUpgradeLongPressInterval		120								
+StaffUpgradeLongPressActiveTime		0.5								
+SkyTowerLevelName		Lv.%s								
+SkillEffectStateText		Inactive	Active	Available Soon	Expiring Soon					
+SkillEffectStateDesc		%s <color=#356C38>%s</color>	%s <color=#E01B1B>%s</color>	%s <color=#17FF69>%s</color>	%s <color=#E01B1B>%s</color>					
+WorkPosDropTip		Cannot place due to workstation limit.								
+FloorGroupCount		4								
+FloorGroupStartFloorId		1	6	11	16					
+FloorGroupEventId		241	258	270	283					
+WorkTypeIcon		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconSet.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconCraft.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconCoin.png						
+WorkTypeName		Order	Crafting	Promo						
+SkillUnknownName		<B>???</B>								
+WorkRoleLevelDesc		%s (Lv.%s)	Lv.%s							
+ExamineGoldBubbleText		For every %s 　　　obtained during the event	Obtain %s							
+SkillTypeIcon		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconComSkill.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconHopeSkill.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconAuraSkill.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconComSkill.png					
+SkillAdditionText		Time -%ss	Price +%s	Quantity +%s						
+SkillAdditionProduceText		Drop %s	Extra %s	Extra %s						
+SkillEffectiveColor		27B057	8C8C8C							
+ActivityDataRequestInterval		3600								
+GoldNoEnoughTip		Insufficient Dream Funds								
+FloorGroup3DName		▲ %s ▲	▲ %s ▲	▲ %s ▲						
+IconFoodA		Assets/Product/Texture/Image/IconTools/IconActivityConsume2025001.png								
+IconFoodB		Assets/Product/Texture/Image/IconTools/IconActivityConsume2027001.png								
+IconFoodC		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon01.png								
+IconFoodD		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon03.png								
+IconFoodE		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon04.png								
+IconFoodF		Assets/Product/Texture/Image/IconTools/ItStoneI040010.png								
+IconFoodG		Assets/Product/Texture/Image/IconTools/UiScoreTowerIcon01.png								
+IconFoodH		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon05.png								
+IconFoodI		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon06.png								
+IconFoodJ		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon07.png								
+IconFoodK		Assets/Product/Texture/Image/IconTools/IconFubenYuanxiao5.png								
+IconFoodL		Assets/Product/Texture/Image/IconTools/IconActivityConsumeTic2017002.png								
+IconFoodM		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon08.png								
+IconFoodN		Assets/Product/Texture/Image/IconTools/IconTheatre08.png								
+IconFoodO		Assets/Product/Texture/Image/IconTools/IconTheatre07.png								
+IconFoodP		Assets/Product/Texture/Image/IconTools/UiMusicGameActivity01.png								
+IconFoodQ		Assets/Product/Texture/Image/IconTools/KillZoneShowGoods01.png								
+IconIngredientA		Assets/Product/Texture/Image/IconTools/IconActivityConsume2028001.png								
+IconIngredientB		Assets/Product/Texture/Image/IconTools/IconActivityConsume2029001.png								
+IconIngredientC		Assets/Product/Texture/Image/IconTools/IconActivityConsumeTic2017001.png								
+IconIngredientD		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon02.png								
+IconIngredientE		Assets/Product/Texture/Image/IconTools/UiNonogramItem17.png								
+IconIngredientF		Assets/Product/Texture/Image/IconTools/IconMain4003.png								
+IconIngredientG		Assets/Product/Texture/Image/IconTools/UiConnectingLineGameItem02.png								
+IconIngredientH		Assets/Product/Texture/Image/IconTools/IconGameCollection01.png								
+IconIngredientI		Assets/Product/Texture/Image/IconTools/IconRougeItem07.png								
+IconIngredientJ		Assets/Product/Texture/Image/IconTools/UiNonogramItem09.png								
+IconIngredientK		Assets/Product/Texture/Image/IconTools/IconActivityConsumeTic2001001.png								
+IconIngredientL		Assets/Product/Texture/Image/IconTools/IconTheatre03.png								
+IconIngredientM		Assets/Product/Texture/Image/IconTools/PBRItemsIconCoin.png								
+IconIngredientN		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon09.png								
+IconIngredientO		Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon03.png								
+AcceleratePopupText		%ss	x%s	(Max Reached)	(Insufficient Materials)					
+AccelerateReturnTip		Returned Items	Partial speedup applied. Returned %s [%s].							
+FloorHeight		3.3								
+SkyTowerTaskNoneTxt		Reserved String	Daily Missions Completed	Reserved String						
+MainBtnExpandText		Rough Material	Shining Product							
+SpeedUpLimitReached		<size=20><color=#676BD5>/%s (Limit Reached)</color></size>	<size=20><color=#D5676D>/%s (Insufficient Materials)</color></size>							
+StaffUpgradeCoinEnoughColor		7de4e9	FF0000							
+CharacterLevelPreviewColor		0D70BC								
+LevelUpEffectDelayTime		2000	3000							
+UnlockWorkDelayTime		1500	2000							
+UnlockWorkEffectPath		Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerWorkDust001.prefab								
+LockPerformText		Next Order:	Next Event:							
+CharacterLevelUpCoinNotEnough		Insufficient Promotion Merit								
+LargeNumberShow		k	10000	m	10000000	b	10000000000			
+IconIngredientP		Assets/Product/Texture/Image/IconTools/IconSuperTower01.png								
+FxEventFurniture		Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerNewPlace001.prefab								
+FxLockFurniture		Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerLvUp001.prefab								
+DestoryFxEventFurnitureTime		4000								
+LockPerformGuideId		65129								
+TaskRewardPreviewItemIds		50005	102	11000355						
+TaskRewardPreviewItemCounts		2000	2000	1						
+CharacterSkillsNotActivated		Staff skill not in effect								
+FloorGroupEnvCueId		8701	8702	8703	8704					
+StartWorkCueId		8718								
+SkillInvalidCueId		8719								
+AppearPerformCueId		8715								
+CommonColonFormat		%s:%s								
+DefaultCharacterId		43								

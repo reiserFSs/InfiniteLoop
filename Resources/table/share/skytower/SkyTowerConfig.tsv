@@ -1,0 +1,21 @@
+Key	Notes	Values[1]	Values[2]
+InitIngredient		1	2
+InitIngredientCount		160	20
+InitFood			
+InitFoodCount			
+OfflineBillTime		1	
+OfflineBillLimit		12000	
+AccelerateUseLimit		9999	
+AccelerateTime		1800	
+AccelerateDailyNum		2	
+AcceleratePerUseLimit		10	
+MaxSettleTime		108000	
+UrgentTime		7200	
+InitItem		38000003	
+InitItemCount		3	
+GoldItemId		38000001	
+CharacterLvUpItemId		38000002	
+SpeedUpItemId		38000003	
+GoldTransCharaLvUpItemBase		100	
+GoldTransCharaLvUpItemNum		1	
+MinWorkTime		20	

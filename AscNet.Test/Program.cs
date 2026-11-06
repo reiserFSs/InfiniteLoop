@@ -96,6 +96,11 @@ namespace AscNet.Test
                     ValidateMaintainerActionCompatibility();
                     return;
                 }
+                if (args.Contains("--sky-tower-only"))
+                {
+                    ValidateSkyTowerCompatibility();
+                    return;
+                }
                 if (args.Contains("--cn-sdk-config-only"))
                 {
                     ValidateKuroSdkCompatibilityEndpoints().GetAwaiter().GetResult();
@@ -151,6 +156,11 @@ namespace AscNet.Test
                 if (args.Contains("--big-world-task-only"))
                 {
                     ValidateBigWorldTask();
+                    return;
+                }
+                if (args.Contains("--anniversary-preheating-only"))
+                {
+                    ValidateAnniversaryPreHeatingCompatibility();
                     return;
                 }
                 if (args.Contains("--version49-events-only"))
@@ -608,6 +618,16 @@ namespace AscNet.Test
                     RunAudioPlayerCompatibility();
                     ValidateGuildWarPopupActionCompatibility();
                     ValidateVersion47ConcertStartCompatibility();
+                    return;
+                }
+                if (args.Contains("--reform-only"))
+                {
+                    ValidateReformCompatibility();
+                    return;
+                }
+                if (args.Contains("--pacman2-only"))
+                {
+                    ValidatePacMan2Compatibility();
                     return;
                 }
                 if (args.Contains("--same-color-game-compat-only"))
@@ -1326,6 +1346,7 @@ namespace AscNet.Test
                 Step("ValidateCerberusGameCompatibility", () => ValidateCerberusGameCompatibility());
                 Step("ValidateProfileCompatibility", () => ValidateProfileCompatibility());
                 Step("ValidateMaintainerActionCompatibility", () => ValidateMaintainerActionCompatibility());
+                Step("ValidateSkyTowerCompatibility", () => ValidateSkyTowerCompatibility());
                 Step("ValidateUltimaAwakenCompatibility", () => ValidateUltimaAwakenCompatibility());
                 Step("ValidateLoadingOptionCompatibility", () => ValidateLoadingOptionCompatibility());
                 Step("ValidateDormDispatchAllCompatibility", () => ValidateDormDispatchAllCompatibility());
@@ -1461,8 +1482,11 @@ namespace AscNet.Test
                 Step("ValidateEnvelopeCatchUpAndReissue", () => ValidateEnvelopeCatchUpAndReissue());
                 Step("ValidateMissingCalendarAscNetPolicy", () => ValidateMissingCalendarAscNetPolicy());
                 Step("ValidateVersion49EventAvailability", () => ValidateVersion49EventAvailability());
+                Step("ValidateAnniversaryPreHeatingCompatibility", () => ValidateAnniversaryPreHeatingCompatibility());
                 Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
                 Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());
+                Step("ValidatePacMan2Compatibility", () => ValidatePacMan2Compatibility());
+                Step("ValidateReformCompatibility", () => ValidateReformCompatibility());
                 Step("ValidateEquipmentSlotNotifications", () => ValidateEquipmentSlotNotifications());
                 Step("RunFangKuaiCompatibility", () => RunFangKuaiCompatibility());
                 Step("RunPunishaarCompatibility", () => RunPunishaarCompatibility());

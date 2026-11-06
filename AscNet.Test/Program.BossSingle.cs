@@ -2035,12 +2035,6 @@ internal partial class Program
                 row.MinPlayerLevel > previousGrade.MaxPlayerLevel);
             state.BossOldLevelType = previousGrade.LevelType;
             player.PlayerData.Level = checked((uint)previousGrade.MaxPlayerLevel);
-            Dictionary<int, List<int>> previousRotationOptions =
-                (Dictionary<int, List<int>>?)buildBossListOptions.Invoke(null, [
-                    state,
-                    checked((int)player.PlayerData.Level),
-                    currentActivity - 1
-                ]) ?? throw new InvalidDataException("Previous Pain Cage rotation options were not generated.");
             player.PlayerData.Level = checked((uint)currentGrade.MinPlayerLevel);
             Dictionary<int, List<int>> currentRotationOptions =
                 (Dictionary<int, List<int>>?)buildBossListOptions.Invoke(null, [
@@ -2048,12 +2042,34 @@ internal partial class Program
                     checked((int)player.PlayerData.Level),
                     currentActivity
                 ]) ?? throw new InvalidDataException("Current Pain Cage rotation options were not generated.");
-            AssertEqual(true, previousRotationOptions.ContainsKey(previousGrade.LevelType),
-                "Pain Cage prior grade was selectable before the level-band change");
             AssertEqual(true, currentRotationOptions.ContainsKey(currentGrade.LevelType),
                 "Pain Cage new grade is selectable after the level-band change");
-            int previousRotationSectionId = previousRotationOptions[previousGrade.LevelType][0];
             int currentRotationSectionId = currentRotationOptions[currentGrade.LevelType][0];
+            // Section choice is a hash of activity:grade:group and the grades' groups share sections, so the
+            // week-dependent "previous week" can legitimately repeat the current pick. The fixture models some
+            // earlier epoch whose first previous-grade section differs from the current one: scan back from
+            // currentActivity - 1 (production reads the Stage's own ownership epoch, so any epoch is valid).
+            player.PlayerData.Level = checked((uint)previousGrade.MaxPlayerLevel);
+            int priorEpoch = currentActivity - 1;
+            Dictionary<int, List<int>> previousRotationOptions;
+            while (true)
+            {
+                previousRotationOptions =
+                    (Dictionary<int, List<int>>?)buildBossListOptions.Invoke(null, [
+                        state,
+                        checked((int)player.PlayerData.Level),
+                        priorEpoch
+                    ]) ?? throw new InvalidDataException("Previous Pain Cage rotation options were not generated.");
+                AssertEqual(true, previousRotationOptions.ContainsKey(previousGrade.LevelType),
+                    "Pain Cage prior grade was selectable before the level-band change");
+                if (previousRotationOptions[previousGrade.LevelType][0] != currentRotationSectionId)
+                    break;
+                priorEpoch--;
+                if (priorEpoch < currentActivity - 64)
+                    throw new InvalidDataException("No earlier Pain Cage epoch selects a different first section.");
+            }
+            player.PlayerData.Level = checked((uint)currentGrade.MinPlayerLevel);
+            int previousRotationSectionId = previousRotationOptions[previousGrade.LevelType][0];
             AssertEqual(true, previousRotationSectionId != currentRotationSectionId,
                 "Pain Cage previous and current grades select different normal sections");
             int previousRotationStageId = sections.Single(row =>
@@ -2077,7 +2093,7 @@ internal partial class Program
             previousRotationDatum.Passed = true;
             AssertEqual(currentActivity, state.BossActivityNo,
                 "Pain Cage prior-epoch Stage fixture keeps Player already current");
-            harness.Session.stage.BossSingleActivityNo = currentActivity - 1;
+            harness.Session.stage.BossSingleActivityNo = priorEpoch;
             MethodInfo persistStageOwnership = RequiredMethod(
                 module,
                 "PersistStageOwnershipReconciliation",

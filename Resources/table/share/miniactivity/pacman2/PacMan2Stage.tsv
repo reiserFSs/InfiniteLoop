@@ -1,0 +1,34 @@
+Id	Name	TimeId	PreStageId	GroupId	GroupOrder	RedOrb	Prefab	InitialHp	OrbsAttackThreshold	KeyReward	Star[1]	Star[2]	Star[3]	StarReward[1]	StarReward[2]	StarReward[3]	ShowProp[1]	ShowProp[2]	ShowProp[3]	ShowProp[4]	ShowProp[5]	ShowGhost[1]	ShowGhost[2]	ShowGhost[3]	ReviveProtectionTime	StageIcon
+1	<color>01</color>	0	0	1	1	29	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1001.prefab	5	30	66459	290	300	310	66423	66424	66425	5					6			5000	
+2	<color>02</color>	0	1	1	2	40	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1002.prefab	5	30	66460	400	500	600	66426	66427	66428	5	3				6			5000	
+3	<color>03</color>	0	2	1	3	50	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1003.prefab	5	30	66461	500	600	700	66429	66430	66431	5	10				6	7		5000	
+4	<color>04</color>	0	3	1	4	45	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1007.prefab	5	30	66462	450	570	670	66432	66433	66434	5	3	10			6	7		5000	
+5	<color>05</color>	0	4	1	5	68	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1004.prefab	5	30	66463	680	780	880	66435	66436	66437	5	3	10	4		6	7		5000	
+6	<color>06</color>	0	5	1	6	60	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1008.prefab	5	30	66464	600	720	820	66438	66439	66440	5	3	10	4		6	7		5000	
+7	<color>07</color>	0	6	1	7	70	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1005.prefab	5	30	66465	700	850	960	66441	66442	66443	5	3	10	4	12	6	7	8	5000	
+8	<color>08</color>	0	7	1	8	65	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1006.prefab	5	30	66466	650	830	940	66444	66445	66446	5	3	10	4	12	6	7	8	5000	
+9	<color>09</color>	0	8	1	9	85	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1009.prefab	5	30	66467	850	950	1050	66447	66448	66449	5	3	10	4	12	6	7	8	5000	
+10	<color>10</color>	0	9	1	10	83	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage1010.prefab	5	30	66468	830	980	1080	66450	66451	66452	5	3	10	4	12	6	7	8	5000	
+11	<color>11</color>	0	10	1	11	102	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage10011.prefab	5	30	66469	1020	1120	1220	66453	66454	66455	5	3	10	4		6	7		5000	
+12	<color>12</color>	0	11	1	12	111	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage10012.prefab	5	30	66470	1110	1400	1500	66456	66457	66458	5	3	10	4		6	7		5000	
+13	<color>01</color>	0	0	2	1	30	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2001.prefab	6	20	67325	10	20	30	67288	67289	67290	4					6			2000	
+14	<color>02</color>	0	13	2	2	80	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2002.prefab	6	65	67326	20	40	80	67291	67292	67293	3	4				6			2000	
+15	<color>03</color>	0	14	2	3	40	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2003.prefab	6	48	67327	20	30	40	67294	67295	67296	12	3	4			13	6		2000	
+16	<color>04</color>	0	15	2	4	30	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2004.prefab	6	26	67328	10	20	30	67297	67298	67299	12	4				13	6		2000	
+17	<color>05</color>	0	16	2	5	60	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2005.prefab	6	56	67329	20	30	60	67300	67301	67302	15	12	3	4		14	6		2000	
+18	<color>06</color>	0	17	2	6	60	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2006.prefab	6	58	67330	20	30	60	67303	67304	67305	15	12	4			14	6		2000	
+19	<color>07</color>	0	18	2	7	80	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2007.prefab	6	59	67331	30	60	80	67306	67307	67308	15	12	3	4		14	13	6	2000	
+20	<color>08</color>	0	19	2	8	80	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2008.prefab	6	59	67332	30	60	80	67309	67310	67311	16	15	12	3	4	14	13	6	2000	
+21	<color>09</color>	0	20	2	9	68	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2009.prefab	6	62	67333	20	40	80	67312	67313	67314	16	15	12	3	4	14	13	6	2000	
+22	<color>10</color>	0	21	2	10	92	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2010.prefab	6	84	67334	30	60	110	67315	67316	67317	16	15	12	4		13	6		2000	
+23	<color>11</color>	0	22	2	11	83	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2011.prefab	6	76	67335	30	60	100	67318	67319	67320	16	15	12	4		13	6		2000	
+24	<color>12</color>	0	23	2	12	119	Assets/Product/TileMap/PacMan2/PacMan2Stage/PacMan2Stage2012.prefab	6	108	67336	40	80	140	67321	67322	67323	16	15	12	4		14	13		2000	
+25	<color>01</color>	51102	0	3	1	9	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3001.prefab	6	5	69855	7	9	12	69823	69824	69825	4					6			2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia01.png
+26	<color>02</color>	51102	25	3	2	40	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3002.prefab	6	10	69856	20	40	70	69826	69827	69828	4					6	13		2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia02.png
+27	<color>03</color>	51102	26	3	3	30	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3003.prefab	6	40	69857	20	30	60	69829	69830	69831	3	4				6			2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia03.png
+28	<color>04</color>	51102	27	3	4	30	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3004.prefab	6	40	69858	20	30	60	69832	69833	69834	16	3	4			14	6		2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia04.png
+29	<color>05</color>	51102	28	3	5	50	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3005.prefab	6	35	69859	30	50	90	69835	69836	69837	16	15	12	3	4	14	13	6	2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia05.png
+30	<color>06</color>	51103	29	3	6	40	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3006.prefab	6	40	69860	20	40	70	69838	69839	69840	16	15	12	3	4	14	13	6	2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia06.png
+31	<color>07</color>	51103	30	3	7	60	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3007.prefab	6	20	69861	40	60	100	69841	69842	69843	16	15	12	3	4	14	13	6	2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia07.png
+32	<color>08</color>	51103	31	3	8	40	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage300801.prefab	6	25	69862	30	40	80	69844	69845	69846	16	15	12	3	4	14	13	6	2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia08.png
+33	<color>09</color>	51103	32	3	9	30	Assets/Product/TileMap/PacMan3/PacMan3Stage/PacMan3Stage3009.prefab	6	30	69863	20	30	60	69847	69848	69849	16	15	12	3	4	14	13	6	2000	Assets/Product/Texture/Image/UiPacMan2/UiPacMan3/UiPacMan3MainLeia09.png

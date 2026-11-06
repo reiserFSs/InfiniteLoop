@@ -1,0 +1,7 @@
+Id	ChapterDesc	OpenTime	Order	ChapterEventId	ChapterEventDesc	ChapterStageId[1]	ChapterStageId[2]	Img	ImgRed
+1	Rising Sun in the Dark	51301	0	1		30162552		Assets/Product/Texture/Image/UiReform/UiReformGroup1.png	
+2	Where Wishes Take Root	51301	1	1		30162553	30162558	Assets/Product/Texture/Image/UiReform/UiReformGroup2.png	Assets/Product/Texture/Image/UiReform/UiReformGroupHard2.png
+3	Memories Returning to the Tide	51301	2	1		30162554	30162559	Assets/Product/Texture/Image/UiReform/UiReformGroup3.png	Assets/Product/Texture/Image/UiReform/UiReformGroupHard3.png
+4	Unweighed by Scales	51301	3	1		30162555	30162560	Assets/Product/Texture/Image/UiReform/UiReformGroup4.png	Assets/Product/Texture/Image/UiReform/UiReformGroupHard4.png
+5	When the Heart Inclines	51301	4	1		30162556	30162561	Assets/Product/Texture/Image/UiReform/UiReformGroup5.png	Assets/Product/Texture/Image/UiReform/UiReformGroupHard5.png
+6	Journey Beyond the Stars	51301	5	1		30162557	30162562	Assets/Product/Texture/Image/UiReform/UiReformGroup6.png	Assets/Product/Texture/Image/UiReform/UiReformGroupHard6.png

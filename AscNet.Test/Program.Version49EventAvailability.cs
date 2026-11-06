@@ -28,7 +28,7 @@ internal static partial class Program
         Dictionary<int, SkipFunctionalTable> skips = TableReaderV2.Parse<SkipFunctionalTable>()
             .GroupBy(row => row.SkipId).ToDictionary(group => group.Key, group => group.First());
         bool Unserved(int? skipId) => skipId is int id && skips.TryGetValue(id, out SkipFunctionalTable? skip)
-            && (skip.Origin == 9 || skip.UiName == "SkipToSkyTowerMain");
+            && skip.Origin == 9;
         void AssertOpenByPolicy(int timeId, string source, string what)
         {
             AssertEqual(true, ActivityScheduleService.TryGet(timeId, out ActivityScheduleEntry entry), $"{what}: TimeId {timeId} has a window");
@@ -50,7 +50,7 @@ internal static partial class Program
                 AssertOpenByPolicy(activity.TimeId, "", $"Battle Screen entry {activity.Name}");
         }
 
-        // Events page: every grouped entry the server can serve is open; web-page and Dreamhouse Tycoon entries are not.
+        // Events page: every grouped entry the server can serve is open; web-page entries are not.
         Dictionary<int, ActivityBriefGroupTable> groups = TableReaderV2.Parse<ActivityBriefGroupTable>().ToDictionary(row => row.Id);
         int[] grouped = TableReaderV2.Parse<ActivityBriefTable>().SelectMany(row => row.GroupIdList).Where(groups.ContainsKey).ToArray();
         foreach (ActivityBriefGroupTable group in grouped.Select(id => groups[id]).Where(row => row.TimeId is > 0))
@@ -63,7 +63,7 @@ internal static partial class Program
         AssertEqual(true, ActivityScheduleService.IsOpen(51651, now), "Journal of Promise (Leia affection story, group 143)");
         AssertEqual(true, ActivityScheduleService.IsOpen(51501, now), "Simulated Battlefield (Multi Clear, group 8)");
         AssertEqual(false, ActivityScheduleService.IsOpen(51021, now), "Homeward-Bound Voyage opens a retail H5 page with the player token");
-        AssertEqual(false, ActivityScheduleService.IsOpen(51011, now), "Dreamhouse Tycoon: SkyTower requests have no handlers");
+        AssertEqual(true, ActivityScheduleService.IsOpen(51011, now), "Dreamhouse Tycoon: SkyTower handlers exist, so its window is open");
 
         // Window rendering: the client formats the raw bounds ("MM.dd", "Remaining Time: N day(s)").
         MethodInfo build = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),

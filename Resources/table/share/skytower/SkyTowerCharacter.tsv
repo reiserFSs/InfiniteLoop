@@ -1,0 +1,44 @@
+Id	Name	Intro	Priority	DialogIds[1]	DialogIds[2]	DialogIds[3]	FloorGroup	IsUniversal	Portrait	Desc	SkillTypes[1]	SkillTypes[2]
+1	Ayla	BPF-22	43	4	5	6	1	0	Assets/Product/Texture/Image/Role/RoleHeadR3Aila1Q.png	<Icon=IconIngredientA|35|35|0.5/>Dancing Plumage Order Quantity increased	1	
+2	Selena	BPF-06	42	7	8	9	1	0	Assets/Product/Texture/Image/Role/RoleHeadR5Sailinna1Q.png	Crafting <Icon=IconFoodA|35|35|0.5/>Twilight Bloom Knot consumes extra materials to increase Yield	2	
+3	Bianca	BPO-87	41	10	11	12	1	0	Assets/Product/Texture/Image/Role/RoleHeadR5Bianka1Q.png	<Icon=IconIngredientB|35|35|0.5/>Starfall Petals Order Quantity increased	1	
+4	Nirvatia	BPC-03	40	13	14	15	1	0	Assets/Product/Texture/Image/Role/RoleHeadR3Nietiya1Q.png	Crafting <Icon=IconFoodB|35|35|0.5/>Iridescent Flower Crown consumes extra materials to increase Yield	2	
+5	Rosetta	IH-31C	39	16	17	18	1	0	Assets/Product/Texture/Image/Role/RoleHeadR4Luosaita1Q.png	<Icon=IconIngredientC|35|35|0.5/>Moon-Woven Silver Order Quantity increased	1	
+6	Ishmael	GNS-■■■	38	19	20	21	1	0	Assets/Product/Texture/Image/Role/RoleHeadR3Cibeizhe1Q.png	<Icon=IconIngredientO|35|35|0.5/>Curtainfall Star Order Quantity increased	1	
+7	Jetavie	MAV-01	37	22	23	24	1	0	Assets/Product/Texture/Image/Role/RoleHeadR2Jietawei1Q.png	During Promo, <Icon=IconFoodC|35|35|0.5/>Lingering Interlude price increased	3	
+8	Bambinata	BPM-11	36	1	2	3	1	0	Assets/Product/Texture/Image/Role/RoleHeadR2Bangbinata1Q.png	During Promo, <Icon=IconFoodE|35|35|0.5/>Starlit Blossoms sales quantity per order increased	3	
+9	Leia	EBB-01	35	124	125	126	1	0	Assets/Product/Texture/Image/Role/RoleHeadR3Laiya1Q.png	Crafting <Icon=IconFoodE|35|35|0.5/>Starlit Blossoms consumes extra materials to increase Yield	2	
+10	Kamui	BPE-72	34	25	26	27	2	0	Assets/Product/Texture/Image/Role/RoleHeadR4Shenwei1Q.png	In [Life's Luminance], for each staff wish fulfilled, <Icon=IconIngredientE|35|35|0.5/>Soothing Amber order time is reduced	1	4
+11	Chrome	BPE-07	33	28	29	30	2	0	Assets/Product/Texture/Image/Role/RoleHeadR3KuluomuQ.png	In [Life's Luminance], Shining Product promo prices scale with fulfilled staff wishes.	3	4
+12	Camu	EXN-03	32	31	32	33	2	0	Assets/Product/Texture/Image/Role/RoleHeadKamuQ.png	When in the middle: <Icon=IconFoodF|35|35|0.5/>Dawnlight Ampoule Crafting Time is reduced	2	4
+13	Karenina	BPD-72	31	34	35	36	2	0	Assets/Product/Texture/Image/Role/RoleHeadR5Kalienina1Q.png	When on Floor 7: <Icon=IconIngredientF|35|35|0.5/>Wispy Down Order Time is reduced	1	4
+14	Teddy	BPD-27	30	37	38	39	2	0	Assets/Product/Texture/Image/Role/RoleHeadR3Buouxiong1Q.png	When on the left of Karenina's workstation: <Icon=IconFoodG|35|35|0.5/>Soothing Honey Crafting Time is reduced	2	4
+15	Wanshi	BPE-47	29	40	41	42	2	0	Assets/Product/Texture/Image/Role/RoleHeadR3Wanshi1Q.png	Reduces <Icon=IconFoodH|35|35|0.5/>Cozy Protein Crafting Time for the staff to the right	2	5
+16	Watanabe	BPO-29	28	43	44	45	2	0	Assets/Product/Texture/Image/Role/RoleHeadR4Dubian1Q.png	When on the right: <Icon=IconFoodH|35|35|0.5/>Cozy Protein Crafting Time is reduced	2	4
+17	Adelyde	BPA-09	27	46	47	48	2	0	Assets/Product/Texture/Image/Role/RoleHeadR3Adelaide1Q.png	Reduces <Icon=IconIngredientG|35|35|0.5/>Lumina Matrix Order Time for the staff below	1	5
+18	Helentine	TBA-04	26	49	50	51	2	0	Assets/Product/Texture/Image/Role/RoleHeadR3Helentine1Q.png	Reduces <Icon=IconFoodI|35|35|0.5/>Morningstar Spark Crafting Time for the staff to the right	2	5
+19	Liv	BPN-08	25	52	53	54	2	0	Assets/Product/Texture/Image/Role/RoleHeadR5Lifu1Q.png	Reduces <Icon=IconFoodI|35|35|0.5/>Morningstar Spark Crafting Time for the staff below	2	5
+20	Lucia	BPL-01	24	55	56	57	2	0	Assets/Product/Texture/Image/Role/RoleHeadR6Luxiya1Q.png	When on Floor 10: <Icon=IconIngredientD|35|35|0.5/>Blue Hour Crystal Order Time is reduced	1	4
+21	Lee	BPN-06	23	58	59	60	2	0	Assets/Product/Texture/Image/Role/RoleHeadR4Li1Q.png	When on the right: <Icon=IconFoodI|35|35|0.5/>Morningstar Spark Crafting Time is reduced	2	4
+22	Haicma	MPA-01	22	61	62	63	3	0	Assets/Product/Texture/Image/Role/RoleHeadHakamaQnew.png	<Icon=IconIngredientH|35|35|0.5/>Healing Crystal Order Time reduced	1	
+23	Nanami	MPL-00	21	64	65	66	3	0	Assets/Product/Texture/Image/Role/RoleHeadR6Yongyechao1Q.png	<Icon=IconFoodJ|35|35|0.5/>Sweet Moonmist Crafting Time reduced	2	
+24	Changyu	ADL-17	20	67	68	69	3	0	Assets/Product/Texture/Image/Role/RoleHeadChangYuQ.png	When on the right: <Icon=IconIngredientI|35|35|0.5/>Twilight Crystal Cluster Order Time is reduced	1	4
+25	Sophia	ADL-22	19	70	71	72	3	0	Assets/Product/Texture/Image/Role/RoleHeadSufeiyaQ.png	<Icon=IconFoodK|35|35|0.5/>Twilight Blend Crafting Time reduced	2	
+26	Qu	KCS-00	18	73	74	75	3	0	Assets/Product/Texture/Image/Role/RoleHeadR3Qu1Q.png	When in the middle: <Icon=IconFoodL|35|35|0.5/>Crimson Dewstone Crafting Time is reduced	2	4
+27	Hanying	MPK-12	17	76	77	78	3	0	Assets/Product/Texture/Image/Role/RoleHeadR3Hanying1Q.png	<Icon=IconIngredientJ|35|35|0.5/>Crimson Nectar Order Time reduced	1	
+28	Lilith	VAF-38	16	79	80	81	3	0	Assets/Product/Texture/Image/Role/RoleHeadR3Lilith1Q.png	When on the left: <Icon=IconIngredientH|35|35|0.5/>Healing Crystal Order Time is reduced	1	4
+29	Roland	BPB-26	15	82	83	84	3	0	Assets/Product/Texture/Image/Role/RoleHeadR2LuolanQ.png	<Icon=IconIngredientJ|35|35|0.5/>Crimson Nectar Order Time reduced	1	
+30	α	α	14	85	86	87	3	0	Assets/Product/Texture/Image/Role/RoleHeadR7Luxiya1Q.png	<Icon=IconIngredientK|35|35|0.5/>Starlight Slumber Order Time reduced	1	
+31	Luna	CDR-02	13	88	89	90	3	0	Assets/Product/Texture/Image/Role/RoleHeadR4Luna1Q.png	When in the middle: <Icon=IconFoodM|35|35|0.5/>Moontear Blossom Crafting Time is reduced	2	4
+32	Lamia	ATL-01	12	91	92	93	3	0	Assets/Product/Texture/Image/Role/RoleHeadR3Lamiya1Q.png	<Icon=IconFoodM|35|35|0.5/>Moontear Blossom Promo Time reduced	3	
+33	Vera	BPN-13	11	94	95	96	4	0	Assets/Product/Texture/Image/Role/RoleHeadR4Weila1Q.png	When on the right: <Icon=IconIngredientL|35|35|0.5/>Groove Rhythm Order Time is reduced	1	4
+34	Noctis	BPO-03	10	97	98	99	4	0	Assets/Product/Texture/Image/Role/RoleHeadR2Nuoketi1Q.png	<Icon=IconFoodN|35|35|0.5/>Opening Score Crafting Time reduced	2	
+35	No. 21	BPH-22	9	100	101	102	4	0	Assets/Product/Texture/Image/Role/RoleHeadR3Twentyone1Q.png	<Icon=IconFoodN|35|35|0.5/>Opening Score Promo Time reduced	3	
+36	Bridget	BPO-42	8	103	104	105	4	0	Assets/Product/Texture/Image/Role/RoleHeadR2Bulijite1Q.png	<Icon=IconFoodO|35|35|0.5/>Tipsy Night Crafting Time reduced	2	
+37	Yata	BPN-48	7	106	107	108	4	0	Assets/Product/Texture/Image/Role/RoleHeadR2Bazhi1Q.png	<Icon=IconIngredientN|35|35|0.5/>Iridescent Disc Order Time reduced	1	
+38	Discord	BPN-49	6	109	110	111	4	0	Assets/Product/Texture/Image/Role/RoleHeadR2Xiezou1Q.png	<Icon=IconFoodP|35|35|0.5/>Rave Wave Crafting Time reduced	2	
+39	Noan	BPZ-01	5	112	113	114	4	0	Assets/Product/Texture/Image/Role/RoleHeadNuoanQnew.png	<Icon=IconFoodQ|35|35|0.5/>Neon Night Finale Crafting Time reduced	2	
+40	Alisa	UPC-15	4	115	116	117	4	0	Assets/Product/Texture/Image/Role/RoleHeadR3Yalisha1Q.png	<Icon=IconIngredientP|35|35|0.5/>Private Audio Box Order Time reduced	1	
+41	Pulao	KCS-54	3	118	119	120	4	0	Assets/Product/Texture/Image/Role/RoleHeadPulaoQnew.png	<Icon=IconIngredientL|35|35|0.5/>Groove Rhythm Order Time reduced	1	
+42	Veronica	MPK-01	2	121	122	123	4	0	Assets/Product/Texture/Image/Role/RoleHeadR3Weiluonika1Q.png	<Icon=IconIngredientM|35|35|0.5/>Jazz Note Order Time reduced	1	
+43	Pokey		1				-1	1	Assets/Product/Texture/Image/Role/RoleChangQiangQ.png		6	

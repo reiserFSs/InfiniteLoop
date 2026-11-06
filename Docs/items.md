@@ -377,6 +377,10 @@ Booster Structural Parts cap at 9,999.
 | 221 | Guardrake | 243 | Kelpie |
 | 222 | Dreamwing | | |
 
+## Dreamhouse Tycoon items (38000001-38000003)
+
+Not bag items: the client reads them from the SkyTower activity data (reward type 39), so `RewardHandler` credits `Player.SkyTower` and pushes `NotifySkyTowerData`. 38000001 Dream Funds (building upgrades; every credit counts for the "Obtain Dream Funds" task, only sales feed the promotion-merit conversion), 38000002 Promotion Merit (staff upgrades; converted from sales at `GoldTransCharaLvUpItemNum` per `GoldTransCharaLvUpItemBase` produced gold), 38000003 Dispatch Order (speed-up, cap 999999; 3 at first entry, `AccelerateDailyNum` per daily reset).
+
 ## Manual shop refresh costs
 
 `RefreshShopRequest` spends the selected catalog's `RefreshCostId` and `RefreshCostCount`, using the same inventory spend path (including Black Card balance handling) as purchases. It grants no item. Existing curated shops do not enable manual refresh; no currency or price has been invented to enable them.

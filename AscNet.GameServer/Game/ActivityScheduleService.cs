@@ -1,3 +1,5 @@
+using AscNet.Table.V2.share.skytower;
+using TaskTimeLimitTable = AscNet.Table.V2.share.task.TaskTimeLimitTable;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.activity;
 using AscNet.Table.V2.share.condition;
@@ -16,6 +18,9 @@ using AscNet.Table.V2.client.functional;
 using AscNet.Table.V2.client.fuben;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.share.punishaar;
+using AscNet.Table.V2.share.miniactivity.pacman2;
+using AscNet.Table.V2.share.miniactivity.anniversarypreheating;
+using AscNet.Table.V2.share.fuben.reform;
 
 namespace AscNet.GameServer.Game;
 
@@ -69,13 +74,17 @@ public static class ActivityScheduleService
             .Concat(TransfiniteTowerEntries())
             .Concat(CerberusGameEntries())
             .Concat(MaintainerActionEntries())
+            .Concat(AnniversaryPreHeatingEntries())
             // AscNet policy (user-approved, not retail parity): the separate self-choice lottery
             // has no authoritative calendar. Its client requires a positive end time.
             .Concat(new[] { new ActivityScheduleEntry(49501, 0, UnboundedEnd,
                 "local-policy:missing-calendar:unbounded-calendar:"
                 + "LottoPrimary:Id=5(3.7 Choice self-choice coating lottery):TimeId=49501:user-approved") })
             .Concat(MissingCalendar49Entries())
+            .Concat(SkyTowerEntries())
             .Concat(ClientCalendarEntries())
+            // After the derived/4.9 lists: 51101/51102 are also referenced there and keep that label; only 51103 is new.
+            .Concat(PacMan2Entries())
             .DistinctBy(row => row.Id)
             .OrderBy(row => row.Id)
             .ToArray());
@@ -92,21 +101,38 @@ public static class ActivityScheduleService
             $"local-policy:missing-calendar:unbounded-calendar:{row.Source}:TimeId={row.TimeId}:4.9:user-approved"));
 
     /// <summary>
+    /// AscNet policy (user-approved missing-calendar availability, AGENTS.md; not retail parity): Dreamhouse Tycoon has no
+    /// authoritative calendar. Every TimeId its own tables reference opens unbounded: SkyTowerActivity.TimeId (which is also
+    /// the client's ActivityBrief entry), the TaskTimeLimit rows listed in SkyTowerActivity.TimeLimitTaskIds, and any
+    /// SkyTowerPerform.TimeId. Any official or derived window for the same TimeId wins (DistinctBy keeps the earlier entry).
+    /// </summary>
+    private static IEnumerable<ActivityScheduleEntry> SkyTowerEntries()
+    {
+        SkyTowerActivityTable[] activities = TableReaderV2.Parse<SkyTowerActivityTable>().ToArray();
+        HashSet<int> limitIds = activities.SelectMany(row => row.TimeLimitTaskIds).ToHashSet();
+        return activities.Select(row => ("SkyTowerActivity.TimeId", row.TimeId))
+            .Concat(TableReaderV2.Parse<TaskTimeLimitTable>().Where(row => limitIds.Contains(row.Id)).Select(row => ("TaskTimeLimit.TimeId", row.TimeId ?? 0)))
+            .Concat(TableReaderV2.Parse<SkyTowerPerformTable>().Select(row => ("SkyTowerPerform.TimeId", row.TimeId)))
+            .Where(row => row.Item2 > 0).DistinctBy(row => row.Item2)
+            .Select(row => new ActivityScheduleEntry(row.Item2, 0, UnboundedEnd,
+                $"local-policy:missing-calendar:unbounded-calendar:{row.Item1}:TimeId={row.Item2}:user-approved"));
+    }
+
+    /// <summary>
     /// AscNet policy (user-approved missing-calendar availability, AGENTS.md; not retail parity): every TimeId the
     /// client's own entry tables reference gets an unbounded window unless an official or derived window exists
     /// (DistinctBy keeps the earlier entry). Derived from the tables, not a per-version list, so a re-import is the
     /// only step a new version needs: FubenClientConfig.MainPanelTimeId and FubenActivityTimeTips.TimeId drive the
     /// Battle Screen "Limited Event" button/caption, FubenActivity.TimeId the timed Battle Screen entries, and
     /// ActivityBriefGroup.TimeId the Events page entries listed by ActivityBrief.GroupIdList. An entry whose skip
-    /// the server cannot serve stays closed: ActivityUrl skips (Origin 9) hand the player token to a retail web page,
-    /// and Dreamhouse Tycoon (SkipToSkyTowerMain) issues 13 requests no handler answers. Fate draws are not here.
+    /// the server cannot serve stays closed: ActivityUrl skips (Origin 9) hand the player token to a retail web page.
+    /// Fate draws are not here.
     /// </summary>
     private static IEnumerable<ActivityScheduleEntry> ClientCalendarEntries()
     {
         Dictionary<int, SkipFunctionalTable> skips = TableReaderV2.Parse<SkipFunctionalTable>()
             .GroupBy(skip => skip.SkipId).ToDictionary(group => group.Key, group => group.First());
-        bool Served(int? skipId) => skipId is not int id || !skips.TryGetValue(id, out SkipFunctionalTable? skip)
-            || skip.Origin != 9 && skip.UiName != "SkipToSkyTowerMain";
+        bool Served(int? skipId) => skipId is not int id || !skips.TryGetValue(id, out SkipFunctionalTable? skip) || skip.Origin != 9;
         Dictionary<int, ActivityBriefGroupTable> groups = TableReaderV2.Parse<ActivityBriefGroupTable>()
             .ToDictionary(group => group.Id);
 
@@ -122,7 +148,11 @@ public static class ActivityScheduleService
             .Concat(TableReaderV2.Parse<ActivityBriefTable>()
                 .SelectMany(brief => brief.GroupIdList)
                 .Where(groupId => groups.ContainsKey(groupId) && Served(groups[groupId].SkipId))
-                .Select(groupId => ("ActivityBriefGroup.TimeId", groups[groupId].TimeId ?? 0)));
+                .Select(groupId => ("ActivityBriefGroup.TimeId", groups[groupId].TimeId ?? 0)))
+            // Dreamscape Disequilibrium: the activity, its chapters and their staggered stage windows (51301-51304).
+            .Concat(TableReaderV2.Parse<ReformCfgTable>().Select(row => ("ReformCfg.OpenTimeId", row.OpenTimeId)))
+            .Concat(TableReaderV2.Parse<ReformChapterTable>().Select(row => ("ReformChapter.OpenTime", row.OpenTime)))
+            .Concat(TableReaderV2.Parse<ReformStageTable>().Select(row => ("ReformStage.OpenTimeId", row.OpenTimeId)));
         return references.Where(row => row.TimeId > 0).DistinctBy(row => row.TimeId)
             .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
                 $"local-policy:missing-calendar:unbounded-calendar:{row.Source}:TimeId={row.TimeId}:user-approved"));
@@ -234,6 +264,31 @@ public static class ActivityScheduleService
         TableReaderV2.Parse<MaintainerActionConfigTable>().Where(row => row.TimeId > 0)
             .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
                 $"local-policy:MaintainerAction:missing-calendar:permanent-mode:MaintainerActionConfig:Id={row.Id}:TimeId={row.TimeId}"));
+
+    /// <summary>
+    /// AscNet policy (missing-retail policy): Munchy Pixels' PacMan2Activity.TimeId and PacMan2Stage.TimeId have no
+    /// authored calendar row, so the mode is permanently available. A positive end keeps the client's countdown
+    /// valid; an official ActivitySchedule row for the same TimeId precedes this one and wins.
+    /// </summary>
+    private static IEnumerable<ActivityScheduleEntry> PacMan2Entries() =>
+        TableReaderV2.Parse<PacMan2ActivityTable>().Select(row => (row.TimeId, Source: $"PacMan2Activity:Id={row.Id}"))
+            .Concat(TableReaderV2.Parse<PacMan2StageTable>().Select(row => (row.TimeId, Source: $"PacMan2Stage:Id={row.Id}")))
+            .Where(row => row.TimeId > 0).DistinctBy(row => row.TimeId)
+            .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
+                $"local-policy:PacMan2:missing-calendar:permanent-mode:{row.Source}:TimeId={row.TimeId}"));
+
+    /// <summary>
+    /// AscNet policy (missing-retail policy): Time Trace's AnniversaryPreHeatingActivity.TimeId and every
+    /// AnniversaryPreHeatingGroup.TimeId have no authored calendar row, so the event and all its chapters are
+    /// permanently available (no staggered unlock is invented). A positive end keeps the client's countdown valid;
+    /// an official ActivitySchedule row for the same TimeId precedes this one and wins.
+    /// </summary>
+    private static IEnumerable<ActivityScheduleEntry> AnniversaryPreHeatingEntries() =>
+        TableReaderV2.Parse<AnniversaryPreHeatingActivityTable>().Select(row => (row.TimeId, Source: $"AnniversaryPreHeatingActivity:Id={row.Id}"))
+            .Concat(TableReaderV2.Parse<AnniversaryPreHeatingGroupTable>().Select(row => (row.TimeId, Source: $"AnniversaryPreHeatingGroup:Id={row.Id}")))
+            .Where(row => row.TimeId > 0).DistinctBy(row => row.TimeId)
+            .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
+                $"local-policy:AnniversaryPreHeating:missing-calendar:permanent-mode:{row.Source}:TimeId={row.TimeId}"));
 
     /// <summary>
     /// AscNet policy (user-approved): missing Cerberus activity, chapter, and reachable condition

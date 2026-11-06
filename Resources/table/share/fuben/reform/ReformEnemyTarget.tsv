@@ -1,0 +1,484 @@
+Id	NpcId	Level	Hp	AffixGroupId	AffixMaxCount	Name	ShowLevel	HeadIcon	AddScore	BuffIds[1]	BuffIds[2]	BuffIds[3]	BuffIds[4]	BuffIds[5]	BuffIds[6]	BuffIds[7]	BuffIds[8]	BuffIds[9]	Condition	Label[1]	Label[2]	SpawnWave	SpawnCount
+201001	81500	560	0	201011	4	Nozzle	3	Assets/Product/Texture/Image/RoleCharacter/XixiNomal01.png	300	781901	781908	781912	781909	0	0	0	0	779450	0			0	0
+201002	90210	116	0	201012	4	Gardener	1	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	200	781901	781908	781912	781909	0	0	0	0	779451	0			0	0
+201003	90700	173	0	201013	4	Prime	3	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	300	781901	781908	781912	781909	0	0	0	0	779452	0			0	0
+201004	90980	140	0	201014	4	PK-43 "Sheriff"	4	Assets/Product/Texture/Image/RoleCharacter/PoliceNormal01.png	350	781901	781908	781912	781909	0	0	0	0	779453	0			0	0
+202001	90220	186	0	202011	4	Excavator	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	300	732092	0	0	0	0	0	0	0	779454	0			0	0
+202002	90370	247	0	202012	4	Explorer	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	300	732092	0	0	0	0	0	0	0	779455	0			0	0
+202003	90260	206	0	202013	4	Bio-Salamander	2	Assets/Product/Texture/Image/RoleCharacter/Mo1FangshengrongyuanMd000001.png	250	732092	0	0	0	0	0	0	0	779456	0			0	0
+203001	93474	287	0	203011	3	Assassin	3	Assets/Product/Texture/Image/RoleCharacter/NvDuiZhangNormal02.png	300	0	0	0	0	0	0	0	0	779457	0			0	0
+203002	93401	335	0	203012	3	Gate Keeper	3	Assets/Product/Texture/Image/RoleCharacter/Me1JixiewusengMd000001.png	300	0	0	0	0	0	0	0	0	779458	0			0	0
+203003	90700	175	0	203013	3	Prime	2	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	250	0	0	0	0	0	0	0	0	779459	0			0	0
+203004	90790	159	0	203014	3	Guardian I	2	Assets/Product/Texture/Image/RoleCharacter/DiaorenyixingNormal01.png	250	0	0	0	0	0	0	0	0	779460	0			0	0
+204001	93474	479	0	204011	3	Assassin	3	Assets/Product/Texture/Image/RoleCharacter/NvDuiZhangNormal02.png	400	781918	760221	0	0	0	0	0	0	779461	0			0	0
+204002	93401	559	0	204012	3	Gate Keeper	3	Assets/Product/Texture/Image/RoleCharacter/Me1JixiewusengMd000001.png	400	781918	760221	0	0	0	0	0	0	779462	0			0	0
+204003	90700	292	0	204013	3	Prime	2	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	300	781918	760221	0	0	0	0	0	0	779463	0			0	0
+204004	90790	266	0	204014	3	Guardian I	2	Assets/Product/Texture/Image/RoleCharacter/DiaorenyixingNormal01.png	300	781918	760221	0	0	0	0	0	0	779464	0			0	0
+205001	2006	129	0	205011	5	Unknown Data Cluster	4	Assets/Product/Texture/Image/RoleCharacter/HongChaoNormal01.png	350	0	0	0	0	0	0	0	0	779465	0			0	0
+206001	2006	129	0	206011	5	Unknown Data Cluster	4	Assets/Product/Texture/Image/RoleCharacter/HongChaoNormal01.png	500	0	0	0	0	0	0	0	0	779466	0			0	0
+207001	2006	129	0	207011	5	Madorea	4	Assets/Product/Texture/Image/RoleCharacter/V131bossNormal01.png	350	0	0	0	0	0	0	0	0	779467	0			0	0
+208001	2006	129	0	208011	5	Madorea	4	Assets/Product/Texture/Image/RoleCharacter/V131bossNormal01.png	500	0	0	0	0	0	0	0	0	779468	0			0	0
+209001	2006	491	0	209011	5	Luna	5	Assets/Product/Texture/Image/RoleCharacter/LunaNormal03.png	400	0	0	0	0	0	0	0	0	779469	0			0	0
+210001	2006	491	0	210011	5	Luna	5	Assets/Product/Texture/Image/RoleCharacter/LunaNormal03.png	600	0	0	0	0	0	0	0	0	779470	0			0	0
+102003	90190	125	0	102003	1	Shieldbearer	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	100	0	0	0	0	0	0	0	777050	779452	0			0	0
+102004	90330	169	0	102004	1	Envoy	3	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	200	0	0	0	0	0	0	0	777051	779453	97391			0	0
+103001	93130	225	0	103001	1	God Slayer	2	Assets/Product/Texture/Image/RoleCharacter/KeyboardistNormal01.png	300	777287	0	0	0	0	0	777063	777050	779455	0			0	0
+103002	93140	225	0	103002	1	Heaven Breaker	2	Assets/Product/Texture/Image/RoleCharacter/GuitaristNormal01.png	300	777287	0	0	0	0	0	777063	777050	779455	0			0	0
+103003	93120	225	0	103003	1	Demon Bane	2	Assets/Product/Texture/Image/RoleCharacter/DrummerNormal01.png	300	777287	0	0	0	0	0	777063	777050	779455	0			0	0
+103004	82200	271	0	103004	1	MC Solar	4	Assets/Product/Texture/Image/RoleCharacter/RuRiTianNormal01.png	800	777287	0	0	0	0	0	777063	777051	779492	97392			0	0
+104001	90600	435	0	104001	1	Hetero Deconstruct Unit	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	150	777071	0	0	0	0	0	0	777050	779456	0			0	0
+104002	90610	145	0	104002	1	Hetero Repair Unit	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihexiufudanyuanMd000001.png	150	777071	0	0	0	0	0	0	777050	779457	0			0	0
+104003	90620	434	0	104003	1	Hetero Fire Unit	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihehuolidanyuanMd000001.png	150	777071	0	0	0	0	0	0	777050	779456	0			0	0
+104004	81300	324	0	104004	1	Roseblade	4	Assets/Product/Texture/Image/RoleCharacter/BalaswordNomal.png	750	777071	0	0	0	0	0	0	777051	779458	97393			0	0
+105001	90900	260	0	105001	2	Octopus	1	Assets/Product/Texture/Image/RoleCharacter/Mo1HaiqiaoMd010001.png	100	774501	0	0	0	0	0	0	777050	779459	0			0	0
+105002	90940	129	0	105002	2	Buthus	1	Assets/Product/Texture/Image/RoleCharacter/Mo1CiganxieMd010001.png	150	774501	0	0	0	0	0	0	777050	779460	0			0	0
+105003	90850	149	0	105003	2	Chomper	1	Assets/Product/Texture/Image/RoleCharacter/ZhuNormal01.png	150	774501	0	0	0	0	0	0	777050	779461	0			0	0
+105004	90390	174	0	105004	2	Harvester	4	Assets/Product/Texture/Image/RoleCharacter/AnbaoNomal01.png	700	774501	0	0	0	0	0	0	777051	779462	97394			0	0
+106001	90250	144	0	106001	2	Ronin IV	2	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	150	774501	0	0	0	0	0	0	777050	779463	0			0	0
+106002	90690	167	0	106002	2	Phecda X	2	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	150	774501	0	0	0	0	0	0	777050	779464	0			0	0
+106003	90640	259	0	106003	2	Blubber VI	2	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	150	774501	0	0	0	0	0	0	777050	779465	0			0	0
+106004	83600	272	0	106004	2	Gabriel	5	Assets/Product/Texture/Image/RoleCharacter/JiabailieNormal01.png	1300	774501	0	0	0	0	0	0	777051	779466	97395			0	0
+107001	93232	358	0	107001	3	Courier-M	2	Assets/Product/Texture/Image/RoleCharacter/CourierNormal01.png	100	0	0	0	0	0	0	0	777050	779467	0			0	0
+107002	93223	217	0	107002	3	Deporter-R	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	100	0	0	0	0	0	0	0	777050	779468	0			0	0
+107003	90860	379	0	107003	3	Popper	2	Assets/Product/Texture/Image/RoleCharacter/Mo1BopuerMd01000.png	100	0	0	0	0	0	0	0	777050	779467	0			0	0
+107004	90360	275	0	107004	3	Deconstructor	4	Assets/Product/Texture/Image/RoleCharacter/FenjiezheNormal01.png	300	0	0	0	0	0	0	0	777050	779469	97396			0	0
+108001	90770	271	0	108001	3	Naval 5 - Squid	2	Assets/Product/Texture/Image/RoleCharacter/ZhangyuNormal01.png	100	0	0	0	0	0	0	0	777050	779470	0			0	0
+108002	90750	399	0	108002	3	Aerial 7 - Snow Owl	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	100	0	0	0	0	0	0	0	777050	779471	0			0	0
+108003	90760	416	0	108003	3	Rabbit	2	Assets/Product/Texture/Image/RoleCharacter/TuziNormal01.png	100	0	0	0	0	0	0	0	777050	779472	0			0	0
+108004	90780	239	0	108004	3	Ground 1 - Polar Bear	4	Assets/Product/Texture/Image/RoleCharacter/XiongrenNormal01.png	300	0	0	0	0	0	0	0	777050	779473	97397			0	0
+109001	90220	129	0	109001	3	Excavator	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	200	749344	0	0	0	0	0	0	777050	779474	0			0	0
+109002	90370	289	0	109002	3	Explorer	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	200	749344	0	0	0	0	0	0	777050	779475	0			0	0
+109003	90810	189	0	109003	3	Tai'E I	3	Assets/Product/Texture/Image/RoleCharacter/Taieyixing01.png	250	749344	0	0	0	0	0	0	777050	779476	0			0	0
+109004	90700	180	0	109004	3	Prime	3	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	250	749344	0	0	0	0	0	0	777050	779477	0			0	0
+109005	93075	313	0	109005	3	Sanctuary Guard	4	Assets/Product/Texture/Image/RoleCharacter/ShengtangNormal01.png	500	749344	0	0	0	0	0	777063	777050	779478	97398			0	0
+110001	95660	378	0	110001	3	Hanged Man	3	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	200	749344	0	0	0	0	0	777063	777050	779479	0			0	0
+110002	90800	174	0	110002	3	Moyuan	3	Assets/Product/Texture/Image/RoleCharacter/YunluNormal01.png	200	749344	0	0	0	0	0	0	777050	779480	0			0	0
+110003	90680	310	0	110003	3	Kowloong Crew - Yazi	3	Assets/Product/Texture/Image/RoleCharacter/YaziNormal01.png	250	749344	0	0	0	0	0	777063	777050	779481	0			0	0
+110004	90790	218	0	110004	3	Guardian I	3	Assets/Product/Texture/Image/RoleCharacter/DiaorenyixingNormal01.png	250	749344	0	0	0	0	0	0	777050	779482	0			0	0
+110005	90910	336	0	110005	3	Gear	4	Assets/Product/Texture/Image/RoleCharacter/Me1UnknownMd010001.png	500	749344	0	0	0	0	0	0	777051	779483	97399			0	0
+111001	83800	1265	0	111001	3	Amberia	4	Assets/Product/Texture/Image/RoleCharacter/AnboliyaNormal01.png	800	0	0	0	0	0	0	0	777051	779484	0			0	0
+111002	81900	1077	0	111002	3	Unknown Construct α	4	Assets/Product/Texture/Image/RoleCharacter/RoleHeadLuxiyaaerfa1SS.png	800	0	0	0	0	0	0	0	777051	779485	0			0	0
+111003	837000	614	0	111003	3	Shark-speare	4	Assets/Product/Texture/Image/RoleCharacter/Mb1AolajiangMd010001.png	800	0	0	0	0	0	0	0	777051	779486	0			0	0
+111004	83900	491	0	111004	3	Luna	5	Assets/Product/Texture/Image/RoleCharacter/LunaNormal03.png	900	0	0	0	0	0	0	0	777051	779487	97400			0	0
+112001	81600	518	0	112001	3	Roland	4	Assets/Product/Texture/Image/RoleCharacter/LuolanNomal01.png	800	0	0	0	0	0	0	0	777051	779488	0			0	0
+112002	83500	896	0	112002	3	Qu	4	Assets/Product/Texture/Image/RoleCharacter/QuNormal01.png	800	0	0	0	0	0	0	0	777051	779489	0			0	0
+112003	837100	365	0	112003	3	Black Shark-speare	4	Assets/Product/Texture/Image/RoleCharacter/ShashibierNormal02.png	800	0	0	0	0	0	0	0	777051	779490	0			0	0
+112004	81721	351	0	112004	3	Iron Maiden	5	Assets/Product/Texture/Image/RoleCharacter/TifaNomal02.png	900	0	0	0	0	0	0	0	777051	779491	97401			0	0
+300011	93103	177	0	300001	2	Treant	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster93101.png	100	784201	784204	0	0	0	0	0	784317	779450	0	Fire Weakness		0	0
+300012	93373	152	0	300001	2	Statue Guardian	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93371.png	100	784202	784204	0	0	0	0	0	784317	779451	0	DRes↓		0	0
+300013	93533	96	0	300001	2	Sea Anemone	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93533.png	100	784203	784204	0	0	0	0	0	784317	779452	0	Light Physical		0	0
+300021	93030	14	0	300011	2	Hetero-Sapien	4	Assets/Product/Texture/Image/RoleMonster/RoleMonster93030.png	100	0	0	0	0	0	0	784322	784317	779453	0	Rapid Attack	Phaseshift	0	0
+300022	90660	21	0	300011	2	Hanged Man III	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90660.png	150	0	0	0	0	0	0	784322	784317	779454	0	Rapid Attack	Multiple Hits	0	0
+300023	93403	23	0	300011	2	"Gate Keeper"	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93403.png	200	0	0	0	0	0	0	784322	784317	779455	0	Counterattack		0	0
+300031	93060	127	0	300021	3	Construct Captain	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster93060.png	100	0	0	0	0	0	0	784322	784317	779456	0	Pre-Battle Summon		0	0
+300032	93753	199	0	300021	3	Lighting Beehive	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93753.png	100	0	0	0	0	0	0	784322	784317	779457	0	Mid-Battle Summon		0	0
+300033	93553	212	0	300021	3	"Sea Fairy"	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93553.png	200	0	0	0	0	0	0	784322	784317	779458	0	Pre-Battle Summon		0	0
+300041	90130	143	0	300031	2	Tamer	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster90130.png	100	0	0	0	0	0	0	784322	784317	779459	0	Melee	Charge	0	0
+300042	90450	148	0	300031	2	Polar Soldier	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90450.png	200	0	0	0	0	0	0	784322	784317	779460	0	Full Range	Charge	0	0
+300043	93773	399	0	300031	2	Basilisk	4	Assets/Product/Texture/Image/RoleMonster/RoleMonster93773.png	150	0	0	0	0	0	0	784322	784317	779461	0	Melee	Charge	0	0
+300051	90100	159	0	300041	2	Aerial Monitor	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster90100.png	100	0	0	0	0	0	0	784322	784317	779462	0	Melee		0	0
+300052	90620	212	0	300041	2	Hetero Fire Unit	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90620.png	150	0	0	0	0	0	0	784322	784317	779463	0	Ranged		0	0
+300053	90440	55	0	300041	2	Terrapod	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90440.png	200	0	0	0	0	0	0	784322	784317	779464	0	Ranged		0	0
+300061	90190	28	0	300051	3	Shieldbearer	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster90190.png	150	0	0	0	0	0	0	784322	0	779465	0	Raise Shield		0	0
+300062	93192	33	0	300051	3	Heal-Z	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93192.png	150	0	0	0	0	0	0	784322	0	779466	0	Healing		0	0
+300063	90980	22	0	300051	3	PK-43 "Sheriff"	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90980.png	300	0	0	0	0	0	0	784322	0	779467	0	Melee		0	0
+300121	93030	19	0	300012	3	Hetero-Sapien	4	Assets/Product/Texture/Image/RoleMonster/RoleMonster93030.png	100	0	0	0	0	0	0	784322	784317	779468	0	Rapid Attack	Phaseshift	0	0
+300122	90660	42	0	300012	3	Hanged Man III	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90660.png	150	0	0	0	0	0	0	784322	784317	779469	0	Rapid Attack	Multiple Hits	0	0
+300123	93403	33	0	300012	3	"Gate Keeper"	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93403.png	200	0	0	0	0	0	0	784322	784317	779470	0	Counterattack		0	0
+300124	90790	43	0	300012	3	Guardian I	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90790.png	300	0	0	0	0	0	0	784322	784317	779471	0	Multiple Hits		0	0
+300125	93492	44	0	300012	3	Test Subject Pickman	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93492.png	500	0	0	0	0	0	0	784323	784317	779472	0	Multiple Hits	Counterattack	0	0
+300131	93060	177	0	300022	4	Construct Captain	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster93060.png	100	0	0	0	0	0	0	784322	784317	779473	0	Mid-Battle Summon		0	0
+300132	93753	277	0	300022	4	Lighting Beehive	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93753.png	100	0	0	0	0	0	0	784322	784317	779474	0	Mid-Battle Summon		0	0
+300133	93553	295	0	300022	4	"Sea Fairy"	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93553.png	200	0	0	0	0	0	0	784322	784317	779475	0	Pre-Battle Summon		0	0
+300134	93363	443	0	300022	4	Mechanoid Moon Eater	4	Assets/Product/Texture/Image/RoleMonster/RoleMonster93361.png	400	0	0	0	0	0	0	784322	784317	779476	0	Pre-Battle Summon		0	0
+300135	82300	798	0	300022	4	Hetero-Beast: Fenrir	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster82300.png	500	781991	0	0	0	0	0	784323	784317	779477	0	Mid-Battle Summon		0	0
+300141	90130	191	0	300032	3	Tamer	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster90130.png	100	0	0	0	0	0	0	784322	784317	779478	0	Melee	Charge	0	0
+300142	90450	198	0	300032	3	Polar Soldier	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90450.png	200	0	0	0	0	0	0	784322	784317	779479	0	Full Range	Charge	0	0
+300143	93313	332	0	300032	3	Hetero-Consciousness Host	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93311.png	150	0	0	0	0	0	0	784322	784317	779481	0	Full Range	Charge	0	0
+300144	93773	532	0	300032	3	Basilisk	4	Assets/Product/Texture/Image/RoleMonster/RoleMonster93773.png	300	0	0	0	0	0	0	784322	784317	779480	0	Melee	Charge	0	0
+300145	845000	237	0	300032	3	Voodoo	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster845000.png	400	0	0	0	0	0	0	784323	784317	779482	0	Full Range	Charge	0	0
+300151	90100	179	0	300042	4	Aerial Monitor	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster90100.png	100	784337	0	0	0	0	0	784322	784317	779483	0	Melee		0	0
+300152	90620	239	0	300042	4	Hetero Fire Unit	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90620.png	150	784337	0	0	0	0	0	784322	784317	779484	0	Ranged		0	0
+300153	90440	61	0	300042	4	Terrapod	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90440.png	200	784337	0	0	0	0	0	784322	784317	779485	0	Ranged		0	0
+300154	90410	115	0	300042	4	Acid Ant	4	Assets/Product/Texture/Image/RoleMonster/RoleMonster90410.png	300	784337	0	0	0	0	0	784322	784317	779486	0	Ranged		0	0
+300155	87651	133	0	300042	4	Veronica	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster010001.png	400	784327	784341	0	0	0	0	784323	784317	779487	0	Full Range		0	0
+300161	90190	35	0	300052	4	Shieldbearer	1	Assets/Product/Texture/Image/RoleMonster/RoleMonster90190.png	150	0	0	0	0	0	0	0	784322	779488	0	Raise Shield		0	0
+300162	93192	41	0	300052	4	Heal-Z	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster93192.png	150	0	0	0	0	0	0	0	784322	779489	0	Healing		0	0
+300163	90980	27	0	300052	4	PK-43 "Sheriff"	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster90980.png	300	0	0	0	0	0	0	0	784322	779490	0	Melee		0	0
+300164	93170	71	0	300052	4	Wheel of Fortune	4	Assets/Product/Texture/Image/RoleMonster/RoleMonster93170.png	300	0	0	0	0	0	0	0	784322	779491	0	Raise Shield		0	0
+300165	83520	155	0	300052	4	Huaxu	3	Assets/Product/Texture/Image/RoleMonster/RoleMonster83520.png	500	0	0	0	0	0	0	0	784323	779492	0	Melee		0	0
+1010111	90030	253	0	101001	1	Repairer A	1	Assets/Product/Texture/Image/RoleCharacter/Mo1XiulijigongMd000001.png	100	779450	0	0	0	0	0	0	0	0	0			0	0
+1010112	90120	254	0	101001	1	Protector A	2	Assets/Product/Texture/Image/RoleCharacter/Mo1BaohuzheMd000001.png	100	779451	0	0	0	0	0	0	0	0	0			0	0
+1010113	90190	281	0	101001	1	Shieldbearer A	3	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	100	779452	0	0	0	0	0	0	0	0	0			0	0
+1010121	90030	253	0	101001	2	Repairer B	1	Assets/Product/Texture/Image/RoleCharacter/Mo1XiulijigongMd000001.png	100	779453	0	0	0	0	0	0	0	0	0			0	0
+1010122	90120	254	0	101001	2	Protector B	2	Assets/Product/Texture/Image/RoleCharacter/Mo1BaohuzheMd000001.png	100	779454	0	0	0	0	0	0	0	0	0			0	0
+1010123	90190	281	0	101001	2	Shieldbearer B	3	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	100	779455	0	0	0	0	0	0	0	0	0			0	0
+1010131	90090	345	0	101001	2	Ground Monitor C	2	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	100	779456	0	0	0	0	0	0	0	0	0			0	0
+1010132	90110	360	0	101001	2	Pilgrim C	2	Assets/Product/Texture/Image/RoleCharacter/Me1XunjingzheMd000001.png	200	779457	0	0	0	0	0	0	0	0	0			0	0
+1010211	90190	281	0	101001	2	Shieldbearer D	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	150	779458	0	0	0	0	0	0	0	0	0			0	0
+1010212	90130	213	0	101001	2	Tamer D	2	Assets/Product/Texture/Image/RoleCharacter/Me1XunshoushiMd000001.png	200	779459	0	0	0	0	0	0	0	0	0			0	0
+1010221	90110	360	0	101001	2	Pilgrim E	1	Assets/Product/Texture/Image/RoleCharacter/Me1XunjingzheMd000001.png	150	779460	0	0	0	0	0	0	0	0	0			0	0
+1010222	90160	293	0	101001	2	Sentry Gun E	2	Assets/Product/Texture/Image/RoleCharacter/ShaojiepaoNormal01.png	200	779461	0	0	0	0	0	0	0	0	0			0	0
+1020111	90210	263	0	101001	2	Gardener A	1	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	50	779462	779780	0	0	0	0	0	0	0	0			0	0
+1020112	90250	216	0	101001	2	Ronin IV A	2	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	100	779463	779780	0	0	0	0	0	0	0	0			0	0
+1020113	90330	337	0	101001	2	Envoy A	3	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	150	779464	779780	0	0	0	0	0	0	0	0			0	0
+1020121	90170	242	0	101001	2	Missionary B	1	Assets/Product/Texture/Image/RoleCharacter/BudaozheNormal01.png	50	779465	779780	0	0	0	0	0	0	0	0			0	0
+1020122	90260	361	0	101001	2	Bio-Salamander B	2	Assets/Product/Texture/Image/RoleCharacter/Mo1FangshengrongyuanMd000001.png	100	779466	779780	0	0	0	0	0	0	0	0			0	0
+1020123	93182	233	0	101001	2	Nalasr-E·b	3	Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png	150	779467	779780	0	0	0	0	0	0	0	97391			0	0
+1020131	90260	361	0	101001	2	Bio-Salamander C	2	Assets/Product/Texture/Image/RoleCharacter/Mo1FangshengrongyuanMd000001.png	150	779468	779780	0	0	0	0	0	0	0	0			0	0
+1020132	93182	233	0	101001	2	Nalasr-E C	3	Assets/Product/Texture/Image/RoleCharacter/PaotaiNormal01.png	200	779469	779780	0	0	0	0	0	0	0	0			0	0
+1020211	90210	262	0	101001	2	Gardener D	1	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	150	779470	779780	0	0	0	0	0	0	0	0			0	0
+1020212	90250	216	0	101001	2	Ronin IV D	2	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	200	779471	779780	0	0	0	0	0	0	0	0			0	0
+1020221	90360	331	0	101001	2	Deconstructor E	2	Assets/Product/Texture/Image/RoleCharacter/FenjiezheNormal01.png	150	779472	779780	0	0	0	0	0	0	0	0			0	0
+1020222	90380	428	0	101001	2	Construct E	3	Assets/Product/Texture/Image/RoleCharacter/TongyonggouzaotiNomal01.png	200	779473	779780	0	0	0	0	0	0	0	0			0	0
+1020231	90360	331	0	101001	2	Deconstructor F	2	Assets/Product/Texture/Image/RoleCharacter/FenjiezheNormal01.png	150	779474	779780	0	0	0	0	0	0	0	0			0	0
+1020232	90380	428	0	101001	2	Construct F	3	Assets/Product/Texture/Image/RoleCharacter/TongyonggouzaotiNomal01.png	200	779475	779780	0	0	0	0	0	0	0	0			0	0
+1030111	90610	362	0	101001	2	Hetero Repair Unit A	1	Assets/Product/Texture/Image/RoleCharacter/Me1YihexiufudanyuanMd000001.png	50	779476	0	0	0	0	0	0	0	0	0			0	0
+1030112	90470	414	0	101001	2	Heteromer Hydraulic A	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	100	779477	0	0	0	0	0	0	0	0	0			0	0
+1030113	90600	752	0	101001	2	Hetero Deconstruct Unit A	3	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	150	779478	0	0	0	0	0	0	0	0	97392			0	0
+1030121	90610	362	0	101001	2	Hetero Repair Unit B	1	Assets/Product/Texture/Image/RoleCharacter/Me1YihexiufudanyuanMd000001.png	50	779479	0	0	0	0	0	0	0	0	0			0	0
+1030122	90470	414	0	101001	2	Heteromer Hydraulic B	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	100	779480	0	0	0	0	0	0	0	0	0			0	0
+1030123	90600	752	0	101001	2	Hetero Deconstruct Unit B	3	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	150	779481	0	0	0	0	0	0	0	0	0			0	0
+1030131	90610	362	0	101001	2	Hetero Repair Unit C	1	Assets/Product/Texture/Image/RoleCharacter/Me1YihexiufudanyuanMd000001.png	150	779482	0	0	0	0	0	0	0	0	0			0	0
+1030132	90470	414	0	101001	2	Heteromer Hydraulic C	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	200	779483	0	0	0	0	0	0	0	0	0			0	0
+1030133	90600	752	0	101001	2	Hetero Deconstruct Unit C	3	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	250	779484	0	0	0	0	0	0	0	0	0			0	0
+1030211	90610	362	0	101001	2	Hetero Repair Unit D	1	Assets/Product/Texture/Image/RoleCharacter/Me1YihexiufudanyuanMd000001.png	150	779485	0	0	0	0	0	0	0	0	0			0	0
+1030212	90470	414	0	101001	2	Heteromer Hydraulic D	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	200	779486	0	0	0	0	0	0	0	0	0			0	0
+1030213	90620	751	0	101001	2	Hetero Fire Unit D	3	Assets/Product/Texture/Image/RoleCharacter/Me1YihehuolidanyuanMd000001.png	250	779487	0	0	0	0	0	0	0	0	0			0	0
+1030221	90610	362	0	101001	2	Hetero Repair Unit E	1	Assets/Product/Texture/Image/RoleCharacter/Me1YihexiufudanyuanMd000001.png	150	779488	0	0	0	0	0	0	0	0	0			0	0
+1030222	90470	414	0	101001	2	Heteromer Hydraulic E	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	200	779489	0	0	0	0	0	0	0	0	0			0	0
+1030223	90620	751	0	101001	2	Hetero Fire Unit E	3	Assets/Product/Texture/Image/RoleCharacter/Me1YihehuolidanyuanMd000001.png	250	779490	0	0	0	0	0	0	0	0	0			0	0
+1030231	90470	414	0	101001	2	Heteromer Hydraulic F	1	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	150	779491	0	0	0	0	0	0	0	0	0			0	0
+1030232	90600	752	0	101001	2	Hetero Deconstruct Unit F	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	200	779492	0	0	0	0	0	0	0	0	0			0	0
+1030233	90390	261	0	101001	2	Harvester	4	Assets/Product/Texture/Image/RoleCharacter/AnbaoNomal01.png	250	779493	0	0	0	0	0	0	0	0	0			0	0
+1040111	90460	293	0	101001	2	Deep-sea Ambusher A	1	Assets/Product/Texture/Image/RoleCharacter/Me1ShenhaiqianfuzheMd000002.png	50	779494	0	0	0	0	0	0	0	0	0			0	0
+1040112	90370	391	0	101001	2	Explorer A	2	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	100	779495	0	0	0	0	0	0	0	0	0			0	0
+1040113	90340	391	0	101001	2	Royal Guard A	3	Assets/Product/Texture/Image/RoleCharacter/JinweiNormal01.png	150	779496	0	0	0	0	0	0	0	0	97393			0	0
+1040121	90460	293	0	101001	2	Deep-sea Ambusher B	1	Assets/Product/Texture/Image/RoleCharacter/Me1ShenhaiqianfuzheMd000002.png	50	779497	0	0	0	0	0	0	0	0	0			0	0
+1040122	90370	391	0	101001	2	Explorer B	2	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	100	779498	0	0	0	0	0	0	0	0	0			0	0
+1040123	90340	391	0	101001	2	Royal Guard B	3	Assets/Product/Texture/Image/RoleCharacter/JinweiNormal01.png	150	779499	0	0	0	0	0	0	0	0	0			0	0
+1040131	90370	391	0	101001	2	Explorer C	1	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	150	779500	0	0	0	0	0	0	0	0	0			0	0
+1040132	90480	293	0	101001	2	Heteromer Sentry Gun C	2	Assets/Product/Texture/Image/RoleCharacter/YijushaojiejipaoNormal01.png	200	779501	0	0	0	0	0	0	0	0	0			0	0
+1040141	90370	391	0	101001	2	Explorer D	1	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	150	779502	0	0	0	0	0	0	0	0	0			0	0
+1040142	90480	293	0	101001	2	Heteromer Sentry Gun D	2	Assets/Product/Texture/Image/RoleCharacter/YijushaojiejipaoNormal01.png	200	779503	0	0	0	0	0	0	0	0	0			0	0
+1040211	90480	293	0	101001	2	Heteromer Sentry Gun E	1	Assets/Product/Texture/Image/RoleCharacter/YijushaojiejipaoNormal01.png	150	779504	0	0	0	0	0	0	0	0	0			0	0
+1040212	90420	248	0	101001	2	Musashi VI E	3	Assets/Product/Texture/Image/RoleCharacter/WZliuxingNomal01.png	200	779505	0	0	0	0	0	0	0	0	0			0	0
+1040221	90480	293	0	101001	2	Heteromer Sentry Gun F	1	Assets/Product/Texture/Image/RoleCharacter/YijushaojiejipaoNormal01.png	150	779506	0	0	0	0	0	0	0	0	0			0	0
+1040222	90420	248	0	101001	2	Musashi VI F	3	Assets/Product/Texture/Image/RoleCharacter/WZliuxingNomal01.png	200	779507	0	0	0	0	0	0	0	0	0			0	0
+1040231	90340	391	0	101001	2	Royal Guard G	2	Assets/Product/Texture/Image/RoleCharacter/JinweiNormal01.png	150	779508	0	0	0	0	0	0	0	0	0			0	0
+1040232	81200	586	0	101001	2	Musashi IX	4	Assets/Product/Texture/Image/RoleCharacter/WuzangjiuxingNormal01.png	200	779509	0	0	0	0	0	0	0	0	0			0	0
+1050111	90890	572	0	101001	2	Corrupted Construct A	1	Assets/Product/Texture/Image/RoleCharacter/Mo1UngouzaotiMd010001.png	50	774501	0	0	0	0	0	0	0	0	0			0	0
+1050112	90960	270	0	101001	2	Blair A	2	Assets/Product/Texture/Image/RoleCharacter/BeyaNormal01.png	100	774501	0	0	0	0	0	0	0	0	0			0	0
+1050113	90220	175	0	101001	2	Excavator A	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	150	774501	0	0	0	0	0	0	0	0	97394			0	0
+1050121	90890	715	0	101001	2	Corrupted Construct B	1	Assets/Product/Texture/Image/RoleCharacter/Mo1UngouzaotiMd010001.png	50	779513	0	0	0	0	0	0	0	0	0			0	0
+1050122	90960	270	0	101001	2	Blair B	2	Assets/Product/Texture/Image/RoleCharacter/BeyaNormal01.png	100	779514	0	0	0	0	0	0	0	0	0			0	0
+1050123	90220	175	0	101001	2	Excavator B	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	150	779515	0	0	0	0	0	0	0	0	0			0	0
+1050131	90370	391	0	101001	2	Explorer C	2	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	150	779516	0	0	0	0	0	0	0	0	0			0	0
+1050132	90440	391	0	101001	2	Terrapod C	3	Assets/Product/Texture/Image/RoleCharacter/Me1ZilujingweiMd000001.png	200	779517	0	0	0	0	0	0	0	0	0			0	0
+1050141	90370	391	0	101001	2	Explorer D	2	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	150	779518	0	0	0	0	0	0	0	0	0			0	0
+1050142	90440	391	0	101001	2	Terrapod D	3	Assets/Product/Texture/Image/RoleCharacter/Me1ZilujingweiMd000001.png	200	779519	0	0	0	0	0	0	0	0	0			0	0
+1050211	90960	270	0	101001	2	Blair E	1	Assets/Product/Texture/Image/RoleCharacter/BeyaNormal01.png	50	779520	0	0	0	0	0	0	0	0	0			0	0
+1050212	90220	391	0	101001	2	Excavator E	2	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	100	779521	0	0	0	0	0	0	0	0	0			0	0
+1050213	90440	391	0	101001	2	Terrapod E	3	Assets/Product/Texture/Image/RoleCharacter/Me1ZilujingweiMd000001.png	150	779522	0	0	0	0	0	0	0	0	0			0	0
+1050221	90960	270	0	101001	2	Blair F	1	Assets/Product/Texture/Image/RoleCharacter/BeyaNormal01.png	150	779523	0	0	0	0	0	0	0	0	0			0	0
+1050222	93020	293	0	101001	2	SSG-Meanderer F	2	Assets/Product/Texture/Image/RoleCharacter/YouyezheNormal01.png	200	779524	0	0	0	0	0	0	0	0	0			0	0
+1050231	90960	270	0	101001	2	Blair G	1	Assets/Product/Texture/Image/RoleCharacter/BeyaNormal01.png	150	779525	0	0	0	0	0	0	0	0	0			0	0
+1050232	93020	293	0	101001	2	SSG-Meanderer G	2	Assets/Product/Texture/Image/RoleCharacter/YouyezheNormal01.png	200	779526	0	0	0	0	0	0	0	0	0			0	0
+1050311	90370	391	0	101001	2	Explorer H	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	150	779527	0	0	0	0	0	0	0	0	0			0	0
+1050312	90220	175	0	101001	2	Excavator H	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	200	779528	0	0	0	0	0	0	0	0	0			0	0
+1050321	837000	488	0	101001	2	Shark-speare	5	Assets/Product/Texture/Image/RoleCharacter/Mb1AolajiangMd010001.png	200	779529	0	0	0	0	0	0	0	0	0			0	0
+1050322	837100	291	0	101001	2	Black Shark-speare	5	Assets/Product/Texture/Image/RoleCharacter/ShashibierNormal02.png	250	779530	0	0	0	0	0	0	0	0	0			0	0
+1060111	90250	253	0	101001	3	Ronin IV A	1	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	50	774501	0	0	0	0	0	0	0	0	0			0	0
+1060112	90690	292	0	101001	3	Phecda X A	2	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	100	774501	0	0	0	0	0	0	0	0	0			0	0
+1060113	90640	453	0	101001	3	Blubber VI A	3	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	150	774501	0	0	0	0	0	0	0	0	97395			0	0
+1060121	90250	253	0	101001	3	Ronin IV B	1	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	50	779534	779781	0	0	0	0	0	0	0	0			0	0
+1060122	90690	292	0	101001	3	Phecda X B	2	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	100	779535	779781	0	0	0	0	0	0	0	0			0	0
+1060123	90640	453	0	101001	3	Blubber VI B	3	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	150	779536	779781	0	0	0	0	0	0	0	0			0	0
+1060131	90640	453	0	101001	3	Blubber VI C	2	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	150	779537	779781	0	0	0	0	0	0	0	0			0	0
+1060132	90650	759	0	101001	3	Ballwheel IV C	3	Assets/Product/Texture/Image/RoleCharacter/WulunNormal01.png	200	779538	779781	0	0	0	0	0	0	0	0			0	0
+1060133	90660	475	0	101001	3	Hanged Man C	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	250	779539	779781	0	0	0	0	0	0	0	0			0	0
+1060211	90250	253	0	101001	3	Ronin IV D	1	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	150	779540	779781	0	0	0	0	0	0	0	0			0	0
+1060212	90690	292	0	101001	3	Phecda X D	2	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	200	779541	779781	0	0	0	0	0	0	0	0			0	0
+1060213	90640	453	0	101001	3	Blubber VI D	2	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	250	779542	779781	0	0	0	0	0	0	0	0			0	0
+1060221	90250	253	0	101001	3	Ronin IV E	1	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	150	779543	779781	0	0	0	0	0	0	0	0			0	0
+1060222	90690	292	0	101001	3	Phecda X E	2	Assets/Product/Texture/Image/RoleCharacter/LucunNormal01.png	200	779544	779781	0	0	0	0	0	0	0	0			0	0
+1060223	90640	453	0	101001	3	Blubber VI E	2	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	250	779545	779781	0	0	0	0	0	0	0	0			0	0
+1060231	90640	453	0	101001	3	Blubber VI F	2	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	150	779546	779781	0	0	0	0	0	0	0	0			0	0
+1060232	90650	759	0	101001	3	Ballwheel IV F	3	Assets/Product/Texture/Image/RoleCharacter/WulunNormal01.png	200	779547	779781	0	0	0	0	0	0	0	0			0	0
+1060233	90660	475	0	101001	3	Hanged Man F	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	250	779548	779781	0	0	0	0	0	0	0	0			0	0
+1060241	90640	453	0	101001	3	Blubber VI G	2	Assets/Product/Texture/Image/RoleCharacter/LishiNormal01.png	150	779549	779781	0	0	0	0	0	0	0	0			0	0
+1060242	90650	759	0	101001	3	Ballwheel IV G	3	Assets/Product/Texture/Image/RoleCharacter/WulunNormal01.png	200	779550	779781	0	0	0	0	0	0	0	0			0	0
+1060243	90660	475	0	101001	3	Hanged Man G	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	250	779551	779781	0	0	0	0	0	0	0	0			0	0
+1070111	90850	427	0	101001	3	Chomper A	1	Assets/Product/Texture/Image/RoleCharacter/ZhuNormal01.png	50	779552	779781	0	0	0	0	0	0	0	0			0	0
+1070112	90930	1475	0	101001	3	Monkfish A	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YingdengyuMd010001.png	100	779553	779781	0	0	0	0	0	0	0	0			0	0
+1070113	90830	427	0	101001	3	Beetle A	3	Assets/Product/Texture/Image/RoleCharacter/Mo1MifengMd010001.png	150	779554	779781	0	0	0	0	0	0	0	97396			0	0
+1070121	90850	427	0	101001	3	Chomper B	1	Assets/Product/Texture/Image/RoleCharacter/ZhuNormal01.png	50	779555	779781	0	0	0	0	0	0	0	0			0	0
+1070122	90930	1475	0	101001	3	Monkfish B	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YingdengyuMd010001.png	100	779556	779781	0	0	0	0	0	0	0	0			0	0
+1070123	90830	427	0	101001	3	Beetle B	3	Assets/Product/Texture/Image/RoleCharacter/Mo1MifengMd010001.png	150	779557	779781	0	0	0	0	0	0	0	0			0	0
+1070131	90900	699	0	101001	3	Octopus C	1	Assets/Product/Texture/Image/RoleCharacter/Mo1HaiqiaoMd010001.png	150	779558	779781	0	0	0	0	0	0	0	0			0	0
+1070132	90930	1475	0	101001	3	Monkfish C	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YingdengyuMd010001.png	200	779559	779781	0	0	0	0	0	0	0	0			0	0
+1070133	90940	346	0	101001	3	Buthus C	3	Assets/Product/Texture/Image/RoleCharacter/Mo1CiganxieMd010001.png	250	779560	779781	0	0	0	0	0	0	0	0			0	0
+1070141	90900	699	0	101001	3	Octopus D	1	Assets/Product/Texture/Image/RoleCharacter/Mo1HaiqiaoMd010001.png	150	779561	779781	0	0	0	0	0	0	0	0			0	0
+1070142	90930	1475	0	101001	3	Monkfish D	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YingdengyuMd010001.png	200	779562	779781	0	0	0	0	0	0	0	0			0	0
+1070143	90940	346	0	101001	3	Buthus D	3	Assets/Product/Texture/Image/RoleCharacter/Mo1CiganxieMd010001.png	250	779563	779781	0	0	0	0	0	0	0	0			0	0
+1070211	90930	1475	0	101001	3	Monkfish E	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YingdengyuMd010001.png	150	779564	779781	0	0	0	0	0	0	0	0			0	0
+1070212	90940	346	0	101001	3	Buthus E	3	Assets/Product/Texture/Image/RoleCharacter/Mo1CiganxieMd010001.png	200	779565	779781	0	0	0	0	0	0	0	0			0	0
+1070213	93030	434	0	101001	3	Hetero-Sapien E	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	250	779566	779781	0	0	0	0	0	0	0	0			0	0
+1070221	90930	1475	0	101001	3	Monkfish F	2	Assets/Product/Texture/Image/RoleCharacter/Mo1YingdengyuMd010001.png	150	779567	779781	0	0	0	0	0	0	0	0			0	0
+1070222	90940	346	0	101001	3	Buthus F	3	Assets/Product/Texture/Image/RoleCharacter/Mo1CiganxieMd010001.png	200	779568	779781	0	0	0	0	0	0	0	0			0	0
+1070223	93030	434	0	101001	3	Hetero-Sapien F	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	250	779569	779781	0	0	0	0	0	0	0	0			0	0
+1070231	90940	346	0	101001	3	Buthus G	3	Assets/Product/Texture/Image/RoleCharacter/Mo1CiganxieMd010001.png	150	779570	779781	0	0	0	0	0	0	0	0			0	0
+1070232	93030	434	0	101001	3	Hetero-Sapien G	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	200	779571	779781	0	0	0	0	0	0	0	0			0	0
+1070233	81800	920	0	101001	3	Vassago	5	Assets/Product/Texture/Image/RoleCharacter/WashakeNormal01.png	300	779572	779781	0	0	0	0	0	0	0	0			0	0
+1080111	90770	304	0	101001	3	Naval 5 - Squid A	1	Assets/Product/Texture/Image/RoleCharacter/ZhangyuNormal01.png	50	779573	0	0	0	0	0	0	0	0	0			0	0
+1080112	90750	448	0	101001	3	Aerial 7 - Snow Owl A	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	100	779574	0	0	0	0	0	0	0	0	0			0	0
+1080113	90760	468	0	101001	3	Rabbit A	3	Assets/Product/Texture/Image/RoleCharacter/TuziNormal01.png	150	779575	0	0	0	0	0	0	0	0	97397			0	0
+1080121	90770	304	0	101001	3	Naval 5 - Squid B	1	Assets/Product/Texture/Image/RoleCharacter/ZhangyuNormal01.png	50	779576	0	0	0	0	0	0	0	0	0			0	0
+1080122	90750	448	0	101001	3	Aerial 7 - Snow Owl B	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	100	779577	0	0	0	0	0	0	0	0	0			0	0
+1080123	90760	468	0	101001	3	Rabbit B	3	Assets/Product/Texture/Image/RoleCharacter/TuziNormal01.png	150	779578	0	0	0	0	0	0	0	0	0			0	0
+1080131	90770	304	0	101001	3	Naval 5 - Squid C	1	Assets/Product/Texture/Image/RoleCharacter/ZhangyuNormal01.png	150	779579	0	0	0	0	0	0	0	0	0			0	0
+1080132	90780	224	0	101001	3	Ground 1 - Polar Bear C	4	Assets/Product/Texture/Image/RoleCharacter/XiongrenNormal01.png	200	779580	0	0	0	0	0	0	0	0	0			0	0
+1080133	90450	277	0	101001	3	Polar Soldier C	4	Assets/Product/Texture/Image/RoleCharacter/JidijibingNormal01.png	250	779581	0	0	0	0	0	0	0	0	0			0	0
+1080211	90770	304	0	101001	3	Naval 5 - Squid D	1	Assets/Product/Texture/Image/RoleCharacter/ZhangyuNormal01.png	50	779582	0	0	0	0	0	0	0	0	0			0	0
+1080212	90750	448	0	101001	3	Aerial 7 - Snow Owl D	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	100	779583	0	0	0	0	0	0	0	0	0			0	0
+1080213	90760	468	0	101001	3	Rabbit D	3	Assets/Product/Texture/Image/RoleCharacter/TuziNormal01.png	150	779584	0	0	0	0	0	0	0	0	0			0	0
+1080214	90780	224	0	101001	3	Ground 1 - Polar Bear D	4	Assets/Product/Texture/Image/RoleCharacter/XiongrenNormal01.png	200	779585	0	0	0	0	0	0	0	0	0			0	0
+1080221	90770	304	0	101001	3	Naval 5 - Squid E	1	Assets/Product/Texture/Image/RoleCharacter/ZhangyuNormal01.png	150	779586	0	0	0	0	0	0	0	0	0			0	0
+1080222	90750	448	0	101001	3	Aerial 7 - Snow Owl E	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	200	779587	0	0	0	0	0	0	0	0	0			0	0
+1080223	90780	224	0	101001	3	Ground 1 - Polar Bear E	4	Assets/Product/Texture/Image/RoleCharacter/XiongrenNormal01.png	250	779588	0	0	0	0	0	0	0	0	0			0	0
+1080231	90750	448	0	101001	3	Aerial 7 - Snow Owl F	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	150	779589	0	0	0	0	0	0	0	0	0			0	0
+1080232	90780	224	0	101001	3	Ground 1 - Polar Bear F	4	Assets/Product/Texture/Image/RoleCharacter/XiongrenNormal01.png	200	779590	0	0	0	0	0	0	0	0	0			0	0
+1080233	90450	277	0	101001	3	Polar Soldier F	4	Assets/Product/Texture/Image/RoleCharacter/JidijibingNormal01.png	250	779591	0	0	0	0	0	0	0	0	0			0	0
+1080241	90750	448	0	101001	3	Aerial 7 - Snow Owl G	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	150	779592	0	0	0	0	0	0	0	0	0			0	0
+1080242	90780	224	0	101001	3	Ground 1 - Polar Bear G	4	Assets/Product/Texture/Image/RoleCharacter/XiongrenNormal01.png	200	779593	0	0	0	0	0	0	0	0	0			0	0
+1080243	90450	277	0	101001	3	Polar Soldier G	4	Assets/Product/Texture/Image/RoleCharacter/JidijibingNormal01.png	250	779594	0	0	0	0	0	0	0	0	0			0	0
+1080311	90770	304	0	101001	3	Naval 5 - Squid H	1	Assets/Product/Texture/Image/RoleCharacter/ZhangyuNormal01.png	150	779595	0	0	0	0	0	0	0	0	0			0	0
+1080312	90750	448	0	101001	3	Aerial 7 - Snow Owl H	2	Assets/Product/Texture/Image/RoleCharacter/XuehaoNormal01.png	200	779596	0	0	0	0	0	0	0	0	0			0	0
+1080321	83800	803	0	101001	3	Amberia	5	Assets/Product/Texture/Image/RoleCharacter/AnboliyaNormal01.png	200	779597	0	0	0	0	0	0	0	0	0			0	0
+1080322	83220	386	0	101001	3	Rosetta	5	Assets/Product/Texture/Image/RoleCharacter/LuosaitaNormal01.png	250	779598	0	0	0	0	0	0	0	0	0			0	0
+1090111	90090	511	0	101001	3	Ground Monitor A	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	50	779599	0	0	0	0	0	0	0	0	0			0	0
+1090112	90260	482	0	101001	3	Bio-Salamander A	3	Assets/Product/Texture/Image/RoleCharacter/Mo1FangshengrongyuanMd000001.png	100	779600	0	0	0	0	0	0	0	0	0			0	0
+1090113	90260	482	0	101001	3	Acid Ant A	3	Assets/Product/Texture/Image/RoleCharacter/SuanyegongyiNormal01.png	150	779601	0	0	0	0	0	0	0	0	97398			0	0
+1090121	90090	511	0	101001	3	Ground Monitor B	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	50	779602	0	0	0	0	0	0	0	0	0			0	0
+1090122	90260	482	0	101001	3	Bio-Salamander B	3	Assets/Product/Texture/Image/RoleCharacter/Mo1FangshengrongyuanMd000001.png	100	779603	0	0	0	0	0	0	0	0	0			0	0
+1090123	90260	482	0	101001	3	Acid Ant B	3	Assets/Product/Texture/Image/RoleCharacter/SuanyegongyiNormal01.png	150	779604	0	0	0	0	0	0	0	0	0			0	0
+1090131	90030	375	0	101001	3	Repairer C	1	Assets/Product/Texture/Image/RoleCharacter/Mo1XiulijigongMd000001.png	150	779605	0	0	0	0	0	0	0	0	0			0	0
+1090132	90180	399	0	101001	3	Executor C	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	200	779606	0	0	0	0	0	0	0	0	0			0	0
+1090133	90330	450	0	101001	3	Envoy C	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	250	779607	0	0	0	0	0	0	0	0	0			0	0
+1090141	90030	375	0	101001	3	Repairer D	1	Assets/Product/Texture/Image/RoleCharacter/Mo1XiulijigongMd000001.png	150	779608	0	0	0	0	0	0	0	0	0			0	0
+1090142	90180	399	0	101001	3	Executor D	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	200	779609	0	0	0	0	0	0	0	0	0			0	0
+1090143	90330	450	0	101001	3	Envoy D	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	250	779610	0	0	0	0	0	0	0	0	0			0	0
+1090211	90180	399	0	101001	3	Executor E	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	150	779611	0	0	0	0	0	0	0	0	0			0	0
+1090212	90330	450	0	101001	3	Envoy E	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	200	779612	0	0	0	0	0	0	0	0	0			0	0
+1090213	93030	496	0	101001	3	Hetero-Sapien E	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	250	779613	0	0	0	0	0	0	0	0	0			0	0
+1090221	90180	399	0	101001	3	Executor F	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	150	779614	0	0	0	0	0	0	0	0	0			0	0
+1090222	90330	450	0	101001	3	Envoy F	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	200	779615	0	0	0	0	0	0	0	0	0			0	0
+1090223	93030	496	0	101001	3	Hetero-Sapien F	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	250	779616	0	0	0	0	0	0	0	0	0			0	0
+1090231	90330	450	0	101001	3	Envoy G	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	150	779617	0	0	0	0	0	0	0	0	0			0	0
+1090232	93030	496	0	101001	3	Hetero-Sapien G	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	200	779618	0	0	0	0	0	0	0	0	0			0	0
+1090233	93070	543	0	101001	3	Sanctuary Guard G	4	Assets/Product/Texture/Image/RoleCharacter/ShengtangNormal01.png	300	779619	0	0	0	0	0	0	0	0	0			0	0
+1090241	90330	450	0	101001	3	Envoy H	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	150	779620	0	0	0	0	0	0	0	0	0			0	0
+1090242	93030	496	0	101001	3	Hetero-Sapien H	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	200	779621	0	0	0	0	0	0	0	0	0			0	0
+1090243	93070	543	0	101001	3	Sanctuary Guard A	4	Assets/Product/Texture/Image/RoleCharacter/ShengtangNormal01.png	300	779622	0	0	0	0	0	0	0	0	0			0	0
+1100111	90190	416	0	101001	3	Shieldbearer A	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	50	779623	779781	0	0	0	0	0	0	0	0			0	0
+1100112	90210	350	0	101001	3	Gardener A	2	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	100	779624	779781	0	0	0	0	0	0	0	0			0	0
+1100113	93053	462	0	101001	3	Construct Soldier A	2	Assets/Product/Texture/Image/RoleCharacter/TongyonggouzaotinvNormal01.png	150	779625	779781	0	0	0	0	0	0	0	97399			0	0
+1100121	90190	416	0	101001	3	Shieldbearer B	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	50	779626	779781	0	0	0	0	0	0	0	0			0	0
+1100122	90210	350	0	101001	3	Gardener B	2	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	100	779627	779781	0	0	0	0	0	0	0	0			0	0
+1100123	93053	462	0	101001	3	Construct Soldier B	2	Assets/Product/Texture/Image/RoleCharacter/TongyonggouzaotinvNormal01.png	150	779628	779781	0	0	0	0	0	0	0	0			0	0
+1100131	90190	416	0	101001	3	Shieldbearer C	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	50	779629	779781	0	0	0	0	0	0	0	0			0	0
+1100132	93060	318	0	101001	3	Construct Captain C	3	Assets/Product/Texture/Image/RoleCharacter/NvDuiZhangNormal01.png	100	779630	779781	0	0	0	0	0	0	0	0			0	0
+1100133	90220	259	0	101001	3	Excavator C	4	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	150	779631	779781	0	0	0	0	0	0	0	0			0	0
+1100141	90110	534	0	101001	3	Pilgrim D	2	Assets/Product/Texture/Image/RoleCharacter/Me1XunjingzheMd000001.png	150	779632	779781	0	0	0	0	0	0	0	0			0	0
+1100142	90340	579	0	101001	3	Royal Guard D	3	Assets/Product/Texture/Image/RoleCharacter/JinweiNormal01.png	200	779633	779781	0	0	0	0	0	0	0	0			0	0
+1100143	90370	579	0	101001	3	Explorer D	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	250	779634	779781	0	0	0	0	0	0	0	0			0	0
+1100151	90110	534	0	101001	3	Pilgrim E	2	Assets/Product/Texture/Image/RoleCharacter/Me1XunjingzheMd000001.png	150	779635	779781	0	0	0	0	0	0	0	0			0	0
+1100152	90340	579	0	101001	3	Royal Guard E	3	Assets/Product/Texture/Image/RoleCharacter/JinweiNormal01.png	200	779636	779781	0	0	0	0	0	0	0	0			0	0
+1100153	90370	579	0	101001	3	Explorer E	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijikantanzheMd000001.png	250	779637	779781	0	0	0	0	0	0	0	0			0	0
+1100211	90190	416	0	101001	3	Shieldbearer F	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	150	779638	779781	0	0	0	0	0	0	0	0			0	0
+1100212	90210	350	0	101001	3	Gardener F	2	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	200	779639	779781	0	0	0	0	0	0	0	0			0	0
+1100213	90980	408	0	101001	3	PK-43 "Sheriff"	4	Assets/Product/Texture/Image/RoleCharacter/PoliceNormal01.png	250	779640	779781	0	0	0	0	0	0	0	0			0	0
+1100221	90190	416	0	101001	3	Shieldbearer G	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	150	779641	779781	0	0	0	0	0	0	0	0			0	0
+1100222	90210	350	0	101001	3	Gardener G	2	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	200	779642	779781	0	0	0	0	0	0	0	0			0	0
+1100223	90980	408	0	101001	3	PK-43 "Sheriff"	4	Assets/Product/Texture/Image/RoleCharacter/PoliceNormal01.png	250	779643	779781	0	0	0	0	0	0	0	0			0	0
+1100231	90190	416	0	101001	3	Shieldbearer H	1	Assets/Product/Texture/Image/RoleCharacter/Mo1ShouhuzheMd000001.png	150	779644	779781	0	0	0	0	0	0	0	0			0	0
+1100232	90210	350	0	101001	3	Gardener H	2	Assets/Product/Texture/Image/RoleCharacter/TufuNormal01.png	200	779645	779781	0	0	0	0	0	0	0	0			0	0
+1100233	90980	408	0	101001	3	PK-43 "Sheriff"	4	Assets/Product/Texture/Image/RoleCharacter/PoliceNormal01.png	250	779646	779781	0	0	0	0	0	0	0	0			0	0
+1110111	93160	380	0	101001	2	α	1	Assets/Product/Texture/Image/RoleCharacter/ChoujueNormal01.png	100	779647	0	0	0	0	0	0	0	0	0			0	0
+1110112	83800	803	0	101001	3	Amberia	5	Assets/Product/Texture/Image/RoleCharacter/AnboliyaNormal01.png	200	779597	0	0	0	0	0	0	0	0	0			0	0
+1110113	93160	380	0	101001	2	Siren	1	Assets/Product/Texture/Image/RoleCharacter/ChoujueNormal01.png	100	779647	0	0	0	0	0	0	0	0	97400			0	0
+1110114	93140	527	0	101001	2	Lilith	3	Assets/Product/Texture/Image/RoleCharacter/GuitaristNormal01.png	150	779648	0	0	0	0	0	0	0	0	97400			0	0
+1110121	93160	380	0	101001	2	Gung-hoer B	1	Assets/Product/Texture/Image/RoleCharacter/ChoujueNormal01.png	100	779649	0	0	0	0	0	0	0	0	0			0	0
+1110122	93120	527	0	101001	2	Demon Bane B	3	Assets/Product/Texture/Image/RoleCharacter/DrummerNormal01.png	150	779650	0	0	0	0	0	0	0	0	0			0	0
+1110131	93160	380	0	101001	2	Gung-hoer C	1	Assets/Product/Texture/Image/RoleCharacter/ChoujueNormal01.png	200	779651	0	0	0	0	0	0	0	0	0			0	0
+1110132	93130	527	0	101001	2	God Slayer C	3	Assets/Product/Texture/Image/RoleCharacter/KeyboardistNormal01.png	250	779652	0	0	0	0	0	0	0	0	0			0	0
+1110211	93160	380	0	101001	2	Gung-hoer D	1	Assets/Product/Texture/Image/RoleCharacter/ChoujueNormal01.png	200	779653	0	0	0	0	0	0	0	0	0			0	0
+1110212	93140	527	0	101001	2	Heaven Breaker D	3	Assets/Product/Texture/Image/RoleCharacter/GuitaristNormal01.png	250	779654	0	0	0	0	0	0	0	0	0			0	0
+1110221	93160	380	0	101001	2	Gung-hoer E	1	Assets/Product/Texture/Image/RoleCharacter/ChoujueNormal01.png	200	779655	0	0	0	0	0	0	0	0	0			0	0
+1110222	93120	527	0	101001	2	Demon Bane E	3	Assets/Product/Texture/Image/RoleCharacter/DrummerNormal01.png	250	779656	0	0	0	0	0	0	0	0	0			0	0
+1110231	93160	380	0	101001	2	Gung-hoer E	1	Assets/Product/Texture/Image/RoleCharacter/ChoujueNormal01.png	100	779657	0	0	0	0	0	0	0	0	0			0	0
+1110232	82200	543	0	101001	2	MC Solar	5	Assets/Product/Texture/Image/RoleCharacter/RuRiTianNormal01.png	350	779658	0	0	0	0	0	0	0	0	0			0	0
+1120111	90090	596	0	101001	3	Machiavelli	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	100	0	0	0	0	0	0	0	0	0	0			0	0
+1120112	90160	506	0	101001	3	Roland	2	Assets/Product/Texture/Image/RoleCharacter/ShaojiepaoNormal01.png	150	0	0	0	0	0	0	0	0	0	0			0	0
+1120113	90350	518	0	101001	3	Pterygota Queen	4	Assets/Product/Texture/Image/RoleCharacter/XiaofangweishiNormal01.png	200	0	0	0	0	0	0	0	0	0	0			0	0
+1120114	87500	518	0	101001	3	Gabriel - Starfall	4	Assets/Product/Texture/Image/RoleCharacter/XiaofangweishiNormal01.png	200	0	0	0	0	0	0	0	0	0	97401			0	0
+1120115	81720	518	0	101001	3	New Tifa	4	Assets/Product/Texture/Image/RoleCharacter/XiaofangweishiNormal01.png	200	0	0	0	0	0	0	0	0	0	97401			0	0
+1120121	90090	596	0	101001	3	Ground Monitor B	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	100	779662	0	0	0	0	0	0	0	0	0			0	0
+1120122	90130	368	0	101001	3	Tamer B	2	Assets/Product/Texture/Image/RoleCharacter/Me1XunshoushiMd000001.png	150	779663	0	0	0	0	0	0	0	0	0			0	0
+1120123	90990	698	0	101001	3	Trailblazing Surfer B	4	Assets/Product/Texture/Image/RoleCharacter/XianfengchonglangzheNormal01.png	200	779664	0	0	0	0	0	0	0	0	0			0	0
+1120131	90090	596	0	101001	3	Ground Monitor C	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	200	779665	0	0	0	0	0	0	0	0	0			0	0
+1120132	90130	368	0	101001	3	Tamer C	2	Assets/Product/Texture/Image/RoleCharacter/Me1XunshoushiMd000001.png	250	779666	0	0	0	0	0	0	0	0	0			0	0
+1120133	90990	698	0	101001	3	Trailblazing Surfer C	4	Assets/Product/Texture/Image/RoleCharacter/XianfengchonglangzheNormal01.png	300	779667	0	0	0	0	0	0	0	0	0			0	0
+1120211	90090	596	0	101001	3	Ground Monitor D	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	100	779668	0	0	0	0	0	0	0	0	0			0	0
+1120212	90160	506	0	101001	3	Sentry Gun D	2	Assets/Product/Texture/Image/RoleCharacter/ShaojiepaoNormal01.png	150	779669	0	0	0	0	0	0	0	0	0			0	0
+1120213	90350	518	0	101001	3	Firefighter D	4	Assets/Product/Texture/Image/RoleCharacter/XiaofangweishiNormal01.png	200	779670	0	0	0	0	0	0	0	0	0			0	0
+1120221	90090	596	0	101001	3	Ground Monitor E	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	200	779671	0	0	0	0	0	0	0	0	0			0	0
+1120222	90160	506	0	101001	3	Sentry Gun E	2	Assets/Product/Texture/Image/RoleCharacter/ShaojiepaoNormal01.png	250	779672	0	0	0	0	0	0	0	0	0			0	0
+1120223	90350	518	0	101001	3	Firefighter E	4	Assets/Product/Texture/Image/RoleCharacter/XiaofangweishiNormal01.png	300	779673	0	0	0	0	0	0	0	0	0			0	0
+1120231	90090	596	0	101001	3	Ground Monitor F	1	Assets/Product/Texture/Image/RoleCharacter/Mo1DimianjianshiqiMd000001.png	200	779674	0	0	0	0	0	0	0	0	0			0	0
+1120232	90160	506	0	101001	3	Sentry Gun F	2	Assets/Product/Texture/Image/RoleCharacter/ShaojiepaoNormal01.png	250	779675	0	0	0	0	0	0	0	0	0			0	0
+1120233	90350	518	0	101001	3	Firefighter F	4	Assets/Product/Texture/Image/RoleCharacter/XiaofangweishiNormal01.png	300	779676	0	0	0	0	0	0	0	0	0			0	0
+1120311	81700	931	0	101001	3	Iron Maiden	5	Assets/Product/Texture/Image/RoleCharacter/TifaNomal01.png	250	779677	0	0	0	0	0	0	0	0	0			0	0
+1120312	83600	424	0	101001	3	Gabriel	5	Assets/Product/Texture/Image/RoleCharacter/JiabailieNormal01.png	300	779678	0	0	0	0	0	0	0	0	0			0	0
+1130111	90730	460	0	101001	3	Mr. White A	1	Assets/Product/Texture/Image/RoleCharacter/BaixianshengNormal01.png	100	779679	0	0	0	0	0	0	0	0	0			0	0
+1130112	90710	460	0	101001	3	Cathy A	2	Assets/Product/Texture/Image/RoleCharacter/KaixiNormal01.png	150	779680	0	0	0	0	0	0	0	0	0			0	0
+1130113	90720	357	0	101001	3	Martini A	3	Assets/Product/Texture/Image/RoleCharacter/MatianniNormal01.png	200	779681	0	0	0	0	0	0	0	0	0			0	0
+1130121	90730	460	0	101001	3	Mr. White B	1	Assets/Product/Texture/Image/RoleCharacter/BaixianshengNormal01.png	100	779682	0	0	0	0	0	0	0	0	0			0	0
+1130122	90710	460	0	101001	3	Cathy B	2	Assets/Product/Texture/Image/RoleCharacter/KaixiNormal01.png	150	779683	0	0	0	0	0	0	0	0	0			0	0
+1130123	90720	357	0	101001	3	Martini B	3	Assets/Product/Texture/Image/RoleCharacter/MatianniNormal01.png	200	779684	0	0	0	0	0	0	0	0	0			0	0
+1130131	90730	460	0	101001	3	Mr. White C	1	Assets/Product/Texture/Image/RoleCharacter/BaixianshengNormal01.png	200	779685	0	0	0	0	0	0	0	0	0			0	0
+1130132	90720	357	0	101001	3	Martini C	3	Assets/Product/Texture/Image/RoleCharacter/MatianniNormal01.png	250	779686	0	0	0	0	0	0	0	0	0			0	0
+1130133	90740	506	0	101001	3	A'Mao C	4	Assets/Product/Texture/Image/RoleCharacter/Me1XiguajunMd000002.png	300	779687	0	0	0	0	0	0	0	0	0			0	0
+1130141	90730	460	0	101001	3	Mr. White D	1	Assets/Product/Texture/Image/RoleCharacter/BaixianshengNormal01.png	200	779688	0	0	0	0	0	0	0	0	0			0	0
+1130142	90720	357	0	101001	3	Martini D	3	Assets/Product/Texture/Image/RoleCharacter/MatianniNormal01.png	250	779689	0	0	0	0	0	0	0	0	0			0	0
+1130143	90740	506	0	101001	3	A'Mao D	4	Assets/Product/Texture/Image/RoleCharacter/Me1XiguajunMd000002.png	300	779690	0	0	0	0	0	0	0	0	0			0	0
+1130211	90730	460	0	101001	3	Mr. White E	1	Assets/Product/Texture/Image/RoleCharacter/BaixianshengNormal01.png	200	779691	0	0	0	0	0	0	0	0	0			0	0
+1130212	90710	460	0	101001	3	Cathy E	2	Assets/Product/Texture/Image/RoleCharacter/KaixiNormal01.png	250	779692	0	0	0	0	0	0	0	0	0			0	0
+1130213	90740	506	0	101001	3	A'Mao E	4	Assets/Product/Texture/Image/RoleCharacter/Me1XiguajunMd000002.png	300	779693	0	0	0	0	0	0	0	0	0			0	0
+1130221	90720	357	0	101001	3	Martini F	3	Assets/Product/Texture/Image/RoleCharacter/MatianniNormal01.png	200	779694	0	0	0	0	0	0	0	0	0			0	0
+1130222	90740	506	0	101001	3	A'Mao F	4	Assets/Product/Texture/Image/RoleCharacter/Me1XiguajunMd000002.png	250	779695	0	0	0	0	0	0	0	0	0			0	0
+1130223	90910	681	0	101001	3	Gear F	4	Assets/Product/Texture/Image/RoleCharacter/Me1UnknownMd010001.png	300	779696	0	0	0	0	0	0	0	0	0			0	0
+1130231	90720	357	0	101001	3	Martini G	3	Assets/Product/Texture/Image/RoleCharacter/MatianniNormal01.png	200	779697	0	0	0	0	0	0	0	0	0			0	0
+1130232	90740	506	0	101001	3	A'Mao G	4	Assets/Product/Texture/Image/RoleCharacter/Me1XiguajunMd000002.png	250	779698	0	0	0	0	0	0	0	0	0			0	0
+1130233	90910	681	0	101001	3	Gear G	4	Assets/Product/Texture/Image/RoleCharacter/Me1UnknownMd010001.png	300	779699	0	0	0	0	0	0	0	0	0			0	0
+1140111	90250	253	0	101001	3	Ronin IV A	1	Assets/Product/Texture/Image/RoleCharacter/LangrenNormal01.png	500	779700	0	0	0	0	0	0	0	0	0			0	0
+1140112	90670	676	0	101001	3	Kemuri I A	3	Assets/Product/Texture/Image/RoleCharacter/Mo1YanfenyixingMd000001.png	600	779701	0	0	0	0	0	0	0	0	0			0	0
+1140113	90680	543	0	101001	3	Kowloong Crew - Yazi A	4	Assets/Product/Texture/Image/RoleCharacter/YaziNormal01.png	700	779702	0	0	0	0	0	0	0	0	0			0	0
+1140121	90670	676	0	101001	3	Kemuri I B	3	Assets/Product/Texture/Image/RoleCharacter/Mo1YanfenyixingMd000001.png	650	779703	0	0	0	0	0	0	0	0	0			0	0
+1140122	90790	304	0	101001	3	Guardian I B	4	Assets/Product/Texture/Image/RoleCharacter/DiaorenyixingNormal01.png	750	779704	0	0	0	0	0	0	0	0	0			0	0
+1150111	93232	761	0	101001	3	Courier-M A	1	Assets/Product/Texture/Image/RoleCharacter/CourierNormal01.png	100	779705	779780	0	0	0	0	0	0	0	0			0	0
+1150112	93223	460	0	101001	3	Deporter-R A	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	150	779706	779780	0	0	0	0	0	0	0	0			0	0
+1150113	90860	805	0	101001	3	Popper A	3	Assets/Product/Texture/Image/RoleCharacter/Mo1BopuerMd01000.png	200	779707	779780	0	0	0	0	0	0	0	0			0	0
+1150121	93232	761	0	101001	3	Courier-M B	1	Assets/Product/Texture/Image/RoleCharacter/CourierNormal01.png	200	779708	779780	0	0	0	0	0	0	0	0			0	0
+1150122	93223	460	0	101001	3	Deporter-R B	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	250	779709	779780	0	0	0	0	0	0	0	0			0	0
+1150123	90860	805	0	101001	3	Popper B	3	Assets/Product/Texture/Image/RoleCharacter/Mo1BopuerMd01000.png	300	779710	779780	0	0	0	0	0	0	0	0			0	0
+1150131	93232	761	0	101001	3	Courier-M C	1	Assets/Product/Texture/Image/RoleCharacter/CourierNormal01.png	200	779711	779780	0	0	0	0	0	0	0	0			0	0
+1150132	93223	460	0	101001	3	Deporter-R C	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	250	779712	779780	0	0	0	0	0	0	0	0			0	0
+1150133	90860	805	0	101001	3	Popper C	3	Assets/Product/Texture/Image/RoleCharacter/Mo1BopuerMd01000.png	300	779713	779780	0	0	0	0	0	0	0	0			0	0
+1150141	93103	419	0	101001	3	Treant D	1	Assets/Product/Texture/Image/RoleCharacter/ShujingNormal01.png	200	779714	779780	0	0	0	0	0	0	0	0			0	0
+1150142	93223	460	0	101001	3	Deporter-R D	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	250	779715	779780	0	0	0	0	0	0	0	0			0	0
+1150143	93110	614	0	101001	3	Fairy D	3	Assets/Product/Texture/Image/RoleCharacter/JinglingNormal01.png	300	779716	779780	0	0	0	0	0	0	0	0			0	0
+1150151	93103	419	0	101001	3	Treant E	1	Assets/Product/Texture/Image/RoleCharacter/ShujingNormal01.png	200	779717	779780	0	0	0	0	0	0	0	0			0	0
+1150152	93223	460	0	101001	3	Deporter-R E	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	250	779718	779780	0	0	0	0	0	0	0	0			0	0
+1150153	93110	614	0	101001	3	Fairy E	3	Assets/Product/Texture/Image/RoleCharacter/JinglingNormal01.png	300	779719	779780	0	0	0	0	0	0	0	0			0	0
+1150211	93223	460	0	101001	3	Deporter-R F	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	200	779720	779780	0	0	0	0	0	0	0	0			0	0
+1150212	90860	805	0	101001	3	Popper F	3	Assets/Product/Texture/Image/RoleCharacter/Mo1BopuerMd01000.png	250	779721	779780	0	0	0	0	0	0	0	0			0	0
+1150213	90760	708	0	101001	3	Rabbit F	3	Assets/Product/Texture/Image/RoleCharacter/TuziNormal01.png	300	779722	779780	0	0	0	0	0	0	0	0			0	0
+1150221	93223	460	0	101001	3	Deporter-R G	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	200	779723	779780	0	0	0	0	0	0	0	0			0	0
+1150222	90860	805	0	101001	3	Popper G	3	Assets/Product/Texture/Image/RoleCharacter/Mo1BopuerMd01000.png	250	779724	779780	0	0	0	0	0	0	0	0			0	0
+1150223	90760	708	0	101001	3	Rabbit G	3	Assets/Product/Texture/Image/RoleCharacter/TuziNormal01.png	300	779725	779780	0	0	0	0	0	0	0	0			0	0
+1150231	93223	460	0	101001	3	Deporter-R H	2	Assets/Product/Texture/Image/RoleCharacter/DeporterNormal01.png	200	779726	779780	0	0	0	0	0	0	0	0			0	0
+1150232	90860	805	0	101001	3	Popper H	3	Assets/Product/Texture/Image/RoleCharacter/Mo1BopuerMd01000.png	250	779727	779780	0	0	0	0	0	0	0	0			0	0
+1150233	90760	708	0	101001	3	Rabbit H	3	Assets/Product/Texture/Image/RoleCharacter/TuziNormal01.png	300	779728	779780	0	0	0	0	0	0	0	0			0	0
+1160111	90470	361	0	101001	3	Heteromer Hydraulic A	1	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	150	779729	0	0	0	0	0	0	0	0	0			0	0
+1160112	90600	947	0	101001	3	Hetero Deconstruct Unit A	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	200	779730	0	0	0	0	0	0	0	0	0			0	0
+1160113	90330	477	0	101001	3	Envoy A	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	250	779731	0	0	0	0	0	0	0	0	0			0	0
+1160121	90620	944	0	101001	3	Hetero Fire Unit B	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihehuolidanyuanMd000001.png	250	779732	0	0	0	0	0	0	0	0	0			0	0
+1160122	90480	460	0	101001	3	Heteromer Sentry Gun B	3	Assets/Product/Texture/Image/RoleCharacter/YijushaojiejipaoNormal01.png	300	779733	0	0	0	0	0	0	0	0	0			0	0
+1160123	90440	614	0	101001	3	Terrapod B	4	Assets/Product/Texture/Image/RoleCharacter/Me1ZilujingweiMd000001.png	350	779734	0	0	0	0	0	0	0	0	0			0	0
+1160131	90620	944	0	101001	3	Hetero Fire Unit C	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihehuolidanyuanMd000001.png	250	779735	0	0	0	0	0	0	0	0	0			0	0
+1160132	90480	460	0	101001	3	Heteromer Sentry Gun C	3	Assets/Product/Texture/Image/RoleCharacter/YijushaojiejipaoNormal01.png	300	779736	0	0	0	0	0	0	0	0	0			0	0
+1160133	90440	614	0	101001	3	Terrapod C	4	Assets/Product/Texture/Image/RoleCharacter/Me1ZilujingweiMd000001.png	350	779737	0	0	0	0	0	0	0	0	0			0	0
+1160211	90600	946	0	101001	3	Hetero Deconstruct Unit D	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	250	779738	0	0	0	0	0	0	0	0	0			0	0
+1160212	90330	477	0	101001	3	Envoy D	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	300	779739	0	0	0	0	0	0	0	0	0			0	0
+1160213	90390	368	0	101001	3	Harvester D	4	Assets/Product/Texture/Image/RoleCharacter/AnbaoNomal01.png	350	779740	0	0	0	0	0	0	0	0	0			0	0
+1160221	90600	946	0	101001	3	Hetero Deconstruct Unit A	2	Assets/Product/Texture/Image/RoleCharacter/Me1YihefenjiedanyuanMd000001.png	250	779741	0	0	0	0	0	0	0	0	0			0	0
+1160222	90330	477	0	101001	3	Envoy E	4	Assets/Product/Texture/Image/RoleCharacter/Me1XinshiMd000001.png	300	779742	0	0	0	0	0	0	0	0	0			0	0
+1160223	90440	614	0	101001	3	Terrapod E	4	Assets/Product/Texture/Image/RoleCharacter/Me1ZilujingweiMd000001.png	350	779743	0	0	0	0	0	0	0	0	0			0	0
+1160311	81600	647	0	101001	3	Roland	5	Assets/Product/Texture/Image/RoleCharacter/LuolanNomal01.png	300	779744	0	0	0	0	0	0	0	0	0			0	0
+1160312	83100	767	0	101001	3	Camu	5	Assets/Product/Texture/Image/RoleCharacter/KamuNomal01.png	350	779745	0	0	0	0	0	0	0	0	0			0	0
+1170111	95220	169	0	101001	3	Gun A	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	150	779746	0	0	0	0	0	0	0	0	0			0	0
+1170112	93036	316	0	101001	3	Hetero-Sapien A	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	200	779747	0	0	0	0	0	0	0	0	0			0	0
+1170113	95660	459	0	101001	3	Hanged Man A	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	250	779748	0	0	0	0	0	0	0	0	0			0	0
+1170121	95220	169	0	101001	3	Gun B	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	250	779749	0	0	0	0	0	0	0	0	0			0	0
+1170122	93036	316	0	101001	3	Hetero-Sapien B	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	300	779750	0	0	0	0	0	0	0	0	0			0	0
+1170123	95660	459	0	101001	3	Hanged Man B	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	350	779751	0	0	0	0	0	0	0	0	0			0	0
+1170131	95220	169	0	101001	3	Gun C	3	Assets/Product/Texture/Image/RoleCharacter/Me1YijiwajuezheMd000001.png	250	779752	0	0	0	0	0	0	0	0	0			0	0
+1170132	93036	316	0	101001	3	Hetero-Sapien C	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	300	779753	0	0	0	0	0	0	0	0	0			0	0
+1170133	95660	459	0	101001	3	Hanged Man C	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	350	779754	0	0	0	0	0	0	0	0	0			0	0
+1170211	93036	316	0	101001	3	Hetero-Sapien D	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	250	779755	0	0	0	0	0	0	0	0	0			0	0
+1170212	95660	459	0	101001	3	Hanged Man D	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	300	779756	0	0	0	0	0	0	0	0	0			0	0
+1170213	93075	379	0	101001	3	Sanctuary Guard D	4	Assets/Product/Texture/Image/RoleCharacter/ShengtangNormal01.png	350	779757	0	0	0	0	0	0	0	0	0			0	0
+1170221	93036	316	0	101001	3	Hetero-Sapien E	4	Assets/Product/Texture/Image/RoleCharacter/Mo1SemifiniMd010001.png	250	779758	0	0	0	0	0	0	0	0	0			0	0
+1170222	95660	459	0	101001	3	Hanged Man E	4	Assets/Product/Texture/Image/RoleCharacter/DiaorensanxingNormal01.png	300	779759	0	0	0	0	0	0	0	0	0			0	0
+1170223	93075	379	0	101001	3	Sanctuary Guard E	4	Assets/Product/Texture/Image/RoleCharacter/ShengtangNormal01.png	350	779760	0	0	0	0	0	0	0	0	0			0	0
+1170311	82200	657	0	101001	3	MC Solar	5	Assets/Product/Texture/Image/RoleCharacter/RuRiTianNormal01.png	300	779761	0	0	0	0	0	0	0	0	0			0	0
+1170312	93200	223	0	101001	3	Musashi	5	Assets/Product/Texture/Image/RoleCharacter/WuzangjiuxingNormal02.png	350	779762	0	0	0	0	0	0	0	0	0			0	0
+1180111	90470	669	0	101001	3	Heteromer Hydraulic A	1	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	250	779763	779781	0	0	0	0	0	0	0	0			0	0
+1180112	90180	483	0	101001	3	Executor A	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	300	779764	779781	0	0	0	0	0	0	0	0			0	0
+1180113	90810	458	0	101001	3	Tai'E I A	3	Assets/Product/Texture/Image/RoleCharacter/Taieyixing01.png	350	779765	779781	0	0	0	0	0	0	0	0			0	0
+1180121	90470	669	0	101001	3	Heteromer Hydraulic B	1	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	350	779766	779781	0	0	0	0	0	0	0	0			0	0
+1180122	90180	483	0	101001	3	Executor B	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	400	779767	779781	0	0	0	0	0	0	0	0			0	0
+1180131	90470	669	0	101001	3	Heteromer Hydraulic C	1	Assets/Product/Texture/Image/RoleCharacter/Mo1YijuyeyaMd000001.png	350	779768	779781	0	0	0	0	0	0	0	0			0	0
+1180132	90180	483	0	101001	3	Executor C	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	400	779769	779781	0	0	0	0	0	0	0	0			0	0
+1180211	90180	483	0	101001	3	Executor D	2	Assets/Product/Texture/Image/RoleCharacter/Mo1ZhixingzheMd000001.png	350	779770	779781	0	0	0	0	0	0	0	0			0	0
+1180212	90810	458	0	101001	3	Tai'E I D	3	Assets/Product/Texture/Image/RoleCharacter/Taieyixing01.png	400	779771	779781	0	0	0	0	0	0	0	0			0	0
+1180221	81900	898	0	101001	3	Unknown Construct α	5	Assets/Product/Texture/Image/RoleCharacter/RoleHeadLuxiyaaerfa1SS.png	400	779772	779781	0	0	0	0	0	0	0	0			0	0
+1180222	83500	896	0	101001	3	Qu	5	Assets/Product/Texture/Image/RoleCharacter/QuNormal01.png	450	779773	779781	0	0	0	0	0	0	0	0			0	0
+1190111	90900	968	0	101001	3	Octopus A	1	Assets/Product/Texture/Image/RoleCharacter/Mo1HaiqiaoMd010001.png	1500	779774	0	0	0	0	0	0	0	0	0			0	0
+1190112	84400	450	0	101001	3	Hetero-Hive Mother	6	Assets/Product/Texture/Image/RoleCharacter/PunishjuhemutiNormal01.png	3000	779775	0	0	0	0	0	0	0	0	0			0	0
+1200111	81500	944	0	101001	3	Nozzle	5	Assets/Product/Texture/Image/RoleCharacter/XixiNomal01.png	1000	779776	0	0	0	0	0	0	0	0	0			0	0
+1200112	81300	915	0	101001	3	Roseblade	5	Assets/Product/Texture/Image/RoleCharacter/BalaswordNomal.png	2000	779777	0	0	0	0	0	0	0	0	0			0	0
+1200211	84200	1077	0	101001	3	Machiavelli	6	Assets/Product/Texture/Image/RoleCharacter/Mb1MajiyaweiliMd010001.png	3000	779778	0	0	0	0	0	0	0	0	0			0	0
+1200212	84313	456	0	101001	3	Siren	6	Assets/Product/Texture/Image/RoleCharacter/Mb1SirenMd010001.png	3500	779779	0	0	0	0	0	0	0	0	0			0	0
+10101	90470	308	2805974	101001	0	Heteromer Hydraulic	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1ArmorMd010112.png	0	779450									0			1	2
+10102	90480	245	2806046	101001	0	Heteromer Sentry Gun	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1BioMd030052.png	0	779451									0			2	4
+10201	90640	200	2740769	101001	0	Blubber VI	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1LishiliuxingMd000001.png	0	779452									0			1	2
+10202	90810	150	2782526	101001	0	Tai'E I	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/Mb1TaiayixingMd010001.png	0	779453									0			2	4
+10203	90980	200	4238052	101001	0	PK-43 "Sheriff"	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1PoliceMd010001.png	0	779454									0	Elite		1	2
+10301	93592	323	2781597	101001	0	Fortress Heavy Soldier	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1HeavywarriorMd010001.png	0	779455									0			1	2
+10302	93703	173	2846316	101001	0	Inspection Program	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1BallbirdMd010001.png	0	779456									0			2	4
+10303	93683	269	2819292	101001	0	Perfect Program	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1PerfectrobotMd010001.png	0	779457									0	Elite		1	2
+10401	93423	378	2780404	101001	0	Hetero-Wolf	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1HongchaoxiaolangMd010001.png	0	779458									0			1	2
+10402	90780	360	4218297	101001	0	Ground 1 - Polar Bear	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1XiongrenMd000002.png	0	779459									0	Elite		2	2
+10403	93693	404	4231542	101001	0	Hetero-Mantis	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1MantisMd000001.png	0	779460									0	Elite		1	2
+10501	93533	194	2829996	101001	0	Sea Anemone	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1MegactinianMd010001.png	0	779461									0			1	2
+10502	93563	303	2793537	101001	0	Abyss Angel	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/Mo1ShenyuantianshiMd010001.png	0	779462									0			2	4
+10503	90940	220	2826114	101001	0	Buthus	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1CiganxieMd010001.png	0	779463									0			1	4
+10504	93553	605	4155965	101001	0	Sea Fairy	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1ShuixingnvMd010001.png	0	779464									0	Elite		2	2
+10601	90780	179	4227547	101001	0	Ground 1 - Polar Bear	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1XiongrenMd000002.png	0	779465									0	Elite		1	2
+10602	90750	357	2762906	101001	0	Aerial 7 - Snow Owl	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMb1XuexiaoMd000002.png	0	779466									0			1	2
+10603	90760	373	2697014	101001	0	Ground 3 - Rabbit	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1TuziMd000002.png	0	779467									0			2	4
+10604	90950	231	4264324	101001	0	Recycle Prisoner	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1JiegouqiutuMd010001.png	0	779468									0	Elite		2	2
+10701	90640	200	2740769	101001	0	Blubber VI	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1LishiliuxingMd000001.png	0	779469									0			1	2
+10702	90810	150	2782526	101001	0	Tai'E I	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/Mb1TaiayixingMd010001.png	0	779470									0			2	4
+10703	90980	200	4238052	101001	0	PK-43 "Sheriff"	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1PoliceMd010001.png	0	779471									0	Elite		1	2
+10704	80210	100	7161768	101001	0	Enora Lueya	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMb1TerminatorMd010001.png	0	779472									0	BOSS		3	1
+10801	93592	323	2781597	101001	0	Fortress Heavy Soldier	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1HeavywarriorMd010001.png	0	779473									0			1	2
+10802	93703	173	2846316	101001	0	Inspection Program	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1BallbirdMd010001.png	0	779474									0			2	4
+10803	93683	269	4262501	101001	0	Perfect Program	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1PerfectrobotMd010001.png	0										0	Elite		1	2
+10804	91222	100	7681662	101001	0	Overseer	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMb1RegulatorMd010001.png	0	779475									0	BOSS		3	1
+10901	93423	378	4241295	101001	0	Hetero-Wolf	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1HongchaoxiaolangMd010001.png	0	779476									0			1	2
+10902	90780	360	4218297	101001	0	Ground 1 - Polar Bear	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1XiongrenMd000002.png	0	779477									0	Elite		2	2
+10903	93693	404	4231542	101001	0	Hetero-Mantis	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1MantisMd000001.png	0										0	Elite		1	2
+10904	80632	100	7681662	101001	0	The Pseudo-Unwinged	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMb1MoineauMd010001.png	0	779478									0	BOSS		3	1
+11001	93533	194	4281276	101001	0	Sea Anemone	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1MegactinianMd010001.png	0	779479									0			1	2
+11002	93563	303	4265806	101001	0	Abyss Angel	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/Mo1ShenyuantianshiMd010001.png	0	779480									0			2	4
+11003	90940	220	4280328	101001	0	Buthus	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1CiganxieMd010001.png	0	779481									0			1	4
+11004	93553	605	4155965	101001	0	Sea Fairy	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1ShuixingnvMd010001.png	0										0	Elite		2	2
+11005	80732	100	7681662	101001	0	Margaret	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMb1MargaretMd010001.png	0	779482									0	BOSS		3	1
+11101	90780	179	4227547	101001	0	Ground 1 - Polar Bear	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1XiongrenMd000002.png	0	779483									0	Elite		1	2
+11102	90750	357	4233485	101001	0	Aerial 7 - Snow Owl	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMb1XuexiaoMd000002.png	0	779484									0			1	2
+11103	90760	373	4092022	101001	0	Ground 3 - Rabbit	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMo1TuziMd000002.png	0	779485									0			2	4
+11104	90950	231	4264324	101001	0	Recycle Prisoner	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMe1JiegouqiutuMd010001.png	0	779486									0	Elite		2	2
+11105	80881	100	7681662	101001	0	Tavis	1	Assets/Product/Texture/Image/UiArchiveMonsterHead/HeadMb1TavisMd010001.png	0										0	BOSS		3	1

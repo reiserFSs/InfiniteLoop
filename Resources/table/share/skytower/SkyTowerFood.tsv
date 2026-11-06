@@ -1,0 +1,17 @@
+Id	Name	Icon	Quality	ConsumeIngredientIds[1]	ConsumeIngredientIds[2]	ConsumeIngredientCounts[1]	ConsumeIngredientCounts[2]	ConsumeFoodIds[1]	ConsumeFoodIds[2]	ConsumeFoodCounts[1]	ConsumeFoodCounts[2]	ProduceNeedTime	Price	SaleNeedTime	OnceSellNum	Priority	UnlockItemIds[1]	UnlockItemIds[2]	UnlockItemCounts[1]	UnlockItemCounts[2]	Desc
+1	Twilight Bloom Knot	Assets/Product/Texture/Image/IconTools/IconActivityConsume2025001.png	1	1		1						20	3	20	4	17					Ribbon upon ribbon, holding onto a sliver of twilight.
+2	Iridescent Flower Crown	Assets/Product/Texture/Image/IconTools/IconActivityConsume2027001.png	1	2		1						20	4	20	4	16					A dreamlike ideal from days gone by.
+3	Lingering Interlude	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon01.png	1	3		1						20	5	20	1	15					The curtain falls, yet the dream lingers on.
+5	Starlit Blossoms	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon04.png	1	3	15	1	1					20	7	20	1	14					Reunited beneath a sea of flowers and starlight.
+6	Dawnlight Ampoule	Assets/Product/Texture/Image/IconTools/ItStoneI040010.png	1	5		1						60	5	60	2	13					A remedy gathered from morning light and heartfelt care.
+7	Soothing Honey	Assets/Product/Texture/Image/IconTools/UiScoreTowerIcon01.png	1	6		2						60	33	60	2	12					A cup of warm water, a touch of honey, and a night of sweet dreams.
+8	Cozy Protein	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon05.png	1	7		2						80	36	60	2	11					No worries. Just take it by mouth. No injection needed.
+9	Morningstar Spark	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon06.png	1	5	4	1	1					120	51	60	3	10					As the star sets, greet a morning brimming with energy.
+10	Sweet Moonmist	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon07.png	1	8		1						80	218	80	1	9					On a misty night, blend the haze with the moonlight.
+11	Twilight Blend	Assets/Product/Texture/Image/IconTools/IconFubenYuanxiao5.png	2	9		1		10		1		80	335	80	1	8					At dusk, blend the frost blue and twilight violet of the sky.
+12	Crimson Dewstone	Assets/Product/Texture/Image/IconTools/IconActivityConsumeTic2017002.png	3	8	10	1	1	11		1		80	503	80	1	7					A crystal formed from moon mist, twilight, and sugar dew.
+13	Moontear Blossom	Assets/Product/Texture/Image/IconTools/UiSkyTowerIcon08.png	4	11		2		12		1		80	672	80	1	6					Gathered moonlight tears, and a longing for faraway places.
+14	Opening Score	Assets/Product/Texture/Image/IconTools/IconTheatre08.png	1	12		1						120	5600	120	1	5					A few notes to warm up the crowd make all the difference.
+15	Tipsy Night	Assets/Product/Texture/Image/IconTools/IconTheatre07.png	2	12	13	1	2					120	6450	120	2	4					Watch your footing once the buzz kicks in!
+16	Rave Wave	Assets/Product/Texture/Image/IconTools/UiMusicGameActivity01.png	3	14		3		14		1		120	7180	120	2	3					Jump up, dance around!
+17	Neon Night Finale	Assets/Product/Texture/Image/IconTools/KillZoneShowGoods01.png	4	16		3		15		1		120	8270	120	2	2					The warm-up melody and the driving beat come together for one final movement. Tonight, the party never ends.

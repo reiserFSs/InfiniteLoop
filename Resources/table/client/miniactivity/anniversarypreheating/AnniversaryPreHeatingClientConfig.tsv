@@ -1,0 +1,7 @@
+Key	Params[1]
+RemainTime	Remaining: {0}
+WatchTimes	<color=#0d70bd>{0}</color>/{1}
+GroupUnlockTips	Unlock after {0}
+BannerInterval	5
+TextScrollSpeed	30
+TextScrollWait	2

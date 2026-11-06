@@ -53,7 +53,8 @@ internal partial class Program
             using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForBiancaCompatibility(out var players, out _, out var inventories, out var stages);
             AscNet.Common.Database.Character character = CreateDrawCompatibilityCharacter(uid);
             foreach (uint id in ownedIds) character.Characters.Add(CreateLoginAccountCompatibilityCharacter(id, fashionId: 0));
-            using LoopbackSessionHarness harness = new(character, CreateDrawCompatibilityPlayer(uid), CreateDrawCompatibilityInventory(uid, []), "maintainer-action");
+            // Handlers are invoked directly and nothing is written to the socket; the client loop would drop the idle session after 10 s (the run takes ~10 s).
+            using LoopbackSessionHarness harness = new(character, CreateDrawCompatibilityPlayer(uid), CreateDrawCompatibilityInventory(uid, []), "maintainer-action", startClientLoop: false);
             Session session = harness.Session;
             int packetId = 98_801;
 
@@ -456,7 +457,7 @@ internal partial class Program
             PreFightRequest PreRequest(int stage) => new() { PreFightData = new() { StageId = StageId(stage), ChallengeCount = 1,
                 CardIds = [.. ownedIds], CaptainPos = 1, FirstFightPos = 1 } };
             int otherStage = level.StageIds.First(id => id != fightStage);
-            Stand(State().Nodes.First(n => n.NodeType == 4).NodeId);
+            Stand(State().Nodes.First(n => n.NodeType == MaintainerActionModule.TypeExplore).NodeId);
             AssertEqual(20103007, Call<PreFightResponse>(nameof(PreFightRequest), PreRequest(fightStage), nameof(PreFightResponse)).Response.Code, "fight stage off a fight node rejected");
             Stand(fightNode.NodeId);
             AssertEqual(20103008, Call<PreFightResponse>(nameof(PreFightRequest), PreRequest(otherStage), nameof(PreFightResponse)).Response.Code, "stage must be the node's stage");
@@ -567,7 +568,7 @@ internal partial class Program
             NotifyMaintainerActionData reloaded = Login();
             AssertEqual(MessagePackSerializer.SerializeToJson(progressed), MessagePackSerializer.SerializeToJson(reloaded), "BSON reload preserves the complete client projection");
             Stand(fightNode.NodeId);
-            Stand(State().Nodes.First(n => n.NodeType == 4).NodeId);
+            Stand(State().Nodes.First(n => n.NodeType == MaintainerActionModule.TypeExplore).NodeId);
             var preReload = NodeEvent();
             session.player = BsonSerializer.Deserialize<Player>(session.player.ToBson());
             var replay = NodeEvent();
@@ -579,7 +580,9 @@ internal partial class Program
             Random rng = new(4801);
             int relocations = 0, nearStart = 0;
             HashSet<int> landedTypes = [];
-            for (int board = 0; board < 8; board++)
+            // Boards are seeded per player and calendar week, so whether a back-relocation lands near the start varies with the run date:
+            // walk extra boards until one does instead of assuming the first eight (a fixed count fails on some weeks).
+            for (int board = 0; board < 8 || (nearStart == 0 && board < 64); board++)
             {
                 shift = TimeSpan.FromDays(7 * (weeks + 3 + board));
                 MaintainerActionModule.EnsureResets(session);

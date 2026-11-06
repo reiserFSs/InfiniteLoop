@@ -63,6 +63,7 @@ internal partial class Program
             XUiManager = {TipMsg = function(msg, _, cb) tips[#tips + 1] = msg if cb then cb() end end, TipText = function() end, TipCode = function() end}
             XLuaUiManager = {Open = function() end, IsUiShow = function() return false end, RunMain = function() end}
             XScheduleManager = {ScheduleOnce = function() end}
+            XScheduleManagerPro = {ScheduleOnce = function() end}
             XFunctionManager = {GetTimeByTimeId = function() return 0, 0 end, GetStartTimeByTimeId = function() return 0 end}
             local saved = {}
             XSaveTool = {GetData = function(k) return saved[k] end, SaveData = function(k, v) saved[k] = v end, RemoveData = function(k) saved[k] = nil end}

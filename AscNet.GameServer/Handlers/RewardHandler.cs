@@ -65,6 +65,7 @@ namespace AscNet.GameServer.Handlers
         internal List<int> GatherRewardIds { get; } = [];
         internal List<NotifyChatLoginData.NotifyChatLoginDataUnlockEmoji> Emojis { get; } = [];
         internal bool DrawTicketChanged { get; set; }
+        internal bool SkyTowerChanged { get; set; }
         internal List<NameplateData> Nameplates { get; } = [];
         internal List<int> BackgroundIds { get; } = [];
         internal List<NotifyChatBoardInfo.NotifyChatBoardInfoChatBoard> ChatBoards { get; } = [];
@@ -116,6 +117,9 @@ namespace AscNet.GameServer.Handlers
                 Game.WheelchairManualGuideManager.SendUpdate(session);
             if (DrawTicketChanged)
                 session.SendPush(Game.DrawTicketManager.BuildNotify(session.player));
+            // The client has no item-only SkyTower notify; its balances live in the activity data.
+            if (SkyTowerChanged)
+                session.SendPush(SkyTowerModule.BuildDataPush(session));
         }
 
         internal void AddPushes(RewardApplicationResult source)
@@ -167,6 +171,7 @@ namespace AscNet.GameServer.Handlers
                     ScoreTitleData.Titles.Add(title);
             }
             DrawTicketChanged |= source.DrawTicketChanged;
+            SkyTowerChanged |= source.SkyTowerChanged;
             DormFurnitureChanged |= source.DormFurnitureChanged;
             ChatBoardChanged |= source.ChatBoardChanged;
             Emojis.AddRange(source.Emojis);
@@ -297,6 +302,10 @@ namespace AscNet.GameServer.Handlers
             PlayerDrawState? originalDrawState = grants.SelectMany(grant => grant.Goods)
                 .Any(goods => GetRewardType(goods) == RewardType.DrawTicket)
                 ? BsonSerializer.Deserialize<PlayerDrawState>((session.player.DrawState ?? new PlayerDrawState()).ToBson())
+                : null;
+            SkyTowerState? originalSkyTower = grants.SelectMany(grant => grant.Goods)
+                .Any(goods => GetRewardType(goods) == RewardType.SkyTower)
+                ? BsonSerializer.Deserialize<SkyTowerState>(session.player.SkyTower.ToBson())
                 : null;
             List<ChatBoardUnlockState>? originalChatBoards = grants.SelectMany(grant => grant.Goods)
                 .Any(goods => GetRewardType(goods) == RewardType.ChatBoard)
@@ -434,6 +443,9 @@ namespace AscNet.GameServer.Handlers
                     }
                     bool ticketNotClaimed = resolved.Any(reward => reward.Type == RewardType.DrawTicket)
                         && !(session.player.DrawState?.FreeTicketRewardClaims?.Contains(grant.ClaimKey) == true);
+                    // SkyTower balances live on Player; the claim receipt lands atomically with that save.
+                    bool skyTowerNotClaimed = resolved.Any(reward => reward.Type == RewardType.SkyTower)
+                        && !session.player.SkyTower.AppliedRewardClaims.Contains(grant.ClaimKey);
                     // Chat board ownership lives on Player; the claim receipt lands atomically with that save.
                     bool chatBoardNotClaimed = resolved.Any(reward => reward.Type == RewardType.ChatBoard)
                         && session.player.ChatBoardRewardClaims?.Contains(grant.ClaimKey) != true;
@@ -463,7 +475,8 @@ namespace AscNet.GameServer.Handlers
                                 && session.player.OwnedBackgroundIds?.Contains(reward.Id) != true)
                             // Chat board ownership lives on Player; re-grant until that claim save is proven.
                             || (chatBoardNotClaimed && reward.Type == RewardType.ChatBoard)
-                            || (ticketNotClaimed && reward.Type == RewardType.DrawTicket)),
+                            || (ticketNotClaimed && reward.Type == RewardType.DrawTicket)
+                            || (skyTowerNotClaimed && reward.Type == RewardType.SkyTower)),
                         session,
                         grantResult);
                     if (ticketNotClaimed)
@@ -471,6 +484,8 @@ namespace AscNet.GameServer.Handlers
                         (session.player.DrawState ??= new PlayerDrawState()).FreeTicketRewardClaims.Add(grant.ClaimKey);
                         grantResult.DrawTicketChanged = true;
                     }
+                    if (skyTowerNotClaimed)
+                        session.player.SkyTower.AppliedRewardClaims.Add(grant.ClaimKey);
                     if (chatBoardNotClaimed)
                     {
                         (session.player.ChatBoardRewardClaims ??= []).Add(grant.ClaimKey);
@@ -512,6 +527,7 @@ namespace AscNet.GameServer.Handlers
                     || result.ChatBoardChanged
                     || result.GatherRewardIds.Count > 0
                     || result.DrawTicketChanged
+                    || result.SkyTowerChanged
                     || session.player.HeadPortraits.Count != originalHeadPortraits.Count
                     || (session.player.OwnedBackgroundIds?.Count ?? 0) != (originalBackgrounds?.Count ?? 0)
                     || !ReferenceEquals(session.player.WheelchairManualGuideRewardReceipts, originalGuideReceipts);
@@ -572,6 +588,8 @@ namespace AscNet.GameServer.Handlers
                     session.player.GatherRewards = originalGatherRewards;
                     if (originalDrawState is not null)
                         session.player.DrawState = originalDrawState;
+                    if (originalSkyTower is not null)
+                        session.player.SkyTower = originalSkyTower;
                     session.player.WheelchairManualGuideRewardReceipts = originalGuideReceipts;
                     if (originalDorm is not null)
                         session.player.Dorm = originalDorm;
@@ -1316,6 +1334,12 @@ namespace AscNet.GameServer.Handlers
                 case RewardType.RankScore:
                     break;
                 case RewardType.Medal:
+                    break;
+                case RewardType.SkyTower:
+                    if (SkyTowerModule.Prepare(session) is null)
+                        throw new InvalidDataException($"SkyTower reward {reward.Id} while Dreamhouse Tycoon is closed.");
+                    SkyTowerModule.GrantItem(session.player.SkyTower, reward.Id, reward.Count);
+                    result.SkyTowerChanged = true;
                     break;
                 case RewardType.DrawTicket:
                     Game.DrawTicketManager.Grant(session.player, reward.Id, reward.Count, DateTimeOffset.UtcNow);

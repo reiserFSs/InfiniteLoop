@@ -10072,6 +10072,711 @@
       "transformation": [
         "import_fuben_activity_4_9: retail rows verbatim; list columns widened to the longest row"
       ]
+    },
+    {
+      "path": "share/miniactivity/anniversarypreheating/AnniversaryPreHeatingActivity.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 1,
+      "columns": 9,
+      "contentSha256": "cff8b447759dffd9968d5c5d6c1931e939418b03789b9c76ede3cb8ba5d4188d",
+      "source": [
+        "share/miniactivity/anniversarypreheating/AnniversaryPreHeatingActivity.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/miniactivity/anniversarypreheating/AnniversaryPreHeatingActivity.json (json sha256:c6dbec97b3e9c8acc274e3cb61c7d3a548864cb0e7bcdc87664b606854fd9f3f)"
+      ],
+      "transformation": [
+        "import_anniversary_preheating_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/miniactivity/anniversarypreheating/AnniversaryPreHeatingGroup.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 7,
+      "columns": 10,
+      "contentSha256": "02453c873b873647c8f7292cd519004708915176625add6b3b71d37a341f8845",
+      "source": [
+        "share/miniactivity/anniversarypreheating/AnniversaryPreHeatingGroup.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/miniactivity/anniversarypreheating/AnniversaryPreHeatingGroup.json (json sha256:0948626d75dcce9df8e84e810429863414da29d1a7674891b50a31c1e142e04c)"
+      ],
+      "transformation": [
+        "import_anniversary_preheating_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/miniactivity/anniversarypreheating/AnniversaryPreHeatingContent.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 27,
+      "columns": 10,
+      "contentSha256": "ba153acb45b4cbf59c67959103093fb1c833cb0e1c582d7126194c38664e6110",
+      "source": [
+        "share/miniactivity/anniversarypreheating/AnniversaryPreHeatingContent.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/miniactivity/anniversarypreheating/AnniversaryPreHeatingContent.json (json sha256:b9c530ac5987242aeab398c1af08e6755b2709010913b7adacfeadcbb34eee0e)"
+      ],
+      "transformation": [
+        "import_anniversary_preheating_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "client/miniactivity/anniversarypreheating/AnniversaryPreHeatingClientConfig.tsv",
+      "naturalKey": "Key",
+      "filter": "all",
+      "rows": 6,
+      "columns": 2,
+      "contentSha256": "6c4da109ec19fc343bbde8f3d53aee5d08f6135e73552f01e0b91cf7251f9ffc",
+      "source": [
+        "client/miniactivity/anniversarypreheating/AnniversaryPreHeatingClientConfig.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/miniactivity/anniversarypreheating/AnniversaryPreHeatingClientConfig.json (json sha256:e6b8c54912979ca38939502d80ab6e1588c47931dde4e50461791e7a27d050a5)"
+      ],
+      "transformation": [
+        "import_anniversary_preheating_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/miniactivity/pacman2/PacMan2Activity.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 3,
+      "columns": 4,
+      "contentSha256": "0bc7825856d250da415bc5415ff4d437062e3453d36d54d1c63622dc7f4d118a",
+      "source": [
+        "share/miniactivity/pacman2/PacMan2Activity.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/miniactivity/pacman2/PacMan2Activity.json (json sha256:bdea6db88d3fa2e0fcd7551548a964df3f311f70949a901386fb1b14b6360efc)"
+      ],
+      "transformation": [
+        "import_pacman2_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/miniactivity/pacman2/PacMan2Stage.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 33,
+      "columns": 27,
+      "contentSha256": "3e18f5f926aff52ea9fa965a675f6b4cff9ee0bb2395e44549d270f8147c36f5",
+      "source": [
+        "share/miniactivity/pacman2/PacMan2Stage.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/miniactivity/pacman2/PacMan2Stage.json (json sha256:fb1ab6626b03ac6fdd6a693400e4126889f447fd9d67dfb95fc572396f2a8d37)"
+      ],
+      "transformation": [
+        "import_pacman2_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerCameraNodePos.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 20,
+      "columns": 16,
+      "contentSha256": "2557290bc1ca3dbda3d78794faa6931c6d16a514a3ebe90b499c18806a026bca",
+      "source": [
+        "client/skytower/SkyTowerCameraNodePos.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerCameraNodePos.json (json sha256:8041a2245fa3ecdc70cb9e77304d6367055ad03066a93688eb4ca870635837af)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerCharacterModel.tsv",
+      "naturalKey": "CharacterId",
+      "filter": "all",
+      "rows": 43,
+      "columns": 9,
+      "contentSha256": "0cfd498ec462fbfd7e7c0ec68e953cfb5e33cf2ce5024d94ced7de44e6dada99",
+      "source": [
+        "client/skytower/SkyTowerCharacterModel.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerCharacterModel.json (json sha256:0090edd5d4108fb11ae455143b55d43a2a301412c3805818628e7489c705fa98)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerClientConfig.tsv",
+      "naturalKey": "Key",
+      "filter": "all",
+      "rows": 165,
+      "columns": 11,
+      "contentSha256": "d0716690bb950b8b95eae30a9b03540efcf757edacf8805412316f4f6bdd45bf",
+      "source": [
+        "client/skytower/SkyTowerClientConfig.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerClientConfig.json (json sha256:6479c3fa46be03c217c74c485fef2b3442543a9d68a105be1a0c8288b351fa46)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerCustomer.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 5,
+      "columns": 4,
+      "contentSha256": "f8baaa2d6bd5b6c011686c3b73119818e398bdf64f47ebb0f72966d13ca9f348",
+      "source": [
+        "client/skytower/SkyTowerCustomer.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerCustomer.json (json sha256:f405754118161a79354e303623237728bf775394f6dce41598131e4036c64eaf)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerDialog.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 153,
+      "columns": 4,
+      "contentSha256": "e09012e84e524cb734ab735c554e761cd73a8044814651336cabc4d4d457d06f",
+      "source": [
+        "client/skytower/SkyTowerDialog.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerDialog.json (json sha256:78b4d1fc8625acfa116cb042b31fea89990b0172dcb5e174e3180937281f1961)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerEffect.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 9,
+      "columns": 3,
+      "contentSha256": "5da25524ec846b4369cc38ece8c25a3763300afd013909b6a7016d1051a873b5",
+      "source": [
+        "client/skytower/SkyTowerEffect.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerEffect.json (json sha256:a36bee41b58c88d4e86ae6fcfcdf0945d9656b14a122fec91d352390ea6e8b83)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerNpc.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 52,
+      "columns": 4,
+      "contentSha256": "fa7d20f078a952962156a3f3621e14674f380f45401e12c35f548c31cac690c1",
+      "source": [
+        "client/skytower/SkyTowerNpc.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerNpc.json (json sha256:b5d78dcccb82320e3784e7cd23157a3cff294df025301b4e6b481c1b8a06b222)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerOrderModel.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 56,
+      "columns": 6,
+      "contentSha256": "872c97b2d74631dc9fac643cfd4ff4f16c007b68248648577d4e35babf35070c",
+      "source": [
+        "client/skytower/SkyTowerOrderModel.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerOrderModel.json (json sha256:bcb24c64a901c8ee18be3be954e4ba5b6ab783d0941489d3c603ada25e31489f)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerPerformAuto.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 20,
+      "columns": 6,
+      "contentSha256": "6af70cfef9b47ec13c8a09dade9887f2531e0dc6439da084d8adeed71ef0a2c9",
+      "source": [
+        "client/skytower/SkyTowerPerformAuto.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerPerformAuto.json (json sha256:17f79369ad014d5475681dbbd1189bd9d3db14d6b8be484a424177bc66304d0e)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerPerformer.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 50,
+      "columns": 6,
+      "contentSha256": "e865bea9d86dafe0a0fee9e09f1b5397d789460ba88e3875d69b94f09db7b794",
+      "source": [
+        "client/skytower/SkyTowerPerformer.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerPerformer.json (json sha256:c63bede701ab51a62e96ee1cdd81e58811d781576b039920ef542895953f5d03)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerSkillType.tsv",
+      "naturalKey": "Type",
+      "filter": "all",
+      "rows": 6,
+      "columns": 4,
+      "contentSha256": "57133bec06fb0d3250c0eea21179117a1f7cc84e6270479737108bed68548532",
+      "source": [
+        "client/skytower/SkyTowerSkillType.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerSkillType.json (json sha256:e6ddd162af6d4f7b3eecb1c0728311acfdda1d22e5ad2e7a1c56ce564eefd018)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "client/skytower/SkyTowerWorkPos.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 12,
+      "columns": 2,
+      "contentSha256": "17687424854074d95f7677e77c825b4bd0d8ecd3b15cdf0fe2280fdfb6f36782",
+      "source": [
+        "client/skytower/SkyTowerWorkPos.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerWorkPos.json (json sha256:9d924e6ede166299fe2518c09d2f7db27c332a771d164169f9867f5dba5f5c9a)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerActivity.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 1,
+      "columns": 6,
+      "contentSha256": "356a5fc747a90b793e36a4c950a06a629bec3247f623a6f5a0dbaa40686c53f1",
+      "source": [
+        "share/skytower/SkyTowerActivity.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerActivity.json (json sha256:9ba315e0e1ddbfa9a2e9479c8af9cc3f255fc77435e587538d1649261678d743)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerCharacter.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 43,
+      "columns": 13,
+      "contentSha256": "8eb1a84b175f40e9ad3618a53e692b12af3a4ee8ddbbe28a0687daec52beb5ce",
+      "source": [
+        "share/skytower/SkyTowerCharacter.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerCharacter.json (json sha256:3be488d083e044caa254e1711ed2a387e2028ee7b3c5694dec176d598880ff0f)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerCharacterLv.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 1116,
+      "columns": 7,
+      "contentSha256": "23b7db3bf3f70a7e3bf41a7da984ca4e420cf019306c52ef742a7956b1315727",
+      "source": [
+        "share/skytower/SkyTowerCharacterLv.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerCharacterLv.json (json sha256:a3502200342282cc3be06cd85a9b9404a95f1383958873be2cdaa656bf50a0cc)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerCharacterSkill.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 1116,
+      "columns": 28,
+      "contentSha256": "a2c52534f1c7b769f29efa46138df9ae3b0903bb61c39c4c9e6efd7b5ed0f988",
+      "source": [
+        "share/skytower/SkyTowerCharacterSkill.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerCharacterSkill.json (json sha256:09ff641bb64f19b29ea2bea2cd98355940574bf2cb3fcdf25b1c09ed6905e97a)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerConfig.tsv",
+      "naturalKey": "Key",
+      "filter": "all",
+      "rows": 20,
+      "columns": 4,
+      "contentSha256": "b928477804d0cd9b74c321013f8c728c4d521eaa7d7794bbb167137d58d45939",
+      "source": [
+        "share/skytower/SkyTowerConfig.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerConfig.json (json sha256:a3b949bc2efbf859ace431bbccd96254fa5e1099edc71c05e8c773915703dbdc)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerDance.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 21,
+      "columns": 10,
+      "contentSha256": "8751500a597ec790d159f86871cebd1a64c75f9184a162093de362c74e1cc6da",
+      "source": [
+        "share/skytower/SkyTowerDance.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerDance.json (json sha256:bb04b6f1db610996a4e39a220f150215cfb12c25f46d3c63c1455f9a71844a68)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerFloor.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 20,
+      "columns": 12,
+      "contentSha256": "5b83ea59fc572c355f2690a8be425924ca9d04ab87017cdf6cdc4f6f5e11c895",
+      "source": [
+        "share/skytower/SkyTowerFloor.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerFloor.json (json sha256:99130cc4bbf60b9d9d0f09bb5b63f3fb13d4ae487abb5589441452400b47b9d4)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerFloorGroup.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 4,
+      "columns": 11,
+      "contentSha256": "d57c63b8d072e4767583ae5b16919ea942a081bbf3d5ecc88492184c04d07ef8",
+      "source": [
+        "share/skytower/SkyTowerFloorGroup.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerFloorGroup.json (json sha256:6f96874b2ebac1a49c9bc44aadd9d8c7510bb7153694867e9c84450752ad31c1)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerFood.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 16,
+      "columns": 22,
+      "contentSha256": "20890894a81db54e7667260d5ddb38c0995ecba8dfd25ebd5a6b6145d9afee65",
+      "source": [
+        "share/skytower/SkyTowerFood.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerFood.json (json sha256:e5aa2d7358e6d64dadab7f4f7dbc0a7f3ab47d447aa10a86621b6d503e0bd42c)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerIngredient.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 16,
+      "columns": 10,
+      "contentSha256": "2755b29a0c1960a8c1b2191145f36ed5daff1e960cd82bd8f5baf805240016d7",
+      "source": [
+        "share/skytower/SkyTowerIngredient.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerIngredient.json (json sha256:93f5efc6d8cee51930f23783b715f6dba6ccd93a2eb2dff34cf744550a1fadf1)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerItem.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 3,
+      "columns": 8,
+      "contentSha256": "fc94a13e2eed0f922d344932baa65dfe98458ae7720f846c5a718ef9c68762e9",
+      "source": [
+        "share/skytower/SkyTowerItem.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerItem.json (json sha256:8c079317e0b4cf71a508e67964d43dd29c0138d56a5c382c3ab8c5cb05bceb7e)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerLv.tsv",
+      "naturalKey": "Lv",
+      "filter": "all",
+      "rows": 55,
+      "columns": 18,
+      "contentSha256": "1d4ded0aa0fcaa1881bef800cc513e349760095e4fc99bb89cf2e0e80f97fbe1",
+      "source": [
+        "share/skytower/SkyTowerLv.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerLv.json (json sha256:8713db72e3e2b254320259035e71b0e5091273ed30655780931578ac7d33bf00)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerPerform.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 66,
+      "columns": 25,
+      "contentSha256": "9193c8cc9eb1da25a0cc683482bd7f6e0fb8e709cbab26112e78df22aba9a7b5",
+      "source": [
+        "share/skytower/SkyTowerPerform.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerPerform.json (json sha256:37cc5563d370d34abc979df15368ea7777d873aba9023212fa815ffc3e181107)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerStorage.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 32,
+      "columns": 5,
+      "contentSha256": "a809f9f4aa596a84c0f6a337cfcebc9450dc25e237f3bdf4905e54e414ac7b87",
+      "source": [
+        "share/skytower/SkyTowerStorage.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerStorage.json (json sha256:58a8544c4e362dc27c2e57d56ede609806cb9dcd6ecd35f94abd9eaaf22c1f61)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerStory.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 66,
+      "columns": 18,
+      "contentSha256": "94f5c8ee7f41fbcc2ab71dc0b6c623f076079093aca7f22388f5a81679164bf1",
+      "source": [
+        "share/skytower/SkyTowerStory.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerStory.json (json sha256:cb6f05b69757ddef3a7e478aa73ae941e2fafe8b14aceb78c8706d2e97bef1fc)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/skytower/SkyTowerTalk.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 142,
+      "columns": 8,
+      "contentSha256": "3e491652bb67caaf9f8043873221406a62e8461438bea704cd79d5f36917d8ed",
+      "source": [
+        "share/skytower/SkyTowerTalk.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/skytower/SkyTowerTalk.json (json sha256:3346db225529826dfdf631b13b50326e7c6ba5defad70167678c980305651429)"
+      ],
+      "transformation": [
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformCfg.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 5,
+      "columns": 12,
+      "contentSha256": "133a47dacaf5fe311c1408d1cfacbe7b4e8748aca1c074ddf3ff36bfe33a337b",
+      "source": [
+        "share/fuben/reform/ReformCfg.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformCfg.json (json sha256:a4cf5e24d076816b4e85736ea351f295f0328826a3c8b8abd200464db186bdcd)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformChapter.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 6,
+      "columns": 10,
+      "contentSha256": "65c5f8dd60b68ebc11ca86a38c491786ae62a3cf3b60ad885eba4cf505eb8bcf",
+      "source": [
+        "share/fuben/reform/ReformChapter.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformChapter.json (json sha256:cb12ecdf31b365cf4a63b5a9a296098bf4d9b2eafce3c7aa95466d8620d04ffd)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformStage.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 44,
+      "columns": 48,
+      "contentSha256": "eeb9d643c979fb9ecc65fb0d474ee057b28a70ef73ad8a3e06344b415eeb512a",
+      "source": [
+        "share/fuben/reform/ReformStage.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformStage.json (json sha256:26d7e98669933bc5fed224b420f70ce9ed9563b99a6225c2c999fe0cf7bd2b80)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformUseCharaGroup.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 4,
+      "columns": 13,
+      "contentSha256": "9babc36aad1fbd8b7a5c6ebbc6e8120b86596079be91c0a1a7839d2c88668e8e",
+      "source": [
+        "share/fuben/reform/ReformUseCharaGroup.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformUseCharaGroup.json (json sha256:fa5a9ca879a7967dfebc92c5beec08d050bff882252f2c45a47aa5338405ad9b)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformEnemyTarget.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 483,
+      "columns": 24,
+      "contentSha256": "74cefce4dc1d13556172cae2d4b0763c0f8e6224f9fc19ecf8504cca83990ab2",
+      "source": [
+        "share/fuben/reform/ReformEnemyTarget.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformEnemyTarget.json (json sha256:ed33f3f014ff4df5787763263373e292ffbd921794740d4ee7fa6a1357e051b2)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformBalanceAffix.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 62,
+      "columns": 9,
+      "contentSha256": "e273cf55bd1daef0c0a97925ae154de6d911288a886cfa5ff238157483add435",
+      "source": [
+        "share/fuben/reform/ReformBalanceAffix.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformBalanceAffix.json (json sha256:f8029e32d80233462d112b1ebed1f2fbde5e36c7959e60c466902ffa3ccb2622)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformBalanceAffixGroup.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 11,
+      "columns": 8,
+      "contentSha256": "3173f0be0c1d7c314edbbdbabd30f27fa1dec41a7134a9e3b2ca759420c56b10",
+      "source": [
+        "share/fuben/reform/ReformBalanceAffixGroup.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformBalanceAffixGroup.json (json sha256:86ca2776f6805d3b27d777ed106c6320791704fbfdc34fc3e6eea3ddf0b7b19a)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformBalanceBond.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 8,
+      "columns": 7,
+      "contentSha256": "68140870ac2efe07b4328923f075ec4544b2854b58b29c267253ed4e276fc0bd",
+      "source": [
+        "share/fuben/reform/ReformBalanceBond.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformBalanceBond.json (json sha256:1a48076406a51c892e59848b1e4d2cfcefdf463cd74aecc8b2cb030ad7ac709e)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformBalanceCharacter.tsv",
+      "naturalKey": "CharacterId",
+      "filter": "all",
+      "rows": 12,
+      "columns": 2,
+      "contentSha256": "310c0ef006b06aee8c52a73a0e985b51367dae952c2fc189f40a45d98cd5ffdd",
+      "source": [
+        "share/fuben/reform/ReformBalanceCharacter.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformBalanceCharacter.json (json sha256:0d3a1edb2ad64fe680ce8204feed07cea77bf8e148dfff6c56565171fe7957a9)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformBalanceConfig.tsv",
+      "naturalKey": "Key",
+      "filter": "all",
+      "rows": 8,
+      "columns": 3,
+      "contentSha256": "69a548effe26bcfdc7d0dfe52b98576de56d24c95480ae994caab843d44f2908",
+      "source": [
+        "share/fuben/reform/ReformBalanceConfig.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformBalanceConfig.json (json sha256:24c06c6e4524d89cc2ba7e947e3aaee72c8f42ac87f104108357e81955066179)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformBalanceMass.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 133,
+      "columns": 9,
+      "contentSha256": "5ab24ebf159ef9747169207b6688fab84b6cd48f8c855685be3f121c1abd8f2a",
+      "source": [
+        "share/fuben/reform/ReformBalanceMass.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformBalanceMass.json (json sha256:afe8d82167d584a001ed8d5908c29e392cc2481aa2680fa1858565c40d3824be)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "share/fuben/reform/ReformBalanceTargetGroup.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 11,
+      "columns": 6,
+      "contentSha256": "c662b8dfe485dcaf44425c75f0558f71fffd274ea1c29c25c7130cc4f7893c1e",
+      "source": [
+        "share/fuben/reform/ReformBalanceTargetGroup.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/fuben/reform/ReformBalanceTargetGroup.json (json sha256:8d76d1db146a5f105c9ed49bdf43a5dfcd07a1709fd7a654c6d81f3673a6a8d2)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
+    },
+    {
+      "path": "client/fuben/reform/ReformBalanceRecommend.tsv",
+      "naturalKey": "StageId",
+      "filter": "all",
+      "rows": 11,
+      "columns": 12,
+      "contentSha256": "c51947db2c4c9e5f361f4cc07d3de9650256d6c488efc870dcda8ecbddd37d9d",
+      "source": [
+        "client/fuben/reform/ReformBalanceRecommend.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/fuben/reform/ReformBalanceRecommend.json (json sha256:d5de295740a6fcd6eda3e3ba0afd5ebe0037b938c794cb2bf8fc0f9de3a3666b)"
+      ],
+      "transformation": [
+        "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
     }
   ],
   "validationNotes": [

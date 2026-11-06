@@ -1,0 +1,21 @@
+Id	WorkPosVector[1]	WorkPosVector[2]	WorkPosVector[3]	AppointWork[1]	AppointWork[2]	AppointWork[3]	ResLut	GroupId	LevelUpEffectPath	LevelUpEffectOffsetX	LevelUpEffectOffsetY
+1	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor01.prefab	1	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	0.0
+2	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor02.prefab	1	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	2.5999	3.5999
+3	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor03.prefab	1	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	-1.5	7.1999
+4	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor04.prefab	1	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	10.8
+5	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor05.prefab	1	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	14.3999
+6	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor06.prefab	2	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	18.0
+7	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor07.prefab	2	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	21.6
+8	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor08.prefab	2	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	-1.5	25.2
+9	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor09.prefab	2	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	2.5999	28.7999
+10	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor10.prefab	2	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	32.4
+11	1	2	3	2	0	0	Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor11.prefab	3	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	-1.5	36.0
+12	1	2	3	0	2	0	Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor12.prefab	3	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	39.0999
+13	1	2	3	1	0	0	Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor13.prefab	3	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	42.7
+14	1	2	3	0	2	1	Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor14.prefab	3	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	46.2999
+15	1	2	3	1	0	0	Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor15.prefab	3	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	2.5999	49.9
+16	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor16.prefab	4	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	53.0
+17	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor17.prefab	4	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	0.0	56.5999
+18	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor18.prefab	4	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	2.5999	60.2
+19	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor19.prefab	4	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust001.prefab	-1.5	63.7999
+20	1	2	3				Assets/Product/Scene/GamePlay/DirectFile/Prefab/System_SkyTower01/SkyTowerFloor/SkyTowerFloor20.prefab	4	Assets/Product/Effect/Prefab/FxWanfa/FxTongtianta/FxSkyTowerFloorDust002.prefab	0.0	67.4

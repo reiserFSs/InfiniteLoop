@@ -1474,12 +1474,14 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(CerberusGameModule.BuildNotify(session));
             if (MaintainerActionModule.BuildNotify(session) is { } maintainerAction)
                 session.SendPush(maintainerAction);
+            SkyTowerModule.SendLoginPushes(session);
             TowerModule.PrepareLogin(session);
             SendEmptyStartupPush(session, "NotifyClickClearData");
             SendEmptyStartupPush(session, "NotifyClientVersion");
             SendEmptyStartupPush(session, "NotifyColorTableActivityData");
             SendEmptyStartupPush(session, "NotifyCommunityData");
             Version47EventModule.SendLoginPushes(session, Version47EventModule.Clock());
+            AnniversaryPreHeatingModule.SendLoginPush(session, AnniversaryPreHeatingModule.Clock());
             SendEmptyStartupPush(session, "NotifyCoupletData");
             session.SendPush(CourseModule.BuildLoginData(session.player));
             SendEmptyStartupPush(session, "NotifyDoomsdayDbChange");
@@ -1491,6 +1493,9 @@ namespace AscNet.GameServer.Handlers
             if (fashionStoryData.ActivityId > 0)
                 session.SendPush(fashionStoryData);
             session.SendPush(HitMouseModule.BuildNotifyHitMouseData(session.player));
+            session.SendPush(PacMan2Module.BuildLoginData(session.player, DateTimeOffset.UtcNow));
+            if (ReformModule.BuildLoginData(session.player, DateTimeOffset.UtcNow) is { } reformData)
+                session.SendPush(reformData);
             if (SmallRewardsModule.BuildVersionGiftNotify(session.player, DateTimeOffset.UtcNow) is { } versionGiftData)
                 session.SendPush(versionGiftData);
             session.SendPush(SmallRewardsModule.BuildShopNotify(session, DateTimeOffset.UtcNow));

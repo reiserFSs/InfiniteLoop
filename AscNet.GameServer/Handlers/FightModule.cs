@@ -45,7 +45,8 @@ namespace AscNet.GameServer.Handlers
         Medal = 21,
         DrawTicket = 22,
         ChatBoard = 26,
-        FashionColor = 34
+        FashionColor = 34,
+        SkyTower = 39
     }
 
     [MessagePackObject(true)]
@@ -622,6 +623,13 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
+            if (ReformModule.TryApplyPreFight(session, req.PreFightData, rsp.FightData, out int reformCode) && reformCode != 0)
+            {
+                rsp.Code = reformCode;
+                session.SendResponse(rsp, packet.Id);
+                return;
+            }
+
             if (SimulateTrainModule.TryApplyPreFight(req.PreFightData, rsp.FightData, DateTimeOffset.UtcNow, out int simulateTrainCode)
                 && simulateTrainCode != 0)
             {
@@ -721,7 +729,8 @@ namespace AscNet.GameServer.Handlers
             }
             else if (BossInshotModule.IsStage(req.PreFightData.StageId)
                 || TransfiniteTowerModule.IsBattleStage(req.PreFightData.StageId)
-                || CerberusGameModule.IsStage(req.PreFightData.StageId))
+                || CerberusGameModule.IsStage(req.PreFightData.StageId)
+                || ReformModule.IsBalanceStage(req.PreFightData.StageId))
             {
                 robotIds = requestedRobotIds;
             }
@@ -805,7 +814,8 @@ namespace AscNet.GameServer.Handlers
                 && (stageTable is null || req.PreFightData.CardIds is null || deployedCharacterCount == 0
                     || deployedCharacterCount + robotIds.Count == 3
                     || TransfiniteTowerModule.IsBattleStage(req.PreFightData.StageId)
-                    || CerberusGameModule.IsStage(req.PreFightData.StageId)))
+                    || CerberusGameModule.IsStage(req.PreFightData.StageId)
+                    || ReformModule.IsBalanceStage(req.PreFightData.StageId)))
             {
                 int npcKey = 0;
                 foreach (var robotId in robotIds)
@@ -2778,6 +2788,12 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(awarenessResponse, packet.Id);
                 return;
             }
+            int reformSettleCode = ReformModule.ValidateSettle(session, req.Result);
+            if (reformSettleCode != 0)
+            {
+                session.SendResponse(new FightSettleResponse { Code = reformSettleCode }, packet.Id);
+                return;
+            }
             if (AssignModule.TrySettle(session, req.Result, out FightSettleResponse assignResponse))
             {
                 session.fight = null;
@@ -3129,6 +3145,7 @@ namespace AscNet.GameServer.Handlers
                     SimulateTrainFightResult = SimulateTrainModule.BuildFightResult(
                         session.fight?.PreFight.PreFightData,
                         req.Result),
+                    ReformFightResult = ReformModule.RecordWin(session, req.Result),
                 }
             };
 
