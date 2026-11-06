@@ -288,6 +288,11 @@ internal partial class Program
             .GetField("UtcNow", BindingFlags.NonPublic | BindingFlags.Static)!;
         var priorClock = (Func<DateTimeOffset>)clock.GetValue(null)!;
         clock.SetValue(null, (Func<DateTimeOffset>)(() => new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero)));
+        // Spend conditions only credit while their task window is open; pin that clock too (140375 closed 2026/11/5).
+        var taskClock = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule")
+            .GetField("ProgressClock", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var priorTaskClock = (Func<DateTimeOffset>)taskClock.GetValue(null)!;
+        taskClock.SetValue(null, (Func<DateTimeOffset>)(() => new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero)));
         try
         {
             using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
@@ -557,7 +562,7 @@ internal partial class Program
                 snapshot.DrawState.HistoryByGroup.GetValueOrDefault(group)
                     ?.HistoryBySubType.GetValueOrDefault(groupSubType)?.Count ?? 0;
         }
-        finally { clock.SetValue(null, priorClock); }
+        finally { clock.SetValue(null, priorClock); taskClock.SetValue(null, priorTaskClock); }
     }
 
     private static DrawDrawCardResponse DrawWithTicket(LoopbackSessionHarness harness, int drawId, int count,
@@ -639,6 +644,11 @@ internal partial class Program
         var priorClock = (Func<DateTimeOffset>)clock.GetValue(null)!;
         DateTimeOffset now = default;
         clock.SetValue(null, (Func<DateTimeOffset>)(() => now));
+        // Spend conditions only credit while their task window is open; pin that clock too (140375 closed 2026/11/5).
+        var taskClock = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.TaskModule")
+            .GetField("ProgressClock", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var priorTaskClock = (Func<DateTimeOffset>)taskClock.GetValue(null)!;
+        taskClock.SetValue(null, (Func<DateTimeOffset>)(() => now));
         try
         {
             using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
@@ -776,6 +786,6 @@ internal partial class Program
                     $"draw {drawId} pre-expiry pulls debit earned then paid stock exactly");
             }
         }
-        finally { clock.SetValue(null, priorClock); }
+        finally { clock.SetValue(null, priorClock); taskClock.SetValue(null, priorTaskClock); }
     }
 }

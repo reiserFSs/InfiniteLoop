@@ -1657,11 +1657,13 @@ namespace AscNet.GameServer.Handlers
                 }
             });
         }
+        // Test seam: task windows gate progress crediting; tests pin it so assertions don't depend on the wall clock.
+        internal static Func<DateTimeOffset> ProgressClock = () => DateTimeOffset.UtcNow;
         internal static void RecordTableDrivenProgress(GuildMutation mutation, int conditionType, int amount, int? parameter = null)
         {
             if (amount <= 0) return;
             Session session = mutation.ActorSession;
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = ProgressClock();
             HashSet<int> active = TableReaderV2.Parse<TaskTable>().Where(task => IsTaskActive(task, now)
                     && (task.Type != 51 || PassportModule.IsActivePassportTask(session, task.Id)))
                 .Select(task => task.Condition)
@@ -1712,7 +1714,7 @@ namespace AscNet.GameServer.Handlers
         {
             if (ResolveTableDrivenAmounts(changes) is not { } resolved) return false;
             (Dictionary<int, int> conditionAmounts, Dictionary<int, int> currentAmounts) = resolved;
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = ProgressClock();
             HashSet<int> legacyConditions = TableReaderV2.Parse<TaskTable>()
                 .Where(task => conditionAmounts.ContainsKey(task.Condition)
                     && IsTaskActive(task, now) && !IsDayTask(task.Id)
@@ -1772,7 +1774,7 @@ namespace AscNet.GameServer.Handlers
             if (conditionAmounts.Count == 0 && currentAmounts.Count == 0)
                 return;
             if (theatre is null && theatre5 is null && theatre4 is null && theatre6 is null) EnsureMissionResets(session);
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = ProgressClock();
             List<TaskTable> tasks = TableReaderV2.Parse<TaskTable>()
                 .Where(task => conditionAmounts.ContainsKey(task.Condition)
                     && IsTaskActive(task, now) && !IsDayTask(task.Id)
