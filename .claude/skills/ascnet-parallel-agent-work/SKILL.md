@@ -15,9 +15,12 @@ Never `git checkout`, `git reset`, `git restore` or `git stash` files other agen
 
 # Test databases
 Use a unique `Database.Name` per run in the test output `Configs/config.json`. The full run needs `ascnet_manual_full_<tag>`. Drop your databases afterwards.
+The config is read relative to the working directory: run `dotnet AscNet.Test.dll …` from `AscNet.Test/bin/Debug/net8.0` (or `dotnet run --project` from the repo root with that config in place). Running from elsewhere silently falls back to the default `asc_net` — the operator's real database.
 
 # Flakiness
-`LoopbackSessionHarness` sessions are dropped after a 10 s idle timeout (`Session.ClientLoop`), so slow assertions between requests flake under full-suite load. Do slow work before opening the session or after reading the last packet; rerun the failing selector alone before blaming code.
+`LoopbackSessionHarness` sessions are dropped after a 10 s idle timeout (`Session.ClientLoop`), so slow assertions between requests flake under full-suite load. Tests that call handlers directly and never write to the socket should start the harness with `startClientLoop: false`. Otherwise do slow work before opening the session or after reading the last packet; rerun the failing selector alone before blaming code.
+Pushes go through the async `PacketWriter` queue, and `Session` sends a trailing `NotifyTask` after many requests: wait for an expected push with a blocking read loop (not one non-blocking `TryReadAvailablePacket`), give `ReadResponsePayload` a `maxPacketsToRead` when reward/task pushes precede the response, and let "no more packets" checks tolerate trailing `NotifyTask`.
+Tests must not depend on today's date: pin every clock the path reads (`DrawManager.UtcNow`, `TaskModule.ProgressClock`, …) and avoid `First(...)` lookups on per-week generated boards.
 
 # Roles
 - Agents build and run their own selector.
