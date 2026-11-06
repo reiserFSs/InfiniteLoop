@@ -19,8 +19,8 @@ namespace AscNet.GameServer.Handlers
     /// <summary>
     /// 4.9 Time Trace (Anniversary pre-heating): read each content of a group, then claim the group reward once.
     /// Rules come from the AnniversaryPreHeating{Activity,Group,Content} tables; error codes are the installed
-    /// CodeText 20436001-20436010 rows. The windows have no retail calendar: ActivityScheduleService opens
-    /// the activity and every group under the AscNet missing-calendar policy.
+    /// CodeText 20436001-20436010 rows. The activity is closed (Docs/closed.md "Time Trace"): no schedule entry exists for
+    /// its TimeIds, so every request answers NotOpen and the login push is skipped until the windows are restored.
     /// </summary>
     internal static class AnniversaryPreHeatingModule
     {

@@ -13,7 +13,7 @@ namespace AscNet.Test;
 
 internal partial class Program
 {
-    /// <summary>4.9 Time Trace: Read/Reward requests, reward-once claim, login push, BSON reload, missing-calendar window.</summary>
+    /// <summary>4.9 Time Trace: closed in the real schedule; Read/Reward requests, reward-once claim, login push and BSON reload under an injected test window.</summary>
     private static void ValidateAnniversaryPreHeatingCompatibility()
     {
         const long playerId = 49_610;
@@ -29,11 +29,10 @@ internal partial class Program
         AnniversaryPreHeatingGroupTable[] groups = TableReaderV2.Parse<AnniversaryPreHeatingGroupTable>()
             .Where(row => activity.GroupIds.Contains(row.Id)).ToArray();
         AssertEqual(7, groups.Length, "authored Time Trace groups");
-        // AscNet missing-calendar policy: the activity and every group window is open.
+        // Closed by user decision (4.9.1 tables are placeholder text): the real schedule has no window for 51503-51510.
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        AssertEqual(true, ActivityScheduleService.IsOpen(activity.TimeId, now), "activity window open");
-        AssertEqual(true, groups.All(group => ActivityScheduleService.IsOpen(group.TimeId, now)), "group windows open");
-
+        for (int timeId = 51503; timeId <= 51510; timeId++)
+            AssertEqual(false, ActivityScheduleService.IsOpen(timeId, now), "Time Trace TimeId stays closed " + timeId);
         using MongoCollectionOverride mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out _, out _, out _);
         Player player = CreateDrawCompatibilityPlayer(playerId);
         using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(playerId), player,
@@ -44,12 +43,24 @@ internal partial class Program
             InvokeRegisteredRequestHandler(name + "Request", harness.Session, ++id, request);
             return ReadResponsePayload<T>(harness, id, name + "Response", name, maxPacketsToRead: 16);
         }
+        // Closed by default: requests answer NotOpen, nothing is pushed or persisted.
+        AssertEqual(null, AnniversaryPreHeatingModule.BuildNotify(harness.Session.player, now), "closed activity sends no login push");
+        AssertEqual(20436001, Call<AnniversaryPreHeatingReadResponse>("AnniversaryPreHeatingRead",
+            new AnniversaryPreHeatingReadRequest { GroupId = groups[0].Id, ContentId = groups[0].ContentIds[0] }).Code, "closed read");
+        AssertEqual(20436001, Call<AnniversaryPreHeatingRewardResponse>("AnniversaryPreHeatingReward",
+            new AnniversaryPreHeatingRewardRequest { GroupId = groups[0].Id }).Code, "closed reward");
+        AssertEqual(0, harness.Session.player.AnniversaryPreHeating.Groups.Count, "closed requests persist nothing");
         int Read(int groupId, int contentId) => Call<AnniversaryPreHeatingReadResponse>("AnniversaryPreHeatingRead",
             new AnniversaryPreHeatingReadRequest { GroupId = groupId, ContentId = contentId }).Code;
         AnniversaryPreHeatingRewardResponse Claim(int groupId) => Call<AnniversaryPreHeatingRewardResponse>(
             "AnniversaryPreHeatingReward", new AnniversaryPreHeatingRewardRequest { GroupId = groupId });
         long Owned(int itemId) => harness.Session.inventory.Items.Where(item => item.Id == itemId).Sum(item => (long)item.Count);
 
+        // Handlers need an open window: inject one for the test only (the real schedule keeps Time Trace closed, asserted above).
+        ActivityScheduleService.TestEntries = groups.Select(group => group.TimeId).Append(activity.TimeId)
+            .Select(timeId => new ActivityScheduleEntry(timeId, 0, ActivityScheduleService.UnboundedEnd, "test-only:AnniversaryPreHeating")).ToArray();
+        try
+        {
         // Login push: fresh state carries the activity id and no groups.
         NotifyAnniversaryPreHeatingData fresh = AnniversaryPreHeatingModule.BuildNotify(harness.Session.player, now)!;
         AssertEqual(activity.Id, fresh.Data.ActivityId, "login push activity id");
@@ -104,5 +115,7 @@ internal partial class Program
         // State is per player.
         AssertEqual(false, AnniversaryPreHeatingModule.BuildNotify(CreateDrawCompatibilityPlayer(playerId + 1), now)!
             .Data.AnniversaryPreHeatingGroupDatas.Any(), "other player starts empty");
+        }
+        finally { ActivityScheduleService.TestEntries = []; }
     }
 }

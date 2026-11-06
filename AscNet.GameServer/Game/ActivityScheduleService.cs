@@ -75,7 +75,6 @@ public static class ActivityScheduleService
             .Concat(TransfiniteTowerEntries())
             .Concat(CerberusGameEntries())
             .Concat(MaintainerActionEntries())
-            .Concat(AnniversaryPreHeatingEntries())
             // AscNet policy (user-approved, not retail parity): the separate self-choice lottery
             // has no authoritative calendar. Its client requires a positive end time.
             .Concat(new[] { new ActivityScheduleEntry(49501, 0, UnboundedEnd,
@@ -195,7 +194,10 @@ public static class ActivityScheduleService
             .Concat(TableReaderV2.Parse<ReformCfgTable>().Select(row => ("ReformCfg.OpenTimeId", row.OpenTimeId)))
             .Concat(TableReaderV2.Parse<ReformChapterTable>().Select(row => ("ReformChapter.OpenTime", row.OpenTime)))
             .Concat(TableReaderV2.Parse<ReformStageTable>().Select(row => ("ReformStage.OpenTimeId", row.OpenTimeId)));
-        return references.Where(row => row.TimeId > 0).DistinctBy(row => row.TimeId)
+        // Time Trace stays closed (Docs/closed.md): its Events entry (ActivityBriefGroup 159) must not re-open the activity.
+        HashSet<int> closed = TableReaderV2.Parse<AnniversaryPreHeatingActivityTable>().Select(row => row.TimeId)
+            .Concat(TableReaderV2.Parse<AnniversaryPreHeatingGroupTable>().Select(row => row.TimeId)).ToHashSet();
+        return references.Where(row => row.TimeId > 0 && !closed.Contains(row.TimeId)).DistinctBy(row => row.TimeId)
             .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
                 $"local-policy:missing-calendar:unbounded-calendar:{row.Source}:TimeId={row.TimeId}:user-approved"));
     }
@@ -245,7 +247,6 @@ public static class ActivityScheduleService
         (51301, "NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId+TaskTimeLimit.TimeId"),
         (51401, "Lotto.TimeId+LottoPrimary.TimeId"),
         (51502, "TaskTimeLimit.TimeId"),
-        (51503, "NewActivityCalendarActivity.MainTimeId+NewActivityCalendarPeriod.TimeId"),
         (51701, "MainLine2Chapter.ActivityTimeId"),
         (51903, "TaskTimeLimit.TimeId"),
         (51909, "ActivityBrief.TimeId"),
@@ -259,9 +260,12 @@ public static class ActivityScheduleService
     public static bool IsOpen(long timeId, DateTimeOffset now) =>
         TryGet(timeId, out ActivityScheduleEntry entry) && entry.IsOpen(now);
 
+    /// <summary>Test-only schedule override consulted before the real entries; tests restore it in finally.</summary>
+    internal static IReadOnlyList<ActivityScheduleEntry> TestEntries = [];
+
     public static bool TryGet(long timeId, out ActivityScheduleEntry entry)
     {
-        entry = Entries.Value.FirstOrDefault(row => row.Id == timeId);
+        entry = TestEntries.Concat(Entries.Value).FirstOrDefault(row => row.Id == timeId);
         return entry.Id != 0;
     }
 
@@ -318,19 +322,6 @@ public static class ActivityScheduleService
             .Where(row => row.TimeId > 0).DistinctBy(row => row.TimeId)
             .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
                 $"local-policy:PacMan2:missing-calendar:permanent-mode:{row.Source}:TimeId={row.TimeId}"));
-
-    /// <summary>
-    /// AscNet policy (missing-retail policy): Time Trace's AnniversaryPreHeatingActivity.TimeId and every
-    /// AnniversaryPreHeatingGroup.TimeId have no authored calendar row, so the event and all its chapters are
-    /// permanently available (no staggered unlock is invented). A positive end keeps the client's countdown valid;
-    /// an official ActivitySchedule row for the same TimeId precedes this one and wins.
-    /// </summary>
-    private static IEnumerable<ActivityScheduleEntry> AnniversaryPreHeatingEntries() =>
-        TableReaderV2.Parse<AnniversaryPreHeatingActivityTable>().Select(row => (row.TimeId, Source: $"AnniversaryPreHeatingActivity:Id={row.Id}"))
-            .Concat(TableReaderV2.Parse<AnniversaryPreHeatingGroupTable>().Select(row => (row.TimeId, Source: $"AnniversaryPreHeatingGroup:Id={row.Id}")))
-            .Where(row => row.TimeId > 0).DistinctBy(row => row.TimeId)
-            .Select(row => new ActivityScheduleEntry(row.TimeId, 0, UnboundedEnd,
-                $"local-policy:AnniversaryPreHeating:missing-calendar:permanent-mode:{row.Source}:TimeId={row.TimeId}"));
 
     /// <summary>
     /// AscNet policy (user-approved): missing Cerberus activity, chapter, and reachable condition

@@ -249,16 +249,37 @@ internal static partial class Program
         AssertEqual(false, events.Contains(s1.PerfectBalanceFightEventId), "unbalanced selection has no perfect event");
         AssertEqual(true, events.Contains(s1.DifficultyBuffIds[Tier(s1, pick.CostTotal)]), "difficulty buff of the cost tier");
         List<ReformEnemyTargetTable> chosenEnemies = pick.Cost.Select(id => enemies[TargetOf(id)]).ToList();
-        object[] groups = ((System.Collections.IEnumerable)unbalanced.FightData.NpcGroupList!).Cast<object>().ToArray();
-        AssertEqual(chosenEnemies.Select(row => row.SpawnWave).Distinct().Count(), groups.Length, "one NpcGroup per spawn wave");
-        AssertEqual(chosenEnemies.Sum(row => row.SpawnCount),
-            groups.Sum(group => ((System.Collections.IEnumerable)((System.Collections.IDictionary)group)["NpcList"]!).Cast<object>().Count()), "npc count = sum of SpawnCount");
+        // The stage's behavior tree (Behavior 30162552..62) reads StageParams ReformBalanceEnemyWave1..3 ([NpcId, Level, Hp] x up to 8) and
+        // never NpcGroupList: an absent/empty list makes it skip every wave and clear instantly (the reported "no enemies, auto-clear").
+        Dictionary<int, AscNet.Table.V2.share.fight.npc.NpcTable> npcRows = TableReaderV2.Parse<AscNet.Table.V2.share.fight.npc.NpcTable>().ToDictionary(row => row.Id);
+        void AssertWaves(PreFightResponse response, IEnumerable<ReformEnemyTargetTable> chosen, string label)
+        {
+            AssertEqual(true, response.FightData.NpcGroupList is null, $"{label}: enemies are not shipped through NpcGroupList");
+            var stageParams = ((Dictionary<object, object>)response.FightData.StageParams!).ToDictionary(entry => (string)entry.Key, entry => (string)entry.Value);
+            AssertEqual(3, stageParams.Count, $"{label}: three wave keys");
+            int total = 0;
+            for (int wave = 1; wave <= 3; wave++)
+            {
+                List<int> list = Newtonsoft.Json.JsonConvert.DeserializeObject<List<int>>(stageParams[$"ReformBalanceEnemyWave{wave}"])!;
+                List<int> expected = chosen.Where(row => row.SpawnWave == wave)
+                    .SelectMany(row => Enumerable.Repeat(new[] { row.NpcId, row.Level, row.Hp }, row.SpawnCount)).SelectMany(slot => slot).ToList();
+                AssertEqual(string.Join(",", expected), string.Join(",", list), $"{label}: wave {wave} [NpcId, Level, Hp] triples");
+                AssertEqual(true, list.Count % 3 == 0 && list.Count <= 24, $"{label}: wave {wave} fits the level's 8 slots");
+                for (int slot = 0; slot < list.Count; slot += 3)
+                    AssertEqual(true, npcRows.ContainsKey(list[slot]) && list[slot + 1] > 0 && list[slot + 2] > 0, $"{label}: wave {wave} slot {slot / 3} npc {list[slot]} exists, level and hp positive");
+                total += list.Count / 3;
+            }
+            AssertEqual(true, total > 0, $"{label}: at least one enemy spawns");
+            AssertEqual(chosen.Sum(row => row.SpawnCount), total, $"{label}: enemy count = sum of SpawnCount");
+        }
+        AssertWaves(unbalanced, chosenEnemies, "normal stage selection A");
         AssertEqual(unbalanced.FightData.RoleData[0].NpcData.Count, Lineup(pick.Wish, Unowned(pick.Wish)).Cards.Count(id => id > 0) + Unowned(pick.Wish).Length, "deployed team");
 
         // Distinct inputs: a perfect balance carries the perfect event instead (normal stage), a normal balance neither.
         var perfect = Find(s1, [], Perfect);
         PreFightResponse perfectResponse = Valid(s1.Id, perfect);
         AssertEqual(0, perfectResponse.Code, "perfect selection accepted");
+        AssertWaves(perfectResponse, perfect.Cost.Where(id => masses[id].WeightType == 2).Select(id => enemies[TargetOf(id)]), "normal stage selection B");
         List<int> perfectEvents = perfectResponse.FightData.EventIds.Select(e => (int)e).ToList();
         AssertEqual(true, perfectEvents.Contains(s1.PerfectBalanceFightEventId), "perfect normal-stage selection carries the perfect event");
         AssertEqual(false, perfectEvents.Contains(s1.UnbalancedFightEventId), "perfect selection has no unbalanced event");
@@ -357,6 +378,7 @@ internal static partial class Program
         var hardPerfect = Find(hard, passedAll, Perfect);
         PreFightResponse hardFight = Valid(hard.Id, hardPerfect);
         AssertEqual(0, hardFight.Code, "hard perfect selection accepted");
+        AssertWaves(hardFight, hardPerfect.Cost.Where(id => masses[id].WeightType == 2).Select(id => enemies[TargetOf(id)]), "hard stage selection");
         AssertEqual(false, hardFight.FightData.EventIds.Any(e => (int)e == hard.PerfectBalanceFightEventId), "hard perfect balance pays mass, not the fight event");
         ReformSettleProbe hardWin = Call<ReformSettleProbe>(nameof(FightSettleRequest), SettleRequest(hard.Id, hardFight.FightData.FightId));
         int bonus = (int)Math.Floor(hardPerfect.WishTotal * 1.1 - hardPerfect.WishTotal);

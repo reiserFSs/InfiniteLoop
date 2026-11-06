@@ -57,6 +57,8 @@ internal static partial class Program
         {
             if (Unserved(group.SkipId))
                 AssertEqual(false, ActivityScheduleService.IsOpen(group.TimeId!.Value, now), $"unserved Events entry {group.Id} stays closed");
+            else if (group.Id == 159)
+                AssertEqual(false, ActivityScheduleService.IsOpen(group.TimeId!.Value, now), "Time Trace (Events group 159) stays closed: 4.9.1 tables are placeholder text");
             else
                 AssertEqual(true, ActivityScheduleService.IsOpen(group.TimeId!.Value, now), $"Events entry {group.Id} TimeId {group.TimeId} is open");
         }
