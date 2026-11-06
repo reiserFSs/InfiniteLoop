@@ -128,7 +128,9 @@ namespace AscNet.GameServer.Handlers
                         ["SignRound"] = 1, ["RewardIndexList"] = pass?.RewardIndexList ?? new List<int>()
                     };
                 }
-                data["DailyRewardSupplementGetData"] = SupplementData(player, id, data);
+                // The client treats an absent key like nil ("no missed days"): XUiSignCard.lua:224.
+                if (SupplementData(player, id, data) is { } supplement) data["DailyRewardSupplementGetData"] = supplement;
+                else data.Remove("DailyRewardSupplementGetData");
             }
         }
 
