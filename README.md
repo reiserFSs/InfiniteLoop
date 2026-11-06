@@ -1,5 +1,8 @@
 # InfiniteLoop
 
+<img width="1500" height="500" alt="image" src="https://github.com/user-attachments/assets/f41daa42-e75a-4fb5-a612-daae67b2cc30" />
+
+
 Play **Punishing: Gray Raven** on your own PC, against a private server that runs on your machine. InfiniteLoop is a branch of [AscNet](https://github.com/rafi1212122/AscNet).
 
 This is a fan project, not an official service. Everything runs locally: your progress is stored on your computer, and there are no other players unless you share your server.
