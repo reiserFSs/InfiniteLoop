@@ -15,7 +15,7 @@ namespace AscNet.GameServer.Handlers;
 /// (ReformFightResult). The client sends no balance-specific request: it submits the chosen weight (mass) ids with the
 /// ordinary PreFightRequest, so the server re-validates the whole selection there (EN CodeText 20123050-20123079 are the
 /// retail reasons) and derives the fight from it: FightData.EventIds (affix events, difficulty buff, unbalanced/perfect
-/// events) and FightData.StageParams ReformBalanceEnemyWave1..3 (the stage's behavior tree spawns the enemies from these; it never reads NpcGroupList).
+/// events) and FightData.StageParams ReformBalanceEnemyWave1..3 (the stage's behavior tree spawns the enemies from these) plus NpcGroupList, which the behavior tree never reads but the fight loader preloads npc models from (Theatre3 ships both the same way); without it the spawned enemies are invisible.
 ///
 /// AscNet policy (missing-retail policy, not recovered retail behavior): which ReformCfg row is open (the newest with a
 /// positive OpenTimeId whose window is open), stage availability (previous chapter passed; hard needs every normal stage
@@ -150,6 +150,7 @@ internal static class ReformModule
         public HashSet<int> CharacterIds { get; } = [];
         public List<int> EventIds { get; } = [];
         public Dictionary<string, string> StageParams { get; } = [];
+        public List<object> NpcGroups { get; } = [];
     }
 
     private static Evaluation Fail(int code) => new() { Code = code };
@@ -338,6 +339,19 @@ internal static class ReformModule
         for (int wave = 1; wave <= LevelWaveCount; wave++)
             result.StageParams[WaveParamKey + wave] = JsonConvert.SerializeObject((waves.FirstOrDefault(group => group.Key == wave) ?? Enumerable.Empty<ReformEnemyTargetTable>())
                 .SelectMany(enemy => Enumerable.Repeat(new[] { enemy.NpcId, enemy.Level, enemy.Hp }, enemy.SpawnCount)).SelectMany(slot => slot));
+        // Preload list: one group per wave with the wave's enemies (the level spawns them itself from StageParams).
+        foreach (IGrouping<int, ReformEnemyTargetTable> wave in waves)
+            result.NpcGroups.Add(new
+            {
+                NpcList = wave.SelectMany(enemy => Enumerable.Range(0, enemy.SpawnCount).Select(_ => (object)new
+                {
+                    NpcId = enemy.NpcId,
+                    Level = enemy.Level,
+                    BufferIds = enemy.BuffIds.Where(id => id > 0).ToList(),
+                    MagicInfos = new List<object>(),
+                    AttrTable = new Dictionary<int, object>()
+                })).ToList()
+            });
         result.EventIds.RemoveAll(id => id <= 0);
         return result;
     }
@@ -387,6 +401,7 @@ internal static class ReformModule
             return true;
         fightData.EventIds.AddRange(evaluation.EventIds.Where(id => !fightData.EventIds.Contains(id)).Select(id => (dynamic)id));
         fightData.StageParams = evaluation.StageParams;
+        fightData.NpcGroupList = evaluation.NpcGroups;
         return true;
     }
 

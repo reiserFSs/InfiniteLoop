@@ -254,7 +254,11 @@ internal static partial class Program
         Dictionary<int, AscNet.Table.V2.share.fight.npc.NpcTable> npcRows = TableReaderV2.Parse<AscNet.Table.V2.share.fight.npc.NpcTable>().ToDictionary(row => row.Id);
         void AssertWaves(PreFightResponse response, IEnumerable<ReformEnemyTargetTable> chosen, string label)
         {
-            AssertEqual(true, response.FightData.NpcGroupList is null, $"{label}: enemies are not shipped through NpcGroupList");
+            // The loader preloads npc models from NpcGroupList (the level spawns from StageParams): every spawned NpcId must be in it.
+            HashSet<int> preload = ((System.Collections.IEnumerable)response.FightData.NpcGroupList!).Cast<object>()
+                .SelectMany(group => ((System.Collections.IEnumerable)((System.Collections.IDictionary)group)["NpcList"]!).Cast<object>())
+                .Select(npc => Convert.ToInt32(((System.Collections.IDictionary)npc)["NpcId"])).ToHashSet();
+            AssertEqual(true, chosen.All(row => preload.Contains(row.NpcId)), $"{label}: every spawned NpcId is in the NpcGroupList preload set");
             var stageParams = ((Dictionary<object, object>)response.FightData.StageParams!).ToDictionary(entry => (string)entry.Key, entry => (string)entry.Value);
             AssertEqual(3, stageParams.Count, $"{label}: three wave keys");
             int total = 0;
