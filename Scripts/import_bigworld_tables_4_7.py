@@ -102,7 +102,7 @@ def bundle_tables(directory: str) -> dict:
         tables = {}
         try:
             path = pgr_bundles.resolve(f'assets/temp/bytes/{directory}.ab', scope='resource')
-            _, _, payload = _assets.decode_bundle_payload(path.read_bytes())
+            payload = pgr_bundles.payload(path)
             for item in dbt.iter_text_assets(_assets, payload):
                 name = str(item['name']).rsplit('/', 1)[-1]
                 if name.endswith('.bytes'):
@@ -215,7 +215,7 @@ def import_quests(report):
     Objectives keep their native ObjectiveList position (Order): Serial steps run in that order,
     which is not id order."""
     path = pgr_bundles.resolve('assets/temp/bytes/share/statussyncfight/quest.ab', scope='resource')
-    _, _, payload = _assets.decode_bundle_payload(path.read_bytes())
+    payload = pgr_bundles.payload(path)
     quests, steps, objectives = [], [], []
     for item in dbt.iter_text_assets(_assets, payload):
         if not str(item['name']).startswith('QuestData_'):

@@ -15,6 +15,8 @@ and cache the result (JSON, keyed by file name + size + mtime). Only the first L
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import importlib.util
 import json
 import os
@@ -29,9 +31,12 @@ DEFAULT_MANIFEST = ROOT.parent / "manifest/native-starter-manifest.json"
 VENDOR = ROOT.parent / "external-tools/python-vendor"
 CACHE = ROOT / ".runtime/pgr_bundles_cache.json"
 KEY = b"XxecodrPeGaka2e6"  # AES-128-CTR key of the PGR protected-UnityFS seed (bundle.rs KEY)
+PREFIX_MAGIC = b"HARUINKUROGAME"  # 4.9 .uab files: PREFIX_LEN bytes (magic + zero padding) in front of the UnityFS header
+PREFIX_LEN = 32
 SCOPES = ("document", "resource")  # priority order: document overrides resource
 ASSET_BUNDLE_CLASS = 142
-CACHE_VERSION = 2
+CACHE_VERSION = 3
+INDEX_FILES = ("index", "InPkgIndex")  # index bundles: decoded by read_index_file, not part of the logical-name scan
 TREES = ("matrix", "launch")  # StreamingAssets/<scope>/<tree>/: two bundle namespaces, each with its own index
 MANIFEST_ASSET = "assets/temp/matrix/matrixmanifest.bytes"
 SPECIAL_NAMES = {MANIFEST_ASSET: "matrixmanifest", "assets/temp/launch/launchmanifest.bytes": "launchmanifest"}  # no .ab suffix
@@ -146,13 +151,36 @@ def _untransform_lz4(data: bytes, context: list[int], initial: int) -> bytes:
     return bytes(out)
 
 
+class _Shifted:
+    """File view whose offset 0 is `base` (UnityFS header offsets/size exclude the 4.9 prefix)."""
+
+    def __init__(self, f, base: int):
+        self.f, self.base = f, base
+        f.seek(base)
+
+    def seek(self, pos: int):
+        self.f.seek(self.base + pos)
+
+    def read(self, n: int = -1):
+        return self.f.read(n)
+
+    def close(self):
+        self.f.close()
+
+
 class Bundle:
     """Lazy decoder: `prefix(n)` decompresses only as many blocks as needed to cover the first n payload bytes."""
 
     def __init__(self, path: Path):
-        self.f = open(path, "rb")
-        size = os.fstat(self.f.fileno()).st_size
-        head = self.f.read(256)
+        self.f = io.BytesIO(path) if isinstance(path, (bytes, bytearray)) else open(path, "rb")
+        size = self.f.seek(0, 2)
+        self.f.seek(0)
+        head = self.f.read(PREFIX_LEN + 256)
+        self.base = PREFIX_LEN if head.startswith(PREFIX_MAGIC) else 0  # 4.9: 32-byte HARUINKUROGAME header, then UnityFS
+        head = head[self.base:]
+        size -= self.base
+        if self.base:
+            self.f = _Shifted(self.f, self.base)
         sig, off = _cstr(head, 0)
         if sig != b"UnityFS":
             raise ValueError("not UnityFS")
@@ -226,6 +254,20 @@ class Bundle:
         self.f.close()
 
 
+def strip_prefix(data: bytes) -> bytes:
+    """File bytes without the 4.9 HARUINKUROGAME prefix: what UnityPy and other plain UnityFS readers expect."""
+    return data[PREFIX_LEN:] if data.startswith(PREFIX_MAGIC) else data
+
+
+def payload(source) -> bytes:
+    """Fully decoded UnityFS payload (all blocks, protected or not, 4.9 prefix handled) of a file path or bytes."""
+    bundle = Bundle(source)
+    try:
+        return bundle.prefix(sum(b[0] for b in bundle.blocks))
+    finally:
+        bundle.close()
+
+
 def read_container(path: Path) -> dict:
     """Decode just enough of one bundle to read its AssetBundle object: {name, assets[]} (or kind != 'unity')."""
     try:
@@ -285,14 +327,14 @@ def scan(install: Path | None = None, cache_path: Path = CACHE, workers: int | N
     old = {}
     if cache_path.exists():
         loaded = json.loads(cache_path.read_text())
-        if loaded.get("version") == CACHE_VERSION:
+        if loaded.get("version") == CACHE_VERSION and loaded.get("install") == str(install):  # never mix installs
             old = loaded["files"]
     files, jobs = {}, []
     for scope, tree in ((s, t) for t in TREES for s in SCOPES):
         if not matrix_dir(install, scope, tree).is_dir():
             continue
         for entry in os.scandir(matrix_dir(install, scope, tree)):
-            if entry.name == "index" or not entry.is_file():
+            if entry.name in INDEX_FILES or not entry.is_file():
                 continue
             st = entry.stat()
             key = f"{scope}/{entry.name}" if tree == "matrix" else f"{scope}/{tree}/{entry.name}"
@@ -300,7 +342,7 @@ def scan(install: Path | None = None, cache_path: Path = CACHE, workers: int | N
             prev = old.get(key)
             if prev and prev["size"] == rec["size"] and prev["mtime_ns"] == rec["mtime_ns"]:
                 rec.update({k: v for k, v in prev.items() if k not in rec})
-            elif entry.name.endswith(".uab"):
+            elif entry.name.endswith(".uab") or "." not in entry.name:  # 4.9 manifests are extensionless bundles
                 jobs.append((key, entry.path))
             else:
                 rec["kind"] = "raw"
@@ -390,37 +432,95 @@ def _msgpack(data: bytes, off: int = 0, depth: int = 0):
     raise ValueError(f"unsupported msgpack marker 0x{m:02x}")
 
 
+def _find_msgpack(payload: bytes, heads: tuple[bytes, ...], accept):
+    """First msgpack value in payload starting with one of `heads` that `accept` approves (TextAsset script is embedded)."""
+    for head in heads:
+        start = payload.find(head)
+        while start >= 0:
+            try:
+                value, _ = _msgpack(payload, start)
+                if accept(value):
+                    return value
+            except (ValueError, IndexError, KeyError, TypeError):
+                pass
+            start = payload.find(head, start + 1)
+    return None
+
+
+def _is_v48_index(value) -> bool:
+    table = value[0] if isinstance(value, list) and len(value) == 3 else None
+    return isinstance(table, dict) and all(isinstance(k, str) and isinstance(v, list) and len(v) == 3
+                                           for k, v in list(table.items())[:50])
+
+
+def _is_v49_index(value) -> bool:
+    table = value[0] if isinstance(value, list) and len(value) == 6 else None
+    return isinstance(table, dict) and bool(table) and all(
+        isinstance(k, str) and isinstance(v, list) and len(v) == 6 for k, v in list(table.items())[:50])
+
+
+def read_file_table(path: Path) -> dict | None:
+    """4.9 `index` / `InPkgIndex` (TextAsset msgpack, 6-array) -> {"files": {physical file: [logical name or "", sha1, size,
+    svn version, [base versions], 0]}, "groups": {id: [files]}, "lists": [files, files, ids]}; None if not that layout.
+
+    The physical name is a 16-hex id, not the sha1. The logical name is set only for non-bundle files (acb/awb/usm/acf/
+    patch bytes); bundle logical names live inside the bundles (scan) and `matrixmanifest` maps asset -> file.
+    `groups` (document/matrix/index only): download group id -> files; `lists`: two sorted file lists (900 and 48,616 in
+    4.9.0/4.9.1; purpose not proven) and a short id list.
+    """
+    return _file_table(payload(path))
+
+
+def _file_table(data: bytes) -> dict | None:
+    value = _find_msgpack(data, (b"\x96\xdf", b"\x96\xde"), _is_v49_index)
+    if value is None:
+        return None
+    files, groups, _, list3, list4, ids = value
+    return {"files": files, "groups": groups or {}, "lists": [list3, list4, ids]}
+
+
 def read_index_file(path: Path) -> dict[str, list]:
-    """Decode a matrix `index` file -> {logical name: [file, sha1, size]}. Raises if the 4.8 layout is not found."""
-    bundle = Bundle(path)
-    try:
-        payload = bundle.prefix(sum(b[0] for b in bundle.blocks))
-    finally:
-        bundle.close()
-    start = payload.find(b"\x93")
-    while start >= 0:
-        try:
-            value, _ = _msgpack(payload, start)
-            table = value[0] if isinstance(value, list) and len(value) == 3 else None
-            if isinstance(table, dict) and all(isinstance(k, str) and isinstance(v, list) and len(v) == 3
-                                               for k, v in list(table.items())[:50]):
-                return table
-        except (ValueError, IndexError, KeyError):
-            pass
-        start = payload.find(b"\x93", start + 1)
-    raise ValueError(f"matrix index table not found in {path}")
+    """Decode an index file -> {logical name: [file, sha1, size]}. 4.8: every entry; 4.9: only entries that carry a logical
+    name (non-bundle files), see read_file_table. Raises if neither layout is found."""
+    data = payload(path)
+    table = _file_table(data)
+    if table is not None:
+        return {e[0]: [file, e[1], e[2]] for file, e in table["files"].items() if e[0]}
+    value = _find_msgpack(data, (b"\x93",), _is_v48_index)
+    if value is None:
+        raise ValueError(f"matrix index table not found in {path}")
+    return value[0]
+
+
+def _index_path(install: Path, scope: str, tree: str) -> Path | None:
+    for name in INDEX_FILES:  # 4.9 resource/matrix ships InPkgIndex instead of index
+        path = matrix_dir(install, scope, tree) / name
+        if path.is_file():
+            return path
+    return None
 
 
 def read_indexes(install: Path, tree: str = "matrix") -> dict[str, dict[str, list]]:
-    """Per-scope index tables; a scope whose index is missing/undecodable (4.9?) is omitted."""
+    """Per-scope {logical name: [file, sha1, size]}; a scope whose index is missing/undecodable is omitted."""
     out = {}
     for scope in SCOPES:
-        path = matrix_dir(install, scope, tree) / "index"
-        if path.is_file():
+        path = _index_path(install, scope, tree)
+        if path:
             try:
                 out[scope] = read_index_file(path)
             except (ValueError, OSError, struct.error):
                 pass
+    return out
+
+
+def read_file_tables(install: Path, tree: str = "matrix") -> dict[str, dict]:
+    """Per-scope 4.9 file tables (empty on a 4.8 install)."""
+    out = {}
+    for scope in SCOPES:
+        path = _index_path(install, scope, tree)
+        table = read_file_table(path) if path else None
+        if table:
+            out[scope] = table
     return out
 
 
@@ -446,13 +546,30 @@ class Resolver:
         self._cache = None
         self._claims_map = None
         self._asset_map = None
+        self._file_tables = {}
+        self.use_index = use_index
 
     # real index
     def entry(self, logical: str, scope: str | None = None) -> list | None:
-        """The real index's [file, sha1, size] for a name (document overrides resource), or None."""
-        for sc in (scope,) if scope else SCOPES:
-            if logical in self.indexes.get(sc, {}):
-                return self.indexes[sc][logical]
+        """The real index's [file, sha1, size] for a name (matrix or launch tree; document overrides resource), or None."""
+        for indexes in (self.indexes, self.launch_indexes):
+            for sc in (scope,) if scope else SCOPES:
+                if logical in indexes.get(sc, {}):
+                    return indexes[sc][logical]
+        return None
+
+    def file_tables(self, tree: str = "matrix") -> dict[str, dict]:
+        """4.9 per-scope file tables of a tree (see read_file_table); {} on 4.8."""
+        if tree not in self._file_tables:
+            self._file_tables[tree] = read_file_tables(self.install, tree) if self.use_index else {}
+        return self._file_tables[tree]
+
+    def file_entry(self, path: Path) -> list | None:
+        """4.9: effective [file, sha1, size] for a physical file (the document table is a full snapshot, else resource's)."""
+        tables = self.file_tables(Path(path).parent.name)
+        entry = (tables.get("document") or tables.get("resource") or {}).get("files", {}).get(Path(path).name)
+        if entry:
+            return [Path(path).name, entry[1], entry[2]]
         return None
 
     # scan cache
@@ -579,35 +696,145 @@ def find_asset(asset_path: str, install: Path | None = None) -> tuple[Path, str]
 
 # --- validation against the real index (4.8 proof) -------------------------------------------------------------------
 
-def _manifest(resolver: Resolver):
-    """The client's own asset -> bundle table (`matrixmanifest`: [assets, bundles, groups, deps, ?]) as {bundle: [assets]}."""
-    path = resolver.resolve("matrixmanifest")
-    bundle = Bundle(path)
+def _manifest(resolver: Resolver) -> tuple[str, dict[str, list[str]]]:
+    """The client's own asset -> bundle table (`matrixmanifest`) as (layout, {bundle key: [lowercase assets]}).
+
+    4.8: [assets, bundles, groups, deps, ?] keyed by logical bundle name.
+    4.9: [bundle files, assets, per-uab hash, lists, asset -> [bundle index], bundle -> deps] keyed by physical file name
+    (every asset has exactly one bundle; the logical name is not in the manifest, only in the bundle's own AssetBundle).
+    """
+    data = payload(resolver.resolve("matrixmanifest"))
+
+    def v49(value):
+        return (isinstance(value, list) and len(value) == 6 and all(isinstance(x, list) for x in (value[0], value[1], value[4], value[5]))
+                and len(value[4]) == len(value[1]) and len(value[5]) == len(value[0]))
+
+    value = _find_msgpack(data, (b"\x96\xdd",), v49)
+    if value is not None:
+        files, assets, _, _, asset_bundle, _ = value
+        out = {name: [] for name in files}
+        for asset, owners in zip(assets, asset_bundle):
+            out[files[owners[0]]].append(asset.lower())
+        return "4.9", out
+
+    def v48(value):
+        return (isinstance(value, list) and len(value) == 5 and value[0] and isinstance(value[0][0], str)
+                and isinstance(value[1], list) and len(value[1]) == len(value[2]))
+
+    value = _find_msgpack(data, (b"\x95",), v48)
+    if value is None:
+        raise ValueError("matrixmanifest table not found")
+    assets = value[0]
+    return "4.8", {name: [assets[i].lower() for i in group] for name, group in zip(value[1], value[2])}
+
+
+def _sha1_file(path: str) -> tuple[str, str]:
+    h = hashlib.sha1()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 22), b""):
+            h.update(chunk)
+    return path, h.hexdigest()
+
+
+def _validate_files(r: Resolver, cache: dict, scan_seconds: float, examples: int, check_sha1: bool) -> dict:
+    """4.9: the index is a physical-file table (no logical names). Check it against disk, the scan and the manifest."""
+    out = {"layout": "4.9 file table", "scan_seconds": round(scan_seconds, 1), "decoded_in_this_scan": cache["scanned"]}
+    manifest_layout, manifest = None, {}
     try:
-        payload = bundle.prefix(sum(b[0] for b in bundle.blocks))
-    finally:
-        bundle.close()
-    at = payload.find(b"\x95")
-    while at >= 0:
-        try:
-            value, _ = _msgpack(payload, at)
-            if (isinstance(value, list) and len(value) == 5 and value[0] and isinstance(value[0][0], str)
-                    and isinstance(value[1], list) and len(value[1]) == len(value[2])):
-                assets = value[0]
-                return {name: [assets[i].lower() for i in group] for name, group in zip(value[1], value[2])}
-        except (ValueError, IndexError, TypeError):
-            pass
-        at = payload.find(b"\x95", at + 1)
-    raise ValueError("matrixmanifest table not found")
+        manifest_layout, manifest = _manifest(r)
+    except (FileNotFoundError, ValueError) as error:
+        out["manifest"] = {"error": str(error)}
+    for tree in TREES:
+        tables = r.file_tables(tree)
+        stats, samples = Counter(), defaultdict(list)
+
+        def record(category, item=None):
+            stats[category] += 1
+            if item is not None and len(samples[category]) < examples:
+                samples[category].append(item)
+
+        doc, res = (tables.get(s, {}).get("files", {}) for s in ("document", "resource"))
+        # 4.9: the document table is a full snapshot (its manifest lists exactly its files), not a delta over resource
+        effective = dict(doc or res)
+        stats["entries: document table"], stats["entries: resource table"], stats["entries: effective"] = len(doc), len(res), len(effective)
+        stats["resource-only entries (absent from document table)"] = len(res.keys() - doc.keys())
+        stats["document-only entries (new in patches)"] = len(doc.keys() - res.keys())
+        stats["same file name, different sha1/size in document vs resource"] = sum(
+            1 for f in doc.keys() & res.keys() if doc[f][1:3] != res[f][1:3])
+        chosen, hash_jobs = {}, []
+        for file, entry in effective.items():
+            recs = [(s, r.files.get(f"{s}/{file}" if tree == "matrix" else f"{s}/{tree}/{file}")) for s in SCOPES]
+            recs = [(s, x) for s, x in recs if x]
+            exact = [(s, x) for s, x in recs if x["size"] == entry[2]]
+            if not recs:
+                record("entry whose file is not on disk", (file, entry[:3]))
+            elif not exact:
+                record("on disk but size differs from the effective entry", (file, entry[2], [(s, x["size"]) for s, x in recs]))
+            else:
+                scope, rec = exact[0]  # document first
+                chosen[file] = (scope, rec)
+                record(f"size matches ({scope} copy)")
+                if len(exact) > 1:
+                    record("size matches in both scopes")
+                hash_jobs.append((matrix_dir(r.install, scope, tree) / file))
+                if rec["kind"] == "error":
+                    record("matching file undecodable", (file, rec.get("error")))
+        stats["files on disk not in the effective table"] = sum(
+            1 for key, rec in r.files.items() if rec["tree"] == tree and split_key(key)[2] not in effective)
+        if check_sha1:
+            from multiprocessing import get_context
+            with get_context("fork").Pool() as pool:
+                for path, digest in pool.imap_unordered(_sha1_file, map(str, hash_jobs), chunksize=64):
+                    entry = effective[Path(path).name]
+                    record("sha1 matches" if digest == entry[1] else "sha1 MISMATCH", None if digest == entry[1] else (path, digest, entry[1]))
+        kinds = Counter(rec["kind"] for _, rec in chosen.values())
+        stats.update({f"chosen file kind: {k}": v for k, v in kinds.items()})
+        names = defaultdict(list)
+        for file, (_, rec) in chosen.items():
+            if rec["kind"] == "unity":
+                names[rec["name"]].append(file)
+        stats["logical names (m_Name) among chosen bundles"] = len(names)
+        dup = {n: f for n, f in names.items() if len(f) > 1}
+        stats["logical names claimed by more than one chosen file"] = len(dup)
+        for n, f in list(dup.items())[:examples]:
+            samples["duplicate logical names"].append((n, f))
+        named_raw = {e[0]: file for file, e in effective.items() if e[0]}
+        stats["non-bundle entries with a logical name"] = len(named_raw)
+        if tree == "matrix" and manifest:
+            agree = differ = missing = 0
+            for file, assets in manifest.items():
+                if file not in chosen:
+                    missing += 1
+                    continue
+                rec = chosen[file][1]
+                # bundles: the container's assets; raw files: their own logical name (acb/awb/usm/acf/patch bytes)
+                expected = set(rec["assets"]) if rec["kind"] == "unity" else {effective[file][0].lower()}
+                if set(assets) == expected:
+                    agree += 1
+                else:
+                    differ += 1
+                    if len(samples["manifest assets != container assets"]) < examples:
+                        samples["manifest assets != container assets"].append((file, rec["kind"], len(assets), len(expected)))
+            stats["manifest bundles"] = len(manifest)
+            stats["manifest: assets equal to the file's container"] = agree
+            stats["manifest: assets differ"] = differ
+            stats["manifest: file not chosen/on disk"] = missing
+            stats["manifest: files not listed in the effective table"] = len(manifest.keys() - effective.keys())
+            stats["effective table files not in manifest"] = len(effective.keys() - manifest.keys())
+            out["manifest_layout"] = manifest_layout
+        out[tree] = {"stats": dict(stats), "samples": dict(samples)}
+    return out
 
 
-def validate(install: Path | None = None, cache_path: Path = CACHE, examples: int = 5) -> dict:
+def validate(install: Path | None = None, cache_path: Path = CACHE, examples: int = 5, check_sha1: bool = False) -> dict:
     """Compare scan-derived logical name -> file with the real effective index, entry by entry."""
     t0 = time.time()
     cache = scan(install, cache_path)
     scan_seconds = time.time() - t0
     r = Resolver(install, cache_path)
     r._cache = cache["files"]
+    if r.file_tables():
+        return _validate_files(r, cache, scan_seconds, examples, check_sha1)
     effective = {}  # name -> [file, sha1, size, tree]; document overrides resource; matrix and launch are disjoint
     for tree, indexes in (("matrix", r.indexes), ("launch", r.launch_indexes)):
         for scope in reversed(SCOPES):
@@ -654,7 +881,7 @@ def validate(install: Path | None = None, cache_path: Path = CACHE, examples: in
            "cache_bytes": cache_path.stat().st_size if cache_path.exists() else None,
            "bundles_on_disk": sum(1 for v in r.files.values() if v["kind"] == "unity")}
     try:  # extra cross-check against the client's own manifest (asset -> bundle names)
-        manifest = _manifest(r)
+        manifest = _manifest(r)[1]
         agree = disagree = 0
         for bundle, assets in manifest.items():
             keys = r.candidates(bundle, containers=False)
@@ -777,7 +1004,7 @@ def main() -> int:
         p.add_argument("target")
         p.add_argument("--scope", choices=SCOPES)
         p.add_argument("--no-index", action="store_true", help="ignore the real index (simulate 4.9)")
-    sub.add_parser("validate")
+    sub.add_parser("validate").add_argument("--sha1", action="store_true", help="4.9: also hash every chosen file against the index (reads everything)")
     live = sub.add_parser("verify-live", help="compare with CS.XResourceManager.GetBundleUrl/XBundleManager.GetFile (UrlTable dump)")
     live.add_argument("--host", default="127.0.0.1")
     live.add_argument("--port", type=int, default=7378)
@@ -804,7 +1031,7 @@ def main() -> int:
                 raise SystemExit(f"asset not in any scanned bundle: {args.target}")
             print(f"{found[0]}\t{found[1]}")
     elif args.command == "validate":
-        print(json.dumps(validate(args.install, args.cache), indent=1, ensure_ascii=False))
+        print(json.dumps(validate(args.install, args.cache, check_sha1=args.sha1), indent=1, ensure_ascii=False))
     else:
         import pgr
         proxima = pgr.Proxima(args.host, args.port, args.password or pgr.DEFAULT_PASSWORD, args.timeout)

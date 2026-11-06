@@ -469,7 +469,7 @@ def main():
     for bundle in (k for k in pgr_bundles.Resolver().names(PREFIX, scope='resource') if k.count('/') == 7):
         sector = bundle.rsplit('/', 1)[1].removesuffix('.ab')
         path = pgr_bundles.resolve(bundle, scope='resource')
-        _, _, payload = _assets.decode_bundle_payload(path.read_bytes())
+        payload = pgr_bundles.payload(path)
         for item in dbt.iter_text_assets(_assets, payload):
             name = str(item['name'])
             if name.startswith('ConfigGroup_'):

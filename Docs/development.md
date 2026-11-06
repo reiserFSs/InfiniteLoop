@@ -459,27 +459,39 @@ exercised: `Lua/Launch/` for `XLaunch*` modules, `Lua/DlcFight/` for fight Lua, 
 
 ### Resolving client bundles (`Scripts/pgr_bundles.py`)
 
-Client bundles under `PGR_Data/StreamingAssets/{resource,document}/matrix` are content-addressed `<sha1>.uab` files; the
-matrix `index` maps logical names (`assets/temp/lua/matrix.ab`) to them, and 4.9 reportedly drops that mapping for most
-bundles. `pgr_bundles.py` resolves names without it: the import-time API is `resolve(logical, scope=None)`,
-`find_asset(asset_path)` (both trees, case-insensitive) and `Resolver(install).names(prefix, suffix)`; the real index is tried first, then a scan cache
-(`.runtime/pgr_bundles_cache.json`, keyed by file name + size + mtime, so rescans are incremental) built from each bundle's
-own `AssetBundle` object, in both the `matrix` and the separate `launch` tree (`StreamingAssets/<scope>/launch/`, own index; holds `assets/temp/lua/launch.ab`, `launchmanifest`, `assets/launch/*`) (`m_Name` plus container asset paths; only the first LZ4 blocks are decoded, in parallel).
-Document overrides resource; among stale duplicates the newest wins. The install defaults to the native-starter manifest's
-`source_install`.
+4.8 client bundles under `PGR_Data/StreamingAssets/{resource,document}/matrix` are `<sha1>.uab` files and the matrix
+`index` maps logical names (`assets/temp/lua/matrix.ab`) to them. **4.9 changed the format**: files are `<16hex>.uab`
+(plus `.acb/.awb/.usm/.acf`), every `.uab` and the extensionless manifests carry a 32-byte `HARUINKUROGAME` + zero prefix
+in front of the normal `UnityFS` header (detected by magic; header `file_size` and all offsets exclude it, protection
+flags/key unchanged), `resource/matrix/index` became `InPkgIndex`, and the indexes are plain (unprotected, unprefixed)
+bundles holding a physical-file table (`{file: [name-or-"", sha1, size, svn, bases, 0]}`) with a logical name only for
+non-bundle files; `document/matrix/index` is a full snapshot (not a delta). Bundle logical names are only in each
+bundle's `m_Name` (the 4.8 container-path derivation holds for only 41,986 of 82,303 bundles), and `matrixmanifest`
+(asset -> physical file) cross-checks the scan. Formats and evidence: [bundle resolution](../AscNet.Launcher/docs/bundle-resolution.md).
+`pgr_bundles.py` resolves names through the real index where it still maps them, else a scan cache
+(`.runtime/pgr_bundles_cache.json`, keyed by install + file name + size + mtime, so rescans are incremental; use `--cache`
+per install) built from each bundle's own `AssetBundle` object in both the `matrix` and `launch` trees (`m_Name` plus
+container asset paths; only the first LZ4 blocks are decoded, in parallel). Import-time API: `resolve(logical, scope=None)`,
+`find_asset(asset_path)`, `payload(path_or_bytes)` (fully decoded UnityFS payload), `strip_prefix(bytes)` (for UnityPy),
+`Resolver(install).names(prefix, suffix)` / `.file_entry(path)` / `.file_tables()`. Document overrides resource; among stale
+duplicates the newest wins. The install defaults to the native-starter manifest's `source_install`.
 
 ```bash
-python3 Scripts/pgr_bundles.py scan                      # first run ~80-120 s, later runs ~0.3 s
-python3 Scripts/pgr_bundles.py resolve --no-index assets/temp/lua/matrix.ab   # --no-index simulates 4.9
+python3 Scripts/pgr_bundles.py scan                      # 4.9.1: ~130 s cold, ~0.5 s incremental
+python3 Scripts/pgr_bundles.py resolve --no-index assets/temp/lua/matrix.ab   # --no-index ignores the real index
 python3 Scripts/pgr_bundles.py find assets/temp/lua/matrix/xmanager/xluavideomanager.lua.bytes
-python3 Scripts/pgr_bundles.py validate                  # scan-derived name -> file vs the real index
+python3 Scripts/pgr_bundles.py validate [--sha1]         # 4.8: scan vs logical index; 4.9: physical-file table vs disk/scan/manifest
+python3 Scripts/pgr_bundles.py --install <4.8 dir> --cache /tmp/cache-4.8.json validate   # separate cache per install
 python3 Scripts/pgr_bundles.py verify-live --host H --dump-path <persistentDataPath>/ascnet-urltable.tsv   # vs the client's UrlTable
-python3 -m unittest Scripts.test_pgr_bundles
+python3 -m unittest Scripts.test_pgr_bundles             # PGR_BUNDLES_INSTALL/PGR_BUNDLES_CACHE select a 4.8 install for its tests
 ```
 
-On the installed 4.8 client `validate` matches all 42,496 UnityFS index entries (matrix 42,477 + launch 19) by the bundle's own name and by the name
-derived from container paths alone (single-asset bundle `<asset>.ab`, else `<common dir>.ab` or an ancestor; 4,959
-audio/video index entries are raw non-Unity files and stay index-only; one more, `launchmanifest`, matches via its single container asset).
+Results. 4.8.0 copy: `validate` matches all 42,496 UnityFS index entries (matrix 42,477 + launch 19) by the bundle's own
+name and by the container-derived name (4,960 audio/video index entries are raw non-Unity files and stay index-only;
+`launchmanifest` matches via its single container asset); manifest 42,346/42,346 bundles equal. 4.9.1 Steam install:
+`validate --sha1` confirms 85,421/85,421 effective matrix + 19/19 launch files against index sha1/size (80,459 bundles
++ 4,962 raw), the manifest's asset list equals the scanned container for all 85,421 files, no logical name is claimed by
+two files, and 121 resource files are obsolete (absent from the document snapshot).
 
 `verify-live` compares the scan with the running client's own table, the ground truth: `XResourceManager.UrlTable`, a
 private static `IDictionary<string,string>` (original-case asset path -> logical bundle; 460,827 entries on 4.8 EN),
@@ -491,10 +503,13 @@ returns the log over the inspector in chunks and is impractical (~30 s per call,
 second call on a connection can reset). Result on 4.8 EN against the scan: 460,827 match, 0 bundle differences, 0
 client-only; 680 scan-only assets in 131 bundles that are on disk and in the index but absent from `matrixmanifest`/UrlTable
 (never loaded by the client, mostly `assets/product/texture|ui|effect`). Raw audio/video entries are not in UrlTable. On 4.9
-the UrlTable dump is the ground truth for validating the scan. The Scripts that read installed bundles (`export_installed_lua.py`,
-`scan_client_upgrade.py`, `import_bigworld_*.py`, `patch_local_store.py`) resolve through it; the first two keep verifying
-the index SHA1/size where the index still has an entry and otherwise use the scanned bundle unverified. Launcher design for 4.9:
-[bundle resolution](../AscNet.Launcher/docs/bundle-resolution.md).
+the UrlTable dump is the ground truth for validating the scan and has not been taken yet (needs a running 4.9 client). The
+Scripts that read installed bundles (`export_installed_lua.py`, `scan_client_upgrade.py`, `import_bigworld_*.py`) decode
+payloads through `pgr_bundles.payload` and resolve through it; the first two verify the index SHA1/size (4.8 logical
+entry or 4.9 physical-file entry) and refuse a mismatching bundle (`export_installed_lua.py --allow-modified` records a
+locally modified install, e.g. the 4.8 copy whose document `matrix.ab` is patched). Both take `--install` and `--output`
+so a new client can be staged beside the old corpus (`../PGR_DATA/en-4.9/{lua,bytes}`); `patch_local_store.py` is not
+4.9-ready. Launcher design for 4.9: [bundle resolution](../AscNet.Launcher/docs/bundle-resolution.md).
 
 ## Running with the Steam/PC bridge
 

@@ -7,7 +7,6 @@ import hashlib
 import importlib.util
 from collections import Counter
 import json
-import urllib.request
 from pathlib import Path
 
 import pgr_bundles
@@ -21,6 +20,8 @@ if __name__ == "__main__":
     modes.add_argument("--discover", action="store_true", help="scan structurally valid omitted root tables")
     modes.add_argument("--repair", action="store_true", help="verify raw hashes and every typed JSON row")
     modes.add_argument("--schema", action="store_true", help="compare columns against historical JSON rows")
+    parser.add_argument("--install", type=Path, help="game dir (default: source_install of the native-starter manifest)")
+    parser.add_argument("--output", type=Path, help="staging dir (default .runtime/upgrade-4.8/tables); keep 4.8 output intact")
     args = parser.parse_args()
 
 
@@ -30,11 +31,9 @@ spec = importlib.util.spec_from_file_location("pgr_table_decoder", TOOL)
 dec = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(dec)
 assets = dec.load_module(dec.ASSET_VIEWER, "pgr_assets_upgrade")
-OUT = ROOT / ".runtime/upgrade-4.8/tables"
+OUT = (args.output if __name__ == "__main__" and args.output else ROOT / ".runtime/upgrade-4.8/tables").resolve()
 BASE = ROOT.parent / "PGR_Data/en/bytes"
 DOMAINS = ("character", "skill", "enhanceskill", "equip", "fashion", "weaponfashion", "partner", "draw", "item", "robot", "npc", "attrib", "grade", "quality", "headportrait")
-CDN_PATCH = ("http://prod-encdn-ak.pgr-game.com/prod/client/patch/"
-             "YHcyljDAVMYA6tK8/com.kurogame.punishing.grayraven.en/4.8.0/standalone/4.8.10/matrix")
 
 
 class ExactReader(dec.Reader):
@@ -300,8 +299,7 @@ def refresh_schema_deltas():
 
 
 def run(roots_only=False, recover_only=False, discover_only=False):
-    install = Path(json.loads(dec.DEFAULT_MANIFEST.read_text())["source_install"])
-    matrix = install / "PGR_Data/StreamingAssets"
+    install = args.install or Path(json.loads(dec.DEFAULT_MANIFEST.read_text())["source_install"])
     resolver = pgr_bundles.Resolver(install)
     indexes = {scope: resolver.indexes.get(scope, {}) for scope in ("resource", "document")}
     effective = {**indexes["resource"], **indexes["document"]}
@@ -317,40 +315,18 @@ def run(roots_only=False, recover_only=False, discover_only=False):
     if recover_only:
         candidates = [k for k in candidates if k in failures]
     for number, logical in enumerate(candidates, 1):
-        entry = effective.get(logical)
         rel = logical.removeprefix("assets/temp/bytes/").removesuffix(".ab")
-        scope = "document" if logical in indexes["document"] else "resource"
         try:
-            source_url = None
-            if entry is None:  # index no longer maps the name (4.9+): locate by bundle contents; SHA1 cannot be checked
-                path = resolver.resolve(logical)
-                raw = path.read_bytes()
-                scope = path.parent.parent.name
+            path = resolver.resolve(logical)  # real index (4.8) or bundle contents (4.9); scope-aware, document first
+            raw = path.read_bytes()
+            scope = path.parent.parent.name
+            entry = resolver.entry(logical) or resolver.file_entry(path)  # 4.8 logical index entry / 4.9 file table entry
+            if entry is None:  # not listed by any index: SHA1 cannot be checked
                 entry = [path.name, hashlib.sha1(raw).hexdigest(), len(raw)]
-            else:
-                path = matrix / scope / "matrix" / str(entry[0])
-                if not path.is_file() and scope == "document":
-                    alternative = indexes["resource"].get(logical)
-                    if alternative and alternative[1:] == entry[1:]:
-                        path = matrix / "resource/matrix" / str(alternative[0])
-                raw = path.read_bytes() if path.is_file() else b""
-                if len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
-                    alternative = indexes["resource"].get(logical)
-                    fallback = matrix / "resource/matrix" / str(alternative[0]) if alternative and alternative[1:] == entry[1:] else None
-                    if fallback and fallback.is_file():
-                        physical = fallback.read_bytes()
-                        if len(physical) == entry[2] and hashlib.sha1(physical).hexdigest().lower() == str(entry[1]).lower():
-                            path, raw = fallback, physical
-                    if len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
-                        source_url = f"{CDN_PATCH}/{entry[0]}"
-                        raw = urllib.request.urlopen(source_url, timeout=30).read()
-                        if len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
-                            raise ValueError(f"no bundle with effective index SHA1/size: {logical} {entry[1:]}")
-                        path = OUT / "bundles" / str(entry[0])
-                        path.parent.mkdir(parents=True, exist_ok=True)
-                        path.write_bytes(raw)
-
-            payload = assets.decode_bundle_payload(raw)[2]
+            elif len(raw) != entry[2] or hashlib.sha1(raw).hexdigest().lower() != str(entry[1]).lower():
+                raise ValueError(f"no bundle with effective index SHA1/size: {logical} {entry[1:]} ({path})")
+            source_url = None
+            payload = pgr_bundles.payload(raw)
             failures.pop(logical, None)
             # Accept serialized paths, baseline-known names, or independently
             # validated BinaryTable structures; heuristic strings alone are insufficient.
@@ -419,12 +395,22 @@ def run(roots_only=False, recover_only=False, discover_only=False):
     dump(OUT / "manifest.json", inventory)
     dump(OUT / "delta.json", deltas)
     dump(OUT / "errors.json", failures)
-    dump(OUT / "index-delta.json", {"index_sha1": {scope: hashlib.sha1((matrix / scope / "matrix/index").read_bytes()).hexdigest()
-                                                    for scope in resolver.indexes},
+    tables = {tree: resolver.file_tables(tree) for tree in pgr_bundles.TREES}  # 4.9 physical-file tables
+    file_delta = {}
+    for tree, per_scope in tables.items():
+        doc, res = (per_scope.get(s, {}).get("files", {}) for s in ("document", "resource"))
+        if doc or res:
+            file_delta[tree] = {"document_entries": len(doc), "resource_entries": len(res),
+                                "resource_only": sorted(res.keys() - doc.keys()), "document_only": sorted(doc.keys() - res.keys()),
+                                "overrides": sorted(k for k in doc.keys() & res.keys() if doc[k][1:3] != res[k][1:3])}
+    dump(OUT / "index-delta.json", {"index_sha1": {f"{scope}/{tree}": hashlib.sha1(p.read_bytes()).hexdigest()
+                                                    for tree in pgr_bundles.TREES for scope in pgr_bundles.SCOPES
+                                                    if (p := pgr_bundles._index_path(install, scope, tree))},
                                      "resource_only": sorted(indexes["resource"].keys() - indexes["document"].keys()),
                                      "document_only": sorted(indexes["document"].keys() - indexes["resource"].keys()),
                                      "overrides": sorted(k for k in indexes["document"].keys() & indexes["resource"].keys()
                                                          if indexes["document"][k][1:] != indexes["resource"][k][1:]),
+                                     "file_tables": file_delta,
                                      "baseline_missing": sorted(baseline.keys() - inventory.keys()),
                                      "installed_new": sorted(inventory.keys() - baseline.keys())})
     print(f"Complete: {len(inventory)} tables; {len(deltas)} row deltas; {len(failures)} errors")
