@@ -712,9 +712,11 @@ namespace AscNet.GameServer.Handlers
 
         private static List<dynamic> BuildPurchaseClientInfoLoginData(Player player)
         {
+            // The monthly-card tab's UiType comes from the shared sign-in cards; the package ids are the client region's own.
+            HashSet<int> packageIds = TableReaderV2.Parse<PurchasePackageYKUiConfigTable>()
+                .Select(package => package.Id).ToHashSet();
             List<PurchasePackageYKUiConfigTable> packages =
-                TableReaderV2.Parse<PurchasePackageYKUiConfigTable>();
-            HashSet<int> packageIds = packages.Select(package => package.Id).ToHashSet();
+                TableReaderV2.Parse<PurchasePackageYKUiConfigTable>(player.ClientRegion);
             int monthlyUiType = TableReaderV2.Parse<SignCardTable>()
                 .Where(card => card.Param.Count >= 2
                     && card.Param[0] > 0

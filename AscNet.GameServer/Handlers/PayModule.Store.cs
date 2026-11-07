@@ -300,8 +300,12 @@ internal partial class PayModule
         {
             try
             {
-                PayTable? product = TableReaderV2.Parse<PayTable>().SingleOrDefault(row => row.Key == key);
-                if (product is not null && product.ShowUIType == 1 && product.MoneyCard > 0
+                List<PayTable> table = TableReaderV2.Parse<PayTable>(session.player.ClientRegion);
+                PayTable? product = table.SingleOrDefault(row => row.Key == key);
+                // Only the EN client hides non-ShowUIType-1 rows (XPayConfigs.GetPayConfig); a region's own Pay table lists
+                // every row, and CN/TW/KR/JP tag all card tiers ShowUIType 0.
+                bool regional = !ReferenceEquals(table, TableReaderV2.Parse<PayTable>());
+                if (product is not null && (product.ShowUIType == 1 || regional) && product.MoneyCard > 0
                     && string.IsNullOrEmpty(targetParam)
                     && (session.player.PendingRecharge is null || session.player.PendingRecharge.Key == key))
                 {

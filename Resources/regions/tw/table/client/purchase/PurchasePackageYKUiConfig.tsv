@@ -1,0 +1,6 @@
+Id	HelpKey	SortWeight	Tips[1]	Tips[2]	Icon
+10000	MonthcardBg02	3	立即獲得黑卡<color=#fcb595>X300</color>	總計可得黑卡<color=#fcb595>X3300</color>+中型血清組β<color=#fcb595>X30</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg05.png
+80326	MonthcardBg01	2	總黑卡及研發券<color=#ea5cbf>X2180</color>	總<color=#ea5cbf>3600</color>毫升免疫血清	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg01.png
+80327	MonthcardBg03	1	總黑卡及研發券<color=#78cefe>X4280</color>	總6星武器共鳴碎片<color=#78cefe>X30</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg03.png
+205	MonthcardBg05	2	總黑卡<color=#ea5cbf>X300</color>	總<color=#ea5cbf>6000</color>毫升免疫血清	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg07.png
+206	MonthcardBg06	1	總黑卡及研發券<color=#78cefe>X2480</color>	總6星武器共鳴碎片<color=#78cefe>X150</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg08.png

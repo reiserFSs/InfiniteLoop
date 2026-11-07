@@ -260,6 +260,7 @@ internal static partial class Program
         ValidateFullMonthlyCombo();
         ValidateTenDayPackage();
         ValidateBlackCardPoolPackagePurchases();
+        ValidateRegionPurchases();
         Console.WriteLine("Store purchase/recharge compatibility checks passed.");
     }
 

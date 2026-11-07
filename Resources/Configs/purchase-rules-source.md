@@ -36,6 +36,8 @@ Edit a package in this file, then restart the server (no client update needed):
   This is not a captured remaining-day value. Other packages continue to use
   the existing duration table, monthly rules or sign-in reward sequence.
 
+- `Regions` (optional allow-list of client regions, `en` = shared/EN) lists a package only to those regions and rejects direct purchases from others. The CN monthly passes 10000/201/202 mirror EN 83028/90291/90292: price and rewards follow the CN client's own `PurchasePackageYKUiConfig` totals (10000: 300 + 30x100 = 3300; 201: 680 + 30x50 = 2180 BC/R&D tickets, plus the daily serum; 202: 128 price, 1280 + 30x100 = 4280 + 30 shards) and the CN card tiers (30/68/128 Rainbow Cards). Monthly-pass ids for TW/KR/JP are not authored.
+
 The loader rejects duplicate IDs, legacy response snapshots and player-state
 fields. `ConvertSwitch` follows the current base price, so a price edit cannot
 leave the old captured price on the client. No production code reads decoded

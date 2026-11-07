@@ -46,6 +46,11 @@ public sealed class PurchaseCatalog
                         throw new InvalidDataException($"Purchase {id} has an invalid discount tier.");
             if (entry["DailyRewardDays"] is not null && entry.Value<int>("DailyRewardDays") <= 0)
                 throw new InvalidDataException($"Purchase {id} has an invalid daily reward duration.");
+            // The client resolves monthly passes by its own region's package ids (PurchasePackageYKUiConfig), so a pass
+            // is listed only to the regions named here; no field = every region.
+            if (entry["Regions"] is not null
+                && (entry["Regions"] is not JArray regions || regions.Count == 0 || regions.Any(region => region.Type != JTokenType.String)))
+                throw new InvalidDataException($"Purchase {id} has an invalid Regions list.");
         }
         // Optional server-owned bundles (client XPurchaseComboDataForClient). No combo definitions
         // ship with the client, so none are authored here; the list may stay empty.
@@ -80,11 +85,18 @@ public sealed class PurchaseCatalog
         return catalog;
     }
 
-    public List<dynamic> List(IEnumerable<int>? uiTypes, long now)
+    /// <summary>Whether a package is listed/purchasable for a client region (null = EN, the shared tables).</summary>
+    public bool IsVisible(uint id, string? region) => entries.TryGetValue(id, out JObject? entry) && IsVisible(entry, region);
+
+    private static bool IsVisible(JObject entry, string? region) =>
+        entry["Regions"] is not JArray regions || regions.Any(name => (string?)name == (string.IsNullOrEmpty(region) ? "en" : region));
+
+    public List<dynamic> List(IEnumerable<int>? uiTypes, long now, string? region = null)
     {
         HashSet<int>? requested = uiTypes?.ToHashSet();
         return entries.Values
             .Where(entry => entry.Value<bool?>("Enabled") != false
+                && IsVisible(entry, region)
                 && (requested is null || requested.Contains(entry.Value<int>("UiType")))
                 && !HasEnded(entry.Value<long>("TimeToInvalid"), now)
                 && !HasEnded(entry.Value<long>("TimeToUnShelve"), now))
@@ -128,6 +140,7 @@ public sealed class PurchaseCatalog
         Dictionary<dynamic, dynamic> info = JsonSnapshot.ReadDynamic(entry)!;
         info.Remove("Enabled");
         info.Remove("DailyRewardDays");
+        info.Remove("Regions");
         // No ownership-based price reduction is configured; client discount tiers apply separately.
         info["ConvertSwitch"] = entry.Value<int>("ConsumeCount");
         info["DiscountCouponInfos"] = null!;

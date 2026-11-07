@@ -1,0 +1,7 @@
+Key	Platform	Amount	Currency	ShowAmount	Name	Desc	MoneyCard	Icon	PayId	ShowUIType
+Pay6	0	6.0	CNY	6	6虹卡	充值6元获得6虹卡	6	Pay6	1	0
+Pay30	0	30.0	CNY	30	30虹卡	充值30元获得30虹卡	30	Pay30	2	0
+Pay68	0	68.0	CNY	68	68虹卡	充值68元获得68虹卡	68	Pay68	3	0
+Pay128	0	128.0	CNY	128	128虹卡	充值128元获得128虹卡	128	Pay128	4	0
+Pay328	0	328.0	CNY	328	328虹卡	充值328元获得328虹卡	328	Pay328	5	0
+Pay648	0	648.0	CNY	648	648虹卡	充值648元获得648虹卡	648	Pay648	6	0

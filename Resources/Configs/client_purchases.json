@@ -2940,6 +2940,12 @@
     {
       "Enabled": true,
       "Id": 83028,
+      "Regions": [
+        "en",
+        "tw",
+        "kr",
+        "jp"
+      ],
       "TimeToInvalid": 0,
       "TimeToShelve": 0,
       "TimeToUnShelve": 0,
@@ -3011,6 +3017,12 @@
     {
       "Enabled": true,
       "Id": 90032,
+      "Regions": [
+        "en",
+        "tw",
+        "kr",
+        "jp"
+      ],
       "TimeToInvalid": 0,
       "TimeToShelve": 0,
       "TimeToUnShelve": 0,
@@ -3082,6 +3094,12 @@
     {
       "Enabled": true,
       "Id": 90291,
+      "Regions": [
+        "en",
+        "tw",
+        "kr",
+        "jp"
+      ],
       "TimeToInvalid": 0,
       "TimeToShelve": 0,
       "TimeToUnShelve": 0,
@@ -3164,6 +3182,12 @@
     {
       "Enabled": true,
       "Id": 90292,
+      "Regions": [
+        "en",
+        "tw",
+        "kr",
+        "jp"
+      ],
       "TimeToInvalid": 0,
       "TimeToShelve": 0,
       "TimeToUnShelve": 0,
@@ -3217,6 +3241,248 @@
       "ExtraRewardGoods": null,
       "Name": "Weapon R&D Monthly Pass",
       "Desc": "1 per day for 30 days",
+      "Icon": "UIMonthly2",
+      "UiType": 2,
+      "SignInId": 0,
+      "Tag": 2,
+      "Priority": 5012,
+      "ClientResetInfo": {
+        "ResetType": 2,
+        "DayCount": 0
+      },
+      "IsUseMail": true,
+      "NormalDiscounts": null,
+      "DiscountShowStr": null,
+      "MutexPurchaseIds": null,
+      "CanMultiply": false,
+      "FashionLabel": null,
+      "SkipId": 0,
+      "Conditions": null,
+      "PrePurchaseId": 0,
+      "PurchaseSignInInfo": null,
+      "SelectDataForClient": null,
+      "CompanyPackage": 0,
+      "CompanyPackageCount": 0,
+      "DailyRewardSupplementGetConsumeItemId": 0,
+      "TargetMonthlyCard": 0,
+      "MonthlyCardAddDailyCount": 0
+    },
+    {
+      "Enabled": true,
+      "Id": 10000,
+      "Regions": [
+        "cn"
+      ],
+      "TimeToInvalid": 0,
+      "TimeToShelve": 0,
+      "TimeToUnShelve": 0,
+      "BuyLimitTimes": 0,
+      "ConsumeId": 5,
+      "ConsumeCount": 30,
+      "RewardGoodsList": [
+        {
+          "RewardType": 1,
+          "TemplateId": 2,
+          "Count": 300,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 20000580
+        }
+      ],
+      "DailyRewardGoodsList": [
+        {
+          "RewardType": 1,
+          "TemplateId": 3,
+          "Count": 100,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 20001020
+        }
+      ],
+      "FirstRewardGoods": null,
+      "ExtraRewardGoods": null,
+      "Name": "高性价比黑卡",
+      "Desc": "每日登录可领取<color=#ff8338>100</color>黑卡",
+      "Icon": "Card",
+      "UiType": 2,
+      "SignInId": 0,
+      "Tag": 1,
+      "Priority": 0,
+      "ClientResetInfo": {
+        "ResetType": 5,
+        "DayCount": 150
+      },
+      "IsUseMail": false,
+      "NormalDiscounts": null,
+      "DiscountShowStr": null,
+      "MutexPurchaseIds": null,
+      "CanMultiply": false,
+      "FashionLabel": null,
+      "SkipId": 0,
+      "Conditions": null,
+      "PrePurchaseId": 0,
+      "PurchaseSignInInfo": null,
+      "SelectDataForClient": null,
+      "CompanyPackage": 0,
+      "CompanyPackageCount": 0,
+      "DailyRewardSupplementGetConsumeItemId": 106,
+      "TargetMonthlyCard": 0,
+      "MonthlyCardAddDailyCount": 0
+    },
+    {
+      "Enabled": true,
+      "Id": 201,
+      "Regions": [
+        "cn"
+      ],
+      "TimeToInvalid": 0,
+      "TimeToShelve": 0,
+      "TimeToUnShelve": 0,
+      "BuyLimitTimes": 1,
+      "ConsumeId": 5,
+      "ConsumeCount": 68,
+      "RewardGoodsList": [
+        {
+          "RewardType": 1,
+          "TemplateId": 2,
+          "Count": 680,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 50005570
+        }
+      ],
+      "DailyRewardGoodsList": [
+        {
+          "RewardType": 1,
+          "TemplateId": 50005,
+          "Count": 50,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        {
+          "RewardType": 1,
+          "TemplateId": 90031,
+          "Count": 2,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        }
+      ],
+      "FirstRewardGoods": null,
+      "ExtraRewardGoods": null,
+      "Name": "血清补给月卡",
+      "Desc": "每日领取，持续30天",
+      "Icon": "UIMonthly1",
+      "UiType": 2,
+      "SignInId": 0,
+      "Tag": 2,
+      "Priority": 5011,
+      "ClientResetInfo": {
+        "ResetType": 2,
+        "DayCount": 0
+      },
+      "IsUseMail": true,
+      "NormalDiscounts": null,
+      "DiscountShowStr": null,
+      "MutexPurchaseIds": null,
+      "CanMultiply": false,
+      "FashionLabel": null,
+      "SkipId": 0,
+      "Conditions": null,
+      "PrePurchaseId": 0,
+      "PurchaseSignInInfo": null,
+      "SelectDataForClient": null,
+      "CompanyPackage": 0,
+      "CompanyPackageCount": 0,
+      "DailyRewardSupplementGetConsumeItemId": 0,
+      "TargetMonthlyCard": 0,
+      "MonthlyCardAddDailyCount": 0
+    },
+    {
+      "Enabled": true,
+      "Id": 202,
+      "Regions": [
+        "cn"
+      ],
+      "TimeToInvalid": 0,
+      "TimeToShelve": 0,
+      "TimeToUnShelve": 0,
+      "BuyLimitTimes": 1,
+      "ConsumeId": 5,
+      "ConsumeCount": 128,
+      "RewardGoodsList": [
+        {
+          "RewardType": 1,
+          "TemplateId": 2,
+          "Count": 1280,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 50005580
+        }
+      ],
+      "DailyRewardGoodsList": [
+        {
+          "RewardType": 1,
+          "TemplateId": 50003,
+          "Count": 100,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        {
+          "RewardType": 1,
+          "TemplateId": 96004,
+          "Count": 1,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        }
+      ],
+      "FirstRewardGoods": null,
+      "ExtraRewardGoods": null,
+      "Name": "武器共鸣月卡",
+      "Desc": "每日领取，持续30天",
       "Icon": "UIMonthly2",
       "UiType": 2,
       "SignInId": 0,

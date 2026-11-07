@@ -56,7 +56,7 @@ internal partial class PayModule
         if (current is null || request.PayId != current.Id)
             return AccumulatedPayIdNotExist;
 
-        AccumulatedPayRewardTable? reward = TableReaderV2.Parse<AccumulatedPayRewardTable>()
+        AccumulatedPayRewardTable? reward = TableReaderV2.Parse<AccumulatedPayRewardTable>(session.player.ClientRegion)
             .SingleOrDefault(row => row.Id == request.RewardId);
         if (reward is null)
             return AccumulatedPayRewardIdNotExist;

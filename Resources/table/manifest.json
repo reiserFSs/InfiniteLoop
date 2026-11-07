@@ -11485,7 +11485,7 @@
           "source": [
             "PGR_DATA/tw-4.9/bytes/share/task/Task.json (json sha256:a1681857e1e8c5d564176d55c6854df1e6192229c5fdbf38de504e132f0501d7)"
           ],
-          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Id only)"
         },
         {
           "path": "regions/tw/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
@@ -11510,6 +11510,30 @@
             "PGR_DATA/tw-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:1927948f7ddc95019987c2bc43dfea547ba7e1442cc090a96bf64576f080baee)"
           ],
           "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/tw/table/share/pay/Pay.tsv",
+          "naturalKey": "Key",
+          "filter": "all",
+          "rows": 18,
+          "columns": 11,
+          "contentSha256": "eacf43d7b2ea387a7bc4c40d398d066be8722c100967ab65e9a937ef35eba59c",
+          "source": [
+            "PGR_DATA/tw-4.9/bytes/share/pay/Pay.json (json sha256:497a3d2ded94c398e923cd6c4163e41a91cce6fa2fc27ffaa798bb512690b881)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Key,Platform,Amount,Currency,ShowAmount,Name,Desc,MoneyCard,Icon,PayId,ShowUIType only)"
+        },
+        {
+          "path": "regions/tw/table/client/purchase/PurchasePackageYKUiConfig.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 5,
+          "columns": 6,
+          "contentSha256": "8d4bdf36311448c70be3cbbb1f58c6f261831a7c42dbf92c492bdb81cd1943c4",
+          "source": [
+            "PGR_DATA/tw-4.9/bytes/client/purchase/PurchasePackageYKUiConfig.json (json sha256:f060ee6d9a6bfcb1aea0ac6c7665b03e7a826394392620a85855c306eaee758e)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
         }
       ]
     },
@@ -11531,7 +11555,7 @@
           "source": [
             "PGR_DATA/kr-4.9/bytes/share/task/Task.json (json sha256:1311923d08dc95d88cd24181d5d8db24d781a3f3ccfb7bb296e47303e2417af2)"
           ],
-          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Id only)"
         },
         {
           "path": "regions/kr/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
@@ -11556,6 +11580,30 @@
             "PGR_DATA/kr-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:573dd8f4cb6c7f66d42d59332945396c4114bf51a1fd66797126b5e0fbef39a9)"
           ],
           "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/kr/table/share/pay/Pay.tsv",
+          "naturalKey": "Key",
+          "filter": "all",
+          "rows": 6,
+          "columns": 11,
+          "contentSha256": "32fa6fa3f4c4076b8323869aaf55d76694e7fe13f295099414dfd9f15288197f",
+          "source": [
+            "PGR_DATA/kr-4.9/bytes/share/pay/Pay.json (json sha256:83a62dc5b6e1f92f9fc4553f64f69e4eb0a3a712d76869c990fe138b422d6407)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Key,Platform,Amount,Currency,ShowAmount,Name,Desc,MoneyCard,Icon,PayId,ShowUIType only)"
+        },
+        {
+          "path": "regions/kr/table/client/purchase/PurchasePackageYKUiConfig.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 5,
+          "columns": 6,
+          "contentSha256": "06dd34757c3e3a18c123c43ec938252cb1c1c3c9a7e8c6249e1d5c62036ff6c1",
+          "source": [
+            "PGR_DATA/kr-4.9/bytes/client/purchase/PurchasePackageYKUiConfig.json (json sha256:aab9a6ce31c8c5fe56114e5c238f3ecd86460fc6a4ea889fc520f4fa73350c1b)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
         }
       ]
     },
@@ -11577,7 +11625,7 @@
           "source": [
             "PGR_DATA/jp-4.9/bytes/share/task/Task.json (json sha256:db16a4b00f67dd9a2229b2bec15f4ad24a28f8e97a853fac994a11747f1ecf3a)"
           ],
-          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Id only)"
         },
         {
           "path": "regions/jp/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
@@ -11602,6 +11650,30 @@
             "PGR_DATA/jp-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:31356332274c0abb65e05706f4929f54d7e04909c2412f1028e9b7cca529b851)"
           ],
           "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/jp/table/share/pay/Pay.tsv",
+          "naturalKey": "Key",
+          "filter": "all",
+          "rows": 6,
+          "columns": 11,
+          "contentSha256": "1aa26d02217e4e9a6541c7b2ddd9075a5e5f9fe38159a06da2ea09e0df14a9d4",
+          "source": [
+            "PGR_DATA/jp-4.9/bytes/share/pay/Pay.json (json sha256:66f80f6a9d0cc9573e6e19f6675637f6a33ed7c42cad9dd8851ba600deaad3c5)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Key,Platform,Amount,Currency,ShowAmount,Name,Desc,MoneyCard,Icon,PayId,ShowUIType only)"
+        },
+        {
+          "path": "regions/jp/table/client/purchase/PurchasePackageYKUiConfig.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 5,
+          "columns": 6,
+          "contentSha256": "0c03f4bef83ad07335a4b45d7ca653ef2db890b83472166f6509e914d2850266",
+          "source": [
+            "PGR_DATA/jp-4.9/bytes/client/purchase/PurchasePackageYKUiConfig.json (json sha256:b108e2d1252546eba00f304f3e7321f3e2ddd5a1620e19ac186949ac1274d031)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
         }
       ]
     },
@@ -11623,7 +11695,7 @@
           "source": [
             "PGR_DATA/cn-4.9/bytes/share/task/Task.json (json sha256:6db3a4ad7351b1466feab3efca10ca0bfd0c3b9aba3f55779072ef09cec5e0d2)"
           ],
-          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Id only)"
         },
         {
           "path": "regions/cn/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
@@ -11646,6 +11718,42 @@
           "contentSha256": "234eb0bdf0db3bfa7b25a957db4aed9977a81ccaa0da8b752816a093eebbe404",
           "source": [
             "PGR_DATA/cn-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:577ca893559bc993d9366611b49e3addf6be7c11ce95d4b6da5660c843e402cc)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/cn/table/share/pay/Pay.tsv",
+          "naturalKey": "Key",
+          "filter": "all",
+          "rows": 6,
+          "columns": 11,
+          "contentSha256": "f61477d28cbcba36464a387c88211f128ed4a56b9e10df81d0218a3c0ad59c9d",
+          "source": [
+            "PGR_DATA/cn-4.9/bytes/share/pay/Pay.json (json sha256:49186756513e3e01e03965fc644e70a7b874d7280ac238e34e0f26dd99621ee6)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (columns Key,Platform,Amount,Currency,ShowAmount,Name,Desc,MoneyCard,Icon,PayId,ShowUIType only)"
+        },
+        {
+          "path": "regions/cn/table/share/pay/AccumulatedPayReward.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 14,
+          "columns": 6,
+          "contentSha256": "9857fcf5ab8debcff4af3c566db4bfcf54550a2977e8f392eaa9e79c8881b7c6",
+          "source": [
+            "PGR_DATA/cn-4.9/bytes/share/pay/AccumulatedPayReward.json (json sha256:4f3aad472d0a87b64e350b26ae2282b1dd9e5c5d1c4d49768a79090cc774206b)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/cn/table/client/purchase/PurchasePackageYKUiConfig.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 5,
+          "columns": 6,
+          "contentSha256": "f1676e189b586dfc18abbe8e1f6e8fc499354d0546b66322545500abd09ff1b9",
+          "source": [
+            "PGR_DATA/cn-4.9/bytes/client/purchase/PurchasePackageYKUiConfig.json (json sha256:79b4c0d7db7d21176f6da59b5046f6e37e2ab1e2ebb849591df99bc2f996da3d)"
           ],
           "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
         }

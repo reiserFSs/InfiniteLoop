@@ -1,0 +1,6 @@
+Id	HelpKey	SortWeight	Tips[1]	Tips[2]	Icon
+83028	MonthcardBg02	3	즉시 블랙카드 <color=#fcb595>X365</color> 획득	총 블랙카드 <color=#fcb595>X3365</color>+혈청 세트β(중형) <color=#fcb595>X30</color> 획득 가능	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg05.png
+86314	MonthcardBg01	2	블랙카드&연구권<color=#ea5cbf>X2200</color> 획득 가능	면역 혈청 <color=#ea5cbf>3600</color>ml 획득 가능	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg01.png
+86315	MonthcardBg03	1	블랙카드&연구권<color=#78cefe>X4280</color> 획득 가능	6성 무기 공명 조각<color=#78cefe>X30</color> 획득 가능	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg03.png
+205	MonthcardBg05	2	총 블랙카드 <color=#ea5cbf>X300</color>	총 면역 혈청 <color=#ea5cbf>6000ml</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg07.png
+206	MonthcardBg06	1	총 블랙카드 및 연구권 <color=#78cefe>X2480</color>	총 6성 무기 공명 조각 <color=#78cefe>X150</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg08.png

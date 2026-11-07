@@ -96,7 +96,7 @@ namespace AscNet.GameServer.Handlers
         {
             GetPurchaseListResponse response = new()
             {
-                PurchaseInfoList = Catalog.Value.List(uiTypes, DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
+                PurchaseInfoList = Catalog.Value.List(uiTypes, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), player?.ClientRegion),
                 PurchaseComboInfoList = Catalog.Value.ListCombos(uiTypes, DateTimeOffset.UtcNow.ToUnixTimeSeconds())
             };
             ApplyPurchaseState(response.PurchaseInfoList, player);
@@ -247,7 +247,8 @@ namespace AscNet.GameServer.Handlers
                 || !ValidPurchaseParam(request.Param))
                 return 20053031;
             if (request.DiscountId > 0) return 20053014;
-            if (!TryFindPurchaseInfo(request.Id, request.UiTypeList, out info)) return 20053001;
+            if (!TryFindPurchaseInfo(request.Id, request.UiTypeList, out info)
+                || !Catalog.Value.IsVisible(request.Id, session.player.ClientRegion)) return 20053001;
             PlayerPendingPurchase? pending = session.player.PendingPurchase;
             if (pending is not null)
                 return pending.Id == request.Id && pending.Count == request.Count ? 0 : 20053031;

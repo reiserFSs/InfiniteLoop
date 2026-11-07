@@ -1,0 +1,6 @@
+Id	HelpKey	SortWeight	Tips[1]	Tips[2]	Icon
+83028	MonthcardBg02	3	即時獲得：黒パス<color=#fcb595>×400</color>	合計獲得：黒パス<color=#fcb595>×3400</color>+血清セットM-β<color=#fcb595>×30</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg05.png
+84345	MonthcardBg01	2	即時獲得：黒パス<color=#ea5cbf>X680</color>	<size=22>毎日：特別構造体開発券<color=#ea5cbf>×50</color>&血清セットM β<color=#ea5cbf>×2</color></size>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg01.png
+84346	MonthcardBg03	1	即時獲得：黒パス<color=#78cefe>X1280</color>	<size=22>毎日：指定武器開発券<color=#78cefe>×100</color>&星6武器共鳴欠片<color=#78cefe>×1</color></size>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg03.png
+205	MonthcardBg05	2	即時獲得：黒パス<color=#ea5cbf>×300</color>、血清セットM-β<color=#ea5cbf>×10</color>	毎日獲得：血清セットM-β<color=#ea5cbf>×3</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg07.png
+206	MonthcardBg06	1	即時獲得：黒パス<color=#ea5cbf>×980</color>、星6武器共鳴欠片<color=#ea5cbf>×30</color>	毎日獲得：武器指定開発券<color=#ea5cbf>×50</color>、星6武器共鳴欠片<color=#ea5cbf>×4</color>	Assets/Product/Texture/Image/UiPurchase/UiPurchaseMonthcardBg08.png
