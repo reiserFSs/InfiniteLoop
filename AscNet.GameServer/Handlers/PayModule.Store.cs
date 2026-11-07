@@ -301,7 +301,11 @@ internal partial class PayModule
             try
             {
                 PayTable? product = TableReaderV2.Parse<PayTable>().SingleOrDefault(row => row.Key == key);
-                if (product is not null && product.ShowUIType == 1 && product.MoneyCard > 0
+                if (product is null)
+                    session.log.Warn($"[本地充值] PayTable 里没有 key='{key}'");
+                else
+                    session.log.Warn($"[本地充值] key='{key}' ShowUIType={product.ShowUIType} MoneyCard={product.MoneyCard} ShowAmount={product.ShowAmount} targetParam='{targetParam}'");
+                if (product is not null && (product.ShowUIType == 1 || product.ShowUIType == 0) && product.MoneyCard > 0
                     && string.IsNullOrEmpty(targetParam)
                     && (session.player.PendingRecharge is null || session.player.PendingRecharge.Key == key))
                 {
