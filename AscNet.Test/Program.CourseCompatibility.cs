@@ -130,13 +130,13 @@ internal partial class Program
             AssertEqual(Convert.ToHexString(saved), Convert.ToHexString(MessagePackSerializer.Serialize(Login())), "Pending fight is not saved course progression");
         }
 
-        void RejectPreFight(int stageId, int code)
+        void RejectPreFight(int stageId, int code, int challengeCount = 1)
         {
             byte[] before = player.Course.ToBson();
             int id = packetId++;
             InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, id, new PreFightRequest
             {
-                PreFightData = new() { StageId = (uint)stageId, ChallengeCount = 1, CardIds = null, RobotIds = null, CaptainPos = 1, FirstFightPos = 1 }
+                PreFightData = new() { StageId = (uint)stageId, ChallengeCount = challengeCount, CardIds = null, RobotIds = null, CaptainPos = 1, FirstFightPos = 1 }
             });
             AssertEqual(code, Response<PreFightResponse>(id, nameof(PreFightResponse)).Code, "Course pre-fight gate rejects");
             AssertEqual(Convert.ToHexString(before), Convert.ToHexString(player.Course.ToBson()), "Rejected pre-fight preserves saved and pending course state");
@@ -319,6 +319,17 @@ internal partial class Program
         harness.Session.player = player;
         AssertEqual(true, Login().Data.ChapterDataList.Single(row => row.Id == dependentExam.ChapterId).IsClear,
             "Dependent exam completion survives BSON relog");
+        // CUB practice 30110021 (chapter 7, Lv61, needs 30110020 saved). The client always sends ChallengeCount 1
+        // (XFubenAgency:PreFight); a request without it is 20175005 even for a player who meets every gate.
+        const int cubPractice = 30110021, cubPrevious = 30110020;
+        player.PlayerData.Level = 60;
+        player.Course.Stages = [];
+        RejectPreFight(cubPractice, 20175002);
+        player.PlayerData.Level = 61;
+        RejectPreFight(cubPractice, 20175006);
+        player.Course.Stages = [new CourseStageState { Id = cubPrevious, StarsFlag = 1 }];
+        RejectPreFight(cubPractice, 20175005, challengeCount: 0);
+        Fight(cubPractice, Mask(cubPractice));
         Console.WriteLine("Course compatibility: C1/C2 lesson saves, persisted lesson state, real exams, pending/save, downgrade, rewards and BSON relog passed.");
     }
 }
