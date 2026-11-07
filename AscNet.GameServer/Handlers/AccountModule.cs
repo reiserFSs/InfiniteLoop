@@ -248,6 +248,8 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
 
+                ApplyClientRegion(player);
+
                 player.SimulatedBattlefield ??= new();
                 if (player.SimulatedBattlefield.BossRankPlatform != request.LoginPlatform)
                 {
@@ -275,6 +277,20 @@ namespace AscNet.GameServer.Handlers
 
                 DoLogin(session);
             }
+        }
+
+        /// <summary>
+        /// The gate request (SDK package) decided the client's region; it is persisted because a reconnect has no gate request.
+        /// EN is stored as null so EN accounts are never rewritten.
+        /// </summary>
+        internal static void ApplyClientRegion(Player player)
+        {
+            string? clientRegion = ClientRegions.Recall(player.Token) ?? player.ClientRegion;
+            clientRegion = clientRegion == ClientRegions.Default ? null : clientRegion;
+            if (player.ClientRegion == clientRegion)
+                return;
+            player.ClientRegion = clientRegion;
+            player.Save();
         }
 
         [RequestPacketHandler("ReconnectRequest")]

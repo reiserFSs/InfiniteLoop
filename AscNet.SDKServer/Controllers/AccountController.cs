@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using AscNet.Common.Database;
+using AscNet.Common.Util;
 using AscNet.SDKServer.Models;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -108,6 +109,7 @@ namespace AscNet.SDKServer.Controllers
                         return InvalidLoginToken();
 
                     Player player = Player.FromPlayerId(account.Uid);
+                    ClientRegions.Remember(player.Token, ClientRegions.FromGatePath(ctx.Request.Path.Value));
 
                     LoginGate gate = new()
                     {
@@ -126,7 +128,10 @@ namespace AscNet.SDKServer.Controllers
                 }
             }
             app.MapGet("/api/Login/Login", HandleGateLogin);
-            app.MapGet("/api/Login/Login-cn", HandleGateLogin);
+            // One gate per regional package (CN has always had its own): the path tells the game server which region's tables
+            // the client has (ClientRegions).
+            foreach (string gateRegion in ClientRegions.GateRegions)
+                app.MapGet($"/api/Login/Login-{gateRegion}", HandleGateLogin);
         }
 
         // Engineering limit, not a retail protocol constant: the runner sends only username/password,

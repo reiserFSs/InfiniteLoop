@@ -404,6 +404,7 @@ namespace AscNet.GameServer
 
         public void SendPush<T>(T push) where T : new()
         {
+            Game.ClientRegionTables.FilterTasks(player?.ClientRegion, push!);
             Packet.Push packet = new()
             {
                 Name = typeof(T).Name,
@@ -426,6 +427,7 @@ namespace AscNet.GameServer
 
         public void SendPush(string name, byte[] push)
         {
+            push = Game.ClientRegionTables.FilterTasks(player?.ClientRegion, name, push);
             Packet.Push packet = new()
             {
                 Name = name,

@@ -11465,5 +11465,191 @@
       "localPolicyOrDerivedNoRetailSource": 60
     },
     "undecodedAncillaryAssets": 4695
+  },
+  "regionTables": {
+    "tw": {
+      "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
+      "indexSha1": {
+        "document/matrix": "f1bfc3ff0e893ba4cad1f4faa304fe4ff5fc85e8",
+        "resource/matrix": "a115da431507c6f7f64ccd2d7030c46e20d4432f"
+      },
+      "capturesUsed": false,
+      "tables": [
+        {
+          "path": "regions/tw/table/share/task/Task.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 12799,
+          "columns": 1,
+          "contentSha256": "fdcc5a6188ced54d5588bfebc697b03ec8731cdeec14920025d3c1e3c4fe4bc2",
+          "source": [
+            "PGR_DATA/tw-4.9/bytes/share/task/Task.json (json sha256:a1681857e1e8c5d564176d55c6854df1e6192229c5fdbf38de504e132f0501d7)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+        },
+        {
+          "path": "regions/tw/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 319,
+          "columns": 3,
+          "contentSha256": "81afe7faa3ded048a19499bd967795ae7f1e819fe964a7b08f34d37b33d33f6d",
+          "source": [
+            "PGR_DATA/tw-4.9/bytes/share/mailcollectionbox/MailCollectionBoxActivity.json (json sha256:05f3df87d9b65b21f42a0bbab4281c40ca1849ed270f19ff6b52b1b74fc0d698)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/tw/table/share/mailcollectionbox/MailCollectionBoxFavoriteMail.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 342,
+          "columns": 3,
+          "contentSha256": "234eb0bdf0db3bfa7b25a957db4aed9977a81ccaa0da8b752816a093eebbe404",
+          "source": [
+            "PGR_DATA/tw-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:1927948f7ddc95019987c2bc43dfea547ba7e1442cc090a96bf64576f080baee)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        }
+      ]
+    },
+    "kr": {
+      "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
+      "indexSha1": {
+        "document/matrix": "e7fe14e02065dd1483ad1a4786690942731d3b95",
+        "resource/matrix": "9522c22b1f70c8db56bf674b3bebda79b9aac074"
+      },
+      "capturesUsed": false,
+      "tables": [
+        {
+          "path": "regions/kr/table/share/task/Task.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 13762,
+          "columns": 1,
+          "contentSha256": "6ddf4dacd73ec7c8bb3d94940afe209bd1a0a28aa71ed17d2be00b053aa80a71",
+          "source": [
+            "PGR_DATA/kr-4.9/bytes/share/task/Task.json (json sha256:1311923d08dc95d88cd24181d5d8db24d781a3f3ccfb7bb296e47303e2417af2)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+        },
+        {
+          "path": "regions/kr/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 282,
+          "columns": 3,
+          "contentSha256": "ed6e0b5f2d93184f1cf9331b510725fc22659e0dca8be6b99bfc37e0319c5790",
+          "source": [
+            "PGR_DATA/kr-4.9/bytes/share/mailcollectionbox/MailCollectionBoxActivity.json (json sha256:749ca401b0296e39c55db3eaf13ca6b931431051f367c9a214608112771f4e31)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/kr/table/share/mailcollectionbox/MailCollectionBoxFavoriteMail.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 346,
+          "columns": 3,
+          "contentSha256": "81b32308960b75a81111bbbc800d2a776accb83ea7bae984a5e3e6d4d68dfd82",
+          "source": [
+            "PGR_DATA/kr-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:573dd8f4cb6c7f66d42d59332945396c4114bf51a1fd66797126b5e0fbef39a9)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        }
+      ]
+    },
+    "jp": {
+      "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
+      "indexSha1": {
+        "document/matrix": "5cd2da9e8ecde6f51951f9d8e0bf007bdc56431a",
+        "resource/matrix": "54e82414c4e95d80bb7dce8cf9274ca4cb05c37c"
+      },
+      "capturesUsed": false,
+      "tables": [
+        {
+          "path": "regions/jp/table/share/task/Task.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 13223,
+          "columns": 1,
+          "contentSha256": "c1f6e87ee94f60797fcf873ab771cde717caafdd62e6f2bca8adfced051f2250",
+          "source": [
+            "PGR_DATA/jp-4.9/bytes/share/task/Task.json (json sha256:db16a4b00f67dd9a2229b2bec15f4ad24a28f8e97a853fac994a11747f1ecf3a)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+        },
+        {
+          "path": "regions/jp/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 319,
+          "columns": 3,
+          "contentSha256": "3a30dd0d1734210d88d3220d96f4f3d98116dc177e14a61e334352ff8ac25cc9",
+          "source": [
+            "PGR_DATA/jp-4.9/bytes/share/mailcollectionbox/MailCollectionBoxActivity.json (json sha256:8a8d12e1c706a3ac369f3aefd163f5a5b69dbce5d000070feee3e5bbaf37d6dd)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/jp/table/share/mailcollectionbox/MailCollectionBoxFavoriteMail.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 342,
+          "columns": 3,
+          "contentSha256": "3cb2e68eff15906cb7dd2ddfe09303504e1d7992b64288d79b494302c0d5465c",
+          "source": [
+            "PGR_DATA/jp-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:31356332274c0abb65e05706f4929f54d7e04909c2412f1028e9b7cca529b851)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        }
+      ]
+    },
+    "cn": {
+      "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
+      "indexSha1": {
+        "document/matrix": "25b65d333c633ca9335abcd71947dfeaa92f4b89",
+        "resource/matrix": "a01d39759db4cd929ec02e74059c918fc3eb469f"
+      },
+      "capturesUsed": false,
+      "tables": [
+        {
+          "path": "regions/cn/table/share/task/Task.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 12309,
+          "columns": 1,
+          "contentSha256": "93bc926f96bb5431a29e782126abf9ab760ef34bae5242fb054c1c915d06bb83",
+          "source": [
+            "PGR_DATA/cn-4.9/bytes/share/task/Task.json (json sha256:6db3a4ad7351b1466feab3efca10ca0bfd0c3b9aba3f55779072ef09cec5e0d2)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns (Id only: the client resolves task ids against its own Task.tab)"
+        },
+        {
+          "path": "regions/cn/table/share/mailcollectionbox/MailCollectionBoxActivity.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 311,
+          "columns": 3,
+          "contentSha256": "9ed431979e6a4b4940f878c0c04076b161e2121a7d04159954d4debcc031ad69",
+          "source": [
+            "PGR_DATA/cn-4.9/bytes/share/mailcollectionbox/MailCollectionBoxActivity.json (json sha256:9fd715f38eb16d7b909e7acfedec6f5be2cf3263b7de17fbbc98dfcbbf2e170d)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/cn/table/share/mailcollectionbox/MailCollectionBoxFavoriteMail.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 342,
+          "columns": 3,
+          "contentSha256": "234eb0bdf0db3bfa7b25a957db4aed9977a81ccaa0da8b752816a093eebbe404",
+          "source": [
+            "PGR_DATA/cn-4.9/bytes/share/mailcollectionbox/MailCollectionBoxFavoriteMail.json (json sha256:577ca893559bc993d9366611b49e3addf6be7c11ce95d4b6da5660c843e402cc)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        }
+      ]
+    }
   }
 }

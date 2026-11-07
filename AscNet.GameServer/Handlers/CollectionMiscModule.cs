@@ -77,7 +77,7 @@ namespace AscNet.GameServer.Handlers
 
         internal static NotifyLoginMailCollectionBoxData BuildLoginData(Player player, DateTimeOffset now) => new()
         {
-            OpenActivityIds = TableReaderV2.Parse<MailCollectionBoxActivityTable>()
+            OpenActivityIds = TableReaderV2.Parse<MailCollectionBoxActivityTable>(player.ClientRegion)
                 .Where(activity => IsFavoriteMailActivityOpen(activity, now)).Select(activity => activity.Id).ToList(),
             MailCollectionBoxDataDb = { ReceivedFavoriteMailIds = player.ReceivedFavoriteMailIds.ToList() }
         };
@@ -125,10 +125,10 @@ namespace AscNet.GameServer.Handlers
         {
             List<int> requested = (packet.Deserialize<MailCollectionBoxReceiveFavoriteMailIdsRequest>().FavoriteMailIds ?? []).Distinct().ToList();
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            HashSet<int> receivable = TableReaderV2.Parse<MailCollectionBoxActivityTable>()
+            HashSet<int> receivable = TableReaderV2.Parse<MailCollectionBoxActivityTable>(session.player.ClientRegion)
                 .Where(activity => IsFavoriteMailActivityOpen(activity, now))
                 .SelectMany(activity => activity.FavoriteMailIds).ToHashSet();
-            Dictionary<int, MailCollectionBoxFavoriteMailTable> mails = TableReaderV2.Parse<MailCollectionBoxFavoriteMailTable>()
+            Dictionary<int, MailCollectionBoxFavoriteMailTable> mails = TableReaderV2.Parse<MailCollectionBoxFavoriteMailTable>(session.player.ClientRegion)
                 .ToDictionary(row => row.Id);
 
             int firstReject = MailIdInvalid;

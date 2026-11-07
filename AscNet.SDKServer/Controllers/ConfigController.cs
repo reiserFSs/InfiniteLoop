@@ -63,7 +63,7 @@ namespace AscNet.SDKServer.Controllers
 
             List<RemoteConfig> remoteConfigs = new();
             if (versionConfig.ConfigRows is not null)
-                remoteConfigs.AddRange(versionConfig.ConfigRows.Select(row => new RemoteConfig { Key = row.Key, Type = row.Type, Value = row.Value.Replace("{origin}", publicHttpOrigin) }));
+                remoteConfigs.AddRange(versionConfig.ConfigRows.Select(row => new RemoteConfig { Key = row.Key, Type = row.Type, Value = GateRegionRows(row.Value, ClientRegions.FromPackage(package)).Replace("{origin}", publicHttpOrigin) }));
             else if (currentClient)
                 AddCurrentClientConfig(remoteConfigs, package, version, versionConfig, publicHttpOrigin);
             else
@@ -78,6 +78,11 @@ namespace AscNet.SDKServer.Controllers
             string serializedObject = TsvTool.SerializeObject(remoteConfigs);
             return serializedObject;
         }
+
+        // A regional package's gate is /api/Login/Login-<region> so the game server learns which region's tables its client has
+        // (ClientRegions); the rows stay region-neutral (`{origin}/api/Login/Login`) and CN rows already name Login-cn.
+        private static string GateRegionRows(string value, string? region) =>
+            region is null ? value : System.Text.RegularExpressions.Regex.Replace(value, @"\{origin\}/api/Login/Login(?!-)", "{origin}/api/Login/Login-" + region);
 
         private static string HandleLoginNoticeRequest(HttpContext ctx)
         {

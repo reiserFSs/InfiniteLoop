@@ -7,6 +7,7 @@ description: Use when a player reports an AscNet bug (error popup, stuck screen,
 - Server: launcher install `%LOCALAPPDATA%\AscNetLauncher\local\logs\server.log` plus `server.previous.log` (and `mongod.log`); or the console output of `dotnet run`. Verbosity `Debug` (default) includes full response content; see `AscNet.Launcher/docs/player-diagnostics.md`.
 - `launcher.log` beside `AscNetLauncher.exe`; `ascnet-patch.log` beside `PGR.exe` (last launch only).
 - Game log: newest `PGR/log/*.log` under the client's persistentDataPath (Windows: `%USERPROFILE%\AppData\LocalLow\kurogame\PGR`; elsewhere inside the Wine prefix). Grep `<Error>` and Lua tracebacks.
+- Client-log floods like `无法找到任务配置Id`/`MailCollectionBoxActivity.tab 索引id` (one stack trace per unknown id, ~44×) mean the server sent ids the player's regional client tables lack; the freeze trips the 10 s idle drop and the client reconnects, losing its pending RPCs (infinite loading). Check the region (`PkgId`/package in the log, `Player.ClientRegion`) against `Docs/development.md` "Region tables".
 - Region and exact steps (which screen, which button).
 
 # 2. Read the server side

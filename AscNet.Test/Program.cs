@@ -373,6 +373,11 @@ namespace AscNet.Test
                     ValidateCourseCompatibility();
                     return;
                 }
+                if (args.Contains("--region-tables-only"))
+                {
+                    ValidateRegionTablesCompatibility();
+                    return;
+                }
                 if (args.Contains("--equip-guide-goal-only"))
                 {
                     ValidateEquipGuideGoalCompatibility();
@@ -1397,6 +1402,7 @@ namespace AscNet.Test
                 Step("ValidatePartnerStoryCompatibility", () => ValidatePartnerStoryCompatibility());
                 Step("ValidateCourseCompatibility", () => ValidateCourseCompatibility());
                 Step("ValidateEquipGuideGoalCompatibility", () => ValidateEquipGuideGoalCompatibility());
+                Step("ValidateRegionTablesCompatibility", () => ValidateRegionTablesCompatibility());
                 Step("ValidateStrongholdSweepCompatibility", () => ValidateStrongholdSweepCompatibility());
                 Step("ValidateStrongholdRelatedFightCompatibility", () => ValidateStrongholdRelatedFightCompatibility());
                 Step("ValidateTransfiniteAnchorAchievementCompatibility", () => ValidateTransfiniteAnchorAchievementCompatibility());

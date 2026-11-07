@@ -1,4 +1,5 @@
 using AscNet.Common.Database;
+using AscNet.Common.Util;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
@@ -29,6 +30,11 @@ namespace AscNet.Test
                     using HttpClient client = new() { BaseAddress = new Uri(BoundAddress(app)) };
                     await AssertGateLoginCode(client, account.Uid, $"unknown-external-token-{suffix}", 13, "unknown external token");
                     await AssertGateLoginCode(client, account.Uid, account.Token, 0, "local account token", player.Token);
+                    // Each regional package's gate tells the game server which region's tables the client has.
+                    AssertEqual("en", ClientRegions.Recall(player.Token), "plain gate remembers EN");
+                    using (HttpResponseMessage twGate = await client.GetAsync($"/api/Login/Login-tw?loginType=0&userId={account.Uid}&token={Uri.EscapeDataString(account.Token)}"))
+                        AssertEqual(HttpStatusCode.OK, twGate.StatusCode, "TW gate status");
+                    AssertEqual("tw", ClientRegions.Recall(player.Token), "TW gate remembers its region");
                 }
                 finally
                 {

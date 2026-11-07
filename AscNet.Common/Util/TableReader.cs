@@ -60,31 +60,7 @@ namespace AscNet.Common.Util
                 try
                 {
                     string path = JsonSnapshot.ResolvePath(T.File);
-                    using (var reader = new StreamReader(path))
-                    {
-                        // Read the header line to get column names
-                        string headerLine = reader.ReadLine()!;
-                        string[] columnNames = headerLine.Split('\t');
-                        var properties = columnNames
-                            .Select((columnName, index) => (Property: typeof(T).GetProperty(columnName.Split('[').First()), Index: index))
-                            .Where(column => column.Property != null)
-                            .GroupBy(column => column.Property!)
-                            .Select(group => (Property: group.Key, Columns: group.Select(column => column.Index).ToArray()))
-                            .ToArray();
-
-                        // Read data lines and parse them into objects
-                        while (!reader.EndOfStream)
-                        {
-                            string dataLine = reader.ReadLine()!;
-                            if (string.IsNullOrEmpty(dataLine))
-                                break;
-
-                            string[] values = dataLine.Split('\t');
-
-                            T obj = MapToObject<T>(properties, values);
-                            result.Add(obj);
-                        }
-                    }
+                    ReadRows(path, result);
                     c.Debug($"{typeof(T).Name} Loaded From {path}");
 
                     cache.TryAdd(typeof(T), result);
@@ -98,6 +74,54 @@ namespace AscNet.Common.Util
             }
         }
 
+        private static readonly ConcurrentDictionary<(Type, string), object> regionCache = new();
+
+        /// <summary>
+        /// The table as the given region's client has it: Resources/regions/&lt;region&gt;/&lt;T.File&gt; when that overlay exists
+        /// (see Docs/development.md "Region tables"), else the shared table. EN and unknown regions always read the shared table.
+        /// </summary>
+        public static List<T> Parse<T>(string? region) where T : ITable
+        {
+            if (string.IsNullOrEmpty(region))
+                return Parse<T>();
+            string overlay = JsonSnapshot.ResolvePath(Path.Combine("regions", region, T.File));
+            if (!File.Exists(overlay))
+                return Parse<T>();
+            return (List<T>)regionCache.GetOrAdd((typeof(T), region), _ =>
+            {
+                List<T> rows = new();
+                ReadRows(overlay, rows);
+                c.Debug($"{typeof(T).Name} Loaded From {overlay}");
+                return rows;
+            });
+        }
+
+        private static void ReadRows<T>(string path, List<T> result) where T : ITable
+        {
+            using var reader = new StreamReader(path);
+            // Read the header line to get column names
+            string headerLine = reader.ReadLine()!;
+            string[] columnNames = headerLine.Split('\t');
+            var properties = columnNames
+                .Select((columnName, index) => (Property: typeof(T).GetProperty(columnName.Split('[').First()), Index: index))
+                .Where(column => column.Property != null)
+                .GroupBy(column => column.Property!)
+                .Select(group => (Property: group.Key, Columns: group.Select(column => column.Index).ToArray()))
+                .ToArray();
+
+            // Read data lines and parse them into objects
+            while (!reader.EndOfStream)
+            {
+                string dataLine = reader.ReadLine()!;
+                if (string.IsNullOrEmpty(dataLine))
+                    break;
+
+                string[] values = dataLine.Split('\t');
+
+                T obj = MapToObject<T>(properties, values);
+                result.Add(obj);
+            }
+        }
 
         static T MapToObject<T>((PropertyInfo Property, int[] Columns)[] properties, string[] values) where T : ITable
         {

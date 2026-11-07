@@ -355,6 +355,9 @@ internal partial class Program
             // CN lists the official gate plus raw-IP mirrors per login channel; AscNet serves one isolated Login-cn gate for each.
             expected = System.Text.RegularExpressions.Regex.Replace(expected, @"https://haru-gf-login\.kurogame\.com/api/Login/Login(;http://\d+\.\d+\.\d+\.\d+/api/Login/Login)*", "http://127.0.0.1:8080/api/Login/Login-cn");
             expected = expected.Replace("http://haru-gf-pay.kurogame.com", "http://127.0.0.1:8080");
+            // TW/KR/JP gates carry their region (ClientRegions) so the game server knows which tables the client has.
+            if (region[..2] is "tw" or "kr" or "jp")
+                expected = System.Text.RegularExpressions.Regex.Replace(expected, @"(127\.0\.0\.1:8080/api/Login/Login)(?!-)", "$1-" + region[..2]);
             // Policy rows: AscNet deliberately serves a value other than the retail one (documented where the caller passes them).
             string[] cells = retail[i].Split('\t');
             if (policyRows is not null && policyRows.TryGetValue(cells[0], out string? policyValue))
