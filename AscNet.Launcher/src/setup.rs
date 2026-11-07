@@ -1731,14 +1731,38 @@ fn ensure_compiler(root: &Path, deadline: Instant, progress: &mut dyn FnMut(&str
         return compiler_from_tree(&bundled);
     }
     if let Some(found) = locate_vs(deadline, progress, log)? {
-        let vars = capture_vcvars(&found.bat, deadline, progress, log)?;
-        return Ok(Compiler { vars, msbuild: Some(found.msbuild), wine: false, full_environment: true });
+        return vs_or_portable_compiler(root, found, deadline, progress, log);
     }
     note(progress, log, "Installing Visual Studio 2022 Build Tools")?;
     install_build_tools(root, None, deadline, progress, log)?;
     let found = locate_vs(deadline, progress, log)?.context("Visual Studio Build Tools C++ workload was installed but MSBuild with v143 C++ tools was not found. Restart the launcher and retry.")?;
+    vs_or_portable_compiler(root, found, deadline, progress, log)
+}
+
+/// A Visual Studio install with the C++ tools but no Windows SDK passes vswhere and vcvars, then fails
+/// every link with LNK1181 kernel32.lib. Use the launcher's own MSVC toolset and Windows SDK instead.
+#[cfg(windows)]
+fn vs_or_portable_compiler(root: &Path, found: VsInstall, deadline: Instant, progress: &mut dyn FnMut(&str), log: &mut dyn FnMut(&str) -> Result<()>) -> Result<Compiler> {
     let vars = capture_vcvars(&found.bat, deadline, progress, log)?;
-    Ok(Compiler { vars, msbuild: Some(found.msbuild), wine: false, full_environment: true })
+    if lib_has_windows_sdk(&vars) {
+        return Ok(Compiler { vars, msbuild: Some(found.msbuild), wine: false, full_environment: true });
+    }
+    note(progress, log, &format!("{} has no Windows SDK (kernel32.lib is not on LIB); using the launcher's own MSVC toolset and Windows SDK", found.bat.display()))?;
+    let bundled = root.join("tools").join("msvc");
+    if !crate::msvc::is_ready(&bundled) {
+        install_portable_msvc(root, &bundled, deadline, progress, log)?;
+    }
+    Ok(Compiler { vars: crate::msvc::compiler_vars(&bundled)?, msbuild: None, wine: false, full_environment: false })
+}
+
+/// True when a LIB directory from the compiler environment holds the Windows SDK's kernel32.lib.
+fn lib_has_windows_sdk(vars: &[(String, String)]) -> bool {
+    vars.iter()
+        .filter(|(key, _)| env_key_eq(key, "LIB"))
+        .flat_map(|(_, value)| value.split(';'))
+        .map(str::trim)
+        .filter(|dir| !dir.is_empty())
+        .any(|dir| Path::new(dir).join("kernel32.lib").is_file())
 }
 
 #[cfg(windows)]
@@ -2509,6 +2533,23 @@ fn find_on_windows_path(path: &str, name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lib_has_windows_sdk_needs_kernel32_on_lib() {
+        let root = std::env::temp_dir().join(format!("ascnet-lib-sdk-{}", std::process::id()));
+        let vc = root.join("VC/lib/x64");
+        let um = root.join("Windows Kits/10/Lib/10.0.26100.0/um/x64");
+        fs::create_dir_all(&vc).unwrap();
+        fs::create_dir_all(&um).unwrap();
+        fs::write(vc.join("libcmt.lib"), b"lib").unwrap();
+        fs::write(um.join("kernel32.lib"), b"lib").unwrap();
+        let vc_only = vec![("LIB".to_owned(), format!("{};", vc.display()))];
+        assert!(!lib_has_windows_sdk(&vc_only), "VC tools without the SDK must not count");
+        assert!(!lib_has_windows_sdk(&[]), "no LIB at all");
+        let with_sdk = vec![("Lib".to_owned(), format!("{};{}", vc.display(), um.display()))];
+        assert!(lib_has_windows_sdk(&with_sdk), "kernel32.lib on LIB (any key case)");
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn dotnet_selector_uses_the_first_windows_sdk_zip() {
