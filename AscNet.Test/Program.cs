@@ -762,6 +762,11 @@ namespace AscNet.Test
                     ValidateRobotDeploymentFashionCompatibility();
                     return;
                 }
+                if (args.Contains("--robot-partner-fight-data-only"))
+                {
+                    ValidateRobotPartnerFightData();
+                    return;
+                }
                 if (args.Contains("--segment-check-fight-compat-only"))
                 {
                     ValidateSegmentCheckFightCompatibility();
@@ -1458,6 +1463,7 @@ namespace AscNet.Test
                 Step("ValidateTeamPrefabCompatibility", () => ValidateTeamPrefabCompatibility());
                 Step("ValidatePreFightPositionCompatibility", () => ValidatePreFightPositionCompatibility());
                 Step("ValidateRobotDeploymentFashionCompatibility", () => ValidateRobotDeploymentFashionCompatibility());
+                Step("ValidateRobotPartnerFightData", () => ValidateRobotPartnerFightData());
                 Step("ValidateSegmentCheckFightCompatibility", () => ValidateSegmentCheckFightCompatibility());
                 Step("ValidateFightRestartCompatibility", () => ValidateFightRestartCompatibility());
                 Step("ValidatePartnerDecomposeCompatibilitySuite", () => ValidatePartnerDecomposeCompatibilitySuite());

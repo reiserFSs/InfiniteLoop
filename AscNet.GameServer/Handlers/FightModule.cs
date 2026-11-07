@@ -850,7 +850,7 @@ namespace AscNet.GameServer.Handlers
                         Character = robotCharacterData,
                         Equips = equips,
                         WeaponFashionId = robot.WeaponFashion ?? 0,
-                        Partner = (PartnerData?)null,
+                        Partner = BuildRobotPartner(robot),
                         IsRobot = true,
                         RobotId = robotId,
                         IsNpc = false,
@@ -919,6 +919,46 @@ namespace AscNet.GameServer.Handlers
             rsp.FightData.FightId = CerberusGameModule.RecordFightStarted(session, req, rsp.FightData.FightId);
             session.fight = new(req, rsp.FightData.FightId);
             session.SendResponse(rsp, packet.Id);
+        }
+
+        /// <summary>
+        /// XRobot:InitPartner: the CUB a premade robot carries, from Robot.RobotPartnerId. Id is the
+        /// RobotPartner row id, the main skill is the group's skill for the robot character's element
+        /// (XPartnerMainSkillGroup:GetSkillIdByElement), and every authored passive is worn.
+        /// </summary>
+        internal static PartnerData? BuildRobotPartner(RobotTable robot)
+        {
+            int robotPartnerId = Convert.ToInt32(robot.RobotPartnerId);
+            if (robotPartnerId <= 0)
+                return null;
+
+            RobotPartnerTable config = TableReaderV2.Parse<RobotPartnerTable>().First(row => row.Id == robotPartnerId);
+            PartnerMainSkillGroupTable mainGroup = TableReaderV2.Parse<PartnerMainSkillGroupTable>()
+                .First(row => row.Id == config.MainSkillGroup);
+            int element = TableReaderV2.Parse<CharacterTable>().First(row => row.Id == robot.CharacterId).Element;
+            int elementIndex = mainGroup.Element.IndexOf(element);
+            int mainSkillId = mainGroup.SkillId.ElementAtOrDefault(elementIndex < 0 ? 0 : elementIndex);
+
+            List<PartnerSkillData> skills = [new() { Id = mainSkillId, Level = config.MainSkillLevel, IsWear = true, Type = 1 }];
+            List<int> passiveLevels = config.PassiveSkillLevel ?? [];
+            for (int i = 0; i < (config.PassiveSkillId?.Count ?? 0); i++)
+            {
+                if (config.PassiveSkillId![i] > 0)
+                    skills.Add(new() { Id = config.PassiveSkillId[i], Level = Math.Max(passiveLevels.ElementAtOrDefault(i), 1), IsWear = true, Type = 2 });
+            }
+
+            return new PartnerData
+            {
+                Id = robotPartnerId,
+                TemplateId = config.PartnerId,
+                CharacterId = robot.CharacterId,
+                Level = config.Level,
+                BreakThrough = config.BreakThrough,
+                Quality = config.Quality,
+                StarSchedule = config.StarSchedule,
+                SkillList = skills,
+                UnlockSkillGroup = [mainSkillId]
+            };
         }
 
         internal static (CharacterData Character, List<EquipData> Equips) BuildRobotDeployment(RobotTable robot)

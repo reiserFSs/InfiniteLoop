@@ -10777,6 +10777,21 @@
       "transformation": [
         "import_reform_4_9: retail rows verbatim; list columns widened to the longest row"
       ]
+    },
+    {
+      "path": "share/robot/RobotPartner.tsv",
+      "naturalKey": "Id",
+      "filter": "all",
+      "rows": 42,
+      "columns": 18,
+      "contentSha256": "de718eed7b9e1c9296788ad52748ba7be321d2c491c540f05edc9a5edfbade30",
+      "source": [
+        "share/robot/RobotPartner.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/share/robot/RobotPartner.json (json sha256:d58e995b829f0f422e80e0e01d50b8d71921f1b4089bb168909d3291fc71ba04)"
+      ],
+      "transformation": [
+        "import_robot_partner_4_9: retail rows verbatim; list columns widened to the longest row"
+      ]
     }
   ],
   "validationNotes": [
