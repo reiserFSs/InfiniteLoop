@@ -1,4 +1,5 @@
 ﻿using Config.Net;
+using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Driver;
 using AscNet.Common.Database;
 
@@ -13,6 +14,12 @@ namespace AscNet.Common
         static Common()
         {
             config = new ConfigurationBuilder<IConfig>().UseJsonFile("Configs/config.json").Build();
+
+            // One rule for every persisted AscNet class (Player, MissionProgressState, Character, ...): a renamed/removed field in an old save
+            // must not fail deserialization. Registered before any class map is built (first Common.db use).
+            ConventionRegistry.Register("AscNetIgnoreExtraElements",
+                new ConventionPack { new IgnoreExtraElementsConvention(true) },
+                type => type.Namespace?.StartsWith("AscNet", StringComparison.Ordinal) == true);
             
             mongoClient = new(
                new MongoClientSettings

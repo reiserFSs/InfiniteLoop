@@ -30,7 +30,6 @@ public sealed class StrongholdState
     [BsonElement("group_stage_datas")] public List<StrongholdGroupStageData> GroupStageDatas { get; set; } = new();
     [BsonElement("team_infos")][BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)] public Dictionary<int, StrongholdTeamInfo> TeamInfos { get; set; } = new();
     [BsonElement("fight_team_infos")][BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)] public Dictionary<int, List<StrongholdTeamInfo>> FightTeamInfos { get; set; } = new();
-    [BsonElement("rune_list")] public List<int> RuneList { get; set; } = new();
     [BsonElement("reward_ids")] public List<int> RewardIds { get; set; } = new();
     [BsonElement("stay_days")] public List<int> StayDays { get; set; } = new();
     [BsonElement("mine_records")] public List<StrongholdMineRecord> MineRecords { get; set; } = new();

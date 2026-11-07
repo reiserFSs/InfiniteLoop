@@ -8,8 +8,8 @@ namespace AscNet.GameServer.Handlers;
 
 internal static class CurrentClientStudyTables
 {
-    internal const string ClientVersion = "4.8.0";
-    private const string ResourcePath = "Configs/study_compatibility_4.8.0.json";
+    internal const string ClientVersion = "4.9.1";
+    private const string ResourcePath = "Configs/study_compatibility_4.9.1.json";
     private static readonly Lazy<Catalog> Data = new(Load, LazyThreadSafetyMode.ExecutionAndPublication);
     internal static bool TryGetStage(long stageId, out StageTable stage)
     {
@@ -51,7 +51,7 @@ internal static class CurrentClientStudyTables
         return Data.Value.Robots.TryGetValue(robotId, out robot!);
     }
 
-    /// Installed-client enhance-skill inputs from the same 4.8 tables as the imported Study robots.
+    /// Installed-client enhance-skill inputs from the same 4.9 tables as the imported Study robots.
     internal static EnhanceSkillSource EnhanceSkills => Data.Value.EnhanceSkills;
 
     internal static bool TryGetPracticeChapterId(long stageId, out int chapterId)

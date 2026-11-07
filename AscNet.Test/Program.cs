@@ -383,6 +383,13 @@ namespace AscNet.Test
                     ValidateEquipGuideGoalCompatibility();
                     return;
                 }
+                if (args.Contains("--feedback-fixes-only"))
+                {
+                    Step("ValidateUnhandledRequestAnswered", () => ValidateUnhandledRequestAnswered());
+                    Step("ValidateOldSaveExtraElements", () => ValidateOldSaveExtraElements());
+                    Step("ValidateStrongholdRuneList", () => ValidateStrongholdRuneList());
+                    return;
+                }
                 if (args.Contains("--stronghold-cycle-only"))
                 {
                     ValidateStrongholdCycle();
@@ -529,6 +536,11 @@ namespace AscNet.Test
                     ValidateTransfiniteTowerBoundary();
                     ValidateTransfiniteTowerRanking();
                     ValidateTransfiniteTowerProgression();
+                    return;
+                }
+                if (args.Contains("--weapon-coating-ids-only"))
+                {
+                    ValidateWeaponCoatingIdSpace();
                     return;
                 }
                 if (args.Contains("--coating-gacha-48-only"))
@@ -1059,6 +1071,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--teaching-stage-49-only"))
+                {
+                    ValidateTeachingStage49FightData();
+                    return;
+                }
+
                 if (args.Contains("--study-progression-compat-only"))
                 {
                     ValidateStudyProgressionCompatibility();
@@ -1406,6 +1424,9 @@ namespace AscNet.Test
                 Step("ValidateStrongholdSweepCompatibility", () => ValidateStrongholdSweepCompatibility());
                 Step("ValidateStrongholdRelatedFightCompatibility", () => ValidateStrongholdRelatedFightCompatibility());
                 Step("ValidateTransfiniteAnchorAchievementCompatibility", () => ValidateTransfiniteAnchorAchievementCompatibility());
+                Step("ValidateUnhandledRequestAnswered", () => ValidateUnhandledRequestAnswered());
+                Step("ValidateOldSaveExtraElements", () => ValidateOldSaveExtraElements());
+                Step("ValidateStrongholdRuneList", () => ValidateStrongholdRuneList());
                 Step("ValidateStrongholdCycle", () => ValidateStrongholdCycle());
                 Step("ValidateResetBoundary", () => ValidateResetBoundary());
                 Step("ValidateRewardQuantities", () => ValidateRewardQuantities());
@@ -1451,6 +1472,7 @@ namespace AscNet.Test
                 Step("ValidateStoryDeployVersionGapCompatibility", () => ValidateStoryDeployVersionGapCompatibility());
                 Step("ValidateStudyCharacterCompatibility", () => ValidateStudyCharacterCompatibility());
                 Step("ValidateStudyProgressionCompatibility", () => ValidateStudyProgressionCompatibility());
+                Step("ValidateTeachingStage49FightData", () => ValidateTeachingStage49FightData());
                 Step("ValidateFightSettleRetreatCompatibility", () => ValidateFightSettleRetreatCompatibility());
                 Step("ValidateFightSettleAchievementCompatibility", () => ValidateFightSettleAchievementCompatibility());
                 Step("ValidatePr2QualityCompatibility", () => ValidatePr2QualityCompatibility());
@@ -1532,6 +1554,7 @@ namespace AscNet.Test
                 Step("ValidateFestivalExperimentClearRelogin", () => ValidateFestivalExperimentClearRelogin());
                 Step("ValidateVersion48TeachingTreasureClaims", () => ValidateVersion48TeachingTreasureClaims());
                 Step("ValidateCoatingGacha48Compatibility", () => ValidateCoatingGacha48Compatibility());
+                Step("ValidateWeaponCoatingIdSpace", () => ValidateWeaponCoatingIdSpace());
                 Step("ValidateBackgroundRewardGrants", () => ValidateBackgroundRewardGrants());
                 Step("ValidateGuildWarPopupActionCompatibility", () => ValidateGuildWarPopupActionCompatibility());
                 Step("ValidateVersion47ConcertStartCompatibility", () => ValidateVersion47ConcertStartCompatibility());
@@ -22318,7 +22341,7 @@ namespace AscNet.Test
             using MongoCollectionOverride mongoOverride = MongoCollectionOverride.InstallForStoryDeployVersionGapCompatibility();
             const int luciaLotusCharacterId = 1_021_001;
 
-            JObject compatibility = JsonSnapshot.LoadObject("Configs/study_compatibility_4.8.0.json");
+            JObject compatibility = JsonSnapshot.LoadObject("Configs/study_compatibility_4.9.1.json");
             JArray studyRobotRows = (JArray)RequiredToken(compatibility, "Robots", JTokenType.Array, "Study compatibility");
 
             JObject StudyRobotRow(int robotId) =>

@@ -317,6 +317,13 @@ namespace AscNet.GameServer
                                         {
                                             if (Common.Common.config.VerboseLevel > VerboseLevel.Silent)
                                                 log.Warn($"Request handler not found: name={System.Text.Json.JsonSerializer.Serialize(request.Name is { Length: > 128 } ? request.Name[..128] : request.Name)}, nameLength={request.Name?.Length ?? 0}, contentBytes={request.Content?.Length ?? 0}, id={request.Id}");
+                                            // Unanswered requests hang the client's Call forever. Same Response-name rule and Code field as the
+                                            // pending-gate rejections above; 20000001 PlayerFunctionNotOpen ("Feature is not available yet") is a retail CodeText row.
+                                            // Only plausible RPC identifiers are echoed (the name is client-controlled and is logged).
+                                            if (request.Name is { Length: > 0 and <= 128 } unhandledName && unhandledName.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'))
+                                                SendResponse(
+                                                    (unhandledName.EndsWith("Request", StringComparison.Ordinal) ? unhandledName[..^7] : unhandledName) + "Response",
+                                                    MessagePackSerializer.Serialize(new Dictionary<string, int> { ["Code"] = 20000001 }), request.Id);
                                         }
                                         break;
 

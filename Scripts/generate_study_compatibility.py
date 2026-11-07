@@ -11,9 +11,11 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE = REPO_ROOT / ".runtime" / "upgrade-4.8" / "tables"
-DEFAULT_OUTPUT = REPO_ROOT / "Resources" / "Configs" / "study_compatibility_4.8.0.json"
-CLIENT_VERSION = "4.8.0"
+# EN 4.9.1 install tables (staged by scan_client_upgrade.py --extract). CN/KR/JP generate the same
+# catalog apart from localized text; TW 4.9 lacks 39 Stage rows and is not a valid source.
+DEFAULT_SOURCE = REPO_ROOT.parent / "PGR_DATA" / "en-4.9" / "bytes"
+DEFAULT_OUTPUT = REPO_ROOT / "Resources" / "Configs" / "study_compatibility_4.9.1.json"
+CLIENT_VERSION = "4.9.1"
 SOURCES = {
     "Stage": "share/fuben/Stage.json",
     "StageLevelControl": "share/fuben/StageLevelControl.json",

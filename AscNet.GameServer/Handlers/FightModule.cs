@@ -931,7 +931,13 @@ namespace AscNet.GameServer.Handlers
         internal static (CharacterData Character, List<EquipData> Equips) BuildRobotDeployment(RobotTable robot, EnhanceSkillSource enhanceSkills)
         {
             CharacterSkillTable? characterSkill = TableReaderV2.Parse<CharacterSkillTable>().Find(x => x.CharacterId == robot.CharacterId);
-            IEnumerable<int> skills = characterSkill?.SkillGroupId.SelectMany(x => TableReaderV2.Parse<CharacterSkillGroupTable>().Find(y => y.Id == x)?.SkillId ?? new List<int>()) ?? new List<int>();
+            // XRobot:GenarateRobotSkillList deploys only the group's first skill; the other entries of a
+            // switch group (e.g. Leia 143321/143328) are alternates the player swaps in, never both at once.
+            // XRobot:GenarateRobotSkillList deploys only the group's first skill; the other entries of a
+            // switch group (e.g. Leia 143321/143328) are alternates the player swaps in, never both at once.
+            IEnumerable<int> skills = characterSkill?.SkillGroupId
+                .Select(x => TableReaderV2.Parse<CharacterSkillGroupTable>().Find(y => y.Id == x)?.SkillId.FirstOrDefault() ?? 0)
+                .Where(id => id > 0) ?? new List<int>();
             HashSet<int> removedSkillIds = robot.RemoveSkillId?.ToHashSet() ?? [];
             CharacterTable? character = TableReaderV2.Parse<CharacterTable>().Find(row => row.Id == robot.CharacterId);
             uint fashionId = (uint)(robot.FashionId > 0 ? robot.FashionId : character?.DefaultNpcFashtionId ?? 0);

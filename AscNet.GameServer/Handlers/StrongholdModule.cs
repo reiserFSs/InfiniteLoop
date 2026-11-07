@@ -80,7 +80,8 @@ internal static class StrongholdModule
             GroupInfos = state.GroupInfos.ToList(),
             TeamInfos = state.TeamInfos.OrderBy(entry => entry.Key).Select(entry => entry.Value).ToList(),
             GroupStageDatas = state.GroupStageDatas.ToList(),
-            RuneList = state.RuneList.ToList(),
+            // Client's UpdateRuneIds takes the whole "this period" list; StrongholdRune has no level/chapter/group gate.
+            RuneList = Rows<StrongholdRuneTable>().Select(row => row.Id).Where(id => id > 0).Distinct().OrderBy(id => id).ToList(),
             RewardIds = state.RewardIds.ToList(),
             LastResultRecord = state.LastResultRecord,
             MineRecords = state.MineRecords.ToList(),
@@ -99,7 +100,6 @@ internal static class StrongholdModule
         state.GroupStageDatas ??= [];
         state.TeamInfos ??= [];
         state.FightTeamInfos ??= [];
-        state.RuneList ??= [];
         state.RewardIds ??= [];
         state.StayDays ??= [];
         state.MineRecords ??= [];
@@ -413,7 +413,6 @@ internal static class StrongholdModule
         if (activity.IsClearTeam != 0)
             state.TeamInfos.Clear();
         state.FightTeamInfos.Clear();
-        state.RuneList.Clear();
         state.StayDays.Clear();
         state.MineRecords.Clear();
         state.CurrentResultRecord = new();

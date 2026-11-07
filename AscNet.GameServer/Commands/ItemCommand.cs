@@ -2,6 +2,7 @@
 using AscNet.Common.MsgPack;
 using AscNet.Common.Database;
 using AscNet.Common.Util;
+using AscNet.GameServer.Handlers;
 using AscNet.Table.V2.share.item;
 using Newtonsoft.Json;
 
@@ -55,6 +56,8 @@ namespace AscNet.GameServer.Commands
 
                 foreach (ItemTable itemTable in TableReaderV2.Parse<ItemTable>())
                 {
+                    if (UnlockWeaponCoating(itemTable.Id, amount != 0 || useMaxCount))
+                        continue;
                     Item? existingItem = session.inventory.Items.FirstOrDefault(x => x.Id == itemTable.Id);
                     long currentCount = existingItem?.Count ?? 0;
                     long targetCount = GetBatchAddMaxTargetCount(itemTable);
@@ -74,11 +77,29 @@ namespace AscNet.GameServer.Commands
                 if (!TableReaderV2.Parse<ItemTable>().Any(x => x.Id == itemId))
                     throw new ArgumentException("Invalid Target item id!");
 
-                notifyItemData.ItemDataList.Add(session.inventory.Do(itemId, Miscs.ParseIntOr(Amount)));
+                int itemAmount = Miscs.ParseIntOr(Amount);
+                if (!UnlockWeaponCoating(itemId, itemAmount > 0))
+                    notifyItemData.ItemDataList.Add(session.inventory.Do(itemId, itemAmount));
             }
 
             session.inventory.Save();
-            session.SendPush(notifyItemData);
+            if (notifyItemData.ItemDataList.Count > 0)
+                session.SendPush(notifyItemData);
+        }
+
+        // A weapon coating item is a ticket for WeaponFashion.Id (SubTypeParams[0]); the client never
+        // holds it in the bag, so a grant unlocks the fashion instead (same as RewardHandler).
+        private bool UnlockWeaponCoating(int itemId, bool grant)
+        {
+            if (!RewardHandler.TryResolveWeaponFashionReward(itemId, out int weaponFashionId))
+                return false;
+            List<WeaponFashionData> changed = [];
+            if (grant && RewardHandler.UnlockWeaponFashionReward(weaponFashionId, session, changed))
+            {
+                session.character.Save();
+                session.SendPush(new NotifyWeaponFashionInfo { WeaponFashionDataList = changed });
+            }
+            return true;
         }
 
         private void ClearItems()

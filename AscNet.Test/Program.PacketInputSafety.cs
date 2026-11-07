@@ -154,6 +154,9 @@ namespace AscNet.Test
                     Content = MessagePackSerializer.Serialize(new Packet.Exception { Code = 1, Message = secret })
                 })));
                 harness.WriteClientBytes(LoopbackSessionHarness.SerializeClientRequestFrame(requestName, 5, secret));
+                // Only the plausible identifier is answered; control-character and oversized names are not echoed.
+                Packet.Response missingAnswer = MessagePackSerializer.Deserialize<Packet.Response>(harness.ReadPacket("unhandled request answer").Content);
+                AssertEqual(4, missingAnswer.Id, "unhandled request is answered with its id");
                 AssertHeartbeatResponse(harness, 5, "malformed packets and handler failures preserve continuation");
 
                 byte[] excessiveWireLength = new byte[sizeof(int)];
