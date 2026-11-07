@@ -1,4 +1,4 @@
-﻿using AscNet.Common.MsgPack;
+using AscNet.Common.MsgPack;
 using AscNet.Common.Database;
 using AscNet.Table.V2.share.condition;
 using AscNet.Table.V2.share.reward;
@@ -194,6 +194,52 @@ namespace AscNet.GameServer.Handlers
             }
         }
 
+        /// <summary>GM/面板用的直购入口：按礼包 Id 走与客户端 PurchaseRequest 相同的校验与发货流程。</summary>
+        public static int PurchaseForGm(Session session, uint id, int count)
+        {
+            if (count <= 0) count = 1;
+            lock (session.player)
+            {
+                try
+                {
+                    PurchaseRequest request = new() { Id = id, Count = count, DiscountId = -1 };
+                    int code = ValidatePurchase(session, request, out Dictionary<dynamic, dynamic>? info,
+                        out List<RewardGoods> goods, out int cost);
+                    if (code != 0) return code;
+
+                    PlayerPendingPurchase? pending = session.player.PendingPurchase;
+                    if (pending is null)
+                    {
+                        pending = new PlayerPendingPurchase
+                        {
+                            Id = id, Count = count,
+                            PreviousBuyTimes = session.player.PurchaseBuyTimes.GetValueOrDefault(id),
+                            BuyTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                            ConsumeId = ReadDynamicInt(info!, "ConsumeId"), ConsumeCount = cost, Goods = goods
+                        };
+                        PreparePassUpdates(session.player, info!, count, pending);
+                        pending.PeriodBuyTimes = checked(CurrentBuyTimes(session.player, info!) + count);
+                        session.player.PendingPurchase = pending;
+                        try { session.player.SaveChecked(); }
+                        catch { session.player.PendingPurchase = null; throw; }
+                    }
+
+                    RewardApplicationResult? result = ResumePendingPurchase(session, out int resumeCode);
+                    if (resumeCode != 0) return resumeCode;
+
+                    try { GrantMailDailyRewards(session); } catch { }
+                    ApplyPurchaseState([info!], session.player);
+                    result?.SendPushes(session);
+                    return 0;
+                }
+                catch (Exception error)
+                {
+                    session.log.Error($"GM purchase {id} failed: {error}");
+                    return 2;
+                }
+            }
+        }
+
         public static RewardApplicationResult? ResumePendingPurchase(Session session, out int code)
         {
             code = 0;
@@ -239,7 +285,7 @@ namespace AscNet.GameServer.Handlers
             return result;
         }
 
-        private static int ValidatePurchase(Session session, PurchaseRequest request,
+        internal static int ValidatePurchase(Session session, PurchaseRequest request,
             out Dictionary<dynamic, dynamic>? info, out List<RewardGoods> goods, out int cost, int? fixedUnitCost = null)
         {
             goods = []; cost = 0; info = null;
