@@ -66,6 +66,15 @@ internal static class PacMan2Module
     private static bool Passed(PacMan2State state, int stageId) =>
         Stages.Value.TryGetValue(stageId, out PacMan2StageTable? stage) && Star(stage, BestScore(state, stageId)) > 0;
 
+    /// <summary>Task condition 123002 [N, minStar, activityId]: stages of that activity's group whose best score reaches minStar stars.</summary>
+    internal static int PassedStageCount(Player player, int activityId, int minStar)
+    {
+        if (Activities.Value.FirstOrDefault(row => row.Id == activityId) is not { } activity)
+            return 0;
+        PacMan2State state = State(player);
+        return Stages.Value.Values.Count(stage => stage.GroupId == activity.GroupId && Star(stage, BestScore(state, stage.Id)) >= Math.Max(1, minStar));
+    }
+
     internal static NotifyPacMan2Activity BuildLoginData(Player player, DateTimeOffset now)
     {
         PacMan2ActivityTable? activity = ActiveActivity(now);
@@ -151,6 +160,9 @@ internal static class PacMan2Module
         session.player.Save();
 
         rewards?.SendPushes(session);
+        // Task condition 123002 counts first passes; its value is derived from the records just saved.
+        if (oldStar == 0 && newStar > 0)
+            TaskModule.SendTaskSync(session);
         session.SendResponse(new PacMan2SettleResponse
         {
             Code = 0,

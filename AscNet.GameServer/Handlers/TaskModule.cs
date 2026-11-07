@@ -880,6 +880,7 @@ namespace AscNet.GameServer.Handlers
             tasks.AddRange(BuildSkyTowerLoginTasks(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildPunishaarTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildReformTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
+            tasks.AddRange(BuildEventTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildDayTaskProgress(session)
                 .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
@@ -942,6 +943,7 @@ namespace AscNet.GameServer.Handlers
                         .Concat(BuildSkyTowerTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildPunishaarTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildReformTaskProgress(session).Select(ToSyncTask))
+                        .Concat(BuildEventTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildDayTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildPassportTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildTransfiniteTaskProgress(session).Select(ToSyncTask))
@@ -1199,6 +1201,7 @@ namespace AscNet.GameServer.Handlers
             {
                 10101 => 1,
                 10202 => session.player.Passport.LoginDays,
+                123002 when condition!.Params.Count >= 3 => PacMan2Module.PassedStageCount(session.player, condition.Params[2], condition.Params[1]),
                 11203 => checked((int)Math.Min(int.MaxValue, balance?.Invoke(Inventory.DailyActiveness)
                     ?? session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.DailyActiveness)?.Count ?? 0)),
                 _ => session.player.MissionProgress.ConditionCounters.GetValueOrDefault(task.Condition)
@@ -1402,6 +1405,7 @@ namespace AscNet.GameServer.Handlers
         public static void RecordStageClear(Session session, int stageId, int count, int actionPointCost, bool isFirstClear)
         {
             EnsureMissionResets(session);
+            HashSet<int> credited = [];
             foreach (CurrentConditionTable condition in TableReaderV2.Parse<CurrentConditionTable>())
             {
                 bool matches = MatchesStageClearCondition(condition.Type, condition.Params, stageId)
@@ -1410,8 +1414,13 @@ namespace AscNet.GameServer.Handlers
                 if (matches)
                 {
                     AddConditionProgress(session, condition.Id, count);
+                    credited.Add(condition.Id);
                 }
             }
+            // Event-page stage tasks; a condition id shared with CurrentCondition was credited above.
+            foreach (int conditionId in EventConditionIds(ProgressClock(), condition => MatchesStageClearCondition(condition.Type, condition.Params, stageId)))
+                if (!credited.Contains(conditionId))
+                    AddConditionProgress(session, conditionId, count);
             HashSet<int> passportTaskIds = BuildPassportTaskProgress(session)
                 .Select(task => task.TaskId)
                 .ToHashSet();
@@ -2003,7 +2012,7 @@ namespace AscNet.GameServer.Handlers
                 });
         }
 
-        private enum TaskClaimKind { Current, Transfinite, Passport, Dorm, Story, LifeTree, GuildAchievement, SameColorGame, LinkageDraw, Envelope, FangKuai, DayTask, TransfiniteTower, Punishaar, CerberusGame, Reform, SkyTower }
+        private enum TaskClaimKind { Current, Transfinite, Passport, Dorm, Story, LifeTree, GuildAchievement, SameColorGame, LinkageDraw, Envelope, FangKuai, DayTask, TransfiniteTower, Punishaar, CerberusGame, Reform, SkyTower, Event }
 
         private sealed record PreparedTaskClaim(int TaskId, TaskClaimKind Kind, string ClaimKey, List<RewardGoodsTable> Goods);
 
@@ -2099,6 +2108,13 @@ namespace AscNet.GameServer.Handlers
                 key = SkyTowerClaimKey(session, taskId);
                 achieved = BuildSkyTowerTaskProgress(session, claimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
                 goods = RewardHandler.GetRewardGoods(skyTower.Row.RewardId ?? 0);
+            }
+            else if (EventTasks.Value.GetValueOrDefault(taskId) is { } eventTask)
+            {
+                kind = TaskClaimKind.Event;
+                key = $"event-task:{taskId}";
+                achieved = BuildEventTaskProgress(session, claimed).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
+                goods = RewardHandler.GetRewardGoods(eventTask.Task.RewardId ?? 0);
             }
             else if (DayTasks.Value.GetValueOrDefault(taskId) is { } dayTask)
             {

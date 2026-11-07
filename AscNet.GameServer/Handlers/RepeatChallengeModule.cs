@@ -226,9 +226,14 @@ namespace AscNet.GameServer.Handlers
             return true;
         }
 
-        // Passport 15223: Serum spent in this mode; call only after the spend is committed.
-        internal static void AddSerumSpentProgress(Session session, int stageId, int amount) =>
-            TaskModule.AddPassportConditionProgress(session, 15223, amount, condition => condition.Params.Count > 1 && condition.Params[1] == stageId);
+        // Task condition 15223 [N, stageId]: Serum spent in this mode (Passport rounds and the event page's total-consumption bar);
+        // call only after the spend is committed.
+        internal static void AddSerumSpentProgress(Session session, int stageId, int amount)
+        {
+            bool Matches(AscNet.Table.V2.share.task.ConditionTable condition) => condition.Params.Count > 1 && condition.Params[1] == stageId;
+            TaskModule.AddPassportConditionProgress(session, 15223, amount, Matches);
+            TaskModule.AddEventConditionProgress(session, 15223, amount, Matches);
+        }
 
         private static Data Load()
         {

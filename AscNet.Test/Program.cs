@@ -640,6 +640,11 @@ namespace AscNet.Test
                     ValidateReformCompatibility();
                     return;
                 }
+                if (args.Contains("--event-tasks-only"))
+                {
+                    ValidateEventTasksCompatibility();
+                    return;
+                }
                 if (args.Contains("--pacman2-only"))
                 {
                     ValidatePacMan2Compatibility();
@@ -1503,6 +1508,7 @@ namespace AscNet.Test
                 Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
                 Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());
                 Step("ValidatePacMan2Compatibility", () => ValidatePacMan2Compatibility());
+                Step("ValidateEventTasksCompatibility", () => ValidateEventTasksCompatibility());
                 Step("ValidateReformCompatibility", () => ValidateReformCompatibility());
                 Step("ValidateEquipmentSlotNotifications", () => ValidateEquipmentSlotNotifications());
                 Step("RunFangKuaiCompatibility", () => RunFangKuaiCompatibility());
