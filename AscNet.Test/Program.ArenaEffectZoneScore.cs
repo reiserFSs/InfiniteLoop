@@ -103,4 +103,34 @@ internal partial class Program
         AscNet.Common.Database.Player reloaded = BsonSerializer.Deserialize<AscNet.Common.Database.Player>(player.ToBson());
         CheckProjection(reloaded, "reloaded");
     }
+
+    // Player report: War Zone almost never offered Dark/Physical. Every element group must rotate fairly from activity 485 on,
+    // while earlier activities keep the legacy selection (the live week is unchanged).
+    private static void ValidateArenaZoneRotation()
+    {
+        ChallengeAreaTable challenge = TableReaderV2.Parse<ChallengeAreaTable>().Single(row => row.ChallengeId == 14);
+        Type arenaModule = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.ArenaModule");
+        MethodInfo select = RequiredMethod(arenaModule, "SelectedAreas", BindingFlags.Static | BindingFlags.NonPublic, [typeof(int), typeof(long), typeof(ChallengeAreaTable)]);
+        List<int>[] groups = challenge.AreaIdGroup.Where(group => !string.IsNullOrWhiteSpace(group))
+            .Select(group => group.Split('|').Select(int.Parse).ToList()).ToArray();
+        List<int> Pick(int activity, long player) => (List<int>)select.Invoke(null, [activity, player, challenge])!;
+
+        foreach (long player in new long[] { 1, 2 })
+        {
+            int[] counts = new int[groups.Length];
+            for (int activity = 486; activity < 486 + 12 * 2; activity += 2)
+            {
+                List<int> areas = Pick(activity, player);
+                AssertEqual(true, areas.SequenceEqual(Pick(activity, player)), $"War Zone rotation player {player} activity {activity} is stable");
+                foreach (int area in areas.Take(challenge.DayUnlockNum))
+                    counts[Array.FindIndex(groups, group => group.Contains(area))]++;
+            }
+            AssertEqual(true, counts.Max() - counts.Min() <= 1 && counts.Min() > 0,
+                $"War Zone rotation player {player} offers every element evenly: {string.Join(",", counts)}");
+        }
+
+        // Legacy selection for the live week (activity 484), captured before the rotation change.
+        AssertEqual("12,27", string.Join(",", Pick(484, 1)), "War Zone legacy selection player 1 activity 484");
+        AssertEqual("27,11", string.Join(",", Pick(484, 2)), "War Zone legacy selection player 2 activity 484");
+    }
 }

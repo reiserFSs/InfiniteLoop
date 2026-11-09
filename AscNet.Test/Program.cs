@@ -958,6 +958,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--arena-zone-rotation-only"))
+                {
+                    ValidateArenaZoneRotation();
+                    return;
+                }
+
                 if (args.Contains("--arena-effect-zone-score-only"))
                 {
                     ValidateArenaEffectZoneScore();
@@ -1443,6 +1449,7 @@ namespace AscNet.Test
                 Step("ValidateRewardQuantities", () => ValidateRewardQuantities());
                 Step("ValidateBossSingleChallengeScoreRate", () => ValidateBossSingleChallengeScoreRate());
                 Step("ValidateArenaEffectZoneScore", () => ValidateArenaEffectZoneScore());
+                Step("ValidateArenaZoneRotation", () => ValidateArenaZoneRotation());
                 Step("ValidateTransfiniteAnchorRepair", () => ValidateTransfiniteAnchorRepair());
                 Step("ValidatePassportTasks", () => ValidatePassportTasks());
                 Step("ValidatePassportWeekly", () => ValidatePassportWeekly());

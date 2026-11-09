@@ -672,8 +672,10 @@ namespace AscNet.GameServer.Handlers
                 .Where(group => group.Areas.Count > 0)
                 .OrderBy(group => StableGroupHash(activityNo, playerId, group.Key))
                 .ToList();
-            List<int> selected = groups
-                .Select(group => group.Areas.OrderBy(areaId => StableAreaHash(activityNo, playerId, areaId) ^ StableStringHash(group.Key)).First())
+            List<int> selected = (activityNo >= NewRotationFromActivity
+                    ? RotatedGroups(groups, activityNo, playerId, challenge.DayUnlockNum)
+                        .Select(group => group.Areas.OrderBy(areaId => Mix64((ulong)activityNo, (ulong)playerId, (ulong)areaId)).First())
+                    : groups.Select(group => group.Areas.OrderBy(areaId => StableAreaHash(activityNo, playerId, areaId) ^ StableStringHash(group.Key)).First()))
                 .Distinct()
                 .Take(challenge.DayUnlockNum)
                 .ToList();
@@ -696,6 +698,33 @@ namespace AscNet.GameServer.Handlers
                 selected.Add(specialAreas[0]);
             }
             return selected;
+        }
+
+        // AscNet policy (no retail table defines the weekly zone rotation). The first deploy had activity 484 live, so
+        // activities before NewRotationFromActivity keep the legacy FNV selection (live week and persisted state unchanged).
+        private const int NewRotationFromActivity = 485;
+
+        // Each player gets a fixed pseudo-random permutation of the element groups; week N offers the next DayUnlockNum of
+        // them cyclically, so every element appears equally often within ceil(groups/DayUnlockNum) weeks.
+        private static IEnumerable<(string Key, List<int> Areas)> RotatedGroups(
+            List<(string Key, List<int> Areas)> groups, int activityNo, long playerId, int count)
+        {
+            var order = groups.OrderBy(group => Mix64((ulong)playerId, StableStringHash(group.Key), 0)).ThenBy(group => group.Key, StringComparer.Ordinal).ToList();
+            int week = activityNo / ActivityConfig.Value<int>("ActivityStep");
+            return Enumerable.Range(0, Math.Min(count, order.Count)).Select(i => order[(int)((long)week * count % order.Count + i) % order.Count]);
+        }
+
+        private static ulong Mix64(ulong a, ulong b, ulong c)
+        {
+            ulong z = a * 0x9E3779B97F4A7C15UL + 0x9E3779B97F4A7C15UL;
+            foreach (ulong v in new[] { b, c })
+            {
+                z ^= v + 0x9E3779B97F4A7C15UL;
+                z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+                z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+                z ^= z >> 31;
+            }
+            return z;
         }
 
         private static bool IsHeroOrHigher(int arenaLevel) =>
