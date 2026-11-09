@@ -24869,6 +24869,8 @@ namespace AscNet.Test
             AreaStageTable zoneB = areaStages[legendAreas[1]];
             AreaStageTable entropic = areaStages[legendAreas[^1]];
             AssertEqual(2, entropic.BuffIds.Count, "War Zone Entropic Distortion offers two zone tabs");
+            // Entropic tabs can share a distribution type with the zone scored later (the rotation is date-driven), so restore rather than remove.
+            Dictionary<int, int> savedWzDistribution = new(player.SimulatedBattlefield.ArenaDistributeMaxPoints);
             player.SimulatedBattlefield.ArenaDistributeMaxPoints[entropic.DistributeTypes[0]] = 1_111;
             player.SimulatedBattlefield.ArenaDistributeMaxPoints[entropic.DistributeTypes[1]] = 2_222;
             PreFightResponse zoneAFight = WzPreFight(zoneA.Id, 0);
@@ -24903,8 +24905,7 @@ namespace AscNet.Test
             AssertEqual(true, legendLevel > vanguardLevel, "War Zone Legend monsters are stronger than Vanguard");
             player.SimulatedBattlefield.ArenaLevel = savedWzLevel;
             player.SimulatedBattlefield.ArenaChallengeId = savedWzChallengeId;
-            player.SimulatedBattlefield.ArenaDistributeMaxPoints.Remove(entropic.DistributeTypes[0]);
-            player.SimulatedBattlefield.ArenaDistributeMaxPoints.Remove(entropic.DistributeTypes[1]);
+            player.SimulatedBattlefield.ArenaDistributeMaxPoints = savedWzDistribution;
             foreach (CurrentConditionTable scoreCondition in arenaTaskConditions.Values.Where(condition => condition.Type is 28003 or 28006))
             {
                 AssertEqual(scored.Point, player.MissionProgress.ConditionCounters.GetValueOrDefault(scoreCondition.Id),
