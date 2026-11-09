@@ -923,10 +923,33 @@ namespace AscNet.GameServer.Handlers
             return tasks;
         }
 
+        // The client's InitTaskData fills every Task.tab row absent from NotifyTaskData as Active/0 (Daily, Weekly and
+        // InfestorWeekly excluded), so those rows carry no information: ~2,300 of 3,126 rows (~250 of 356 KB) for a level-4 account.
+        // Anything with progress, a non-default state, a time stamp, or outside Task.tab (BigWorld, ...) is kept.
+        internal static List<LoginTask> BuildLoginTasks(Session session) =>
+            BuildTaskData(session).Where(task => !IsClientDefaultTask(task)).ToList();
+
+        private static bool IsClientDefaultTask(LoginTask task) =>
+            task.State == TaskStateActive && task.ActivityId == 0 && task.ActivateTime == 0
+            && task.Schedule.All(schedule => schedule.Value == 0)
+            && TaskRowsById.Value.TryGetValue((int)task.Id, out TaskTable? row)
+            && row.Type is not (2 or 3 or 22);
+
+        // A reconnect keeps the client's task model (XLoginManager only re-handshakes), so the new session just rebuilds
+        // its delta baselines instead of re-pushing the whole list.
+        internal static void SeedTaskSnapshot(Session session) => RememberSync(session, BuildTaskSync(session));
+
         public static void SendTaskSync(Session session)
         {
+            NotifyTask notification = BuildTaskSync(session);
+            session.SendPush(notification);
+            RememberSync(session, notification);
+        }
+
+        private static NotifyTask BuildTaskSync(Session session)
+        {
             EnsureMissionResets(session);
-            NotifyTask notification = new()
+            return new()
             {
                 Tasks = new()
                 {
@@ -970,7 +993,10 @@ namespace AscNet.GameServer.Handlers
                         .ToList()
                 }
             };
-            session.SendPush(notification);
+        }
+
+        private static void RememberSync(Session session, NotifyTask notification)
+        {
             session.TaskSnapshotProgress ??= new();
             foreach (SyncTask task in notification.Tasks.Tasks.Where(task => SnapshotTaskIds.Value.Contains((int)task.Id)))
                 session.TaskSnapshotProgress[(int)task.Id] = (task.Schedule[0].Value, task.State);

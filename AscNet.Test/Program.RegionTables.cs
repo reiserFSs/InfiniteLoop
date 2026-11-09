@@ -85,9 +85,8 @@ internal partial class Program
 
         var en = Login(null, 99_851);
         var tw = Login("tw", 99_852);
-        List<int> enOnly = en.Tasks.Where(id => !twTasks.Contains(id)).ToList();
-        AssertEqual(true, enOnly.Contains(2120001), "EN login sends a task the TW client lacks (the reported ids)");
-        AssertEqual(true, en.Tasks.Count > tw.Tasks.Count, "TW login sends fewer tasks than EN (the TW-lacking ids are dropped)");
+        // The login list omits client-default rows (Program.LoginStall.cs), so the EN-only ids from the TW report (e.g. 2120001, Active/0)
+        // are no longer in it; they still reach a client through gameplay NotifyTask pushes, which FilterTasks covers below.
         AssertEqual(true, tw.Tasks.All(twTasks.Contains), "TW login sends only tasks in the TW tables");
         AssertEqual(true, tw.Tasks.SetEquals(en.Tasks.Where(twTasks.Contains)), "TW login drops exactly the ids TW lacks");
         AssertEqual(true, tw.Finished.All(twTasks.Contains), "TW login finished-task ids are in the TW tables");

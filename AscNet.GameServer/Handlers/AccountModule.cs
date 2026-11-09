@@ -359,12 +359,12 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new ReconnectResponse
                 {
                     ReconnectToken = request.Token,
-                    RequestNo = request.LastMsgSeqNo
+                    RequestNo = Session.LastClientPacketNo(player.PlayerData.Id, request.LastMsgSeqNo)
                 }, packet.Id);
                 session.GuildIdentityReady = true;
                 BossModule.ReconcileReconnect(session);
                 PartnerModule.SyncArchive(session);
-                TaskModule.SendTaskSync(session);
+                TaskModule.SeedTaskSnapshot(session);
             }
         }
 
@@ -1271,6 +1271,7 @@ namespace AscNet.GameServer.Handlers
         // TODO: Move somewhere else, also split.
         static void DoLogin(Session session)
         {
+            Session.ResetClientPacketNo(session.player.PlayerData.Id);
             DoLogin(session, updateLoginAccounting: true);
         }
         private static void ReconcileGatherRewardBaselines(Session session)
@@ -1348,7 +1349,7 @@ namespace AscNet.GameServer.Handlers
                     NewPlayerRewardRecord = session.player.MissionProgress.NewPlayerRewardRecords,
                     NewbieRecvProgress = session.player.MissionProgress.NewbieRewardRecords,
                     WeeklyTaskActivenessProgress = session.player.MissionProgress.WeeklyTaskActivenessProgress,
-                    Tasks = TaskModule.BuildTaskData(session),
+                    Tasks = TaskModule.BuildLoginTasks(session),
                 }
             };
             NotifyGatherRewardList notifyGatherRewardList = new()
@@ -1408,7 +1409,6 @@ namespace AscNet.GameServer.Handlers
             session.SendPush(notifyNewPlayerTaskStatus);
             if (IsNewBusinessDay(previousLastLoginTime, currentTime))
                 SignInModule.SendSignInResetPush(session, DateTimeOffset.UtcNow);
-            TaskModule.SendTaskSync(session);
             session.SendPush(BuildRegressionLoginData());
             session.SendPush(new NotifyAllRedEnvelope());
             session.SendPush(ProfileShowcaseModule.LoginData(session));
