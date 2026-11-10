@@ -272,7 +272,7 @@ internal static partial class TransfiniteTowerModule
             npcs[member.Slot] = new
             {
                 npc.Character, npc.Equips, npc.WeaponFashionId, npc.Partner, npc.IsRobot, npc.RobotId, npc.IsNpc,
-                npc.CharacterCareer, MagicIds = magicIds, EventIds = member.FatigueEventIds.ToList()
+                npc.CharacterCareer, npc.CharacterSkillPlus, npc.FightEventsWithLevel, npc.AwarenessSetPositions, MagicIds = magicIds, EventIds = member.FatigueEventIds.ToList()
             };
         }
         role.NpcData = npcs;

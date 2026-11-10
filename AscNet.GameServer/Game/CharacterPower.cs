@@ -92,10 +92,12 @@ internal static partial class CharacterPower
                 levels[id] += level;
     }
 
-    private static Dictionary<int, int> GetAssignmentLevels(Session session, CharacterData character)
+    // XCharacterAgency.GetSkillPlus: also the wire shape of NpcData.CharacterSkillPlus.
+    internal static Dictionary<int, int> GetAssignmentLevels(Session session, CharacterData character)
     {
         Dictionary<int, int> result = new();
-        if (!PowerCharacterSkills.TryGetValue((int)character.Id, out CharacterSkillTable? skills))
+        if (!session.player.Assign.Chapters.Any(chapter => chapter.CharacterId > 0)
+            || !PowerCharacterSkills.TryGetValue((int)character.Id, out CharacterSkillTable? skills))
             return result;
         int npcType = GetPowerNpcType(character);
         foreach (var chapter in session.player.Assign.Chapters)

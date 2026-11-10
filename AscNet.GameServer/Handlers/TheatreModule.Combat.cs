@@ -137,14 +137,15 @@ internal static partial class TheatreModule
                 Partner = robotId == 0 ? mutation.Session.character.Partners.FirstOrDefault(partner => partner.CharacterId == character.Id) : null,
                 IsRobot = robotId != 0, RobotId = robotId, IsNpc = false,
                 CharacterCareer = Rows<CharacterTable>().Single(row => row.Id == character.Id).Career,
+                CharacterSkillPlus = robotId != 0 ? new Dictionary<int, int>() : FightModule.BuildCharacterSkillPlus(mutation.Session, character),
                 MagicIds = new Dictionary<int, int>()
             };
         }
         foreach (dynamic npc in role.NpcData.Values)
-            foreach (var magic in FightModule.BuildObservationMagicIds(deployed, (CharacterData)npc.Character))
+            foreach (var magic in FightModule.BuildCharacterMagicIds(deployed, (CharacterData)npc.Character))
                 npc.MagicIds.Add(magic.Key, magic.Value);
         Require(FightModule.IsValidGeneralSkill(generalSkill, deployed), 20155040);
-        if (generalSkill > 0) data.EventIds.Add(FightModule.GeneralSkillFightEventId(generalSkill));
+        if (generalSkill > 0) data.EventIds.AddRange(FightModule.GeneralSkillFightEventIds(generalSkill, deployed));
         data.RoleData.Add(role);
         return data;
     }

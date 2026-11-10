@@ -82,6 +82,22 @@ namespace AscNet.Common.Database
                 .Max();
         }
 
+        // XCharacterAgency.CheckHasSuperExhibitionBallColor reads CharacterData.MagicList against
+        // Config HigherLiberateLvMagicId; an unset super-liberated ball character shows (and fights with)
+        // the first colour. Retail captures: every LiberateLv 5 SetBallColor character carries one entry,
+        // LiberateLv 3 carries none.
+        public static bool EnsureLiberateBallMagic(CharacterData character)
+        {
+            const int superLiberateLevel = 5; // XEnumConst.CHARACTER.GrowUpLevel.Super
+            if (character.LiberateLv < superLiberateLevel || character.MagicList.Count > 0
+                || !TableReaderV2.Parse<ExhibitionLimitTable>().Any(row => row.CharacterId == character.Id && row.SetBallColor > 0))
+                return false;
+            string balls = TableReaderV2.Parse<AscNet.Table.V2.share.config.ConfigTable>()
+                .Single(row => row.Key == "HigherLiberateLvMagicId").Value;
+            character.MagicList = [new CharacterSkill { Id = uint.Parse(balls.Split('|')[0]), Level = 1 }];
+            return true;
+        }
+
 
         public static bool IsOwnableEquipTemplate(EquipTable equip)
         {
@@ -520,6 +536,9 @@ namespace AscNet.Common.Database
                     character.LiberateLv = claimedLiberateLv;
                     changed = true;
                 }
+
+                if (EnsureLiberateBallMagic(character))
+                    changed = true;
 
                 if (character.CreateTime <= 0)
                 {

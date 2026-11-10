@@ -561,14 +561,15 @@ internal static partial class Theatre4Module
                 IsRobot = robotId != 0, RobotId = robotId, IsNpc = false,
                 CharacterCareer = (Rows<CharacterTable>().FirstOrDefault(row => row.Id == character.Id)
                     ?? throw new ServerCodeException("Theatre4 character career is missing.", TeamError)).Career,
+                CharacterSkillPlus = robotId != 0 ? new Dictionary<int, int>() : FightModule.BuildCharacterSkillPlus(session, character),
                 MagicIds = projection.PlayerMagicIds.ToDictionary(pair => pair.Key, pair => pair.Value)
             };
         }
         foreach (dynamic npc in role.NpcData.Values)
-            foreach (var magic in FightModule.BuildObservationMagicIds(deployed, (CharacterData)npc.Character))
+            foreach (var magic in FightModule.BuildCharacterMagicIds(deployed, (CharacterData)npc.Character))
                 npc.MagicIds.Add(magic.Key, magic.Value);
         Require(FightModule.IsValidGeneralSkill(request.GeneralSkill, deployed), TeamError);
-        if (request.GeneralSkill > 0) data.EventIds.Add(FightModule.GeneralSkillFightEventId(request.GeneralSkill));
+        if (request.GeneralSkill > 0) data.EventIds.AddRange(FightModule.GeneralSkillFightEventIds(request.GeneralSkill, deployed));
         data.RoleData.Add(role);
         return data;
     }

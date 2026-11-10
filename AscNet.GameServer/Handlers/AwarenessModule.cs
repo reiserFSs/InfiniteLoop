@@ -1,3 +1,4 @@
+using AscNet.Table.V2.share.equip;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
@@ -31,6 +32,29 @@ internal static class AwarenessModule
         List<AwarenessChapterTable> chapters = TableReaderV2.Parse<AwarenessChapterTable>().OrderBy(x => x.Site).ToList();
         return new(chapters, chapters.ToDictionary(x => x.Id), TableReaderV2.Parse<AwarenessTeamInfoTable>().ToDictionary(x => x.Id));
     });
+
+
+    private static readonly Lazy<IReadOnlyDictionary<uint, int>> EquipSites = new(() => TableReaderV2.Parse<EquipTable>().ToDictionary(row => (uint)row.Id, row => row.Site));
+
+    /// <summary>NpcData.AwarenessSetPositions: chapter ids (grid positions) currently occupied by a guard character.</summary>
+    internal static List<int> SetPositions(Player player) => Runtime.Value.Chapters
+        .Where(row => player.Awareness?.Chapters.Any(x => x.ChapterId == row.Id && x.CharacterId > 0) == true)
+        .Select(row => row.Id).ToList();
+
+    /// <summary>
+    /// NpcData.FightEventsWithLevel: "Hypertuned Memory" grid events (AwarenessChapter.FightEventId) for every occupied chapter.
+    /// FightEventLevel = 1 + awakened slots of the character's own awareness equipped at that chapter's Site
+    /// (Magic 763745000 level 1 = +0%, +1% per level after; retail captures: 2 awakened slots -> 3, none -> 1).
+    /// </summary>
+    internal static List<object> LeveledEvents(Player player, IEnumerable<EquipData> equips)
+    {
+        List<int> occupied = SetPositions(player);
+        return Runtime.Value.Chapters.Where(row => occupied.Contains(row.Id)).Select(row => (object)new
+        {
+            FightEventId = row.FightEventId,
+            FightEventLevel = 1 + equips.Where(equip => EquipSites.Value.GetValueOrDefault(equip.TemplateId) == row.Site).Sum(equip => equip.AwakeSlotList.Count)
+        }).ToList();
+    }
 
     internal static NotifyLoginAwarenessInfo BuildLoginData(Player player) => new() { AwarenessInfo = BuildInfo(player) };
     internal static AwarenessInfo BuildInfo(Player player)

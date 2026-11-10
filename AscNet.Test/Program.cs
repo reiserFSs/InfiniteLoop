@@ -24860,7 +24860,7 @@ namespace AscNet.Test
                 AreaDataResponse tierAreas = ReadResponsePayload<AreaDataResponse>(harness, id, nameof(AreaDataResponse), $"War Zone tier {tier} AreaDataResponse");
                 return JArray.FromObject(tierAreas.AreaList!).Select(area => area.Value<int>("AreaId")).ToList();
             }
-            PreFightResponse WzPreFight(int areaId, int index)
+            PreFightResponse WzPreFight(int areaId, int index, List<uint>? cards = null, int generalSkill = 0)
             {
                 int id = wzPacketId++;
                 InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, id, new PreFightRequest
@@ -24868,7 +24868,7 @@ namespace AscNet.Test
                     PreFightData = new PreFightRequest.PreFightRequestPreFightData
                     {
                         ChallengeCount = 1, StageId = checked((uint)areaStages[areaId].StageId[0]), SelectAreaId = areaId,
-                        ArenaSelectIndex = index, CardIds = [], RobotIds = []
+                        ArenaSelectIndex = index, CardIds = cards ?? [], RobotIds = [], GeneralSkill = generalSkill
                     }
                 });
                 return ReadResponsePayload<PreFightResponse>(harness, id, nameof(PreFightResponse), $"War Zone area {areaId} index {index} PreFightResponse");
@@ -24904,6 +24904,35 @@ namespace AscNet.Test
             AssertEqual("1111", JObject.FromObject(entropicTab0.FightData.StageParams).Value<string>("DistributeMaxScore"), "War Zone Entropic tab 1 distribution maximum");
             AssertEqual("2222", JObject.FromObject(entropicTab1.FightData.StageParams).Value<string>("DistributeMaxScore"), "War Zone Entropic tab 2 distribution maximum");
             AssertEqual(20044029, WzPreFight(zoneA.Id, zoneA.BuffIds.Count).Code, "War Zone out-of-range zone tab is rejected");
+
+            // Effect/affix (General Skill) teams: retail appends the skill's fight event once per qualifying deployed member
+            // (captures 12130304/30202041: GS 6 with two qualifying members -> [5006, 5006]); one event made 2+ member teams deal far less.
+            List<CharacterSkillGroupTable> wzSkillGroups = TableReaderV2.Parse<CharacterSkillGroupTable>();
+            List<CharacterSkillTable> wzSkillRows = TableReaderV2.Parse<CharacterSkillTable>();
+            int WzSkillOwner(int skillId) => wzSkillRows
+                .FirstOrDefault(row => row.SkillGroupId.Any(groupId => wzSkillGroups.Find(group => group.Id == groupId)?.SkillId.Contains(skillId) == true))?.CharacterId ?? 0;
+            CharacterGeneralSkillTable wzGeneralSkill = TableReaderV2.Parse<CharacterGeneralSkillTable>()
+                .First(row => row.FightEventId > 0 && row.IsSkipSkillCheck == 0
+                    && row.SkillId.Where(id => id > 0).Select(WzSkillOwner).Where(owner => owner > 0).Distinct().Count() >= 2);
+            List<(int Character, int SkillId, int Level)> wzMembers = [];
+            for (int i = 0; i < wzGeneralSkill.SkillId.Count && wzMembers.Count < 2; i++)
+            {
+                int owner = wzGeneralSkill.SkillId[i] > 0 ? WzSkillOwner(wzGeneralSkill.SkillId[i]) : 0;
+                if (owner > 0 && wzMembers.All(member => member.Character != owner))
+                    wzMembers.Add((owner, wzGeneralSkill.SkillId[i], wzGeneralSkill.SkillLevel[i]));
+            }
+            foreach ((int character, int skillId, int level) in wzMembers)
+                battlefieldCharacter.Characters.Add(new CharacterData { Id = (uint)character, Level = 80, SkillList = [new CharacterSkill { Id = (uint)skillId, Level = level }] });
+            int wzGeneralEvent = wzGeneralSkill.FightEventId ?? 0;
+            foreach (AreaStageTable zone in new[] { zoneA, zoneB })
+            {
+                long[] oneMember = WzEvents(WzPreFight(zone.Id, 0, [(uint)wzMembers[0].Character], wzGeneralSkill.Id));
+                long[] twoMembers = WzEvents(WzPreFight(zone.Id, 0, wzMembers.Select(member => (uint)member.Character).ToList(), wzGeneralSkill.Id));
+                AssertEqual(zone.BuffIds[0], (int)oneMember[0], $"War Zone area {zone.Id} general-skill team keeps the zone buff first");
+                AssertEqual(1, oneMember.Count(id => id == wzGeneralEvent), $"War Zone area {zone.Id} one qualifying member adds one general-skill event");
+                AssertEqual(2, twoMembers.Count(id => id == wzGeneralEvent), $"War Zone area {zone.Id} two qualifying members add two general-skill events");
+                AssertEqual(oneMember.Count(id => id != wzGeneralEvent), twoMembers.Count(id => id != wzGeneralEvent), $"War Zone area {zone.Id} only the general-skill event repeats");
+            }
 
             ChallengeAreaTable legendChallenge = challenges.Single(row => row.ChallengeId == player.SimulatedBattlefield.ArenaChallengeId);
             int legendLevel = WzFirstNpcLevel(zoneAFight);

@@ -227,12 +227,13 @@ internal static partial class BiancaTheatreModule
                 Partner = robotId == 0 ? mutation.Session.character.Partners.FirstOrDefault(partner => partner.CharacterId == character.Id) : null,
                 IsRobot = robotId != 0, RobotId = robotId, IsNpc = false,
                 CharacterCareer = Rows<CharacterTable>().Single(row => row.Id == character.Id).Career,
+                CharacterSkillPlus = robotId != 0 ? new Dictionary<int, int>() : FightModule.BuildCharacterSkillPlus(mutation.Session, character),
                 MagicIds = new Dictionary<int, int>()
             };
         }
         var deployed = role.NpcData.Values.Select(npc => (CharacterData)npc.Character).ToArray();
         foreach (dynamic npc in role.NpcData.Values)
-            foreach (var magic in FightModule.BuildObservationMagicIds(deployed, (CharacterData)npc.Character))
+            foreach (var magic in FightModule.BuildCharacterMagicIds(deployed, (CharacterData)npc.Character))
                 npc.MagicIds.Add(magic.Key, magic.Value);
         data.RoleData.Add(role);
         return data;

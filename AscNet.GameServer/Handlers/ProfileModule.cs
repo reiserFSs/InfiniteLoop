@@ -121,6 +121,7 @@ internal static class ProfileModule
                 response.PartnerData = c.Partners.FirstOrDefault(x => x.CharacterId == request.CharacterId);
                 response.WeaponFashionId = c.WeaponFashions.FirstOrDefault(x => x.UseCharacterList.Contains(checked((int)request.CharacterId)))?.Id ?? 0;
                 response.AssignChapterRecords = target.Assign.Chapters.Select(record => (object)new AssignChapterInfo { ChapterId = record.ChapterId, CharacterId = record.CharacterId, IsGetReward = record.IsGetReward }).ToList();
+                response.AwarenessSetPositions = AwarenessModule.SetPositions(target);
             }
         }
         s.SendResponse(response, p.Id);

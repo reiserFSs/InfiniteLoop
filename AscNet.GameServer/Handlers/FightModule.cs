@@ -805,6 +805,9 @@ namespace AscNet.GameServer.Handlers
                     RobotId = 0,
                     IsNpc = false,
                     CharacterCareer = ResolveCharacterCareer((int)characterData.Id),
+                    CharacterSkillPlus = BuildCharacterSkillPlus(session, characterData),
+                    FightEventsWithLevel = AwarenessModule.LeveledEvents(session.player, equips),
+                    AwarenessSetPositions = AwarenessModule.SetPositions(session.player),
                     MagicIds = new Dictionary<int, int>()
                 });
             }
@@ -855,6 +858,9 @@ namespace AscNet.GameServer.Handlers
                         RobotId = robotId,
                         IsNpc = false,
                         CharacterCareer = ResolveCharacterCareer(robot.CharacterId),
+                        FightEventsWithLevel = new List<object>(),
+                        AwarenessSetPositions = new List<int>(),
+                        CharacterSkillPlus = new Dictionary<int, int>(),
                         MagicIds = new Dictionary<int, int>()
                     });
                     npcKey++;
@@ -863,7 +869,7 @@ namespace AscNet.GameServer.Handlers
             foreach (dynamic npc in playerNpcData.Values)
             {
                 Dictionary<int, int> magicIds = npc.MagicIds;
-                foreach (var magic in BuildObservationMagicIds(deployedCharacters, (CharacterData)npc.Character))
+                foreach (var magic in BuildCharacterMagicIds(deployedCharacters, (CharacterData)npc.Character))
                     magicIds[magic.Key] = magic.Value;
             }
             // xfuben/XFubenAgency.lua:1062 nils PreFightData.GeneralSkill for Stage.IsBanGeneralSkill stages.
@@ -871,7 +877,7 @@ namespace AscNet.GameServer.Handlers
                 && Convert.ToInt32(stageTable?.IsBanGeneralSkill) == 0
                 && IsValidGeneralSkill(req.PreFightData.GeneralSkill, deployedCharacters))
             {
-                rsp.FightData.EventIds.Add(GeneralSkillFightEventId(req.PreFightData.GeneralSkill));
+                rsp.FightData.EventIds.AddRange(GeneralSkillFightEventIds(req.PreFightData.GeneralSkill, deployedCharacters));
             }
             TowerModule.ApplyPreFight(session, req.PreFightData, rsp.FightData);
 
@@ -1087,6 +1093,21 @@ namespace AscNet.GameServer.Handlers
         private static int ResolveCharacterCareer(int characterId) =>
             TableReaderV2.Parse<CharacterTable>()
                 .FirstOrDefault(row => row.Id == characterId)?.Career ?? 0;
+
+        // XCharacterAgency.GetSkillPlus: every Assign chapter with an occupant adds +1 to the owned
+        // character's matching-type skills. Trial robots send {} (retail captures).
+        internal static Dictionary<int, int> BuildCharacterSkillPlus(Session session, CharacterData character) =>
+            AscNet.GameServer.Game.CharacterPower.GetAssignmentLevels(session, character);
+
+        // Server-side MagicIds retail sends beside observation effects: the persisted liberation-ball
+        // MagicList (Config HigherLiberateLvMagicId 199954|199956|199955), every capture matches it.
+        internal static Dictionary<int, int> BuildCharacterMagicIds(IEnumerable<CharacterData> team, CharacterData character)
+        {
+            Dictionary<int, int> magicIds = BuildObservationMagicIds(team, character);
+            foreach (CharacterSkill magic in character.MagicList)
+                magicIds[(int)magic.Id] = magic.Level;
+            return magicIds;
+        }
 
         internal static Dictionary<int, int> BuildObservationMagicIds(
             IEnumerable<CharacterData> team,
@@ -2327,6 +2348,32 @@ namespace AscNet.GameServer.Handlers
         internal static int GeneralSkillFightEventId(int generalSkillId) =>
             CharacterGeneralSkillRowsById.Value.GetValueOrDefault(generalSkillId)?.FightEventId ?? 0;
 
+        /// <summary>
+        /// Retail appends the selected General Skill (effect/affix) fight event once per deployed member that
+        /// owns a qualifying skill or enhance skill: captures 12130304/30202041 (GS 6, two qualifying members)
+        /// send [5006, 5006], while one-member teams send a single event. Skip-check rows add one.
+        /// </summary>
+        internal static List<dynamic> GeneralSkillFightEventIds(int generalSkillId, IEnumerable<CharacterData> characters)
+        {
+            if (!CharacterGeneralSkillRowsById.Value.TryGetValue(generalSkillId, out CharacterGeneralSkillTable? generalSkill)
+                || (generalSkill.FightEventId ?? 0) <= 0)
+            {
+                return [];
+            }
+
+            int count = generalSkill.IsSkipSkillCheck > 0
+                ? 1
+                : characters.Count(character => CharacterMeetsGeneralSkill(character, generalSkill));
+            List<dynamic> eventIds = [];
+            for (int i = 0; i < count; i++)
+                eventIds.Add(generalSkill.FightEventId!.Value);
+            return eventIds;
+        }
+
+        private static bool CharacterMeetsGeneralSkill(CharacterData character, CharacterGeneralSkillTable generalSkill) =>
+            MeetsGeneralSkillRequirement(character.SkillList, generalSkill.SkillId, generalSkill.SkillLevel)
+            || MeetsGeneralSkillRequirement(character.EnhanceSkillList, generalSkill.EnhanceSkillId, generalSkill.EnhanceSkillLevel);
+
         private static bool IsValidCharacterSwitchSkill(CharacterData character, int skillId)
         {
             if (!CharacterSkillRowsById.Value.TryGetValue((int)character.Id, out CharacterSkillTable? skillRow))
@@ -2353,22 +2400,7 @@ namespace AscNet.GameServer.Handlers
             if (generalSkill.IsSkipSkillCheck > 0)
                 return true;
 
-            foreach (CharacterData character in characters)
-            {
-                if (MeetsGeneralSkillRequirement(
-                        character.SkillList,
-                        generalSkill.SkillId,
-                        generalSkill.SkillLevel)
-                    || MeetsGeneralSkillRequirement(
-                        character.EnhanceSkillList,
-                        generalSkill.EnhanceSkillId,
-                        generalSkill.EnhanceSkillLevel))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return characters.Any(character => CharacterMeetsGeneralSkill(character, generalSkill));
         }
 
         private static bool MeetsGeneralSkillRequirement(

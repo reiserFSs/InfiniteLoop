@@ -38,6 +38,7 @@ internal partial class Program
 
         ValidateVersion47CharacterHeadSelectionCompatibility();
         ValidateVersion47GeneralSkillPreFightCompatibility();
+        ValidateSkillPlusAndLiberationBallPreFight();
         ValidateVersion47ObserverPreFightCompatibility();
         ValidateVersion47QualityGatedSkillReconciliation();
     }

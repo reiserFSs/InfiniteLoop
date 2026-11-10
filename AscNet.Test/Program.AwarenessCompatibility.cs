@@ -12,6 +12,7 @@ using AscNet.Table.V2.share.exhibition;
 using MessagePack;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using Newtonsoft.Json.Linq;
 
 namespace AscNet.Test;
 
@@ -135,6 +136,7 @@ internal partial class Program
         object persisted = AwarenessCall(harness, "AwarenessGetDataRequest", 47_107, Activator.CreateInstance(getRequest)!, getResponse);
         AwarenessAssertTeam(persisted, chapterId, team, "saved Awareness team");
 
+        StrongholdModule.Reconcile(harness.Session); // PreFight reconciles Stronghold first; settle it so the snapshots below compare only Awareness effects.
         byte[] protectedState = player.ToBson();
         foreach ((string name, object request) invalid in new[]
         {
@@ -149,6 +151,8 @@ internal partial class Program
             AssertEqual(Convert.ToHexString(protectedState), Convert.ToHexString(player.ToBson()), $"invalid Awareness team {invalid.name} does not mutate player");
         }
 
+        int equippedId = team[0][0]; // the deployed character wearing the awakened equipment (the guard occupant need not be deployed)
+        foreach (EquipData equip in harness.Session.character.Equips) equip.CharacterId = equippedId;
         PreFightRequest mismatch = new() { PreFightData = new() { StageId = (uint)stageId, CardIds = team[0].AsEnumerable().Reverse().Select(id => (uint)id).ToList(), CaptainPos = 1, FirstFightPos = 1 } };
         InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, 47_120, mismatch);
         AssertEqual(true, ReadResponsePayload<PreFightResponse>(harness, 47_120, nameof(PreFightResponse), "Awareness mismatched pre-fight").Code != 0, "Awareness pre-fight rejects unsaved team");
@@ -158,6 +162,9 @@ internal partial class Program
         InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, 47_121, preFight);
         PreFightResponse preFightResponse = ReadResponsePayload<PreFightResponse>(harness, 47_121, nameof(PreFightResponse), "Awareness saved-team pre-fight");
         AssertEqual(0, preFightResponse.Code, "Awareness saved-team pre-fight code");
+        // Hypertuned Memory: the occupied chapter is the only set position; its grid event level is 1 + awakened slots of that character's own equip at the chapter Site.
+        int occupiedEvent = AwarenessInt(selected[0], "FightEventId");
+        AwarenessAssertHypertuned(harness, preFightResponse, equippedId, 3, [chapterId], [occupiedEvent], "occupied, 2 awakened slots");
 
         InvokeRegisteredRequestHandler(nameof(FightSettleRequest), harness.Session, 47_122, CreateMissingStageSettleRequest((uint)stageId, preFightResponse.FightData.FightId, 47_101));
         FightSettleResponse settled = AwarenessReadSettle(harness, 47_122);
@@ -182,14 +189,38 @@ internal partial class Program
         InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, 47_129, preFight);
         PreFightResponse lossPreFight = ReadResponsePayload<PreFightResponse>(harness, 47_129, nameof(PreFightResponse), "Awareness loss pre-fight");
         AssertEqual(0, lossPreFight.Code, "Awareness loss pre-fight code");
+        AwarenessAssertHypertuned(harness, lossPreFight, equippedId, 3, [chapterId], [occupiedEvent], "occupied, 2 awakened slots after reset");
         byte[] beforeLoss = player.ToBson();
         FightSettleRequest loss = CreateMissingStageSettleRequest((uint)stageId, lossPreFight.FightData.FightId, 47_101);
         loss.Result.IsWin = false;
         InvokeRegisteredRequestHandler(nameof(FightSettleRequest), harness.Session, 47_130, loss);
         AssertEqual(0, AwarenessReadSettle(harness, 47_130).Code, "Awareness loss settle code");
         AssertEqual(Convert.ToHexString(beforeLoss), Convert.ToHexString(player.ToBson()), "Awareness loss does not mutate progress");
+        foreach (EquipData equip in harness.Session.character.Equips) equip.AwakeSlotList = [1];
+        InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, 47_131, preFight);
+        AwarenessAssertHypertuned(harness, ReadResponsePayload<PreFightResponse>(harness, 47_131, nameof(PreFightResponse), "Awareness 1-awake pre-fight"), equippedId, 2, [chapterId], [occupiedEvent], "occupied, 1 awakened slot");
+        AwarenessAssertCode(AwarenessCall(harness, "AwarenessSetCharacterRequest", 47_132,
+            AwarenessRequest(setCharacterRequest, ("ChapterId", chapterId), ("CharacterId", 0)), setCharacterResponse), setCharacterResponse, 0, "clear occupant before hypertuned check");
+        InvokeRegisteredRequestHandler(nameof(PreFightRequest), harness.Session, 47_133, preFight);
+        AwarenessAssertHypertuned(harness, ReadResponsePayload<PreFightResponse>(harness, 47_133, nameof(PreFightResponse), "Awareness unoccupied pre-fight"), equippedId, 0, [], [], "unoccupied");
         AwarenessAssertConfigured(relogin, chapters, "Awareness relogin snapshot");
         AssertIntegerList([chapterId], AwarenessChapterIds(relogin).Select(Convert.ToInt64).ToArray(), "Awareness relogin ChapterRecords");
+    }
+
+    private static void AwarenessAssertHypertuned(LoopbackSessionHarness harness, PreFightResponse response, long characterId, int occupantLevel, int[] positions, int[] eventIds, string label)
+    {
+        JToken npcs = JToken.FromObject(response.FightData.RoleData.Single(role => role.Id == harness.Session.player.PlayerData.Id).NpcData);
+        bool sawOccupant = false;
+        foreach (JToken npc in npcs.Children().Select(property => ((JProperty)property).Value))
+        {
+            bool isOccupant = npc["Character"]!.Value<long>("Id") == characterId;
+            sawOccupant |= isOccupant;
+            AssertIntegerList(positions.Select(id => (long)id).ToArray(), npc["AwarenessSetPositions"]!.Select(id => id.Value<long>()).ToArray(), $"{label} AwarenessSetPositions");
+            AssertIntegerList(eventIds.Select(id => (long)id).ToArray(), npc["FightEventsWithLevel"]!.Select(entry => entry.Value<long>("FightEventId")).ToArray(), $"{label} FightEventsWithLevel ids");
+            foreach (JToken entry in npc["FightEventsWithLevel"]!)
+                AssertEqual(isOccupant ? occupantLevel : 1, entry.Value<int>("FightEventLevel"), $"{label} FightEventLevel (occupant={isOccupant})");
+        }
+        AssertEqual(true, sawOccupant, $"{label}: equipped character is deployed");
     }
 
     private static Type AwarenessType(string name) => AppDomain.CurrentDomain.GetAssemblies().Select(assembly => assembly.GetTypes().FirstOrDefault(type => type.Name == name)).FirstOrDefault(type => type is not null) ?? throw new InvalidDataException($"Awareness compatibility: missing {name}.");

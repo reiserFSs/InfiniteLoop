@@ -127,6 +127,7 @@ namespace AscNet.GameServer.Handlers
 
             RewardApplicationResult rewardResult = RewardHandler.ApplyRewards(rewardGoodsTables, session);
             character!.LiberateLv = Math.Max(character.LiberateLv, exhibitionReward.LevelId);
+            AscNet.Common.Database.Character.EnsureLiberateBallMagic(character);
             session.player.Save();
             session.inventory.Save();
             session.character.Save();
