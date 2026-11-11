@@ -87,9 +87,10 @@ public static partial class ArchiveCgModule
             case 23001:
                 return ActivityScheduleService.TryGet(value, out var schedule)
                     ? (_, now) => schedule.IsOpen(now) : UnmetCondition;
-            // No durable TRPG targets/cards, birthday story unlocks, or Theatre 4 progress exists.
+            // 10126/10150/17411 (birthday story unlocks, Theatre 4 progress) have no durable source yet.
             // Never substitute unrelated Explore, birthday date, or generic stage records for these modes.
             case 10119:
+                return (session, _) => TRPGModule.TargetFinished(session.player, value);
             case 10126:
             case 10150:
             case 17411:

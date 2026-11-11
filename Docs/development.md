@@ -371,6 +371,20 @@ dotnet run --project AscNet.Test/AscNet.Test.csproj -- --same-color-game-compat-
 dotnet run --project AscNet.Test/AscNet.Test.csproj -- --big-world-core-only
 ```
 
+### Fake Ascension (TRPG, main-line chapter 13)
+
+Main-line chapter 13 (EN "Fake Ascension", CN 终焉福音, `ChapterMain` 1013) is not a stage list: its sub-chapters (FALLING EDEN / ABANDON TIDES / SHADOW WITHIN / XENO-DARKNESS) are the four `TRPGTargetLink` chains, shown with the regular (normal) page's stage progress and the exploration page's target progress. CN and EN share every TRPG id (only text differs), so no region overlay is involved. Before this fix login sent a hardcoded empty `NotifyTRPGData`, so the chapter showed 0% after every restart and nothing the client asked the TRPG layer to save was kept (every other `TRPG*Request` was answered `20000001`).
+
+- **State:** `Player.Trpg` (`Player.Trpg.cs`): selected target chain, finished targets, claimed rewards, finished functions, opened memoirs, page mode. Regular-mode stage passes are not duplicated: login's `StageList` is the `TRPGSecondMainStage` stages passed in the stage document.
+- **Sync:** a won fight (`FightModule`, after `BfrtModule.Settle`) finishes the targets `TRPGSyncStage` lists for the stage plus finish-stage (`TRPGTarget.Type` 3) targets naming it, and pushes `NotifyTRPGSyncInfo`. Login re-applies `TRPGSyncStage` over already passed stages, so progress cleared before this fix is restored. `TRPGFunctionFinishRequest` finishes function-type (7) targets (`NotifyTRPGTargetFinish`).
+- **Requests:** `TRPGChangePageStatusRequest`, `TRPGSelectTargetLinkRequest`, `TRPGFunctionFinishRequest` (NeedSave 0 / repeat / unknown rejected with the retail `20104xxx` codes of `CodeText`; function reward claimed once), `TRPGRewardRequest` (either of the two `TRPGReward.Condition`s: finished target `10119` or passed stage `10105`), `TRPGOpenMemoirRequest` (spends the unlock item once). Condition `10119` is also evaluated for the CG archive.
+- **Not implemented (answered `20000001`):** the exploration mode's maze (`TRPGEnterMaze/MazeSelectCard/MazeGiveUpChallenge/MazeQuickChallengeRequest`), examines (`TRPGExamine*`), talents (`TRPGActivate/ResetTalentRequest`), investigators (`NotifyTRPGCharacterData`, so login `Characters` and `BaseInfo` stay at defaults), shop (`TRPGShopBuyItemRequest`), item use (`TRPGUseItemRequest`), world boss (`TRPGBoss*Request`), function group/third-area ordering checks (`20104009/10/12/13`) and the reverse sync (`TRPGSyncTarget`: exploration targets marking regular-mode stages passed) are open. Exploration-only targets (card/examine targets) therefore cannot finish yet.
+- **Tables:** `Scripts/import_trpg_4_9.py` projects the structural columns of the EN 4.9 `TRPGTargetLink`, `TRPGTarget`, `TRPGReward`, `TRPGMemoirStory`, `TRPGSyncStage` and `secondmain/TRPGSecondMainStage` tables (decoded from the raw `.tab`; the sync tables have no JSON sidecar).
+
+```bash
+dotnet run --project AscNet.Test/AscNet.Test.csproj -- --trpg-only
+```
+
 ### Gender setup fix
 
 The current client needs gender selection to update both persisted player state and the live in-session player cache.

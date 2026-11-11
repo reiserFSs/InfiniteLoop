@@ -323,6 +323,11 @@ namespace AscNet.Test
                     ValidateBfrtCompatibility();
                     return;
                 }
+                if (args.Contains("--trpg-only"))
+                {
+                    ValidateTrpgCompatibility();
+                    return;
+                }
                 if (args.Contains("--trial-compat-only"))
                 {
                     ValidateTrialCompatibility();
@@ -1404,6 +1409,7 @@ namespace AscNet.Test
 
                 Step("ValidateCerberusGameCompatibility", () => ValidateCerberusGameCompatibility());
                 Step("ValidateProfileCompatibility", () => ValidateProfileCompatibility());
+                Step("ValidateTrpgCompatibility", () => ValidateTrpgCompatibility());
                 Step("ValidateMaintainerActionCompatibility", () => ValidateMaintainerActionCompatibility());
                 Step("ValidateSkyTowerCompatibility", () => ValidateSkyTowerCompatibility());
                 Step("ValidateUltimaAwakenCompatibility", () => ValidateUltimaAwakenCompatibility());

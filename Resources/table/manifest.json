@@ -5281,6 +5281,72 @@
       ]
     },
     {
+      "columns": 5,
+      "contentSha256": "5b1df8a490f0456f0ff8c1b3c1a79fe04b3be2136c6b6cdab738cca4d4ad8e72",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/secondmain/TRPGSecondMainStage.tsv",
+      "rows": 58,
+      "source": [
+        "share/trpg/secondmain/TRPGSecondMainStage.tab"
+      ]
+    },
+    {
+      "columns": 58,
+      "contentSha256": "6ecdf913cd060bc7847e278506ea6364d3cbbcee8d901adfdec853c153e68b83",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGSyncStage.tsv",
+      "rows": 16,
+      "source": [
+        "share/trpg/TRPGSyncStage.tab"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "80f1a734f2375c8fa118b87a2a9838104372ba0a13b5f0e334ef226f3eeba970",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGMemoirStory.tsv",
+      "rows": 2,
+      "source": [
+        "share/trpg/TRPGMemoirStory.tab"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "c5d89969523123fa024bb3ddd75b0a3a3d610b8056daffcbe90d820701ba3d7c",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGReward.tsv",
+      "rows": 45,
+      "source": [
+        "share/trpg/TRPGReward.tab"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "a44d0172b34124b7da51b50139f8ea7d2f4bc3abfa8e186314dfd3f1c364877f",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGTarget.tsv",
+      "rows": 134,
+      "source": [
+        "share/trpg/TRPGTarget.tab"
+      ]
+    },
+    {
+      "columns": 78,
+      "contentSha256": "7fc38551233b54c59cc179555809077822e609adb03e421b7ade1a3cb8bba098",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGTargetLink.tsv",
+      "rows": 15,
+      "source": [
+        "share/trpg/TRPGTargetLink.tab"
+      ]
+    },
+    {
       "columns": 6,
       "contentSha256": "807e4d09309b24ac162f1e6290f6e671ebcd873c3d4ee9fc9e1a319e0763ddd8",
       "filter": "all",

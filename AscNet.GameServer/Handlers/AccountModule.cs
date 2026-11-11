@@ -1037,20 +1037,6 @@ namespace AscNet.GameServer.Handlers
 
         private static NotifyBfrtData BuildBfrtLoginData(Player player) => BfrtModule.BuildLoginData(player);
 
-        private static NotifyTRPGData BuildTrpgLoginData()
-        {
-            return new()
-            {
-                CurTargetLink = 10001,
-                BaseInfo = new()
-                {
-                    Level = 1
-                },
-                BossInfo = new()
-            };
-        }
-
-
         /// <summary>
         /// True when the player's last recorded activity fell on an earlier 05:00-UTC business day
         /// than the current login, i.e. a business-day rollover occurred since the prior login.
@@ -1428,7 +1414,7 @@ namespace AscNet.GameServer.Handlers
                 NextRefreshTime = NextDailyRefreshTime()
             });
             session.SendPush(DormModule.BuildLoginData(session));
-            session.SendPush(BuildTrpgLoginData());
+            session.SendPush(TRPGModule.BuildLoginData(session));
             session.SendPush(BuildMedalLoginData(session.player));
             session.SendPush(ExploreModule.BuildLoginData(session.player));
             session.SendPush(notifyGatherRewardList);

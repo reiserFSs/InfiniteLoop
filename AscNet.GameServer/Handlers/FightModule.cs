@@ -3109,6 +3109,8 @@ namespace AscNet.GameServer.Handlers
             bool updatedTrial = req.Result.IsWin && req.Result.StageId <= int.MaxValue
                 && TrialModule.RecordStageClear(session.player, (int)req.Result.StageId);
             BfrtModule.Settle(session, req.Result.StageId, req.Result.IsWin);
+            if (isSuccessfulSettle)
+                TRPGModule.OnStageCleared(session, req.Result.StageId);
             if (MainLineChapterIdsByStageId.Value.TryGetValue(responseStageId, out int mainLineChapterId))
             {
                 session.player.FubenMainLineData ??= new();
