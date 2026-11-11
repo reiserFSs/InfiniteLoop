@@ -349,7 +349,7 @@ namespace AscNet.SDKServer.Controllers
             if (!string.IsNullOrEmpty(package))
                 return package is "com.kurogame.haru.hero" or "com.kurogame.haru.kuro";
             string host = ctx.Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? ctx.Request.Host.Host;
-            return host.Split(':')[0].Equals("sdkapi.kurogame.com", StringComparison.OrdinalIgnoreCase)
+            return host.Split(':')[0].ToLowerInvariant() is "sdkapi.kurogame.com" or "sdkapi2.kurogame.com" or "sdkapi3.kurogame.com" or "sdkapi.kurogame.xyz"
                 || string.Equals(RequestValue(ctx, "region"), "cn", StringComparison.OrdinalIgnoreCase)
                 || (string.Equals(ctx.Request.Headers["Kr-ProjectId"].FirstOrDefault() ?? RequestValue(ctx, "projectId"), "G148", StringComparison.Ordinal)
                     && string.Equals(ctx.Request.Headers["Kr-ProductId"].FirstOrDefault() ?? RequestValue(ctx, "productId"), "A1393", StringComparison.Ordinal));

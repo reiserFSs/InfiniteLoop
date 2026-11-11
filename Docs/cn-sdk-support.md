@@ -12,7 +12,7 @@ to the real CDN and `response()` rewrites every `;`-separated gate URL in `Serve
 `ChannelServerListStr` to `ASCNET_PROXY_TARGET/api/Login/Login-cn` without a query (the client appends
 `?loginType=...`). Patch files and agreement pages stay upstream.
 
-The proxy routes `sdkapi.kurogame.com/sdkcom/...` to AscNet and sinks `/ad-service/v1/sendEvent`.
+The proxy routes `/sdkcom/...` on every KRSDKConfig host (`sdkapi`/`sdkapi2`/`sdkapi3.kurogame.com`, `sdkapi.kurogame.xyz`) to AscNet and sinks `/ad-service/v1/sendEvent`.
 CN is identified by the SDK package, original host, project/product headers or form fields; locally
 generated player-config links carry `region=cn`. EN/TW/KR/JP keep their configuration and login contracts.
 

@@ -69,6 +69,8 @@ AUTHORITATIVE_CONFIG_PREFIXES = ("prod-twcdn-", "prod-krcdn-", "prod-jpcdn-")
 # CN (com.kurogame.haru.kuro) uses its own CDN hosts and also passes through; its gates map to the isolated Login-cn route.
 CN_CONFIG_HOSTS = {"prod-zspns-txcdn.kurogame.com", "prod-zspnsalicdn.kurogame.com", "prod-zspnstxcdn.kurogame.com"}
 CN_GATE_PATH = "/api/Login/Login-cn"
+# KRSDKConfig.json KR_Host / KR_HostStandby / KR_SDKAPI_URL of the CN client (same set as lucia's cn_sdk_routing tests).
+CN_SDK_HOSTS = {"sdkapi.kurogame.com", "sdkapi2.kurogame.com", "sdkapi3.kurogame.com", "sdkapi.kurogame.xyz"}
 
 
 def _is_ascnet_host(host):
@@ -143,11 +145,11 @@ def _is_authoritative_config_request(flow):
 
 
 def _is_cn_sdk_request(flow):
-    return flow.request.pretty_host == "sdkapi.kurogame.com" and flow.request.path.split("?", 1)[0].startswith("/sdkcom/")
+    return flow.request.pretty_host in CN_SDK_HOSTS and flow.request.path.split("?", 1)[0].startswith("/sdkcom/")
 
 
 def _is_cn_telemetry_request(flow):
-    return flow.request.pretty_host == "sdkapi.kurogame.com" and flow.request.path.split("?", 1)[0] == "/ad-service/v1/sendEvent"
+    return flow.request.pretty_host in CN_SDK_HOSTS and flow.request.path.split("?", 1)[0] == "/ad-service/v1/sendEvent"
 
 
 def _ascnet_origin():

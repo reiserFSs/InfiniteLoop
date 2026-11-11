@@ -283,6 +283,21 @@ class ProxyRoutingTests(unittest.TestCase):
             proxy.request(flow)
             self.assertEqual(200, flow.response.status_code)
 
+    def test_every_cn_sdk_host_routes_to_ascnet_and_sinks_telemetry(self):
+        for host in ("sdkapi.kurogame.com", "sdkapi2.kurogame.com", "sdkapi3.kurogame.com", "sdkapi.kurogame.xyz"):
+            with self.subTest(host=host):
+                flow = self.flow("/sdkcom/v2/login/accLogin.lg", host)
+                with patch.dict(os.environ, {"ASCNET_PROXY_TARGET": "http://127.0.0.1:8080"}):
+                    proxy.request(flow)
+                self.assertEqual("127.0.0.1", flow.request.host)
+                self.assertEqual(host, flow.request.headers["X-Forwarded-Host"])
+                flow = self.flow("/ad-service/v1/sendEvent", host)
+                proxy.request(flow)
+                self.assertEqual(200, flow.response.status_code)
+        flow = self.flow("/sdk/trade/v1/order/query", "sdkapi2.kurogame.com")
+        proxy.request(flow)
+        self.assertEqual("sdkapi2.kurogame.com", flow.request.host)
+
 
 if __name__ == "__main__":
     unittest.main()
