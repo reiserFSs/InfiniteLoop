@@ -664,6 +664,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "hudhook",
+ "iced-x86",
  "ilhook",
  "lazy_static",
  "libloading",

@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ilhook.workspace = true
+iced-x86 = { version = "1.21", default-features = false, features = ["std", "decoder", "instr_info"] }
 anyhow.workspace = true
 lazy_static.workspace = true
 libloading.workspace = true
