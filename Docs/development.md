@@ -137,7 +137,7 @@ This branch adds or fixes current-client server behavior for:
 - Lucia: Lotus's hidden interlude uses table-derived replay flags and persisted objective events, with an immediate hidden-stage notification and relog recovery. Old clear records do not prove objective completion; replay episode 6 after updating. Clearing the episode without its hidden objective does not unlock episode 7.
 - Boss single login payload shape.
 - Pain Cage consumes one Attempt per normal stage's first weekly clear, manual or Auto Clear; replays consume none. Current-week clears do not unlock Auto Clear until weekly rollover archives their records; prior archived eligibility remains unchanged until then. Weekly rollover resets completion flags, and ambiguous legacy clears are also reset. Codex clears update scores and first-clear task progress without marking weekly stages complete. Type 25001 achievements track each table-defined section's cumulative normal `Score` or its isolated Trial/Bestiary score total; earned progress is retained across lower replays and Reset Challenge.
-- Guide table compatibility for current guide TSVs.
+- Guide table compatibility and per-account GM completion with dry-run and reward policies. See [GM guide completion](guide-progression.md).
 - Player cost-time upload.
 - Player point upload.
 - PR2 quality compatibility.
@@ -478,6 +478,8 @@ Default config values come from `AscNet.Common/Config.cs`:
 | MongoDB database | `asc_net` |
 
 `Resources/Configs/config.json` may be left empty to use those defaults, or populated with overrides.
+
+For live level changes and guide completion from the Windows launcher, see [Live GM Tools](live-gm-tools.md).
 
 ### Launcher client mods
 

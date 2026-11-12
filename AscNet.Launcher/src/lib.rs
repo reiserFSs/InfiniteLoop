@@ -6,6 +6,7 @@ pub mod bundle;
 pub mod mods;
 pub mod graphics_ini;
 pub mod install;
+pub mod gm_control;
 pub mod local;
 pub mod package;
 mod msvc;

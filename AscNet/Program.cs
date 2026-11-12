@@ -32,33 +32,7 @@ namespace AscNet
 
             AppDomain.CurrentDomain.ProcessExit += new EventHandler(KillProtocol);
 
-            if (Environment.GetEnvironmentVariable("ASCNET_MANAGED_STDIN") == "1")
-                new Thread(() =>
-                {
-                    try
-                    {
-                        while (true)
-                        {
-                            string? line;
-                            try
-                            {
-                                line = Console.In.ReadLine();
-                            }
-                            catch (IOException)
-                            {
-                                return;
-                            }
-                            if (line == null)
-                                return;
-                            if (line.Trim().Equals("shutdown", StringComparison.OrdinalIgnoreCase))
-                                Environment.Exit(0);
-                        }
-                    }
-                    catch (IOException)
-                    {
-                        return;
-                    }
-                }) { IsBackground = true }.Start();
+            ManagedControl.Start();
 
             return 0;
         }

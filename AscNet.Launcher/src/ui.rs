@@ -37,6 +37,7 @@ use windows::{
 };
 
 mod client;
+mod gm;
 
 const WM_EVENT: u32 = WM_APP + 1;
 const ID_BROWSE: i32 = 101;
@@ -65,6 +66,7 @@ const ID_MUSIC_MUTED: i32 = 130;
 const ID_LAUNCHER_HEADING: i32 = 132;
 const ID_MUSIC_LABEL: i32 = 134;
 const ID_STATUS_LINE: i32 = 136;
+const ID_GM_TOOLS: i32 = 138;
 /// Settings action. The home button becomes PLAY after setup succeeds, so this
 /// is the way to run that same setup again.
 const ID_RERUN_SETUP: i32 = 139;
@@ -99,6 +101,8 @@ const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
 struct DistributorConfig {
     repository_url: String,
     branch: String,
+    #[serde(default)]
+    bundled_local_server: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -232,6 +236,7 @@ struct Window {
     label_font: HFONT,
     progress_phase: i32,
     settings_open: bool,
+    gm_window: HWND,
     log: VecDeque<String>,
     client: client::State,
     mods: Vec<mods::ModInfo>,
@@ -445,6 +450,7 @@ unsafe fn run_inner() -> Result<()> {
         progress_phase: 0,
         label_font,
         settings_open: false,
+        gm_window: HWND(0),
         log,
         client: client::State::new(region),
         mods: Vec::new(),
@@ -499,7 +505,10 @@ unsafe fn run_inner() -> Result<()> {
         if result == 0 {
             break;
         }
-        if !IsDialogMessageW(hwnd, &msg).as_bool() {
+        let state = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const Window;
+        let gm_window = if state.is_null() { HWND(0) } else { (*state).gm_window };
+        let gm_handled = IsWindow(gm_window).as_bool() && IsDialogMessageW(gm_window, &msg).as_bool();
+        if !gm_handled && !IsDialogMessageW(hwnd, &msg).as_bool() {
             let _ = TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
@@ -1181,6 +1190,7 @@ unsafe fn create_controls(hwnd: HWND, state: &Window) {
     );
     for (id, text) in [
         (ID_SETTINGS, w!("SETTINGS")),
+        (ID_GM_TOOLS, w!("GM TOOLS")),
         (ID_MINIMIZE, w!("Minimize")),
         (ID_CLOSE, w!("Close")),
         (ID_HOME_ACTION, w!("SELECT GAME")),
@@ -1226,6 +1236,7 @@ unsafe fn create_controls(hwnd: HWND, state: &Window) {
         (ID_RERUN_SETUP, state.body_font),
         (ID_PLAY, state.heading_font),
         (ID_SETTINGS, state.label_font),
+        (ID_GM_TOOLS, state.label_font),
         (ID_MINIMIZE, state.heading_font),
         (ID_CLOSE, state.heading_font),
         (ID_HOME_ACTION, state.heading_font),
@@ -1257,6 +1268,7 @@ unsafe fn create_controls(hwnd: HWND, state: &Window) {
         ID_RERUN_SETUP,
         ID_PLAY,
         ID_SETTINGS,
+        ID_GM_TOOLS,
         ID_MINIMIZE,
         ID_CLOSE,
         ID_HOME_ACTION,
@@ -1363,6 +1375,7 @@ unsafe fn layout(hwnd: HWND, width: i32, height: i32, settings: bool, client: bo
             let _ = ShowWindow(GetDlgItem(hwnd, id), SW_HIDE);
         }
     }
+    let _ = ShowWindow(GetDlgItem(hwnd, ID_GM_TOOLS), if settings || client { SW_HIDE } else { SW_SHOW });
     if client {
         client::layout(hwnd, width, height);
         return;
@@ -1373,6 +1386,7 @@ unsafe fn layout(hwnd: HWND, width: i32, height: i32, settings: bool, client: bo
     let _ = MoveWindow(GetDlgItem(hwnd, ID_SUBTITLE), 112, 15, 240, 24, true);
     let _ = MoveWindow(GetDlgItem(hwnd, ID_CHECK), width - 270, 9, 100, 34, true);
     let _ = MoveWindow(GetDlgItem(hwnd, ID_SETTINGS), width - 158, 9, 46, 34, true);
+    let _ = MoveWindow(GetDlgItem(hwnd, ID_GM_TOOLS), width - 272, 9, 104, 34, true);
     let _ = MoveWindow(GetDlgItem(hwnd, ID_MINIMIZE), width - 106, 9, 46, 34, true);
     let _ = MoveWindow(GetDlgItem(hwnd, ID_CLOSE), width - 54, 9, 46, 34, true);
     for id in [ID_STATUS, ID_DETAIL, ID_STATUS_LINE] {
@@ -1638,6 +1652,10 @@ fn stop_services_after_game(hwnd: HWND, state: &mut Window) {
 
 unsafe fn finish_services_stopped(hwnd: HWND, state: &mut Window, result: Result<()>) {
     state.model.lock().unwrap().stopping = false;
+    if IsWindow(state.gm_window).as_bool() {
+        let _ = DestroyWindow(state.gm_window);
+    }
+    state.gm_window = HWND(0);
     let close_when_stopped = state.close_when_stopped;
     state.close_when_stopped = false;
     let message = match result {
@@ -1767,6 +1785,22 @@ unsafe fn command(hwnd: HWND, state: &mut Window, id: i32, notification: u16) {
         return;
     }
     match id {
+        ID_GM_TOOLS => {
+            if IsWindow(state.gm_window).as_bool() {
+                let _ = SetForegroundWindow(state.gm_window);
+                return;
+            }
+            let control = {
+                let model = state.model.lock().unwrap();
+                model.runtime.as_ref().context("Start the local game before opening GM Tools.")
+                    .and_then(LocalRuntime::gm_control)
+            };
+            match control.and_then(|control| gm::open(hwnd, control)) {
+                Ok(panel) => state.gm_window = panel,
+                Err(error) => show_fatal(&format!("{error:#}")),
+            }
+            return;
+        }
         ID_SETTINGS => {
             if state.client.open {
                 client::close(hwnd, state);
@@ -1949,6 +1983,10 @@ unsafe fn commit_inputs(hwnd: HWND, state: &mut Window) -> bool {
 }
 
 fn start_launcher_check(hwnd: HWND) {
+    if window_model(hwnd).is_some_and(|model| model.lock().unwrap().config.bundled_local_server) {
+        start_refresh(hwnd, false, false);
+        return;
+    }
     if let Some(reason) = updater::updates_suppressed() {
         let _ = local::launcher_log(&format!("Automatic updates skipped: {reason}"));
         start_refresh(hwnd, true, false);
@@ -2025,7 +2063,7 @@ fn start_refresh(hwnd: HWND, check_remote: bool, automatic: bool) {
                 Some(game) if crate::steam::valid_game_directory(game) => fps::remove_legacy_hook(game),
                 _ => Ok(None),
             };
-            let update = if check_remote {
+            let update = if check_remote && !config.bundled_local_server {
                 local::check_update(&config.repository_url, &config.branch, build.as_ref())
             } else {
                 Ok(None)
@@ -2165,11 +2203,12 @@ fn start_play(hwnd: HWND, state: &mut Window) {
                     m.settings.selected_game.clone().unwrap(),
                     m.build.clone().unwrap(),
                     m.package.clone().unwrap(),
+                    m.config.bundled_local_server,
                 ))
             }
         }
     };
-    let (generation, events, game, build, package) = match prepared {
+    let (generation, events, game, build, package, bundled_server) = match prepared {
         Ok(values) => values,
         Err(e) => {
             show_fatal(&e.to_string());
@@ -2189,7 +2228,7 @@ fn start_play(hwnd: HWND, state: &mut Window) {
             }
             install::install_with_consent(&game, &package, &mut |s| post_progress(hwnd, &events, &s))?;
             let mut runtime =
-                LocalRuntime::start(&build, &mut |s| post_progress(hwnd, &events, s))?;
+                LocalRuntime::start_with_bundle(&build, bundled_server, &mut |s| post_progress(hwnd, &events, s))?;
             let origin = local_origin(&build)?;
             let server = match fetch_status(&origin).and_then(|s| {
                 can_play_exact(&package, &patch, &s)?;
@@ -2406,6 +2445,7 @@ unsafe fn update_view(hwnd: HWND, model: &Arc<Mutex<Model>>) {
     set_enabled(hwnd, ID_RERUN_SETUP, !busy && !services);
     set_enabled(hwnd, ID_RESTORE, !busy && !stopping && can_restore);
     set_enabled(hwnd, ID_PLAY, !busy && can_launch);
+    set_enabled(hwnd, ID_GM_TOOLS, runtime && !stopping);
     let home_text = if busy {
         "WORKING…"
     } else if stopping {
@@ -3004,7 +3044,7 @@ unsafe fn draw_item(item: &DRAWITEMSTRUCT, state: &Window) {
     let hot = item.itemState.0 & ODS_HOTLIGHT.0 != 0
         || GetWindowLongPtrW(item.hwndItem, GWLP_USERDATA) != 0;
     let primary = item.CtlID as i32 == ID_HOME_ACTION || state.client.is_primary(item.CtlID as i32);
-    let header_control = matches!(item.CtlID as i32, ID_SETTINGS | ID_MINIMIZE | ID_CLOSE)
+    let header_control = matches!(item.CtlID as i32, ID_SETTINGS | ID_GM_TOOLS | ID_MINIMIZE | ID_CLOSE)
         || (item.CtlID as i32 == ID_CHECK && !state.settings_open);
     let brush = if disabled {
         state.muted_brush

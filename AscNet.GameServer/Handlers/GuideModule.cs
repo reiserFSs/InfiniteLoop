@@ -43,8 +43,15 @@ namespace AscNet.GameServer.Handlers
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     #endregion
 
-    internal class GuideModule
+    internal partial class GuideModule
     {
+        private enum CompletionMode
+        {
+            Step = 1,
+            Stage = 2,
+            CourseReward = 12
+        }
+
         private static readonly Lazy<Dictionary<int, GuideGroupTable>> GuideGroups = new(() =>
             TableReaderV2.Parse<GuideGroupTable>().ToDictionary(guide => guide.Id));
         private static readonly Lazy<Dictionary<int, GuideCompleteTable>> GuideCompletions = new(() =>
@@ -102,9 +109,9 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            session.player.PlayerData.GuideData ??= new();
+            HashSet<long> completed = new(session.player.PlayerData.GuideData ?? []);
             List<GuideGroupTable> addedGuides = groupGuides
-                .Where(guide => !session.player.PlayerData.GuideData.Contains(guide.Id))
+                .Where(guide => !completed.Contains(guide.Id))
                 .ToList();
             if (addedGuides.Count == 0)
             {
@@ -112,43 +119,15 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            List<RewardGrant> rewardGrants = new();
-            foreach (GuideGroupTable guide in addedGuides.Where(guide => guide.RewardId > 0))
-            {
-                var configuredRewards = RewardHandler.GetRewardGoods(guide.RewardId);
-                if (configuredRewards.Count == 0)
-                {
-                    session.SendResponse(new GuideGroupFinishResponse { Code = 1 }, packet.Id);
-                    return;
-                }
-                rewardGrants.Add(new RewardGrant($"guide:{guide.Id}", configuredRewards));
-            }
-
             RewardApplicationResult? rewardApplication = null;
             try
             {
-                if (rewardGrants.Count > 0)
-                    rewardApplication = RewardHandler.ApplyRewardsOnceAndPersist(rewardGrants, session);
+                rewardApplication = CompleteGuides(session, addedGuides.Select(NaturalCompletion).ToList());
             }
             catch (Exception exception)
             {
                 session.log.Error(
-                    $"Failed to persist guide group rewards {request.GroupId}: {exception}");
-                session.SendResponse(new GuideGroupFinishResponse { Code = 1 }, packet.Id);
-                return;
-            }
-
-            List<long> addedGuideIds = addedGuides.Select(guide => (long)guide.Id).ToList();
-            session.player.PlayerData.GuideData.AddRange(addedGuideIds);
-            try
-            {
-                session.player.SaveChecked();
-            }
-            catch (Exception exception)
-            {
-                session.player.PlayerData.GuideData.RemoveAll(addedGuideIds.Contains);
-                session.log.Error(
-                    $"Failed to persist guide group completion {request.GroupId}: {exception}");
+                    $"Failed to complete guide group {request.GroupId}: {exception}");
                 session.SendResponse(new GuideGroupFinishResponse { Code = 1 }, packet.Id);
                 return;
             }
@@ -183,55 +162,27 @@ namespace AscNet.GameServer.Handlers
                 return;
             }
 
-            session.player.PlayerData.GuideData ??= new();
-            if (session.player.PlayerData.GuideData.Contains(request.GuideGroupId))
+            if (session.player.PlayerData.GuideData?.Contains(request.GuideGroupId) == true)
             {
-                session.SendPush(new NotifyGuide { GuideGroupId = request.GuideGroupId });
+                NotifyCompletedGuides(session, [request.GuideGroupId]);
                 session.SendResponse(new GuideCompleteResponse(), packet.Id);
                 return;
             }
 
-            string claimKey = $"guide:{request.GuideGroupId}";
-
             RewardApplicationResult? rewardApplication = null;
-            if (guide.RewardId is > 0)
-            {
-                var configuredRewards = RewardHandler.GetRewardGoods(guide.RewardId);
-                if (configuredRewards.Count == 0)
-                {
-                    session.SendResponse(new GuideCompleteResponse { Code = 1 }, packet.Id);
-                    return;
-                }
-                try
-                {
-                    rewardApplication = RewardHandler.ApplyRewardsOnceAndPersist(
-                        [new RewardGrant(claimKey, configuredRewards)],
-                        session);
-                }
-                catch (Exception exception)
-                {
-                    session.log.Error(
-                        $"Failed to persist guide reward {request.GuideGroupId}: {exception}");
-                    session.SendResponse(new GuideCompleteResponse { Code = 1 }, packet.Id);
-                    return;
-                }
-            }
-
-            session.player.PlayerData.GuideData.Add(request.GuideGroupId);
             try
             {
-                session.player.SaveChecked();
+                rewardApplication = CompleteGuides(session, [NaturalCompletion(guide)]);
             }
             catch (Exception exception)
             {
-                session.player.PlayerData.GuideData.Remove(request.GuideGroupId);
                 session.log.Error(
-                    $"Failed to persist guide completion {request.GuideGroupId}: {exception}");
+                    $"Failed to complete guide {request.GuideGroupId}: {exception}");
                 session.SendResponse(new GuideCompleteResponse { Code = 1 }, packet.Id);
                 return;
             }
             rewardApplication?.SendPushes(session);
-            session.SendPush(new NotifyGuide { GuideGroupId = request.GuideGroupId });
+            NotifyCompletedGuides(session, [request.GuideGroupId]);
             // Retail: BigWorld quest objectives waiting on the guide advance before the response (CheckRimSystemCondition, sequence I).
             BigWorld.BigWorldQuestRuntime.OnConditionsChanged(session);
             session.SendResponse(new GuideCompleteResponse
@@ -241,22 +192,23 @@ namespace AscNet.GameServer.Handlers
             BigWorld.BigWorldQuestRuntime.Tick(session);
         }
 
-
+        private static GuideCompletionEntry NaturalCompletion(GuideGroupTable guide) =>
+            new() { GuideId = guide.Id, Goods = guide.RewardId > 0 ? ResolveGuideReward(guide.RewardId) : null };
 
         internal static void CompleteOpenedGuideOnStageSettle(Session session, IEnumerable<uint> settledStageIds)
-            => CompleteOpenedGuide(session, 2, settledStageIds);
+            => CompleteOpenedGuide(session, CompletionMode.Stage, settledStageIds);
 
         internal static void CompleteOpenedGuideOnCourseClaim(Session session, uint stageId)
-            => CompleteOpenedGuide(session, 12, [stageId]);
+            => CompleteOpenedGuide(session, CompletionMode.CourseReward, [stageId]);
 
-        private static void CompleteOpenedGuide(Session session, int completionMode, IEnumerable<uint> stageIds)
+        private static void CompleteOpenedGuide(Session session, CompletionMode completionMode, IEnumerable<uint> stageIds)
         {
             if (session.OpenedGuideGroupId is not int openedGuideId
                 || !GuideGroups.Value.TryGetValue(openedGuideId, out GuideGroupTable? guide)
                 || guide.RewardId != 0
                 || !GuideCompletions.Value.TryGetValue(guide.CompleteId, out GuideCompleteTable? completion)
                 || completion.Param.Count < 2
-                || completion.Param[0] != completionMode
+                || completion.Param[0] != (int)completionMode
                 || completion.Param[1] <= 0
                 || !stageIds.Contains((uint)completion.Param[1]))
             {
@@ -305,8 +257,8 @@ namespace AscNet.GameServer.Handlers
                 if (!GuideCompletions.Value.TryGetValue(guide.CompleteId, out GuideCompleteTable? completion)
                     || completion.Param.Count < 2
                     // CompleteCourse is a claimed legacy course reward, not a stage clear.
-                    || !(completion.Param[0] == 2 && passedStageIds.Contains(completion.Param[1])
-                        || completion.Param[0] == 12 && completion.Param[1] > 0
+                    || !((CompletionMode)completion.Param[0] == CompletionMode.Stage && passedStageIds.Contains(completion.Param[1])
+                        || (CompletionMode)completion.Param[0] == CompletionMode.CourseReward && completion.Param[1] > 0
                             && stage.Course.Contains((uint)completion.Param[1]))
                     || !completedGuideIds.Add(guide.Id))
                 {
@@ -319,17 +271,6 @@ namespace AscNet.GameServer.Handlers
 
             if (changed)
                 player.SaveChecked();
-        }
-
-        internal static void SkipCommonGuides(Player player)
-        {
-            player.PlayerData.GuideData ??= new();
-            HashSet<long> completedGuides = new(player.PlayerData.GuideData);
-            foreach (GuideGroupTable guide in GuideGroups.Value.Values.Where(guide => guide.Ignore == 0 && guide.RewardId == 0))
-            {
-                if (completedGuides.Add(guide.Id))
-                    player.PlayerData.GuideData.Add(guide.Id);
-            }
         }
 
         private static bool IsValidGuide(int guideGroupId)

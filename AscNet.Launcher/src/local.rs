@@ -1,3 +1,4 @@
+use crate::gm_control::{GmControl, GmRequest};
 use anyhow::{bail, Context, Result};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -550,6 +551,8 @@ mod update_tests {
 
 pub struct LocalRuntime {
     server: OwnedChild,
+    control: GmControl,
+    gm_version: Option<String>,
     mongo: OwnedChild,
     dotnet: PathBuf,
     server_dll: PathBuf,
@@ -562,9 +565,17 @@ pub struct LocalRuntime {
 
 impl LocalRuntime {
     pub fn start(build: &LocalBuild, progress: &mut dyn FnMut(&str)) -> Result<Self> {
+        Self::start_with_bundle(build, false, progress)
+    }
+
+    pub fn start_with_bundle(
+        build: &LocalBuild,
+        bundled_server: bool,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<Self> {
         #[cfg(not(windows))]
         {
-            let _ = (build, progress);
+            let _ = (build, bundled_server, progress);
             bail!("the local runtime is supported on Windows only");
         }
         #[cfg(windows)]
@@ -575,7 +586,17 @@ impl LocalRuntime {
             let operation = operation_lock()?;
             let root = root()?;
             validate_build(&root, build)?;
-            crate::setup::install_runtime_config(&root, &build.server_directory, build.game_port, build.mongo_port)?;
+            let (server_directory, resource_directory) = if bundled_server {
+                let exe = env::current_exe()?;
+                let server = exe.parent().context("launcher executable has no parent directory")?.join("server");
+                anyhow::ensure!(server.join("AscNet.dll").is_file() && server.join("Configs/version_config.json").is_file(),
+                    "The bundled server is missing beside the launcher. Extract the complete launcher bundle.");
+                (server.clone(), server)
+            } else {
+                (build.server_directory.clone(), build.resource_directory.clone())
+            };
+            let server_dll = server_directory.join("AscNet.dll");
+            crate::setup::install_runtime_config(&root, &server_directory, build.game_port, build.mongo_port)?;
             let _ports = reserve_ports([build.mongo_port, build.sdk_port, build.game_port])?;
             fs::create_dir_all(root.join("data/mongo"))?;
             fs::create_dir_all(root.join("logs"))?;
@@ -605,37 +626,58 @@ impl LocalRuntime {
             progress("Starting AscNet server");
             let origin = format!("http://127.0.0.1:{}", build.sdk_port);
             let server_log = RotatingLog::open(root.join("logs/server.log"), BACKEND_LOG_LIMIT)?;
-            let mut server = OwnedChild(
+            let mut server = OwnedChild(spawn_hidden(
                 Command::new(&build.dotnet)
-                    .arg(build.server_directory.join("AscNet.dll"))
+                    .arg(&server_dll)
                     .args(["--urls", &origin])
-                    .current_dir(&build.resource_directory)
+                    .current_dir(&resource_directory)
                     .env("ASCNET_GATE_FALLBACK_USERNAME", "")
                     .env("ASCNET_PUBLIC_HTTP_ORIGIN", &origin)
                     .env("ASCNET_GAME_BIND_ADDRESS", "127.0.0.1")
                     .env("ASCNET_MANAGED_STDIN", "1")
+                    .env("ASCNET_MANAGED_GM", "1")
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .creation_flags(CREATE_NO_WINDOW.0)
-                    .spawn()
-                    .context("start AscNet server")?,
+                    .stderr(Stdio::piped()),
+            ).context("start AscNet server")?);
+            let log = server_log.clone();
+            let control = GmControl::attach(
+                server.0.stdin.take().context("AscNet server stdin is unavailable")?,
+                server.0.stdout.take().context("AscNet server stdout is unavailable")?,
+                move |line| if let Ok(mut log) = log.lock() { let _ = log.write(line); },
             );
             pump_output(&mut server.0, &server_log);
             assign_to_job(&job, &server.0)?;
             wait_server(&mut server.0, &origin, build.game_port)?;
+            let hello_timeout = if bundled_server { Duration::from_secs(5) } else { Duration::from_millis(1500) };
+            let gm_version = control
+                .request_with_timeout(GmRequest::Hello, hello_timeout)
+                .ok()
+                .and_then(|reply| reply.server_version);
+            let _ = launcher_log(&format!("Started AscNet host {} DLL {} GM protocol {}",
+                build.dotnet.display(), server_dll.display(), gm_version.as_deref().unwrap_or("unavailable")));
+            anyhow::ensure!(!bundled_server || gm_version.is_some(), "The bundled server did not advertise launcher GM control.");
             progress("Local backend is ready");
             Ok(Self {
                 server,
+                control,
+                gm_version,
                 mongo,
                 dotnet: build.dotnet.clone(),
-                server_dll: build.server_directory.join("AscNet.dll"),
+                server_dll,
                 mongo_port: build.mongo_port,
                 stopped: false,
                 job,
                 _operation: Some(operation),
             })
         }
+    }
+
+    pub fn gm_control(&self) -> Result<GmControl> {
+        if self.gm_version.is_none() {
+            bail!("This server build does not support GM Tools. Start the matching launcher and server bundle.");
+        }
+        Ok(self.control.clone())
     }
 
     pub fn stop(&mut self) -> Result<()> {
@@ -646,20 +688,7 @@ impl LocalRuntime {
             if self.stopped {
                 return Ok(());
             }
-            let server_request = (|| -> Result<()> {
-                let stdin = self
-                    .server
-                    .0
-                    .stdin
-                    .as_mut()
-                    .context("AscNet server stdin is unavailable")?;
-                stdin
-                    .write_all(b"shutdown\n")
-                    .context("request AscNet server shutdown")?;
-                stdin
-                    .flush()
-                    .context("flush AscNet server shutdown request")
-            })();
+            let server_request = self.control.shutdown();
             let server_result = wait_or_kill(&mut self.server.0, STOP_TIMEOUT);
 
             let helper_result = (|| -> Result<bool> {

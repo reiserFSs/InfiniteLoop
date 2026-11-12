@@ -19,8 +19,8 @@ namespace AscNet.Common
         [Option(DefaultValue = false)]
         bool SaveClientLogs { get; set; }
 
-        [Option(DefaultValue = false)]
-        bool SkipCommonGuides { get; set; }
+        [Option(DefaultValue = "")]
+        string GuideGmPlayerIds { get; set; }
 
         [Option]
         IClient Client { get; set; }

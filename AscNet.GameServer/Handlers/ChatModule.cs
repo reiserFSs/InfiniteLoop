@@ -259,6 +259,11 @@ namespace AscNet.GameServer.Handlers
         public static void SendChatRequestHandler(Session session, Packet.Request packet)
         {
             SendChatRequest request = packet.Deserialize<SendChatRequest>();
+            if (TryReadGuideCommand(request, out string[] guideCommand))
+            {
+                SendGuideCommandFeedback(session, packet.Id, request.ChatData!, guideCommand);
+                return;
+            }
             if (request.ChatData is null)
             {
                 session.SendResponse(new SendChatResponse { Code = 5 }, packet.Id);
@@ -298,36 +303,7 @@ namespace AscNet.GameServer.Handlers
             NotifyWorldChat notifyWorldChat = new();
 
             if (content?.StartsWith('/') == true)
-            {
-                string[] commandParts = content[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                string commandName = commandParts.FirstOrDefault() ?? string.Empty;
-
-                try
-                {
-                    Command? command = CommandFactory.CreateCommand(commandName, session, commandParts[1..]);
-                    if (command is null)
-                    {
-                        commandFeedback = $"Invalid command {commandName}, try /help";
-                    }
-                    else
-                    {
-                        command.Execute();
-                        commandFeedback = "Command executed!";
-                    }
-                }
-                catch (CommandMessageCallbackException ex)
-                {
-                    commandFeedback = ex.Message;
-                }
-                catch (Exception ex)
-                {
-#if DEBUG
-                    commandFeedback = $"Command {commandName} failed to execute!, " + ex;
-#else
-                    commandFeedback = $"Command {commandName} failed to execute!, " + ex.Message;
-#endif
-                }
-            }
+                commandFeedback = ExecuteChatCommand(session, content[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
             if (request.ChatData.ChannelType == ChatChannelType.Guild)
             {
@@ -349,6 +325,63 @@ namespace AscNet.GameServer.Handlers
             if (commandFeedback is not null)
                 session.SendPush(BuildCommandFeedback(request.ChatData.ChannelType, commandFeedback));
             session.SendPush(notifyWorldChat);
+        }
+
+        internal static bool TryHandleReadOnlyGuideCommand(Session session, Packet.Request packet)
+        {
+            SendChatRequest request = packet.Deserialize<SendChatRequest>();
+            if (!TryReadGuideCommand(request, out string[] command)
+                || (request.ChatData!.MsgType == ChatMsgType.Normal && GuideCompletionCommand.IsAuthorized(session)
+                    && !command.Contains(GuideCompletionCommand.DryRunFlag, StringComparer.Ordinal)))
+                return false;
+
+            SendGuideCommandFeedback(session, packet.Id, request.ChatData!, command);
+            return true;
+        }
+
+        private static bool TryReadGuideCommand(SendChatRequest request, out string[] command)
+        {
+            string? content = request.ChatData?.Content?.TrimStart('\r', '\n');
+            command = content?.StartsWith('/') == true ? content[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries) : [];
+            return command.FirstOrDefault() is GuideCommand.Name or GuidesCommand.Name;
+        }
+
+        private static void SendGuideCommandFeedback(Session session, int packetId, ChatData chat, string[] command)
+        {
+            if (chat.MsgType != ChatMsgType.Normal)
+            {
+                session.SendResponse(new SendChatResponse { Code = 5 }, packetId);
+                return;
+            }
+            string feedback = GuideCompletionCommand.IsAuthorized(session) ? ExecuteChatCommand(session, command)
+                : "Guide GM commands are disabled for this account.";
+            session.SendResponse(new SendChatResponse(), packetId);
+            session.SendPush(BuildCommandFeedback(chat.ChannelType, feedback));
+        }
+
+        private static string ExecuteChatCommand(Session session, string[] commandParts)
+        {
+            string commandName = commandParts.FirstOrDefault() ?? string.Empty;
+            try
+            {
+                Command? command = CommandFactory.CreateCommand(commandName, session, commandParts.Skip(1).ToArray());
+                if (command is null)
+                    return $"Invalid command {commandName}, try /help";
+                command.Execute();
+                return "Command executed!";
+            }
+            catch (CommandMessageCallbackException ex)
+            {
+                return ex.Message;
+            }
+            catch (Exception ex)
+            {
+#if DEBUG
+                return $"Command {commandName} failed to execute!, " + ex;
+#else
+                return $"Command {commandName} failed to execute!, " + ex.Message;
+#endif
+            }
         }
 
         internal static NotifyChatMessage BuildNotifyChatMessage(Session session, ChatData chatData)

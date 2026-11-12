@@ -1,7 +1,4 @@
-﻿using AscNet.Common.MsgPack;
-using AscNet.Common.Util;
-using AscNet.GameServer.Handlers;
-using AscNet.Table.V2.share.player;
+﻿using System.Globalization;
 
 namespace AscNet.GameServer.Commands
 {
@@ -17,45 +14,10 @@ namespace AscNet.GameServer.Commands
 
         public override void Execute()
         {
-            List<PlayerTable> playerLevels = TableReaderV2.Parse<PlayerTable>();
-            int level = Miscs.ParseIntOr(Level);
-
-            if (Level == "max")
-            {
-                session.player.PlayerData.Level = playerLevels.OrderByDescending(x => x.Level).First().Level;
-                NotifyPlayerLevel notifyPlayerLevel = new()
-                {
-                    Level = (int)session.player.PlayerData.Level
-                };
-                session.SendPush(notifyPlayerLevel);
-                session.ExpSanityCheck();
-            }
-            else if (playerLevels.Any(x => x.Level == level))
-            {
-                if (session.player.PlayerData.Level > level)
-                {
-                    session.player.PlayerData.Level = level;
-                    // Waiting for SendChatResponse, pls fix later
-                    Task.Run(() =>
-                    {
-                        // ReconnectPlayerLogout
-                        session.SendPush(new ForceLogoutNotify() { Code = 1030 });
-                        session.DisconnectProtocol();
-                    });
-                    return;
-                }
-                session.player.PlayerData.Level = level;
-                NotifyPlayerLevel notifyPlayerLevel = new()
-                {
-                    Level = (int)session.player.PlayerData.Level
-                };
-                session.SendPush(notifyPlayerLevel);
-                session.ExpSanityCheck();
-            }
-            else
-            {
-                throw new ArgumentException("Invalid Level!");
-            }
+            int level = Level == "max"
+                ? SessionExtensions.MaximumConfiguredPlayerLevel ?? throw new InvalidDataException("Player level table is empty.")
+                : int.Parse(Level, NumberStyles.None, CultureInfo.InvariantCulture);
+            GmPlayerService.SetLevel(session, level);
         }
     }
 }

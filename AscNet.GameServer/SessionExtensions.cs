@@ -12,6 +12,11 @@ namespace AscNet.GameServer
                 .OrderBy(static playerLevel => playerLevel.Level)
                 .ToArray());
 
+        internal static int? MaximumConfiguredPlayerLevel => OrderedPlayerLevels.Value.LastOrDefault()?.Level;
+
+        internal static bool IsConfiguredPlayerLevel(int level) =>
+            level > 0 && OrderedPlayerLevels.Value.Any(row => row.Level == level);
+
         /// <summary>
         /// Please invoke after messing with TeamExp(commandant exp) count!
         /// </summary>

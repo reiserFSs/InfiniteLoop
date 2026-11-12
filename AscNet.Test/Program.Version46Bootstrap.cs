@@ -1288,8 +1288,8 @@ internal partial class Program
             "4.6 rewarded GuideGroupFinish returns configured rewards");
         AssertEqual(true, player.PlayerData.GuideData.Contains(rewardedGroupGuide.Id),
             "4.6 rewarded GuideGroupFinish records completion");
-        AssertEqual(4, playerSaves.ReplaceOneCalls,
-            "4.6 rewarded GuideGroupFinish persists completion");
+        AssertEqual(5, playerSaves.ReplaceOneCalls,
+            "4.6 rewarded GuideGroupFinish persists its intent and completion");
 
         AscNet.Common.Database.Player guideReload =
             MongoDB.Bson.Serialization.BsonSerializer.Deserialize<AscNet.Common.Database.Player>(
@@ -1300,6 +1300,7 @@ internal partial class Program
             harness.Session.inventory,
             sessionId: "version-46-guide-relogin"))
         {
+            using MongoCollectionOverride stageOverride = MongoCollectionOverride.InstallNoOpStageCollection();
             reloginHarness.Session.stage = CreateLoginAccountCompatibilityStage(uid);
             MethodInfo buildNotifyLogin = RequiredMethod(
                 RequiredAscNetGameServerType("AscNet.GameServer.Handlers.AccountModule"),
