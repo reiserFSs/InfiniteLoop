@@ -367,6 +367,14 @@ namespace AscNet.Common.MsgPack
         public long ChangeNameTime { get; set; }
         public long ChangeGenderTime { get; set; }
         public long Flags { get; set; }
+        public List<PlayerPointRecord> PointRecordInfo { get; set; } = [];
+    }
+
+    [MessagePackObject(true)]
+    public sealed class PlayerPointRecord
+    {
+        public int Id { get; set; }
+        public List<int> PointTypes { get; set; } = [];
     }
 
     [MessagePackObject(true)]

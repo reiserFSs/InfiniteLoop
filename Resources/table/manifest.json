@@ -3317,6 +3317,19 @@
       "transformation": "Project FunctionId and RedPointNum (the only columns the server consumes; Label/Icon/TaskId/LabelTimeId are client presentation)."
     },
     {
+      "path": "share/functional/FunctionalShow.tsv",
+      "rows": 4,
+      "columns": 3,
+      "contentSha256": "13487c3337a72e05d42b9f9fa390c574b86164c68cdbd099a9a5c6544e145092",
+      "naturalKey": "Id",
+      "filter": "Rows for which XUiFunctionShowBtn and XUiFunctionShowControl send RecordPlayerPointRequest.",
+      "source": [
+        "EN, CN, TW, KR and JP 4.9.1 effective matrix bundle 2db5c7749552c1fe.uab: Share/Functional/FunctionalShow.tab (sha256:022d41fee557576a481034ff39a4216d72806c7b8f1a90ffdb06ed50bcb3394f)",
+        "The same acknowledgement pairs appear in the EN and CN 4.8 FunctionalShow dumps at myssal/PGR_Data@de33e494ea090e82dff530d0d115e79d414f0dcf."
+      ],
+      "transformation": "Project Id and the first two RedPointArgs from common-function-show rows whose first argument is their own Id and whose second argument is NewbieFirstShow."
+    },
+    {
       "columns": 12,
       "contentSha256": "be40b4d75f9717b15fe3dd321f56b84811ce7124db5c916b69ef542300747992",
       "filter": "all",

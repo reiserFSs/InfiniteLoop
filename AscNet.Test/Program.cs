@@ -19474,14 +19474,14 @@ namespace AscNet.Test
         {
             RecordPlayerPointRequest request = new()
             {
-                PointId = 31001,
-                PointType = 2
+                PointId = 1015,
+                PointType = 1
             };
             RecordPlayerPointRequest requestRoundTrip = MessagePackSerializer.Deserialize<RecordPlayerPointRequest>(
                 MessagePackSerializer.Serialize(request));
 
-            AssertEqual(31001, requestRoundTrip.PointId, "RecordPlayerPointRequest PointId");
-            AssertEqual(2, requestRoundTrip.PointType, "RecordPlayerPointRequest PointType");
+            AssertEqual(1015, requestRoundTrip.PointId, "RecordPlayerPointRequest PointId");
+            AssertEqual(1, requestRoundTrip.PointType, "RecordPlayerPointRequest PointType");
 
             RecordPlayerPointResponse response = new()
             {
@@ -19492,6 +19492,7 @@ namespace AscNet.Test
 
             AssertEqual(0, responseRoundTrip.Code, "RecordPlayerPointResponse Code");
             ValidateRequestHandlerRegistration("RecordPlayerPointRequest");
+            ValidatePlayerPointPersistence();
         }
 
         private static void ValidatePlayerGenderCompatibility()

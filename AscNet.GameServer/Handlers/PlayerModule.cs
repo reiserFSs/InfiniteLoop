@@ -670,7 +670,44 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("RecordPlayerPointRequest")]
         public static void RecordPlayerPointRequestHandler(Session session, Packet.Request packet)
         {
-            _ = packet.Deserialize<RecordPlayerPointRequest>();
+            RecordPlayerPointRequest request = packet.Deserialize<RecordPlayerPointRequest>();
+            if (!TableReaderV2.Parse<FunctionalShowTable>(session.player.ClientRegion).Any(row =>
+                    row.Id == request.PointId && row.RedPointArgs is [var pointId, var pointType]
+                    && pointId == request.PointId && pointType == request.PointType))
+            {
+                session.SendResponse(new RecordPlayerPointResponse { Code = 1 }, packet.Id);
+                return;
+            }
+
+            PlayerData playerData = session.player.PlayerData;
+            List<PlayerPointRecord> previous = playerData.PointRecordInfo;
+            int index = previous.FindIndex(record => record.Id == request.PointId);
+            List<int> seenTypes = index < 0 ? [] : previous[index].PointTypes;
+            if (!seenTypes.Contains(request.PointType))
+            {
+                PlayerPointRecord record = new()
+                {
+                    Id = request.PointId,
+                    PointTypes = [..seenTypes, request.PointType]
+                };
+                List<PlayerPointRecord> updated = [..previous];
+                if (index < 0)
+                    updated.Add(record);
+                else
+                    updated[index] = record;
+
+                playerData.PointRecordInfo = updated;
+                try
+                {
+                    session.player.SaveChecked();
+                }
+                catch
+                {
+                    playerData.PointRecordInfo = previous;
+                    throw;
+                }
+            }
+
             session.SendResponse(new RecordPlayerPointResponse(), packet.Id);
         }
 
