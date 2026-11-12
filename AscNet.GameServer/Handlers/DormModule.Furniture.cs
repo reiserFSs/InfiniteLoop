@@ -9,19 +9,21 @@ using MessagePack;
 
 namespace AscNet.GameServer.Handlers;
 
-[MessagePackObject(true)] public sealed class CreateFurnitureRequest { public List<int> TypeIds { get; set; } = []; public int Count { get; set; } public int CostA { get; set; } public int CostB { get; set; } public int CostC { get; set; } }
+[MessagePackObject(true)] public sealed class CreateFurnitureRequest { public List<int>? TypeIds { get; set; } public int Count { get; set; } public int CostA { get; set; } public int CostB { get; set; } public int CostC { get; set; } }
 [MessagePackObject(true)] public sealed class CreateFurnitureResponse { public int Code { get; set; } public uint EndTime { get; set; } public int Count { get; set; } public List<DormFurnitureData> FurnitureList { get; set; } = []; }
 [MessagePackObject(true)] public sealed class CheckCreateFurnitureRequest { public int Pos { get; set; } }
 [MessagePackObject(true)] public sealed class CheckCreateFurnitureResponse { public int Code { get; set; } public int Count { get; set; } public List<DormFurnitureData> FurnitureList { get; set; } = []; }
 [MessagePackObject(true)] public sealed class DecomposeFurnitureRequest { public List<int> FurnitureIds { get; set; } = []; }
 [MessagePackObject(true)] public sealed class DecomposeFurnitureResponse { public int Code { get; set; } public List<int> SuccessIds { get; set; } = []; public List<RewardGoods> RewardGoods { get; set; } = []; }
-[MessagePackObject(true)] public sealed class RemouldFurnitureParam { public int ItemId { get; set; } public List<int> FurnitureIds { get; set; } = []; }
-[MessagePackObject(true)] public sealed class RemouldFurnitureRequest { public List<RemouldFurnitureParam> Params { get; set; } = []; }
+[MessagePackObject(true)] public sealed class RemouldFurnitureParam { public int ItemId { get; set; } public List<int>? FurnitureIds { get; set; } }
+[MessagePackObject(true)] public sealed class RemouldFurnitureRequest { public List<RemouldFurnitureParam>? Params { get; set; } }
 [MessagePackObject(true)] public sealed class RemouldFurnitureResponse { public int Code { get; set; } public List<int> RemovedIds { get; set; } = []; public List<DormFurnitureData> FurnitureList { get; set; } = []; }
 [MessagePackObject(true)] public sealed class FurnitureRemakeRequest { public List<int> FurnitureIds { get; set; } = []; public int CostA { get; set; } public int CostB { get; set; } public int CostC { get; set; } }
 [MessagePackObject(true)] public sealed class FurnitureRemakeResponse { public int Code { get; set; } public List<int> RemovedIds { get; set; } = []; public List<RewardGoods> RewardGoods { get; set; } = []; public List<DormFurnitureData> FurnitureList { get; set; } = []; public int Count { get; set; } }
 [MessagePackObject(true)] public sealed class SetFurnitureOptLockRequest { public int FurnitureId { get; set; } public bool IsLocked { get; set; } }
 [MessagePackObject(true)] public sealed class SetFurnitureOptLockResponse { public int Code { get; set; } public int FurnitureId { get; set; } }
+[MessagePackObject(true)] public sealed class NotifyFurnitureOperate { public List<DormFurnitureOperation> OperateList { get; set; } = []; }
+[MessagePackObject(true)] public sealed class DormFurnitureOperation { public int OperateType { get; set; } public DormFurnitureData ClientFurniture { get; set; } = new(); }
 
 internal partial class DormModule
 {
@@ -39,52 +41,42 @@ internal partial class DormModule
         FurnitureTables tables = FurnitureData.Value;
         long cost = (long)request.CostA + request.CostB + request.CostC;
         int max = Config().GetValueOrDefault("DormMaxCreateCount", 1);
-        if (request.Count <= 0 || request.Count > max || request.CostA < 0 || request.CostB < 0 || request.CostC < 0 || cost <= 0 || request.TypeIds.Count == 0 || request.TypeIds.Count != request.TypeIds.Distinct().Count() || request.TypeIds.Any(type => !tables.Types.Any(row => row.Id == type)) || cost > int.MaxValue / request.Count / request.TypeIds.Count)
+        if (request.TypeIds is not { Count: > 0 } types || request.Count <= 0
+            || request.Count > max / types.Count || request.CostA < 0 || request.CostB < 0 || request.CostC < 0
+            || cost <= 0 || cost > int.MaxValue / request.Count / types.Count || types.Count != types.Distinct().Count()
+            || types.Any(type => !tables.Types.Any(row => row.Id == type)))
         { session.SendResponse(new CreateFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
-        int totalCost = (int)(cost * request.Count * request.TypeIds.Count);
-        if (session.inventory.Items.FirstOrDefault(item => item.Id == Inventory.FurnitureCoin)?.Count < totalCost)
-        { session.SendResponse(new CreateFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
+        int totalCost = (int)(cost * request.Count * types.Count);
+        if (session.inventory.SpendableCount(Inventory.FurnitureCoin) < totalCost)
+        { session.SendResponse(new CreateFurnitureResponse { Code = 20060003 }, packet.Id); return; }
 
         List<PlayerDormFurniture> created = [];
-        foreach (int type in request.TypeIds)
+        foreach (int type in types)
             for (int count = 0; count < request.Count; count++)
             {
-                PlayerDormFurniture? furniture = GenerateFurniture(type, (int)cost, [request.CostA, request.CostB, request.CostC], null);
+                PlayerDormFurniture? furniture = GenerateFurniture(type, (int)cost, [request.CostA, request.CostB, request.CostC]);
                 if (furniture is null) { session.SendResponse(new CreateFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
                 created.Add(furniture);
             }
         if (!CanStore(session.player.Dorm, created)) { session.SendResponse(new CreateFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
 
-        PlayerDormState dorm = BsonSerializer.Deserialize<PlayerDormState>(session.player.Dorm.ToBson());
-        Inventory inventory = BsonSerializer.Deserialize<Inventory>(session.inventory.ToBson());
-        try
+        if (!TrySaveFurnitureChange(session, new Dictionary<int, int> { [Inventory.FurnitureCoin] = totalCost },
+                () => AddFurniture(session.player.Dorm, created), out NotifyItemDataList payment))
         {
-            AssignFurnitureIds(session.player.Dorm, created);
-            session.inventory.Do(Inventory.FurnitureCoin, -(int)totalCost);
-            session.player.Dorm.Furniture.AddRange(created);
-            Unlock(session.player.Dorm, created);
-            session.inventory.SaveChecked();
-            session.player.SaveChecked();
-        }
-        catch
-        {
-            session.player.Dorm = dorm;
-            session.inventory.Items = inventory.Items;
-            session.inventory.AppliedRewardClaims = inventory.AppliedRewardClaims;
-            try { session.inventory.SaveChecked(); } catch { }
-            session.SendResponse(new CreateFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id);
+            session.SendResponse(new CreateFurnitureResponse { Code = 1 }, packet.Id);
             return;
         }
         List<(int ConditionType, int? Parameter, int Amount)> progress =
         [
             (29008, null, created.Count),
             (29017, null, 1),
-            .. request.TypeIds.GroupBy(type => tables.Types.Single(row => row.Id == type).MinorType)
+            .. types.GroupBy(type => tables.Types.Single(row => row.Id == type).MinorType)
                 .Select(group => (29008, (int?)group.Key, group.Count() * request.Count))
         ];
+        session.DormTaskStateDirty = true;
         TaskModule.RecordTableDrivenProgress(session, progress);
-        session.SendPush(new NotifyItemDataList { ItemDataList = [session.inventory.Items.First(item => item.Id == Inventory.FurnitureCoin)] });
-        session.SendResponse(new CreateFurnitureResponse { Count = (int)totalCost, FurnitureList = created.Select(Furniture).ToList() }, packet.Id);
+        session.SendPush(payment);
+        session.SendResponse(new CreateFurnitureResponse { Count = totalCost, FurnitureList = created.Select(Furniture).ToList() }, packet.Id);
     }
 
     [RequestPacketHandler("CheckCreateFurnitureRequest")]
@@ -96,6 +88,7 @@ internal partial class DormModule
         if (create?.Furniture is null || create.EndTime > now) { session.SendResponse(new CheckCreateFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
         session.player.Dorm.FurnitureCreateList.Remove(create);
         session.player.Dorm.Furniture.Add(create.Furniture); Unlock(session.player.Dorm, [create.Furniture]); session.player.Save();
+        session.DormTaskStateDirty = true;
         session.SendResponse(new CheckCreateFurnitureResponse { Count = create.Count, FurnitureList = [Furniture(create.Furniture)] }, packet.Id);
     }
 
@@ -155,6 +148,7 @@ internal partial class DormModule
             session.player.Dorm.PendingRewards.Remove(pending);
             cleared = true;
             session.player.SaveChecked();
+            session.DormTaskStateDirty = true;
             TaskModule.RecordTableDrivenProgress(session, [(29015, null, ids.Length)]);
             grant?.SendPushes(session);
             session.SendResponse(new DecomposeFurnitureResponse { SuccessIds = request.FurnitureIds, RewardGoods = grant?.RewardGoods ?? [] }, packet.Id);
@@ -171,60 +165,69 @@ internal partial class DormModule
     {
         RemouldFurnitureRequest request = packet.Deserialize<RemouldFurnitureRequest>();
         int max = Config().GetValueOrDefault("DormMaxRemouldCount", 1);
-        List<int> consumedIds = request.Params.SelectMany(parameter => parameter.FurnitureIds).ToList();
-        if (request.Params.Count == 0 || consumedIds.Distinct().Count() != consumedIds.Count
-            || !OwnedFreeFurniture(session.player.Dorm, consumedIds, max, out List<PlayerDormFurniture> consumed))
+        List<RemouldFurnitureParam> parameters = request.Params ?? [];
+        List<int> consumedIds = parameters.SelectMany(parameter => parameter.FurnitureIds ?? []).ToList();
+        PlayerDormState dorm = session.player.Dorm;
+        if (!OwnedFreeFurniture(dorm, consumedIds, max, out List<PlayerDormFurniture> consumed))
         {
             session.SendResponse(new RemouldFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id);
             return;
         }
 
         FurnitureTables tables = FurnitureData.Value;
+        Dictionary<int, PlayerDormFurniture> ownedById = consumed.ToDictionary(furniture => furniture.Id);
+        Dictionary<int, int> costs = [];
         List<PlayerDormFurniture> created = [];
-        foreach (RemouldFurnitureParam parameter in request.Params)
+        foreach (RemouldFurnitureParam parameter in parameters)
         {
-            FurnitureRewardTable? reward = tables.Rewards.FirstOrDefault(row => row.Id == parameter.ItemId);
-            FurnitureTable? config = reward is null ? null : tables.Furniture.FirstOrDefault(row => row.Id == reward.FurnitureId);
-            FurnitureExtraAttrTable? extra = reward is null ? null : tables.ExtraAttrs.FirstOrDefault(row => row.Id == reward.ExtraAttrId);
-            FurnitureBaseAttrTable? baseAttr = extra is null ? null : tables.BaseAttrs.FirstOrDefault(row => row.Id == extra.BaseAttrId);
-            if (parameter.FurnitureIds.Count == 0 || config is null || extra is null || baseAttr is null
-                || !session.player.Dorm.FurnitureUnlocks.Contains((uint)config.Id)
-                || parameter.FurnitureIds.Select(id => consumed.First(furniture => furniture.Id == id))
-                    .Any(furniture => tables.Furniture.FirstOrDefault(row => row.Id == furniture.ConfigId)?.TypeId != config.TypeId))
+            FurnitureTable? target = tables.Furniture.FirstOrDefault(row => row.PicId == parameter.ItemId);
+            if (target is null || parameter.FurnitureIds is not { Count: > 0 } ids)
             {
                 session.SendResponse(new RemouldFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id);
                 return;
             }
-            List<int> bases = extra.AttrIds.Take(3).Concat(Enumerable.Repeat(0, 3)).Take(3).ToList();
-            created.Add(new PlayerDormFurniture
+            AddCost(costs, parameter.ItemId, checked(target.PicNum * ids.Count));
+            foreach (int id in ids)
             {
-                ConfigId = (uint)config.Id, Addition = reward!.AdditionId,
-                AttrList = Split(baseAttr.Value, bases).ToList(), BaseAttrList = bases,
-                IsLocked = config.IsDefaultLocked == 1
-            });
+                PlayerDormFurniture material = ownedById[id];
+                FurnitureTable? source = tables.Furniture.FirstOrDefault(row => row.Id == material.ConfigId);
+                if (source?.TypeId != target.TypeId)
+                {
+                    session.SendResponse(new RemouldFurnitureResponse { Code = 20060037 }, packet.Id);
+                    return;
+                }
+                AddCost(costs, Inventory.FurnitureCoin, source.MoneyNum);
+                int score = Score(material);
+                int quality = tables.Levels.Where(level => level.FurnitureType == source.TypeId && (level.MinScore ?? 0) <= score)
+                    .Select(level => level.Quality).DefaultIfEmpty().Max();
+                // AscNet preserves the invested stats and rolls the target's additional effect at the material's tier or higher.
+                created.Add(new PlayerDormFurniture
+                {
+                    ConfigId = (uint)target.Id,
+                    AttrList = material.AttrList.ToList(),
+                    BaseAttrList = material.BaseAttrList.ToList(),
+                    Addition = RollFurnitureAddition(target.RandomGroupId, quality),
+                    IsLocked = target.IsDefaultLocked == 1
+                });
+            }
         }
-        if (!CanStore(session.player.Dorm, created, consumed.Count))
+        if (costs.Any(cost => session.inventory.SpendableCount(cost.Key) < cost.Value))
         {
-            session.SendResponse(new RemouldFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id);
+            session.SendResponse(new RemouldFurnitureResponse { Code = 20060003 }, packet.Id);
             return;
         }
-
-        PlayerDormState snapshot = BsonSerializer.Deserialize<PlayerDormState>(session.player.Dorm.ToBson());
-        try
+        if (!TrySaveFurnitureChange(session, costs, () =>
+            {
+                dorm.Furniture.RemoveAll(furniture => ownedById.ContainsKey(furniture.Id));
+                AddFurniture(dorm, created);
+            }, out NotifyItemDataList payment))
         {
-            AssignFurnitureIds(session.player.Dorm, created);
-            session.player.Dorm.Furniture.RemoveAll(furniture => consumedIds.Contains(furniture.Id));
-            session.player.Dorm.Furniture.AddRange(created);
-            Unlock(session.player.Dorm, created);
-            session.player.SaveChecked();
-        }
-        catch
-        {
-            session.player.Dorm = snapshot;
-            session.SendResponse(new RemouldFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id);
+            session.SendResponse(new RemouldFurnitureResponse { Code = 1 }, packet.Id);
             return;
         }
+        session.DormTaskStateDirty = true;
         TaskModule.RecordTableDrivenProgress(session, [(29007, null, 1)]);
+        session.SendPush(payment);
         session.SendResponse(new RemouldFurnitureResponse
         {
             RemovedIds = consumedIds,
@@ -249,11 +252,12 @@ internal partial class DormModule
         foreach (PlayerDormFurniture furniture in old)
         {
             FurnitureTable? config = FurnitureData.Value.Furniture.FirstOrDefault(row => row.Id == furniture.ConfigId);
-            if (config is null || !CanRemake(furniture, config.TypeId, (int)cost) || GenerateFurniture(config.TypeId, (int)cost, [request.CostA, request.CostB, request.CostC], null) is not PlayerDormFurniture next) { session.SendResponse(new FurnitureRemakeResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
+            if (config is null || !CanRemake(furniture, config.TypeId, (int)cost) || GenerateFurniture(config.TypeId, (int)cost, [request.CostA, request.CostB, request.CostC]) is not PlayerDormFurniture next) { session.SendResponse(new FurnitureRemakeResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
             next.ConfigId = furniture.ConfigId; next.DormitoryId = furniture.DormitoryId; next.X = furniture.X; next.Y = furniture.Y; next.Angle = furniture.Angle; remade.Add(next);
         }
         PlayerDormState dorm = BsonSerializer.Deserialize<PlayerDormState>(session.player.Dorm.ToBson());
         Inventory inventory = BsonSerializer.Deserialize<Inventory>(session.inventory.ToBson());
+        RewardApplicationResult? grant;
         try
         {
             AssignFurnitureIds(session.player.Dorm, remade);
@@ -261,24 +265,29 @@ internal partial class DormModule
             session.player.Dorm.Furniture.RemoveAll(entry => old.Any(value => value.Id == entry.Id));
             session.player.Dorm.Furniture.AddRange(remade);
             Unlock(session.player.Dorm, remade);
-            RewardApplicationResult? grant = rewards.Count == 0 ? null : RewardHandler.ApplyRewardsOnceAndPersist(
+            grant = rewards.Count == 0 ? null : RewardHandler.ApplyRewardsOnceAndPersist(
                 [new RewardGrant($"dorm-remake:{session.player.PlayerData.Id}:{string.Join(",", old.Select(value => value.Id).Order())}", rewards)],
                 session);
             if (refund > 0) session.inventory.Do(Inventory.FurnitureCoin, -refund);
             session.inventory.SaveChecked();
-            session.player.SaveChecked();
-            session.SendPush(new NotifyItemDataList { ItemDataList = [session.inventory.Items.First(item => item.Id == Inventory.FurnitureCoin)] });
-            grant?.SendPushes(session);
-            session.SendResponse(new FurnitureRemakeResponse { RemovedIds = old.Select(entry => entry.Id).ToList(), FurnitureList = remade.Select(Furniture).ToList(), RewardGoods = grant?.RewardGoods ?? [], Count = netCost }, packet.Id);
         }
-        catch
+        catch (Exception exception)
         {
-            session.player.Dorm = dorm;
-            session.inventory.Items = inventory.Items;
-            session.inventory.AppliedRewardClaims = inventory.AppliedRewardClaims;
-            try { session.inventory.SaveChecked(); } catch { }
+            session.log.Warn("Could not save furniture remake payment.", exception);
+            RestoreFurnitureChange(session, dorm, inventory, saveInventory: true);
             session.SendResponse(new FurnitureRemakeResponse { Code = DormRequestDataInvalid }, packet.Id);
+            return;
         }
+        if (!TryCommitFurniturePlayer(session))
+        {
+            RestoreFurnitureChange(session, dorm, inventory, saveInventory: true);
+            session.SendResponse(new FurnitureRemakeResponse { Code = DormRequestDataInvalid }, packet.Id);
+            return;
+        }
+        session.DormTaskStateDirty = true;
+        session.SendPush(new NotifyItemDataList { ItemDataList = [session.inventory.Items.First(item => item.Id == Inventory.FurnitureCoin)] });
+        grant?.SendPushes(session);
+        session.SendResponse(new FurnitureRemakeResponse { RemovedIds = old.Select(entry => entry.Id).ToList(), FurnitureList = remade.Select(Furniture).ToList(), RewardGoods = grant?.RewardGoods ?? [], Count = netCost }, packet.Id);
     }
 
     [RequestPacketHandler("SetFurnitureOptLockRequest")]
@@ -295,12 +304,117 @@ internal partial class DormModule
         furniture = ids.Distinct().Select(id => dorm.Furniture.FirstOrDefault(entry => entry.Id == id)).OfType<PlayerDormFurniture>().ToList();
         return ids.Count > 0 && ids.Count <= max && furniture.Count == ids.Count && furniture.All(entry => !entry.IsLocked && entry.DormitoryId <= 0);
     }
-    private static bool CanStore(PlayerDormState dorm, List<PlayerDormFurniture> additions, int removed = 0) => dorm.Furniture.Count - removed + additions.Count <= Config().GetValueOrDefault("DormMaxTotalFurnitureCount", int.MaxValue);
-    private static bool HasCosts(Session session, Dictionary<int, int> costs) => costs.All(cost => cost.Value >= 0 && session.inventory.Items.FirstOrDefault(item => item.Id == cost.Key)?.Count >= cost.Value);
-    private static void AddCost(Dictionary<int, int> costs, int id, int count) { if (count < 0) throw new ArgumentOutOfRangeException(nameof(count)); costs[id] = checked(costs.GetValueOrDefault(id) + count); }
-    private static void AssignFurnitureIds(PlayerDormState dorm, IEnumerable<PlayerDormFurniture> furniture) { foreach (PlayerDormFurniture entry in furniture) entry.Id = dorm.NextFurnitureId++; }
+    private static bool CanStore(PlayerDormState dorm, List<PlayerDormFurniture> additions) => dorm.Furniture.Count + additions.Count <= Config().GetValueOrDefault("DormMaxTotalFurnitureCount", int.MaxValue);
+    private static void AddCost(Dictionary<int, int> costs, int id, int count)
+    {
+        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count > 0) costs[id] = checked(costs.GetValueOrDefault(id) + count);
+    }
+
+    private static void AssignFurnitureIds(PlayerDormState dorm, IEnumerable<PlayerDormFurniture> furniture)
+    {
+        dorm.NormalizeFurnitureIds();
+        foreach (PlayerDormFurniture entry in furniture) entry.Id = checked(dorm.NextFurnitureId++);
+    }
+
+    private static void AddFurniture(PlayerDormState dorm, List<PlayerDormFurniture> furniture)
+    {
+        AssignFurnitureIds(dorm, furniture);
+        dorm.Furniture.AddRange(furniture);
+        Unlock(dorm, furniture);
+    }
+
+    internal static bool TrySaveFurnitureChange(Session session, IReadOnlyDictionary<int, int> costs,
+        Action changeFurniture, out NotifyItemDataList payment)
+    {
+        PlayerDormState dorm = BsonSerializer.Deserialize<PlayerDormState>(session.player.Dorm.ToBson());
+        Inventory inventory = BsonSerializer.Deserialize<Inventory>(session.inventory.ToBson());
+        bool dormTaskStateDirty = session.DormTaskStateDirty;
+        payment = new();
+        bool attemptedInventorySave = false;
+        try
+        {
+            foreach ((int id, int count) in costs)
+                payment.ItemDataList.AddRange(session.inventory.Spend(id, count));
+            changeFurniture();
+            if (payment.ItemDataList.Count > 0)
+            {
+                attemptedInventorySave = true;
+                session.inventory.SaveChecked();
+            }
+        }
+        catch (Exception exception)
+        {
+            session.log.Warn("Could not save furniture transaction payment.", exception);
+            session.DormTaskStateDirty = dormTaskStateDirty;
+            RestoreFurnitureChange(session, dorm, inventory, attemptedInventorySave);
+            return false;
+        }
+        if (TryCommitFurniturePlayer(session))
+            return true;
+        session.DormTaskStateDirty = dormTaskStateDirty;
+        RestoreFurnitureChange(session, dorm, inventory, attemptedInventorySave);
+        return false;
+    }
+
+    private static bool TryCommitFurniturePlayer(Session session)
+    {
+        Player player = session.player;
+        string? previous = player.Dorm.FurnitureWriteId;
+        string writeId = Guid.NewGuid().ToString("N");
+        player.Dorm.FurnitureWriteId = writeId;
+        try
+        {
+            player.SaveChecked();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Player? stored = Player.TryFromPlayerId(player.PlayerData.Id);
+            if (stored?.Dorm.FurnitureWriteId == writeId)
+            {
+                session.log.Warn("Furniture transaction committed despite a lost acknowledgement.", exception);
+                return true;
+            }
+            if (stored is not null && stored.Id == player.Id && stored.Dorm.FurnitureWriteId == previous)
+            {
+                session.log.Warn("Could not save furniture transaction.", exception);
+                return false;
+            }
+            session.DisconnectProtocol(persistState: false);
+            throw;
+        }
+    }
+
+    private static void RestoreFurnitureChange(Session session, PlayerDormState dorm, Inventory inventory, bool saveInventory)
+    {
+        session.player.Dorm = dorm;
+        session.inventory.Items = inventory.Items;
+        session.inventory.SpentTotals = inventory.SpentTotals;
+        session.inventory.AppliedRewardClaims = inventory.AppliedRewardClaims;
+        session.inventory.RewardClaimTimes = inventory.RewardClaimTimes;
+        if (!saveInventory)
+            return;
+        try { session.inventory.SaveChecked(); }
+        catch (Exception exception)
+        {
+            session.log.Warn("Could not restore furniture transaction payment.", exception);
+            session.DisconnectProtocol(persistState: false);
+        }
+    }
+
     private static void Unlock(PlayerDormState dorm, IEnumerable<PlayerDormFurniture> furniture) { foreach (uint id in furniture.Select(entry => entry.ConfigId).Distinct()) if (!dorm.FurnitureUnlocks.Contains(id)) dorm.FurnitureUnlocks.Add(id); }
     private static DormFurnitureData Furniture(PlayerDormFurniture value) => new() { Id = value.Id, ConfigId = value.ConfigId, X = value.X, Y = value.Y, Angle = value.Angle, DormitoryId = value.DormitoryId, Addition = value.Addition, AttrList = value.AttrList, BaseAttrList = value.BaseAttrList, IsLocked = value.IsLocked };
+    internal static void SendPurchasedFurniture(Session session, int firstIndex)
+    {
+        session.SendPush(new NotifyFurnitureOperate
+        {
+            OperateList = session.player.Dorm.Furniture.Skip(firstIndex)
+                .Select(furniture => new DormFurnitureOperation { OperateType = 1, ClientFurniture = Furniture(furniture) })
+                .ToList()
+        });
+    }
+
     internal static bool CanGrantFurnitureReward(PlayerDormState dorm, int rewardId, int count) =>
         TryPrepareFurnitureReward(dorm, rewardId, count, out _);
 
@@ -316,9 +430,8 @@ internal partial class DormModule
             BaseAttrList = template.BaseAttrList.ToList(),
             IsLocked = template.IsLocked
         }).ToList();
-        AssignFurnitureIds(session.player.Dorm, additions);
-        session.player.Dorm.Furniture.AddRange(additions);
-        Unlock(session.player.Dorm, additions);
+        AddFurniture(session.player.Dorm, additions);
+        session.DormTaskStateDirty = true;
         return true;
     }
 
@@ -347,15 +460,21 @@ internal partial class DormModule
         return true;
     }
 
-    private static PlayerDormFurniture? GenerateFurniture(int type, int cost, List<int> bases, FurnitureRewardTable? fixedReward)
+    private static PlayerDormFurniture? GenerateFurniture(int type, int cost, List<int> bases)
     {
         FurnitureTables tables = FurnitureData.Value;
         FurnitureCreateAttrTable? create = tables.CreateAttrs.FirstOrDefault(row => row.FurnitureType == type && row.MinConsume == cost);
-        List<FurnitureTable> candidates = fixedReward is null ? tables.Furniture.Where(row => row.TypeId == type && row.GainType == 1).ToList() : tables.Furniture.Where(row => row.Id == fixedReward.FurnitureId).ToList();
+        List<FurnitureTable> candidates = tables.Furniture.Where(row => row.TypeId == type && row.GainType == 1).ToList();
         if (create is null || candidates.Count == 0) return null;
         FurnitureTable config = candidates[Random.Shared.Next(candidates.Count)];
-        int total = Weighted(create.AttrTotal, create.AttrWeight); int[] split = Split(total, bases); int addition = fixedReward?.AdditionId ?? Weighted(tables.AdditionalAttrs.Where(row => row.GroupId == 1 && row.Weight is > 0).Select(row => row.AttributeId).ToList(), tables.AdditionalAttrs.Where(row => row.GroupId == 1 && row.Weight is > 0).Select(row => row.Weight!.Value).ToList());
+        int total = Weighted(create.AttrTotal, create.AttrWeight); int[] split = Split(total, bases); int addition = RollFurnitureAddition(config.RandomGroupId);
         return new PlayerDormFurniture { ConfigId = (uint)config.Id, Addition = addition, AttrList = split.ToList(), BaseAttrList = bases.Take(3).Concat(Enumerable.Repeat(0, 3)).Take(3).ToList(), IsLocked = config.IsDefaultLocked == 1 };
+    }
+    private static int RollFurnitureAddition(int groupId, int minimumQuality = 0)
+    {
+        var candidates = FurnitureData.Value.AdditionalAttrs.Where(row => row.GroupId == groupId
+            && row.Weight is > 0 && row.QualityType >= minimumQuality).ToList();
+        return Weighted(candidates.Select(row => row.AttributeId).ToList(), candidates.Select(row => row.Weight!.Value).ToList());
     }
     private static int Weighted(List<int> values, List<int> weights) { int total = weights.Sum(); if (total <= 0 || values.Count == 0) return values.FirstOrDefault(); int value = Random.Shared.Next(total); for (int index = 0; index < values.Count && index < weights.Count; index++) { value -= weights[index]; if (value < 0) return values[index]; } return values[^1]; }
     private static int[] Split(int total, List<int> bases) { int[] result = [0, 0, 0]; int sum = bases.Take(3).Sum(); if (sum <= 0) { result[0] = total; return result; } int left = total; for (int index = 0; index < 3; index++) { result[index] = index == 2 ? left : total * bases.ElementAtOrDefault(index) / sum; left -= result[index]; } return result; }

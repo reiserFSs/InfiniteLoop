@@ -165,6 +165,9 @@ internal partial class DormModule
 {
     private const int DormRequestDataInvalid = 20060040;
     private const int PutCharacterRecoveryChangeType = 2;
+    private static readonly Lazy<ILookup<uint, DormCharacterRecoveryTable>> CharacterRecoveryTiers = new(() =>
+        TableReaderV2.Parse<DormCharacterRecoveryTable>().OrderByDescending(row => row.Pre)
+            .ToLookup(row => (uint)row.CharacterId));
 
     public static NotifyDormitoryData BuildLoginData(Session session)
     {
@@ -197,6 +200,8 @@ internal partial class DormModule
         }
         changed |= NormalizeFreeRooms(session.player.Dorm);
         changed |= session.player.Dorm.NormalizeFurnitureIds();
+        changed |= SettleRecovery(session, now);
+        changed |= RecalculateRecovery(session, now);
         changed |= NormalizeWorkRefresh(session.player.Dorm, now);
         changed |= EvaluateEvents(session, now);
 
@@ -217,11 +222,7 @@ internal partial class DormModule
             WorkList = session.player.Dorm.WorkList.Select(Work).ToList(),
             FurnitureUnlockList = session.player.Dorm.FurnitureUnlocks.Concat(session.player.Dorm.Furniture.Select(furniture => furniture.ConfigId)).Distinct().ToList(),
             SnapshotTimes = session.player.Dorm.SnapshotTimes,
-            DormitoryList = session.player.Dorm.Rooms.Select(room => new NotifyDormitoryData.NotifyDormitoryDataDormitory
-            {
-                DormitoryId = room.Id,
-                DormitoryName = room.Name
-            }).ToList(),
+            DormitoryList = session.player.Dorm.Rooms.Select(RoomData).ToList(),
             FurnitureList = session.player.Dorm.Furniture.Select(furniture => new NotifyDormitoryData.NotifyDormitoryDataFurniture
             {
                 Id = furniture.Id, ConfigId = furniture.ConfigId, X = furniture.X, Y = furniture.Y, Angle = furniture.Angle,
@@ -247,16 +248,40 @@ internal partial class DormModule
         ResumePendingDormRewards(session);
         uint now = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         bool changed = SettleRecovery(session, now);
-        changed |= NormalizeWorkRefresh(session.player.Dorm, now);
+        bool recoveryChanged = RecalculateRecovery(session, now);
+        changed |= recoveryChanged;
+        bool workRefreshed = NormalizeWorkRefresh(session.player.Dorm, now);
+        changed |= workRefreshed;
         changed |= EvaluateEvents(session, now);
         if (changed) session.player.Save();
+        session.IsInDorm = true;
+        if (workRefreshed) SendWorkRefreshTime(session);
+        session.DormTaskStateDirty = true;
         TaskModule.RecordConditionType(session, 29014);
         session.SendResponse(new DormEnterResponse { CharacterEvents = EventResponses(session) }, packet.Id);
+        if (recoveryChanged) SendCharacterRecovery(session);
         SendCharacterAttrs(session);
     }
 
     [RequestPacketHandler("DormOutRequest")]
-    public static void DormOutRequestHandler(Session session, Packet.Request packet) { }
+    public static void DormOutRequestHandler(Session session, Packet.Request packet) => session.IsInDorm = false;
+
+    internal static void RefreshResidentRecovery(Session session)
+    {
+        if (!session.IsInDorm)
+            return;
+
+        uint now = Now();
+        bool recoveryChanged = SettleRecovery(session, now);
+        bool workRefreshed = NormalizeWorkRefresh(session.player.Dorm, now);
+        if (!recoveryChanged && !workRefreshed)
+            return;
+
+        if (workRefreshed) TaskModule.EnsureMissionResets(session, now);
+        session.player.Save();
+        if (workRefreshed) SendWorkRefreshTime(session);
+        if (recoveryChanged) SendCharacterAttrs(session);
+    }
 
     [RequestPacketHandler("DormPutCharacterRequest")]
     public static void DormPutCharacterRequestHandler(Session session, Packet.Request packet)
@@ -291,11 +316,13 @@ internal partial class DormModule
         foreach (PlayerDormCharacter character in characters)
         {
             character.DormitoryId = request.DormitoryId;
+            TrackResidentMood(character, now);
             character.LastRecoveryTime = now;
         }
-        RecalculateRecovery(session);
+        RecalculateRecovery(session, now);
         session.player.Save();
-        TaskModule.RecordTableDrivenProgress(session, [(29002, null, 1)]);
+        session.DormTaskStateDirty = true;
+        TaskModule.SendConditionTypeSync(session, 29002);
         SendCharacterRecovery(session);
         session.SendResponse(new DormPutCharacterResponse { SuccessIds = request.CharacterIds }, packet.Id);
     }
@@ -331,10 +358,12 @@ internal partial class DormModule
         foreach (PlayerDormCharacter character in characters)
         {
             character.DormitoryId = -1;
+            TrackResidentMood(character, now);
             character.LastRecoveryTime = now;
         }
-        RecalculateRecovery(session);
+        RecalculateRecovery(session, now);
         session.player.Save();
+        session.DormTaskStateDirty = true;
         SendCharacterRecovery(session);
         session.SendResponse(new DormRemoveCharacterResponse { SuccessList = removed }, packet.Id);
     }
@@ -345,7 +374,7 @@ internal partial class DormModule
         DormWorkRequest request = packet.Deserialize<DormWorkRequest>();
         uint now = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         bool settled = SettleRecovery(session, now);
-        settled |= NormalizeWorkRefresh(session.player.Dorm, now);
+        bool workRefreshed = NormalizeWorkRefresh(session.player.Dorm, now);
         Dictionary<string, int> config = Config();
         List<DormCharacterWorkTable> table = TableReaderV2.Parse<DormCharacterWorkTable>();
         int unlocked = session.player.Dorm.Rooms.Count;
@@ -360,7 +389,8 @@ internal partial class DormModule
                 && character.Mood >= work!.Mood && character.Vitality >= work.Vitality);
         if (!valid)
         {
-            if (settled) session.player.Save();
+            if (settled || workRefreshed) session.player.Save();
+            if (workRefreshed) SendWorkRefreshTime(session);
             session.SendResponse(new DormWorkResponse { Code = DormRequestDataInvalid }, packet.Id);
             return;
         }
@@ -381,11 +411,11 @@ internal partial class DormModule
                 ClaimKey = Guid.NewGuid().ToString("N")
             });
         }
-        RecalculateRecovery(session);
         session.player.Dorm.WorkList.RemoveAll(saved => saved.WorkEndTime == 0
             && added.Any(entry => entry.WorkPos == saved.WorkPos || entry.CharacterId == saved.CharacterId));
         session.player.Dorm.WorkList.AddRange(added);
         session.player.Save();
+        if (workRefreshed) SendWorkRefreshTime(session);
         foreach (PlayerDormWork entry in added)
         {
             session.SendPush(new NotifyCharacterVitality { CharacterId = entry.CharacterId, Vitality = session.player.Dorm.Characters.First(character => character.CharacterId == entry.CharacterId).Vitality / 100 });
@@ -552,11 +582,7 @@ internal partial class DormModule
     public static void DormitoryListRequestHandler(Session session, Packet.Request packet) =>
         session.SendResponse(new DormitoryListResponse
         {
-            DormitoryList = session.player.Dorm.Rooms.Select(room => new NotifyDormitoryData.NotifyDormitoryDataDormitory
-            {
-                DormitoryId = room.Id,
-                DormitoryName = room.Name
-            }).ToList()
+            DormitoryList = session.player.Dorm.Rooms.Select(RoomData).ToList()
         }, packet.Id);
 
     private static void SendCharacterRecovery(Session session) => session.SendPush(new NotifyDormCharacterRecovery
@@ -583,6 +609,7 @@ internal partial class DormModule
         bool changed = false;
         foreach (PlayerDormCharacter character in session.player.Dorm.Characters)
         {
+            changed |= TrackResidentMood(character, now);
             if (character.LastRecoveryTime == 0 || now < character.LastRecoveryTime)
             {
                 character.LastRecoveryTime = now;
@@ -592,11 +619,20 @@ internal partial class DormModule
             uint elapsed = now - character.LastRecoveryTime;
             uint hours = elapsed / 3600;
             if (hours == 0) continue;
+            int moodBefore = character.Mood;
             character.Mood = (int)Math.Clamp((long)character.Mood + (long)hours * character.MoodSpeed, 0, 10000);
             character.Vitality = (int)Math.Clamp((long)character.Vitality + (long)hours * character.VitalitySpeed, 0, 10000);
+            if (character.DormitoryId > 0 && moodBefore < ResidentMoodTarget.Value && character.Mood >= ResidentMoodTarget.Value)
+            {
+                int missing = ResidentMoodTarget.Value - moodBefore;
+                long firstHour = (missing + (long)character.MoodSpeed - 1) / character.MoodSpeed;
+                character.HighMoodSince = checked(character.LastRecoveryTime + (uint)(firstHour * 3600));
+            }
+            changed |= TrackResidentMood(character, now);
             character.LastRecoveryTime = now - elapsed % 3600;
             changed = true;
         }
+        session.DormTaskStateDirty |= changed;
         return changed;
     }
 
@@ -654,39 +690,51 @@ internal partial class DormModule
         return changed;
     }
 
-    private static void RecalculateRecovery(Session session)
+    private static bool RecalculateRecovery(Session session, uint now)
     {
-        Dictionary<int, FurnitureAdditionalAttrTable> additions = FurnitureData.Value.AdditionalAttrs.ToDictionary(row => row.AttributeId);
-        foreach (PlayerDormCharacter character in session.player.Dorm.Characters)
+        PlayerDormState dorm = session.player.Dorm;
+        HashSet<int> rooms = dorm.Rooms.Select(room => (int)room.Id).ToHashSet();
+        var furnitureByRoom = dorm.Furniture.Where(piece => rooms.Contains(piece.DormitoryId))
+            .ToLookup(piece => piece.DormitoryId);
+        bool changed = false;
+        foreach (var residents in dorm.Characters.GroupBy(character => character.DormitoryId))
         {
-            if (character.DormitoryId <= 0) { character.MoodSpeed = 0; character.VitalitySpeed = 0; continue; }
-            int[] score = [0, 0, 0];
-            int moodBonus = 0, vitalityBonus = 0;
-            foreach (PlayerDormFurniture furniture in session.player.Dorm.Furniture.Where(furniture => furniture.DormitoryId == character.DormitoryId))
+            bool hasRoom = rooms.Contains(residents.Key);
+            var furniture = furnitureByRoom[residents.Key];
+            List<int> attributes = RoomAttributes(furniture);
+            int total = attributes.Sum();
+            int moodBonus = 0;
+            int vitalityBonus = 0;
+            foreach (PlayerDormFurniture piece in furniture)
             {
-                for (int index = 0; index < score.Length; index++)
-                    score[index] = checked(score[index] + furniture.AttrList.ElementAtOrDefault(index));
-                FurnitureAdditionalAttrTable? addition = additions.GetValueOrDefault(furniture.Addition);
-                if (addition is null) continue;
-                if (addition.AddType == 2)
-                    for (int index = 0; index < score.Length; index++)
-                        score[index] = checked(score[index] + addition.AddValue.ElementAtOrDefault(index));
-                else if (addition.AddType == 1)
-                    vitalityBonus = checked(vitalityBonus + addition.AddValue.ElementAtOrDefault(0));
-                else
-                    moodBonus = checked(moodBonus + addition.AddValue.ElementAtOrDefault(0));
+                var addition = DormAdditionalAttrs.Value.GetValueOrDefault(piece.Addition);
+                if (addition is { AddType: 1 })
+                    vitalityBonus += addition.AddValue.ElementAtOrDefault(0);
+                else if (addition is not null && addition.AddType != 2)
+                    moodBonus += addition.AddValue.ElementAtOrDefault(0);
             }
-            int total = score.Aggregate(0, (sum, value) => checked(sum + value));
-            DormCharacterRecoveryTable? row = TableReaderV2.Parse<DormCharacterRecoveryTable>()
-                .Where(recovery => recovery.CharacterId == character.CharacterId
-                    && recovery.AttrTotal <= total
-                    && recovery.AttrCondition.Zip(score).All(pair => pair.First <= pair.Second))
-                .OrderBy(recovery => recovery.Pre).LastOrDefault();
-            int moodSpeed = row is null ? 0 : (row.MoodRecoveryType == 1 ? checked(-row.MoodRecovery) : row.MoodRecovery);
-            int vitalitySpeed = row is null ? 0 : (row.VitalityRecoveryType == 1 ? checked(-row.VitalityRecovery) : row.VitalityRecovery);
-            character.MoodSpeed = checked((int)((long)moodSpeed * checked(100 + moodBonus) / 100));
-            character.VitalitySpeed = checked((int)((long)vitalitySpeed * checked(100 + vitalityBonus) / 100));
+
+            foreach (PlayerDormCharacter character in residents)
+            {
+                DormCharacterRecoveryTable? row = hasRoom
+                    ? CharacterRecoveryTiers.Value[character.CharacterId].FirstOrDefault(tier =>
+                        (tier.AttrTotal ?? 0) <= total
+                        && tier.AttrCondition.Zip(attributes).All(pair => pair.First <= pair.Second))
+                    : null;
+                int moodRate = row is null ? 0 : row.MoodRecoveryType == 1 ? -row.MoodRecovery : row.MoodRecovery;
+                int vitalityRate = row is null ? 0 : row.VitalityRecoveryType == 1 ? -row.VitalityRecovery : row.VitalityRecovery;
+                int moodSpeed = checked((int)((long)moodRate * (100 + moodBonus) / 100));
+                int vitalitySpeed = checked((int)((long)vitalityRate * (100 + vitalityBonus) / 100));
+                if (character.MoodSpeed == moodSpeed && character.VitalitySpeed == vitalitySpeed)
+                    continue;
+
+                character.MoodSpeed = moodSpeed;
+                character.VitalitySpeed = vitalitySpeed;
+                character.LastRecoveryTime = now;
+                changed = true;
+            }
         }
+        return changed;
     }
 
     private static void ResumePendingDormRewards(Session session)
@@ -712,7 +760,7 @@ internal partial class DormModule
     }
 
     private static Dictionary<string, int> Config() => TableReaderV2.Parse<ConfigTable>()
-        .Where(row => row.Key is "DormMoodInitValue" or "DormVitalityInitValue" or "DormWorkTimePerVitality" or "DormWorkRewardPerVitality"
+        .Where(row => row.Key is "DormMoodInitValue" or "DormMoodMaxValue" or "DormVitalityInitValue" or "DormWorkTimePerVitality" or "DormWorkRewardPerVitality"
             or "DormMaxCreateCount" or "DormMaxRecycleCount" or "DormMaxRemouldCount" or "DormMaxTotalFurnitureCount"
             or "DormEventRefreshTime" or "DailyResetTimestamp")
         .ToDictionary(row => row.Key, row => int.Parse(row.Value, CultureInfo.InvariantCulture));
@@ -724,6 +772,9 @@ internal partial class DormModule
         uint next = checked(now - now % day + reset);
         return next > now ? next : checked(next + day);
     }
+
+    internal static void SendWorkRefreshTime(Session session) =>
+        session.SendPush(new NotifyWorkNextRefreshTime { NextRefreshTime = session.player.Dorm.WorkNextRefreshTime });
 
     private static bool NormalizeWorkRefresh(PlayerDormState dorm, uint now)
     {

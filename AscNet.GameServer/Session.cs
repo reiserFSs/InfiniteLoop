@@ -40,6 +40,8 @@ namespace AscNet.GameServer
         public readonly Dictionary<(uint EquipId, int Slot), ResonanceInfo> PendingEquipResonances = new();
         public readonly Dictionary<uint, (uint FashionId, int WeaponFashionId)> RandomFashionRolls = new();
         internal Dictionary<int, (int Value, int State)>? TaskSnapshotProgress;
+        internal bool DormTaskStateDirty { get; set; }
+        internal bool IsInDorm { get; set; }
         // Highest client Packet.No received per player, surviving the session. The client's ReCall(ReconnectResponse.RequestNo)
         // drops every cached request numbered <= that value and resends the rest, so it must be what the server really received.
         private static readonly ConcurrentDictionary<long, int> ClientPacketNos = new();

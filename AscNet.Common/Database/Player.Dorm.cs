@@ -25,6 +25,8 @@ public sealed class PlayerDormState
     [BsonElement("furniture")]
     public List<PlayerDormFurniture> Furniture { get; set; } = new();
 
+    [BsonElement("furniture_write_id"), BsonIgnoreIfNull]
+    public string? FurnitureWriteId { get; set; }
 
     [BsonElement("furniture_create_list")]
     public List<PlayerDormFurnitureCreate> FurnitureCreateList { get; set; } = new();
@@ -91,6 +93,7 @@ public sealed class PlayerDormCharacter
     [BsonElement("character_id")] public uint CharacterId { get; set; }
     [BsonElement("dormitory_id")] public int DormitoryId { get; set; } = -1;
     [BsonElement("mood")] public int Mood { get; set; }
+    [BsonElement("high_mood_since")] public uint HighMoodSince { get; set; }
     [BsonElement("vitality")] public int Vitality { get; set; }
     [BsonElement("mood_speed")] public int MoodSpeed { get; set; }
     [BsonElement("vitality_speed")] public int VitalitySpeed { get; set; }
