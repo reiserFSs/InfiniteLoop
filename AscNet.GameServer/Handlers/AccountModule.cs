@@ -250,12 +250,16 @@ namespace AscNet.GameServer.Handlers
 
                 ApplyClientRegion(player);
 
+                bool savePlayer = PayModule.RememberCnFirstPayClientVersion(player,
+                    session.ClientApplicationVersion, session.ClientDocumentVersion);
                 player.SimulatedBattlefield ??= new();
                 if (player.SimulatedBattlefield.BossRankPlatform != request.LoginPlatform)
                 {
                     player.SimulatedBattlefield.BossRankPlatform = request.LoginPlatform;
-                    player.Save();
+                    savePlayer = true;
                 }
+                if (savePlayer)
+                    player.Save();
 
                 session.player = player;
                 session.character = Character.FromUid(player.PlayerData.Id, player.GatherRewards);
@@ -1354,7 +1358,8 @@ namespace AscNet.GameServer.Handlers
                 NewPlayerTaskActiveDay = session.player.PlayerData.NewPlayerTaskActiveDay,
                 NewPlayerTaskActiveUi = session.player.PlayerData.NewPlayerTaskActiveUi
             };
-            NotifyPayInfo notifyPayInfo = PayModule.BuildNotifyPayInfo(session.player);
+            NotifyPayInfo notifyPayInfo = PayModule.BuildNotifyPayInfo(session.player,
+                session.ClientApplicationVersion, session.ClientDocumentVersion);
             PayModule.GrantMailDailyRewards(session, sendPush: false);
             long mailNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             bool mailStateChanged = MailModule.EnsureSystemMails(session.player, mailNow)

@@ -12,6 +12,7 @@ which ids that client can resolve, projected onto the server table's own columns
   client/purchase/PurchasePackageYKUiConfig               server columns (the monthly-pass package ids the client resolves: CN 10000/201/202 vs EN 83028/90291/90292)
   share/pay/AccumulatedPayReward                          server columns (CN only: its Money tiers are the card amounts the server credits;
                                                           KR/JP Money is in another unit, so they keep the shared rows)
+  share/pay/FirstPayReward                                server columns (CN only: NeedPayMoney converted from yuan to hundredths)
 
 Source: Scripts/fetch_region_tables.py + scan_client_upgrade.py output (PGR_DATA/<region>-4.9/bytes). Provenance goes to
 Resources/table/manifest.json `regionTables.<region>`.
@@ -24,12 +25,14 @@ import argparse
 import hashlib
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 from import_client_tables import project, render
 
 TARGET = Path('Resources')
 MANIFEST = TARGET / 'table/manifest.json'
+FIRST_PAY_REWARD = 'share/pay/FirstPayReward'
 # table -> (columns kept (None = the server table's own header), natural key, regions that get it (None = all))
 TABLES = {
     'share/task/Task': (['Id'], 'Id', None),
@@ -38,6 +41,7 @@ TABLES = {
     'share/pay/Pay': (['Key', 'Platform', 'Amount', 'Currency', 'ShowAmount', 'Name', 'Desc', 'MoneyCard', 'Icon', 'PayId', 'ShowUIType'],
                       'Key', None),
     'share/pay/AccumulatedPayReward': (None, 'Id', {'cn'}),
+    FIRST_PAY_REWARD: (None, 'Id', {'cn'}),
     'client/purchase/PurchasePackageYKUiConfig': (None, 'Id', None),
 }
 INDEXED = re.compile(r'(.+)\[(\d+)\]')
@@ -75,6 +79,15 @@ def main():
             continue
         rows = json.loads((source / f'{table}.json').read_text())
         header = header_for(table, rows, wanted)
+        transformation = 'import_region_tables: retail rows projected onto the server table columns' + (
+            f' (columns {",".join(wanted)} only)' if wanted else '; list columns widened to the longest row')
+        if table == FIRST_PAY_REWARD:
+            for row in rows:
+                hundredths = Decimal(str(row['NeedPayMoney'])) * 100
+                if hundredths != hundredths.to_integral_value():
+                    raise ValueError(f"FirstPayReward {row['Id']}: NeedPayMoney must be representable in hundredths")
+                row['NeedPayMoney'] = int(hundredths)
+            transformation += '; NeedPayMoney converted from yuan to hundredths'
         text = render(header, project(rows, header, [], key=natural_key))
         dest = TARGET / f'regions/{args.region}/table/{table}.tsv'
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -84,8 +97,7 @@ def main():
             'rows': len(rows), 'columns': len(header), 'contentSha256': hashlib.sha256(text.encode()).hexdigest(),
             'source': [f'PGR_DATA/{args.region}-4.9/bytes/{table}.json (json sha256:'
                        f'{hashlib.sha256((source / f"{table}.json").read_bytes()).hexdigest()})'],
-            'transformation': 'import_region_tables: retail rows projected onto the server table columns' + (
-                f' (columns {",".join(wanted)} only)' if wanted else '; list columns widened to the longest row'),
+            'transformation': transformation,
         })
         print(f'{args.region} {table}: {len(rows)} rows, {len(header)} columns')
     manifest = json.loads(MANIFEST.read_text())

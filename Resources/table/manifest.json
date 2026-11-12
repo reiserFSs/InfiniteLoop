@@ -5793,6 +5793,18 @@
       "transformation": "Copied the client rows; the absent SmallRewardId on row 2 is 0 (no small reward). NeedPayMoney is compared with NotifyPayInfo.TotalPayMoney, counted in hundredths of the Pay.ShowAmount currency."
     },
     {
+      "path": "share/pay/FirstPayRewardCn48.tsv",
+      "rows": 2,
+      "columns": 4,
+      "contentSha256": "d6450c10f13b129c43730e0186e90f6858b0b662277a351153f3fee8572090c1",
+      "naturalKey": "Id",
+      "filter": "all rows",
+      "source": [
+        "myssal/PGR_Data@de33e494ea090e82dff530d0d115e79d414f0dcf:cn/bytes/share/pay/FirstPayReward.json (sha256:19b29b854d247457d138740d30a4ae2ca112b78098e56c4d05041581f0f90e0f)"
+      ],
+      "transformation": "Project the legacy CN client rows, preserving NeedPayMoney in hundredths. An absent SmallRewardId is represented as 0."
+    },
+    {
       "path": "share/pay/AccumulatedPayReward.tsv",
       "rows": 14,
       "columns": 6,
@@ -12120,6 +12132,18 @@
             "PGR_DATA/cn-4.9/bytes/share/pay/AccumulatedPayReward.json (json sha256:4f3aad472d0a87b64e350b26ae2282b1dd9e5c5d1c4d49768a79090cc774206b)"
           ],
           "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row"
+        },
+        {
+          "path": "regions/cn/table/share/pay/FirstPayReward.tsv",
+          "naturalKey": "Id",
+          "filter": "all",
+          "rows": 2,
+          "columns": 4,
+          "contentSha256": "cc2553926c4e6150afcc64e5efec60f68f3625d1c3f43757c8d9897689927d6b",
+          "source": [
+            "CN Android 4.9.1 effective matrix bundle 9bfa0c31b0105e1e.uab: Share/Pay/FirstPayReward.tab (sha256:412ca4d62875162cb7b509b9f5537d2eb7e866052bde1553b1cea3bfc493bef7)"
+          ],
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; NeedPayMoney converted from yuan to hundredths"
         },
         {
           "path": "regions/cn/table/client/purchase/PurchasePackageYKUiConfig.tsv",

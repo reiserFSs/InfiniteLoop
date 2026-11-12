@@ -39,10 +39,31 @@ internal partial class PayModule
     private const int PayFirstPayRewardIsGet = 40001013;
     private const int PayTotalPayMoneyNotEnough = 40001014;
     private const int PayReceiptGameOrderIsNullOrEmpty = 40001006;
+    private static readonly Version CnFirstPayYuanVersion = new(4, 9);
 
-    internal static NotifyPayInfo BuildNotifyPayInfo(Player player) => new()
+    private static Version? ReadClientVersion(string? applicationVersion, string? documentVersion) =>
+        Version.TryParse(applicationVersion, out Version? version) || Version.TryParse(documentVersion, out version)
+            ? version : null;
+
+    internal static bool RememberCnFirstPayClientVersion(Player player, string? applicationVersion, string? documentVersion)
     {
-        TotalPayMoney = player.TotalPayMoney,
+        if (player.ClientRegion != "cn" || ReadClientVersion(applicationVersion, documentVersion) is not { } version)
+            return false;
+        string reportedVersion = version.ToString();
+        if (player.CnFirstPayClientVersion == reportedVersion)
+            return false;
+        player.CnFirstPayClientVersion = reportedVersion;
+        return true;
+    }
+
+    private static bool UsesCnFirstPayYuan(Player player, string? applicationVersion, string? documentVersion) =>
+        player.ClientRegion == "cn" && (ReadClientVersion(applicationVersion, documentVersion)
+            ?? ReadClientVersion(player.CnFirstPayClientVersion, null)) is { } version && version >= CnFirstPayYuanVersion;
+
+    internal static NotifyPayInfo BuildNotifyPayInfo(Player player, string? applicationVersion, string? documentVersion) => new()
+    {
+        TotalPayMoney = UsesCnFirstPayYuan(player, applicationVersion, documentVersion)
+            ? player.TotalPayMoney / 100f : player.TotalPayMoney,
         FirstRewardReceivedList = [.. player.FirstPayRewardIds]
     };
 
@@ -60,15 +81,21 @@ internal partial class PayModule
 
     private static int ClaimFirstPay(Session session, GetFirstPayRewardResponse response)
     {
-        List<FirstPayRewardTable> rows = [.. TableReaderV2.Parse<FirstPayRewardTable>().OrderBy(row => row.Id)];
+        string? region = session.player.ClientRegion;
+        var rewardRows = region == "cn" && !UsesCnFirstPayYuan(session.player, session.ClientApplicationVersion, session.ClientDocumentVersion)
+            ? TableReaderV2.Parse<FirstPayRewardCn48Table>()
+                .Select(row => (row.Id, row.NeedPayMoney, row.BigRewardId, row.SmallRewardId))
+            : TableReaderV2.Parse<FirstPayRewardTable>(region)
+                .Select(row => (row.Id, row.NeedPayMoney, row.BigRewardId, row.SmallRewardId));
+        var rows = rewardRows.OrderBy(row => row.Id).ToList();
         if (rows.Count == 0) return 2;
-        List<FirstPayRewardTable> open = rows.Where(row => !session.player.FirstPayRewardIds.Contains(row.Id)).ToList();
+        var open = rows.Where(row => !session.player.FirstPayRewardIds.Contains(row.Id)).ToList();
         if (open.Count == 0) return PayFirstPayRewardIsGet;
-        List<FirstPayRewardTable> due = open.Where(row => session.player.TotalPayMoney >= row.NeedPayMoney).ToList();
+        var due = open.Where(row => session.player.TotalPayMoney >= row.NeedPayMoney).ToList();
         if (due.Count == 0) return PayTotalPayMoneyNotEnough;
 
         List<RewardGoodsTable> goods = [];
-        foreach (FirstPayRewardTable row in due)
+        foreach (var row in due)
             foreach (int rewardId in new[] { row.BigRewardId, row.SmallRewardId })
             {
                 if (rewardId <= 0) continue;
@@ -86,7 +113,7 @@ internal partial class PayModule
         session.player.FirstPayRewardIds.AddRange(ids);
         try { session.player.SaveChecked(); }
         catch { session.player.FirstPayRewardIds.RemoveAll(ids.Contains); throw; }
-        session.SendPush(BuildNotifyPayInfo(session.player));
+        session.SendPush(BuildNotifyPayInfo(session.player, session.ClientApplicationVersion, session.ClientDocumentVersion));
         response.RewardList = result.RewardGoods;
         result.SendPushes(session);
         return 0;
