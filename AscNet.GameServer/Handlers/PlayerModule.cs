@@ -671,7 +671,9 @@ namespace AscNet.GameServer.Handlers
         public static void RecordPlayerPointRequestHandler(Session session, Packet.Request packet)
         {
             RecordPlayerPointRequest request = packet.Deserialize<RecordPlayerPointRequest>();
-            if (request.PointId <= 0 || request.PointType <= 0)
+            if (!TableReaderV2.Parse<FunctionalShowTable>(session.player.ClientRegion).Any(row =>
+                    row.Id == request.PointId && row.RedPointArgs is [var pointId, var pointType]
+                    && pointId == request.PointId && pointType == request.PointType))
             {
                 session.SendResponse(new RecordPlayerPointResponse { Code = 1 }, packet.Id);
                 return;
