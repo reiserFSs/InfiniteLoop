@@ -225,6 +225,11 @@ namespace AscNet.GameServer.Handlers
             return challenge.TaskId.Where(taskId => taskId > 0).ToArray();
         }
 
+        internal static bool IsCurrentTask(SimulatedBattlefieldState? state, int taskId, long now) =>
+            state is not null && state.ArenaActivityNo == CurrentActivity(now)
+            && Challenges.Value.Any(challenge => challenge.ChallengeId == state.ArenaChallengeId
+                && challenge.TaskId.Contains(taskId));
+
         public static bool IsArenaStage(uint stageId) => AreaStages.Value.Values
             .Any(area => IsSupportedArea(area) && ResolveConfiguredStageId(area) == checked((int)stageId));
 

@@ -1004,6 +1004,11 @@ namespace AscNet.Test
                     ValidateSimulatedBattlefieldCompatibility();
                     return;
                 }
+                if (args.Contains("--mode-score-tasks-only"))
+                {
+                    ValidateModeScoreTaskProgress();
+                    return;
+                }
 
                 if (args.Contains("--guide-table-compat-only"))
                 {
@@ -1488,6 +1493,7 @@ namespace AscNet.Test
                 Step("ValidateBossSingleIntensiveStageHydration", () => ValidateBossSingleIntensiveStageHydration());
                 Step("ValidateBossSingleCycleStageScoreSync", () => ValidateBossSingleCycleStageScoreSync());
                 Step("ValidateSimulatedBattlefieldCompatibility", () => ValidateSimulatedBattlefieldCompatibility());
+                Step("ValidateModeScoreTaskProgress", () => ValidateModeScoreTaskProgress());
                 Step("ValidateCurrentClientGuideTableCompatibility", () => ValidateCurrentClientGuideTableCompatibility());
                 Step("ValidateWheelchairManualFullCompatibility", () => ValidateWheelchairManualFullCompatibility());
                 Step("ValidatePlayerCostTimeUploadCompatibility", () => ValidatePlayerCostTimeUploadCompatibility());
@@ -24974,8 +24980,9 @@ namespace AscNet.Test
             player.SimulatedBattlefield.ArenaDistributeMaxPoints = savedWzDistribution;
             foreach (CurrentConditionTable scoreCondition in arenaTaskConditions.Values.Where(condition => condition.Type is 28003 or 28006))
             {
-                AssertEqual(scored.Point, player.MissionProgress.ConditionCounters.GetValueOrDefault(scoreCondition.Id),
-                    $"War Zone score condition {scoreCondition.Id} raw best Point");
+                if (scoreCondition.Type == 28006)
+                    AssertEqual(scored.Point, player.MissionProgress.ConditionCounters.GetValueOrDefault(scoreCondition.Id),
+                        $"War Zone weekly score condition {scoreCondition.Id} raw best Point");
                 CurrentTaskTable scoreTask = TableReaderV2.Parse<CurrentTaskTable>().First(task => task.Condition == scoreCondition.Id);
                 NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask pushedScoreTask = arenaTaskEntries.Last(task => task.Id == (uint)scoreTask.Id);
                 AssertEqual(scored.Point, pushedScoreTask.Schedule.Single().Value,
@@ -25026,9 +25033,9 @@ namespace AscNet.Test
                     $"War Zone second accepted result condition {countCondition.Id} count");
             _ = recordArenaResult.Invoke(null, [harness.Session, scored.Point - 1]);
             _ = harness.ReadPacket("War Zone lower accepted repeat NotifyTask");
-            foreach (CurrentConditionTable scoreCondition in arenaTaskConditions.Values.Where(condition => condition.Type is 28003 or 28006))
+            foreach (CurrentConditionTable scoreCondition in arenaTaskConditions.Values.Where(condition => condition.Type == 28006))
                 AssertEqual(scored.Point, player.MissionProgress.ConditionCounters.GetValueOrDefault(scoreCondition.Id),
-                    $"War Zone lower accepted repeat preserves score condition {scoreCondition.Id}");
+                    $"War Zone lower accepted repeat preserves weekly score condition {scoreCondition.Id}");
             AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaStageMaxPoints[checked((uint)selectedStageId)], "War Zone stage best persistence");
             AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaAreaMaxPoints[selectedAreaId], "War Zone area best persistence");
             AssertEqual(expectedPoint, player.SimulatedBattlefield.ArenaPoint, "War Zone total best persistence");

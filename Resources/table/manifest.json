@@ -4346,11 +4346,11 @@
     },
     {
       "columns": 15,
-      "contentSha256": "e2d8701a0bc0eda9b840dfd23ce13a5b1b2c6904017896edc62249593d94834b",
+      "contentSha256": "5a5910dbdb04ed508a385e91eef5e23abf0a4f19aa41c3b129c19a04fe6ca2cc",
       "filter": "preserved-alias-keys",
       "naturalKey": "Id",
       "path": "share/task/CurrentCondition.tsv",
-      "rows": 2087,
+      "rows": 2122,
       "source": [
         "Installed document index sha1:b22b87996db98720100e39586167440a005ea531",
         "TextAsset share/task/Condition.tab (sha1:7dfb26c1ad4a13d89e2ebd056fc9d506ff1d32e6; 203834 bytes)",
@@ -4359,16 +4359,17 @@
       ],
       "transformation": [
         "preserved-alias-keys + TaskTimeLimit 768..779 (Activity.json 4.8 panels) + 762 (CharacterStoryActivity 1421003) rows; existing rows untouched; CurrentTask LoginVisible=1",
-        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept"
+        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
+        "Included authored War Zone score milestones referenced by ChallengeArea.TaskId using share/task Task and Condition and share/reward Reward and RewardGoods."
       ]
     },
     {
       "columns": 5,
-      "contentSha256": "08b0cf482f26bd07da7fc52048b4dddf1935c3d98072734d6ec2423b354020fc",
+      "contentSha256": "2781bb6d04a55e7780aa8a88becb46b1c05bef7ff03fccd60e94bc45da700592",
       "filter": "preserved-alias-keys",
       "naturalKey": "Id",
       "path": "share/task/CurrentReward.tsv",
-      "rows": 1371,
+      "rows": 1406,
       "source": [
         "Installed document index sha1:b22b87996db98720100e39586167440a005ea531",
         "TextAsset share/reward/Reward.tab (sha1:9935dd33e350d333644d9fd0b20aea99231ebfc6; 401866 bytes)",
@@ -4377,16 +4378,17 @@
       ],
       "transformation": [
         "preserved-alias-keys + TaskTimeLimit 768..779 (Activity.json 4.8 panels) + 762 (CharacterStoryActivity 1421003) rows; existing rows untouched; CurrentTask LoginVisible=1",
-        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept"
+        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
+        "Included authored War Zone score milestones referenced by ChallengeArea.TaskId using share/task Task and Condition and share/reward Reward and RewardGoods."
       ]
     },
     {
       "columns": 6,
-      "contentSha256": "f2059116dd3519b37d3c144225ff17d08cc5150beff4fb76069325e99571c1eb",
+      "contentSha256": "5a24cfb6dc8ec0e50c5c1649f678c76fcf4dab468fd938cce142bc85fb6ac12b",
       "filter": "preserved-alias-keys",
       "naturalKey": "Id",
       "path": "share/task/CurrentRewardGoods.tsv",
-      "rows": 3242,
+      "rows": 3347,
       "source": [
         "Installed document index sha1:b22b87996db98720100e39586167440a005ea531",
         "TextAsset share/reward/RewardGoods.tab (sha1:57d79fe8ed916d54ef8ea5129503be028ba0cf8c; 679502 bytes)",
@@ -4395,16 +4397,17 @@
       ],
       "transformation": [
         "preserved-alias-keys + TaskTimeLimit 768..779 (Activity.json 4.8 panels) + 762 (CharacterStoryActivity 1421003) rows; existing rows untouched; CurrentTask LoginVisible=1",
-        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept"
+        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
+        "Included authored War Zone score milestones referenced by ChallengeArea.TaskId using share/task Task and Condition and share/reward Reward and RewardGoods."
       ]
     },
     {
       "columns": 12,
-      "contentSha256": "38003b424b30da613d0fd625db4b11febbe65fa656f77046b75d5b25e3fed5cf",
+      "contentSha256": "47b19f93a52ea0b71599f67b3c4d011aeb62b54c46de84292060e9c7543934ac",
       "filter": "preserved-alias-keys",
       "naturalKey": "Id",
       "path": "share/task/CurrentTask.tsv",
-      "rows": 2358,
+      "rows": 2393,
       "source": [
         "Installed document index sha1:b22b87996db98720100e39586167440a005ea531",
         "TextAsset share/task/Task.tab (sha1:19e8e064ff16c81bea85a5d47f4fb1b419b44619; 1048040 bytes)",
@@ -4413,7 +4416,8 @@
       ],
       "transformation": [
         "preserved-alias-keys + TaskTimeLimit 768..779 (Activity.json 4.8 panels) + 762 (CharacterStoryActivity 1421003) rows; existing rows untouched; CurrentTask LoginVisible=1",
-        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept"
+        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
+        "Included authored War Zone score milestones referenced by ChallengeArea.TaskId using share/task Task and Condition and share/reward Reward and RewardGoods."
       ]
     },
     {

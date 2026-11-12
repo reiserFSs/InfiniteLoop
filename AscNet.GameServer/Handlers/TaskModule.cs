@@ -108,6 +108,7 @@ namespace AscNet.GameServer.Handlers
     internal static partial class TaskModule
     {
         private const string CurrentTaskTimeFormat = "yyyy/M/d H:mm";
+        private const int WarZoneTaskType = 10;
         private const int DormNormalTaskType = 12;
         private const int DormDailyTaskType = 13;
         private static readonly HashSet<int> SnapshotConditionTypes =
@@ -1569,7 +1570,7 @@ namespace AscNet.GameServer.Handlers
                 {
                     AddConditionProgress(session, condition.Id, 1);
                 }
-                else
+                else if (condition.Type == 28006)
                 {
                     int current = session.player.MissionProgress.ConditionCounters.GetValueOrDefault(condition.Id);
                     session.player.MissionProgress.ConditionCounters[condition.Id] = Math.Max(current, point);
@@ -2478,7 +2479,10 @@ namespace AscNet.GameServer.Handlers
                 tasks = tasks.Where(task => conditions.TryGetValue(task.Condition, out CurrentConditionTable? condition) && conditionTypes.Contains(condition.Type));
             if (loginOnly)
             {
-                tasks = tasks.Where(task => IsCurrentTaskVisibleAtLogin(task, now));
+                tasks = tasks.Where(task => task.Type == WarZoneTaskType
+                    ? IsTaskActive(task, now) && ArenaModule.IsCurrentTask(
+                        session.player.SimulatedBattlefield, task.Id, now.ToUnixTimeSeconds())
+                    : IsCurrentTaskVisibleAtLogin(task, now));
             }
 
             return tasks
@@ -2496,7 +2500,18 @@ namespace AscNet.GameServer.Handlers
             claimed ??= session.player.MissionProgress.ClaimedTaskIds.Contains;
             CurrentConditionTable? condition = CurrentConditionsById.Value.GetValueOrDefault(task.Condition);
             int conditionId = condition?.Id ?? task.Id;
-            int value = condition is null ? 0 : EvaluateCurrentCondition(session, condition, balance);
+            SimulatedBattlefieldState? battlefield = session.player.SimulatedBattlefield;
+            int value = condition switch
+            {
+                null => 0,
+                { Type: 28003 } when task.Type == WarZoneTaskType =>
+                    battlefield is { ArenaJoined: true } && battlefield.ArenaJoinActivity == battlefield.ArenaActivityNo
+                    && ArenaModule.IsCurrentTask(battlefield, task.Id, now.ToUnixTimeSeconds()) ? battlefield.ArenaPoint : 0,
+                { Type: 25006, Params: [_, 0] } when task.Type == 3 =>
+                    battlefield is not null && battlefield.BossActivityNo == CurrentWeeklyResetPeriod(now.ToUnixTimeSeconds())
+                        ? battlefield.BossTotalScore : 0,
+                _ => EvaluateCurrentCondition(session, condition, balance)
+            };
             if (condition?.Type is not (28003 or 28006))
                 value = Math.Min(value, task.Result);
             bool prerequisiteSatisfied = task.PreTaskId == 0
