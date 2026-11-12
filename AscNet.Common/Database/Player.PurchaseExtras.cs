@@ -13,6 +13,10 @@ public partial class Player
     [BsonElement("first_pay_reward_ids")]
     public List<int> FirstPayRewardIds { get; set; } = new();
 
+    [BsonElement("cn_first_pay_client_version")]
+    [BsonIgnoreIfNull]
+    public string? CnFirstPayClientVersion { get; set; }
+
     [BsonElement("purchase_combo_buy_times")]
     [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
     public Dictionary<uint, int> PurchaseComboBuyTimes { get; set; } = new();

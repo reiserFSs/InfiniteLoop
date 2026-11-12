@@ -89,13 +89,15 @@ internal static partial class Program
         PayInitiatedResponse Recharge(string key) => Call<PayInitiatedRequest, PayInitiatedResponse>(new() { Key = key });
         List<FirstPayRewardTable> firstRows = [.. TableReaderV2.Parse<FirstPayRewardTable>().OrderBy(row => row.Id)];
         inventory.Items.Single(item => item.Id == Inventory.HongKa).Count = 0;
-        AssertEqual(0f, PayModule.BuildNotifyPayInfo(player).TotalPayMoney, "fresh player has paid nothing");
+        NotifyPayInfo NotifyFirstPay(Player current) => PayModule.BuildNotifyPayInfo(current,
+            harness.Session.ClientApplicationVersion, harness.Session.ClientDocumentVersion);
+        AssertEqual(0f, NotifyFirstPay(player).TotalPayMoney, "fresh player has paid nothing");
         AssertEqual(40001014, ClaimFirst().Code, "no recharge, no first reward");
         AssertEqual(0, Recharge("PayWin28").Code, "small recharge");
-        AssertEqual(499f, PayModule.BuildNotifyPayInfo(player).TotalPayMoney, "total counts $4.99 in hundredths");
+        AssertEqual(499f, NotifyFirstPay(player).TotalPayMoney, "total counts $4.99 in hundredths");
         AssertEqual(40001014, ClaimFirst().Code, "below threshold");
         AssertEqual(0, Recharge("PayWin600").Code, "large recharge");
-        AssertEqual(499f + 9999f, PayModule.BuildNotifyPayInfo(player).TotalPayMoney, "total accumulates the second price");
+        AssertEqual(499f + 9999f, NotifyFirstPay(player).TotalPayMoney, "total accumulates the second price");
         player.TotalPayMoney = firstRows[0].NeedPayMoney - 1;
         AssertEqual(40001014, ClaimFirst().Code, "one hundredth short");
         player.TotalPayMoney = firstRows[0].NeedPayMoney;
@@ -106,7 +108,7 @@ internal static partial class Program
         AssertEqual(0, first.Code, "threshold reached");
         AssertEqual(Sig(expected.Select(g => (g.TemplateId, (long)g.Count))), Sig(first.RewardList.Select(g => (g.TemplateId, (long)g.Count))), "rewards come from the table rows");
         AssertEqual(firstRows.Count, Reload().FirstPayRewardIds.Count, "claim persists");
-        AssertEqual(firstRows.Count, PayModule.BuildNotifyPayInfo(Reload()).FirstRewardReceivedList.Count, "login reports received ids");
+        AssertEqual(firstRows.Count, NotifyFirstPay(Reload()).FirstRewardReceivedList.Count, "login reports received ids");
         long afterFirst = Balance(2025001);
         AssertEqual(40001013, ClaimFirst().Code, "claimed once");
         AssertEqual(afterFirst, Balance(2025001), "repeat grants nothing");

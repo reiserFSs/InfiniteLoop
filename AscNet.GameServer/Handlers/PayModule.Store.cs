@@ -350,7 +350,7 @@ internal partial class PayModule
                         }
                         session.SendPush(BuildAccumulatedPayData(session.player));
                         session.SendPush(new NotifyAccumulatedPayMoney { PayMoney = nextPaid });
-                        session.SendPush(BuildNotifyPayInfo(session.player));
+                        session.SendPush(BuildNotifyPayInfo(session.player, session.ClientApplicationVersion, session.ClientDocumentVersion));
                         response.Code = 0;
                         response.GameOrder = pending.Order;
                         response.LocalCompleted = true;
