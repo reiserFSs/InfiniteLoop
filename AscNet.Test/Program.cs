@@ -235,6 +235,11 @@ namespace AscNet.Test
                     ValidateStorePurchases();
                     return;
                 }
+                if (args.Contains("--cn-first-pay-only"))
+                {
+                    ValidateCnFirstPayCompatibility();
+                    return;
+                }
                 if (args.Contains("--wheelchair-manual-compat-only"))
                 {
                     ValidateWheelchairManualFullCompatibility();
@@ -1544,6 +1549,7 @@ namespace AscNet.Test
                 Step("ValidateShopCompatibility", () => ValidateShopCompatibility());
                 Step("ValidateShopRefreshCompatibility", () => ValidateShopRefreshCompatibility());
                 Step("ValidatePurchasesCompatibility", () => ValidatePurchasesCompatibility());
+                Step("ValidateCnFirstPayCompatibility", () => ValidateCnFirstPayCompatibility());
                 Step("ValidateChatSocialCompatibility", () => ValidateChatSocialCompatibility());
                 Step("ValidateEquipPartnerCompatibility", () => ValidateEquipPartnerCompatibility());
                 Step("ValidateCollectionMiscCompatibility", () => ValidateCollectionMiscCompatibility());

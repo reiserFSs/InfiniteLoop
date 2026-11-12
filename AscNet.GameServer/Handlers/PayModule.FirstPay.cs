@@ -42,7 +42,8 @@ internal partial class PayModule
 
     internal static NotifyPayInfo BuildNotifyPayInfo(Player player) => new()
     {
-        TotalPayMoney = player.TotalPayMoney,
+        // CN XPayManager compares this value with its client table, which is in yuan.
+        TotalPayMoney = player.ClientRegion == "cn" ? player.TotalPayMoney / 100f : player.TotalPayMoney,
         FirstRewardReceivedList = [.. player.FirstPayRewardIds]
     };
 
@@ -60,7 +61,7 @@ internal partial class PayModule
 
     private static int ClaimFirstPay(Session session, GetFirstPayRewardResponse response)
     {
-        List<FirstPayRewardTable> rows = [.. TableReaderV2.Parse<FirstPayRewardTable>().OrderBy(row => row.Id)];
+        List<FirstPayRewardTable> rows = [.. TableReaderV2.Parse<FirstPayRewardTable>(session.player.ClientRegion).OrderBy(row => row.Id)];
         if (rows.Count == 0) return 2;
         List<FirstPayRewardTable> open = rows.Where(row => !session.player.FirstPayRewardIds.Contains(row.Id)).ToList();
         if (open.Count == 0) return PayFirstPayRewardIsGet;

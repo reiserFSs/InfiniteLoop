@@ -6,7 +6,7 @@ namespace AscNet.Common.Database;
 public partial class Player
 {
     // Currency paid through completed recharge products, in hundredths of Pay.ShowAmount.
-    // Compared with FirstPayReward.NeedPayMoney and reported as NotifyPayInfo.TotalPayMoney.
+    // FirstPayReward.NeedPayMoney uses the same unit in server tables.
     [BsonElement("total_pay_money")]
     public long TotalPayMoney { get; set; }
 
