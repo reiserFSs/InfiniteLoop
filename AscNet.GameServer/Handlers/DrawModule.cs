@@ -286,6 +286,9 @@ namespace AscNet.GameServer.Handlers
         public long EndTime { get; set; }
         public int AdjustTimes { get; set; }
         public int DrawGroupId { get; set; }
+        // 4.9 XDrawActivityTargetInfo does `Max - Used` on these; absent (nil) throws in UiDrawOptional.OnStart. 0 Max = unlimited target switches.
+        public int MaxSwitchDrawIdCount { get; set; }
+        public int SwitchDrawIdCount { get; set; }
         public List<int> TargetTemplateIds { get; set; } = new();
         public List<int> SourceTemplateIds { get; set; } = new();
         public List<int> EffectTargetTemplateIds { get; set; } = new();

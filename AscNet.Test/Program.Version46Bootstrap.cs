@@ -1031,6 +1031,15 @@ internal partial class Program
         AssertEqual(0, Choose(first, campaign.ActivityId, target), "select S calibration target");
         AssertEqual(target, Activity(first).TargetId, "group-list renders chosen S");
         AssertEqual(0, Choose(first, campaign.ActivityId, target), "same-choice retry succeeds");
+        // The 4.9 selector UI (XDrawActivityTargetInfo) subtracts these two wire fields; nil crashes UiDrawOptional into an empty panel.
+        JObject adjustWire = JObject.Parse(MessagePackSerializer.ConvertToJson(MessagePackSerializer.Serialize(Activity(first))));
+        AssertEqual(0, adjustWire.Value<int?>("MaxSwitchDrawIdCount") ?? -1, "member calibration sends MaxSwitchDrawIdCount (0 = unlimited)");
+        AssertEqual(0, adjustWire.Value<int?>("SwitchDrawIdCount") ?? -1, "member calibration sends SwitchDrawIdCount");
+        AssertEqual(true, Activity(first).EffectTargetTemplateIds.All(id => ranks.GetValueOrDefault(id) == 3),
+            "member calibration selector lists only S-rank constructs");
+        AssertEqual(0, Choose(first, campaign.ActivityId, alternative), "switch calibration target to a second S choice");
+        AssertEqual(alternative, Activity(first).TargetId, "second selection is served back to the selector");
+        AssertEqual(0, Choose(first, campaign.ActivityId, target), "restore first S calibration target");
         AssertEqual(8, Since("SinceAOrS"), "calibration selection preserves ten pity");
         AssertEqual(58, Since("SinceS"), "calibration selection preserves sixty pity");
         AssertEqual(0, Activity(second).TargetId, "selection does not leak to second account");
