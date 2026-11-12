@@ -34,13 +34,19 @@ namespace AscNet.GameServer.Handlers
     [MessagePackObject(true)]
     public class SelectChatChannelRequest
     {
-        public int ChannelId { get; set; }
+        public int? ChannelId { get; set; }
     }
     
     [MessagePackObject(true)]
     public class SelectChatChannelResponse
     {
         public int Code { get; set; }
+    }
+
+    [MessagePackObject(true)]
+    public sealed class NotifyChatChannelChange
+    {
+        public int ChannelId { get; set; }
     }
     
     [MessagePackObject(true)]
@@ -156,6 +162,11 @@ namespace AscNet.GameServer.Handlers
 
     internal class ChatModule
     {
+        private const int WorldChannelCount = 8;
+
+        private static int RecruitmentChannelId(Session session) =>
+            session.player.ClientRegion == "cn" ? WorldChannelCount : WorldChannelCount - 1;
+
         [RequestPacketHandler("ReportBanChatRequest")]
         public static void ReportBanChatRequestHandler(Session session, Packet.Request packet)
         {
@@ -225,18 +236,19 @@ namespace AscNet.GameServer.Handlers
             session.SendResponse(new EnterWorldChatResponse
             {
                 Code = 0,
-                ChannelId = 1 // retail joins logical world-chat channel 1 here; this is not ChatChannelType.World
+                ChannelId = session.WorldChatChannelId
             }, packetId);
         }
 
         private static void SendWorldChannelInfoResponse(Session session, int packetId)
         {
             GetWorldChannelInfoResponse getWorldChannelInfoResponse = new();
-            for (int channelId = 0; channelId <= 7; channelId++)
+            for (int index = 0; index < WorldChannelCount; index++)
             {
                 getWorldChannelInfoResponse.ChannelInfos.Add(new()
                 {
-                    ChannelId = channelId,
+                    // CN's chat manager addresses the final channel at list length + 1 (one-based).
+                    ChannelId = index == WorldChannelCount - 1 ? RecruitmentChannelId(session) : index,
                     PlayerNum = 0
                 });
             }
@@ -262,6 +274,11 @@ namespace AscNet.GameServer.Handlers
             if (request.ChatData is null)
             {
                 session.SendResponse(new SendChatResponse { Code = 5 }, packet.Id);
+                return;
+            }
+            if (request.ChatData.ChannelType == ChatChannelType.Mentor)
+            {
+                session.SendResponse(new SendChatResponse { Code = 20106001 }, packet.Id);
                 return;
             }
             if (request.ChatData.ChannelType == ChatChannelType.Guild
@@ -344,7 +361,21 @@ namespace AscNet.GameServer.Handlers
                     return;
                 }
             }
-            else session.SendPush(notifyChatMessage);
+            else
+            {
+                bool recruitment = request.ChatData.ChannelType == ChatChannelType.World
+                    && session.WorldChatChannelId == RecruitmentChannelId(session)
+                    && request.ChatData.MsgType == ChatMsgType.Normal
+                    && commandFeedback is null && !string.IsNullOrWhiteSpace(content);
+                if (recruitment)
+                    TaskModule.RecordRecruitmentChat(session);
+                session.SendPush(notifyChatMessage);
+                if (recruitment)
+                    foreach (Session recipient in Server.Instance.Sessions.Values)
+                        if (recipient != session && recipient.player is not null
+                            && recipient.WorldChatChannelId == RecruitmentChannelId(recipient))
+                            recipient.SendPush(notifyChatMessage);
+            }
             session.SendResponse(new SendChatResponse { Code = 0, RefreshTime = 0 }, packet.Id);
             if (commandFeedback is not null)
                 session.SendPush(BuildCommandFeedback(request.ChatData.ChannelType, commandFeedback));
@@ -400,13 +431,15 @@ namespace AscNet.GameServer.Handlers
         [RequestPacketHandler("SelectChatChannelRequest")]
         public static void SelectChatChannelRequestHandler(Session session, Packet.Request packet)
         {
-            // SelectChatChannelRequest request = packet.Deserialize<SelectChatChannelRequest>();
-
-            // disabling channel switching because the game is cringe and we don't need it anyway.
-            session.SendResponse(new SelectChatChannelResponse()
+            int? channel = packet.Deserialize<SelectChatChannelRequest>().ChannelId;
+            if (channel is not int channelId || channelId < 0
+                || channelId >= WorldChannelCount - 1 && channelId != RecruitmentChannelId(session))
             {
-                Code = 20033013 // ChatChannelNotExist
-            }, packet.Id);
+                session.SendResponse(new SelectChatChannelResponse { Code = 20033013 }, packet.Id);
+                return;
+            }
+            session.WorldChatChannelId = channelId;
+            session.SendResponse(new SelectChatChannelResponse(), packet.Id);
         }
 
         public static ChatData MakeLuciaMessage(string content)

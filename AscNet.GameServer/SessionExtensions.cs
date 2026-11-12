@@ -34,37 +34,73 @@ namespace AscNet.GameServer
             if (expItem is null)
                 return;
 
+            foreach ((PlayerTable playerLevel, int nextLevel) in EarnedCommandantLevels(session.player.PlayerData.Level, expItem.Count))
+            {
+                expItem.Count -= playerLevel.MaxExp;
+                session.player.PlayerData.Level = nextLevel;
+                session.SendPush(new NotifyPlayerLevel { Level = (int)session.player.PlayerData.Level });
+                session.SendPush(new NotifyItemDataList
+                {
+                    ItemDataList = [expItem, session.inventory.Do(Inventory.ActionPoint, playerLevel.FreeActionPoint)]
+                });
+            }
+        }
+
+        internal static IEnumerable<(PlayerTable Level, int NextLevel)> EarnedCommandantLevels(long level, long exp)
+        {
+            PlayerTable[] playerLevels = OrderedPlayerLevels.Value;
             int playerLevelIndex = 0;
             while (playerLevelIndex < playerLevels.Length
-                && playerLevels[playerLevelIndex].Level != session.player.PlayerData.Level)
+                && playerLevels[playerLevelIndex].Level != level)
             {
                 playerLevelIndex++;
             }
 
-            if (playerLevelIndex == playerLevels.Length)
-                return;
-
             while (playerLevelIndex + 1 < playerLevels.Length)
             {
-                PlayerTable playerLevel = playerLevels[playerLevelIndex];
-                if (expItem.Count < playerLevel.MaxExp)
-                    return;
-
-                PlayerTable nextPlayerLevel = playerLevels[++playerLevelIndex];
-                expItem.Count -= playerLevel.MaxExp;
-                session.player.PlayerData.Level = nextPlayerLevel.Level;
-
-                NotifyPlayerLevel notifyPlayerLevel = new()
-                {
-                    Level = (int)session.player.PlayerData.Level
-                };
-                NotifyItemDataList notifyItemDataList = new();
-                notifyItemDataList.ItemDataList.Add(expItem);
-                notifyItemDataList.ItemDataList.Add(session.inventory.Do(Inventory.ActionPoint, playerLevel.FreeActionPoint));
-
-                session.SendPush(notifyPlayerLevel);
-                session.SendPush(notifyItemDataList);
+                PlayerTable playerLevel = playerLevels[playerLevelIndex++];
+                if (exp < playerLevel.MaxExp)
+                    yield break;
+                exp -= playerLevel.MaxExp;
+                yield return (playerLevel, playerLevels[playerLevelIndex].Level);
             }
+        }
+
+        internal static bool CommitPendingCommandantLevel(this Session session)
+        {
+            int target = session.inventory.PendingCommandantLevel;
+            if (target == 0)
+                return false;
+            long previous = session.player.PlayerData.Level;
+            if (target > previous)
+            {
+                session.player.PlayerData.Level = target;
+                try { session.player.SaveChecked(); }
+                catch
+                {
+                    session.player.PlayerData.Level = previous;
+                    throw;
+                }
+            }
+            session.inventory.PendingCommandantLevel = 0;
+            try { session.inventory.SaveChecked(); }
+            catch
+            {
+                session.inventory.PendingCommandantLevel = target;
+                throw;
+            }
+            return true;
+        }
+
+        internal static void RecoverPendingCommandantLevel(this Session session)
+        {
+            if (!session.CommitPendingCommandantLevel())
+                return;
+            session.SendPush(new NotifyPlayerLevel { Level = (int)session.player.PlayerData.Level });
+            session.SendPush(new NotifyItemDataList
+            {
+                ItemDataList = session.inventory.Items.Where(item => item.Id is Inventory.TeamExp or Inventory.ActionPoint).ToList()
+            });
         }
 
         public static bool ClampPlayerLevelToConfiguredMaximum(this Session session)

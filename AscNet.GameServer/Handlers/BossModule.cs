@@ -1205,8 +1205,22 @@ namespace AscNet.GameServer.Handlers
                 || state.BossTotalScore != total;
             state.BossCurrentTotalScore = currentTotal;
             state.BossTotalScore = total;
-            return changed;
+            return RecordBestNormalScore(state) || changed;
         }
+
+        private static bool RecordBestNormalScore(SimulatedBattlefieldState state)
+        {
+            int grade = Grades.Value.FirstOrDefault(row => row.LevelType == state.BossLevelType)?.GradeType ?? 0;
+            if (grade == 0 || state.BossTotalScore <= state.BossBestTotalByGrade.GetValueOrDefault(grade))
+                return false;
+            state.BossBestTotalByGrade[grade] = state.BossTotalScore;
+            return true;
+        }
+
+        internal static int BestNormalScoreForGrade(SimulatedBattlefieldState state, int grade) =>
+            Math.Max(state.BossBestTotalByGrade.GetValueOrDefault(grade),
+                Grades.Value.Any(row => row.LevelType == state.BossLevelType && row.GradeType == grade)
+                    ? state.BossTotalScore : 0);
 
         // The persisted stage datum is the stage's own best score, not a period value: the settlement history
         // (XUiFubenBossSingleSettlement:GetMyTotalHistory reads it for every non-Trial mode, and the codex catalogs
@@ -1370,6 +1384,7 @@ namespace AscNet.GameServer.Handlers
             }
             else if (state.BossActivityNo != activity)
             {
+                RecordBestNormalScore(state);
                 ArchiveCurrentRecords(state);
                 state.BossMaxScore = Math.Max(state.BossMaxScore, state.BossTotalScore);
                 if (state.BossLevelType > 0)

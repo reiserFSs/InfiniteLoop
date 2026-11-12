@@ -11140,6 +11140,42 @@
       "transformation": [
         "import_robot_partner_4_9: retail rows verbatim; list columns widened to the longest row"
       ]
+    },
+    {
+      "path": "share/mentorship/MentorConfig.tsv",
+      "rows": 10,
+      "columns": 2,
+      "contentSha256": "0074006e291571c35a366e2971822d994a48f4bd872ea8d7d9ac3b8cb4de46ee",
+      "naturalKey": "Key",
+      "filter": "selected authored rows",
+      "source": [
+        "Upstream archive 989e02aeafa3ff9390409e78b72a277ad21ee636: Resources/table/share/mentorship/MentorConfig.tsv (sha256:72117056ee9cd0eaad0b049d7bcdc06a8ec43591a9a771934a32dcc00db60044)"
+      ],
+      "transformation": "Project the ten config keys read by the solo guidance implementation."
+    },
+    {
+      "path": "share/mentorship/MentorSystemTask.tsv",
+      "rows": 15,
+      "columns": 3,
+      "contentSha256": "bd2adcdd64c2867dd9912761775c99fa28bdd2667d1dc2cc5ce567a0e46bef83",
+      "naturalKey": "Id",
+      "filter": "all rows",
+      "source": [
+        "Upstream archive 989e02aeafa3ff9390409e78b72a277ad21ee636: Resources/table/share/mentorship/MentorSystemTask.tsv (sha256:bd2adcdd64c2867dd9912761775c99fa28bdd2667d1dc2cc5ce567a0e46bef83)"
+      ],
+      "transformation": "Restore the authored table from upstream history."
+    },
+    {
+      "path": "share/mentorship/StudentWeeklyReward.tsv",
+      "rows": 12,
+      "columns": 4,
+      "contentSha256": "fbed040c2d86322306a032addc05edf532250cec734977b628865be725904d5c",
+      "naturalKey": "Id",
+      "filter": "all rows",
+      "source": [
+        "Upstream archive 989e02aeafa3ff9390409e78b72a277ad21ee636: Resources/table/share/mentorship/StudentWeeklyReward.tsv (sha256:fbed040c2d86322306a032addc05edf532250cec734977b628865be725904d5c)"
+      ],
+      "transformation": "Restore the authored table from upstream history."
     }
   ],
   "validationNotes": [

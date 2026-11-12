@@ -162,6 +162,10 @@ namespace AscNet.Common.Database
         [BsonElement("boss_level_type")]
         public int BossLevelType { get; set; }
 
+        [BsonElement("boss_best_total_by_grade")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<int, int> BossBestTotalByGrade { get; set; } = new();
+
         [BsonElement("boss_list_options")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<int, List<int>> BossListOptions { get; set; } = new();

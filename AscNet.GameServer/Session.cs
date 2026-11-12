@@ -31,6 +31,8 @@ namespace AscNet.GameServer
         public Inventory inventory = default!;
         public int? PendingEnterWorldChatRequestId;
         public int? PendingGetWorldChannelInfoRequestId;
+        internal const int DefaultWorldChatChannelId = 1;
+        internal int WorldChatChannelId { get; set; } = DefaultWorldChatChannelId;
         // BigWorld: set by DlcWorldSaveData in online engine mode, drained by LoadCompleteRequest.
         public bool PendingBigWorldLoadCompleteXRpc;
         public bool PendingBigWorldStartFightNotify;
@@ -56,6 +58,7 @@ namespace AscNet.GameServer
         private readonly object outboundLock = new();
         private readonly PacketWriter writer;
         private static readonly ConcurrentDictionary<long, object> PlayerOperationLocks = new();
+        internal int? MentorIdentity { get; set; }
         public Task Completion { get; private set; } = Task.CompletedTask;
         private static long BigWorldPacketDumpOrdinal;
         private static readonly string BigWorldPacketDumpRootDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".runtime"));
@@ -152,6 +155,8 @@ namespace AscNet.GameServer
                 {
                     if (request.Name is not ("LoginRequest" or "HandshakeRequest"))
                     {
+                        if (inventory is not null)
+                            this.RecoverPendingCommandantLevel();
                         if (player.MineSweeping?.Pending is not null && !Handlers.MineSweepingModule.RecoverPending(this))
                         {
                             string responseName = request.Name.EndsWith("Request", StringComparison.Ordinal)
@@ -180,6 +185,7 @@ namespace AscNet.GameServer
                     requestPacketHandler.Invoke(this, request);
                     if (Volatile.Read(ref disconnectState) == 0)
                     {
+                        Handlers.MentorModule.Refresh(this);
                         Handlers.TaskModule.SendSnapshotTaskSync(this);
                         ReconcileArchiveAfterRequest();
                     }

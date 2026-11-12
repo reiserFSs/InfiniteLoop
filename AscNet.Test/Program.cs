@@ -96,6 +96,11 @@ namespace AscNet.Test
                     ValidateMaintainerActionCompatibility();
                     return;
                 }
+                if (args.Contains("--mentor-guidance-only"))
+                {
+                    ValidateMentorGuidance();
+                    return;
+                }
                 if (args.Contains("--sky-tower-only"))
                 {
                     ValidateSkyTowerCompatibility();
@@ -1434,6 +1439,7 @@ namespace AscNet.Test
                 Step("ValidateTrpgMazeCompatibility", () => ValidateTrpgMazeCompatibility());
                 Step("ValidateTrpgShopBossCompatibility", () => ValidateTrpgShopBossCompatibility());
                 Step("ValidateMaintainerActionCompatibility", () => ValidateMaintainerActionCompatibility());
+                Step("ValidateMentorGuidance", () => ValidateMentorGuidance());
                 Step("ValidateSkyTowerCompatibility", () => ValidateSkyTowerCompatibility());
                 Step("ValidateUltimaAwakenCompatibility", () => ValidateUltimaAwakenCompatibility());
                 Step("ValidateLoadingOptionCompatibility", () => ValidateLoadingOptionCompatibility());
