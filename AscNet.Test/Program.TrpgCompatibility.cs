@@ -92,10 +92,11 @@ internal partial class Program
         }
         Fight(10_130_200, out Dictionary<string, List<JObject>> pushes1);
         JObject sync = pushes1["NotifyTRPGSyncInfo"].Single();
-        AssertEqual("10000", Join(Longs(sync["TargetList"])), "first stage pushes its synced target");
+        // 91001 is the gain-investigator target (TRPGTarget Type 2, Params 1): Lee is unlocked by target 10000, so it finishes with it (AscNet rule).
+        AssertEqual("10000,91001", Join(Longs(sync["TargetList"])), "first stage pushes its synced target and the gain-investigator target");
         AssertEqual("10130200", Join(Longs(sync["StageList"])), "first stage pushes the passed chapter stage");
         login = Relogin(h);
-        AssertEqual("10000", Join(Longs(login["TargetList"])), "state 2 login target list");
+        AssertEqual("10000,91001", Join(Longs(login["TargetList"])), "state 2 login target list");
         AssertEqual("10130200", Join(Longs(login["StageList"])), "state 2 login stage list");
 
         // Re-clearing the same stage finishes nothing new.
@@ -111,7 +112,7 @@ internal partial class Program
         AssertEqual(20_104_061, Code(Call(h, "TRPGRewardRequest", new TRPGRewardRequest { Id = 10_000 }).Response), "reward claims once");
         AssertEqual(20_104_060, Code(Call(h, "TRPGRewardRequest", new TRPGRewardRequest { Id = 1 }).Response), "unknown reward rejected");
         login = Relogin(h);
-        AssertEqual("10000,11007", Join(Longs(login["TargetList"])), "state 3 login target list");
+        AssertEqual("10000,11007,91001", Join(Longs(login["TargetList"])), "state 3 login target list");
         AssertEqual("10130200,10130203", Join(Longs(login["StageList"])), "state 3 login stage list");
         AssertEqual("10000", Join(Longs(login["RewardList"])), "claimed reward persists");
 
@@ -124,7 +125,7 @@ internal partial class Program
         AssertEqual(20_104_007, Code(Call(h, "TRPGFunctionFinishRequest", new TRPGFunctionFinishRequest { FunctionId = 1 }).Response), "unknown function rejected");
         login = Relogin(h);
         AssertEqual("110011", Join(Longs(login["FuncList"])), "finished function persists");
-        AssertEqual("10000,11001,11007", Join(Longs(login["TargetList"])), "function target persists");
+        AssertEqual("10000,11001,11007,91001", Join(Longs(login["TargetList"])), "function target persists");
 
         // Memory story: needs 10 of item 61601 (the account holds 4), then spends them once.
         AssertEqual(20_104_059, Code(Call(h, "TRPGOpenMemoirRequest", new TRPGOpenMemoirRequest { Id = 1 }).Response), "memoir needs its unlock items");

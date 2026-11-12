@@ -31,6 +31,27 @@ TABLES = {
     "TRPGMemoirStory": ["Id", "UnlockItemId", "UnlockItemCount"],
     "TRPGSyncStage": ["Id", "SyncTargetIds[]"],
     "secondmain/TRPGSecondMainStage": ["Id", "StageType", "StageId", "TRPGRewardId", "Condition[]"],
+    "TRPGSyncTarget": ["Id", "SyncStageIds[]"],
+    "TRPGRole": ["Id", "UnlockTarget", "InitAttribute[]", "TalentGroupId"],
+    "TRPGRoleTalent": ["Id", "ResetTalentItemId", "ResetTalentItemCount"],
+    "TRPGRoleTalentGroup": ["GroupId", "Id", "PreId", "CostPoint", "EventId"],
+    "TRPGLevel": ["Id", "UpExp", "TalentPoint"],
+    "TRPGItem": ["Id", "ItemType", "Capacity", "EffectType", "Params[]"],
+    "TRPGBuff": ["Id", "EffectType", "Type", "Params[]"],
+    "examine/TRPGExamine": ["Id", "Endurance", "ActionId[]", "PunishId[]", "PunishWeight[]"],
+    "examine/TRPGExamineAction": ["Id", "Type", "Round", "ItemId", "NeedValue", "ResetCostId", "ResetCostCount"],
+    "examine/TRPGExaminePunish": ["Id", "Type", "Params[]"],
+    "TRPGShop": ["Id", "OpenCondition", "ShopItemId[]", "ShopItemCount[]", "Condition"],
+    "TRPGShopItem": ["Id", "ResetType", "Condition", "RewardId", "ConsumeId", "ConsumeCount"],
+    "boss/TRPGBoss": ["Id", "TimeId", "StageId", "ChallengeCount"],
+    "boss/TRPGBossPhasesReward": ["Id", "Percent", "RewardId"],
+    "TRPGMaze": ["Id", "StartLayerId", "LayerId[]"],
+    "TRPGMazeLayer": ["Id", "StartNodeId", "StartCardIndex", "MapId"],
+    "TRPGMazeCard": ["Id", "Disposeable", "SingleDisposeable", "RecordGroupId", "Type", "Param[]", "ConvertCardId"],
+    "TRPGMazeMap": ["GroupId", "Id", "CardId[]"],
+    "TRPGSecondArea": ["Id", "Type", "MazeId", "Condition"],
+    "TRPGThirdArea": ["Id", "FuncGroup[]", "Condition"],
+    "TRPGFunctionGroup": ["Id", "FunctionId[]", "Condition"],
 }
 
 
@@ -42,7 +63,18 @@ def decoder():
     return module.ExactTable
 
 
+# One TSV built from several source tables: name -> (directory, stems); each row gains a GroupId column (the stem).
+MERGED = {
+    "TRPGRoleTalentGroup": ("roletalentgroup", ["1", "2", "3", "4"]),
+    # One map per maze layer (file stem = TRPGMazeLayer.MapId); Id is the node id inside the map.
+    "TRPGMazeMap": ("mazemap", sorted(p.stem for p in (SOURCE / "share/trpg/mazemap").glob("*.tab"))),
+}
+
+
 def decode(exact, name):
+    if name in MERGED:
+        directory, stems = MERGED[name]
+        return [dict(row, GroupId=int(stem)) for stem in stems for row in decode(exact, f"{directory}/{stem}")]
     raw = (SOURCE / "share/trpg" / f"{name}.tab").read_bytes()
     table = exact(name.rsplit("/", 1)[-1] + ".tab", raw)
     return [table.decode_row(i) for i in range(table.row_count)]
@@ -88,10 +120,10 @@ if __name__ == "__main__":
             "columns": len(header),
             "contentSha256": hashlib.sha256(text.encode()).hexdigest(),
             "filter": "structural columns only",
-            "naturalKey": "Id",
+            "naturalKey": "GroupId,Id" if name in MERGED else "Id",
             "path": path,
             "rows": len(rows),
-            "source": [f"share/trpg/{name}.tab"],
+            "source": [f"share/trpg/{MERGED[name][0]}/{stem}.tab" for stem in MERGED[name][1]] if name in MERGED else [f"share/trpg/{name}.tab"],
         }
         # Keep the manifest order: replace in place, else insert after the first existing TRPG entry.
         index = next((i for i, old in enumerate(tables) if old["path"] == path), None)

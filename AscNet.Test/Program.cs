@@ -328,6 +328,21 @@ namespace AscNet.Test
                     ValidateTrpgCompatibility();
                     return;
                 }
+                if (args.Contains("--trpg-core-only"))
+                {
+                    ValidateTrpgCoreCompatibility();
+                    return;
+                }
+                if (args.Contains("--trpg-maze-only"))
+                {
+                    ValidateTrpgMazeCompatibility();
+                    return;
+                }
+                if (args.Contains("--trpg-shop-boss-only"))
+                {
+                    ValidateTrpgShopBossCompatibility();
+                    return;
+                }
                 if (args.Contains("--trial-compat-only"))
                 {
                     ValidateTrialCompatibility();
@@ -1410,6 +1425,9 @@ namespace AscNet.Test
                 Step("ValidateCerberusGameCompatibility", () => ValidateCerberusGameCompatibility());
                 Step("ValidateProfileCompatibility", () => ValidateProfileCompatibility());
                 Step("ValidateTrpgCompatibility", () => ValidateTrpgCompatibility());
+                Step("ValidateTrpgCoreCompatibility", () => ValidateTrpgCoreCompatibility());
+                Step("ValidateTrpgMazeCompatibility", () => ValidateTrpgMazeCompatibility());
+                Step("ValidateTrpgShopBossCompatibility", () => ValidateTrpgShopBossCompatibility());
                 Step("ValidateMaintainerActionCompatibility", () => ValidateMaintainerActionCompatibility());
                 Step("ValidateSkyTowerCompatibility", () => ValidateSkyTowerCompatibility());
                 Step("ValidateUltimaAwakenCompatibility", () => ValidateUltimaAwakenCompatibility());

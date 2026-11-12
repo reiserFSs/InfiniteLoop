@@ -221,6 +221,7 @@ public static class ActivityScheduleService
 
     private static readonly (int TimeId, string Source)[] MissingCalendar49 =
     [
+        (77, "TRPGBoss.TimeId"),
         (730, "TransfiniteActivity.TimeId"),
         (731, "TransfiniteActivity.TimeId"),
         (1282, "MailCollectionBoxActivity.TimeId"),

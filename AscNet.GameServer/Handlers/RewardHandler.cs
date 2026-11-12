@@ -111,6 +111,9 @@ namespace AscNet.GameServer.Handlers
                 session.SendPush(new NotifyAddBackground { BackgroundId = backgroundId });
             foreach (var chatBoard in ChatBoards)
                 session.SendPush(new NotifyChatBoardInfo { ChatBoard = chatBoard });
+            // TRPG exploration exp is the cumulative count of item 61002: level/exp changes reach the client as NotifyTRPGBaseInfo.
+            if (ItemData.ItemDataList.Any(item => item.Id == TrpgExplore.ExpItemId))
+                session.SendPush(TrpgExplore.BaseInfoPush(session));
             if (manualChanged || ItemData.ItemDataList.Any(item => item.Id == Inventory.TeamExp))
                 session.SendPush(WheelchairManualModule.BuildPayload(session, DateTimeOffset.UtcNow));
             else if (ManualGuideChanged)

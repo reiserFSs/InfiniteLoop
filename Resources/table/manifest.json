@@ -5281,6 +5281,284 @@
       ]
     },
     {
+      "columns": 4,
+      "contentSha256": "77c51be56e897eafd62a44c05cd7b1f3df206fb4f7c1e3dc973b5e38f0efb865",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGFunctionGroup.tsv",
+      "rows": 23,
+      "source": [
+        "share/trpg/TRPGFunctionGroup.tab"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "e463461a4324213e6b5edcf8f4627f428489d74b1f4ce82673ab4d252689f0bc",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGThirdArea.tsv",
+      "rows": 11,
+      "source": [
+        "share/trpg/TRPGThirdArea.tab"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "8a6a7111015897840f82bec3234cdaf4de2eafe60b0ec7ceb4271431204bd54f",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGSecondArea.tsv",
+      "rows": 19,
+      "source": [
+        "share/trpg/TRPGSecondArea.tab"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "406fcfa3be30af6bc8540aad51b649aa0b19c850025d48eda63a021a4f48e3cc",
+      "filter": "structural columns only",
+      "naturalKey": "GroupId,Id",
+      "path": "share/trpg/TRPGMazeMap.tsv",
+      "rows": 1096,
+      "source": [
+        "share/trpg/mazemap/1001.tab",
+        "share/trpg/mazemap/1021.tab",
+        "share/trpg/mazemap/1022.tab",
+        "share/trpg/mazemap/1023.tab",
+        "share/trpg/mazemap/1031.tab",
+        "share/trpg/mazemap/1032.tab",
+        "share/trpg/mazemap/1033.tab",
+        "share/trpg/mazemap/1041.tab",
+        "share/trpg/mazemap/1042.tab",
+        "share/trpg/mazemap/1043.tab",
+        "share/trpg/mazemap/1044.tab",
+        "share/trpg/mazemap/1051.tab",
+        "share/trpg/mazemap/1052.tab",
+        "share/trpg/mazemap/1053.tab",
+        "share/trpg/mazemap/2021.tab",
+        "share/trpg/mazemap/2022.tab",
+        "share/trpg/mazemap/2031.tab",
+        "share/trpg/mazemap/2032.tab",
+        "share/trpg/mazemap/2033.tab",
+        "share/trpg/mazemap/2041.tab",
+        "share/trpg/mazemap/2042.tab",
+        "share/trpg/mazemap/2043.tab",
+        "share/trpg/mazemap/3021.tab",
+        "share/trpg/mazemap/3022.tab",
+        "share/trpg/mazemap/3023.tab",
+        "share/trpg/mazemap/3024.tab",
+        "share/trpg/mazemap/3031.tab",
+        "share/trpg/mazemap/3032.tab",
+        "share/trpg/mazemap/3033.tab",
+        "share/trpg/mazemap/3034.tab",
+        "share/trpg/mazemap/3041.tab",
+        "share/trpg/mazemap/3042.tab",
+        "share/trpg/mazemap/3043.tab",
+        "share/trpg/mazemap/3051.tab",
+        "share/trpg/mazemap/3052.tab",
+        "share/trpg/mazemap/3053.tab",
+        "share/trpg/mazemap/4021.tab",
+        "share/trpg/mazemap/4022.tab",
+        "share/trpg/mazemap/4023.tab",
+        "share/trpg/mazemap/4024.tab",
+        "share/trpg/mazemap/4031.tab",
+        "share/trpg/mazemap/4032.tab",
+        "share/trpg/mazemap/4041.tab",
+        "share/trpg/mazemap/4042.tab",
+        "share/trpg/mazemap/4043.tab"
+      ]
+    },
+    {
+      "columns": 12,
+      "contentSha256": "4f8d78abef876c0a1fbe8089d9a13db49f361dfca7b26502b8c569abf53cea67",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGMazeCard.tsv",
+      "rows": 1430,
+      "source": [
+        "share/trpg/TRPGMazeCard.tab"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "baed642616e652a0a7ffc04748fe869a49fe7cfb4752ecb24aef364f54c63188",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGMazeLayer.tsv",
+      "rows": 45,
+      "source": [
+        "share/trpg/TRPGMazeLayer.tab"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "d17bcff168d3e3f9aea7d88b57435005428b2b4658a217175b7bb39ad62206b0",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGMaze.tsv",
+      "rows": 15,
+      "source": [
+        "share/trpg/TRPGMaze.tab"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "6263d2c5a8681f0482a0042e2d90b62c9ff0bbc372940e7031440727a9a71205",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/boss/TRPGBossPhasesReward.tsv",
+      "rows": 5,
+      "source": [
+        "share/trpg/boss/TRPGBossPhasesReward.tab"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "bf3f31a801cca1cd8d6b0b4f309a11d959d5f9e4369ebcb16cbf5bd63700080f",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/boss/TRPGBoss.tsv",
+      "rows": 1,
+      "source": [
+        "share/trpg/boss/TRPGBoss.tab"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "1a6bc8e1e78ef97cad6e6ab7eeb6cf7346ae8ee2965338d85813ce56551ed969",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGShopItem.tsv",
+      "rows": 23,
+      "source": [
+        "share/trpg/TRPGShopItem.tab"
+      ]
+    },
+    {
+      "columns": 25,
+      "contentSha256": "9ed4d2e9b7357aed3692da630eccd19f85fe3eb9e6f170a65df80ca5e9dfd7d5",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGShop.tsv",
+      "rows": 4,
+      "source": [
+        "share/trpg/TRPGShop.tab"
+      ]
+    },
+    {
+      "columns": 4,
+      "contentSha256": "2d08455b6f0fe8c243170860eee596e8c78d71bbe3b8de56d1538b8e2a873a99",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/examine/TRPGExaminePunish.tsv",
+      "rows": 221,
+      "source": [
+        "share/trpg/examine/TRPGExaminePunish.tab"
+      ]
+    },
+    {
+      "columns": 7,
+      "contentSha256": "769502e9a14256d90bdd7cec41da0b8c9f6a25b411778b6c5efd84585e5a5d19",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/examine/TRPGExamineAction.tsv",
+      "rows": 337,
+      "source": [
+        "share/trpg/examine/TRPGExamineAction.tab"
+      ]
+    },
+    {
+      "columns": 15,
+      "contentSha256": "ccc3787f3420238cf435087b99d73c74383f5c5096eb31c7f8e1acc395507f83",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/examine/TRPGExamine.tsv",
+      "rows": 251,
+      "source": [
+        "share/trpg/examine/TRPGExamine.tab"
+      ]
+    },
+    {
+      "columns": 9,
+      "contentSha256": "fd48f953f871b85041daf34a13c759d2ddd20ca614c6d92f9d23352e91d64a8c",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGBuff.tsv",
+      "rows": 53,
+      "source": [
+        "share/trpg/TRPGBuff.tab"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "eb37e7a8253901535535e4b7fe456aed0247e1d3571e3d804075e4e04e0b39bb",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGItem.tsv",
+      "rows": 78,
+      "source": [
+        "share/trpg/TRPGItem.tab"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "436c6bd0fe2528dc22d0c9bf176dc33873f6b7be709078e7e0387edae39d482c",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGLevel.tsv",
+      "rows": 17,
+      "source": [
+        "share/trpg/TRPGLevel.tab"
+      ]
+    },
+    {
+      "columns": 5,
+      "contentSha256": "caa83a37a4e468b3525d347ce91ccdcec3039914533a97cb31a1d17de061cbda",
+      "filter": "structural columns only",
+      "naturalKey": "GroupId,Id",
+      "path": "share/trpg/TRPGRoleTalentGroup.tsv",
+      "rows": 40,
+      "source": [
+        "share/trpg/roletalentgroup/1.tab",
+        "share/trpg/roletalentgroup/2.tab",
+        "share/trpg/roletalentgroup/3.tab",
+        "share/trpg/roletalentgroup/4.tab"
+      ]
+    },
+    {
+      "columns": 3,
+      "contentSha256": "dcbba31b4a9d22b752312440e34ae6098c30ae77151dbdac10c20c8999981820",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGRoleTalent.tsv",
+      "rows": 1,
+      "source": [
+        "share/trpg/TRPGRoleTalent.tab"
+      ]
+    },
+    {
+      "columns": 6,
+      "contentSha256": "8de352e90443cebead1ca2298c61da3d740838f69dc065391dacd616ae779a35",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGRole.tsv",
+      "rows": 4,
+      "source": [
+        "share/trpg/TRPGRole.tab"
+      ]
+    },
+    {
+      "columns": 22,
+      "contentSha256": "0a2bca307fd03648a89778d7c0d9a600b50141d662c83b853eae4e5e761a20be",
+      "filter": "structural columns only",
+      "naturalKey": "Id",
+      "path": "share/trpg/TRPGSyncTarget.tsv",
+      "rows": 4,
+      "source": [
+        "share/trpg/TRPGSyncTarget.tab"
+      ]
+    },
+    {
       "columns": 5,
       "contentSha256": "5b1df8a490f0456f0ff8c1b3c1a79fe04b3be2136c6b6cdab738cca4d4ad8e72",
       "filter": "structural columns only",

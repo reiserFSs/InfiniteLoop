@@ -243,6 +243,7 @@ Retail 4.9 zeroed the TimeId of ended seasons. The server mirrors the client cal
 - Passport season 48 (51912, `ActivityScheduleService.PassportSeasonEntries`): AscNet policy `local-policy:missing-calendar:season-after-previous:...:user-approved` (not retail parity; no 4.9 calendar exists): it starts when season 47 (50922) ends, 2026-11-04 23:00 UTC, with an open end. The weekly task-group TimeIds 51913–51919 are not schedule entries; `ActivityScheduleService.PassportRoundWindows` derives them from the season window and both the client `TimeLimitCtrl` push and the server (`PassportModule.CurrentRound`: task exposure, claims, claim keys) use it: week 1 = season start to the first weekly task reset, week N opens N-2 weeks after that reset (aligned to the reset because it clears the per-week Passport claims/counters), the last week runs to the season end. Test: `--passport-weekly-only`.
 - NewActivityCalendar 51101, 51102, 51201, 51202, 51203, 51205, 51301, 51942. BossActivity 51201. ExperimentLevel 51202, 51203, 51206, 51207. TaskTimeLimit 14103, 51204, 51502, 51903 (51011 stays closed, see below). MainLine2Chapter 51701. Lotto/LottoPrimary 51401.
 - TransfiniteActivity 730, 731. MailCollectionBoxActivity 1282–1291.
+- TRPGBoss 77 (Fake Ascension world boss window; `TRPGBoss.TimeId`).
 - Not opened: `ActivityBtn` ids and `DrawAimProbability.NewTimeId` 51931 (it only orders the new weapon option first; older rows carry old-version ids that would all turn "new").
 
 #### Battle Screen and Events page (derived, not listed)

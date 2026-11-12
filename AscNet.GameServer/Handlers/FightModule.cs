@@ -535,6 +535,12 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(new PreFightResponse { Code = explorePreFightCode }, packet.Id);
                 return;
             }
+            int trpgBossPreFightCode = TRPGModule.ValidateBossPreFight(session, req.PreFightData.StageId);
+            if (trpgBossPreFightCode != 0)
+            {
+                session.SendResponse(new PreFightResponse { Code = trpgBossPreFightCode }, packet.Id);
+                return;
+            }
             StrongholdModule.Reconcile(session);
             if (StrongholdModule.TryAuthorizePreFight(session.player, req.PreFightData.StageId, out int strongholdCode))
             {
@@ -2883,6 +2889,12 @@ namespace AscNet.GameServer.Handlers
                 session.SendResponse(assignResponse, packet.Id);
                 return;
             }
+            int trpgBossSettleCode = TRPGModule.ValidateBossSettle(session, req.Result);
+            if (trpgBossSettleCode != 0)
+            {
+                session.SendResponse(new FightSettleResponse { Code = trpgBossSettleCode }, packet.Id);
+                return;
+            }
             if (!req.Result.IsForceExit
                 && BossModule.TryBuildFightSettle(session, req.Result, out BossSingleFightResult? bossSingleResult))
             {
@@ -3110,7 +3122,11 @@ namespace AscNet.GameServer.Handlers
                 && TrialModule.RecordStageClear(session.player, (int)req.Result.StageId);
             BfrtModule.Settle(session, req.Result.StageId, req.Result.IsWin);
             if (isSuccessfulSettle)
+            {
                 TRPGModule.OnStageCleared(session, req.Result.StageId);
+                TrpgMaze.OnStageWon(session, checked((int)req.Result.StageId));
+            }
+            TRPGBossFightResult? trpgBossResult = TRPGModule.RecordBossSettle(session, req.Result);
             if (MainLineChapterIdsByStageId.Value.TryGetValue(responseStageId, out int mainLineChapterId))
             {
                 session.player.FubenMainLineData ??= new();
@@ -3226,6 +3242,7 @@ namespace AscNet.GameServer.Handlers
                         session.fight?.PreFight.PreFightData,
                         req.Result),
                     ReformFightResult = ReformModule.RecordWin(session, req.Result),
+                    TRPGBossFightResult = trpgBossResult,
                 }
             };
 
