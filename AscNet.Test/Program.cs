@@ -19486,6 +19486,7 @@ namespace AscNet.Test
 
             AssertEqual(0, responseRoundTrip.Code, "RecordPlayerPointResponse Code");
             ValidateRequestHandlerRegistration("RecordPlayerPointRequest");
+            ValidatePlayerPointPersistence();
         }
 
         private static void ValidatePlayerGenderCompatibility()
