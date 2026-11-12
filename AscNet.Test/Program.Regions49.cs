@@ -88,9 +88,7 @@ internal partial class Program
                     foreach (JObject entry in JObject.Parse(File.ReadAllText(Path.Combine(regionRoot, $"{name}.json"))).Value<JArray>("Content")!.Cast<JObject>())
                         if (entry.Value<string>("JumpType") == "2" && !skipIds.Contains(entry.Value<string>("JumpAddr")!))
                             throw new InvalidDataException($"{region} 4.9 {name} jumps to unknown SkipId {entry.Value<string>("JumpAddr")}.");
-                string loginHtml = JObject.Parse(File.ReadAllText(Path.Combine(regionRoot, "LoginNotice.json"))).Value<string>("HtmlUrl")!;
-                using HttpResponseMessage html = await client.GetAsync("/prod/" + loginHtml);
-                AssertEqual(HttpStatusCode.OK, html.StatusCode, $"{region} 4.9 LoginNotice html resolves");
+                await AssertNoticeHtmlSynced(client, regionRoot, $"{region} 4.9");
             }
         }
         finally

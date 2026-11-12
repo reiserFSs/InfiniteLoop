@@ -43,10 +43,8 @@ internal partial class Program
                 AssertEqual(File.ReadAllText(Path.Combine(root, $"{name}.json")), body, $"4.9 {name} served from the 4.9.0 set");
             }
             JArray games = JArray.Parse(await client.GetStringAsync($"{prefix}GameNotice.json"));
-            AssertEqual(21, games.Count, "4.9 GameNotice count");
-            string loginHtml = JObject.Parse(await client.GetStringAsync($"{prefix}LoginNotice.json")).Value<string>("HtmlUrl")!;
-            using HttpResponseMessage html = await client.GetAsync("/prod/" + loginHtml);
-            AssertEqual(HttpStatusCode.OK, html.StatusCode, "4.9 LoginNotice html resolves");
+            AssertEqual(15, games.Count, "4.9 GameNotice count");
+            await AssertNoticeHtmlSynced(client, root, "4.9");
             foreach (JObject entry in content.Cast<JObject>())
             {
                 using HttpResponseMessage pic = await client.GetAsync("/prod/" + entry.Value<string>("PicAddr")!.Replace("client/notice/pic/", "client/notice/pic/"));
@@ -58,6 +56,25 @@ internal partial class Program
         finally
         {
             await app.StopAsync();
+        }
+    }
+
+    // Every page LoginNotice/GameNotice links is Kuro's own HTML, served byte-exact; a missing file would otherwise
+    // hide behind the synthesized title-only fallback page (still HTTP 200).
+    private static async Task AssertNoticeHtmlSynced(HttpClient client, string setRoot, string label)
+    {
+        List<string> urls = [JObject.Parse(File.ReadAllText(Path.Combine(setRoot, "LoginNotice.json"))).Value<string>("HtmlUrl")!];
+        foreach (JObject notice in JArray.Parse(File.ReadAllText(Path.Combine(setRoot, "GameNotice.json"))).Cast<JObject>())
+            foreach (JObject page in notice.Value<JArray>("Content")!.Cast<JObject>())
+                urls.Add(RequiredNonEmptyString(page, "Url", $"{label} GameNotice content"));
+        foreach (string url in urls)
+        {
+            string path = Path.Combine(setRoot, url);
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"{label} notice html missing: {url}");
+            byte[] served = await client.GetByteArrayAsync("/prod/" + url);
+            if (!served.AsSpan().SequenceEqual(File.ReadAllBytes(path)))
+                throw new InvalidDataException($"{label} notice html {url} not served from the synced set.");
         }
     }
 }
