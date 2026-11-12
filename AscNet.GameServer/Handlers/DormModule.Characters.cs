@@ -72,15 +72,24 @@ internal partial class DormModule
             session.SendResponse(new DormDoFondleResponse { Code = DormRequestDataInvalid }, packet.Id);
             return;
         }
-        if (character.LeftFondleCount == row.MaxCount) character.LastFondleRecoveryTime = now;
-        character.LeftFondleCount--;
-        int lower = row.Lower[request.FondleType - 1];
-        int upper = row.Upper[request.FondleType - 1];
-        character.Mood = Math.Clamp(character.Mood + Random.Shared.Next(lower, checked(upper + 1)), 0, 10000);
+        SettleRecovery(session, now);
+        ApplyFondle(character, row, request.FondleType, now);
         session.player.Save();
+        session.DormTaskStateDirty = true;
         TaskModule.RecordTableDrivenProgress(session, [(29006, null, 1)]);
         session.SendPush(new NotifyCharacterMood { CharacterId = character.CharacterId, Mood = character.Mood / 100 });
         session.SendResponse(new DormDoFondleResponse(), packet.Id);
+    }
+
+    private static void ApplyFondle(PlayerDormCharacter character, DormCharacterFondleTable row, int type, uint now)
+    {
+        if (character.LeftFondleCount == row.MaxCount)
+            character.LastFondleRecoveryTime = now;
+        character.LeftFondleCount--;
+        int lower = row.Lower[type - 1];
+        int upper = row.Upper[type - 1];
+        character.Mood = Math.Clamp(character.Mood + Random.Shared.Next(lower, checked(upper + 1)), 0, 10000);
+        TrackResidentMood(character, now);
     }
 
     [RequestPacketHandler("DormCharacterOperateRequest")]
@@ -88,19 +97,20 @@ internal partial class DormModule
     {
         DormCharacterOperateRequest request = packet.Deserialize<DormCharacterOperateRequest>();
         PlayerDormCharacter? character = session.player.Dorm.Characters.FirstOrDefault(entry => entry.CharacterId == request.CharacterId);
-        if (character is null)
+        if (character is null || character.DormitoryId <= 0)
         {
             session.SendResponse(new DormCharacterOperateResponse { Code = InvalidCharacter }, packet.Id);
             return;
         }
-        DormCharacterEventTable? row = TableReaderV2.Parse<DormCharacterEventTable>()
-            .FirstOrDefault(entry => entry.EventId == request.EventId && entry.CharacterId == request.CharacterId);
-        if (row is null)
+        if (!EventTemplates.Value.TryGetValue(request.EventId, out DormCharacterEventTable? row)
+            || row.CharacterId != request.CharacterId)
         {
             session.SendResponse(new DormCharacterOperateResponse { Code = EventTemplateMissing }, packet.Id);
             return;
         }
-        PlayerDormEvent? dormEvent = character.EventList.FirstOrDefault(entry => entry.EventId == request.EventId);
+        uint now = Now();
+        PlayerDormEvent? dormEvent = character.EventList.FirstOrDefault(entry =>
+            entry.EventId == request.EventId && EventIsActive(entry, now));
         if (dormEvent is null)
         {
             session.SendResponse(new DormCharacterOperateResponse { Code = EventAbsent }, packet.Id);
@@ -111,32 +121,26 @@ internal partial class DormModule
             session.SendResponse(new DormCharacterOperateResponse { Code = DormRequestDataInvalid }, packet.Id);
             return;
         }
-        List<RewardGoodsTable> goods = DormEventReward(row.FinishReward);
-        if (goods.Count == 0)
+        if (PrepareEvent(character, dormEvent, row) is not { } completion)
         {
             session.SendResponse(new DormCharacterOperateResponse { Code = EventRewardTemplateMissing }, packet.Id);
             return;
         }
 
-        RewardApplicationResult rewards;
         try
         {
-            rewards = RewardHandler.ApplyRewardsOnceAndPersist(
-                [new RewardGrant($"dorm-event:{session.player.PlayerData.Id}:{character.CharacterId}:{dormEvent.EventId}:{dormEvent.EndTime}", goods)],
-                session);
-            character.EventList.Remove(dormEvent);
-            session.player.SaveChecked();
+            var (rewards, moodChange) = CompleteEvents(session, [completion], now);
+            rewards.SendPushes(session);
+            session.SendResponse(new DormCharacterOperateResponse
+            {
+                MoodValue = moodChange[character.CharacterId], RewardGoods = rewards.RewardGoods
+            }, packet.Id);
         }
-        catch
+        catch (Exception exception)
         {
-            if (!character.EventList.Contains(dormEvent))
-                character.EventList.Add(dormEvent);
+            session.log.Warn($"Could not complete dorm event {request.EventId}.", exception);
             session.SendResponse(new DormCharacterOperateResponse { Code = DormRequestDataInvalid }, packet.Id);
-            return;
         }
-
-        rewards.SendPushes(session);
-        session.SendResponse(new DormCharacterOperateResponse { MoodValue = 0, RewardGoods = rewards.RewardGoods }, packet.Id);
     }
 
     [RequestPacketHandler("DormWordDoneRequest")]
@@ -173,12 +177,18 @@ internal partial class DormModule
             }).ToList();
         List<PlayerDormWork> completed = work.Where(entry => entry.WorkEndTime > 0).ToList();
         Dictionary<PlayerDormWork, uint> previousEndTimes = completed.ToDictionary(entry => entry, entry => entry.WorkEndTime);
-        Dictionary<PlayerDormCharacter, int> previousMood = completed.ToDictionary(
+        var previousMood = completed.ToDictionary(
             entry => characters.First(character => character.CharacterId == entry.CharacterId),
-            entry => characters.First(character => character.CharacterId == entry.CharacterId).Mood);
+            entry =>
+            {
+                PlayerDormCharacter character = characters.First(character => character.CharacterId == entry.CharacterId);
+                return (character.Mood, character.HighMoodSince);
+            });
         foreach (PlayerDormWork entry in completed)
         {
-            characters.First(character => character.CharacterId == entry.CharacterId).Mood -= rows[entry.DormitoryNum].Mood;
+            PlayerDormCharacter character = characters.First(character => character.CharacterId == entry.CharacterId);
+            character.Mood -= rows[entry.DormitoryNum].Mood;
+            TrackResidentMood(character, now);
             entry.WorkEndTime = 0;
         }
         foreach (PlayerDormPendingReward entry in pending.Where(entry => !session.player.Dorm.PendingRewards.Contains(entry)))
@@ -189,12 +199,17 @@ internal partial class DormModule
             catch
             {
                 foreach ((PlayerDormWork entry, uint endTime) in previousEndTimes) entry.WorkEndTime = endTime;
-                foreach ((PlayerDormCharacter character, int mood) in previousMood) character.Mood = mood;
+                foreach (var (character, previous) in previousMood)
+                {
+                    character.Mood = previous.Mood;
+                    character.HighMoodSince = previous.HighMoodSince;
+                }
                 session.player.Dorm.PendingRewards.RemoveAll(entry => pending.Contains(entry));
                 session.SendResponse(new DormWordDoneResponse { Code = NotWorking }, packet.Id);
                 return;
             }
         }
+        session.DormTaskStateDirty = true;
         RewardApplicationResult grant;
         try
         {

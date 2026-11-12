@@ -16,7 +16,7 @@ namespace AscNet.GameServer.Handlers;
 [MessagePackObject(true)] public sealed class DormRenameResponse { public int Code { get; set; } }
 [MessagePackObject(true)] public sealed class DormFurnitureData { public int Id { get; set; } public uint ConfigId { get; set; } public int X { get; set; } public int Y { get; set; } public int Angle { get; set; } public int DormitoryId { get; set; } public int Addition { get; set; } public List<int> AttrList { get; set; } = []; public List<int> BaseAttrList { get; set; } = []; public bool IsLocked { get; set; } }
 [MessagePackObject(true)] public sealed class PutFurnitureData { public int Id { get; set; } public int X { get; set; } public int Y { get; set; } public int Angle { get; set; } }
-[MessagePackObject(true)] public sealed class PutFurnitureRequest { public int DormitoryId { get; set; } public List<PutFurnitureData> FurnitureList { get; set; } = []; }
+[MessagePackObject(true)] public sealed class PutFurnitureRequest { public int DormitoryId { get; set; } public List<PutFurnitureData>? FurnitureList { get; set; } }
 [MessagePackObject(true)] public sealed class PutFurnitureResponse { public int Code { get; set; } }
 [MessagePackObject(true)] public sealed class DormLayoutFurnitureData { public uint ConfigId { get; set; } public int X { get; set; } public int Y { get; set; } public int Angle { get; set; } }
 [MessagePackObject(true)] public sealed class DormSnapshotLayoutRequest { public List<DormLayoutFurnitureData> FurnitureList { get; set; } = []; }
@@ -39,24 +39,80 @@ namespace AscNet.GameServer.Handlers;
 
 internal partial class DormModule
 {
+    private static readonly Lazy<Dictionary<int, string>> DefaultRoomNames = new(() =>
+        TableReaderV2.Parse<DormitoryTable>().ToDictionary(row => row.Id, row => row.InitName ?? string.Empty));
+    private static readonly Lazy<Dictionary<int, string>> ChineseRoomNames = new(() =>
+        TableReaderV2.Parse<DormitoryTable>("cn").ToDictionary(row => row.Id, row => row.InitName ?? string.Empty));
+
+    private static string RoomName(PlayerDormRoom room, string? region)
+    {
+        string defaultName = DefaultRoomNames.Value.GetValueOrDefault((int)room.Id, string.Empty);
+        if (room.CustomName || (!string.IsNullOrWhiteSpace(room.Name) && room.Name != defaultName))
+            return room.Name;
+        return region == "cn" ? ChineseRoomNames.Value.GetValueOrDefault((int)room.Id, defaultName) : defaultName;
+    }
+
+    private static NotifyDormitoryData.NotifyDormitoryDataDormitory RoomData(PlayerDormRoom room, string? region) =>
+        new() { DormitoryId = room.Id, DormitoryName = RoomName(room, region) };
+
     [RequestPacketHandler("ActiveDormItemRequest")]
     public static void ActiveDormItemRequestHandler(Session session, Packet.Request packet)
     {
         ActiveDormItemRequest request = packet.Deserialize<ActiveDormItemRequest>();
-        DormitoryTable? room = TableReaderV2.Parse<DormitoryTable>().FirstOrDefault(x => x.Id == request.DormitoryId);
-        if (room is null || session.player.Dorm.Rooms.Any(x => x.Id == request.DormitoryId)) { session.SendResponse(new ActiveDormItemResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
+        PlayerDormState dorm = session.player.Dorm;
+        DormitoryTable? room = TableReaderV2.Parse<DormitoryTable>(session.player.ClientRegion).FirstOrDefault(x => x.Id == request.DormitoryId);
+        if (room is null)
+        {
+            session.SendResponse(new ActiveDormItemResponse { Code = 20060002 }, packet.Id);
+            return;
+        }
+        if (dorm.Rooms.Any(saved => saved.Id == request.DormitoryId))
+        {
+            session.SendResponse(new ActiveDormItemResponse { Code = 20060001 }, packet.Id);
+            return;
+        }
         int itemId = room.ConsumeItemId ?? 0, count = room.ConsumeItemCount ?? 0;
-        Item? item = itemId > 0 && count > 0 ? session.inventory.Items.FirstOrDefault(x => x.Id == itemId) : null;
-        if (itemId > 0 && count > 0 && (item is null || item.Count < count)) { session.SendResponse(new ActiveDormItemResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
-        if (item is not null) session.inventory.Do(itemId, -count);
-        PlayerDormRoom saved = new() { Id = (uint)room.Id, Name = room.InitName ?? string.Empty };
-        List<PlayerDormFurniture> furniture = InitialFurniture(room, session.player.Dorm);
-        session.player.Dorm.Rooms.Add(saved); session.player.Dorm.Furniture.AddRange(furniture);
-        foreach (uint id in furniture.Select(x => x.ConfigId).Distinct()) if (!session.player.Dorm.FurnitureUnlocks.Contains(id)) session.player.Dorm.FurnitureUnlocks.Add(id);
-        if (item is not null) session.inventory.Save();
-        session.player.Save();
-        if (item is not null) session.SendPush(new NotifyItemDataList { ItemDataList = [session.inventory.Items.First(x => x.Id == itemId)] });
-        session.SendResponse(new ActiveDormItemResponse { DormitoryId = room.Id, DormitoryName = saved.Name, FurnitureList = furniture.Select(RoomFurniture).ToList() }, packet.Id);
+        string claimKey = $"dorm-room:{room.Id}";
+        bool hasCost = itemId > 0 && count > 0;
+        if (hasCost && !session.inventory.AppliedRewardClaims.Contains(claimKey) && session.inventory.SpendableCount(itemId) < count)
+        {
+            session.SendResponse(new ActiveDormItemResponse { Code = 20060003 }, packet.Id);
+            return;
+        }
+
+        PlayerDormRoom saved = new()
+        {
+            Id = (uint)room.Id,
+            Name = DefaultRoomNames.Value.GetValueOrDefault(room.Id, room.InitName ?? string.Empty)
+        };
+        List<PlayerDormFurniture> furniture = [];
+        int previousFurnitureId = dorm.NextFurnitureId;
+        List<uint> previousUnlocks = [.. dorm.FurnitureUnlocks];
+        RewardApplicationResult? payment;
+        try
+        {
+            furniture = InitialFurniture(room, dorm);
+            payment = hasCost ? RewardHandler.ApplyRewardsOnceAndPersist(
+                [new RewardGrant(claimKey, [], new Dictionary<int, int> { [itemId] = count })], session) : null;
+            dorm.Rooms.Add(saved);
+            dorm.Furniture.AddRange(furniture);
+            Unlock(dorm, furniture);
+            session.player.SaveChecked();
+        }
+        catch (Exception exception)
+        {
+            dorm.Rooms.Remove(saved);
+            foreach (PlayerDormFurniture item in furniture)
+                dorm.Furniture.Remove(item);
+            dorm.NextFurnitureId = previousFurnitureId;
+            dorm.FurnitureUnlocks = previousUnlocks;
+            session.log.Warn($"Could not activate dorm room {room.Id}.", exception);
+            session.SendResponse(new ActiveDormItemResponse { Code = 1 }, packet.Id);
+            return;
+        }
+        session.DormTaskStateDirty = true;
+        payment?.SendPushes(session);
+        session.SendResponse(new ActiveDormItemResponse { DormitoryId = room.Id, DormitoryName = RoomName(saved, session.player.ClientRegion), FurnitureList = furniture.Select(RoomFurniture).ToList() }, packet.Id);
     }
 
     [RequestPacketHandler("DormRenameRequest")]
@@ -66,7 +122,10 @@ internal partial class DormModule
         int max = DormConfig().GetValueOrDefault("DormReNameLen");
         PlayerDormRoom? room = session.player.Dorm.Rooms.FirstOrDefault(x => x.Id == request.DormitoryId);
         if (room is null || string.IsNullOrWhiteSpace(request.NewName) || request.NewName.Length > max) { session.SendResponse(new DormRenameResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
-        room.Name = request.NewName.Trim(); session.player.Save(); session.SendResponse(new DormRenameResponse(), packet.Id);
+        room.Name = request.NewName.Trim();
+        room.CustomName = true;
+        session.player.Save();
+        session.SendResponse(new DormRenameResponse(), packet.Id);
     }
 
     [RequestPacketHandler("PutFurnitureRequest")]
@@ -74,22 +133,28 @@ internal partial class DormModule
     {
         PutFurnitureRequest request = packet.Deserialize<PutFurnitureRequest>();
         DormitoryTable? room = TableReaderV2.Parse<DormitoryTable>().FirstOrDefault(x => x.Id == request.DormitoryId);
-        Dictionary<uint, FurnitureTable> tables = TableReaderV2.Parse<FurnitureTable>().ToDictionary(x => (uint)x.Id);
+        PlayerDormState dorm = session.player.Dorm;
+        List<PutFurnitureData> placement = request.FurnitureList ?? [];
+        var ownedById = dorm.Furniture.ToLookup(furniture => furniture.Id);
+        HashSet<uint> configs = FurnitureData.Value.Furniture.Select(furniture => (uint)furniture.Id).ToHashSet();
         bool valid = room is not null && session.player.Dorm.Rooms.Any(x => x.Id == request.DormitoryId)
-            && request.FurnitureList.Count <= DormConfig().GetValueOrDefault("DormMaxPutFurnitureCount")
-            && request.FurnitureList.Select(x => x.Id).Distinct().Count() == request.FurnitureList.Count
-            && request.FurnitureList.All(x => session.player.Dorm.Furniture.FirstOrDefault(y => y.Id == x.Id) is { } owned
-                && tables.ContainsKey(owned.ConfigId) && x.X >= 0 && x.X < room.Width && x.Y >= 0 && x.Y < room.Height && x.Angle is >= 0 and <= 7);
+            && placement.Count <= DormConfig().GetValueOrDefault("DormMaxPutFurnitureCount")
+            && placement.Select(x => x.Id).Distinct().Count() == placement.Count
+            && placement.All(x => ownedById[x.Id].FirstOrDefault() is { } owned
+                && (owned.DormitoryId <= 0 || owned.DormitoryId == room.Id)
+                && configs.Contains(owned.ConfigId)
+                && x.X >= 0 && x.X < room.Width && x.Y >= 0 && x.Y < room.Height && x.Angle is >= 0 and <= 7);
         if (!valid) { session.SendResponse(new PutFurnitureResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
         uint now = Now(); SettleRecovery(session, now);
-        foreach (PutFurnitureData placed in request.FurnitureList)
-        { PlayerDormFurniture furniture = session.player.Dorm.Furniture.First(x => x.Id == placed.Id); furniture.X = placed.X; furniture.Y = placed.Y; furniture.Angle = placed.Angle; furniture.DormitoryId = request.DormitoryId; }
-        HashSet<int> placedIds = request.FurnitureList.Select(x => x.Id).ToHashSet();
-        foreach (PlayerDormFurniture furniture in session.player.Dorm.Furniture.Where(x => x.DormitoryId == request.DormitoryId && !placedIds.Contains(x.Id))) furniture.DormitoryId = -1;
-        RecalculateRecovery(session);
+        foreach (PutFurnitureData placed in placement)
+        { PlayerDormFurniture furniture = ownedById[placed.Id].First(); furniture.X = placed.X; furniture.Y = placed.Y; furniture.Angle = placed.Angle; furniture.DormitoryId = request.DormitoryId; }
+        HashSet<int> placedIds = placement.Select(x => x.Id).ToHashSet();
+        foreach (PlayerDormFurniture furniture in dorm.Furniture.Where(x => x.DormitoryId == request.DormitoryId && !placedIds.Contains(x.Id))) furniture.DormitoryId = -1;
+        RecalculateRecovery(session, now);
         foreach (PlayerDormCharacter character in session.player.Dorm.Characters.Where(x => x.DormitoryId == request.DormitoryId)) character.LastRecoveryTime = now;
         session.player.Save();
-        if (request.FurnitureList.Count > 0) TaskModule.RecordTableDrivenProgress(session, [(29016, null, 1)]);
+        session.DormTaskStateDirty = true;
+        if (placement.Count > 0) TaskModule.RecordTableDrivenProgress(session, [(29016, null, 1)]);
         SendCharacterRecovery(session);
         session.SendResponse(new PutFurnitureResponse(), packet.Id);
     }
@@ -130,8 +195,35 @@ internal partial class DormModule
     public static void DormBindLayoutRequestHandler(Session session, Packet.Request packet)
     {
         DormBindLayoutRequest request = packet.Deserialize<DormBindLayoutRequest>();
-        if (!session.player.Dorm.Rooms.Any(x => x.Id == request.DormitoryId) || !session.player.Dorm.Layouts.Any(x => x.LayoutId == request.LayoutId)) { session.SendResponse(new DormBindLayoutResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
-        session.player.Dorm.BindRelations.RemoveAll(x => x.DormitoryId == request.DormitoryId); session.player.Dorm.BindRelations.Add(new PlayerDormBindRelation { DormitoryId = request.DormitoryId, LayoutId = request.LayoutId }); session.player.Save(); session.SendResponse(new DormBindLayoutResponse(), packet.Id);
+        PlayerDormState dorm = session.player.Dorm;
+        if (!dorm.Rooms.Any(room => room.Id == request.DormitoryId))
+        {
+            session.SendResponse(new DormBindLayoutResponse { Code = 20060004 }, packet.Id);
+            return;
+        }
+        if (!dorm.Layouts.Any(layout => layout.LayoutId == request.LayoutId)
+            && !TableReaderV2.Parse<DormTemplateTable>(session.player.ClientRegion).Any(template => template.Id == request.LayoutId))
+        {
+            session.SendResponse(new DormBindLayoutResponse { Code = 20060048 }, packet.Id);
+            return;
+        }
+
+        List<PlayerDormBindRelation> previous = dorm.BindRelations;
+        dorm.BindRelations = previous.Where(relation =>
+            relation.DormitoryId != request.DormitoryId && relation.LayoutId != request.LayoutId).ToList();
+        dorm.BindRelations.Add(new PlayerDormBindRelation { DormitoryId = request.DormitoryId, LayoutId = request.LayoutId });
+        try
+        {
+            session.player.SaveChecked();
+        }
+        catch (Exception exception)
+        {
+            dorm.BindRelations = previous;
+            session.log.Warn($"Could not bind dorm layout {request.LayoutId}.", exception);
+            session.SendResponse(new DormBindLayoutResponse { Code = 1 }, packet.Id);
+            return;
+        }
+        session.SendResponse(new DormBindLayoutResponse(), packet.Id);
     }
 
     [RequestPacketHandler("DormUnBindLayoutRequest")]
@@ -155,7 +247,9 @@ internal partial class DormModule
     {
         DormDetailsRequest request = packet.Deserialize<DormDetailsRequest>(); int limit = DormConfig().GetValueOrDefault("DormRecommendPlayerCountLimit");
         if (request.Players.Count == 0 || request.Players.Count > limit || request.Players.Distinct().Count() != request.Players.Count) { session.SendResponse(new DormDetailsResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
-        List<DormDetail> details = request.Players.Select(Player.TryFromPlayerId).Where(x => x is not null).Cast<Player>().Select(Detail).ToList(); session.SendResponse(new DormDetailsResponse { Details = details }, packet.Id);
+        List<DormDetail> details = request.Players.Select(Player.TryFromPlayerId).OfType<Player>()
+            .Select(player => Detail(player, session.player.ClientRegion)).ToList();
+        session.SendResponse(new DormDetailsResponse { Details = details }, packet.Id);
     }
 
     [RequestPacketHandler("DormVisitRequest")]
@@ -166,7 +260,7 @@ internal partial class DormModule
         PlayerDormCharacter? visitor = request.CharacterId == 0 ? null : session.player.Dorm.Characters.FirstOrDefault(x => x.CharacterId == request.CharacterId);
         if (target is null || room is null || (request.CharacterId != 0 && visitor is null)) { session.SendResponse(new DormVisitResponse { Code = DormRequestDataInvalid }, packet.Id); return; }
         uint now = Now(); int max = DormConfig().GetValueOrDefault("DormVisitRecordNum"); session.player.Dorm.Visits.RemoveAll(x => x.PlayerId == request.TargetId); session.player.Dorm.Visits.Insert(0, new PlayerDormVisit { PlayerId = request.TargetId, VisitTime = now }); if (session.player.Dorm.Visits.Count > max) session.player.Dorm.Visits.RemoveRange(max, session.player.Dorm.Visits.Count - max); session.player.Save();
-        session.SendResponse(new DormVisitResponse { PlayerName = target.PlayerData.Name, FurnitureList = target.Dorm.Furniture.Where(x => x.DormitoryId == request.DormitoryId).Select(RoomFurniture).ToList(), DormitoryList = target.Dorm.Rooms.Select(x => new NotifyDormitoryData.NotifyDormitoryDataDormitory { DormitoryId = x.Id, DormitoryName = x.Name }).ToList(), CharacterList = target.Dorm.Characters.Where(x => x.DormitoryId == request.DormitoryId).Select(x => (object)VisitCharacter(x, x.DormitoryId)).ToList(), VisitorList = visitor is null ? [] : [(object)VisitCharacter(visitor, request.DormitoryId)] }, packet.Id);
+        session.SendResponse(new DormVisitResponse { PlayerName = target.PlayerData.Name, FurnitureList = target.Dorm.Furniture.Where(x => x.DormitoryId == request.DormitoryId).Select(RoomFurniture).ToList(), DormitoryList = target.Dorm.Rooms.Select(x => RoomData(x, session.player.ClientRegion)).ToList(), CharacterList = target.Dorm.Characters.Where(x => x.DormitoryId == request.DormitoryId).Select(x => (object)VisitCharacter(x, x.DormitoryId)).ToList(), VisitorList = visitor is null ? [] : [(object)VisitCharacter(visitor, request.DormitoryId)] }, packet.Id);
     }
 
     private static uint Now() => checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
@@ -178,5 +272,19 @@ internal partial class DormModule
     private static List<DormLayoutFurnitureData> Layout(IEnumerable<PlayerDormLayoutFurniture> values) => values.Select(x => new DormLayoutFurnitureData { ConfigId = x.ConfigId, X = x.X, Y = x.Y, Angle = x.Angle }).ToList();
     private static bool ValidLayout(IEnumerable<DormLayoutFurnitureData> values) { List<DormLayoutFurnitureData> list = values.ToList(); return list.Count > 0 && list.Count <= DormConfig().GetValueOrDefault("DormMaxPutFurnitureCount") && list.All(x => x.ConfigId > 0 && x.X >= 0 && x.Y >= 0 && x.Angle is >= 0 and <= 7); }
     private static NotifyDormitoryData.NotifyDormitoryDataCharacter VisitCharacter(PlayerDormCharacter character, int dormitoryId) => new() { CharacterId = character.CharacterId, DormitoryId = dormitoryId, Mood = character.Mood / 100, Vitality = character.Vitality / 100, MoodSpeed = character.MoodSpeed, VitalitySpeed = character.VitalitySpeed, LastFondleRecoveryTime = character.LastFondleRecoveryTime, LeftFondleCount = character.LeftFondleCount, EventList = character.EventList.Select(evt => new NotifyDormitoryData.NotifyDormitoryDataEvent { EventId = evt.EventId, EndTime = evt.EndTime }).ToList() };
-    private static DormDetail Detail(Player player) { Dictionary<int, FurnitureAdditionalAttrTable> additions = FurnitureData.Value.AdditionalAttrs.ToDictionary(x => x.AttributeId); (PlayerDormRoom Room, List<PlayerDormFurniture> Furniture) selected = player.Dorm.Rooms.Select(room => (Room: room, Furniture: player.Dorm.Furniture.Where(x => x.DormitoryId == room.Id).ToList())).OrderByDescending(x => x.Furniture.Sum(Score)).ThenBy(x => x.Room.Id).FirstOrDefault(); PlayerDormRoom? room = selected.Room; List<PlayerDormFurniture> furniture = selected.Furniture ?? []; List<int> attrs = Enumerable.Range(0, 3).Select(i => furniture.Sum(x => x.AttrList.ElementAtOrDefault(i) + (additions.GetValueOrDefault(x.Addition)?.AddType == 2 ? additions.GetValueOrDefault(x.Addition)?.AddValue.ElementAtOrDefault(i) ?? 0 : 0))).ToList(); return new DormDetail { PlayerId = player.PlayerData.Id, PlayerName = player.PlayerData.Name, PlayerHead = checked((int)player.PlayerData.CurrHeadPortraitId), PlayerHeadFrame = checked((int)player.PlayerData.CurrHeadFrameId), DormitoryId = (int)(room?.Id ?? 0), DormitoryName = room?.Name ?? string.Empty, FurnitureCount = furniture.Count, FurnitureScore = furniture.Sum(Score), DormitoryAttr = attrs }; }
+    private static DormDetail Detail(Player player, string? region)
+    {
+        var selected = player.Dorm.Rooms.Select(room => (Room: room,
+                Furniture: player.Dorm.Furniture.Where(furniture => furniture.DormitoryId == room.Id).ToList()))
+            .OrderByDescending(room => room.Furniture.Sum(Score)).ThenBy(room => room.Room.Id).FirstOrDefault();
+        List<PlayerDormFurniture> furniture = selected.Furniture ?? [];
+        return new()
+        {
+            PlayerId = player.PlayerData.Id, PlayerName = player.PlayerData.Name,
+            PlayerHead = checked((int)player.PlayerData.CurrHeadPortraitId), PlayerHeadFrame = checked((int)player.PlayerData.CurrHeadFrameId),
+            DormitoryId = (int)(selected.Room?.Id ?? 0),
+            DormitoryName = selected.Room is null ? string.Empty : RoomName(selected.Room, region),
+            FurnitureCount = furniture.Count, FurnitureScore = furniture.Sum(Score), DormitoryAttr = RoomAttributes(furniture)
+        };
+    }
 }

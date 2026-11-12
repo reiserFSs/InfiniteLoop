@@ -301,29 +301,83 @@ namespace AscNet.GameServer.Handlers
 
             bool resetChanged = ReconcileManualShopRefresh(session.player, request.ShopId, DateTimeOffset.UtcNow);
             resetChanged |= ReconcileShopResetPeriods(session.player, [goods]);
-            if (!TryPreparePurchase(session, goods, request.Count, out RewardGoods rewardGoods))
+            session.player.ShopBuyTimes ??= new();
+            int previousBuyTimes = session.player.ShopBuyTimes.GetValueOrDefault(goods.Id);
+            bool dormPurchase = goods.ConsumeList.Any(cost => cost.Id is Inventory.DormCoin or Inventory.FurnitureCoin);
+            IReadOnlyList<ClientShopConsume>? costs = dormPurchase
+                ? DormPurchaseUnitCosts(goods, previousBuyTimes, request.Count) : goods.ConsumeList;
+            if (costs is null)
             {
                 if (resetChanged)
                     session.player.Save();
+                response.Code = 20030017;
+                session.SendResponse(response, packet.Id);
+                return;
+            }
+            if (!TryPreparePurchase(session, goods, costs, request.Count, out RewardGoods rewardGoods, out int rejection))
+            {
+                if (resetChanged)
+                    session.player.Save();
+                if (dormPurchase)
+                    response.Code = rejection;
                 session.SendResponse(response, packet.Id);
                 return;
             }
 
-            List<(int ConditionType, int? Parameter, int Amount)> progress = ApplyShopCosts(session, goods, request.Count);
-            RewardApplicationResult? result = ApplyShopReward(session, rewardGoods);
-            session.player.ShopBuyTimes ??= new();
-            session.player.ShopBuyTimes[goods.Id] = checked(
-                session.player.ShopBuyTimes.GetValueOrDefault(goods.Id) + request.Count);
-            session.inventory.Save();
-            session.character.Save();
-            session.player.Save();
-            result?.SendPushes(session);
+            List<(int ConditionType, int? Parameter, int Amount)> progress;
+            if ((RewardType)rewardGoods.RewardType == RewardType.Furniture)
+            {
+                if (!TryBuyFurniture(session, goods.Id, previousBuyTimes, costs, request.Count, rewardGoods, out progress))
+                {
+                    session.SendResponse(response, packet.Id);
+                    return;
+                }
+            }
+            else
+            {
+                progress = ApplyShopCosts(session, costs, request.Count);
+                RewardApplicationResult? result = ApplyShopReward(session, rewardGoods);
+                session.player.ShopBuyTimes[goods.Id] = checked(previousBuyTimes + request.Count);
+                session.inventory.Save();
+                session.character.Save();
+                session.player.Save();
+                result?.SendPushes(session);
+            }
             progress.Add((20201, checked((int)request.ShopId), request.Count));
             TaskModule.RecordTableDrivenProgress(session, progress);
 
             response.Code = 0;
             response.GoodList.Add(rewardGoods);
             session.SendResponse(response, packet.Id);
+        }
+
+        private static bool TryBuyFurniture(Session session, uint goodsId, int previousBuyTimes,
+            IReadOnlyList<ClientShopConsume> costs, int count, RewardGoods reward,
+            out List<(int ConditionType, int? Parameter, int Amount)> progress)
+        {
+            var paymentCosts = costs.GroupBy(cost => Inventory.IsBlackCard(cost.Id) ? Inventory.FreeGem : cost.Id)
+                .ToDictionary(group => group.Key, group => checked((int)(group.Sum(cost => (long)cost.Count) * count)));
+            progress = costs.Select(cost => (11202, (int?)cost.Id, checked((int)((long)cost.Count * count)))).ToList();
+            int firstFurnitureIndex = session.player.Dorm.Furniture.Count;
+            bool hadPurchase = session.player.ShopBuyTimes.ContainsKey(goodsId);
+            if (!DormModule.TrySaveFurnitureChange(session, paymentCosts, () =>
+                {
+                    if (!DormModule.TryGrantFurnitureReward(session, reward.TemplateId, reward.Count))
+                        throw new InvalidOperationException("Unable to grant purchased dorm furniture.");
+                    session.player.ShopBuyTimes[goodsId] = checked(previousBuyTimes + count);
+                }, out NotifyItemDataList payment))
+            {
+                if (hadPurchase)
+                    session.player.ShopBuyTimes[goodsId] = previousBuyTimes;
+                else
+                    session.player.ShopBuyTimes.Remove(goodsId);
+                return false;
+            }
+
+            if (payment.ItemDataList.Count > 0)
+                session.SendPush(payment);
+            DormModule.SendPurchasedFurniture(session, firstFurnitureIndex);
+            return true;
         }
         
         // Dorm tabs use the same base metadata and curated catalogs as other shops.
@@ -807,13 +861,42 @@ namespace AscNet.GameServer.Handlers
             }, membershipCode: 20063228, fallbackCode: 20063229);
         }
 
+        private static IReadOnlyList<ClientShopConsume>? DormPurchaseUnitCosts(ClientShopGoods goods, int bought, int count)
+        {
+            if ((object?)goods.OnSales is not IReadOnlyDictionary<object, object> tiers || tiers.Count == 0)
+                return goods.ConsumeList;
+
+            // OnSales keys are one-based purchase ordinals. The client caps a batch at the current tier.
+            long first = (long)bought + 1;
+            long last = (long)bought + count;
+            int start = 0;
+            int percentage = 100;
+            foreach ((object key, object value) in tiers)
+            {
+                if (key is not int ordinal || ordinal <= 0 || value is not int rate || rate is < 0 or > 100)
+                    throw new InvalidDataException($"Shop goods {goods.Id} has an invalid sale tier.");
+                if (first < ordinal && ordinal <= last)
+                    return null;
+                if (ordinal <= first && ordinal > start)
+                    (start, percentage) = (ordinal, rate);
+            }
+            return goods.ConsumeList.Select(consume =>
+                new ClientShopConsume { Id = consume.Id, Count = (uint)((long)consume.Count * percentage / 100) }).ToList();
+        }
+
+        private static bool TryPreparePurchase(Session session, ClientShopGoods goods, int count, out RewardGoods rewardGoods) =>
+            TryPreparePurchase(session, goods, goods.ConsumeList, count, out rewardGoods, out _);
+
         private static bool TryPreparePurchase(
             Session session,
             ClientShopGoods goods,
+            IReadOnlyList<ClientShopConsume> costs,
             int count,
-            out RewardGoods rewardGoods)
+            out RewardGoods rewardGoods,
+            out int rejection)
         {
             rewardGoods = null!;
+            rejection = 20030016;
             if (count <= 0 || goods.RewardGoods.Count <= 0)
                 return false;
 
@@ -822,6 +905,7 @@ namespace AscNet.GameServer.Handlers
             if (goods.BuyTimesLimit > 0
                 && (long)previousBuyTimes + count > goods.BuyTimesLimit)
             {
+                rejection = 20030012;
                 return false;
             }
 
@@ -851,7 +935,7 @@ namespace AscNet.GameServer.Handlers
                 return false;
             }
 
-            foreach (ClientShopConsume consume in goods.ConsumeList.GroupBy(c => Inventory.IsBlackCard(c.Id) ? Inventory.FreeGem : c.Id)
+            foreach (ClientShopConsume consume in costs.GroupBy(c => Inventory.IsBlackCard(c.Id) ? Inventory.FreeGem : c.Id)
                 .Select(g => new ClientShopConsume { Id = g.Key, Count = checked((uint)g.Sum(c => (long)c.Count)) }))
             {
                 long totalCost = (long)consume.Count * count;
@@ -859,9 +943,13 @@ namespace AscNet.GameServer.Handlers
                 if (consume.Id <= 0
                     || totalCost <= 0
                     || totalCost > int.MaxValue
-                    || !Inventory.IsValidClientItemId(consume.Id)
-                    || available < totalCost)
+                    || !Inventory.IsValidClientItemId(consume.Id))
                 {
+                    return false;
+                }
+                if (available < totalCost)
+                {
+                    rejection = 20012004;
                     return false;
                 }
             }
@@ -895,11 +983,12 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
-        private static List<(int ConditionType, int? Parameter, int Amount)> ApplyShopCosts(Session session, ClientShopGoods goods, int count)
+        private static List<(int ConditionType, int? Parameter, int Amount)> ApplyShopCosts(
+            Session session, IReadOnlyList<ClientShopConsume> costs, int count)
         {
             NotifyItemDataList notifyItemDataList = new();
-            List<(int ConditionType, int? Parameter, int Amount)> progress = new(goods.ConsumeList.Count + 1);
-            foreach (ClientShopConsume consume in goods.ConsumeList)
+            List<(int ConditionType, int? Parameter, int Amount)> progress = new(costs.Count + 1);
+            foreach (ClientShopConsume consume in costs)
             {
                 int totalCost = checked((int)((long)consume.Count * count));
                 notifyItemDataList.ItemDataList.AddRange(session.inventory.Spend(consume.Id, totalCost));

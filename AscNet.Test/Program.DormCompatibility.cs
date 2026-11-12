@@ -11,6 +11,7 @@ using AscNet.Table.V2.share.config;
 using AscNet.Table.V2.share.dormitory;
 using AscNet.Table.V2.share.dormitory.furniture;
 using AscNet.Table.V2.share.dormitory.quest;
+using AscNet.Table.V2.share.item;
 using AscNet.Table.V2.share.task;
 using MessagePack;
 using MongoDB.Bson;
@@ -20,8 +21,310 @@ namespace AscNet.Test;
 
 internal partial class Program
 {
+    private static void ValidateDormCoinShopAndRoom()
+    {
+        const long uid = 46_998;
+        const int sequence = 46_998_000;
+        using var mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out var playerSaves, out _, out var inventorySaves);
+        Player player = CreateDrawCompatibilityPlayer(uid);
+        player.ClientRegion = "cn";
+        using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(uid), player,
+            CreateDrawCompatibilityInventory(uid, []), "dorm-shop-room");
+        Session session = harness.Session;
+        session.stage = CreateLoginAccountCompatibilityStage(uid);
+
+        int packetId = sequence;
+        TResponse Call<TRequest, TResponse>(TRequest request)
+        {
+            int id = ++packetId;
+            InvokeRegisteredRequestHandler(typeof(TRequest).Name, session, id, request!);
+            return ReadResponsePayload<TResponse>(harness, id, typeof(TResponse).Name, "dorm purchase and unlock", 64);
+        }
+
+        DormitoryTable room = TableReaderV2.Parse<DormitoryTable>("cn")
+            .First(row => row.ConsumeItemId == Inventory.DormEnterIcon && row.ConsumeItemCount is > 0);
+        const uint shopId = 1_010_001;
+        var shop = Call<GetShopInfoRequest, GetShopInfoResponse>(new() { Id = shopId }).ClientShop;
+        var permit = shop.GoodsList.Single(row => row.RewardGoods.TemplateId == Inventory.DormEnterIcon);
+        int count = room.ConsumeItemCount!.Value;
+        var activation = new ActiveDormItemRequest { DormitoryId = room.Id };
+        var purchase = new BuyRequest { ShopId = shopId, GoodsId = permit.Id, Count = count };
+        AssertEqual(20060003, Call<ActiveDormItemRequest, ActiveDormItemResponse>(activation).Code,
+            "Dorm activation explains missing permits");
+        AssertEqual(20012004, Call<BuyRequest, BuyResponse>(purchase).Code,
+            "Dorm shop explains insufficient coins");
+
+        var cost = permit.ConsumeList.Single();
+        session.inventory.Do(cost.Id, 3 * count);
+        AssertEqual(0, Call<BuyRequest, BuyResponse>(purchase).Code, "Dorm coins buy the displayed residence permits");
+        AssertEqual(0L, session.inventory.SpendableCount(cost.Id), "Dorm shop debits the displayed first-tier price");
+        AssertEqual((long)count, session.inventory.SpendableCount(Inventory.DormEnterIcon), "Purchased permits reach the inventory");
+        ActiveDormItemResponse unlocked = Call<ActiveDormItemRequest, ActiveDormItemResponse>(activation);
+        AssertEqual(0, unlocked.Code, "Purchased permits unlock a room");
+        AssertEqual(room.InitName!, unlocked.DormitoryName, "New room uses its localized name");
+        AssertEqual(true, unlocked.FurnitureList.Count > 0, "New room returns its initial furniture");
+
+        session.player = BsonSerializer.Deserialize<Player>(playerSaves.LastReplacement!.ToBson());
+        session.inventory = BsonSerializer.Deserialize<Inventory>(inventorySaves.LastReplacement!.ToBson());
+        AssertEqual(true, session.player.Dorm.Rooms.Any(saved => saved.Id == room.Id), "Room remains unlocked after reload");
+        AssertEqual(TableReaderV2.Parse<DormitoryTable>().Single(row => row.Id == room.Id).InitName!,
+            session.player.Dorm.Rooms.Single(saved => saved.Id == room.Id).Name, "Localized default remains a default in the save");
+        AssertEqual(0L, session.inventory.SpendableCount(Inventory.DormEnterIcon), "Room cost remains deducted after reload");
+        AssertEqual(20060001, Call<ActiveDormItemRequest, ActiveDormItemResponse>(activation).Code,
+            "Repeated room activation cannot charge again");
+
+        session.inventory.Do(cost.Id, 8);
+        purchase.Count = 2;
+        AssertEqual(20030017, Call<BuyRequest, BuyResponse>(purchase).Code, "A purchase cannot cross the sale boundary");
+        AssertEqual(8L, session.inventory.SpendableCount(cost.Id), "Rejected tier crossing does not spend coins");
+        purchase.Count = 1;
+        AssertEqual(0, Call<BuyRequest, BuyResponse>(purchase).Code, "The sixth permit is still at the first-tier price");
+        AssertEqual(5L, session.inventory.SpendableCount(cost.Id), "Sixth permit costs three coins");
+        AssertEqual(0, Call<BuyRequest, BuyResponse>(purchase).Code, "The seventh permit is sold at the second-tier price");
+        AssertEqual(0L, session.inventory.SpendableCount(cost.Id), "Seventh permit costs five coins");
+        session.inventory.Do(cost.Id, 70);
+        purchase.Count = 4;
+        AssertEqual(0, Call<BuyRequest, BuyResponse>(purchase).Code, "Permits eight through eleven use the second tier");
+        AssertEqual(50L, session.inventory.SpendableCount(cost.Id), "Four second-tier permits cost twenty coins");
+        purchase.Count = 5;
+        AssertEqual(0, Call<BuyRequest, BuyResponse>(purchase).Code, "Permits twelve through sixteen use the third tier");
+        AssertEqual(10L, session.inventory.SpendableCount(cost.Id), "Five third-tier permits cost forty coins");
+        purchase.Count = 1;
+        AssertEqual(0, Call<BuyRequest, BuyResponse>(purchase).Code, "The seventeenth permit uses the full-price tier");
+        AssertEqual(0L, session.inventory.SpendableCount(cost.Id), "Seventeenth permit costs ten coins");
+    }
+
+    private static void ValidateDormTemplateFurniture()
+    {
+        const long uid = 46_996;
+        int packetId = 46_996_000;
+        using var mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(
+            out var playerSaves, out _, out var inventorySaves);
+        Player player = CreateDrawCompatibilityPlayer(uid);
+        player.ClientRegion = "cn";
+        int[] roomIds = TableReaderV2.Parse<DormitoryTable>("cn").Take(2).Select(room => room.Id).ToArray();
+        player.Dorm.Rooms = roomIds.Select(id => new PlayerDormRoom { Id = (uint)id }).ToList();
+        using LoopbackSessionHarness harness = new(CreateDrawCompatibilityCharacter(uid), player,
+            CreateDrawCompatibilityInventory(uid, []), "dorm-template-furniture");
+        Session session = harness.Session;
+        session.stage = CreateLoginAccountCompatibilityStage(uid);
+
+        void Send<TRequest>(TRequest request) where TRequest : class =>
+            InvokeRegisteredRequestHandler(typeof(TRequest).Name, session, ++packetId, request);
+        TResponse Read<TResponse>() =>
+            ReadResponsePayload<TResponse>(harness, packetId, typeof(TResponse).Name, "dorm template furniture", 64);
+
+        DormTemplateTable[] templates = TableReaderV2.Parse<DormTemplateTable>("cn").Where(template => template.IsShow == 1)
+            .Take(2).ToArray();
+        Send(new DormBindLayoutRequest { DormitoryId = roomIds[0], LayoutId = templates[0].Id });
+        AssertEqual(0, Read<DormBindLayoutResponse>().Code, "Built-in template binds without a saved copy");
+        Send(new DormBindLayoutRequest { DormitoryId = roomIds[1], LayoutId = templates[1].Id });
+        AssertEqual(0, Read<DormBindLayoutResponse>().Code, "Another built-in template binds independently");
+        Send(new DormBindLayoutRequest { DormitoryId = roomIds[0], LayoutId = templates[1].Id });
+        AssertEqual(0, Read<DormBindLayoutResponse>().Code, "Rebinding replaces both existing links");
+        Send(new DormBindLayoutRequest { DormitoryId = roomIds[0], LayoutId = -1 });
+        AssertEqual(20060048, Read<DormBindLayoutResponse>().Code, "Unknown template fails with a layout-specific error");
+        session.player = BsonSerializer.Deserialize<Player>(playerSaves.LastReplacement!.ToBson());
+        var bound = session.player.Dorm.BindRelations.Single();
+        AssertEqual((roomIds[0], templates[1].Id), (bound.DormitoryId, bound.LayoutId), "Rebinding survives reload");
+        Send(new DormUnBindLayoutRequest { DormitoryId = roomIds[0] });
+        AssertEqual(0, Read<DormUnBindLayoutResponse>().Code, "Built-in template unbinds");
+        Send(new DormBindLayoutRequest { DormitoryId = roomIds[0], LayoutId = templates[0].Id });
+        AssertEqual(0, Read<DormBindLayoutResponse>().Code, "The target template is set before making its furniture");
+
+        const uint decorShopId = 1_012_001;
+        Send(new GetShopInfoRequest { Id = decorShopId });
+        var decor = Read<GetShopInfoResponse>().ClientShop.GoodsList
+            .First(goods => goods.RewardGoods.RewardType == (int)RewardType.Furniture);
+        var decorCost = decor.ConsumeList.Single();
+        session.inventory.Do(decorCost.Id, (int)decorCost.Count);
+        Send(new BuyRequest { ShopId = decorShopId, GoodsId = decor.Id, Count = 1 });
+        _ = ReadPushPayload<NotifyItemDataList>(harness, nameof(NotifyItemDataList), "Dorm decor shop currency push");
+        var decorPush = ReadPushPayload<NotifyFurnitureOperate>(harness, nameof(NotifyFurnitureOperate), "Dorm decor warehouse push");
+        AssertEqual(0, Read<BuyResponse>().Code, "Dorm shop buys displayed furniture");
+        FurnitureRewardTable reward = TableReaderV2.Parse<FurnitureRewardTable>().Single(row => row.Id == decor.RewardGoods.TemplateId);
+        var addition = decorPush.OperateList.Single();
+        AssertEqual((1, (uint)reward.FurnitureId), (addition.OperateType, addition.ClientFurniture.ConfigId),
+            "Dorm shop sends an add operation for the purchased furniture");
+        AssertEqual(0L, session.inventory.SpendableCount(decorCost.Id), "Dorm shop charges the displayed cost");
+
+        Dictionary<int, BuyAssetTable> assets = TableReaderV2.Parse<BuyAssetTable>().ToDictionary(row => row.Id);
+        var templatePositions = templates[0].FurnitureId.Zip(templates[0].FurniturePos)
+            .ToLookup(slot => slot.First, slot => slot.Second);
+        FurnitureTable target = TableReaderV2.Parse<FurnitureTable>()
+            .First(row => row.PicId is int picId && assets.ContainsKey(picId) && templatePositions[row.Id].Count() >= 2);
+        int blueprintId = target.PicId!.Value;
+        FurnitureCreateAttrTable recipe = TableReaderV2.Parse<FurnitureCreateAttrTable>()
+            .First(row => row.FurnitureType == target.TypeId);
+        var craft = new CreateFurnitureRequest { TypeIds = [target.TypeId], Count = 2, CostA = recipe.MinConsume };
+        Send(craft);
+        AssertEqual(20060003, Read<CreateFurnitureResponse>().Code, "Crafting with no decor coin is rejected");
+        session.inventory.Do(Inventory.FurnitureCoin, craft.Count * recipe.MinConsume);
+        Send(craft);
+        CreateFurnitureResponse crafted = Read<CreateFurnitureResponse>();
+        AssertEqual((0, 2, craft.Count * recipe.MinConsume), (crafted.Code, crafted.FurnitureList.Count, crafted.Count),
+            "Crafting creates the requested number and debits the per-piece cost");
+        FurnitureTable[] materials = crafted.FurnitureList.Select(furniture => TableReaderV2.Parse<FurnitureTable>()
+            .Single(row => row.Id == furniture.ConfigId)).ToArray();
+        var refit = new RemouldFurnitureRequest
+        {
+            Params = [new() { ItemId = blueprintId, FurnitureIds = crafted.FurnitureList.Select(furniture => furniture.Id).ToList() }]
+        };
+        Send(refit);
+        AssertEqual(20060003, Read<RemouldFurnitureResponse>().Code, "Refit with missing blueprints and coins is rejected");
+        BuyAssetConfigTable blueprintPrice = TableReaderV2.Parse<BuyAssetConfigTable>()
+            .Where(row => assets[blueprintId].Config.Contains(row.Id)).OrderBy(row => row.Times).First();
+        int blueprintCount = (target.PicNum * craft.Count + blueprintPrice.GainCount - 1) / blueprintPrice.GainCount;
+        session.inventory.Do(blueprintPrice.ConsumeId[0], blueprintPrice.ConsumeCount[0] * blueprintCount);
+        Send(new ItemBuyAssetRequest { ItemId = blueprintId, ConsumeId = blueprintPrice.ConsumeId[0], Times = blueprintCount });
+        AssertEqual(0, Read<ItemBuyAssetResponse>().Code, "Template quick purchase uses the authored blueprint listing");
+
+        int refitCost = materials.Sum(row => row.MoneyNum);
+        session.inventory.Do(Inventory.FurnitureCoin, refitCost);
+        var beforeRefit = session.inventory.SpendableCount(blueprintId);
+        playerSaves.ThrowOnReplaceOne = true;
+        Send(refit);
+        playerSaves.ThrowOnReplaceOne = false;
+        AssertEqual(1, Read<RemouldFurnitureResponse>().Code, "Failed refit save does not report success");
+        AssertEqual(beforeRefit, session.inventory.SpendableCount(blueprintId), "Failed refit restores blueprint balance");
+        AssertEqual((long)refitCost, session.inventory.SpendableCount(Inventory.FurnitureCoin), "Failed refit restores decor coin balance");
+        Send(refit);
+        RemouldFurnitureResponse remodeled = Read<RemouldFurnitureResponse>();
+        AssertEqual((0, 2), (remodeled.Code, remodeled.FurnitureList.Count), "Refit returns one furnishing per material");
+        AssertEqual(true, remodeled.FurnitureList.All(furniture => furniture.ConfigId == target.Id), "Blueprint selects the furnishing");
+        AssertEqual(beforeRefit - target.PicNum * craft.Count, session.inventory.SpendableCount(blueprintId), "Refit spends each blueprint");
+        AssertEqual(0L, session.inventory.SpendableCount(Inventory.FurnitureCoin), "Refit spends each material's decor coin cost");
+        Send(refit);
+        AssertEqual(20060040, Read<RemouldFurnitureResponse>().Code, "Refit retry cannot consume the same materials again");
+
+        var placed = remodeled.FurnitureList.Zip(templatePositions[target.Id], (furniture, position) =>
+        {
+            int[] grid = position.Split('|').Select(int.Parse).ToArray();
+            return new PutFurnitureData { Id = furniture.Id, X = grid[0], Y = grid[1], Angle = grid[2] };
+        }).ToList();
+        Send(new PutFurnitureRequest { DormitoryId = roomIds[0], FurnitureList = placed });
+        AssertEqual(0, Read<PutFurnitureResponse>().Code, "The template can place the remodeled furniture");
+        Send(new PutFurnitureRequest { DormitoryId = roomIds[1], FurnitureList = placed });
+        AssertEqual(20060040, Read<PutFurnitureResponse>().Code, "A layout cannot take pieces from another room");
+        var stored = BsonSerializer.Deserialize<Player>(playerSaves.LastReplacement!.ToBson());
+        var wallet = BsonSerializer.Deserialize<Inventory>(inventorySaves.LastReplacement!.ToBson());
+        AssertEqual(2, stored.Dorm.Furniture.Count(piece => piece.ConfigId == target.Id && piece.DormitoryId == roomIds[0]),
+            "Remodeled furniture and placement survive reload");
+        AssertEqual(beforeRefit - target.PicNum * craft.Count, wallet.SpendableCount(blueprintId), "Blueprint debit survives reload");
+    }
+
+    private static void ValidateDormRecovery()
+    {
+        const long uid = 46_997;
+        const int furnishedRoomId = 21001;
+        const int emptyRoomId = 21003;
+        const uint residentId = 1_031_001;
+        const uint emptyRoomResidentId = 1_021_001;
+        const uint unassignedId = 1_041_002;
+        using var mongo = MongoCollectionOverride.InstallForDailySignInCompatibility(out var saves, out _, out _);
+        Player player = CreateDrawCompatibilityPlayer(uid);
+        player.ClientRegion = "cn";
+        player.Dorm.Rooms = [new() { Id = furnishedRoomId }, new() { Id = emptyRoomId }];
+        uint now = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var resident = new PlayerDormCharacter
+        {
+            CharacterId = residentId, DormitoryId = furnishedRoomId, Mood = 6000, Vitality = 7000,
+            LastRecoveryTime = now - 7800
+        };
+        var emptyRoomResident = new PlayerDormCharacter
+        {
+            CharacterId = emptyRoomResidentId, DormitoryId = emptyRoomId, Mood = 150, Vitality = 180,
+            LastRecoveryTime = now - 7800
+        };
+        var unassigned = new PlayerDormCharacter
+        {
+            CharacterId = unassignedId, Mood = 5500, Vitality = 6000, LastRecoveryTime = now - 7800
+        };
+        player.Dorm.Characters = [resident, emptyRoomResident, unassigned];
+        player.Dorm.Furniture = [
+            new() { Id = 1, ConfigId = 8404002, DormitoryId = furnishedRoomId, AttrList = [1200, 0, 0] },
+            new() { Id = 2, ConfigId = 8404002, AttrList = [3485, 1985, 0], Addition = 101 },
+            new() { Id = 3, ConfigId = 8405002, Addition = 109 },
+            new() { Id = 4, ConfigId = 8406005, Addition = 110 }
+        ];
+        Character roster = CreateDrawCompatibilityCharacter(uid);
+        roster.Characters = player.Dorm.Characters.Select(character => new CharacterData { Id = character.CharacterId }).ToList();
+        using LoopbackSessionHarness harness = new(roster, player, CreateDrawCompatibilityInventory(uid, []), "dorm-recovery");
+        Session session = harness.Session;
+        session.stage = CreateLoginAccountCompatibilityStage(uid);
+
+        NotifyDormitoryData login = DormModule.BuildLoginData(session);
+        var positive = login.CharacterList.Single(character => character.CharacterId == residentId);
+        AssertEqual((50, 300, 60, 70), (positive.MoodSpeed, positive.VitalitySpeed, positive.Mood, positive.Vitality),
+            "Dorm login repairs legacy rates without applying a new rate to past hours");
+        var negative = login.CharacterList.Single(character => character.CharacterId == emptyRoomResidentId);
+        AssertEqual((-100, -100), (negative.MoodSpeed, negative.VitalitySpeed), "Empty room uses the zero-threshold rate");
+        var unassignedData = login.CharacterList.Single(character => character.CharacterId == unassignedId);
+        AssertEqual((0, 0), (unassignedData.MoodSpeed, unassignedData.VitalitySpeed), "Unassigned member has no rate");
+        Player saved = BsonSerializer.Deserialize<Player>(saves.LastReplacement!.ToBson());
+        AssertEqual(300, saved.Dorm.Characters.Single(character => character.CharacterId == residentId).VitalitySpeed,
+            "Dorm login persists the corrected recovery rate");
+
+        uint elapsedAnchor = now - 7800;
+        resident.LastRecoveryTime = emptyRoomResident.LastRecoveryTime = elapsedAnchor;
+        InvokeRegisteredRequestHandler(nameof(DormEnterRequest), session, 46_997_001, new DormEnterRequest());
+        AssertEqual(0, ReadResponsePayload<DormEnterResponse>(harness, 46_997_001, nameof(DormEnterResponse),
+            "Dorm recovery enter response", 16).Code, "Dorm recovery enter code");
+        var enter = ReadPushPayload<NotifyCharacterAttr>(harness, nameof(NotifyCharacterAttr), "Dorm recovery enter attributes");
+        var enterResident = enter.AttrList.Single(character => character.CharacterId == residentId);
+        AssertEqual((61, 76), (enterResident.Mood, enterResident.Vitality), "Dorm entry settles two hours of recovery");
+        AssertEqual((0, 0), (emptyRoomResident.Mood, emptyRoomResident.Vitality), "Dorm decline stops at zero");
+        AssertEqual((5500, 6000), (unassigned.Mood, unassigned.Vitality), "Unassigned member does not recover or decline");
+        AssertEqual(elapsedAnchor + 7200, resident.LastRecoveryTime, "Dorm settlement retains the unused minutes");
+
+        resident.Mood = 9980;
+        resident.Vitality = 9800;
+        resident.LastRecoveryTime = now - 3615;
+        InvokeRegisteredRequestHandler(nameof(HeartbeatRequest), session, 46_997_002, new HeartbeatRequest());
+        var tick = ReadPushPayload<NotifyCharacterAttr>(harness, nameof(NotifyCharacterAttr), "Dorm online recovery attributes");
+        var tickResident = tick.AttrList.Single(character => character.CharacterId == residentId);
+        AssertEqual((100, 100), (tickResident.Mood, tickResident.Vitality), "Online recovery pushes attributes capped at 100");
+        _ = ReadResponsePayload<HeartbeatResponse>(harness, 46_997_002, nameof(HeartbeatResponse), "Dorm recovery heartbeat response");
+
+        resident.Mood = 6000;
+        resident.Vitality = 7000;
+        resident.LastRecoveryTime = now - 4800;
+        InvokeRegisteredRequestHandler(nameof(PutFurnitureRequest), session, 46_997_003, new PutFurnitureRequest
+        {
+            DormitoryId = furnishedRoomId, FurnitureList =
+                [new() { Id = 2 }, new() { Id = 3, X = 1 }, new() { Id = 4, X = 2 }]
+        });
+        var rates = ReadPushPayload<NotifyDormCharacterRecovery>(harness, nameof(NotifyDormCharacterRecovery),
+            "Dorm furniture recovery rates", 16);
+        var rate = rates.Recoveries.Single(character => character.CharacterId == residentId);
+        AssertEqual((210, 525), (rate.MoodSpeed, rate.VitalitySpeed),
+            "Furniture attribute bonuses qualify for a higher tier and apply both rate bonuses");
+        AssertEqual(0, ReadResponsePayload<PutFurnitureResponse>(harness, 46_997_003, nameof(PutFurnitureResponse),
+            "Dorm recovery placement response").Code, "Dorm recovery placement code");
+        AssertEqual((6050, 7300), (resident.Mood, resident.Vitality), "Furniture edit settles elapsed time at the prior rate");
+        AssertEqual(true, resident.LastRecoveryTime >= now, "The new furniture rate starts at placement");
+
+        InvokeRegisteredRequestHandler(nameof(DormOutRequest), session, 46_997_004, new DormOutRequest());
+        resident.LastRecoveryTime = now - 3615;
+        InvokeRegisteredRequestHandler(nameof(HeartbeatRequest), session, 46_997_005, new HeartbeatRequest());
+        _ = ReadResponsePayload<HeartbeatResponse>(harness, 46_997_005, nameof(HeartbeatResponse), "Heartbeat outside the dorm");
+        AssertEqual((6050, 7300), (resident.Mood, resident.Vitality), "Outside the dorm recovery waits for the next settlement");
+
+        emptyRoomResident.MoodSpeed = emptyRoomResident.VitalitySpeed = 0;
+        InvokeRegisteredRequestHandler(nameof(DormEnterRequest), session, 46_997_006, new DormEnterRequest());
+        _ = ReadResponsePayload<DormEnterResponse>(harness, 46_997_006, nameof(DormEnterResponse), "Dorm reentry recovery response", 16);
+        var corrected = ReadPushPayload<NotifyDormCharacterRecovery>(harness, nameof(NotifyDormCharacterRecovery),
+            "Dorm reentry sends corrected rates").Recoveries.Single(character => character.CharacterId == emptyRoomResidentId);
+        AssertEqual((-100, -100), (corrected.MoodSpeed, corrected.VitalitySpeed), "Dorm reentry refreshes stale client rates");
+        _ = ReadPushPayload<NotifyCharacterAttr>(harness, nameof(NotifyCharacterAttr), "Dorm reentry attributes");
+        AssertEqual((6260, 7825), (resident.Mood, resident.Vitality), "Dorm reentry settles recovery since leaving");
+    }
+
     private static void ValidateDormCompatibility()
     {
+        ValidateDormTemplateFurniture();
+        ValidateDormRecovery();
         const long playerId = 46_995;
         DormitoryTable[] freeRooms = TableReaderV2.Parse<DormitoryTable>()
             .Where(row => row.IsFree == 1)
@@ -145,9 +448,10 @@ internal partial class Program
             new ActiveDormItemRequest { DormitoryId = room.Id });
         ActiveDormItemResponse activeDorm = ReadResponsePayload<ActiveDormItemResponse>(
             harness, 46_995_027, nameof(ActiveDormItemResponse), "Dorm duplicate activation response");
-        AssertEqual(true, activeDorm.Code != 0, "Dorm duplicate activation rejects owned free room");
-        long currentDay = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 86_400;
+        AssertEqual(20060001, activeDorm.Code, "Dorm duplicate activation rejects owned free room");
+        ValidateDormCoinShopAndRoom();
         DateTimeOffset dailyTaskNow = DateTimeOffset.UtcNow;
+        long currentDay = TaskModule.CurrentDailyResetPeriod(dailyTaskNow.ToUnixTimeSeconds());
         HashSet<int> dailyConditionIds = TableReaderV2.Parse<ConditionTable>()
             .Where(condition => condition.Type is >= 29000 and < 29100)
             .Select(condition => condition.Id)
@@ -162,6 +466,7 @@ internal partial class Program
             .OrderByDescending(task => task.Id)
             .First();
         string legacyDailyClaimKey = $"dorm-task:{dailyTask.Id}";
+        player.MissionProgress.ResetEpoch = 1;
         player.MissionProgress.DailyResetDay = currentDay - 1;
         player.MissionProgress.ClaimedTaskIds.Add(dailyTask.Id);
         player.MissionProgress.ConditionCounters[dailyTask.Condition] = dailyTask.Result ?? 1;
@@ -316,6 +621,21 @@ internal partial class Program
             nameof(DormitoryListResponse), "Dorm room list response");
         AssertIntegerList(freeRooms.Select(row => (long)row.Id).ToArray(),
             roomList.DormitoryList.Select(row => (long)row.DormitoryId).Order().ToArray(), "Dorm room list state");
+        AssertEqual("Dormitory 1", roomList.DormitoryList.Single(row => row.DormitoryId == 21001).DormitoryName,
+            "EN renders its authored default name");
+        player.ClientRegion = "cn";
+        InvokeRegisteredRequestHandler(nameof(DormitoryListRequest), harness.Session, 46_995_045, new DormitoryListRequest());
+        var cnRooms = ReadResponsePayload<DormitoryListResponse>(harness, 46_995_045,
+            nameof(DormitoryListResponse), "CN legacy room names");
+        AssertEqual("1号宿舍", cnRooms.DormitoryList.Single(row => row.DormitoryId == 21001).DormitoryName,
+            "CN localizes a previously saved default without changing its stored name");
+        InvokeRegisteredRequestHandler(nameof(DormRenameRequest), harness.Session, 46_995_046,
+            new DormRenameRequest { DormitoryId = 21001, NewName = "Dormitory 1" });
+        AssertEqual(0, ReadResponsePayload<DormRenameResponse>(harness, 46_995_046,
+            nameof(DormRenameResponse), "explicit room name").Code, "explicit custom name is accepted");
+        AssertEqual("Dormitory 1", DormModule.BuildLoginData(harness.Session).DormitoryList
+            .Single(row => row.DormitoryId == 21001).DormitoryName, "explicit name survives the CN login projection");
+        player.ClientRegion = null;
         FurnitureTable layoutFurniture = TableReaderV2.Parse<FurnitureTable>().FirstOrDefault(row => row.Id > 0)
             ?? throw new InvalidDataException("Dorm compatibility: no furniture table row.");
         DormLayoutFurnitureData layoutFurnitureData = new() { ConfigId = (uint)layoutFurniture.Id, X = 0, Y = 0, Angle = 0 };
@@ -462,7 +782,10 @@ internal partial class Program
 
         InvokeRegisteredRequestHandler(nameof(DormPutCharacterRequest), harness.Session, 46_995_011,
             new DormPutCharacterRequest { DormitoryId = room.Id, CharacterIds = [firstCharacterId, secondCharacterId] });
-        _ = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm resident guide task push");
+        NotifyTask residents = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm resident guide task push");
+        AssertEqual(3, residents.Tasks.Tasks.Single(task => task.Id == 14001).State, "housing a member completes the guide task");
+        AssertEqual(2, new DormModule.TaskCounts(player.Dorm).Residents,
+            "the member milestone counts the two residents rather than the request");
         NotifyDormCharacterRecovery putRecovery = ReadPushPayload<NotifyDormCharacterRecovery>(harness,
             nameof(NotifyDormCharacterRecovery), "Dorm put character recovery push");
         AssertEqual(2, putRecovery.ChangeType, "Dorm put character recovery type");
@@ -672,26 +995,43 @@ internal partial class Program
         AssertEqual(20060040, replay.Code, "Dorm work claim replay code");
         AssertEqual(workItemBefore + 2L * rewardPerVitality, inventory.Items.Single(item => item.Id == work.ItemId).Count,
             "Dorm work claim replay does not increment inventory");
-        player.Dorm.WorkNextRefreshTime = 0;
+        const int dailyWorkTaskId = 12004;
         uint choreRefreshNow = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        _ = buildLoginData.Invoke(null, [harness.Session]);
-        AssertEqual(0, player.Dorm.WorkList.Count, "Dorm daily refresh removes rested chores");
-        AssertEqual(true, player.Dorm.WorkNextRefreshTime > choreRefreshNow
-            && player.Dorm.WorkNextRefreshTime <= choreRefreshNow + 24 * 60 * 60,
-            "Dorm daily refresh schedules authoritative next rollover");
-
+        player.ClientRegion = "cn";
+        long dutyDay = TaskModule.CurrentDailyResetPeriod(choreRefreshNow);
+        player.MissionProgress.DailyResetDay = dutyDay - 1;
+        player.MissionProgress.ConditionCounters[dailyWorkTaskId] = 1;
+        player.Dorm.WorkNextRefreshTime = DormModule.NextDailyRefreshTime(choreRefreshNow - 86_400);
+        InvokeRegisteredRequestHandler(nameof(HeartbeatRequest), harness.Session, 46_995_040, new HeartbeatRequest());
+        var workRefresh = ReadPushPayload<NotifyWorkNextRefreshTime>(harness, nameof(NotifyWorkNextRefreshTime),
+            "Dorm online duty rollover");
+        _ = ReadResponsePayload<HeartbeatResponse>(harness, 46_995_040, nameof(HeartbeatResponse), "Dorm duty rollover heartbeat");
+        AssertEqual(0, player.Dorm.WorkList.Count, "Dorm online daily refresh removes rested chores");
+        AssertEqual(DormModule.NextDailyRefreshTime(choreRefreshNow), workRefresh.NextRefreshTime,
+            "Dorm pushes the next authoritative rollover without relogin");
+        Player afterRollover = BsonSerializer.Deserialize<Player>(playerSaves.LastSuccessfulReplacementBson!);
+        AssertEqual(workRefresh.NextRefreshTime, afterRollover.Dorm.WorkNextRefreshTime, "Dorm pushes the saved rollover");
+        AssertEqual(dutyDay, afterRollover.MissionProgress.DailyResetDay, "Dorm and daily task periods advance together");
+        AssertEqual(0, afterRollover.MissionProgress.ConditionCounters.GetValueOrDefault(dailyWorkTaskId),
+            "Dorm rollover clears the previous day's daily duty task");
+        InvokeRegisteredRequestHandler(nameof(HeartbeatRequest), harness.Session, 46_995_040_1, new HeartbeatRequest());
+        _ = ReadResponsePayload<HeartbeatResponse>(harness, 46_995_040_1, nameof(HeartbeatResponse), "Dorm duty steady heartbeat");
+        AssertNoAvailablePacket(harness, "Dorm duty rollover is sent once");
 
         worker.Vitality = work.Vitality;
         InvokeRegisteredRequestHandler(nameof(DormWorkRequest), harness.Session, 46_995_041,
             new DormWorkRequest { Works = [new DormWork { CharacterId = firstCharacterId, WorkPos = work.Seat }] });
         _ = ReadPushPayload<NotifyCharacterVitality>(harness, nameof(NotifyCharacterVitality), "Dorm work reused seat vitality push");
-        _ = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm work reused seat task push");
+        NotifyTask newDayWork = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm work reused seat task push");
+        AssertEqual(1, newDayWork.Tasks.Tasks.Single(task => task.Id == dailyWorkTaskId).Schedule.Single().Value,
+            "Assigning work after rollover credits the CN daily duty task");
         DormWorkResponse reusedSeat = ReadResponsePayload<DormWorkResponse>(harness, 46_995_041,
             nameof(DormWorkResponse), "Dorm work reused seat response");
         AssertEqual(0, reusedSeat.Code, "Dorm work claimed seat reusable");
         AssertEqual(1, player.Dorm.WorkList.Count, "Dorm work replaces claimed slot state");
         AssertEqual(true, player.Dorm.WorkList.Single().ClaimKey != persistedWork.ClaimKey,
             "Dorm reused seat receives distinct reward claim identity");
+        player.ClientRegion = null;
         AssertNoAvailablePacket(harness, "Dorm work reused seat");
         worker.Mood = work.Mood;
         inventorySaves.ThrowOnReplaceOne = true;
@@ -709,24 +1049,25 @@ internal partial class Program
         AssertEqual(0, player.Dorm.PendingRewards.Count, "Dorm quick work retry clears pending reward");
         _ = ReadPushPayload<NotifyCharacterAttr>(harness, nameof(NotifyCharacterAttr), "Dorm quick work retry character push");
         Dictionary<int, FurnitureTable> furnitureRows = TableReaderV2.Parse<FurnitureTable>().ToDictionary(row => row.Id);
-        FurnitureRewardTable remouldReward = TableReaderV2.Parse<FurnitureRewardTable>().First(reward =>
+        FurnitureTable remouldTarget = furnitureRows.Values.First(target => target.PicId is > 0 &&
             player.Dorm.Furniture.Any(furniture => !furniture.IsLocked
-                && furnitureRows[(int)furniture.ConfigId].TypeId == furnitureRows[reward.FurnitureId].TypeId));
+                && furnitureRows[(int)furniture.ConfigId].TypeId == target.TypeId));
         PlayerDormFurniture remouldInput = player.Dorm.Furniture.First(furniture =>
-            !furniture.IsLocked && furnitureRows[(int)furniture.ConfigId].TypeId == furnitureRows[remouldReward.FurnitureId].TypeId);
+            !furniture.IsLocked && furnitureRows[(int)furniture.ConfigId].TypeId == remouldTarget.TypeId);
         remouldInput.DormitoryId = 0;
-        if (!player.Dorm.FurnitureUnlocks.Contains((uint)remouldReward.FurnitureId))
-            player.Dorm.FurnitureUnlocks.Add((uint)remouldReward.FurnitureId);
+        inventory.Do(remouldTarget.PicId!.Value, remouldTarget.PicNum);
+        inventory.Do(Inventory.FurnitureCoin, furnitureRows[(int)remouldInput.ConfigId].MoneyNum);
         InvokeRegisteredRequestHandler(nameof(RemouldFurnitureRequest), harness.Session, 46_995_044,
-            new RemouldFurnitureRequest { Params = [new RemouldFurnitureParam { ItemId = remouldReward.Id, FurnitureIds = [remouldInput.Id] }] });
+            new RemouldFurnitureRequest { Params = [new RemouldFurnitureParam { ItemId = remouldTarget.PicId.Value, FurnitureIds = [remouldInput.Id] }] });
         _ = ReadPushPayload<NotifyTask>(harness, nameof(NotifyTask), "Dorm guide remould task push");
+        _ = ReadPushPayload<NotifyItemDataList>(harness, nameof(NotifyItemDataList), "Dorm guide remould materials push");
         RemouldFurnitureResponse remould = ReadResponsePayload<RemouldFurnitureResponse>(harness, 46_995_044,
             nameof(RemouldFurnitureResponse), "Dorm guide remould response");
         AssertEqual(0, remould.Code, "Dorm guide remould code");
         AssertEqual(true, remould.RemovedIds.SequenceEqual([remouldInput.Id]), "Dorm guide remould consumed furniture");
-        AssertEqual((uint)remouldReward.FurnitureId, remould.FurnitureList.Single().ConfigId, "Dorm guide remould table output");
+        AssertEqual((uint)remouldTarget.Id, remould.FurnitureList.Single().ConfigId, "Dorm guide remould table output");
         Dictionary<int, ConditionTable> dormGuideConditions = TableReaderV2.Parse<ConditionTable>()
-            .Where(condition => condition.Id is >= 14001 and <= 14006).ToDictionary(condition => condition.Id);
+            .Where(condition => condition.Id is >= 14002 and <= 14006).ToDictionary(condition => condition.Id);
         foreach (int conditionId in dormGuideConditions.Keys)
             AssertEqual(true, player.MissionProgress.ConditionCounters.GetValueOrDefault(conditionId) >= 1,
                 $"Dorm guide condition {conditionId} tracks");
@@ -739,15 +1080,20 @@ internal partial class Program
         DormCharacterFinishAllEventResponse finish = ReadResponsePayload<DormCharacterFinishAllEventResponse>(harness,
             46_995_005, nameof(DormCharacterFinishAllEventResponse), "Dorm finish-all response");
         AssertEqual(20060040, finish.Code, "Dorm finish-all empty code");
+        var eventRewards = TableReaderV2.Parse<DormCharacterEventRewardTable>().ToDictionary(row => row.Id);
+        var moodBuffs = TableReaderV2.Parse<DormCharacterMoodBuffTable>().ToDictionary(row => row.Id);
+        uint eventTime = checked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 300);
+        int priorEventCount = player.MissionProgress.ConditionCounters.GetValueOrDefault(12005);
         List<DormCharacterEventTable> eventRows = TableReaderV2.Parse<DormCharacterEventTable>()
-            .Where(row => player.Dorm.Characters.Any(character => character.CharacterId == row.CharacterId))
+            .Where(row => player.Dorm.Characters.Any(character => character.CharacterId == row.CharacterId && character.DormitoryId > 0))
             .GroupBy(row => row.FinishReward).Select(group => group.First()).ToList();
-        List<DormCharacterEventTable> operateEvents = eventRows.Take(2).ToList();
+        List<DormCharacterEventTable> operateEvents = eventRows.Where(row => eventRewards[row.FinishReward].RewardId > 0).Take(2).ToList();
         AssertEqual(2, operateEvents.Count, "Dorm character distinct event rewards");
         foreach ((DormCharacterEventTable operateEvent, int index) in operateEvents.Select((row, index) => (row, index)))
         {
             PlayerDormCharacter operateCharacter = player.Dorm.Characters.Single(character => character.CharacterId == operateEvent.CharacterId);
-            PlayerDormEvent playerEvent = new() { EventId = operateEvent.EventId, EndTime = (uint)(46_995_008 + index) };
+            operateCharacter.Mood = 5000;
+            PlayerDormEvent playerEvent = new() { EventId = operateEvent.EventId, EndTime = eventTime + (uint)index };
             operateCharacter.EventList.Add(playerEvent);
             InvokeRegisteredRequestHandler(nameof(DormCharacterOperateRequest), harness.Session, 46_995_008 + index,
                 new DormCharacterOperateRequest { CharacterId = operateCharacter.CharacterId, EventId = operateEvent.EventId, OperateType = 1 });
@@ -755,7 +1101,10 @@ internal partial class Program
             DormCharacterOperateResponse response = ReadResponsePayload<DormCharacterOperateResponse>(harness, 46_995_008 + index,
                 nameof(DormCharacterOperateResponse), $"Dorm character event {index} response");
             AssertEqual(0, response.Code, $"Dorm character event {index} reward code");
-            AssertEqual(true, response.RewardGoods.Count > 0, $"Dorm character event {index} reward goods");
+            var reward = eventRewards[operateEvent.FinishReward];
+            AssertEqual(RewardHandler.GetRewardGoods(reward.RewardId!.Value).Single().TemplateId,
+                response.RewardGoods.Single().TemplateId, $"Dorm event {index} uses the authored reward");
+            AssertEqual(moodBuffs[reward.BuffId].Speed, response.MoodValue, $"Dorm event {index} applies the authored mood");
             AssertEqual(false, operateCharacter.EventList.Contains(playerEvent), $"Dorm character event {index} removed");
             AssertNoAvailablePacket(harness, $"Dorm character event {index}");
         }
@@ -765,24 +1114,94 @@ internal partial class Program
         List<(PlayerDormCharacter Character, PlayerDormEvent Event)> finishEvents = operateEvents.Select((row, index) =>
         {
             PlayerDormCharacter character = player.Dorm.Characters.Single(entry => entry.CharacterId == row.CharacterId);
-            PlayerDormEvent playerEvent = new() { EventId = row.EventId, EndTime = (uint)(100 + index) };
+            PlayerDormEvent playerEvent = new() { EventId = row.EventId, EndTime = eventTime + 100 + (uint)index };
             character.EventList.Add(playerEvent);
             return (character, playerEvent);
         }).ToList();
+        // A resident without an event is still part of the one-click interaction.
+        PlayerDormCharacter extraResident = new() { CharacterId = 1_031_001, DormitoryId = room.Id,
+            Mood = 5000, LeftFondleCount = 2, LastFondleRecoveryTime = eventTime - 300 };
+        player.Dorm.Characters.Add(extraResident);
+        int fondlesBeforeBatch = player.MissionProgress.ConditionCounters.GetValueOrDefault(12003);
         InvokeRegisteredRequestHandler(nameof(DormCharacterFinishAllEventRequest), harness.Session, 46_995_006,
             new DormCharacterFinishAllEventRequest());
         _ = ReadPushPayload<NotifyItemDataList>(harness, nameof(NotifyItemDataList), "Dorm finish-all reward push");
+        NotifyCharacterAttr attributes = ReadPushPayload<NotifyCharacterAttr>(harness, nameof(NotifyCharacterAttr),
+            "Dorm finish-all character update");
         DormCharacterFinishAllEventResponse completedFinish = ReadResponsePayload<DormCharacterFinishAllEventResponse>(harness,
             46_995_006, nameof(DormCharacterFinishAllEventResponse), "Dorm finish-all completion response");
         AssertEqual(0, completedFinish.Code, "Dorm finish-all completion code");
         AssertEqual(true, completedFinish.RewardGoods.Count > 0, "Dorm finish-all reward goods");
         AssertEqual(true, finishEvents.All(entry => !entry.Character.EventList.Contains(entry.Event)), "Dorm finish-all removes rewarded events");
+        AssertEqual(1, extraResident.LeftFondleCount, "Dorm finish-all spends a fondle on an eventless resident");
+        AssertEqual(extraResident.Mood / 100, attributes.AttrList.Single(row => row.CharacterId == extraResident.CharacterId).Mood,
+            "Dorm finish-all updates the resident's visible mood");
+        AssertEqual(true, player.MissionProgress.ConditionCounters.GetValueOrDefault(12003) > fondlesBeforeBatch,
+            "Dorm finish-all advances the daily fondle condition");
+        AssertEqual(priorEventCount + 4, player.MissionProgress.ConditionCounters.GetValueOrDefault(12005),
+            "both individual and bulk event completion advance the daily mission");
         AssertNoAvailablePacket(harness, "Dorm finish-all completion");
         InvokeRegisteredRequestHandler(nameof(DormCharacterFinishAllEventRequest), harness.Session, 46_995_007,
             new DormCharacterFinishAllEventRequest());
         AssertEqual(20060040, ReadResponsePayload<DormCharacterFinishAllEventResponse>(harness, 46_995_007,
             nameof(DormCharacterFinishAllEventResponse), "Dorm finish-all replay response").Code, "Dorm finish-all replay code");
         AssertNoAvailablePacket(harness, "Dorm finish-all replay");
+        player.Dorm.Characters.Remove(extraResident);
+
+        DormCharacterEventTable moodEvent = eventRows.First(row => eventRewards[row.FinishReward].RewardId is null);
+        PlayerDormCharacter moodResident = player.Dorm.Characters.Single(character => character.CharacterId == moodEvent.CharacterId);
+        moodResident.Mood = 5000;
+        moodResident.EventList.Add(new() { EventId = moodEvent.EventId, EndTime = eventTime + 200 });
+        InvokeRegisteredRequestHandler(nameof(DormCharacterOperateRequest), harness.Session, 46_995_047,
+            new DormCharacterOperateRequest { CharacterId = moodResident.CharacterId, EventId = moodEvent.EventId, OperateType = 1 });
+        var moodOnly = ReadResponsePayload<DormCharacterOperateResponse>(harness, 46_995_047,
+            nameof(DormCharacterOperateResponse), "Dorm mood-only event");
+        AssertEqual(0, moodOnly.Code, "mood-only event completes");
+        AssertEqual(0, moodOnly.RewardGoods.Count, "mood-only event grants no invented bag item");
+        AssertEqual(5000 + moodBuffs[eventRewards[moodEvent.FinishReward].BuffId].Speed, moodResident.Mood,
+            "mood-only event persists its effect");
+
+        moodResident.EventList.Add(new() { EventId = moodEvent.EventId, EndTime = 1 });
+        InvokeRegisteredRequestHandler(nameof(DormCharacterOperateRequest), harness.Session, 46_995_048,
+            new DormCharacterOperateRequest { CharacterId = moodResident.CharacterId, EventId = moodEvent.EventId, OperateType = 1 });
+        AssertEqual(20060012, ReadResponsePayload<DormCharacterOperateResponse>(harness, 46_995_048,
+            nameof(DormCharacterOperateResponse), "Dorm expired event").Code, "expired event cannot advance the mission");
+        AssertEqual(priorEventCount + 5, player.MissionProgress.ConditionCounters.GetValueOrDefault(12005),
+            "expired event does not record progress");
+
+        foreach (int id in Enumerable.Range(14001, 6))
+            if (!player.MissionProgress.ClaimedTaskIds.Contains(id))
+                player.MissionProgress.ClaimedTaskIds.Add(id);
+        AssertEqual(3, TaskModule.BuildLoginTasks(harness.Session).Single(task => task.Id == 14007).State,
+            "claiming the six guide missions unlocks the aggregate reward");
+        InvokeRegisteredRequestHandler(nameof(FinishTaskRequest), harness.Session, 46_995_049,
+            new FinishTaskRequest { TaskId = 14007 });
+        AssertEqual(0, ReadResponsePayload<FinishTaskResponse>(harness, 46_995_049,
+            nameof(FinishTaskResponse), "Dorm aggregate guide reward", maxPacketsToRead: 8).Code,
+            "the aggregate guide reward can be claimed");
+        AssertEqual(new DormModule.TaskCounts(player.Dorm).Residents,
+            TaskModule.BuildLoginTasks(harness.Session).Single(task => task.Id == 13006).Schedule.Single().Value,
+            "the unlocked milestone reads live residency on login");
+
+        player.ClientRegion = "cn";
+        player.MissionProgress.ConditionCounters[12005] = 3;
+        AssertEqual(3, TaskModule.BuildLoginTasks(harness.Session).Single(task => task.Id == 12005).State,
+            "CN projects the still-active original daily event task");
+        InvokeRegisteredRequestHandler(nameof(FinishTaskRequest), harness.Session, 46_995_050,
+            new FinishTaskRequest { TaskId = 2141430 });
+        AssertEqual(20026005, ReadResponsePayload<FinishTaskResponse>(harness, 46_995_050,
+            nameof(FinishTaskResponse), "foreign Dorm daily row", maxPacketsToRead: 8).Code,
+            "CN cannot also claim the EN replacement of the same daily mission");
+        foreach (int id in new[] { 12003, 12004 })
+            if (!player.MissionProgress.ClaimedTaskIds.Contains(id))
+                player.MissionProgress.ClaimedTaskIds.Add(id);
+        InvokeRegisteredRequestHandler(nameof(FinishTaskRequest), harness.Session, 46_995_051,
+            new FinishTaskRequest { TaskId = 12005 });
+        AssertEqual(0, ReadResponsePayload<FinishTaskResponse>(harness, 46_995_051,
+            nameof(FinishTaskResponse), "CN Dorm event task", maxPacketsToRead: 8).Code,
+            "CN can claim its own daily event mission");
+        AssertEqual(3, TaskModule.BuildLoginTasks(harness.Session).Single(task => task.Id == 12006).State,
+            "the CN daily aggregate counts the three claimed CN daily tasks");
     }
 
     private static void ValidateDormDispatchAllCompatibility()

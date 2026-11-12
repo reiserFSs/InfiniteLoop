@@ -26,7 +26,7 @@ Main Story collectible rewards are not bag items. For example, **13019636 — St
 | 12 | Skill Point | 99,999 | Skill levels |
 | 23 | War Zone Influence | 99,999 | War Shop |
 | 30 | Dorm Coin | 99,999 | Dorm Coin Shop |
-| 31 | Decor Coin | 9,999,999 | Dorm decor placement |
+| 31 | Decor Coin | 9,999,999 | Craft, refit and buy eligible dorm decor |
 | 32 | Coating Blueprint | 99,999 | Coating blueprint shop |
 | 33 | Coating Sketch | 99,999 | Blueprint exchange |
 | 34 | A-Class Inver Material | 99,999 | A-rank material shop |

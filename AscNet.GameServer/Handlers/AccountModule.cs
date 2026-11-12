@@ -1305,6 +1305,7 @@ namespace AscNet.GameServer.Handlers
             Theatre5Module.PrepareLogin(session);
             Theatre6Module.PrepareLogin(session);
             Theatre6PvpModule.RecoverPendingDefense(session);
+            NotifyDormitoryData dormLogin = DormModule.BuildLoginData(session);
             NotifyLogin notifyLogin = BuildNotifyLogin(session, currentTime);
 
 
@@ -1409,11 +1410,8 @@ namespace AscNet.GameServer.Handlers
             TransfiniteTowerModule.ResumeRankReward(session);
             MineSweepingModule.Resume(session);
             TeamRecommendModule.SendLoginState(session);
-            session.SendPush(new NotifyWorkNextRefreshTime()
-            {
-                NextRefreshTime = NextDailyRefreshTime()
-            });
-            session.SendPush(DormModule.BuildLoginData(session));
+            DormModule.SendWorkRefreshTime(session);
+            session.SendPush(dormLogin);
             session.SendPush(TRPGModule.BuildLoginData(session));
             session.SendPush(BuildMedalLoginData(session.player));
             session.SendPush(ExploreModule.BuildLoginData(session.player));

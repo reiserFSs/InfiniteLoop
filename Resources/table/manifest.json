@@ -1606,6 +1606,54 @@
       ]
     },
     {
+      "path": "share/dormitory/character/DormCharacterEventReward.tsv",
+      "rows": 18,
+      "columns": 3,
+      "contentSha256": "69af2d9bb50d15668f991b76592ef872bc6eea26a5639ea44c22928222cc0b7b",
+      "naturalKey": "Id",
+      "filter": "all rows",
+      "source": [
+        "Upstream archive 989e02aeafa3ff9390409e78b72a277ad21ee636: Resources/table/share/dormitory/character/DormCharacterEventReward.tsv (sha256:69af2d9bb50d15668f991b76592ef872bc6eea26a5639ea44c22928222cc0b7b)"
+      ],
+      "transformation": "Restore the authored table from upstream history, preserving the empty reward cells."
+    },
+    {
+      "path": "share/dormitory/character/DormCharacterMoodBuff.tsv",
+      "rows": 18,
+      "columns": 5,
+      "contentSha256": "15069dca59e2f2300df7a0250241c65a4fb7fee3fe4971d55acbfddae1de8222",
+      "naturalKey": "Id",
+      "filter": "all rows",
+      "source": [
+        "Upstream archive 989e02aeafa3ff9390409e78b72a277ad21ee636: Resources/table/share/dormitory/character/DormCharacterMoodBuff.tsv (sha256:15069dca59e2f2300df7a0250241c65a4fb7fee3fe4971d55acbfddae1de8222)"
+      ],
+      "transformation": "Restore the authored table from upstream history."
+    },
+    {
+      "path": "regions/cn/table/share/dormitory/Dormitory.tsv",
+      "rows": 30,
+      "columns": 23,
+      "contentSha256": "8bf5ae381f5a95cd6b11cbeaca59101d9b5bac83d4b489e231c873e0be9f5727",
+      "naturalKey": "Id",
+      "filter": "all rows",
+      "source": [
+        "myssal/PGR_Data@de33e494ea090e82dff530d0d115e79d414f0dcf:cn/bytes/share/dormitory/Dormitory.json (sha256:337af7781746c3eb5bdb1dc509cd0da5aeabebf531ca95efa38221f0e87c2a4f)"
+      ],
+      "transformation": "Project the CN room configuration into the server table columns, retaining regional names, layouts and unlock costs."
+    },
+    {
+      "path": "share/task/CnDormTaskWindow.tsv",
+      "rows": 6,
+      "columns": 2,
+      "contentSha256": "18e38d6644e3985e70f482b3c620d4aa0e7aa662b19f01b67956e35929f5574b",
+      "naturalKey": "Id",
+      "filter": "selected authored rows",
+      "source": [
+        "myssal/PGR_Data@de33e494ea090e82dff530d0d115e79d414f0dcf:cn/bytes/share/task/Task.json (sha256:e5c59c76f544b95f2c05ee8ecd3e49b1e4e1da43bca5a78bd30385a05cd81452)"
+      ],
+      "transformation": "Project the CN Id and StartTime for the six dorm tasks with different EN availability; their CN EndTime is absent."
+    },
+    {
       "columns": 11,
       "contentSha256": "d845d8a36cf49335cbd3190b55082f97d4449c9a158f0c6f7f69bcf0876c6efc",
       "filter": "all",

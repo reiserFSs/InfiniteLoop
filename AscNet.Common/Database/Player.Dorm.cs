@@ -84,6 +84,7 @@ public sealed class PlayerDormRoom
 {
     [BsonElement("id")] public uint Id { get; set; }
     [BsonElement("name")] public string Name { get; set; } = string.Empty;
+    [BsonElement("custom_name")] public bool CustomName { get; set; }
 }
 
 public sealed class PlayerDormCharacter
@@ -91,6 +92,7 @@ public sealed class PlayerDormCharacter
     [BsonElement("character_id")] public uint CharacterId { get; set; }
     [BsonElement("dormitory_id")] public int DormitoryId { get; set; } = -1;
     [BsonElement("mood")] public int Mood { get; set; }
+    [BsonElement("high_mood_since")] public uint HighMoodSince { get; set; }
     [BsonElement("vitality")] public int Vitality { get; set; }
     [BsonElement("mood_speed")] public int MoodSpeed { get; set; }
     [BsonElement("vitality_speed")] public int VitalitySpeed { get; set; }

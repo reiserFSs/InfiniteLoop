@@ -15,6 +15,7 @@ namespace AscNet.GameServer.Handlers
         public static void HeartbeatRequestHandler(Session session, Packet.Request packet)
         {
             DormModule.RefreshQuestState(session);
+            DormModule.RefreshResidentRecovery(session);
             HeartbeatResponse heartbeatResponse = new()
             {
                 UtcServerTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
