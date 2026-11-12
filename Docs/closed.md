@@ -65,10 +65,16 @@ Operation Guardians is Maintainer Action (functional id 1302, `OnOpenMaintainerA
 
 - The node pool for `NodePoolId` 2 is not in the dump. Board generation, node composition, hidden-node selection, card draws, the extra-action amounts of events 8 and 12 (event 13 states +2), the once-per-day start bonus and the warehouse reward (the level's `BoxRewardIds` entry) are labelled AscNet policy, seeded per player and week and persisted.
 - `TimeId` 123 has no calendar row; availability is a labelled permanent-mode policy in `ActivityScheduleService`.
-- Mentor nodes (node type 13, events 16-19, mails 61002/61003) stay inert: the mentor system is absent, so they are never generated and `HasMentorNode` is false.
+- Mentor nodes (node type 13, events 16-19, mails 61002/61003) require real-player mentor relationships. They remain inert in solo guidance.
 - Other players on the board, cross-check requests and shared records are not simulated; the board shows only the owner and `MaintainerActionRecordRequest` returns only their own records.
 - A lost response to a relocation node's event cannot be replayed (the follow-up request is indistinguishable from a retry); every other accepted node event is replayed.
 - Only login creates the first board. A player who reaches the unlock condition mid-session gets the mode's data at their next login.
+
+## Guidance
+
+The recruitment chat and qualification tasks use existing `Task` and `Condition` rows. AscNet's solo weekly offer policy uses the supported mentor-weekly rows from those same tables. It prioritizes Serum and login objectives, then includes unlocked War Zone, Phantom Pain Cage and Simulated Battlefield objectives. Equivalent objectives use one task per client region. Simulated Siege and Operation Guardians weekly guidance objectives are still closed.
+
+To enable solo weekly guidance and the temporary instructor, provide a local `Configs/solo_guidance.json`. Set `StudentLevel`, `InstructorLevel`, `GraduationLevel`, `AutoGraduationLevel`, `DailyOfferLimit`, `DailyAcceptLimit`, `WeeklyAcceptLimit`, `GraduationRewardId`, `ActivationRewardId`, `ActivationRewardCount` and `WeeklyRewards`. Each weekly reward has `Level`, `Count` and `RewardId`. Use existing reward group IDs and choose thresholds, limits and awards appropriate for the server and its clients. The temporary instructor uses the configured activation gift allowance per week. A server without this configuration serves recruitment chat and qualification tasks; the solo weekly menu and instructor are inactive.
 
 ## Lightning and Thunder / The Meandering Three shops
 
@@ -106,7 +112,7 @@ Dorm is not closed: `GetShopBaseInfoRequest` returns existing curated Type-101 t
 
 ## Friends / social data sources
 
-Friends, incoming applications, notes and blacklist entries are persisted and supplied through `NotifySocialData`; online targets receive the client-defined application/add/delete/block pushes. Limits and retry windows come from `share/config/Config.tsv`, normal friend capacities from `share/player/Player.tsv`, honor capacities from the CN fallback `share/player/HonorLevel.tsv` (the EN extract lacks that table), and note length from the imported client `MaxNameLength`. Recommendations contain real database players only; stable most-recent-login ordering is labelled AscNet policy because the retail ranking algorithm is not published. UTC calendar days define the daily application counter as AscNet policy. Friendship experience accrual and mentor-relation restrictions remain closed: no friendship-experience grant rule or persisted mentor backend exists in this slice; no synthetic experience or mentor relation is created.
+Friends, incoming applications, notes and blacklist entries are persisted and supplied through `NotifySocialData`; online targets receive the client-defined application/add/delete/block pushes. Limits and retry windows come from `share/config/Config.tsv`, normal friend capacities from `share/player/Player.tsv`, honor capacities from the CN fallback `share/player/HonorLevel.tsv` (the EN extract lacks that table), and note length from the imported client `MaxNameLength`. Recommendations contain real database players only; stable most-recent-login ordering is labelled AscNet policy because the retail ranking algorithm is not published. UTC calendar days define the daily application counter as AscNet policy. Friendship experience accrual and real-player mentor restrictions remain closed.
 
 ## Archive unlocks and evaluations
 

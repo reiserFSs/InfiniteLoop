@@ -2371,7 +2371,7 @@ public sealed class NotifyBfrtProgressInfo
             {
                 public UInt32 TaskId { get; set; }
                 public Int32 State { get; set; }
-                public List<dynamic> Schedule { get; set; } = new();
+                public List<NotifyTask.NotifyTaskTasks.NotifyTaskTasksTask.NotifyTaskTasksTaskSchedule> Schedule { get; set; } = new();
                 public Int32 Status { get; set; }
                 public Int32 RewardId { get; set; }
                 public List<dynamic> EquipList { get; set; } = new();
@@ -2379,7 +2379,7 @@ public sealed class NotifyBfrtProgressInfo
             }
 
             public List<NotifyMentorDataStudentSystemTask> SystemTask { get; set; } = new();
-            public List<dynamic> WeeklyTask { get; set; } = new();
+            public List<NotifyMentorDataStudentSystemTask> WeeklyTask { get; set; } = new();
             public Int32 KizunaAmount { get; set; }
             public Int32 JoinTime { get; set; }
             public Int32 ReachTime { get; set; }
@@ -2398,7 +2398,7 @@ public sealed class NotifyBfrtProgressInfo
         public List<NotifyMentorDataApply> ApplyList { get; set; } = new();
         public Int32 GraduateStudentCount { get; set; }
         public List<dynamic> StageReward { get; set; } = new();
-        public List<dynamic> WeeklyTaskReward { get; set; } = new();
+        public List<Int32> WeeklyTaskReward { get; set; } = new();
         public Int32 WeeklyTaskCompleteCount { get; set; }
         public List<Int32> Tag { get; set; } = new();
         public List<Int32> OnlineTag { get; set; } = new();

@@ -4,6 +4,8 @@ using AscNet.Common.MsgPack;
 using AscNet.Table.V2.share.fuben;
 using AscNet.Table.V2.share.movie;
 using MessagePack;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 
 namespace AscNet.GameServer.Handlers
 {
@@ -205,16 +207,75 @@ namespace AscNet.GameServer.Handlers
                 CompleteTime = Clock().ToUnixTimeSeconds() + datum.LastRecordTime * request.Times
             };
             NotifyItemDataList items = new();
-            if (cost > 0)
-                items.ItemDataList.Add(session.inventory.Do(Inventory.ActionPoint, -(int)cost));
-            session.player.AutoFightRecords.Add(record);
-            session.player.SaveChecked();
-            session.inventory.Save();
+            int serum = checked((int)cost);
+            MentorProgressState? progress = MentorModule.PrepareSerumProgress(session, serum);
+            if (progress is null)
+            {
+                if (serum > 0)
+                    items.ItemDataList.Add(session.inventory.Do(Inventory.ActionPoint, -serum));
+                session.player.AutoFightRecords.Add(record);
+                session.player.SaveChecked();
+                session.inventory.Save();
+            }
+            else
+            {
+                items.ItemDataList.Add(CommitGuidanceAutoFight(session, record, serum, progress));
+            }
             if (cost > 0 && RepeatChallengeModule.IsStage((uint)request.StageId))
                 RepeatChallengeModule.AddSerumSpentProgress(session, request.StageId, checked((int)cost));
             if (items.ItemDataList.Count > 0)
                 session.SendPush(items);
             return 0;
+        }
+
+        private static Item CommitGuidanceAutoFight(Session session, AutoFightRecordState record, int serum, MentorProgressState progress)
+        {
+            Player player = session.player;
+            MentorProgressState previousProgress = player.Mentor;
+            Inventory previousWallet = BsonSerializer.Deserialize<Inventory>(session.inventory.ToBson());
+            Item balance = session.inventory.Do(Inventory.ActionPoint, -serum);
+            try { session.inventory.SaveChecked(); }
+            catch
+            {
+                RestoreAutoFightPayment(session, previousWallet);
+                throw;
+            }
+
+            player.AutoFightRecords.Add(record);
+            player.Mentor = progress;
+            try { player.SaveChecked(); }
+            catch (Exception exception)
+            {
+                Player? stored = Player.TryFromPlayerId(player.PlayerData.Id);
+                if (stored is null || stored.Id != player.Id)
+                {
+                    session.DisconnectProtocol(persistState: false);
+                    throw;
+                }
+                // The request owns the player lock and there was no earlier record for this stage.
+                if (!stored.AutoFightRecords.Any(entry => entry.StageId == record.StageId))
+                {
+                    player.AutoFightRecords.Remove(record);
+                    player.Mentor = previousProgress;
+                    RestoreAutoFightPayment(session, previousWallet);
+                    throw;
+                }
+                session.log.Warn("Auto-fight start committed despite a lost acknowledgement.", exception);
+            }
+            MentorModule.SendWeeklyTasks(session, previousProgress);
+            return balance;
+        }
+
+        private static void RestoreAutoFightPayment(Session session, Inventory previous)
+        {
+            session.inventory.Items = previous.Items;
+            session.inventory.SpentTotals = previous.SpentTotals;
+            try { session.inventory.SaveChecked(); }
+            catch (Exception exception)
+            {
+                session.log.Warn("Could not restore auto-fight Serum payment.", exception);
+                session.DisconnectProtocol(persistState: false);
+            }
         }
 
         [RequestPacketHandler("ObtainAutoFightRewardsRequest")]

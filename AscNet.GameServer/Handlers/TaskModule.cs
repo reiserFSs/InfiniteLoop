@@ -882,6 +882,7 @@ namespace AscNet.GameServer.Handlers
             tasks.AddRange(BuildPunishaarTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildReformTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildEventTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
+            tasks.AddRange(BuildGuidanceTaskProgress(session).Where(x => existingIds.Add((uint)x.TaskId)).Select(ToLoginTask));
             tasks.AddRange(BuildDayTaskProgress(session)
                 .Where(x => existingIds.Add((uint)x.TaskId))
                 .Select(ToLoginTask));
@@ -919,7 +920,7 @@ namespace AscNet.GameServer.Handlers
                 Id = task.Id, State = task.State, RecordTime = task.RecordTime,
                 Schedule = task.Schedule.Select(value => new LoginTaskSchedule { Id = value.Id, Value = value.Value }).ToList()
             }));
-            session.TaskSnapshotProgress = tasks.Where(task => SnapshotTaskIds.Value.Contains((int)task.Id))
+            session.TaskSnapshotProgress = tasks.Where(task => IsSnapshotTask((int)task.Id))
                 .ToDictionary(task => (int)task.Id, task => (task.Schedule[0].Value, task.State));
             return tasks;
         }
@@ -968,6 +969,7 @@ namespace AscNet.GameServer.Handlers
                         .Concat(BuildPunishaarTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildReformTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildEventTaskProgress(session).Select(ToSyncTask))
+                        .Concat(BuildGuidanceTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildDayTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildPassportTaskProgress(session).Select(ToSyncTask))
                         .Concat(BuildTransfiniteTaskProgress(session).Select(ToSyncTask))
@@ -999,7 +1001,7 @@ namespace AscNet.GameServer.Handlers
         private static void RememberSync(Session session, NotifyTask notification)
         {
             session.TaskSnapshotProgress ??= new();
-            foreach (SyncTask task in notification.Tasks.Tasks.Where(task => SnapshotTaskIds.Value.Contains((int)task.Id)))
+            foreach (SyncTask task in notification.Tasks.Tasks.Where(task => IsSnapshotTask((int)task.Id)))
                 session.TaskSnapshotProgress[(int)task.Id] = (task.Schedule[0].Value, task.State);
         }
 
@@ -1028,6 +1030,15 @@ namespace AscNet.GameServer.Handlers
                 session.TaskSnapshotProgress[task.Id] = value;
                 (changed ??= []).Add(ToSyncTask(new MissionTaskProgress(task.Id, conditionId, count, state)));
             }
+            foreach (MissionTaskProgress task in BuildGuidanceTaskProgress(session))
+            {
+                var value = (task.Value, task.State);
+                bool known = session.TaskSnapshotProgress.TryGetValue(task.TaskId, out var previous);
+                if (known ? previous == value : value == (0, TaskStateActive))
+                    continue;
+                session.TaskSnapshotProgress[task.TaskId] = value;
+                (changed ??= []).Add(ToSyncTask(task));
+            }
             if (changed is not null)
                 session.SendPush(new NotifyTask { Tasks = new() { Tasks = changed } });
         }
@@ -1037,9 +1048,12 @@ namespace AscNet.GameServer.Handlers
             if (session.TaskSnapshotProgress is null)
                 return;
             foreach (MissionTaskProgress task in progress)
-                if (SnapshotTaskIds.Value.Contains(task.TaskId))
+                if (IsSnapshotTask(task.TaskId))
                     session.TaskSnapshotProgress[task.TaskId] = (task.Value, task.State);
         }
+
+        private static bool IsSnapshotTask(int taskId) =>
+            SnapshotTaskIds.Value.Contains(taskId) || GuidanceTasks.Value.ContainsKey(taskId);
 
         public static void SendCurrentTaskBatch(Session session, IReadOnlyCollection<int> taskIds)
         {
@@ -1466,7 +1480,7 @@ namespace AscNet.GameServer.Handlers
                 RecordFirstClearProgress(session, stageId);
             if (actionPointCost > 0)
                 AddConditionTypeProgress(session, 11202, actionPointCost, Inventory.ActionPoint);
-            session.player.Save();
+            MentorModule.RecordStageClear(session, stageId, StageTypesById.Value.GetValueOrDefault(stageId), count, actionPointCost, isFirstClear);
             SendTaskSync(session);
         }
 
@@ -1584,7 +1598,7 @@ namespace AscNet.GameServer.Handlers
                 .Where(task => affectedConditionIds.Contains(task.Condition))
                 .Select(task => task.Id)
                 .ToArray();
-            session.player.Save();
+            MentorModule.SaveArenaProgress(session, isFirstClear);
             SendCurrentTaskBatch(session, affectedTaskIds);
             if (isFirstClear)
                 SendPassportConditionTypeSync(session, 28005);
@@ -2039,7 +2053,7 @@ namespace AscNet.GameServer.Handlers
                 });
         }
 
-        private enum TaskClaimKind { Current, Transfinite, Passport, Dorm, Story, LifeTree, GuildAchievement, SameColorGame, LinkageDraw, Envelope, FangKuai, DayTask, TransfiniteTower, Punishaar, CerberusGame, Reform, SkyTower, Event }
+        private enum TaskClaimKind { Current, Transfinite, Passport, Dorm, Story, LifeTree, GuildAchievement, SameColorGame, LinkageDraw, Envelope, FangKuai, DayTask, TransfiniteTower, Punishaar, CerberusGame, Reform, SkyTower, Event, Guidance }
 
         private sealed record PreparedTaskClaim(int TaskId, TaskClaimKind Kind, string ClaimKey, List<RewardGoodsTable> Goods);
 
@@ -2149,6 +2163,16 @@ namespace AscNet.GameServer.Handlers
                 key = DayTaskClaimKey(taskId, session.player.MissionProgress.DailyResetDay);
                 achieved = BuildDayTaskProgress(session, claimed, balance).Any(row => row.TaskId == taskId && row.State == TaskStateAchieved);
                 goods = RewardHandler.GetRewardGoods(dayTask.Task.RewardId ?? 0);
+            }
+            else if (GuidanceTasks.Value.TryGetValue(taskId, out var guidance))
+            {
+                kind = TaskClaimKind.Guidance;
+                key = guidance.Task.Type == CollaborationTaskType
+                    ? $"guidance-task:{taskId}:{session.player.MissionProgress.WeeklyResetWeek}"
+                    : $"guidance-task:{taskId}";
+                achieved = IsGuidanceTaskVisible(session, guidance.Task)
+                    && GuidanceTaskProgress(session, guidance.Task, guidance.Condition, claimed).State == TaskStateAchieved;
+                goods = RewardHandler.GetRewardGoods(guidance.Task.RewardId ?? 0);
             }
             else if (TableReaderV2.Parse<CurrentTaskTable>().FirstOrDefault(row => row.Id == taskId) is { } current)
             {
@@ -2621,7 +2645,7 @@ namespace AscNet.GameServer.Handlers
             return character is not null && predicate(character) ? 1 : 0;
         }
 
-        private static int CountCharactersAtQuality(Session session, IReadOnlyList<int> parameters)
+        private static int CountCharactersAtQuality(Session session, IReadOnlyList<int> parameters, int requiredLiberation = 0)
         {
             if (parameters.Count < 3)
             {
@@ -2632,6 +2656,7 @@ namespace AscNet.GameServer.Handlers
             int requiredLevel = parameters[2];
             return session.character.Characters.Count(character =>
                 character.Quality >= requiredQuality && character.Level >= requiredLevel
+                && character.LiberateLv >= requiredLiberation
                 && (parameters.Count < 4 || character.Grade >= parameters[3])
                 && (parameters.Count < 5 || parameters[4] <= 0 || CharacterPower.Calculate(session, character) >= parameters[4]));
         }
@@ -2831,6 +2856,7 @@ namespace AscNet.GameServer.Handlers
             else if (session.player.MissionProgress.WeeklyResetWeek != week)
             {
                 ResetMissionType(session, 3);
+                ResetGuidanceWeeklyTasks(session);
                 ResetPassportTaskType(session, 2);
                 session.player.PlayerData.WeeklyActivenessRewardStatus = 0;
                 session.player.MissionProgress.WeeklyTaskActivenessProgress.Clear();

@@ -44,7 +44,10 @@ namespace AscNet.GameServer.Handlers
         string ClaimKey,
         IReadOnlyList<RewardGoodsTable> Goods,
         IReadOnlyDictionary<int, int>? Costs = null,
-        int? EventCause = null);
+        int? EventCause = null)
+    {
+        public bool UpdateCommandantLevel { get; init; }
+    }
 
     internal sealed class RewardApplicationResult
     {
@@ -494,6 +497,8 @@ namespace AscNet.GameServer.Handlers
                         (session.player.ChatBoardRewardClaims ??= []).Add(grant.ClaimKey);
                         grantResult.ChatBoardChanged = true;
                     }
+                    if (!inventoryClaimed && grant.UpdateCommandantLevel)
+                        PlanCommandantLevel(session, grantResult);
                     result.AddPushes(grantResult);
 
                     if (!inventoryClaimed)
@@ -518,7 +523,14 @@ namespace AscNet.GameServer.Handlers
 
                 if (inventoryDirty)
                 {
-                    stagedInventory.SaveChecked();
+                    try { stagedInventory.SaveChecked(); }
+                    catch when (stagedInventory.PendingCommandantLevel > 0)
+                    {
+                        // An acknowledgement can be lost after the grant and its level plan land.
+                        // Reload the inventory on reconnect rather than flushing the old balances.
+                        session.DisconnectProtocol(persistState: false);
+                        throw;
+                    }
                     inventoryPersisted = true;
                 }
                 if (characterDirty)
@@ -835,8 +847,32 @@ namespace AscNet.GameServer.Handlers
             target.Uid = source.Uid;
             target.Items = source.Items;
             target.AppliedRewardClaims = source.AppliedRewardClaims;
+            target.PendingCommandantLevel = source.PendingCommandantLevel;
             target.RewardClaimTimes = source.RewardClaimTimes;
             target.ChatEmojiRewardPlans = source.ChatEmojiRewardPlans;
+        }
+
+        private static void PlanCommandantLevel(Session session, RewardApplicationResult result)
+        {
+            Item? exp = result.ItemData.ItemDataList.Find(item => item.Id == Inventory.TeamExp);
+            if (exp is null)
+                return;
+
+            Inventory inventory = session.inventory;
+            Item? serum = null;
+            long level = Math.Max(session.player.PlayerData.Level, inventory.PendingCommandantLevel);
+            foreach (var (row, nextLevel) in SessionExtensions.EarnedCommandantLevels(level, exp.Count))
+            {
+                exp.Count -= row.MaxExp;
+                serum = inventory.Do(Inventory.ActionPoint, row.FreeActionPoint);
+                // The adjusted balances and the target level share the inventory write with the reward receipt.
+                inventory.PendingCommandantLevel = nextLevel;
+            }
+            if (serum is not null)
+            {
+                result.ItemData.ItemDataList.RemoveAll(item => item.Id == Inventory.ActionPoint);
+                result.ItemData.ItemDataList.Add(serum);
+            }
         }
 
         private static void CopyCharacter(Character target, Character source)

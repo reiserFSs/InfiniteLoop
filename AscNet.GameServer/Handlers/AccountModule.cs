@@ -262,6 +262,7 @@ namespace AscNet.GameServer.Handlers
                     player.Save();
 
                 session.player = player;
+                session.WorldChatChannelId = Session.DefaultWorldChatChannelId;
                 session.character = Character.FromUid(player.PlayerData.Id, player.GatherRewards);
                 session.stage = Stage.FromUid(player.PlayerData.Id);
                 session.inventory = Inventory.FromUid(player.PlayerData.Id);
@@ -343,6 +344,8 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
 
+                bool newChatSession = session.player is null;
+                session.WorldChatChannelId = previousSession?.WorldChatChannelId ?? session.WorldChatChannelId;
                 session.log.Debug("Player is reconnecting...");
                 if (session.player is null
                     || session.character is null
@@ -366,9 +369,13 @@ namespace AscNet.GameServer.Handlers
                     RequestNo = Session.LastClientPacketNo(player.PlayerData.Id, request.LastMsgSeqNo)
                 }, packet.Id);
                 session.GuildIdentityReady = true;
+                session.RecoverPendingCommandantLevel();
                 BossModule.ReconcileReconnect(session);
+                MentorModule.Refresh(session, login: true);
                 PartnerModule.SyncArchive(session);
                 TaskModule.SeedTaskSnapshot(session);
+                if (newChatSession)
+                    session.SendPush(new NotifyChatChannelChange { ChannelId = session.WorldChatChannelId });
             }
         }
 
@@ -1082,24 +1089,6 @@ namespace AscNet.GameServer.Handlers
             {
                 ["ReviewActivityConfigList"] = Array.Empty<object>()
             }),
-            ["NotifyMentorData"] = SerializeStartupPayload(new Dictionary<string, object?>
-            {
-                ["PlayerType"] = 0,
-                ["Teacher"] = new Dictionary<string, object?>(),
-                ["Students"] = Array.Empty<object>(),
-                ["ApplyList"] = Array.Empty<object>(),
-                ["GraduateStudentCount"] = 0,
-                ["StageReward"] = Array.Empty<object>(),
-                ["WeeklyTaskReward"] = Array.Empty<object>(),
-                ["WeeklyTaskCompleteCount"] = 0,
-                ["Tag"] = Array.Empty<object>(),
-                ["OnlineTag"] = Array.Empty<object>(),
-                ["Announcement"] = string.Empty,
-                ["DailyChangeTaskCount"] = 0,
-                ["WeeklyLevel"] = 0,
-                ["MonthlyStudentCount"] = 0,
-                ["Message"] = null
-            }),
             ["NotifyMentorChat"] = SerializeStartupPayload(new Dictionary<string, object?>
             {
                 ["ChatMessages"] = Array.Empty<object>()
@@ -1280,6 +1269,7 @@ namespace AscNet.GameServer.Handlers
         {
             // Recover the frozen outcome before login accounting can save the player's document.
             Theatre6Module.ResumePending(session, forLogin: true);
+            session.CommitPendingCommandantLevel();
             long currentTime = DateTimeOffset.Now.ToUnixTimeSeconds();
             long previousLastLoginTime = session.player.PlayerData.LastLoginTime;
             if (updateLoginAccounting)
@@ -1546,7 +1536,7 @@ namespace AscNet.GameServer.Handlers
             SendCurrentEventTaskBatch(session, RetroArcadeTaskBatchPostSubModesC);
             SendEmptyStartupPush(session, "NotifyReviewConfig");
             PassportModule.ReconcileAndPushLogin(session);
-            SendEmptyStartupPush(session, "NotifyMentorData");
+            MentorModule.Refresh(session, login: true);
             SendEmptyStartupPush(session, "NotifyMentorChat");
             SendEmptyStartupPush(session, "NotifyGuildData");
             session.SendPush(notifyMails);
