@@ -57,7 +57,18 @@ public static class GmPlayerService
         bool dryRun, bool ignoreClientTriggers) =>
         WithSession(session, () => GuideModule.ExecuteGmCompletion(session, guideId, groupId, policy, dryRun, ignoreClientTriggers));
 
-    private static T WithPlayer<T>(long uid, Func<Player, Session?, T> operation)
+    private static T WithPlayer<T>(long uid, Func<Player, Session?, T> operation) =>
+        WithOnlinePlayer(uid, session =>
+        {
+            if (session is not null)
+                return operation(session.player, session);
+            Player? player = Player.collection.Find(row => row.PlayerData.Id == uid).SingleOrDefault();
+            if (player is null)
+                throw new GmOperationException("player_not_found", $"Player {uid} does not have a saved character.");
+            return operation(player, null);
+        });
+
+    internal static T WithOnlinePlayer<T>(long uid, Func<Session?, T> operation)
     {
         if (uid <= 0)
             throw new GmOperationException("invalid_uid", "Enter a positive player UID.");
@@ -65,16 +76,7 @@ public static class GmPlayerService
         // Packet dispatch, login and disconnect acquire these locks in this order.
         lock (GuildModule.MembershipLock)
         lock (Session.GetPlayerOperationLock(uid))
-        {
-            Session? session = Server.Instance.SessionFromUID(uid);
-            if (session is not null)
-                return operation(session.player, session);
-
-            Player? player = Player.collection.Find(row => row.PlayerData.Id == uid).SingleOrDefault();
-            if (player is null)
-                throw new GmOperationException("player_not_found", $"Player {uid} does not have a saved character.");
-            return operation(player, null);
-        }
+            return operation(Server.Instance.SessionFromUID(uid));
     }
 
     private static T WithSession<T>(Session session, Func<T> operation)

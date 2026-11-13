@@ -739,6 +739,11 @@ namespace AscNet.Test
                     ValidateLiveGmControl().GetAwaiter().GetResult();
                     return;
                 }
+                if (args.Contains("--live-gm-items-only"))
+                {
+                    ValidateLiveGmControl(itemsOnly: true).GetAwaiter().GetResult();
+                    return;
+                }
 
 
                 if (args.Contains("--theatre6-compat-only"))
@@ -1507,6 +1512,7 @@ namespace AscNet.Test
                 Step("ValidateCurrentClientGuideTableCompatibility", () => ValidateCurrentClientGuideTableCompatibility());
                 Step("ValidateGuideProgression", () => ValidateGuideProgressionCompatibility());
                 Step("ValidateLiveGmControl", () => ValidateLiveGmControl().GetAwaiter().GetResult());
+                Step("ValidateLiveGmItems", () => ValidateLiveGmControl(itemsOnly: true).GetAwaiter().GetResult());
                 Step("ValidateWheelchairManualFullCompatibility", () => ValidateWheelchairManualFullCompatibility());
                 Step("ValidatePlayerCostTimeUploadCompatibility", () => ValidatePlayerCostTimeUploadCompatibility());
                 Step("ValidateRecordPlayerPointCompatibility", () => ValidateRecordPlayerPointCompatibility());

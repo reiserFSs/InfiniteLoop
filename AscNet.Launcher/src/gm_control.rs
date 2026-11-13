@@ -10,6 +10,8 @@ use std::{
 };
 use uuid::Uuid;
 
+pub mod items;
+
 const PREFIX: &[u8] = b"ASCNET-GM/1 ";
 const REPLY_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -36,6 +38,11 @@ pub enum GmRequest {
         dry_run: bool,
         ignore_client_triggers: bool,
     },
+    ItemCatalog,
+    ItemSearch { uid: i64, query: String, category: Option<String>, offset: usize },
+    ItemInspect { uid: i64, item_id: i32 },
+    ItemAdd { uid: i64, item_id: i32, quantity: i32, grant_id: String },
+    ItemResolve { uid: i64, item_id: i32, quantity: i32, grant_id: String },
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,7 +63,25 @@ pub struct GmReply {
     pub message: Option<String>,
     pub player: Option<PlayerLevel>,
     pub server_version: Option<String>,
+    pub catalog: Option<items::Catalog>,
+    pub search: Option<items::Search>,
+    pub item: Option<items::Inspection>,
+    pub grant: Option<items::Grant>,
 }
+
+#[derive(Debug)]
+pub struct GmRejected {
+    pub code: String,
+    message: String,
+}
+
+impl std::fmt::Display for GmRejected {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for GmRejected {}
 
 #[derive(Default)]
 struct ReplyWaiters {
@@ -135,7 +160,10 @@ impl GmControl {
         self.replies.lock().unwrap().calls.remove(&id);
         let reply = result?;
         if !reply.ok {
-            bail!("{}", reply.message.as_deref().unwrap_or("The server declined the GM operation."));
+            return Err(GmRejected {
+                code: reply.code.unwrap_or_default(),
+                message: reply.message.unwrap_or_else(|| "The server declined the GM operation.".into()),
+            }.into());
         }
         Ok(reply)
     }

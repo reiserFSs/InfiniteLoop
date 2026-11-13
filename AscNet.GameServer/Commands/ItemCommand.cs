@@ -93,11 +93,10 @@ namespace AscNet.GameServer.Commands
         {
             if (!RewardHandler.TryResolveWeaponFashionReward(itemId, out int weaponFashionId))
                 return false;
-            List<WeaponFashionData> changed = [];
-            if (grant && RewardHandler.UnlockWeaponFashionReward(weaponFashionId, session, changed))
+            if (grant && ItemGrantRules.UnlockCoating(session, weaponFashionId) is { } coating)
             {
                 session.character.Save();
-                session.SendPush(new NotifyWeaponFashionInfo { WeaponFashionDataList = changed });
+                ItemGrantRules.PushCoating(session, coating);
             }
             return true;
         }
@@ -211,10 +210,7 @@ namespace AscNet.GameServer.Commands
         {
             // Gift and selection boxes are rendered as individual entries by the client.
             // Keep one copy during a bulk grant to avoid expanding the inventory excessively.
-            if (itemTable.ItemType == (int)ItemType.Gift)
-                return 1;
-
-            return Math.Min(Inventory.GetMaxCount(itemTable), Inventory.GlobalItemMaxCount);
+            return ItemGrantRules.BatchLimit(itemTable);
         }
     }
 }

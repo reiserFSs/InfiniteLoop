@@ -989,7 +989,7 @@ namespace AscNet.GameServer.Handlers
             return TryResolveWeaponFashionReward(item, out weaponFashionId);
         }
 
-        private static bool TryResolveWeaponFashionReward(ItemTable? item, out int weaponFashionId)
+        internal static bool TryResolveWeaponFashionReward(ItemTable? item, out int weaponFashionId)
         {
             weaponFashionId = 0;
             if (item is null

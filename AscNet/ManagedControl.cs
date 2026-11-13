@@ -83,6 +83,17 @@ internal static class ManagedControl
                     string feedback = GmPlayerService.CompleteGuides(uid, request.GuideId, request.GroupId,
                         request.All, request.RewardPolicy, request.DryRun, request.IgnoreClientTriggers);
                     return new(id, true, Message: feedback);
+                case "itemCatalog":
+                    return new(id, true, Catalog: GmItemCatalog.Current.Info());
+                case "itemSearch":
+                    return new(id, true, Search: GmItemService.Search(uid, request.Query, request.Category, request.Offset));
+                case "itemInspect" when request.ItemId is int item:
+                    return new(id, true, Item: GmItemService.Inspect(uid, item));
+                case "itemAdd" or "itemResolve" when request.ItemId is int itemId && request.Quantity is int quantity:
+                    var grant = GmItemService.Add(uid, itemId, quantity, request.GrantId, request.Operation == "itemResolve");
+                    if (!grant.Replay)
+                        LoggerFactory.Info($"Launcher GM granted item={itemId} quantity={quantity} uid={uid} balance={grant.Balance.Owned} updateQueued={grant.UpdateQueued}");
+                    return new(id, true, Grant: grant);
                 default:
                     return new(id, false, "invalid_request", "Unknown operation or required argument missing.");
             }
@@ -116,8 +127,15 @@ internal static class ManagedControl
         public string? RewardPolicy { get; set; }
         public bool DryRun { get; set; }
         public bool IgnoreClientTriggers { get; set; }
+        public string? Query { get; set; }
+        public string? Category { get; set; }
+        public int Offset { get; set; }
+        public int? ItemId { get; set; }
+        public int? Quantity { get; set; }
+        public string? GrantId { get; set; }
     }
 
     private sealed record Reply(string Id, bool Ok, string? Code = null, string? Message = null,
-        GmPlayerLevel? Player = null, string? ServerVersion = null);
+        GmPlayerLevel? Player = null, string? ServerVersion = null, GmItemCatalogInfo? Catalog = null,
+        GmItemSearch? Search = null, GmItemInspection? Item = null, GmItemGrant? Grant = null);
 }

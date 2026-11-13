@@ -20,7 +20,7 @@ namespace AscNet.Test;
 
 internal static partial class Program
 {
-    private static async Task ValidateLiveGmControl()
+    private static async Task ValidateLiveGmControl(bool itemsOnly = false)
     {
         var config = AscNet.Common.Common.config;
         if (config.Database.Host != "127.0.0.1" || config.Database.Port == 27017
@@ -65,6 +65,11 @@ internal static partial class Program
             using var account2 = new GmTestGame(gamePort);
             AssertEqual((1L, 1L), await account1.Login(uid1Token), "UID 1 fresh login");
             AssertEqual((2L, 1L), await account2.Login(uid2Token), "UID 2 fresh login");
+            if (itemsOnly)
+            {
+                await ValidateLiveGmItems(server, account1, account2, gamePort, origin, http, uid2Token, inventories);
+                return;
+            }
             AssertEqual((2L, 1L, true), Level(await server.Call("readLevel", new { uid = 2 })), "read live level");
             long[] stagesBefore = stages.Find(row => row.Uid == 2).Single().Stages.Keys.Order().ToArray();
             var itemsBefore = inventories.Find(row => row.Uid == 2).Single().Items.Select(item => (item.Id, item.Count)).ToArray();
@@ -349,8 +354,11 @@ internal static partial class Program
             var result = await Exchange<LoginResponse>(nameof(LoginRequest), new LoginRequest { Token = token });
             AssertEqual(0, result.Response.Code, "real game login response");
             var login = MessagePackSerializer.Deserialize<NotifyLogin>(result.Pushes.Single(push => push.Name == nameof(NotifyLogin)).Content);
+            LoginItems = login.ItemList;
             return (login.PlayerData.Id, login.PlayerData.Level);
         }
+
+        public IReadOnlyList<Item> LoginItems { get; private set; } = [];
 
         public async Task<List<Packet.Push>> Pulse() =>
             (await Exchange<HeartbeatResponse>(nameof(HeartbeatRequest), new HeartbeatRequest())).Pushes;

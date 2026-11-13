@@ -7,6 +7,7 @@ using AscNet.GameServer.Handlers;
 using AscNet.GameServer.Commands;
 using AscNet.Common.Database;
 using AscNet.Logging;
+using System.Text.Json;
 
 namespace AscNet
 {
@@ -18,6 +19,15 @@ namespace AscNet
                 return ShutdownLocalMongo(args);
 
             UseResourceWorkingDirectory();
+
+            if (args is ["--export-gm-item-catalog", string catalogPath])
+            {
+                var catalog = GmItemCatalog.Current;
+                using FileStream output = File.Create(catalogPath);
+                JsonSerializer.Serialize(output, new { Catalog = catalog.Info(), Items = catalog.Export() },
+                    new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+                return 0;
+            }
 
             // TODO: Add LogLevel parsing from appsettings file
             LoggerFactory.InitializeLogger(new Logger(typeof(Program), LogLevel.DEBUG, LogLevel.DEBUG));

@@ -40,6 +40,7 @@ mod client;
 mod gm;
 
 const WM_EVENT: u32 = WM_APP + 1;
+const WM_GM_UID: u32 = WM_APP + 2;
 const ID_BROWSE: i32 = 101;
 const ID_CHECK: i32 = 102;
 const ID_ACTION: i32 = 103;
@@ -237,6 +238,7 @@ struct Window {
     progress_phase: i32,
     settings_open: bool,
     gm_window: HWND,
+    gm_uid: i64,
     log: VecDeque<String>,
     client: client::State,
     mods: Vec<mods::ModInfo>,
@@ -451,6 +453,7 @@ unsafe fn run_inner() -> Result<()> {
         label_font,
         settings_open: false,
         gm_window: HWND(0),
+        gm_uid: 2,
         log,
         client: client::State::new(region),
         mods: Vec::new(),
@@ -688,6 +691,13 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                     (wp.0 & 0xffff) as i32,
                     ((wp.0 >> 16) & 0xffff) as u16,
                 );
+            }
+            LRESULT(0)
+        }
+        WM_GM_UID => {
+            if !ptr.is_null() {
+                let uid = ((lp.0 as u32 as u64) << 32) | (wp.0 as u32 as u64);
+                (*ptr).gm_uid = uid as i64;
             }
             LRESULT(0)
         }
@@ -1795,7 +1805,8 @@ unsafe fn command(hwnd: HWND, state: &mut Window, id: i32, notification: u16) {
                 model.runtime.as_ref().context("Start the local game before opening GM Tools.")
                     .and_then(LocalRuntime::gm_control)
             };
-            match control.and_then(|control| gm::open(hwnd, control)) {
+            let game = state.model.lock().unwrap().settings.selected_game.clone();
+            match control.and_then(|control| gm::open(hwnd, control, state.gm_uid, game)) {
                 Ok(panel) => state.gm_window = panel,
                 Err(error) => show_fatal(&format!("{error:#}")),
             }
