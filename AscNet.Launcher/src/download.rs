@@ -2896,18 +2896,23 @@ mod tests {
     }
 
     #[test]
-    fn a_build_without_a_pin_and_a_drifted_index_are_reported_not_restored() {
+    fn an_unpinned_ver_build_falls_back_to_the_pinned_one_and_a_drifted_index_is_reported_not_restored() {
         let d = docs(None);
         let tmp = Tmp::new();
         let dir = tmp.path("g");
         run(plan(&d.world.source(), Job::Install { dir: dir.clone() }).unwrap(), &no_cancel(), &mut |_| {}).unwrap();
+        // A retail-updated regional install: `document/ver` names a build the launcher does not pin.
         tmp.write(&format!("g/{DOC}/ver"), br#"{"LeastVersionFile":"5"}"#);
         let p = plan(&d.source, Job::Repair { dir: dir.clone() }).unwrap();
-        assert!(p.note.as_deref().unwrap().contains("build 5"), "{:?}", p.note);
+        assert!(p.note.is_none(), "{:?}", p.note);
         let outcome = run(p, &no_cancel(), &mut |_| {}).unwrap();
-        assert_eq!(outcome.document_files, 0);
-        assert!(outcome.document_notes[0].contains("build 5"));
-        assert!(!tmp.path(&format!("g/{DOC}/matrix")).exists());
+        assert_eq!(outcome.document_files, 4);
+        assert!(outcome.document_notes.is_empty(), "{:?}", outcome.document_notes);
+        for (rel, bytes) in &d.needed {
+            assert_eq!(&tmp.read(&format!("g/{rel}")), bytes, "{rel}");
+        }
+        fs::remove_dir_all(tmp.path(&format!("g/{DOC}/matrix"))).unwrap();
+        fs::remove_dir_all(tmp.path(&format!("g/{DOC}/launch"))).unwrap();
 
         fs::remove_file(tmp.path(&format!("g/{DOC}/ver"))).unwrap();
         d.store.lock().unwrap().insert(format!("{DOC_BASE}/1739029/matrix/index"), b"a different index".to_vec());

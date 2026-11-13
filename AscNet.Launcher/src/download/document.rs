@@ -129,11 +129,14 @@ fn read_json(dir: &Path, name: &str) -> Option<serde_json::Value> {
     serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()
 }
 
-/// (build, locator) for this install: `document/ver` `LeastVersionFile` or the pinned default build.
+/// (build, locator) for this install: `document/ver` `LeastVersionFile` when that build is pinned, else the pinned
+/// default build. A retail-updated regional install can carry any build there, but the game (skip-update mode) only
+/// loads the document index whose sha1 equals the served one, i.e. the pinned default build's; any other build's
+/// files would be dead weight, so an unpinned build must not stop the restore.
 fn locate(doc: &Document, dir: &Path) -> (String, Locator) {
     let segment = |v: Option<&serde_json::Value>| v.and_then(|v| v.as_str()).filter(|s| is_segment(s)).map(str::to_owned);
     let ver = read_json(dir, "ver");
-    let build = segment(ver.as_ref().and_then(|v| v.get("LeastVersionFile"))).filter(|b| b.bytes().all(|c| c.is_ascii_digit())).unwrap_or_else(|| doc.default_build.clone());
+    let build = segment(ver.as_ref().and_then(|v| v.get("LeastVersionFile"))).filter(|b| doc.builds.contains_key(b)).unwrap_or_else(|| doc.default_build.clone());
     let mut paths = BTreeMap::new();
     if let Some(map) = ver.as_ref().and_then(|v| v.get("VersionPath")).and_then(|v| v.as_object()) {
         for (svn, info) in map {
@@ -215,10 +218,7 @@ pub(super) fn inspect(source: &ClientSource, net: &Net, dir: &Path, full: &FileL
     let mut plan = DocPlan { net: None, locator: None, trees: Vec::new(), notes: Vec::new() };
     let Some(doc) = &data.document else { return Ok(plan) };
     let (build, locator) = locate(doc, dir);
-    let Some(pin) = doc.builds.get(&build) else {
-        plan.notes.push(format!("document build {build} has no pinned index; its patch files were not checked"));
-        return Ok(plan);
-    };
+    let pin = &doc.builds[&build];
     let patch_net = Net::with_hosts(&[], &doc.cdns)?;
     for (tree, package) in TREES {
         let pinned = if tree == "matrix" { &pin.matrix_sha1 } else { &pin.launch_sha1 };

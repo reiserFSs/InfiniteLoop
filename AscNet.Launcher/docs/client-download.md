@@ -27,7 +27,9 @@ No game selected: press **SELECT GAME** on the home screen (or **Settings → Ga
 Verify/repair and update never touch files outside the chosen folder, and refuse to run while PGR.exe is running.
 
 Verify/repair, update and a fresh install also restore the in-game patch files (`PGR_Data/StreamingAssets/document/{matrix,launch}`) for
-regions that pin them (EN so far; the log line says when a region or build is not pinned). About 3.75 GB (2,405 files) on an empty EN install.
+every region (EN/TW/KR/JP/CN each pin a document patch; the log line says when one is missing). The build comes from `document/ver`
+`LeastVersionFile` when that build is pinned, otherwise the region's pinned `defaultBuild`: the client only loads the document index
+whose sha1 equals the one the server serves, which is the pinned one. About 3.75 GB (2,405 files) on an empty EN install.
 
 ## Engine (`src/download.rs`)
 - **Pinned sources**: `supported-client.json` `"downloads"` holds, per region, the 4.8.0 CDN list (priority order), `baseUrl`,
