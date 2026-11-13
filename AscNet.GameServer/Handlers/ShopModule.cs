@@ -76,6 +76,8 @@ namespace AscNet.GameServer.Handlers
     internal partial class ShopModule
     {
         private const string ShopSnapshotPath = "Configs/client_shops.json";
+        private const uint GuildPersonalShopId = 4001;
+        private const int GuildGetShopHasNotGuild = 20063226;
         private static readonly Lazy<ClientShop> GuildProcurementShop = new(BuildGuildProcurementShop);
 
         // Explicit local-server procurement policy, not a retail price or captured offer.
@@ -212,18 +214,25 @@ namespace AscNet.GameServer.Handlers
         public static void GetFixedShopListRequestHandler(Session session, Packet.Request packet)
         {
             GetFixedShopListRequest request = packet.Deserialize<GetFixedShopListRequest>();
-            GetFixedShopListResponse response = new()
-            {
-                Code = 0
-            };
+            GetFixedShopListResponse response = new();
+            bool hasRequiredError = false;
 
-            foreach (uint shopId in request.IdList.Distinct())
+            foreach (uint shopId in (request.IdList ?? []).Distinct())
             {
                 int code = ShopInfoCode(session, shopId);
-                if (code != 0) { response.Code = code; continue; }
+                if (code != 0)
+                {
+                    response.Code = code;
+                    hasRequiredError |= shopId != GuildPersonalShopId || code != GuildGetShopHasNotGuild;
+                    continue;
+                }
                 response.ClientShopList.Add(BuildClientShop(shopId, session.player));
             }
 
+            // The Memory one-click screen requests the personal guild shop alongside the Material Shop.
+            // The client only caches the available catalogs and opens the screen on batch success.
+            if (!hasRequiredError && response.ClientShopList.Any(shop => shop.GoodsList.Count > 0))
+                response.Code = 0;
             session.SendResponse(response, packet.Id);
         }
 
@@ -282,7 +291,7 @@ namespace AscNet.GameServer.Handlers
                 BuyTheatreGoods(session, packet);
                 return;
             }
-            if (request.ShopId is 4001 or 9998)
+            if (request.ShopId is GuildPersonalShopId or 9998)
             {
                 BuyGuildGoods(session, packet);
                 return;
@@ -377,10 +386,10 @@ namespace AscNet.GameServer.Handlers
 
         private static int GuildShopInfoCode(Player player, uint shopId)
         {
-            if (shopId is not (4001 or 9998)) return 0;
+            if (shopId is not (GuildPersonalShopId or 9998)) return 0;
             Guild? guild = GuildModule.FindMembership(player.PlayerData.Id);
             if (guild is null || GuildModule.Rank(guild, player.PlayerData.Id) is not (>= 1 and <= 4))
-                return 20063226;
+                return GuildGetShopHasNotGuild;
             if (shopId == 9998 && GuildModule.Rank(guild, player.PlayerData.Id) is not (1 or 2))
                 return 20063224;
             return ShopCatalog(shopId) is not null ? 0 : 20063227;
@@ -397,14 +406,14 @@ namespace AscNet.GameServer.Handlers
                 if (ReconcileManualShopRefresh(player, shopId, DateTimeOffset.UtcNow))
                     player.Save();
                 shop.ManualRefreshTimes = player.ShopManualRefreshTimes.GetValueOrDefault(shopId);
-                if (shopId is not (4001 or 9998) && ReconcileShopResetPeriods(player, shop.GoodsList))
+                if (shopId is not (GuildPersonalShopId or 9998) && ReconcileShopResetPeriods(player, shop.GoodsList))
                     player.Save();
                 player.ShopBuyTimes ??= new();
                 Guild? guild = shopId == 9998 ? GuildModule.FindMembership(player.PlayerData.Id) : null;
                 foreach (ClientShopGoods goods in shop.GoodsList)
                 {
                     goods.TotalBuyTimes = player.ShopBuyTimes.GetValueOrDefault(goods.Id);
-                    if (shopId is 4001 or 9998)
+                    if (shopId is GuildPersonalShopId or 9998)
                     {
                         goods.TotalBuyTimes = player.GuildState.GuildShopBuyTimes.GetValueOrDefault(checked((int)goods.Id), goods.TotalBuyTimes);
                         if (TryGetAlarmWindow(goods.AutoResetClockId, DateTimeOffset.UtcNow, out long period, out _)

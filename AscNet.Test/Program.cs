@@ -178,6 +178,16 @@ namespace AscNet.Test
                     ValidateVersion49MemoryShop();
                     return;
                 }
+                if (args.Contains("--equipment-one-click-shops-only"))
+                {
+                    ValidateEquipmentOneClickShops();
+                    return;
+                }
+                if (args.Contains("--equipment-one-click-upgrade-only"))
+                {
+                    ValidateEquipmentOneClickUpgrade();
+                    return;
+                }
                 if (args.Contains("--draw-rules-only"))
                 {
                     ValidateDrawRules();
@@ -1587,6 +1597,8 @@ namespace AscNet.Test
                 Step("ValidateMissingCalendarAscNetPolicy", () => ValidateMissingCalendarAscNetPolicy());
                 Step("ValidateVersion49EventAvailability", () => ValidateVersion49EventAvailability());
                 Step("ValidateVersion49MemoryShop", () => ValidateVersion49MemoryShop());
+                Step("ValidateEquipmentOneClickShops", () => ValidateEquipmentOneClickShops());
+                Step("ValidateEquipmentOneClickUpgrade", () => ValidateEquipmentOneClickUpgrade());
                 Step("ValidateAnniversaryPreHeatingCompatibility", () => ValidateAnniversaryPreHeatingCompatibility());
                 Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
                 Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());
