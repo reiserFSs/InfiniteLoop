@@ -18,7 +18,7 @@ The current server data/config target is **4.8**, not a claim of complete 4.8 ga
 | Game server TCP port | `2335` by default |
 | SDK/HTTP URL used by the runner | `http://127.0.0.1:8080` by default |
 
-`Resources/Configs/version_config.json` includes the 4.9.0/4.9.1 entries for every region (EN, TW, KR, JP, CN; see the 4.9 launch/update contract below) and retains the authoritative `4.8.0 -> 4.8.12` and older tuples. The native launcher's binary allowlist targets client 4.9.1 (and still accepts 4.8.0), EN, TW, KR, JP and CN (launcher 1.0.23, patch 0.6.0; CN: see [`cn-sdk-support.md`](cn-sdk-support.md)).
+`Resources/Configs/version_config.json` includes the 4.9.0/4.9.1 entries for every region (EN, TW, KR, JP, CN; see the 4.9 launch/update contract below) and retains the authoritative `4.8.0 -> 4.8.12` and older tuples. The native launcher's binary allowlist targets client 4.9.1 (and still accepts 4.8.0), EN, TW, KR, JP and CN (launcher 1.0.24, patch 0.6.0; CN: see [`cn-sdk-support.md`](cn-sdk-support.md)).
 
 One instance serves every region: the package in the config request picks the `Packages` entry (document/launch version, hashes and its `Region` block of CDNs, channel, server-list label and config rows) in `version_config.json`, and each TCP session reports its own document version from the handshake. Notices are per package; gameplay tables stay the shared EN-derived set for all regions except the per-region overlay below. KR and JP config tuples come from their live config.tab; KR/JP native hooks are statically checked only (see `AscNet.Launcher/docs/client-download.md`) until a KR/JP client run.
 
