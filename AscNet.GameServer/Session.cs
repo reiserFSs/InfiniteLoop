@@ -50,6 +50,7 @@ namespace AscNet.GameServer
         private int startState;
         private int packetNo = 0;
         private int disconnectState;
+        internal bool IsDisconnected => Volatile.Read(ref disconnectState) != 0;
         private const int InitialReceiveBufferLength = 1 << 16;
         private const int MaxReceivePacketLength = PacketCodec.MaxFrameLength;
         private static readonly object BigWorldPacketDumpLock = new();
@@ -123,6 +124,14 @@ namespace AscNet.GameServer
 
             if (Volatile.Read(ref disconnectState) != 0)
                 return;
+            // Preview and permission-denied guide commands must precede request hooks that can save
+            // rollover, recovery, guild or archive state.
+            if (request.Name == nameof(Handlers.SendChatRequest))
+            {
+                lock (GetPlayerOperationLock(currentPlayer.PlayerData.Id))
+                    if (Handlers.ChatModule.TryHandleReadOnlyGuideCommand(this, request))
+                        return;
+            }
             // Dispatch already holds MembershipLock. Reject foreign progress before
             // participant recovery or reset can change the pending owner's epoch.
             if (request.Name is not ("LoginRequest" or "HandshakeRequest")

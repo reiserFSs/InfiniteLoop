@@ -734,6 +734,21 @@ namespace AscNet.Test
                     ValidateVersion46BootstrapCompatibility();
                     return;
                 }
+                if (args.Contains("--guide-progression-only"))
+                {
+                    ValidateGuideProgressionCompatibility();
+                    return;
+                }
+                if (args.Contains("--live-gm-only"))
+                {
+                    ValidateLiveGmControl().GetAwaiter().GetResult();
+                    return;
+                }
+                if (args.Contains("--live-gm-items-only"))
+                {
+                    ValidateLiveGmControl(itemsOnly: true).GetAwaiter().GetResult();
+                    return;
+                }
 
 
                 if (args.Contains("--theatre6-compat-only"))
@@ -1500,6 +1515,9 @@ namespace AscNet.Test
                 Step("ValidateSimulatedBattlefieldCompatibility", () => ValidateSimulatedBattlefieldCompatibility());
                 Step("ValidateModeScoreTaskProgress", () => ValidateModeScoreTaskProgress());
                 Step("ValidateCurrentClientGuideTableCompatibility", () => ValidateCurrentClientGuideTableCompatibility());
+                Step("ValidateGuideProgression", () => ValidateGuideProgressionCompatibility());
+                Step("ValidateLiveGmControl", () => ValidateLiveGmControl().GetAwaiter().GetResult());
+                Step("ValidateLiveGmItems", () => ValidateLiveGmControl(itemsOnly: true).GetAwaiter().GetResult());
                 Step("ValidateWheelchairManualFullCompatibility", () => ValidateWheelchairManualFullCompatibility());
                 Step("ValidatePlayerCostTimeUploadCompatibility", () => ValidatePlayerCostTimeUploadCompatibility());
                 Step("ValidateRecordPlayerPointCompatibility", () => ValidateRecordPlayerPointCompatibility());
@@ -21038,6 +21056,8 @@ namespace AscNet.Test
                 [new Item { Id = AscNet.Common.Database.Inventory.TeamExp, Count = commandExp }]);
             AscNet.Common.Database.Player commandPlayer = CreateDrawCompatibilityPlayer(commandantPlayerId + 2);
             commandPlayer.PlayerData.Level = penultimatePlayerLevel.Level;
+            using (MongoCollectionOverride commandSaves = MongoCollectionOverride.InstallForDailySignInCompatibility(
+                out RecordingMongoCollectionProxy<AscNet.Common.Database.Player> levelPlayerSaves, out _, out _))
             using (LoopbackSessionHarness commandHarness = new(
                 CreateDrawCompatibilityCharacter(commandantPlayerId + 2),
                 commandPlayer,
@@ -21050,8 +21070,9 @@ namespace AscNet.Test
                     ["max"])
                     ?? throw new InvalidDataException("/level max: expected CommandFactory.CreateCommand to create command 'level'.");
                 command.Execute();
-                AssertEqual(terminalPlayerLevel.Level, commandPlayer.PlayerData.Level, "/level max post-set ExpSanityCheck terminal level");
-                AssertEqual(commandExp, commandInventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.TeamExp).Count, "/level max post-set ExpSanityCheck retained EXP");
+                AssertEqual(terminalPlayerLevel.Level, commandPlayer.PlayerData.Level, "/level max sets the authored terminal level");
+                AssertEqual(1, levelPlayerSaves.ReplaceOneCalls, "/level max saves the changed player");
+                AssertEqual(commandExp, commandInventory.Items.Single(item => item.Id == AscNet.Common.Database.Inventory.TeamExp).Count, "/level max leaves stored EXP alone");
             }
 
             AscNet.Common.Database.Player aboveMaximumPlayer = CreateDrawCompatibilityPlayer(commandantPlayerId + 3);
@@ -26170,51 +26191,6 @@ namespace AscNet.Test
             List<GuideFightTable> guideFights = TableReaderV2.Parse<GuideFightTable>();
             if (!guideFights.Any(guideFight => guideFight.StageId == 10010005))
                 throw new InvalidDataException("GuideFightTable: missing current tutorial stage 10010005.");
-            HashSet<long> expectedSkippedGuideIds = guideGroups
-                .Where(guideGroup => guideGroup.Ignore == 0 && guideGroup.RewardId == 0)
-                .Select(guideGroup => (long)guideGroup.Id)
-                .ToHashSet();
-            HashSet<long> ignoredGuideIds = guideGroups
-                .Where(guideGroup => guideGroup.Ignore != 0)
-                .Select(guideGroup => (long)guideGroup.Id)
-                .ToHashSet();
-            HashSet<long> rewardBearingGuideIds = guideGroups
-                .Where(guideGroup => guideGroup.RewardId != 0)
-                .Select(guideGroup => (long)guideGroup.Id)
-                .ToHashSet();
-            if (expectedSkippedGuideIds.Count == 0 || ignoredGuideIds.Count == 0 || rewardBearingGuideIds.Count == 0)
-                throw new InvalidDataException("GuideGroupTable: expected skippable, ignored, and reward-bearing guide groups.");
-
-            long existingGuideMarker = guideGroups.Max(guideGroup => (long)guideGroup.Id) + 1;
-            AscNet.Common.Database.Player player = CreateDrawCompatibilityPlayer(existingGuideMarker);
-            player.PlayerData.GuideData = [existingGuideMarker];
-            expectedSkippedGuideIds.Add(existingGuideMarker);
-
-            MethodInfo skipCommonGuides = RequiredMethod(
-                RequiredAscNetGameServerType("AscNet.GameServer.Handlers.GuideModule"),
-                "SkipCommonGuides",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                [typeof(AscNet.Common.Database.Player)]);
-            skipCommonGuides.Invoke(null, [player]);
-
-            List<long> actualGuideData = player.PlayerData.GuideData
-                ?? throw new InvalidDataException("GuideModule.SkipCommonGuides cleared GuideData.");
-            HashSet<long> actualGuideIds = actualGuideData.ToHashSet();
-            if (!actualGuideIds.SetEquals(expectedSkippedGuideIds))
-                throw new InvalidDataException("GuideModule.SkipCommonGuides: expected all and only non-ignored, rewardless GuideGroupTable ids plus the existing marker.");
-            if (!actualGuideIds.Contains(existingGuideMarker))
-                throw new InvalidDataException("GuideModule.SkipCommonGuides: existing guide marker was not preserved.");
-            if (actualGuideIds.Overlaps(ignoredGuideIds))
-                throw new InvalidDataException("GuideModule.SkipCommonGuides: added an ignored GuideGroupTable id.");
-            if (actualGuideIds.Overlaps(rewardBearingGuideIds))
-                throw new InvalidDataException("GuideModule.SkipCommonGuides: added a reward-bearing GuideGroupTable id.");
-            if (actualGuideData.Count != actualGuideIds.Count)
-                throw new InvalidDataException("GuideModule.SkipCommonGuides: added duplicate guide markers.");
-
-            long[] firstPassGuideData = actualGuideData.ToArray();
-            skipCommonGuides.Invoke(null, [player]);
-            if (!player.PlayerData.GuideData.SequenceEqual(firstPassGuideData))
-                throw new InvalidDataException("GuideModule.SkipCommonGuides: second invocation was not idempotent.");
             HashSet<int> guideCompletionIds = TableReaderV2.Parse<GuideCompleteTable>()
                 .Select(guideCompletion => guideCompletion.Id)
                 .ToHashSet();
@@ -26228,6 +26204,8 @@ namespace AscNet.Test
                     out _);
             AscNet.Common.Database.Player guideCompletePlayer =
                 CreateDrawCompatibilityPlayer(guideCompletePlayerId);
+            long existingGuideMarker = guideGroups.Max(guide => (long)guide.Id) + 1;
+            guideCompletePlayer.PlayerData.GuideData = [existingGuideMarker];
             using LoopbackSessionHarness guideCompleteHarness = new(
                 CreateDrawCompatibilityCharacter(guideCompletePlayerId),
                 guideCompletePlayer,
@@ -26254,6 +26232,8 @@ namespace AscNet.Test
                 "GuideComplete table-backed response Code");
             AssertEqual(true, guideCompletePlayer.PlayerData.GuideData.Contains(eligibleGuide.Id),
                 "GuideComplete table-backed persisted GuideGroupId");
+            AssertEqual(true, guideCompletePlayer.PlayerData.GuideData.Contains(existingGuideMarker),
+                "GuideComplete retains an existing legacy marker");
             AssertEqual(1, playerCollection.ReplaceOneCalls,
                 "GuideComplete table-backed persistence count");
 

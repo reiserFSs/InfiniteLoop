@@ -12,7 +12,7 @@ namespace AscNet.Test;
 
 internal static partial class Program
 {
-    // 4.8 guides (650xx): registered completion/group finish persist; login backfill honours authored Ignore.
+    // 4.8 guides (650xx): registered completion and group finish persist.
     private static void ValidateVersion48GuideCompletion()
     {
         List<GuideGroupTable> guides = TableReaderV2.Parse<GuideGroupTable>();
@@ -44,15 +44,6 @@ internal static partial class Program
             "4.8 guide completion and group finish recorded");
         AssertEqual(2, saves.ReplaceOneCalls, "4.8 guide completion and group finish persisted");
 
-        // Login backfill: authored 4.8 Ignore=1 rows (65023/65024 and re-flagged 64713) stay for the client to run.
-        MethodInfo skip = RequiredMethod(RequiredAscNetGameServerType("AscNet.GameServer.Handlers.GuideModule"),
-            "SkipCommonGuides", BindingFlags.Static | BindingFlags.NonPublic, [typeof(Player)]);
-        Player fresh = CreateDrawCompatibilityPlayer(uid + 1);
-        fresh.PlayerData.GuideData = [];
-        skip.Invoke(null, [fresh]);
-        foreach (GuideGroupTable guide in added.Append(guides.Single(row => row.Id == 64713)))
-            AssertEqual(guide.Ignore == 0 && guide.RewardId == 0, fresh.PlayerData.GuideData.Contains(guide.Id),
-                $"4.8 login backfill for guide {guide.Id} follows authored Ignore");
     }
 
     // 4.8 activity-panel tasks (TaskTimeLimit 768..779): progress, claim, reload and closed-window expiry.

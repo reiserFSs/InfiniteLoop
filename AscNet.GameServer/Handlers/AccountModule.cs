@@ -248,6 +248,11 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
 
+                if (player.GmLevelSync == GmLevelSyncMode.Relog)
+                {
+                    player.GmLevelSync = GmLevelSyncMode.Notify;
+                    player.SaveChecked();
+                }
                 ApplyClientRegion(player);
 
                 bool savePlayer = PayModule.RememberCnFirstPayClientVersion(player,
@@ -343,6 +348,11 @@ namespace AscNet.GameServer.Handlers
                     }
                 }
 
+                if (player.GmLevelSync == GmLevelSyncMode.Relog)
+                {
+                    session.SendResponse(new ReconnectResponse { Code = 1030 }, packet.Id);
+                    return;
+                }
                 session.log.Debug("Player is reconnecting...");
                 if (session.player is null
                     || session.character is null
@@ -359,12 +369,16 @@ namespace AscNet.GameServer.Handlers
                 }
 
                 session.player = player;
+                GuideModule.ResumePendingCompletion(session);
                 session.ContinuePushSequenceFrom(request.LastMsgSeqNo);
                 session.SendResponse(new ReconnectResponse
                 {
                     ReconnectToken = request.Token,
                     RequestNo = Session.LastClientPacketNo(player.PlayerData.Id, request.LastMsgSeqNo)
                 }, packet.Id);
+                if (player.GmLevelSync == GmLevelSyncMode.Notify)
+                    session.SendPush(new NotifyPlayerLevel { Level = checked((int)player.PlayerData.Level) });
+                GuideModule.SyncAfterReconnect(session);
                 session.GuildIdentityReady = true;
                 BossModule.ReconcileReconnect(session);
                 PartnerModule.SyncArchive(session);
@@ -748,6 +762,7 @@ namespace AscNet.GameServer.Handlers
 
         private static NotifyLogin BuildNotifyLogin(Session session, long now)
         {
+            GuideModule.ResumePendingCompletion(session);
             ItemModule.ResumePendingItemUse(session);
             ItemModule.ResumePendingBuyAsset(session);
             ItemModule.ReconcileDailyAssetPurchaseCounts(session.inventory);
@@ -767,8 +782,6 @@ namespace AscNet.GameServer.Handlers
             BossInshotModule.PrepareLogin(session.player, DateTimeOffset.UtcNow);
             FashionStoryModule.PrepareLogin(session.player, DateTimeOffset.UtcNow);
             TransfiniteModule.PrepareLogin(session, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-            if (Common.Common.config.SkipCommonGuides)
-                GuideModule.SkipCommonGuides(session.player);
             GuideModule.ReconcileStageCompletedGuides(session.player, session.stage);
             List<TimeLimitCtrlConfigList> timeLimitControls = BuildTimeLimitControlConfigList();
             NotifyLogin notifyLogin = new()

@@ -21,6 +21,7 @@ using MessagePack;
 using Newtonsoft.Json.Linq;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using MongoDB.Driver;
 using System.Reflection;
 
 namespace AscNet.Test;
@@ -213,133 +214,7 @@ internal static partial class Program
         AssertIntegerList([3, 1, 1], debtReload.Passport.PassportInfos.Single().GotRewardList.Select(Convert.ToInt64).ToArray(),
             "Passport persisted claim ordering");
 
-        Dictionary<int, ConditionTable> guideConditions = TableReaderV2.Parse<ConditionTable>()
-            .ToDictionary(row => row.Id);
-        GuideGroupTable rewardedGuide = TableReaderV2.Parse<GuideGroupTable>()
-            .First(row => row.RewardId > 0
-                && row.ConditionId.Count == 1
-                && guideConditions.TryGetValue(row.ConditionId[0], out ConditionTable? condition)
-                && condition.Type == 10105
-                && condition.Params.Count == 1);
-        ConditionTable rewardedGuideCondition = guideConditions[rewardedGuide.ConditionId[0]];
-        RewardTable rewardedGuideTable = TableReaderV2.Parse<RewardTable>()
-            .Single(row => row.Id == rewardedGuide.RewardId);
-        HashSet<int> rewardedGuideSubIds = rewardedGuideTable.SubIds.ToHashSet();
-        List<RewardGoodsTable> rewardedGuideGoods = TableReaderV2.Parse<RewardGoodsTable>()
-            .Where(row => rewardedGuideSubIds.Contains(row.Id))
-            .ToList();
-        AssertEqual(true, rewardedGuideGoods.Count > 0,
-            "Guide retry test has configured rewards");
-        int rewardedGuideStageId = rewardedGuideCondition.Params.Single();
-
-        using (MongoCollectionOverride guideRewardOverride =
-               MongoCollectionOverride.InstallForDailySignInCompatibility(
-                   out RecordingMongoCollectionProxy<Player> guidePlayerCollection,
-                   out RecordingMongoCollectionProxy<Character> guideCharacterCollection,
-                   out RecordingMongoCollectionProxy<Inventory> guideInventoryCollection))
-        {
-            const long guidePlayerId = 46_006;
-            Player guidePlayer = CreateDrawCompatibilityPlayer(guidePlayerId);
-            Inventory guideInventory = CreateDrawCompatibilityInventory(guidePlayerId, []);
-            Character guideCharacter = CreateDrawCompatibilityCharacter(guidePlayerId);
-            using LoopbackSessionHarness guideHarness = new(
-                guideCharacter,
-                guidePlayer,
-                guideInventory,
-                "guide-reward-retry-compat-test");
-            guideHarness.Session.stage = CreateLoginAccountCompatibilityStage(guidePlayerId);
-            guideHarness.Session.stage.Stages[rewardedGuideStageId] = new StageDatum
-            {
-                StageId = checked((uint)rewardedGuideStageId),
-                Passed = true
-            };
-            guidePlayerCollection.ThrowOnReplaceOne = true;
-
-            InvokeRegisteredRequestHandler(
-                nameof(GuideCompleteRequest),
-                guideHarness.Session,
-                46_600,
-                new GuideCompleteRequest { GuideGroupId = rewardedGuide.Id });
-            guidePlayerCollection.ThrowOnReplaceOne = false;
-            GuideCompleteResponse failedGuide = ReadResponsePayload<GuideCompleteResponse>(
-                guideHarness,
-                46_600,
-                nameof(GuideCompleteResponse),
-                "Guide reward player persistence failure response");
-            AssertEqual(1, failedGuide.Code, "Guide reward player persistence failure Code");
-            AssertNoAvailablePacket(guideHarness, "Guide reward player persistence failure");
-            AssertEqual(false,
-                guidePlayer.PlayerData.GuideData?.Contains(rewardedGuide.Id) == true,
-                "Guide reward player persistence failure rolls back completion");
-            string guideClaimKey = $"guide:{rewardedGuide.Id}";
-            AssertEqual(true,
-                guideInventory.AppliedRewardClaims.Contains(
-                    guideClaimKey,
-                    StringComparer.Ordinal),
-                "Guide reward player persistence failure records inventory receipt");
-            AssertEqual(true,
-                guideCharacter.AppliedRewardClaims.Contains(
-                    guideClaimKey,
-                    StringComparer.Ordinal),
-                "Guide reward player persistence failure records character receipt");
-            Dictionary<int, long> guideCountsAfterFailure = rewardedGuideGoods
-                .Select(row => row.TemplateId)
-                .Distinct()
-                .ToDictionary(
-                    templateId => templateId,
-                    templateId => guideInventory.Items
-                        .FirstOrDefault(item => item.Id == templateId)?.Count ?? 0);
-            AssertEqual(1, guideInventoryCollection.ReplaceOneCalls,
-                "Guide reward player persistence failure saves inventory once");
-            AssertEqual(1, guideCharacterCollection.ReplaceOneCalls,
-                "Guide reward player persistence failure saves character once");
-            guideHarness.Session.stage.Stages.Remove(rewardedGuideStageId);
-
-            InvokeRegisteredRequestHandler(
-                nameof(GuideCompleteRequest),
-                guideHarness.Session,
-                46_601,
-                new GuideCompleteRequest { GuideGroupId = rewardedGuide.Id });
-            NotifyGuide? retriedGuideNotify = null;
-            for (int packetIndex = 0; packetIndex < 8; packetIndex++)
-            {
-                Packet packet = guideHarness.ReadPacket("Guide reward persistence retry packet");
-                AssertEqual(Packet.ContentType.Push, packet.Type, "Guide reward persistence retry push packet type");
-                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
-                if (push.Name != nameof(NotifyGuide))
-                    continue;
-                retriedGuideNotify = MessagePackSerializer.Deserialize<NotifyGuide>(push.Content);
-                break;
-            }
-            if (retriedGuideNotify is null)
-                throw new InvalidDataException("Guide reward persistence retry did not notify guide completion.");
-            AssertEqual(rewardedGuide.Id,
-                retriedGuideNotify.GuideGroupId,
-                "Guide reward persistence retry notified guide");
-            GuideCompleteResponse retriedGuide = (GuideCompleteResponse)ReadResponsePayload(
-                guideHarness,
-                46_601,
-                nameof(GuideCompleteResponse),
-                "Guide reward persistence retry response",
-                typeof(GuideCompleteResponse),
-                maxPacketsToRead: 8);
-            AssertEqual(0, retriedGuide.Code, "Guide reward persistence retry succeeds");
-            AssertEqual(rewardedGuideGoods.Count, retriedGuide.RewardGoodsList?.Count ?? 0,
-                "Guide reward persistence retry returns configured rewards");
-            AssertEqual(true,
-                guidePlayer.PlayerData.GuideData?.Contains(rewardedGuide.Id) == true,
-                "Guide reward persistence retry records completion");
-            foreach ((int templateId, long count) in guideCountsAfterFailure)
-            {
-                AssertEqual(count,
-                    guideInventory.Items.FirstOrDefault(item => item.Id == templateId)?.Count ?? 0,
-                    $"Guide reward persistence retry does not duplicate item {templateId}");
-            }
-            AssertEqual(1, guideInventoryCollection.ReplaceOneCalls,
-                "Guide reward persistence retry reuses inventory receipt");
-            AssertEqual(1, guideCharacterCollection.ReplaceOneCalls,
-                "Guide reward persistence retry reuses character receipt");
-        }
+        ValidateVersion46GuideRewardRecovery();
 
         PassportActivityTable passportActivity = TableReaderV2.Parse<PassportActivityTable>()
             .First(row => TableReaderV2.Parse<PassportLevelTable>()
@@ -1067,6 +942,144 @@ internal static partial class Program
             AssertEqual(1033, settleResponse.Code, "Transfinite settle without authorized fight context");
             AssertEqual(0, harness.Session.stage?.Stages.Count ?? 0,
                 "Transfinite rejected settle does not write generic stage progress");
+        }
+    }
+
+    private static void ValidateVersion46GuideRewardRecovery()
+    {
+        Dictionary<int, ConditionTable> guideConditions = TableReaderV2.Parse<ConditionTable>()
+            .ToDictionary(row => row.Id);
+        GuideGroupTable rewardedGuide = TableReaderV2.Parse<GuideGroupTable>()
+            .First(row => row.RewardId > 0
+                && row.ConditionId.Count == 1
+                && guideConditions.TryGetValue(row.ConditionId[0], out ConditionTable? condition)
+                && condition.Type == 10105
+                && condition.Params.Count == 1);
+        ConditionTable rewardedGuideCondition = guideConditions[rewardedGuide.ConditionId[0]];
+        RewardTable rewardedGuideTable = TableReaderV2.Parse<RewardTable>()
+            .Single(row => row.Id == rewardedGuide.RewardId);
+        HashSet<int> rewardedGuideSubIds = rewardedGuideTable.SubIds.ToHashSet();
+        List<RewardGoodsTable> rewardedGuideGoods = TableReaderV2.Parse<RewardGoodsTable>()
+            .Where(row => rewardedGuideSubIds.Contains(row.Id))
+            .ToList();
+        AssertEqual(true, rewardedGuideGoods.Count > 0,
+            "Guide retry test has configured rewards");
+        int rewardedGuideStageId = rewardedGuideCondition.Params.Single();
+
+        using (MongoCollectionOverride guideRewardOverride =
+               MongoCollectionOverride.InstallForDailySignInCompatibility(
+                   out RecordingMongoCollectionProxy<Player> guidePlayerCollection,
+                   out RecordingMongoCollectionProxy<Character> guideCharacterCollection,
+                   out RecordingMongoCollectionProxy<Inventory> guideInventoryCollection))
+        {
+            const long guidePlayerId = 46_006;
+            Player guidePlayer = CreateDrawCompatibilityPlayer(guidePlayerId);
+            Inventory guideInventory = CreateDrawCompatibilityInventory(guidePlayerId, []);
+            Character guideCharacter = CreateDrawCompatibilityCharacter(guidePlayerId);
+            using LoopbackSessionHarness guideHarness = new(
+                guideCharacter,
+                guidePlayer,
+                guideInventory,
+                "guide-reward-retry-compat-test");
+            guideHarness.Session.stage = CreateLoginAccountCompatibilityStage(guidePlayerId);
+            guideHarness.Session.stage.Stages[rewardedGuideStageId] = new StageDatum
+            {
+                StageId = checked((uint)rewardedGuideStageId),
+                Passed = true
+            };
+            guidePlayerCollection.BeforeReplaceOne = replacement =>
+            {
+                if (replacement.PlayerData.GuideData.Contains(rewardedGuide.Id))
+                    throw new MongoException("Injected final guide save failure.");
+            };
+
+            InvokeRegisteredRequestHandler(
+                nameof(GuideCompleteRequest),
+                guideHarness.Session,
+                46_600,
+                new GuideCompleteRequest { GuideGroupId = rewardedGuide.Id });
+            guidePlayerCollection.BeforeReplaceOne = null;
+            GuideCompleteResponse failedGuide = ReadResponsePayload<GuideCompleteResponse>(
+                guideHarness,
+                46_600,
+                nameof(GuideCompleteResponse),
+                "Guide reward player persistence failure response");
+            AssertEqual(1, failedGuide.Code, "Guide reward player persistence failure Code");
+            AssertNoAvailablePacket(guideHarness, "Guide reward player persistence failure");
+            AssertEqual(false,
+                guidePlayer.PlayerData.GuideData?.Contains(rewardedGuide.Id) == true,
+                "Guide reward player persistence failure rolls back completion");
+            string guideClaimKey = $"guide:{rewardedGuide.Id}";
+            AssertEqual(true,
+                guideInventory.AppliedRewardClaims.Contains(
+                    guideClaimKey,
+                    StringComparer.Ordinal),
+                "Guide reward player persistence failure records inventory receipt");
+            AssertEqual(true,
+                guideCharacter.AppliedRewardClaims.Contains(
+                    guideClaimKey,
+                    StringComparer.Ordinal),
+                "Guide reward player persistence failure records character receipt");
+            Dictionary<int, long> guideCountsAfterFailure = rewardedGuideGoods
+                .Select(row => row.TemplateId)
+                .Distinct()
+                .ToDictionary(
+                    templateId => templateId,
+                    templateId => guideInventory.Items
+                        .FirstOrDefault(item => item.Id == templateId)?.Count ?? 0);
+            AssertEqual(1, guideInventoryCollection.ReplaceOneCalls,
+                "Guide reward player persistence failure saves inventory once");
+            AssertEqual(1, guideCharacterCollection.ReplaceOneCalls,
+                "Guide reward player persistence failure saves character once");
+            guideHarness.Session.stage.Stages.Remove(rewardedGuideStageId);
+            AssertEqual(true, guidePlayer.PendingGuideCompletion?.Any(entry => entry.GuideId == rewardedGuide.Id) == true,
+                "Guide reward player persistence failure retains the durable intent");
+            GuideModule.ResumePendingCompletion(guideHarness.Session);
+
+            InvokeRegisteredRequestHandler(
+                nameof(GuideCompleteRequest),
+                guideHarness.Session,
+                46_601,
+                new GuideCompleteRequest { GuideGroupId = rewardedGuide.Id });
+            NotifyGuide? retriedGuideNotify = null;
+            for (int packetIndex = 0; packetIndex < 8; packetIndex++)
+            {
+                Packet packet = guideHarness.ReadPacket("Guide reward persistence retry packet");
+                AssertEqual(Packet.ContentType.Push, packet.Type, "Guide reward persistence retry push packet type");
+                Packet.Push push = MessagePackSerializer.Deserialize<Packet.Push>(packet.Content);
+                if (push.Name != nameof(NotifyGuide))
+                    continue;
+                retriedGuideNotify = MessagePackSerializer.Deserialize<NotifyGuide>(push.Content);
+                break;
+            }
+            if (retriedGuideNotify is null)
+                throw new InvalidDataException("Guide reward persistence retry did not notify guide completion.");
+            AssertEqual(rewardedGuide.Id,
+                retriedGuideNotify.GuideGroupId,
+                "Guide reward persistence retry notified guide");
+            GuideCompleteResponse retriedGuide = (GuideCompleteResponse)ReadResponsePayload(
+                guideHarness,
+                46_601,
+                nameof(GuideCompleteResponse),
+                "Guide reward persistence retry response",
+                typeof(GuideCompleteResponse),
+                maxPacketsToRead: 8);
+            AssertEqual(0, retriedGuide.Code, "Guide reward persistence retry succeeds");
+            AssertEqual(0, retriedGuide.RewardGoodsList?.Count ?? 0,
+                "Guide retry after recovery carries no new rewards");
+            AssertEqual(true,
+                guidePlayer.PlayerData.GuideData?.Contains(rewardedGuide.Id) == true,
+                "Guide reward persistence retry records completion");
+            foreach ((int templateId, long count) in guideCountsAfterFailure)
+            {
+                AssertEqual(count,
+                    guideInventory.Items.FirstOrDefault(item => item.Id == templateId)?.Count ?? 0,
+                    $"Guide reward persistence retry does not duplicate item {templateId}");
+            }
+            AssertEqual(1, guideInventoryCollection.ReplaceOneCalls,
+                "Guide reward persistence retry reuses inventory receipt");
+            AssertEqual(1, guideCharacterCollection.ReplaceOneCalls,
+                "Guide reward persistence retry reuses character receipt");
         }
     }
 

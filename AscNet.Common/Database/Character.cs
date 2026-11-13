@@ -1522,9 +1522,10 @@ namespace AscNet.Common.Database
             collection.ReplaceOne(Builders<Character>.Filter.Eq(x => x.Id, Id), this);
         }
 
-        public void SaveChecked()
+        public void SaveChecked(bool journal = false)
         {
-            ReplaceOneResult result = collection.ReplaceOne(
+            IMongoCollection<Character> destination = journal ? collection.WithWriteConcern(WriteConcern.W1.With(journal: true)) : collection;
+            ReplaceOneResult result = destination.ReplaceOne(
                 Builders<Character>.Filter.Eq(x => x.Id, Id),
                 this);
             if (!result.IsAcknowledged || result.MatchedCount != 1)

@@ -7,6 +7,7 @@ using AscNet.GameServer.Handlers;
 using AscNet.GameServer.Commands;
 using AscNet.Common.Database;
 using AscNet.Logging;
+using System.Text.Json;
 
 namespace AscNet
 {
@@ -18,6 +19,15 @@ namespace AscNet
                 return ShutdownLocalMongo(args);
 
             UseResourceWorkingDirectory();
+
+            if (args is ["--export-gm-item-catalog", string catalogPath])
+            {
+                var catalog = GmItemCatalog.Current;
+                using FileStream output = File.Create(catalogPath);
+                JsonSerializer.Serialize(output, new { Catalog = catalog.Info(), Items = catalog.Export() },
+                    new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+                return 0;
+            }
 
             // TODO: Add LogLevel parsing from appsettings file
             LoggerFactory.InitializeLogger(new Logger(typeof(Program), LogLevel.DEBUG, LogLevel.DEBUG));
@@ -32,33 +42,7 @@ namespace AscNet
 
             AppDomain.CurrentDomain.ProcessExit += new EventHandler(KillProtocol);
 
-            if (Environment.GetEnvironmentVariable("ASCNET_MANAGED_STDIN") == "1")
-                new Thread(() =>
-                {
-                    try
-                    {
-                        while (true)
-                        {
-                            string? line;
-                            try
-                            {
-                                line = Console.In.ReadLine();
-                            }
-                            catch (IOException)
-                            {
-                                return;
-                            }
-                            if (line == null)
-                                return;
-                            if (line.Trim().Equals("shutdown", StringComparison.OrdinalIgnoreCase))
-                                Environment.Exit(0);
-                        }
-                    }
-                    catch (IOException)
-                    {
-                        return;
-                    }
-                }) { IsBackground = true }.Start();
+            ManagedControl.Start();
 
             return 0;
         }
