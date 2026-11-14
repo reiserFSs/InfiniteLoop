@@ -87,7 +87,7 @@ Guild contribution (38), Command Bureau EXP (40), Beacon Amplifier Points (46), 
 | 97086 | Retro Module | Retro Module | 999,999 | Retro Prize Counter 1468 |
 | 50135 | Insatiable Chips | Insatiable Chips | 999,999 | Permanent shop 1436 |
 
-62738 pays Simulated Battlefield shops 1421 Version Limited, 1422 Material Shop, and 1423 Memory Shop. It is not 105.
+62738 pays Simulated Battlefield shops 1421 Version Limited, 1422 Material Shop, and 1423 Memory Shop. It is not 105. Material Shop 1422 also sells four-item bundles of the Overclock alloys, weapon cores and Memory circuits (40100, 40103, 40104, 40110, 40113, 40114) for it: AscNet simulator policy, not retail prices.
 
 Shrouded Requiem Discernment (97085) can sit in the bag. Talent level moves only when a settlement grants it. Mammon Platinum Coin (97054) is granted into the bag and no implemented shop spends it. Godfall's in-run gold is the run's `GoldNum`.
 

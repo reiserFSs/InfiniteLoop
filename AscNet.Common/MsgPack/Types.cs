@@ -3657,7 +3657,7 @@ public sealed class NotifyBfrtProgressInfo
     [global::MessagePack.MessagePackObject(true)]
     public class GetFixedShopListRequest
     {
-        public List<UInt32> IdList { get; set; } = new();
+        public List<UInt32>? IdList { get; set; } = new();
     }
 
 

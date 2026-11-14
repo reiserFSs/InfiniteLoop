@@ -178,6 +178,26 @@ namespace AscNet.Test
                     ValidateVersion49MemoryShop();
                     return;
                 }
+                if (args.Contains("--equipment-one-click-shops-only"))
+                {
+                    ValidateEquipmentOneClickShops();
+                    return;
+                }
+                if (args.Contains("--memory-login-and-bulk-feed-only"))
+                {
+                    ValidateMemoryLoginAndBulkFeed();
+                    return;
+                }
+                if (args.Contains("--partner-quick-upgrade-only"))
+                {
+                    ValidatePartnerQuickUpgrade();
+                    return;
+                }
+                if (args.Contains("--equipment-one-click-upgrade-only"))
+                {
+                    ValidateEquipmentOneClickUpgrade();
+                    return;
+                }
                 if (args.Contains("--draw-rules-only"))
                 {
                     ValidateDrawRules();
@@ -1587,6 +1607,10 @@ namespace AscNet.Test
                 Step("ValidateMissingCalendarAscNetPolicy", () => ValidateMissingCalendarAscNetPolicy());
                 Step("ValidateVersion49EventAvailability", () => ValidateVersion49EventAvailability());
                 Step("ValidateVersion49MemoryShop", () => ValidateVersion49MemoryShop());
+                Step("ValidateEquipmentOneClickShops", () => ValidateEquipmentOneClickShops());
+                Step("ValidateEquipmentOneClickUpgrade", () => ValidateEquipmentOneClickUpgrade());
+                Step("ValidateMemoryLoginAndBulkFeed", () => ValidateMemoryLoginAndBulkFeed());
+                Step("ValidatePartnerQuickUpgrade", () => ValidatePartnerQuickUpgrade());
                 Step("ValidateAnniversaryPreHeatingCompatibility", () => ValidateAnniversaryPreHeatingCompatibility());
                 Step("ValidateCosmicDailyTasks", () => ValidateCosmicDailyTasks());
                 Step("RunMineSweepingCompatibility", () => RunMineSweepingCompatibility());
@@ -25525,7 +25549,7 @@ namespace AscNet.Test
                 "Simulated Battlefield shop goods");
             foreach ((uint shopId, int goodsCount, uint firstGoodsId, uint lastGoodsId) in new[]
             {
-                (1_422U, 17, 142_030U, 143_341U),
+                (1_422U, 23, 142_030U, 147_071U),
                 (1_423U, 372, 142_045U, 147_049U)
             })
             {

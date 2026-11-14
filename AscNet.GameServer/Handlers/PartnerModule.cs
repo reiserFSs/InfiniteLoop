@@ -529,6 +529,11 @@ namespace AscNet.GameServer.Handlers
                 Params = []
             }).ToList();
 
+        private static List<int> ParsePartnerExpItemIds(string? value) =>
+            (value ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries)
+                .Select(id => int.TryParse(id, out int parsed) ? parsed : 0)
+                .Where(id => id > 0).Distinct().ToList();
+
 
         [RequestPacketHandler("PartnerLevelUpRequest")]
         public static void PartnerLevelUpRequestHandler(Session session, Packet.Request packet)
@@ -543,8 +548,11 @@ namespace AscNet.GameServer.Handlers
             }
 
             Dictionary<int, int> requestedItems = request.UseItems ?? [];
+            // Accepted EXP materials are the authored PartnerDecomposeExpItemRebate list (EN XPartnerManager.GetExpItemList).
+            List<int> expItemIds = ParsePartnerExpItemIds(TableReaderV2.Parse<ConfigTable>()
+                .FirstOrDefault(row => row.Key == "PartnerDecomposeExpItemRebate")?.Value);
             List<(int ItemId, int Count, int Exp, int CoinCost)> materials = requestedItems
-                .Where(item => item.Value > 0)
+                .Where(item => item.Value > 0 && expItemIds.Contains(item.Key))
                 .Select(item =>
                 {
                     ItemTable? config = TableReaderV2.Parse<ItemTable>().Find(row => row.Id == item.Key);
@@ -552,7 +560,7 @@ namespace AscNet.GameServer.Handlers
                     int coinCost = config?.SubTypeParams.Skip(1).FirstOrDefault() ?? 0;
                     return (ItemId: item.Key, Count: item.Value, Exp: exp, CoinCost: coinCost);
                 })
-                .Where(item => item.ItemId is 30111 or 30113 && item.Exp > 0)
+                .Where(item => item.Exp > 0)
                 .ToList();
             int totalCoinCost = materials.Sum(item => checked(item.CoinCost * item.Count));
             if (materials.Count == 0 || materials.Count != requestedItems.Count
@@ -1047,11 +1055,9 @@ namespace AscNet.GameServer.Handlers
             }
 
             Dictionary<int, ItemTable> items = TableReaderV2.Parse<ItemTable>().ToDictionary(row => row.Id);
-            List<(int Id, int Exp, int Coin)> expItems = (config.GetValueOrDefault(
-                    "PartnerDecomposeExpItemRebate") ?? string.Empty)
-                .Split('|', StringSplitOptions.RemoveEmptyEntries)
-                .Select(value => int.TryParse(value, out int id) ? id : 0)
-                .Where(id => id > 0 && items.ContainsKey(id))
+            List<(int Id, int Exp, int Coin)> expItems = ParsePartnerExpItemIds(
+                    config.GetValueOrDefault("PartnerDecomposeExpItemRebate"))
+                .Where(id => items.ContainsKey(id))
                 .Select(id => (Id: id, Exp: items[id].SubTypeParams.FirstOrDefault(),
                     Coin: items[id].SubTypeParams.Skip(1).FirstOrDefault()))
                 .Where(item => item.Exp > 0)

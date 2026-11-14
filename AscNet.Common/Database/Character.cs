@@ -604,8 +604,10 @@ namespace AscNet.Common.Database
                     && equipRowsById.TryGetValue(characterRow.EquipId, out EquipTable? defaultEquipRow)
                     && IsOwnableEquipTemplate(defaultEquipRow))
                 {
+                    // Only the weapon slot (Site 0) is repaired; worn Memories (Site 1-6) are never weapon-compatible by Type.
                     List<EquipData> assignedEquips = Equips
-                        .Where(equip => equip.CharacterId == characterRow.Id)
+                        .Where(equip => equip.CharacterId == characterRow.Id
+                            && (!equipRowsById.TryGetValue((int)equip.TemplateId, out EquipTable? slotRow) || slotRow.Site == 0))
                         .ToList();
                     bool hasCompatibleAssignedEquip = assignedEquips.Any(equip =>
                         equipRowsById.TryGetValue((int)equip.TemplateId, out EquipTable? assignedEquipRow)

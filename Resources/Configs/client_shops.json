@@ -53634,11 +53634,228 @@
         "BuyPriority": 0,
         "ActivityConsumeCount": 0,
         "ActivityDiscount": 0
+      },
+      {
+        "Id": 147066,
+        "Priority": 9990,
+        "RewardGoods": {
+          "RewardType": 1,
+          "TemplateId": 40104,
+          "Count": 4,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 62738,
+            "Count": 35
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 147067,
+        "Priority": 9989,
+        "RewardGoods": {
+          "RewardType": 1,
+          "TemplateId": 40103,
+          "Count": 4,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 62738,
+            "Count": 45
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 147068,
+        "Priority": 9988,
+        "RewardGoods": {
+          "RewardType": 1,
+          "TemplateId": 40100,
+          "Count": 4,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 62738,
+            "Count": 30
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 147069,
+        "Priority": 9987,
+        "RewardGoods": {
+          "RewardType": 1,
+          "TemplateId": 40114,
+          "Count": 4,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 62738,
+            "Count": 70
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 147070,
+        "Priority": 9986,
+        "RewardGoods": {
+          "RewardType": 1,
+          "TemplateId": 40113,
+          "Count": 4,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 62738,
+            "Count": 90
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
+      },
+      {
+        "Id": 147071,
+        "Priority": 9985,
+        "RewardGoods": {
+          "RewardType": 1,
+          "TemplateId": 40110,
+          "Count": 4,
+          "Level": 0,
+          "Quality": 0,
+          "Grade": 0,
+          "Breakthrough": 0,
+          "ConvertFrom": 0,
+          "IsGift": false,
+          "RewardMulti": 0,
+          "Id": 0
+        },
+        "ConsumeList": [
+          {
+            "Id": 62738,
+            "Count": 60
+          }
+        ],
+        "TotalBuyTimes": 0,
+        "BuyTimesLimit": 0,
+        "OnSales": {},
+        "OnSaleTime": 0,
+        "SelloutTime": 0,
+        "RefreshTime": 0,
+        "Tags": 0,
+        "ConditionIds": [],
+        "GiftRewardId": 0,
+        "AutoResetClockId": 0,
+        "BuyPriority": 0,
+        "ActivityConsumeCount": 0,
+        "ActivityDiscount": 0
       }
     ],
     "ScreenGroupList": [],
     "ConditionIds": [],
-    "RefreshTips": null
+    "RefreshTips": null,
+    "Provenance": "AscNet simulator-policy offers, not retail data: goods 147066-147071 are the Overclock exchange routes the 4.9 EN client names for this shop (ItemAutoExchange maps item 40104/40103/40100/40114/40113/40110 to ShopId 1422 and these goods IDs; ActivityBriefShopGoodsSort lists them). The server-owned retail bundle quantity, prices, limits, sale flags and schedule are unverified, so AscNet sells a bundle of 4 for 35/45/30/70/90/60 units of the Simulated Battlefield exchange token (item 62738), unlimited and always on, matching the contributor's simulator values (PR #66 follow-up, Issue #67). Replace these six goods with the 4.9 EN retail shop 1422 response when one is available. Per-player purchase counts and refresh state stay runtime. The other goods in this shop are the curated retail catalog."
   },
   "1423": {
     "Id": 1423,
