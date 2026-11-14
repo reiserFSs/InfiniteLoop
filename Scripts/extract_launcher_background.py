@@ -5,7 +5,7 @@
   extract_launcher_background.py ... spine    login Spine layers (UiLoginSpineAnimPath prefab) -> OUT/spine/ + report
   extract_launcher_background.py ... audio    UiLogin XPlayMusic BGM cue -> OUT/background.wav (smpl loop, 48 kHz PCM16 stereo)
   extract_launcher_background.py ... render   spine-webgl frames in headless Chrome -> OUT/background.mp4 (H.264 1920x1080
-                                              30 fps, macOS AVAssetWriter) + OUT/background.bmp (frame 0, 24-bit)
+                                              30 fps, macOS AVAssetWriter, no B-frames: the launcher's OpenH264 cannot reorder) + OUT/background.bmp (frame 0, 24-bit)
 
 Sources, as the client plays them: ClientConfig UiLoginSpineAnimPath (Assets/Product/Ui/Spine/SpineLogin.prefab) holds the
 login Spine rigs; the UiLogin prefab's XPlayMusic component holds the BGM cue ids, the unbounded entry is the everyday one;

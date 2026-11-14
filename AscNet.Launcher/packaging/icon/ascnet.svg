@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- macOS icon grid: 824x824 tile centred on the 1024 canvas -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#1a1d22"/>
+  <!-- A-chevron: the ascent -->
+  <path d="M512 214 L812 790 L672 790 L512 470 L352 790 L212 790 Z" fill="#f2f3f5"/>
+  <!-- one red element: a rising slash across the left leg, as in the wordmark's A -->
+  <path d="M290 640 L445 588 L410 668 L253 710 Z" fill="#d1173c"/>
+</svg>

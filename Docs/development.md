@@ -457,7 +457,42 @@ The .NET server and `run_steam.py` run natively on Linux. The game client and `A
 
 Optional/macOS-specific:
 
-- CrossOver or another Wine launcher if you use `launch-pgr-ascnet.sh`
+- CrossOver (the launcher installs the official build with your consent; a licence is the player's own) if you use `launch-pgr-ascnet.sh`; the native macOS launcher needs it
+
+### macOS launcher
+
+`AscNet.Launcher` also builds natively on Apple Silicon (the same Slint UI; design and status in [`macos-port.md`](../AscNet.Launcher/docs/macos-port.md)). It runs the Windows game in its own CrossOver bottle (`AscNet`), applies the Rosetta patches, and runs MongoDB and the AscNet server natively. Setup needs the Xcode Command Line Tools (git, clang); everything else (.NET 8, MongoDB, rustup, `cargo xwin` for the patch DLLs) is downloaded into `~/Library/Application Support/AscNetLauncher/local`.
+
+```bash
+cargo test --manifest-path AscNet.Launcher/Cargo.toml --offline          # macOS
+cargo xwin build --manifest-path AscNet.Launcher/Cargo.toml --release --target x86_64-pc-windows-msvc   # Windows still builds
+AscNet.Launcher/packaging/macos/package.sh [--media DIR]              # target/macos/AscNetLauncher-macOS.zip
+```
+
+`package.sh` builds `AscNet Launcher.app` (Info.plist, icon, `background.*`, `launcher.json`, `supported-client.json`, `LICENSE`), signs it ad hoc and zips it. The app is unsigned, so the player allows it once (Open from the context menu, or `xattr -d com.apple.quarantine`). `background.mp4` must have no B-frames; the script refuses one that has. Logs: `~/Library/Logs/AscNet Launcher/launcher.log`; settings: `~/Library/Application Support/AscNet/Launcher`.
+
+Release assets: attach `AscNetLauncher-macOS.zip` next to the Windows `AscNetLauncher.zip`. A release without the Mac asset is no update for a Mac; Windows keeps its rule of exactly one `AscNetLauncher.zip`. The Mac updater replaces the whole app: it checks the zip's SHA-256 against GitHub's digest, accepts only the bundle's known files, requires a valid code signature and that the new executable starts (`--self-update-probe`), then renames the old app to `.ascnet-update-old-<uuid>` beside it, which the new launcher deletes on its first start. It needs the folder holding the app to be writable.
+
+`LICENSE` (GPL-3.0) is in both archives. Launchers up to 1.0.24 reject a Windows zip with an eighth member, so the first release whose updater accepts `LICENSE` must still ship the seven-file Windows zip (the default `nix build --impure`, or the `windows_license` workflow input left off). Add `LICENSE` to the Windows zip one release later with `ASCNET_ZIP_LICENSE=1 nix build --impure` or the `windows_license` input. Nix only sees tracked files: `git add AscNet.Launcher/LICENSE` first.
+
+### Launcher releases (GitHub Actions)
+
+Releases are published by `.github/workflows/launcher-release.yml` (manual `workflow_dispatch` on the default branch); `.github/workflows/ci.yml` runs `cargo test` on macOS arm64 and Windows for launcher pull requests and pushes, and the release workflow reuses it.
+
+1. Bump the version in a commit and push it: `AscNet.Launcher/Cargo.toml`, the `ascnet-launcher` entry in `AscNet.Launcher/Cargo.lock`, and the `launcher 1.0.N, patch 0.X.0` line in this file. The workflow stops at once if the three differ from the `version` input, if the tag already exists, or if it is not run from the default branch.
+2. Run the workflow with `version` (1.0.N, also the tag), `windows_license` (see the LICENSE rule above), `notes` (one line, `\n` for a line break; player-facing bullets only for commits since the previous tag) and, for **game-version releases only**, `screenshot` (https URL or a PNG/JPG committed in the repo; it is attached and embedded at the top of the notes).
+3. Jobs: `test`; `build-windows` (native MSVC on windows-latest, nasm for openh264); `build-macos` (macos-14, `package.sh`, which runs `--check-media`); `package` (the Windows zip is exactly the updater's `FILES` list, parsed from `src/updater.rs`, plus LICENSE only when asked; the macOS bundle layout, no AppleDouble members, version in Info.plist); `smoke` (`--check-media` on both, the Windows start writes "Launcher started", the macOS `--self-update-probe` prints the version); `release` (`gh release create <version> --target <sha> --title "AscNet Launcher v<version>"` with both zips, then the API must show `releases/latest` = the new tag, exactly the expected assets, and GitHub's digests equal to the built zips). Only `release` has `contents: write`.
+
+Media (`background.bmp/.mp4/.wav`) are not in git. `AscNet.Launcher/media.json` pins the media release tag and a SHA-256 per file; `AscNet.Launcher/packaging/fetch-media.sh DIR` (CI) and `flake.nix` both read it. The media release is a pre-release with a non-semver tag, so neither the updater nor `releases/latest` sees it. To change the media (new game version): regenerate the files (`Scripts/extract_launcher_background.py`, B-frame free, check with `AscNetLauncher --check-media`), create a new media release (`launcher-media-2`), update `tag` and the hashes in `media.json`, commit.
+
+One-time creation of the first media release (from `.runtime/launcher-media/`, after `AscNetLauncher --check-media .runtime/launcher-media/background.mp4` succeeds):
+
+```bash
+gh release create launcher-media-1 --repo reiserFSs/InfiniteLoop --prerelease --latest=false \
+  --title "Launcher media 1" \
+  --notes "Pinned launcher background media (hashes in AscNet.Launcher/media.json). Not a launcher release." \
+  .runtime/launcher-media/background.bmp .runtime/launcher-media/background.mp4 .runtime/launcher-media/background.wav
+```
 
 ## Running AscNet directly
 

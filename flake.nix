@@ -1,8 +1,8 @@
 {
   description = "AscNet dev shell and Windows launcher zip";
 
-  # The background fetch below has no hash, so it is not allowed during pure
-  # evaluation. Build the zip with `nix build --impure --option tarball-ttl 0`.
+  # Media is pinned by AscNet.Launcher/media.json (hashed). `ASCNET_ZIP_LICENSE`
+  # is read with getenv, so build the zip with `nix build --impure`.
   # This flake has no nixConfig. `.envrc` must not pass --accept-flake-config,
   # or a later nixConfig change would be trusted on every cd.
   #
@@ -69,35 +69,34 @@
         DOTNET_CLI_TELEMETRY_OPTOUT = "1";
       };
 
+      # The archive members. Launchers up to 1.0.24 refuse an eighth member, so LICENSE joins the zip only with
+      # ASCNET_ZIP_LICENSE=1 (zip builds are already --impure). Release order: Docs/development.md.
+      zipFiles = [
+        "AscNetLauncher.exe"
+        "background.bmp"
+        "background.mp4"
+        "background.wav"
+        "launcher.json"
+        "setup-local.ps1"
+        "supported-client.json"
+      ] ++ lib.optional (builtins.getEnv "ASCNET_ZIP_LICENSE" == "1") "LICENSE";
       # background.bmp, background.mp4, and background.wav are the only zip
-      # members this tree cannot generate. They are taken from the latest
-      # published launcher and nothing else. The executable, launcher.json,
+      # members this tree cannot generate. AscNet.Launcher/media.json pins
+      # them (release tag + SHA-256 per file); .github/workflows uses the same
+      # manifest, so there is one source. The executable, launcher.json,
       # setup-local.ps1, and supported-client.json are produced here.
-      #
-      # releases/latest changes whenever a launcher is published. A pinned
-      # hash would not follow it: Nix returns the store object for the hash
-      # it was given and does not download the new file. lib.fakeHash does
-      # not turn that check off either. nixpkgs still verifies it, and the
-      # build stops until someone pastes the hash Nix prints. This fetch
-      # therefore sets no hash.
-      launcherAssets = builtins.fetchurl {
-        url = "https://github.com/reiserFSs/InfiniteLoop/releases/latest/download/AscNetLauncher.zip";
-        name = "AscNetLauncher-latest.zip";
-      };
+      media = builtins.fromJSON (builtins.readFile ./AscNet.Launcher/media.json);
+      mediaNames = builtins.attrNames media.files;
+      mediaFiles = lib.mapAttrs (name: sha256: builtins.fetchurl {
+        url = "https://github.com/${media.repository}/releases/download/${media.tag}/${name}";
+        inherit name sha256;
+      }) media.files;
 
       checkLauncherZip = pkgs.writeText "check-launcher-zip.py" ''
         import pathlib, sys, zipfile
         version, stage, archive = sys.argv[1:]
         stage = pathlib.Path(stage)
-        expected = [
-            "AscNetLauncher.exe",
-            "background.bmp",
-            "background.mp4",
-            "background.wav",
-            "launcher.json",
-            "setup-local.ps1",
-            "supported-client.json",
-        ]
+        expected = ${builtins.toJSON zipFiles}
         exe = (stage / "AscNetLauncher.exe").read_bytes()
         if not exe.startswith(b"MZ"):
             raise SystemExit("AscNetLauncher.exe is not a Windows executable")
@@ -171,7 +170,6 @@
         version = launcherVersion;
         src = ./AscNet.Launcher;
         nativeBuildInputs = [
-          pkgs.unzip
           pkgs.zip
           pkgs.python3
         ];
@@ -180,27 +178,12 @@
         buildPhase = ''
           runHook preBuild
           stage="$NIX_BUILD_TOP/stage"
-          media="$NIX_BUILD_TOP/media"
           archive="$NIX_BUILD_TOP/AscNetLauncher.zip"
-          mkdir -p "$stage" "$media"
-          # Unpack only the three background files. Leave the published
-          # executable and metadata in the downloaded archive.
-          unzip -j -o -d "$media" ${launcherAssets} background.bmp background.mp4 background.wav
-          find "$media" -type f -printf '%f\n' | sort > "$NIX_BUILD_TOP/media-names"
-          printf '%s\n' background.bmp background.mp4 background.wav > "$NIX_BUILD_TOP/media-expected"
-          cmp "$NIX_BUILD_TOP/media-expected" "$NIX_BUILD_TOP/media-names"
-          cp "$media/background.bmp" "$media/background.mp4" "$media/background.wav" "$stage/"
-          cp launcher.json setup-local.ps1 supported-client.json "$stage/"
+          mkdir -p "$stage"
+          ${lib.concatMapStringsSep "\n          " (name: ''cp ${mediaFiles.${name}} "$stage/${name}"'') mediaNames}
+          cp launcher.json setup-local.ps1 supported-client.json LICENSE "$stage/"
           cp ${ascnet-launcher}/bin/ascnet-launcher.exe "$stage/AscNetLauncher.exe"
-          (cd "$stage" && zip -X -9 "$archive" ${lib.concatMapStringsSep " " (name: name) [
-            "AscNetLauncher.exe"
-            "background.bmp"
-            "background.mp4"
-            "background.wav"
-            "launcher.json"
-            "setup-local.ps1"
-            "supported-client.json"
-          ]})
+          (cd "$stage" && zip -X -9 "$archive" ${lib.concatStringsSep " " zipFiles})
           python3 ${checkLauncherZip} ${launcherVersion} "$stage" "$archive"
           runHook postBuild
         '';

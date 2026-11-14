@@ -1,9 +1,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
-#[cfg(windows)]
-mod animation;
+mod controller;
 mod steam;
-#[cfg(windows)]
 mod ui;
 
 use anyhow::{Context, Result};
@@ -48,14 +46,14 @@ fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1)
         .filter(|arg| arg != "--self-update-health" && arg != "--self-update-rolled-back").collect();
     if args.is_empty() {
-        #[cfg(windows)]
-        {
-            return ui::run();
-        }
-        #[cfg(not(windows))]
-        anyhow::bail!("the graphical launcher is available on Windows only");
+        return ui::run();
     }
     match args[0].as_str() {
+        // Packaging gate: accepts only a background video the launcher's own decoder can play (no B-frames).
+        "--check-media" => {
+            require_len(&args, 2, "--check-media <background.mp4>")?;
+            ascnet_launcher::media::Video::start(Path::new(&args[1]), |_| {})?;
+        }
         "--setup" => {
             require_len(&args, 2, "--setup <game-directory>")?;
             let game = PathBuf::from(&args[1]);
@@ -101,12 +99,9 @@ fn built_package() -> Result<package::PatchPackage> {
     package::load_package(&build.patch_directory)
 }
 
+/// Where `launcher.json` and the other shipped files are.
 fn executable_dir() -> Result<PathBuf> {
-    Ok(env::current_exe()
-        .context("locating launcher executable")?
-        .parent()
-        .context("launcher executable has no parent directory")?
-        .to_path_buf())
+    local::resource_dir()
 }
 
 fn require_len(args: &[String], len: usize, usage: &str) -> Result<()> {

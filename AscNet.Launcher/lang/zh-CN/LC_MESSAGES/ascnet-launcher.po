@@ -1,0 +1,887 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh-CN\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "AscNet"
+msgstr "AscNet"
+
+msgid "Punishing: Gray Raven"
+msgstr "战双帕弥什"
+
+msgid "Minimize"
+msgstr "最小化"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Activity"
+msgstr "动态"
+
+msgid "Game"
+msgstr "游戏"
+
+msgid "Not selected"
+msgstr "未选择"
+
+msgid "AscNet patch"
+msgstr "AscNet 补丁"
+
+msgid "Current"
+msgstr "最新"
+
+msgid "Update available"
+msgstr "有可用更新"
+
+msgid "Unsupported"
+msgstr "不支持"
+
+msgid "Needs repair"
+msgstr "需要修复"
+
+msgid "Not installed"
+msgstr "未安装"
+
+msgid "Local server"
+msgstr "本地服务器"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Stopping"
+msgstr "正在停止"
+
+msgid "Maintenance"
+msgstr "维护中"
+
+msgid "Offline"
+msgstr "离线"
+
+msgid "Stopped"
+msgstr "已停止"
+
+msgid "Select game"
+msgstr "选择游戏"
+
+msgid "Set up"
+msgstr "配置"
+
+msgid "Update"
+msgstr "更新"
+
+msgid "Play"
+msgstr "开始游戏"
+
+msgid "Working…"
+msgstr "处理中…"
+
+msgid "Game files"
+msgstr "游戏文件"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Game folder"
+msgstr "游戏文件夹"
+
+msgid "No game selected"
+msgstr "未选择游戏"
+
+msgid "Choose…"
+msgstr "选择…"
+
+msgid "Check for updates"
+msgstr "检查更新"
+
+msgid "Looks for a newer local server and patch."
+msgstr "查找更新的本地服务器和补丁。"
+
+msgid "Check"
+msgstr "检查"
+
+msgid "Set up again"
+msgstr "重新配置"
+
+msgid "Rebuilds the local server and the patch."
+msgstr "重新构建本地服务器和补丁。"
+
+msgid "Restore original files"
+msgstr "还原原始文件"
+
+msgid "Puts the game's own files back and removes the AscNet patch."
+msgstr "恢复游戏自带的文件，并移除 AscNet 补丁。"
+
+msgid "Restore"
+msgstr "还原"
+
+msgid "Launcher"
+msgstr "启动器"
+
+msgid "Background music"
+msgstr "背景音乐"
+
+msgid "Client mods"
+msgstr "客户端模组"
+
+msgid "Turns on the game's debug mode and the mods below."
+msgstr "开启游戏的调试模式及下方的模组。"
+
+msgid "AscNet Launcher {}"
+msgstr "AscNet 启动器 {}"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Each language is its own Kuro client (Simplified Chinese is the mainland China client). The game downloads its remaining resources itself on its first start."
+msgstr "每种语言对应一个独立的库洛客户端（简体中文为中国大陆客户端）。游戏首次启动时会自行下载其余资源。"
+
+msgid "Install folder"
+msgstr "安装文件夹"
+
+msgid "No folder chosen"
+msgstr "未选择文件夹"
+
+msgid "Paused · {}"
+msgstr "已暂停 · {}"
+
+msgid "Download"
+msgstr "下载"
+
+msgid "Verify & repair"
+msgstr "校验并修复"
+
+msgid "Adopt"
+msgstr "采用"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Resume"
+msgstr "继续"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "What to do"
+msgstr "如何处理"
+
+msgid "Hide details"
+msgstr "隐藏详情"
+
+msgid "Details"
+msgstr "详情"
+
+msgid "OK"
+msgstr "确定"
+
+msgid "TW (Taiwan)"
+msgstr "台服"
+
+msgid "KR (Korea)"
+msgstr "韩服"
+
+msgid "JP (Japan)"
+msgstr "日服"
+
+msgid "CN (China)"
+msgstr "国服"
+
+msgid "EN (Global)"
+msgstr "国际服"
+
+msgid "Traditional Chinese (Taiwan)"
+msgstr "繁体中文（台服）"
+
+msgid "Korean (Korea)"
+msgstr "韩语（韩服）"
+
+msgid "Japanese (Japan)"
+msgstr "日语（日服）"
+
+msgid "Simplified Chinese (China)"
+msgstr "简体中文（国服）"
+
+msgid "English (Global)"
+msgstr "英语（国际服）"
+
+msgid "Taiwan"
+msgstr "台湾"
+
+msgid "Korea"
+msgstr "韩国"
+
+msgid "Japan"
+msgstr "日本"
+
+msgid "China"
+msgstr "中国"
+
+msgid "Global"
+msgstr "国际"
+
+msgid "Fetching file list"
+msgstr "正在获取文件列表"
+
+msgid "Verifying files"
+msgstr "正在校验文件"
+
+msgid "Downloading"
+msgstr "正在下载"
+
+msgid "Extracting patch files"
+msgstr "正在解压补丁文件"
+
+msgid "Removing old files"
+msgstr "正在删除旧文件"
+
+msgid "Finalizing"
+msgstr "正在收尾"
+
+msgid "Verifying and repairing the game…"
+msgstr "正在校验并修复游戏…"
+
+msgid "Updating the game…"
+msgstr "正在更新游戏…"
+
+msgid "Adopting the existing install…"
+msgstr "正在采用现有安装…"
+
+msgid "Downloading the game…"
+msgstr "正在下载游戏…"
+
+msgid "{} {}% · {} of {} · ~{} min"
+msgstr "{} {}% · {} / {} · 约 {} 分钟"
+
+msgid "{} {}% · {} of {}"
+msgstr "{} {}% · {} / {}"
+
+msgid "{} · {} of {} files"
+msgstr "{} · {} / {} 个文件"
+
+msgid "Unidentified edition"
+msgstr "未识别的版本"
+
+msgid "version {}"
+msgstr "版本 {}"
+
+msgid "unknown version"
+msgstr "版本未知"
+
+msgid "Steam copy"
+msgstr "Steam 版"
+
+msgid "AscNet patch installed"
+msgstr "已安装 AscNet 补丁"
+
+msgid "Verifying treats it as {}; change the language above if that is wrong."
+msgstr "校验时将其视为{}；如不正确，请更改上方的语言。"
+
+msgid "Download {} · {} files · needs {} free"
+msgstr "下载 {} · {} 个文件 · 需要 {} 可用空间"
+
+msgid "{} old files removed"
+msgstr "删除 {} 个旧文件"
+
+msgid "({} available)"
+msgstr "（可用 {}）"
+
+msgid "Launcher ready"
+msgstr "启动器已就绪"
+
+msgid "Game found in your Steam library"
+msgstr "在 Steam 库中找到了游戏"
+
+msgid "Background music isn't available"
+msgstr "无法播放背景音乐"
+
+msgid "Background video couldn't play"
+msgstr "背景视频无法播放"
+
+msgid "Couldn't change the background music"
+msgstr "无法更改背景音乐设置"
+
+msgid "Checking for a launcher update…"
+msgstr "正在检查启动器更新…"
+
+msgid "Downloading the launcher update…"
+msgstr "正在下载启动器更新…"
+
+msgid "Launcher update ready; restarting…"
+msgstr "启动器更新就绪，正在重启…"
+
+msgid "Launcher update waits until the local server stops"
+msgstr "启动器更新将在本地服务器停止后进行"
+
+msgid "Launcher {} is up to date"
+msgstr "启动器 {} 已是最新版本"
+
+msgid "Couldn't check for a launcher update"
+msgstr "无法检查启动器更新"
+
+msgid "Couldn't apply the launcher update"
+msgstr "无法应用启动器更新"
+
+msgid "Set up started"
+msgstr "配置已开始"
+
+msgid "Starting MongoDB"
+msgstr "正在启动 MongoDB"
+
+msgid "Starting the local server"
+msgstr "正在启动本地服务器"
+
+msgid "Local server is ready"
+msgstr "本地服务器已就绪"
+
+msgid "A local server update is available"
+msgstr "有可用的本地服务器更新"
+
+msgid "Local server is up to date"
+msgstr "本地服务器已是最新"
+
+msgid "Couldn't check for server updates"
+msgstr "无法检查服务器更新"
+
+msgid "Server update waits until the game closes"
+msgstr "服务器更新将在游戏关闭后进行"
+
+msgid "Couldn't start the server update"
+msgstr "无法开始服务器更新"
+
+msgid "Set up finished"
+msgstr "配置完成"
+
+msgid "Set up failed"
+msgstr "配置失败"
+
+msgid "Original game files restored"
+msgstr "已还原原始游戏文件"
+
+msgid "Couldn't restore the game files"
+msgstr "无法还原游戏文件"
+
+msgid "Couldn't start the game"
+msgstr "无法启动游戏"
+
+msgid "Couldn't check the local setup"
+msgstr "无法检查本地配置"
+
+msgid "Client mods updated"
+msgstr "客户端模组已更新"
+
+msgid "Couldn't update client mods"
+msgstr "无法更新客户端模组"
+
+msgid "Administrator approval was cancelled; game files were not changed"
+msgstr "已取消管理员授权，游戏文件未被更改"
+
+msgid "The AscNet patch can't be used with these game files"
+msgstr "AscNet 补丁无法用于这些游戏文件"
+
+msgid "FPS unlock moved to the game's graphics settings"
+msgstr "帧率解锁已移至游戏的画面设置文件"
+
+msgid "Couldn't move the FPS setting"
+msgstr "无法迁移帧率设置"
+
+msgid "Closing after the local server stops"
+msgstr "本地服务器停止后将关闭"
+
+msgid "Game closed; stopping the local server"
+msgstr "游戏已关闭，正在停止本地服务器"
+
+msgid "Local server stopped"
+msgstr "本地服务器已停止"
+
+msgid "Couldn't stop the local server safely"
+msgstr "无法安全停止本地服务器"
+
+msgid "Verifying the game files ({})"
+msgstr "正在校验游戏文件（{}）"
+
+msgid "Updating the game ({})"
+msgstr "正在更新游戏（{}）"
+
+msgid "Adopting the existing install ({})"
+msgstr "正在采用现有安装（{}）"
+
+msgid "Downloading the game ({})"
+msgstr "正在下载游戏（{}）"
+
+msgid "Game files ready · {} downloaded"
+msgstr "游戏文件已就绪 · 已下载 {}"
+
+msgid "Download paused; verified files are kept"
+msgstr "下载已暂停，已校验的文件将保留"
+
+msgid "Download cancelled; run it again to resume"
+msgstr "下载已取消，再次运行即可继续"
+
+msgid "The game download stopped"
+msgstr "游戏下载已中断"
+
+msgid "Next: Set up"
+msgstr "下一步：配置"
+
+msgid "Choose where Punishing: Gray Raven is installed, or download it."
+msgstr "请选择战双帕弥什的安装位置，或下载游戏。"
+
+msgid "Set up builds the local server and patch. The first time takes a few minutes, and Windows may ask for permission."
+msgstr "配置会构建本地服务器和补丁。首次需要几分钟，Windows 可能会请求权限。"
+
+msgid "A newer local server is available. Update rebuilds the server and patch."
+msgstr "有更新的本地服务器。更新会重新构建服务器和补丁。"
+
+msgid "Everything is ready. Play starts the local server and the game."
+msgstr "一切就绪。开始游戏将启动本地服务器和游戏。"
+
+msgid "The game is running. Closing the launcher stops the local server."
+msgstr "游戏正在运行。关闭启动器将停止本地服务器。"
+
+msgid "Stopping the local server…"
+msgstr "正在停止本地服务器…"
+
+msgid "The AscNet patch can't be used with these game files. Check Game files, or restore the original files in Settings."
+msgstr "AscNet 补丁无法用于这些游戏文件。请检查游戏文件，或在设置中还原原始文件。"
+
+msgid "The patched game files need repair. Set up again in Settings, or restore the original files."
+msgstr "已打补丁的游戏文件需要修复。请在设置中重新配置，或还原原始文件。"
+
+msgid "Checking the local setup…"
+msgstr "正在检查本地配置…"
+
+msgid "Setting up the local server and patch…"
+msgstr "正在配置本地服务器和补丁…"
+
+msgid "Restoring the original game files…"
+msgstr "正在还原原始游戏文件…"
+
+msgid "Starting the local server and the game…"
+msgstr "正在启动本地服务器和游戏…"
+
+msgid "No mods yet. Set up refreshes the AscNet source and the mod list."
+msgstr "暂无模组。配置会刷新 AscNet 源码和模组列表。"
+
+msgid "Client mods unavailable: {}"
+msgstr "客户端模组不可用：{}"
+
+msgid "Restart the server and the game after changes."
+msgstr "更改后请重启服务器和游戏。"
+
+msgid "Applying client mods…"
+msgstr "正在应用客户端模组…"
+
+msgid "Applied: {}. Restart the server and the game."
+msgstr "已应用：{}。请重启服务器和游戏。"
+
+msgid "Applied: {}. Skipped: {}. Restart the server and the game."
+msgstr "已应用：{}。已跳过：{}。请重启服务器和游戏。"
+
+msgid "Client mods are off and their files are removed. Restart the server and the game."
+msgstr "客户端模组已关闭，其文件已移除。请重启服务器和游戏。"
+
+msgid "Couldn't change client mods: {}"
+msgstr "无法更改客户端模组：{}"
+
+msgid "Choose an empty folder to download the game, or the folder of an existing install to verify, update or adopt it."
+msgstr "请选择一个空文件夹来下载游戏，或选择已有安装的文件夹来校验、更新或采用它。"
+
+msgid "This folder isn't empty and has no PGR.exe. Choose an empty folder for a new install, or the folder of an existing game."
+msgstr "此文件夹不是空的，也没有 PGR.exe。新安装请选择空文件夹，或选择已安装游戏的文件夹。"
+
+msgid "Can't read this folder: {}"
+msgstr "无法读取此文件夹：{}"
+
+msgid "Empty folder: a full {} client will be installed here."
+msgstr "空文件夹：将在此安装完整的{}客户端。"
+
+msgid "An interrupted download was found here. It resumes from the files already verified."
+msgstr "在此发现了中断的下载，将从已校验的文件继续。"
+
+msgid "Inspecting the install…"
+msgstr "正在检查安装…"
+
+msgid "Couldn't inspect the install: {}"
+msgstr "无法检查安装：{}"
+
+msgid "Stopping after the current file…"
+msgstr "正在完成当前文件后停止…"
+
+msgid "Select the folder that contains PGR.exe"
+msgstr "请选择包含 PGR.exe 的文件夹"
+
+msgid "Select an empty folder for the game, or the folder of an existing game"
+msgstr "请选择用于下载游戏的空文件夹，或已有游戏的文件夹"
+
+msgid "Set up AscNet?"
+msgstr "配置 AscNet？"
+
+msgid "Verify game files"
+msgstr "校验游戏文件"
+
+msgid "Stop the local server?"
+msgstr "停止本地服务器？"
+
+msgid "Close the game first"
+msgstr "请先关闭游戏"
+
+msgid "The game is still running"
+msgstr "游戏仍在运行"
+
+msgid "Couldn't check the game"
+msgstr "无法检查游戏状态"
+
+msgid "No game folder"
+msgstr "没有游戏文件夹"
+
+msgid "Not the game folder"
+msgstr "不是游戏文件夹"
+
+msgid "Couldn't save settings"
+msgstr "无法保存设置"
+
+msgid "Couldn't stop the local server"
+msgstr "无法停止本地服务器"
+
+msgid "Set up didn't finish"
+msgstr "配置未能完成"
+
+msgid "The game didn't start"
+msgstr "游戏未能启动"
+
+msgid "Set up first"
+msgstr "请先配置"
+
+msgid "The local server isn't available"
+msgstr "本地服务器不可用"
+
+msgid "Launcher update needed"
+msgstr "需要更新启动器"
+
+msgid "Patch update needed"
+msgstr "需要更新补丁"
+
+msgid "This game version isn't supported"
+msgstr "不支持此游戏版本"
+
+msgid "The local server doesn't match"
+msgstr "本地服务器不匹配"
+
+msgid "The download stopped"
+msgstr "下载已中断"
+
+msgid "Please wait"
+msgstr "请稍候"
+
+msgid "Set up runs source code from the configured repository and installs any missing Git, .NET, MongoDB, Rust and C++ build tools."
+msgstr "配置会运行所配置仓库中的源码，并安装缺少的 Git、.NET、MongoDB、Rust 和 C++ 构建工具。"
+
+msgid "Every file in this folder is checked against Kuro's official files, and files that differ are downloaded again."
+msgstr "此文件夹中的每个文件都会与库洛官方文件比对，不一致的文件会被重新下载。"
+
+msgid "Closing the launcher stops the local AscNet server and MongoDB that it started."
+msgstr "关闭启动器会停止由它启动的本地 AscNet 服务器和 MongoDB。"
+
+msgid "Punishing: Gray Raven is running, and its files can't change while it does."
+msgstr "战双帕弥什正在运行，运行期间无法更改其文件。"
+
+msgid "The local server has to stay up while the game is running."
+msgstr "游戏运行期间，本地服务器必须保持运行。"
+
+msgid "The launcher couldn't tell whether the game is running."
+msgstr "启动器无法确定游戏是否正在运行。"
+
+msgid "No game folder is selected."
+msgstr "尚未选择游戏文件夹。"
+
+msgid "That folder doesn't contain PGR.exe."
+msgstr "该文件夹中没有 PGR.exe。"
+
+msgid "The launcher couldn't save your settings."
+msgstr "启动器无法保存你的设置。"
+
+msgid "The local server or MongoDB didn't stop safely."
+msgstr "本地服务器或 MongoDB 未能安全停止。"
+
+msgid "The launcher couldn't read its local setup."
+msgstr "启动器无法读取其本地配置。"
+
+msgid "Setting up the local server and patch failed."
+msgstr "配置本地服务器和补丁失败。"
+
+msgid "The original game files couldn't be put back."
+msgstr "无法还原原始游戏文件。"
+
+msgid "The local server or the game couldn't be started."
+msgstr "无法启动本地服务器或游戏。"
+
+msgid "The local server or the patch isn't ready yet."
+msgstr "本地服务器或补丁尚未就绪。"
+
+msgid "The local server says it is offline or under maintenance."
+msgstr "本地服务器报告离线或正在维护。"
+
+msgid "This local server needs a newer launcher."
+msgstr "此本地服务器需要更新版本的启动器。"
+
+msgid "This local server needs a newer AscNet patch."
+msgstr "此本地服务器需要更新版本的 AscNet 补丁。"
+
+msgid "The local server doesn't support this version of the game."
+msgstr "本地服务器不支持此版本的游戏。"
+
+msgid "The local server answered in a way this launcher doesn't understand."
+msgstr "本地服务器的响应格式启动器无法识别。"
+
+msgid "The game files couldn't be downloaded or checked."
+msgstr "无法下载或校验游戏文件。"
+
+msgid "The launcher is still working on something."
+msgstr "启动器仍在处理任务。"
+
+msgid "Windows may ask for administrator approval."
+msgstr "Windows 可能会请求管理员授权。"
+
+msgid "Files patched by AscNet are handled by the launcher's own patch state."
+msgstr "已被 AscNet 打补丁的文件由启动器自身的补丁状态处理。"
+
+msgid "Stop them and close the launcher, or keep it open."
+msgstr "停止它们并关闭启动器，或保持启动器打开。"
+
+msgid "Close the game, then try again."
+msgstr "请关闭游戏后重试。"
+
+msgid "Close the game before closing the launcher."
+msgstr "请先关闭游戏，再关闭启动器。"
+
+msgid "Try again. If it keeps happening, send the log files."
+msgstr "请重试。如果问题持续，请发送日志文件。"
+
+msgid "Choose the folder that contains PGR.exe, or download the game in Game files."
+msgstr "请选择包含 PGR.exe 的文件夹，或在“游戏文件”中下载游戏。"
+
+msgid "Choose the folder where the game is installed."
+msgstr "请选择游戏的安装文件夹。"
+
+msgid "Make sure the disk isn't full or read-only, then try again."
+msgstr "请确认磁盘未满且不是只读，然后重试。"
+
+msgid "Try again. If it keeps happening, restart your computer."
+msgstr "请重试。如果问题持续，请重启电脑。"
+
+msgid "Check your internet connection and try again. If it keeps happening, send the log files."
+msgstr "请检查网络连接后重试。如果问题持续，请发送日志文件。"
+
+msgid "Close the game and try again, or verify the game in Game files."
+msgstr "请关闭游戏后重试，或在“游戏文件”中校验游戏。"
+
+msgid "Try again. If it keeps happening, Set up again in Settings."
+msgstr "请重试。如果问题持续，请在设置中重新配置。"
+
+msgid "Press Set up to build them."
+msgstr "请点击“配置”来构建它们。"
+
+msgid "Wait a moment and press Play again."
+msgstr "请稍等片刻，然后再次点击“开始游戏”。"
+
+msgid "Update the launcher, then try again."
+msgstr "请更新启动器后重试。"
+
+msgid "Set up again in Settings."
+msgstr "请在设置中重新配置。"
+
+msgid "Update the game in Game files, then Set up again."
+msgstr "请在“游戏文件”中更新游戏，然后重新配置。"
+
+msgid "Update the launcher, then Set up again."
+msgstr "请更新启动器，然后重新配置。"
+
+msgid "Check your internet connection and free disk space, then press Resume."
+msgstr "请检查网络连接和可用磁盘空间，然后点击“继续”。"
+
+msgid "Wait for it to finish, then close the launcher."
+msgstr "请等待其完成，然后再关闭启动器。"
+
+msgid "Stop and close"
+msgstr "停止并关闭"
+
+msgid "Continue"
+msgstr "继续"
+
+msgid "Keep open"
+msgstr "保持打开"
+
+msgid "Cancel the download?"
+msgstr "要取消下载吗？"
+
+msgid "Couldn't delete the download"
+msgstr "无法删除下载内容"
+
+msgid "The {} already downloaded will be deleted."
+msgstr "已下载的 {} 将被删除。"
+
+msgid "Some of the partly downloaded files couldn't be deleted, so the download was kept."
+msgstr "部分已下载的文件无法删除，因此下载已保留。"
+
+msgid "To keep it and continue later, press Pause instead."
+msgstr "若想保留并稍后继续，请改按“暂停”。"
+
+msgid "Close anything that is using the game folder, then try again, or press Resume."
+msgstr "请关闭正在使用游戏文件夹的程序后重试，或按“继续”。"
+
+msgid "Delete download"
+msgstr "删除下载"
+
+msgid "Keep download"
+msgstr "保留下载"
+
+msgid "CrossOver"
+msgstr "CrossOver"
+
+msgid "Installed"
+msgstr "已安装"
+
+msgid "Installing"
+msgstr "正在安装"
+
+msgid "Bottle"
+msgstr "容器(Bottle)"
+
+msgid "Ready"
+msgstr "就绪"
+
+msgid "Preparing"
+msgstr "准备中"
+
+msgid "Not created"
+msgstr "未创建"
+
+msgid "Install CrossOver"
+msgstr "安装 CrossOver"
+
+msgid "Repair bottle"
+msgstr "修复容器"
+
+msgid "Create bottle"
+msgstr "创建容器"
+
+msgid "Set up builds the local server and patch and prepares the game files. The first time takes a few minutes."
+msgstr "设置会构建本地服务器和补丁，并准备游戏文件。首次需要几分钟。"
+
+msgid "Checking that CrossOver is signed by CodeWeavers…"
+msgstr "正在检查 CrossOver 是否由 CodeWeavers 签名…"
+
+msgid "Unpacking CrossOver…"
+msgstr "正在解压 CrossOver…"
+
+msgid "Installing CrossOver…"
+msgstr "正在安装 CrossOver…"
+
+msgid "Downloading CrossOver…"
+msgstr "正在下载 CrossOver…"
+
+msgid "CrossOver installed"
+msgstr "CrossOver 已安装"
+
+msgid "Couldn't install CrossOver"
+msgstr "无法安装 CrossOver"
+
+msgid "Preparing the AscNet bottle…"
+msgstr "正在准备 AscNet 容器…"
+
+msgid "AscNet bottle is ready"
+msgstr "AscNet 容器已就绪"
+
+msgid "Couldn't prepare the AscNet bottle"
+msgstr "无法准备 AscNet 容器"
+
+msgid "AscNet runs the Windows game through CrossOver. It has a free 14-day trial; after that you need your own licence."
+msgstr "AscNet 通过 CrossOver 运行 Windows 版游戏。它有 14 天免费试用，之后需要你自己的许可证。"
+
+msgid "The bottle is AscNet's own Windows space inside CrossOver, where the game is kept. Creating it takes a few minutes."
+msgstr "容器是 CrossOver 中 AscNet 专用的 Windows 空间，游戏保存在其中。创建需要几分钟。"
+
+msgid "The AscNet bottle needs repair. Repairing it keeps your game files."
+msgstr "AscNet 容器需要修复。修复不会影响你的游戏文件。"
+
+msgid "Preparing the AscNet bottle. The first time takes a few minutes…"
+msgstr "正在准备 AscNet 容器。首次需要几分钟…"
+
+msgid "Install CrossOver?"
+msgstr "安装 CrossOver？"
+
+msgid "CrossOver didn't install"
+msgstr "CrossOver 未能安装"
+
+msgid "Couldn't prepare the bottle"
+msgstr "无法准备容器"
+
+msgid "AscNet runs Punishing: Gray Raven on your Mac through CrossOver by CodeWeavers, and CrossOver isn't installed. It is paid software with a 14-day free trial; after that you need your own licence from CodeWeavers. AscNet doesn't include it."
+msgstr "AscNet 通过 CodeWeavers 的 CrossOver 在你的 Mac 上运行《战双帕弥什》，但尚未安装 CrossOver。它是付费软件，有 14 天免费试用，之后需要你自己向 CodeWeavers 购买许可证。AscNet 不包含 CrossOver。"
+
+msgid "CrossOver couldn't be downloaded, verified or installed."
+msgstr "无法下载、验证或安装 CrossOver。"
+
+msgid "AscNet's CrossOver bottle couldn't be created or repaired."
+msgstr "无法创建或修复 AscNet 的 CrossOver 容器。"
+
+msgid "Set up runs source code from the configured repository and installs any missing .NET, MongoDB and Rust tools in AscNet's own folder. Git and the C compiler come from Apple's command line tools."
+msgstr "设置会运行所配置仓库中的源代码，并在 AscNet 自己的文件夹中安装缺少的 .NET、MongoDB 和 Rust 工具。Git 和 C 编译器来自 Apple 的命令行工具。"
+
+msgid "It also applies the Rosetta patches to the game files, keeping backups."
+msgstr "同时会对游戏文件应用 Rosetta 补丁，并保留备份。"
+
+msgid "AscNet downloads CodeWeavers' official installer from codeweavers.com, checks that it is signed by CodeWeavers, and installs it in Applications."
+msgstr "AscNet 会从 codeweavers.com 下载 CodeWeavers 的官方安装程序，检查它是否由 CodeWeavers 签名，然后安装到“应用程序”中。"
+
+msgid "Check your internet connection and try again, or install CrossOver yourself from codeweavers.com."
+msgstr "请检查网络连接后重试，或自行从 codeweavers.com 安装 CrossOver。"
+
+msgid "Download and install"
+msgstr "下载并安装"
+
+msgid "Using the game in {}"
+msgstr "正在使用 {} 中的游戏"
+
+msgid "Select the Wine prefix folder (it contains system.reg)"
+msgstr "选择 Wine 前缀文件夹（其中包含 system.reg）"
+
+msgid "Use this install?"
+msgstr "使用此安装？"
+
+msgid "Found Punishing: Gray Raven in {}. AscNet will use that CrossOver prefix and game folder for Set up and Play instead of creating its own bottle."
+msgstr "在 {} 中找到了战双帕弥什。配置和开始游戏时，AscNet 将使用该 CrossOver 前缀和游戏文件夹，而不是创建自己的容器。"
+
+msgid "Set up then applies the Rosetta and AscNet patches to that game folder, keeping backups. Nothing else in the prefix is changed."
+msgstr "随后配置会对该游戏文件夹应用 Rosetta 和 AscNet 补丁，并保留备份。前缀中的其他内容不会被更改。"
+
+msgid "Steam owns this install: a Steam update or file check can replace patched files (for example KRSDK.dll). Press Set up again afterwards to re-apply them."
+msgstr "此安装由 Steam 管理：Steam 更新或文件校验可能会替换已打补丁的文件（例如 KRSDK.dll）。之后请再次点击“配置”以重新应用补丁。"
+
+msgid "Use it"
+msgstr "使用"
+
+msgid "Found Punishing: Gray Raven in {}"
+msgstr "在 {} 中找到战双帕弥什"
+
+msgid "Existing CrossOver installs"
+msgstr "现有的 CrossOver 安装"
+
+msgid "Not listed? Pick the Wine prefix folder."
+msgstr "没有列出？请选择 Wine 前缀文件夹。"
+
+msgid "Choose prefix…"
+msgstr "选择前缀…"
+
+msgid "Existing prefix"
+msgstr "现有前缀"
+
+msgid "Use {}"
+msgstr "使用 {}"
+
+msgid "Use a new AscNet bottle instead"
+msgstr "改为使用新的 AscNet 容器"
+
+msgid "Punishing: Gray Raven already runs through CrossOver on this Mac. AscNet will use that prefix and game folder, so no new bottle is needed. Set up then adds the patches."
+msgstr "战双帕弥什已在这台 Mac 上通过 CrossOver 运行。AscNet 将使用该前缀和游戏文件夹，无需新建容器。随后配置会添加补丁。"

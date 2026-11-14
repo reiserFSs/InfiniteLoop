@@ -1,17 +1,38 @@
-# macOS port (parked design note)
+# macOS port
 
-Status: design agreed 2026-09-27; not implemented. Related: `client-download.md`.
+Status (2026-11-14): implemented. The crate builds natively (`aarch64-apple-darwin`) and the Windows build is unchanged. Design agreed 2026-09-27, revised 2026-11-13. Related: `client-download.md`.
+
+## Status
+- Done and exercised: the `.app` bundle launches, plays the background video and shows Home with the CrossOver and Bottle rows; CrossOver consent prompt; `cargo test --offline`; the Windows exe (`cargo xwin`).
+- Slices: `src/mac/crossover.rs` (detect, signed install), `src/mac/bottle.rs` (create/repair the `AscNet` bottle, `ASCNET_BOTTLE=AscNet-test-<n>` for tests), `src/mac/wine.rs` (launch, "PGR.exe running"), `src/mac/setup.rs` (toolchain, server build, patch DLLs, native MongoDB/server), `src/rosetta.rs`, `src/controller/mac.rs` (the CrossOver and bottle steps in the controller).
+- Shared-flow hooks: `local::prepare` (macOS setup, then Rosetta, then the AscNet patch install), `local::LocalRuntime`, `install::launch`, `install::game_running`, `local::resource_dir` (`Contents/Resources` in the bundle), `local::data_base`.
+- Not verified here: see the integration report; the full Kuro client download and the in-game run depend on the pinned client being fetched.
+
+## Commands
+```bash
+cargo test --offline
+cargo xwin build --release --target x86_64-pc-windows-msvc
+packaging/macos/package.sh            # target/macos/{AscNet Launcher.app, AscNetLauncher-macOS.zip}; media from .runtime/launcher-media or ASCNET_LAUNCHER_MEDIA
+ASCNET_BOTTLE=AscNet-test-1 ASCNET_UI_START=files "target/macos/AscNet Launcher.app/Contents/MacOS/AscNetLauncher"
+```
+`ASCNET_UI_START` accepts `settings`, `files`, `setup` and (macOS) `crossover`. `AscNetLauncher --check-media <mp4>` runs the decoder's validation (the packaging gate).
+
+## Home on macOS
+Rows: CrossOver, Bottle, Game, AscNet patch, Local server. The big button follows the prerequisites: Install CrossOver (consent dialog: 14-day trial, own licence, official installer from codeweavers.com, signature checked) → Create/Repair bottle → Select game (Game files default to `C:\Games\Punishing Gray Raven` inside the bottle; Steam copies are never adopted automatically) → Set up → Play.
+
+## Updates
+Releases carry a separate `AscNetLauncher-macOS.zip` (the whole ad-hoc signed app). The updater verifies GitHub's SHA-256 digest, the bundle's file list, the code signature and that the new executable starts, then swaps the app and keeps the old one until the new launcher's first start. Both archives carry `LICENSE`; see `Docs/development.md` for the release order that keeps Windows 1.0.24 and older able to update.
 
 ## Decisions
-- **UI:** cross-platform Rust UI, shared with Windows. No SwiftUI.
-- **Runtime:** require the user's own licensed CrossOver at first. A free runtime fallback is out of scope for now.
+- **UI:** Slint, shared with Windows (done for the Windows build: `ui/*.slint`, `src/ui.rs`, state in `src/controller.rs`). No SwiftUI.
+- **Runtime (revised 2026-11-13):** CrossOver. When it is missing, the launcher downloads CodeWeavers' official installer from codeweavers.com and installs it to `/Applications`. The player runs it on the 14-day trial and must buy their own licence. AscNet never redistributes CrossOver. A free runtime fallback is still out of scope.
 - **Signing:** no Apple Developer ID will be obtained. The macOS build ships unsigned and unnotarized (ad-hoc
   signature only). Users must allow it once past Gatekeeper (Open from the context menu, or
   `xattr -d com.apple.quarantine`). [INFERENCE] Files written by the launcher's own updater are not quarantined,
   so self-updates should not trigger Gatekeeper again; verify before release.
 
 ## Flow
-1. Detect CrossOver (`/Applications/CrossOver.app/Contents/SharedSupport/CrossOver`); refuse with guidance if absent.
+1. Detect CrossOver (`/Applications/CrossOver.app/Contents/SharedSupport/CrossOver`). If it is absent, explain the trial and licence, then download and install the official CodeWeavers build with the player's consent.
 2. Create an AscNet bottle through CrossOver's documented CLI (`cxbottle --create --template win10_64`) and install
    corefonts, d3dcompiler_47 and vcrun2015–2022. Registry: RetinaMode=N, 1920x1080 window settings.
 3. Download the pinned client from Kuro into the bottle (see `client-download.md`). No Steam in the bottle.
@@ -34,9 +55,8 @@ Status: design agreed 2026-09-27; not implemented. Related: `client-download.md`
 
 ## Code reuse
 - Shared as is: `install.rs`, `package.rs`, `pgrbase.rs`, `supported-client.json`, updater verification.
-- New: Rosetta patcher, CrossOver bottle manager, Wine launcher, client downloader, macOS setup script,
-  cross-platform UI (replaces the Win32 UI). Background video needs a per-platform decoder
-  (Media Foundation / AVFoundation) or a bundled decoder; decide when choosing the UI toolkit.
+- New: Rosetta patcher, CrossOver bottle manager, Wine launcher, client downloader, macOS setup script. The cross-platform UI replaced the Win32 UI. Background media is `src/media/`: pure-Rust
+  H.264 (`mp4` + `openh264`, B-frame-free `background.mp4` required) and WAV-loop music (`cpal`), shared by Windows, Wine and macOS.
 - Updater: releases gain a separate macOS archive.
 
 ## Order
@@ -51,3 +71,7 @@ Status: design agreed 2026-09-27; not implemented. Related: `client-download.md`
 - DXMT requires macOS 14+ on Apple Silicon.
 - Unsigned app: Gatekeeper friction on first launch.
 - Client/resource version pinning and Kuro CDN changes (see `client-download.md`).
+
+## App icon
+
+Art lives in `packaging/icon/`: `ascnet.svg` (white A with the red slash) and `ascnet-small.svg` (plain A, used below 64 px where the slash reads as a broken leg). `packaging/icon/make-icons.py` renders them with headless Brave/Chrome (rsvg-convert is not installed; qlmanage paints an opaque background) and writes `packaging/macos/AscNet.icns` (iconutil), `packaging/icon/ascnet.ico` (16–256 px, tile edge to edge with a small radius) and `ascnet-256.png` (the Slint window icon). The `.ico` is embedded in the Windows exe by `build.rs` (winresource; needs `llvm-rc` on PATH when cross-compiling). Re-run the script after editing either SVG and commit the outputs.

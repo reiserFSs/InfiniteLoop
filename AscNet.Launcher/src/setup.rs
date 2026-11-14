@@ -150,7 +150,7 @@ fn normalize_path_key(path: &Path) -> String {
     path.to_string_lossy().replace('/', "\\").to_ascii_lowercase()
 }
 
-fn note(
+pub(crate) fn note(
     progress: &mut dyn FnMut(&str),
     log: &mut dyn FnMut(&str) -> Result<()>,
     message: &str,
@@ -159,7 +159,7 @@ fn note(
     log(message)
 }
 
-fn ensure_time(deadline: Instant) -> Result<()> {
+pub(crate) fn ensure_time(deadline: Instant) -> Result<()> {
     if Instant::now() >= deadline {
         bail!("local setup timed out");
     }
@@ -216,7 +216,7 @@ fn stream_lines<R: Read + Send + 'static>(stream: R, send: mpsc::Sender<std::io:
     });
 }
 
-fn run_logged(
+pub(crate) fn run_logged(
     command: &mut Command,
     description: &str,
     deadline: Instant,
@@ -282,7 +282,7 @@ fn run_logged_shown(
     Ok(())
 }
 
-fn capture_command(
+pub(crate) fn capture_command(
     command: &mut Command,
     description: &str,
     deadline: Instant,
@@ -339,7 +339,7 @@ fn capture_command(
     Ok(std::process::Output { status, stdout, stderr })
 }
 
-fn git_text(
+pub(crate) fn git_text(
     git: &Path,
     checkout: Option<&Path>,
     args: &[String],
@@ -362,7 +362,7 @@ fn git_text(
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
-fn update_checkout(
+pub(crate) fn update_checkout(
     git: &Path,
     checkout: &Path,
     repository: &str,
@@ -499,7 +499,7 @@ fn pause_before_retry(failed_attempt: u32, deadline: Instant) -> Result<()> {
     ensure_time(deadline)
 }
 
-fn download_file(
+pub(crate) fn download_file(
     url: &str,
     dest: &Path,
     expect_sha256: Option<&str>,
@@ -799,7 +799,7 @@ fn partial_path(dest: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 
-fn read_download_text(
+pub(crate) fn read_download_text(
     url: &str,
     deadline: Instant,
     progress: &mut dyn FnMut(&str),
@@ -870,7 +870,7 @@ fn read_download_text_more(url: &str, deadline: Instant, have: &mut Vec<u8>) -> 
     Ok(())
 }
 
-fn first_sha256(text: &str) -> Option<String> {
+pub(crate) fn first_sha256(text: &str) -> Option<String> {
     let bytes = text.as_bytes();
     let mut index = 0;
     while index + 64 <= bytes.len() {
@@ -887,7 +887,7 @@ fn first_sha256(text: &str) -> Option<String> {
 }
 
 /// The unique part goes first so the name keeps its extension: ShellExecute needs `.exe` to start the VS bootstrapper.
-fn scratch_file(root: &Path, name: &str) -> PathBuf {
+pub(crate) fn scratch_file(root: &Path, name: &str) -> PathBuf {
     root.join("tmp").join(format!("{}-{}-{name}", std::process::id(), uuid::Uuid::new_v4()))
 }
 
@@ -1405,8 +1405,7 @@ fn run_windows(
     Ok(())
 }
 
-#[cfg(windows)]
-fn read_previous_state(path: &Path) -> Result<Option<Value>> {
+pub(crate) fn read_previous_state(path: &Path) -> Result<Option<Value>> {
     match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&bytes).with_context(|| format!("Existing build-state.json is invalid: {}", path.display())).map(Some),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -2227,8 +2226,7 @@ fn ensure_mongo(root: &Path, tools: &Path, previous: Option<&Value>, deadline: I
     extracted_ok
 }
 
-#[cfg(windows)]
-fn choose_ports(root: &Path, previous: Option<&Value>) -> Result<(u16, u16, u16)> {
+pub(crate) fn choose_ports(root: &Path, previous: Option<&Value>) -> Result<(u16, u16, u16)> {
     let ports = if let Some(state) = previous {
         let sdk = json_u16(state, &["sdkPort"]).context("Existing build-state.json is invalid: sdkPort")?;
         let game = json_u16(state, &["gamePort"]).context("Existing build-state.json is invalid: gamePort")?;
@@ -2255,8 +2253,7 @@ fn choose_ports(root: &Path, previous: Option<&Value>) -> Result<(u16, u16, u16)
     Ok(ports)
 }
 
-#[cfg(windows)]
-fn prepare_config(checkout: &Path, config_path: &Path, game_port: u16, mongo_port: u16) -> Result<()> {
+pub(crate) fn prepare_config(checkout: &Path, config_path: &Path, game_port: u16, mongo_port: u16) -> Result<()> {
     if !config_path.is_file() {
         let source = fs::read(checkout.join("Resources").join("Configs").join("config.json")).context("read checkout config.json")?;
         let mut config: Value = serde_json::from_slice(&source).context("checkout config.json is invalid")?;

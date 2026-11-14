@@ -1,0 +1,292 @@
+import "../fonts/NotoSans-Regular.ttf";
+import "../fonts/NotoSans-Medium.ttf";
+import "../fonts/NotoSans-SemiBold.ttf";
+import "../fonts/NotoSansSC-Regular.ttf";
+import "../fonts/NotoSansSC-SemiBold.ttf";
+import "../fonts/NotoSansTC-Regular.ttf";
+import "../fonts/NotoSansTC-SemiBold.ttf";
+import "../fonts/NotoSansJP-Regular.ttf";
+import "../fonts/NotoSansJP-SemiBold.ttf";
+import "../fonts/NotoSansKR-Regular.ttf";
+import "../fonts/NotoSansKR-SemiBold.ttf";
+
+import { S, Tx, Screen, Primary, PatchLabel, ServerLabel, CrossOverLabel, BottleLabel } from "state.slint";
+import { Plate, BigButton, WinButton, ProgressLine } from "widgets.slint";
+import { SettingsPlate, FilesPlate, DialogPlate, FoundRows } from "plates.slint";
+
+export { S, Tx }
+
+component StatusRow inherits HorizontalLayout {
+    in property <string> key;
+    in property <string> value;
+    in property <bool> warn;
+    min-height: 20px;
+    Text { text: root.key; color: #9aa0aa; font-size: 13px; }
+    Text {
+        text: root.value;
+        horizontal-alignment: right;
+        color: root.warn ? #ffffff : #e9ebef;
+        font-weight: root.warn ? 600 : 400;
+        font-size: 13px;
+        overflow: elide;
+    }
+}
+
+component LinkButton inherits Rectangle {
+    in property <string> text;
+    callback clicked;
+    height: 28px;
+    width: label.preferred-width + 28px;
+    background: ta.has-hover || fs.has-focus ? #1c1e24 : transparent;
+    ta := TouchArea { clicked => { root.clicked(); } }
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+    label := Text {
+        text: root.text;
+        color: #c9cdd4;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    accessible-role: button;
+    accessible-label: root.text;
+}
+
+export component App inherits Window {
+    title: "AscNet Launcher";
+    icon: @image-url("../packaging/icon/ascnet-256.png");
+    no-frame: true;
+    preferred-width: 1280px;
+    preferred-height: 720px;
+    min-width: 960px;
+    min-height: 640px;
+    background: #0b0c0f;
+    default-font-family: S.ui-font;
+    default-font-size: 13px;
+
+    root-focus := FocusScope {
+        focus-on-click: false;
+        key-pressed(e) => {
+            if (e.text == Key.Escape) { S.back(); return accept; }
+            return reject;
+        }
+        init => { self.focus(); }
+
+        Image {
+            // 1px bleed on every side: no seam at fractional scale factors
+            x: -1px;
+            y: -1px;
+            width: parent.width + 2px;
+            height: parent.height + 2px;
+            source: S.art;
+            image-fit: cover;
+        }
+
+        // drag area: the whole backdrop; controls sit on top
+        TouchArea {
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) { S.drag(); }
+            }
+        }
+
+        // brand plate
+        Plate {
+            x: 20px;
+            y: 16px;
+            width: brand.preferred-width;
+            height: 32px;
+            brand := HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                spacing: 10px;
+                Text { text: @tr("AscNet"); color: #e9ebef; font-size: 14px; font-weight: 600; vertical-alignment: center; }
+                Text { text: @tr("Punishing: Gray Raven"); color: #9aa0aa; font-size: 12px; vertical-alignment: center; }
+                if S.chip != "" : VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        background: #e9ebef;
+                        border-radius: 2px;
+                        height: 19px;
+                        width: ver.preferred-width + 12px;
+                        ver := Text { text: S.chip; color: #0b0c0f; font-size: 11px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+
+        // window controls
+        HorizontalLayout {
+            x: parent.width - 12px - self.width;
+            y: 12px;
+            width: 68px;
+            height: 28px;
+            spacing: 4px;
+            WinButton { glyph: "M2 6 L10 6"; label: @tr("Minimize"); clicked => { S.minimize(); } }
+            WinButton { glyph: "M2 2 L10 10 M10 2 L2 10"; label: @tr("Close"); clicked => { S.close(); } }
+        }
+
+        // activity plate (home only: a secondary panel never overlaps it)
+        if S.screen == Screen.home : Plate {
+            x: 20px;
+            y: parent.height - 20px - self.height;
+            width: 340px;
+            height: activity.preferred-height;
+            activity := VerticalLayout {
+                padding: 12px;
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 0px;
+                Text { text: @tr("Activity"); color: #9aa0aa; font-size: 11px; font-weight: 500; }
+                Rectangle { height: 6px; }
+                for item in S.activity : HorizontalLayout {
+                    height: 19px;
+                    spacing: 12px;
+                    Text { text: Tx.text(item.msg); color: #e9ebef; overflow: elide; vertical-alignment: center; }
+                    Text { text: item.time; color: #7d838e; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; horizontal-stretch: 0; }
+                }
+            }
+        }
+
+        // status, primary action, links (home only)
+        if S.screen == Screen.home : VerticalLayout {
+            x: parent.width - 20px - 340px;
+            y: 0;
+            width: 340px;
+            height: parent.height - 20px;
+            alignment: end;
+            spacing: 8px;
+            Plate {
+                VerticalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    padding-top: 10px;
+                    padding-bottom: 10px;
+                    spacing: 2px;
+                    if S.mac : StatusRow {
+                        key: @tr("CrossOver");
+                        value: S.crossover == CrossOverLabel.ready ? @tr("Installed")
+                            : S.crossover == CrossOverLabel.working ? @tr("Installing")
+                            : @tr("Not installed");
+                        warn: S.crossover != CrossOverLabel.ready;
+                    }
+                    if S.mac : StatusRow {
+                        key: @tr("Bottle");
+                        value: S.bottle == BottleLabel.ready ? @tr("Ready")
+                            : S.bottle == BottleLabel.working ? @tr("Preparing")
+                            : S.bottle == BottleLabel.repair ? @tr("Needs repair")
+                            : S.bottle == BottleLabel.adopted ? @tr("Existing prefix")
+                            : @tr("Not created");
+                        warn: S.bottle != BottleLabel.ready;
+                    }
+                    StatusRow {
+                        key: @tr("Game");
+                        value: S.has-game ? Tx.region-short(S.game-region) + " " + S.game-version : @tr("Not selected");
+                        warn: !S.has-game;
+                    }
+                    StatusRow {
+                        key: @tr("AscNet patch");
+                        value: S.patch == PatchLabel.current ? @tr("Current")
+                            : S.patch == PatchLabel.update-available ? @tr("Update available")
+                            : S.patch == PatchLabel.unsupported ? @tr("Unsupported")
+                            : S.patch == PatchLabel.repair-needed ? @tr("Needs repair")
+                            : @tr("Not installed");
+                        warn: S.patch != PatchLabel.current;
+                    }
+                    StatusRow {
+                        key: @tr("Local server");
+                        value: S.server == ServerLabel.running ? @tr("Running")
+                            : S.server == ServerLabel.stopping ? @tr("Stopping")
+                            : S.server == ServerLabel.maintenance ? @tr("Maintenance")
+                            : S.server == ServerLabel.offline ? @tr("Offline")
+                            : @tr("Stopped");
+                        warn: S.server == ServerLabel.maintenance || S.server == ServerLabel.offline;
+                    }
+                    Rectangle { height: 6px; }
+                    if !S.busy : Text {
+                        text: Tx.text(S.hint);
+                        color: #9aa0aa;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                    }
+                    if S.busy : VerticalLayout {
+                        spacing: 8px;
+                        Text {
+                            text: Tx.text(S.busy-msg);
+                            color: #e9ebef;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                        ProgressLine { value: S.progress; }
+                    }
+                }
+            }
+            // fixed height: a wrapped label under-reports its preferred height inside a plate
+            if S.mac && (S.found.length > 1 || (S.found.length > 0 && S.primary != Primary.use-found)) : Plate {
+                height: S.found.length * 100px;
+                VerticalLayout {
+                    padding: 14px;
+                    FoundRows { }
+                }
+            }
+            BigButton {
+                text: S.primary == Primary.select-game ? @tr("Select game")
+                    : S.primary == Primary.install-crossover ? @tr("Install CrossOver")
+                    : S.primary == Primary.use-found ? @tr("Use {}", S.found[0].name)
+                    : S.primary == Primary.create-bottle ? (S.bottle == BottleLabel.repair ? @tr("Repair bottle") : @tr("Create bottle"))
+                    : S.primary == Primary.setup ? @tr("Set up")
+                    : S.primary == Primary.update ? @tr("Update")
+                    : S.primary == Primary.play ? @tr("Play")
+                    : S.primary == Primary.running ? @tr("Running")
+                    : S.primary == Primary.stopping ? @tr("Stopping")
+                    : @tr("Working…");
+                enabled: S.primary-enabled;
+                clicked => { S.primary-clicked(); }
+            }
+            if S.mac && S.primary == Primary.use-found : HorizontalLayout {
+                alignment: end;
+                Plate {
+                    width: alt.preferred-width;
+                    height: 28px;
+                    alt := LinkButton { text: @tr("Use a new AscNet bottle instead"); clicked => { S.new-bottle(); } }
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                Plate {
+                    width: links.preferred-width;
+                    height: 28px;
+                    links := HorizontalLayout {
+                        LinkButton { text: @tr("Game files"); clicked => { S.open-files(); } }
+                        Rectangle { width: 1px; Rectangle { y: 5px; width: 1px; height: 18px; background: #3a3e46; } }
+                        LinkButton { text: @tr("Settings"); clicked => { S.open-settings(); } }
+                    }
+                }
+            }
+        }
+
+        // secondary screens: a centred plate over the dimmed art
+        if S.screen != Screen.home : Rectangle {
+            background: #05060873;
+            TouchArea { clicked => { S.back(); } }
+            if S.screen == Screen.settings : SettingsPlate {
+                width: 560px;
+                limit: parent.height - 40px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+            }
+            if S.screen == Screen.files : FilesPlate {
+                width: 640px;
+                limit: parent.height - 40px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        if S.dialog-open : DialogPlate { }
+    }
+}

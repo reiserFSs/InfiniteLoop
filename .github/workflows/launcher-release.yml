@@ -1,0 +1,275 @@
+name: Launcher release
+
+# Publishes AscNet Launcher <version>. The maintainer bumps the version in a commit first (Cargo.toml, Cargo.lock,
+# Docs/development.md); this workflow refuses to run when they disagree. Run it from the default branch.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Launcher version, 1.0.N (also the release tag)"
+        required: true
+        type: string
+      windows_license:
+        description: "Add LICENSE to the Windows zip (8 files). Only once launchers older than the first LICENSE-aware release are not a concern; see Docs/development.md"
+        required: true
+        type: boolean
+        default: false
+      notes:
+        description: 'Release notes (one line; write \n for a line break)'
+        required: true
+        type: string
+      screenshot:
+        description: "Game-version releases only: https URL or repo-relative path of a PNG/JPG, attached and embedded at the top of the notes"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launcher-release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version, branch and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCREENSHOT: ${{ inputs.screenshot }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must look like 1.0.N"; exit 1; }
+          [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ] || { echo "run from $DEFAULT_BRANCH, not $GITHUB_REF_NAME"; exit 1; }
+          cargo_toml="$(sed -n 's/^version = "\(.*\)"/\1/p' AscNet.Launcher/Cargo.toml | head -n 1)"
+          cargo_lock="$(grep -A1 '^name = "ascnet-launcher"$' AscNet.Launcher/Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')"
+          docs="$(sed -n 's/.*launcher \([0-9][0-9.]*\), patch.*/\1/p' Docs/development.md | head -n 1)"
+          echo "input=$VERSION Cargo.toml=$cargo_toml Cargo.lock=$cargo_lock Docs/development.md=$docs"
+          [ "$cargo_toml" = "$VERSION" ] && [ "$cargo_lock" = "$VERSION" ] && [ "$docs" = "$VERSION" ] \
+            || { echo "version mismatch: bump Cargo.toml, Cargo.lock and Docs/development.md in a commit first"; exit 1; }
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $VERSION already exists"; exit 1
+          fi
+          if [ -n "$SCREENSHOT" ]; then
+            case "$SCREENSHOT" in
+              https://*) ;;
+              /*|*..*) echo "screenshot path must be repo-relative"; exit 1 ;;
+              *) [ -f "$SCREENSHOT" ] || { echo "screenshot $SCREENSHOT not in the checkout"; exit 1; } ;;
+            esac
+            case "${SCREENSHOT%%\?*}" in *.png|*.jpg|*.jpeg) ;; *) echo "screenshot must be png or jpg"; exit 1 ;; esac
+          fi
+
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  media:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: AscNet.Launcher/packaging/fetch-media.sh "$RUNNER_TEMP/media"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media
+          path: ${{ runner.temp }}/media
+          if-no-files-found: error
+
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Install nasm
+        shell: pwsh
+        run: |
+          choco install nasm --no-progress -y
+          "C:\Program Files\NASM" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: AscNet.Launcher
+      - run: cargo build --locked --release --target x86_64-pc-windows-msvc --bin ascnet-launcher
+        working-directory: AscNet.Launcher
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: AscNet.Launcher/target/x86_64-pc-windows-msvc/release/ascnet-launcher.exe
+          if-no-files-found: error
+
+  build-macos:
+    needs: [version, media]
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: AscNet.Launcher
+      - uses: actions/download-artifact@v4
+        with:
+          name: media
+          path: ${{ runner.temp }}/media
+      # package.sh builds, runs --check-media on the mp4 (fails on B-frames), signs ad hoc and zips.
+      - run: AscNet.Launcher/packaging/macos/package.sh --media "$RUNNER_TEMP/media"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-zip
+          path: AscNet.Launcher/target/macos/AscNetLauncher-macOS.zip
+          if-no-files-found: error
+
+  package:
+    needs: [version, media, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: media
+          path: media
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: exe
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-zip
+          path: dist
+      - name: Build and check the Windows zip
+        env:
+          WINDOWS_LICENSE: ${{ inputs.windows_license }}
+        run: |
+          set -euo pipefail
+          stage=stage; mkdir -p "$stage" dist
+          cp media/background.* "$stage/"
+          cp AscNet.Launcher/{launcher.json,setup-local.ps1,supported-client.json} "$stage/"
+          cp exe/ascnet-launcher.exe "$stage/AscNetLauncher.exe"
+          [ "$WINDOWS_LICENSE" != true ] || cp AscNet.Launcher/LICENSE "$stage/"
+          # The member list is the updater's FILES const (+ LICENSE when asked); parsed from source, not retyped here.
+          python3 - "$VERSION" "$stage" "$WINDOWS_LICENSE" <<'PY'
+          import pathlib, re, subprocess, sys, zipfile
+          version, stage, license_ = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3] == "true"
+          src = pathlib.Path("AscNet.Launcher/src/updater.rs").read_text()
+          files = re.findall(r'"([^"]+)"', re.search(r"const FILES: \[&str; \d+\] = \[(.*?)\];", src, re.S).group(1))
+          assert len(files) == 7, files
+          expected = files + (["LICENSE"] if license_ else [])
+          exe = (stage / "AscNetLauncher.exe").read_bytes()
+          assert exe[:2] == b"MZ", "not a PE file"
+          assert f"ASCNET_LAUNCHER_VERSION={version}\0".encode() in exe, "exe version marker mismatch"
+          assert (stage / "background.bmp").read_bytes()[:2] == b"BM"
+          assert (stage / "background.wav").read_bytes()[8:12] == b"WAVE"
+          assert b"ftyp" in (stage / "background.mp4").read_bytes()[:32]
+          out = pathlib.Path("dist/AscNetLauncher.zip")
+          subprocess.run(["zip", "-q", "-X", "-9", str(out.resolve())] + expected, cwd=stage, check=True)
+          with zipfile.ZipFile(out) as z:
+              assert sorted(z.namelist()) == sorted(expected) and len(z.namelist()) == len(expected), z.namelist()
+              assert all(i.file_size > 0 for i in z.infolist())
+          assert out.stat().st_size <= 128 * 1024 * 1024
+          print("windows zip:", expected)
+          PY
+      - name: Check the macOS zip
+        run: |
+          set -euo pipefail
+          unzip -Z1 dist/AscNetLauncher-macOS.zip > names
+          grep -qx 'AscNet Launcher.app/Contents/MacOS/AscNetLauncher' names
+          grep -qx 'AscNet Launcher.app/Contents/Resources/LICENSE' names
+          for f in background.bmp background.mp4 background.wav launcher.json supported-client.json; do
+            grep -qx "AscNet Launcher.app/Contents/Resources/$f" names
+          done
+          if grep -E '(^|/)(\._|__MACOSX)' names; then echo 'AppleDouble members in the zip'; exit 1; fi
+          unzip -p dist/AscNetLauncher-macOS.zip 'AscNet Launcher.app/Contents/Info.plist' | grep -q "<string>$VERSION</string>"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-zips
+          path: dist/*.zip
+          if-no-files-found: error
+
+  smoke:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-zips
+          path: dist
+      - name: Windows --check-media and startup log
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          7z x -y dist/AscNetLauncher.zip -osmoke >/dev/null
+          cd smoke
+          ./AscNetLauncher.exe --check-media background.mp4
+          grep -q "Launcher started" launcher.log
+      - name: macOS --check-media and self-update probe
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          ditto -x -k dist/AscNetLauncher-macOS.zip smoke
+          app="smoke/AscNet Launcher.app"
+          codesign --verify --deep --strict "$app"
+          "$app/Contents/MacOS/AscNetLauncher" --check-media "$app/Contents/Resources/background.mp4"
+          [ "$("$app/Contents/MacOS/AscNetLauncher" --self-update-probe)" = "ASCNET_LAUNCHER_VERSION=$VERSION" ]
+
+  release:
+    needs: [version, test, package, smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NOTES: ${{ inputs.notes }}
+      SCREENSHOT: ${{ inputs.screenshot }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-zips
+          path: dist
+      - name: Create the release
+        run: |
+          set -euo pipefail
+          assets=(dist/AscNetLauncher.zip dist/AscNetLauncher-macOS.zip)
+          notes="${NOTES//\\n/$'\n'}"
+          if [ -n "$SCREENSHOT" ]; then
+            case "$SCREENSHOT" in
+              https://*) curl -fsSL --retry 3 -o "dist/$(basename "${SCREENSHOT%%\?*}")" "$SCREENSHOT" ;;
+              *) cp "$SCREENSHOT" dist/ ;;
+            esac
+            shot="$(basename "${SCREENSHOT%%\?*}")"
+            assets+=("dist/$shot")
+            notes="![AscNet Launcher](https://github.com/$GITHUB_REPOSITORY/releases/download/$VERSION/$shot)"$'\n\n'"$notes"
+          fi
+          printf '%s\n' "$notes" > notes.md
+          gh release create "$VERSION" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --target "${{ github.sha }}" \
+            --title "AscNet Launcher v$VERSION" --notes-file notes.md --latest
+      - name: Verify releases/latest
+        run: |
+          set -euo pipefail
+          sleep 5
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > latest.json
+          jq -e --arg v "$VERSION" '.tag_name == $v and .draft == false and .prerelease == false' latest.json
+          want="$(cd dist && printf '%s\n' * | sort)"
+          got="$(jq -r '.assets[].name' latest.json | sort)"
+          [ "$want" = "$got" ] || { printf 'assets differ\nwant:\n%s\ngot:\n%s\n' "$want" "$got"; exit 1; }
+          [ "$(jq '[.assets[] | select(.name == "AscNetLauncher.zip")] | length' latest.json)" = 1 ]
+          # The updater needs GitHub's digest; it must equal the zip we built.
+          for f in dist/*.zip; do
+            jq -e --arg n "$(basename "$f")" --arg d "sha256:$(sha256sum "$f" | cut -d' ' -f1)" \
+              '.assets[] | select(.name == $n) | .digest == $d' latest.json >/dev/null
+          done
+          echo "latest = $VERSION, assets: $got"

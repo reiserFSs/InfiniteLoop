@@ -1,0 +1,335 @@
+import { S, Tx, Screen, SlotLabel } from "state.slint";
+import { Plate, Btn, Toggle, ProgressLine, WinButton, SettingRow, SectionLabel, ValueBox } from "widgets.slint";
+
+/// Centred dark plate with a title and a close button; children go below the header.
+component PlateFrame inherits Rectangle {
+    in property <string> title;
+    in property <length> limit: 680px;
+    callback close;
+    background: #0b0c0ff2;
+    border-radius: 2px;
+    border-width: 1px;
+    border-color: #ffffff1a;
+    height: Math.min(inner.preferred-height, root.limit);
+    TouchArea { } // swallow clicks so the dimmed backdrop behind doesn't see them
+    inner := VerticalLayout {
+        padding: 20px;
+        spacing: 14px;
+        HorizontalLayout {
+            Text { text: root.title; color: #e9ebef; font-size: 14px; font-weight: 600; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            WinButton { glyph: "M2 2 L10 10 M10 2 L2 10"; label: @tr("Close"); clicked => { root.close(); } }
+        }
+        @children
+    }
+}
+
+/// macOS: installs found in existing CrossOver bottles and Wine prefixes, one row each.
+export component FoundRows inherits VerticalLayout {
+    spacing: 8px;
+    for row[i] in S.found : HorizontalLayout {
+        spacing: 10px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+            Text { text: @tr("Found Punishing: Gray Raven in {}", row.name); color: #e9ebef; font-size: 13px; wrap: word-wrap; }
+            Text { text: Tx.text(row.info); color: #9aa0aa; font-size: 12px; wrap: word-wrap; }
+        }
+        Btn { width: 80px; horizontal-stretch: 0; text: @tr("Use it"); clicked => { S.adopt-clicked(i); } }
+    }
+}
+
+export component SettingsPlate inherits PlateFrame {
+    title: @tr("Settings");
+    close => { S.back(); }
+    VerticalLayout {
+        spacing: 6px;
+        SectionLabel { text: @tr("Game folder"); }
+        HorizontalLayout {
+            spacing: 8px;
+            ValueBox { text: S.folder; placeholder: @tr("No game selected"); horizontal-stretch: 1; }
+            Btn { text: @tr("Choose…"); enabled: S.can-check; clicked => { S.choose-game-folder(); } }
+        }
+    }
+    VerticalLayout {
+        spacing: 6px;
+        SectionLabel { text: @tr("Local server"); }
+        SettingRow {
+            title: @tr("Check for updates");
+            detail: @tr("Looks for a newer local server and patch.");
+            Btn { width: 120px; horizontal-stretch: 0; text: @tr("Check"); enabled: S.can-check; clicked => { S.check-updates(); } }
+        }
+        SettingRow {
+            title: @tr("Set up again");
+            detail: @tr("Rebuilds the local server and the patch.");
+            Btn { width: 120px; horizontal-stretch: 0; text: @tr("Set up"); enabled: S.can-setup; clicked => { S.set-up-again(); } }
+        }
+        SettingRow {
+            title: @tr("Restore original files");
+            detail: @tr("Puts the game's own files back and removes the AscNet patch.");
+            Btn { width: 120px; horizontal-stretch: 0; text: @tr("Restore"); enabled: S.can-restore; clicked => { S.restore-files(); } }
+        }
+    }
+    VerticalLayout {
+        spacing: 6px;
+        SectionLabel { text: @tr("Launcher"); }
+        SettingRow {
+            title: @tr("Background music");
+            Toggle { on: S.music-on; label: @tr("Background music"); toggled(on) => { S.music-toggled(on); } }
+        }
+    }
+    VerticalLayout {
+        spacing: 6px;
+        SectionLabel { text: @tr("Client mods"); }
+        SettingRow {
+            title: @tr("Client mods");
+            detail: @tr("Turns on the game's debug mode and the mods below.");
+            Toggle { on: S.mods-on; enabled: S.mods-editable; label: @tr("Client mods"); toggled(on) => { S.mods-toggled(on); } }
+        }
+        Flickable {
+            height: Math.min(S.mods.length * 38px, 114px);
+            VerticalLayout {
+                for mod[i] in S.mods : SettingRow {
+                    height: 38px;
+                    title: mod.name;
+                    detail: mod.description;
+                    Toggle {
+                        on: mod.on;
+                        enabled: S.mods-editable;
+                        label: mod.name;
+                        toggled(on) => { S.mod-toggled(i, on); }
+                    }
+                }
+            }
+        }
+        Text { text: Tx.text(S.mods-status); color: #7d838e; font-size: 12px; wrap: word-wrap; }
+    }
+    Text {
+        text: @tr("AscNet Launcher {}", S.launcher-version);
+        color: #7d838e;
+        font-size: 11px;
+    }
+}
+
+component Tile inherits Rectangle {
+    in property <string> name;
+    in property <string> face;
+    in property <string> place;
+    in property <bool> selected;
+    in property <bool> enabled;
+    callback clicked;
+    height: 54px;
+    border-radius: 2px;
+    border-width: fs.has-focus ? 1px : 0px;
+    border-color: #9aa0aa;
+    background: root.selected ? #eef0f3 : (ta.has-hover && root.enabled ? #2d3139 : #23262d);
+    opacity: root.enabled || root.selected ? 1 : 0.5;
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        Text {
+            text: root.name;
+            font-family: root.face;
+            font-size: 15px;
+            font-weight: 600;
+            color: root.selected ? #0b0c0f : #e9ebef;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.place;
+            font-size: 11px;
+            color: root.selected ? #4a4f58 : #9aa0aa;
+            horizontal-alignment: center;
+        }
+    }
+    accessible-role: button;
+    accessible-label: root.name + " " + root.place;
+}
+
+export component FilesPlate inherits PlateFrame {
+    title: @tr("Game files");
+    close => { S.back(); }
+    VerticalLayout {
+        spacing: 6px;
+        SectionLabel { text: @tr("Language"); }
+        HorizontalLayout {
+            spacing: 8px;
+            for nm[i] in ["English", "繁體中文", "한국어", "日本語", "简体中文"] : Tile {
+                horizontal-stretch: 1;
+                name: nm;
+                // each edition's name in its own bundled face, whatever the UI language is
+                face: ["Noto Sans", "Noto Sans TC", "Noto Sans KR", "Noto Sans JP", "Noto Sans SC"][i];
+                place: Tx.place(i);
+                selected: S.language == i;
+                enabled: S.tiles-enabled;
+                clicked => { S.region-picked(i); }
+            }
+        }
+        Text {
+            text: @tr("Each language is its own Kuro client (Simplified Chinese is the mainland China client). The game downloads its remaining resources itself on its first start.");
+            color: #9aa0aa;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+    if S.mac : VerticalLayout {
+        spacing: 6px;
+        SectionLabel { text: @tr("Existing CrossOver installs"); }
+        FoundRows { }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: @tr("Not listed? Pick the Wine prefix folder."); color: #9aa0aa; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+            Btn { text: @tr("Choose prefix…"); enabled: S.files-can-choose; clicked => { S.choose-prefix(); } }
+        }
+    }
+    VerticalLayout {
+        spacing: 6px;
+        SectionLabel { text: @tr("Install folder"); }
+        HorizontalLayout {
+            spacing: 8px;
+            ValueBox { text: S.files-folder; placeholder: @tr("No folder chosen"); horizontal-stretch: 1; }
+            Btn { text: @tr("Choose…"); enabled: S.files-can-choose; clicked => { S.choose-files-folder(); } }
+        }
+    }
+    // info / progress area (fixed height so the buttons stay put)
+    VerticalLayout {
+        height: 88px;
+        spacing: 4px;
+        if S.has-transfer || S.has-working-label : VerticalLayout {
+            spacing: 8px;
+            Text {
+                text: S.has-transfer
+                    ? (S.files-paused ? @tr("Paused · {}", Tx.transfer-text(S.transfer)) : Tx.transfer-text(S.transfer))
+                    : Tx.text(S.working-label);
+                color: #e9ebef;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+            ProgressLine { value: S.files-paused ? Math.max(S.files-progress, 0) : S.files-progress; height: 3px; }
+            if S.has-transfer && S.transfer.current != "" : Text {
+                text: S.transfer.current;
+                color: #7d838e;
+                font-size: 11px;
+                overflow: elide;
+            }
+        }
+        if !S.has-transfer && !S.has-working-label : VerticalLayout {
+            spacing: 4px;
+            Text { text: Tx.text(S.files-info); color: #e9ebef; font-size: 13px; wrap: word-wrap; }
+            for line in S.files-plan : Text { text: Tx.text(line); color: #9aa0aa; font-size: 12px; wrap: word-wrap; }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        height: 36px;
+        for slot[i] in S.slots : Btn {
+            horizontal-stretch: 1;
+            height: 36px;
+            primary: slot.primary;
+            enabled: slot.enabled;
+            text: slot.label == SlotLabel.download ? @tr("Download")
+                : slot.label == SlotLabel.verify ? @tr("Verify & repair")
+                : slot.label == SlotLabel.update ? @tr("Update")
+                : slot.label == SlotLabel.adopt ? @tr("Adopt")
+                : slot.label == SlotLabel.pause ? @tr("Pause")
+                : slot.label == SlotLabel.resume ? @tr("Resume")
+                : slot.label == SlotLabel.cancel ? @tr("Cancel")
+                : @tr("Working…");
+            clicked => { S.slot-clicked(i); }
+        }
+    }
+}
+
+/// In-app confirmation / error dialog: the cause in one line, a "what to do" step, the raw error behind Details.
+export component DialogPlate inherits Rectangle {
+    property <bool> details-open: false;
+    background: #05060899;
+    TouchArea { }
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(e) => {
+            if (e.text == Key.Escape) { S.dialog-answer(!Tx.dialog-asks(S.dialog-id) ? true : false); return accept; }
+            if (e.text == Key.Return) { S.dialog-answer(true); return accept; }
+            return reject;
+        }
+    }
+    init => { fs.focus(); }
+    Rectangle {
+        width: 440px;
+        height: Math.min(col.preferred-height, parent.height - 40px);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: #0b0c0ff7;
+        border-radius: 2px;
+        border-width: 1px;
+        border-color: #ffffff26;
+        col := VerticalLayout {
+            padding: 20px;
+            spacing: 10px;
+            Text { text: Tx.dialog-title(S.dialog-id); color: #e9ebef; font-size: 14px; font-weight: 600; wrap: word-wrap; }
+            Text { text: Tx.dialog-cause(S.dialog-id, S.dialog-amount); color: #e9ebef; font-size: 13px; wrap: word-wrap; }
+            VerticalLayout {
+                spacing: 2px;
+                SectionLabel { text: @tr("What to do"); }
+                Text { text: Tx.dialog-step(S.dialog-id); color: #c9cdd4; font-size: 12px; wrap: word-wrap; }
+            }
+            if S.dialog-details != "" : VerticalLayout {
+                spacing: 6px;
+                Rectangle {
+                    height: 16px;
+                    Text {
+                        text: root.details-open ? @tr("Hide details") : @tr("Details");
+                        color: #9aa0aa;
+                        font-size: 12px;
+                    }
+                    TouchArea { clicked => { root.details-open = !root.details-open; } }
+                }
+                if root.details-open : Rectangle {
+                    height: 96px;
+                    background: #15171c;
+                    border-radius: 2px;
+                    Flickable {
+                        x: 8px;
+                        y: 6px;
+                        width: parent.width - 16px;
+                        height: parent.height - 12px;
+                        content-height: raw.preferred-height;
+                        raw := TextInput {
+                            width: parent.width;
+                            text: S.dialog-details;
+                            read-only: true;
+                            wrap: word-wrap;
+                            color: #c9cdd4;
+                            font-size: 11px;
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                if Tx.dialog-asks(S.dialog-id) : Btn {
+                    text: Tx.dialog-cancel(S.dialog-id);
+                    clicked => { S.dialog-answer(false); }
+                }
+                Btn {
+                    text: Tx.dialog-asks(S.dialog-id) ? Tx.dialog-confirm(S.dialog-id) : @tr("OK");
+                    primary: true;
+                    clicked => { S.dialog-answer(true); }
+                }
+            }
+        }
+    }
+}

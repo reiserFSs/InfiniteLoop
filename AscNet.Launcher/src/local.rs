@@ -21,13 +21,13 @@ use std::{
 };
 
 pub(crate) const SCHEMA_VERSION: u32 = 1;
-const START_TIMEOUT: Duration = Duration::from_secs(45);
+pub(crate) const START_TIMEOUT: Duration = Duration::from_secs(45);
 const SETUP_TIMEOUT: Duration = Duration::from_secs(60 * 60);
-const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 static OPERATION: AtomicBool = AtomicBool::new(false);
 static LOG_WRITE: Mutex<()> = Mutex::new(());
 /// A backend log past this size becomes `<name>.previous.log` and a new file starts.
-const BACKEND_LOG_LIMIT: u64 = 32 * 1024 * 1024;
+pub(crate) const BACKEND_LOG_LIMIT: u64 = 32 * 1024 * 1024;
 
 struct LauncherLog {
     path: PathBuf,
@@ -45,12 +45,7 @@ impl LauncherLog {
     }
 
     fn beside_executable() -> Result<Self> {
-        Self::open(
-            env::current_exe()?
-                .parent()
-                .context("launcher executable has no parent directory")?
-                .join("launcher.log"),
-        )
+        Self::open(log_path()?)
     }
 
     fn write(&mut self, message: &str) -> Result<()> {
@@ -189,13 +184,44 @@ pub struct LocalBuild {
     pub mongo_port: u16,
 }
 
-pub fn root() -> Result<PathBuf> {
-    let base = env::var_os("LOCALAPPDATA").context("LOCALAPPDATA is not set")?;
-    let base = PathBuf::from(base);
+/// Per-user data folder: `%LOCALAPPDATA%` on Windows, `~/Library/Application Support` on macOS.
+pub fn data_base() -> Result<PathBuf> {
+    #[cfg(target_os = "macos")]
+    let base = env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support")).context("HOME is not set")?;
+    #[cfg(not(target_os = "macos"))]
+    let base = PathBuf::from(env::var_os("LOCALAPPDATA").context("LOCALAPPDATA is not set")?);
     if !base.is_absolute() {
-        bail!("LOCALAPPDATA must be an absolute path");
+        bail!("the per-user data folder must be an absolute path");
     }
-    Ok(base.join("AscNetLauncher").join("local"))
+    Ok(base)
+}
+
+pub fn root() -> Result<PathBuf> {
+    Ok(data_base()?.join("AscNetLauncher").join("local"))
+}
+
+/// Where the launcher's shipped files live (background media, `launcher.json`, `supported-client.json`):
+/// next to the executable, or `Contents/Resources` inside a macOS `.app`.
+pub fn resource_dir() -> Result<PathBuf> {
+    let exe = env::current_exe().context("locating launcher executable")?;
+    let dir = exe.parent().context("launcher executable has no parent directory")?;
+    #[cfg(target_os = "macos")]
+    if dir.ends_with("Contents/MacOS") {
+        return Ok(dir.join("../Resources"));
+    }
+    Ok(dir.to_path_buf())
+}
+
+/// `launcher.log`: beside the executable on Windows, `~/Library/Logs/AscNet Launcher` on macOS (a bundle is read-only to its user).
+fn log_path() -> Result<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        let dir = PathBuf::from(env::var_os("HOME").context("HOME is not set")?).join("Library/Logs/AscNet Launcher");
+        fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
+        Ok(dir.join("launcher.log"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    Ok(env::current_exe()?.parent().context("launcher executable has no parent directory")?.join("launcher.log"))
 }
 
 pub fn load_build() -> Result<Option<LocalBuild>> {
@@ -208,13 +234,7 @@ pub fn load_build() -> Result<Option<LocalBuild>> {
     };
     let build: LocalBuild = serde_json::from_slice(&bytes).context("invalid local build state")?;
     validate_build(&root, &build)?;
-    crate::package::refresh_supported_client(
-        &build.patch_directory,
-        &env::current_exe()?
-            .parent()
-            .context("launcher executable has no parent directory")?
-            .join("supported-client.json"),
-    )?;
+    crate::package::refresh_supported_client(&build.patch_directory, &resource_dir()?.join("supported-client.json"))?;
     Ok(Some(build))
 }
 
@@ -230,7 +250,7 @@ pub fn prepare(
     log.finish(result)
 }
 
-#[cfg_attr(not(windows), allow(unreachable_code, unused_variables))]
+#[cfg_attr(not(any(windows, target_os = "macos")), allow(unreachable_code, unused_variables))]
 fn prepare_logged(
     repository: &str,
     branch: &str,
@@ -240,17 +260,14 @@ fn prepare_logged(
 ) -> Result<LocalBuild> {
     validate_repository(repository)?;
     validate_branch(branch)?;
-    #[cfg(not(windows))]
-    bail!("local source setup is supported on Windows only");
+    #[cfg(not(any(windows, target_os = "macos")))]
+    bail!("local source setup is supported on Windows and macOS only");
     let _operation = operation_lock()?;
     let root = root()?;
     fs::create_dir_all(&root).with_context(|| format!("create {}", root.display()))?;
     #[cfg(windows)]
     let _setup_lock = open_setup_lock(&root)?;
-    let launcher_dir = env::current_exe()?
-        .parent()
-        .context("launcher executable has no parent directory")?
-        .to_path_buf();
+    let launcher_dir = resource_dir()?;
     let supported = launcher_dir.join("supported-client.json");
     if !supported.is_file() {
         bail!("supported client manifest is missing: {}", supported.display());
@@ -259,7 +276,11 @@ fn prepare_logged(
     crate::package::check_supported_client(&supported, game)?;
 
     progress("Starting local source setup");
-    crate::setup::run(
+    #[cfg(windows)]
+    let setup_run = crate::setup::run;
+    #[cfg(target_os = "macos")]
+    let setup_run = crate::mac::setup::run;
+    setup_run(
         &root,
         repository,
         branch,
@@ -284,14 +305,26 @@ fn prepare_logged(
         .open(&pending)?
         .sync_all()
         .context("flush pending local build state")?;
+    // Rosetta cannot run the stock register-form NOPs; patch them before the AscNet patch records its backups.
+    #[cfg(target_os = "macos")]
+    {
+        progress("Applying Rosetta client patches");
+        for report in crate::rosetta::apply(game)? {
+            log.write(&format!("Rosetta patch {}: changed={} sha256={}", report.file, report.changed, report.patched_sha256))?;
+        }
+    }
     crate::install::install_with_consent(game, &package, &mut |message| progress(&message))?;
     anyhow::ensure!(
         matches!(crate::install::inspect(game, &package)?, crate::install::PatchState::Current),
         "prepared patch did not become current"
     );
-    #[cfg(windows)]
     atomic_replace(&pending, &root.join("build-state.json"))?;
     Ok(build)
+}
+
+#[cfg(not(windows))]
+pub(crate) fn atomic_replace(source: &Path, destination: &Path) -> Result<()> {
+    fs::rename(source, destination).with_context(|| format!("replace {}", destination.display()))
 }
 
 #[cfg(test)]
@@ -549,23 +582,39 @@ mod update_tests {
 }
 
 pub struct LocalRuntime {
+    #[cfg(windows)]
     server: OwnedChild,
+    #[cfg(windows)]
     mongo: OwnedChild,
+    #[cfg(windows)]
     dotnet: PathBuf,
+    #[cfg(windows)]
     server_dll: PathBuf,
+    #[cfg(windows)]
     mongo_port: u16,
+    #[cfg(windows)]
     stopped: bool,
     #[cfg(windows)]
     job: JobHandle,
+    #[cfg(target_os = "macos")]
+    native: crate::mac::setup::Runtime,
     _operation: Option<OperationPermit>,
 }
 
 impl LocalRuntime {
     pub fn start(build: &LocalBuild, progress: &mut dyn FnMut(&str)) -> Result<Self> {
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        {
+            let operation = operation_lock()?;
+            let root = root()?;
+            validate_build(&root, build)?;
+            let native = crate::mac::setup::Runtime::start(&root, build, progress)?;
+            Ok(Self { native, _operation: Some(operation) })
+        }
+        #[cfg(not(any(windows, target_os = "macos")))]
         {
             let _ = (build, progress);
-            bail!("the local runtime is supported on Windows only");
+            bail!("the local runtime is supported on Windows and macOS only");
         }
         #[cfg(windows)]
         {
@@ -639,6 +688,11 @@ impl LocalRuntime {
     }
 
     pub fn stop(&mut self) -> Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            self.native.stop()?;
+            self._operation.take();
+        }
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
@@ -730,7 +784,7 @@ pub fn close_request(busy: bool, stopping: bool, has_runtime: bool) -> CloseRequ
     }
 }
 
-fn mongo_arguments(dbpath: &Path, port: u16, wine: bool) -> Vec<String> {
+pub(crate) fn mongo_arguments(dbpath: &Path, port: u16, wine: bool) -> Vec<String> {
     let mut args = vec![
         "--bind_ip".to_owned(),
         "127.0.0.1".to_owned(),
@@ -811,7 +865,7 @@ pub(crate) fn git_executable() -> Option<PathBuf> {
     None
 }
 
-struct OwnedChild(Child);
+pub(crate) struct OwnedChild(pub(crate) Child);
 
 impl Drop for OwnedChild {
     fn drop(&mut self) {
@@ -832,7 +886,7 @@ impl Drop for OperationPermit {
 /// `<name>.previous.log`; within a run the same rotation happens at `limit`, so the newest lines always
 /// survive and at most two files exist.
 #[cfg_attr(not(windows), allow(dead_code))]
-struct RotatingLog {
+pub(crate) struct RotatingLog {
     path: PathBuf,
     previous: PathBuf,
     file: fs::File,
@@ -842,7 +896,7 @@ struct RotatingLog {
 
 #[cfg_attr(not(windows), allow(dead_code))]
 impl RotatingLog {
-    fn open(path: PathBuf, limit: u64) -> Result<Arc<Mutex<Self>>> {
+    pub(crate) fn open(path: PathBuf, limit: u64) -> Result<Arc<Mutex<Self>>> {
         let previous = path.with_extension("previous.log");
         if path.exists() {
             fs::rename(&path, &previous).with_context(|| format!("rotate {}", path.display()))?;
@@ -877,7 +931,7 @@ impl RotatingLog {
 /// Drains both pipes until the child exits. Write errors are ignored so a full disk or locked file never
 /// blocks the child on a full pipe.
 #[cfg_attr(not(windows), allow(dead_code))]
-fn pump_output(child: &mut Child, log: &Arc<Mutex<RotatingLog>>) {
+pub(crate) fn pump_output(child: &mut Child, log: &Arc<Mutex<RotatingLog>>) {
     fn pump(mut stream: impl Read + Send + 'static, log: Arc<Mutex<RotatingLog>>) {
         thread::spawn(move || {
             let mut buffer = vec![0u8; 64 * 1024];
@@ -982,7 +1036,7 @@ fn validate_branch(branch: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_build(root: &Path, build: &LocalBuild) -> Result<()> {
+pub(crate) fn validate_build(root: &Path, build: &LocalBuild) -> Result<()> {
     if build.schema_version != SCHEMA_VERSION {
         bail!("unsupported local build schema {}", build.schema_version);
     }
@@ -1025,7 +1079,7 @@ fn validate_build(root: &Path, build: &LocalBuild) -> Result<()> {
     Ok(())
 }
 
-fn reserve_ports(ports: [u16; 3]) -> Result<Vec<TcpListener>> {
+pub(crate) fn reserve_ports(ports: [u16; 3]) -> Result<Vec<TcpListener>> {
     ports
         .into_iter()
         .map(|port| {
@@ -1035,7 +1089,7 @@ fn reserve_ports(ports: [u16; 3]) -> Result<Vec<TcpListener>> {
         .collect()
 }
 
-fn wait_tcp(child: &mut Child, port: u16, name: &str) -> Result<()> {
+pub(crate) fn wait_tcp(child: &mut Child, port: u16, name: &str) -> Result<()> {
     let deadline = Instant::now() + START_TIMEOUT;
     loop {
         if let Some(status) = child.try_wait()? {
@@ -1056,7 +1110,7 @@ fn wait_tcp(child: &mut Child, port: u16, name: &str) -> Result<()> {
     }
 }
 
-fn wait_server(child: &mut Child, origin: &str, game_port: u16) -> Result<()> {
+pub(crate) fn wait_server(child: &mut Child, origin: &str, game_port: u16) -> Result<()> {
     let client = crate::download::wine_safe(
         reqwest::blocking::Client::builder().no_proxy().timeout(Duration::from_secs(2)),
     )

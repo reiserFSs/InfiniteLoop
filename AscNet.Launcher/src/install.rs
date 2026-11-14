@@ -1062,7 +1062,11 @@ pub fn game_running() -> Result<bool> {
             next = unsafe { Process32NextW(snapshot.0, &mut entry) };
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::mac::wine::game_running()
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         Ok(false)
     }
@@ -1079,13 +1083,28 @@ pub fn launch(client: &Path, origin: &str) -> Result<()> {
     if !executable.is_file() {
         bail!("PGR.exe is missing");
     }
-    let mut command = launch_command(&client, executable, origin);
-    if running_under_wine() {
-        let old = std::env::var("WINEDLLOVERRIDES").unwrap_or_default();
-        command.env("WINEDLLOVERRIDES", merge_version_dll_override(&old));
+    #[cfg(target_os = "macos")]
+    {
+        use crate::mac::{bottle::Bottle, crossover, wine};
+        let cx = crossover::detect().context("CrossOver is not installed")?;
+        let log = crate::local::root()?.join("logs").join("pgr.log");
+        let mut game = wine::launch(&cx, &Bottle::active()?, &client, "PGR.exe", &[], &origin, &log)?;
+        // Reap the wine launcher process when the game ends; `game_running` watches the game itself.
+        std::thread::spawn(move || {
+            let _ = game.wait();
+        });
+        Ok(())
     }
-    command.spawn().context("launching PGR.exe")?;
-    Ok(())
+    #[cfg(not(target_os = "macos"))]
+    {
+        let mut command = launch_command(&client, executable, origin);
+        if running_under_wine() {
+            let old = std::env::var("WINEDLLOVERRIDES").unwrap_or_default();
+            command.env("WINEDLLOVERRIDES", merge_version_dll_override(&old));
+        }
+        command.spawn().context("launching PGR.exe")?;
+        Ok(())
+    }
 }
 
 /// Region-neutral: every supported client (EN/TW/KR/JP/CN) gets the same environment (CN's gate path comes from AscNet's config.tab).
@@ -1132,7 +1151,7 @@ pub(crate) fn merge_version_dll_override(current: &str) -> String {
 }
 
 #[cfg(windows)]
-pub(crate) fn running_under_wine() -> bool {
+pub fn running_under_wine() -> bool {
     use windows::core::{s, w};
     use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 
@@ -1145,7 +1164,7 @@ pub(crate) fn running_under_wine() -> bool {
 }
 
 #[cfg(not(windows))]
-pub(crate) fn running_under_wine() -> bool {
+pub fn running_under_wine() -> bool {
     false
 }
 

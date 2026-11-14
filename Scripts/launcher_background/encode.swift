@@ -1,4 +1,5 @@
-// swift encode.swift FRAMES_DIR OUT.mp4 — H.264 High (auto level), 1920x1080, 30 fps CFR, 12 Mbps average.
+// swift encode.swift FRAMES_DIR OUT.mp4 — H.264 High (auto level), 1920x1080, 30 fps CFR, 12 Mbps average, no B-frames
+// (the launcher decodes with OpenH264, which cannot reorder frames).
 import AVFoundation
 import CoreGraphics
 import ImageIO
@@ -19,6 +20,7 @@ let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
         AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
         AVVideoExpectedSourceFrameRateKey: 30,
         AVVideoMaxKeyFrameIntervalKey: 30,
+        AVVideoAllowFrameReorderingKey: false,
     ],
 ])
 input.expectsMediaDataInRealTime = false

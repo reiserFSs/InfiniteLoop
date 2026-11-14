@@ -1,0 +1,887 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ja\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "AscNet"
+msgstr "AscNet"
+
+msgid "Punishing: Gray Raven"
+msgstr "パニシング:グレイレイヴン"
+
+msgid "Minimize"
+msgstr "最小化"
+
+msgid "Close"
+msgstr "閉じる"
+
+msgid "Activity"
+msgstr "アクティビティ"
+
+msgid "Game"
+msgstr "ゲーム"
+
+msgid "Not selected"
+msgstr "未選択"
+
+msgid "AscNet patch"
+msgstr "AscNet パッチ"
+
+msgid "Current"
+msgstr "最新"
+
+msgid "Update available"
+msgstr "更新あり"
+
+msgid "Unsupported"
+msgstr "非対応"
+
+msgid "Needs repair"
+msgstr "修復が必要"
+
+msgid "Not installed"
+msgstr "未インストール"
+
+msgid "Local server"
+msgstr "ローカルサーバー"
+
+msgid "Running"
+msgstr "実行中"
+
+msgid "Stopping"
+msgstr "停止しています"
+
+msgid "Maintenance"
+msgstr "メンテナンス中"
+
+msgid "Offline"
+msgstr "オフライン"
+
+msgid "Stopped"
+msgstr "停止"
+
+msgid "Select game"
+msgstr "ゲームを選択"
+
+msgid "Set up"
+msgstr "セットアップ"
+
+msgid "Update"
+msgstr "アップデート"
+
+msgid "Play"
+msgstr "ゲーム開始"
+
+msgid "Working…"
+msgstr "処理中…"
+
+msgid "Game files"
+msgstr "ゲームファイル"
+
+msgid "Settings"
+msgstr "設定"
+
+msgid "Game folder"
+msgstr "ゲームフォルダー"
+
+msgid "No game selected"
+msgstr "ゲームが選択されていません"
+
+msgid "Choose…"
+msgstr "選択…"
+
+msgid "Check for updates"
+msgstr "更新を確認"
+
+msgid "Looks for a newer local server and patch."
+msgstr "新しいローカルサーバーとパッチを探します。"
+
+msgid "Check"
+msgstr "確認"
+
+msgid "Set up again"
+msgstr "セットアップをやり直す"
+
+msgid "Rebuilds the local server and the patch."
+msgstr "ローカルサーバーとパッチを再ビルドします。"
+
+msgid "Restore original files"
+msgstr "元のファイルに戻す"
+
+msgid "Puts the game's own files back and removes the AscNet patch."
+msgstr "ゲーム本来のファイルに戻し、AscNet パッチを取り除きます。"
+
+msgid "Restore"
+msgstr "戻す"
+
+msgid "Launcher"
+msgstr "ランチャー"
+
+msgid "Background music"
+msgstr "BGM"
+
+msgid "Client mods"
+msgstr "クライアントMod"
+
+msgid "Turns on the game's debug mode and the mods below."
+msgstr "ゲームのデバッグモードと下のModを有効にします。"
+
+msgid "AscNet Launcher {}"
+msgstr "AscNet ランチャー {}"
+
+msgid "Language"
+msgstr "言語"
+
+msgid "Each language is its own Kuro client (Simplified Chinese is the mainland China client). The game downloads its remaining resources itself on its first start."
+msgstr "言語ごとに別のKuroクライアントです（簡体字中国語は中国本土版クライアント）。残りのリソースは、ゲームの初回起動時にゲーム自身がダウンロードします。"
+
+msgid "Install folder"
+msgstr "インストール先フォルダー"
+
+msgid "No folder chosen"
+msgstr "フォルダーが選択されていません"
+
+msgid "Paused · {}"
+msgstr "一時停止中 · {}"
+
+msgid "Download"
+msgstr "ダウンロード"
+
+msgid "Verify & repair"
+msgstr "検証と修復"
+
+msgid "Adopt"
+msgstr "引き継ぐ"
+
+msgid "Pause"
+msgstr "一時停止"
+
+msgid "Resume"
+msgstr "再開"
+
+msgid "Cancel"
+msgstr "キャンセル"
+
+msgid "What to do"
+msgstr "対処方法"
+
+msgid "Hide details"
+msgstr "詳細を隠す"
+
+msgid "Details"
+msgstr "詳細"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "TW (Taiwan)"
+msgstr "台湾版"
+
+msgid "KR (Korea)"
+msgstr "韓国版"
+
+msgid "JP (Japan)"
+msgstr "日本版"
+
+msgid "CN (China)"
+msgstr "中国版"
+
+msgid "EN (Global)"
+msgstr "グローバル版"
+
+msgid "Traditional Chinese (Taiwan)"
+msgstr "繁体字中国語（台湾）"
+
+msgid "Korean (Korea)"
+msgstr "韓国語（韓国）"
+
+msgid "Japanese (Japan)"
+msgstr "日本語（日本）"
+
+msgid "Simplified Chinese (China)"
+msgstr "簡体字中国語（中国）"
+
+msgid "English (Global)"
+msgstr "英語（グローバル）"
+
+msgid "Taiwan"
+msgstr "台湾"
+
+msgid "Korea"
+msgstr "韓国"
+
+msgid "Japan"
+msgstr "日本"
+
+msgid "China"
+msgstr "中国"
+
+msgid "Global"
+msgstr "グローバル"
+
+msgid "Fetching file list"
+msgstr "ファイル一覧を取得中"
+
+msgid "Verifying files"
+msgstr "ファイルを検証中"
+
+msgid "Downloading"
+msgstr "ダウンロード中"
+
+msgid "Extracting patch files"
+msgstr "パッチファイルを展開中"
+
+msgid "Removing old files"
+msgstr "古いファイルを削除中"
+
+msgid "Finalizing"
+msgstr "仕上げ中"
+
+msgid "Verifying and repairing the game…"
+msgstr "ゲームを検証して修復中…"
+
+msgid "Updating the game…"
+msgstr "ゲームをアップデート中…"
+
+msgid "Adopting the existing install…"
+msgstr "既存のインストールを引き継ぎ中…"
+
+msgid "Downloading the game…"
+msgstr "ゲームをダウンロード中…"
+
+msgid "{} {}% · {} of {} · ~{} min"
+msgstr "{} {}% · {} / {} · 約 {} 分"
+
+msgid "{} {}% · {} of {}"
+msgstr "{} {}% · {} / {}"
+
+msgid "{} · {} of {} files"
+msgstr "{} · {} / {} ファイル"
+
+msgid "Unidentified edition"
+msgstr "不明なエディション"
+
+msgid "version {}"
+msgstr "バージョン {}"
+
+msgid "unknown version"
+msgstr "バージョン不明"
+
+msgid "Steam copy"
+msgstr "Steam 版"
+
+msgid "AscNet patch installed"
+msgstr "AscNet パッチ導入済み"
+
+msgid "Verifying treats it as {}; change the language above if that is wrong."
+msgstr "検証では{}として扱います。違う場合は上の言語を変更してください。"
+
+msgid "Download {} · {} files · needs {} free"
+msgstr "ダウンロード {} · {} ファイル · 空き容量 {} が必要"
+
+msgid "{} old files removed"
+msgstr "古いファイル {} 個を削除"
+
+msgid "({} available)"
+msgstr "（空き {}）"
+
+msgid "Launcher ready"
+msgstr "ランチャーの準備ができました"
+
+msgid "Game found in your Steam library"
+msgstr "Steamライブラリでゲームが見つかりました"
+
+msgid "Background music isn't available"
+msgstr "BGMを再生できません"
+
+msgid "Background video couldn't play"
+msgstr "背景動画を再生できません"
+
+msgid "Couldn't change the background music"
+msgstr "BGMの設定を変更できませんでした"
+
+msgid "Checking for a launcher update…"
+msgstr "ランチャーの更新を確認中…"
+
+msgid "Downloading the launcher update…"
+msgstr "ランチャーの更新をダウンロード中…"
+
+msgid "Launcher update ready; restarting…"
+msgstr "ランチャーの更新の準備ができました。再起動します…"
+
+msgid "Launcher update waits until the local server stops"
+msgstr "ローカルサーバーの停止後にランチャーを更新します"
+
+msgid "Launcher {} is up to date"
+msgstr "ランチャー {} は最新です"
+
+msgid "Couldn't check for a launcher update"
+msgstr "ランチャーの更新を確認できませんでした"
+
+msgid "Couldn't apply the launcher update"
+msgstr "ランチャーの更新を適用できませんでした"
+
+msgid "Set up started"
+msgstr "セットアップを開始しました"
+
+msgid "Starting MongoDB"
+msgstr "MongoDB を起動中"
+
+msgid "Starting the local server"
+msgstr "ローカルサーバーを起動中"
+
+msgid "Local server is ready"
+msgstr "ローカルサーバーの準備ができました"
+
+msgid "A local server update is available"
+msgstr "ローカルサーバーの更新があります"
+
+msgid "Local server is up to date"
+msgstr "ローカルサーバーは最新です"
+
+msgid "Couldn't check for server updates"
+msgstr "サーバーの更新を確認できませんでした"
+
+msgid "Server update waits until the game closes"
+msgstr "ゲームの終了後にサーバーを更新します"
+
+msgid "Couldn't start the server update"
+msgstr "サーバーの更新を開始できませんでした"
+
+msgid "Set up finished"
+msgstr "セットアップが完了しました"
+
+msgid "Set up failed"
+msgstr "セットアップに失敗しました"
+
+msgid "Original game files restored"
+msgstr "元のゲームファイルに戻しました"
+
+msgid "Couldn't restore the game files"
+msgstr "ゲームファイルを元に戻せませんでした"
+
+msgid "Couldn't start the game"
+msgstr "ゲームを起動できませんでした"
+
+msgid "Couldn't check the local setup"
+msgstr "ローカルのセットアップを確認できませんでした"
+
+msgid "Client mods updated"
+msgstr "クライアントModを更新しました"
+
+msgid "Couldn't update client mods"
+msgstr "クライアントModを更新できませんでした"
+
+msgid "Administrator approval was cancelled; game files were not changed"
+msgstr "管理者の承認がキャンセルされたため、ゲームファイルは変更されていません"
+
+msgid "The AscNet patch can't be used with these game files"
+msgstr "このゲームファイルではAscNetパッチを使用できません"
+
+msgid "FPS unlock moved to the game's graphics settings"
+msgstr "FPS解除設定をゲームのグラフィック設定へ移しました"
+
+msgid "Couldn't move the FPS setting"
+msgstr "FPS設定を移せませんでした"
+
+msgid "Closing after the local server stops"
+msgstr "ローカルサーバーの停止後に閉じます"
+
+msgid "Game closed; stopping the local server"
+msgstr "ゲームが終了したため、ローカルサーバーを停止中"
+
+msgid "Local server stopped"
+msgstr "ローカルサーバーを停止しました"
+
+msgid "Couldn't stop the local server safely"
+msgstr "ローカルサーバーを安全に停止できませんでした"
+
+msgid "Verifying the game files ({})"
+msgstr "ゲームファイルを検証中（{}）"
+
+msgid "Updating the game ({})"
+msgstr "ゲームをアップデート中（{}）"
+
+msgid "Adopting the existing install ({})"
+msgstr "既存のインストールを引き継ぎ中（{}）"
+
+msgid "Downloading the game ({})"
+msgstr "ゲームをダウンロード中（{}）"
+
+msgid "Game files ready · {} downloaded"
+msgstr "ゲームファイルの準備完了 · {} ダウンロード済み"
+
+msgid "Download paused; verified files are kept"
+msgstr "ダウンロードを一時停止しました。検証済みのファイルは保持されます"
+
+msgid "Download cancelled; run it again to resume"
+msgstr "ダウンロードをキャンセルしました。もう一度実行すると再開します"
+
+msgid "The game download stopped"
+msgstr "ゲームのダウンロードが中断されました"
+
+msgid "Next: Set up"
+msgstr "次はセットアップ"
+
+msgid "Choose where Punishing: Gray Raven is installed, or download it."
+msgstr "パニシング:グレイレイヴンのインストール先を選ぶか、ゲームをダウンロードしてください。"
+
+msgid "Set up builds the local server and patch. The first time takes a few minutes, and Windows may ask for permission."
+msgstr "セットアップでローカルサーバーとパッチをビルドします。初回は数分かかり、Windows が許可を求めることがあります。"
+
+msgid "A newer local server is available. Update rebuilds the server and patch."
+msgstr "新しいローカルサーバーがあります。アップデートするとサーバーとパッチを再ビルドします。"
+
+msgid "Everything is ready. Play starts the local server and the game."
+msgstr "準備完了です。ゲーム開始でローカルサーバーとゲームを起動します。"
+
+msgid "The game is running. Closing the launcher stops the local server."
+msgstr "ゲームを実行中です。ランチャーを閉じるとローカルサーバーも停止します。"
+
+msgid "Stopping the local server…"
+msgstr "ローカルサーバーを停止中…"
+
+msgid "The AscNet patch can't be used with these game files. Check Game files, or restore the original files in Settings."
+msgstr "このゲームファイルではAscNetパッチを使用できません。ゲームファイルを確認するか、設定で元のファイルに戻してください。"
+
+msgid "The patched game files need repair. Set up again in Settings, or restore the original files."
+msgstr "パッチ済みのゲームファイルの修復が必要です。設定でセットアップをやり直すか、元のファイルに戻してください。"
+
+msgid "Checking the local setup…"
+msgstr "ローカルのセットアップを確認中…"
+
+msgid "Setting up the local server and patch…"
+msgstr "ローカルサーバーとパッチをセットアップ中…"
+
+msgid "Restoring the original game files…"
+msgstr "元のゲームファイルに戻し中…"
+
+msgid "Starting the local server and the game…"
+msgstr "ローカルサーバーとゲームを起動中…"
+
+msgid "No mods yet. Set up refreshes the AscNet source and the mod list."
+msgstr "Modはまだありません。セットアップでAscNetのソースとModの一覧を更新します。"
+
+msgid "Client mods unavailable: {}"
+msgstr "クライアントModを利用できません: {}"
+
+msgid "Restart the server and the game after changes."
+msgstr "変更後はサーバーとゲームを再起動してください。"
+
+msgid "Applying client mods…"
+msgstr "クライアントModを適用中…"
+
+msgid "Applied: {}. Restart the server and the game."
+msgstr "適用済み: {}。サーバーとゲームを再起動してください。"
+
+msgid "Applied: {}. Skipped: {}. Restart the server and the game."
+msgstr "適用済み: {}。スキップ: {}。サーバーとゲームを再起動してください。"
+
+msgid "Client mods are off and their files are removed. Restart the server and the game."
+msgstr "クライアントModはオフになり、ファイルは削除されました。サーバーとゲームを再起動してください。"
+
+msgid "Couldn't change client mods: {}"
+msgstr "クライアントModを変更できませんでした: {}"
+
+msgid "Choose an empty folder to download the game, or the folder of an existing install to verify, update or adopt it."
+msgstr "ゲームをダウンロードする空のフォルダーか、検証・アップデート・引き継ぎを行う既存のインストール先フォルダーを選んでください。"
+
+msgid "This folder isn't empty and has no PGR.exe. Choose an empty folder for a new install, or the folder of an existing game."
+msgstr "このフォルダーは空ではなく、PGR.exe もありません。新規インストールには空のフォルダーを、既存のゲームにはそのゲームのフォルダーを選んでください。"
+
+msgid "Can't read this folder: {}"
+msgstr "このフォルダーを読み取れません: {}"
+
+msgid "Empty folder: a full {} client will be installed here."
+msgstr "空のフォルダーです。ここに{}の完全なクライアントをインストールします。"
+
+msgid "An interrupted download was found here. It resumes from the files already verified."
+msgstr "中断されたダウンロードが見つかりました。検証済みのファイルから再開します。"
+
+msgid "Inspecting the install…"
+msgstr "インストールを確認中…"
+
+msgid "Couldn't inspect the install: {}"
+msgstr "インストールを確認できませんでした: {}"
+
+msgid "Stopping after the current file…"
+msgstr "現在のファイルの処理後に停止します…"
+
+msgid "Select the folder that contains PGR.exe"
+msgstr "PGR.exe があるフォルダーを選択してください"
+
+msgid "Select an empty folder for the game, or the folder of an existing game"
+msgstr "ゲームをダウンロードする空のフォルダー、または既存のゲームのフォルダーを選択してください"
+
+msgid "Set up AscNet?"
+msgstr "AscNetをセットアップしますか？"
+
+msgid "Verify game files"
+msgstr "ゲームファイルの検証"
+
+msgid "Stop the local server?"
+msgstr "ローカルサーバーを停止しますか？"
+
+msgid "Close the game first"
+msgstr "先にゲームを終了してください"
+
+msgid "The game is still running"
+msgstr "ゲームはまだ実行中です"
+
+msgid "Couldn't check the game"
+msgstr "ゲームの状態を確認できませんでした"
+
+msgid "No game folder"
+msgstr "ゲームフォルダーがありません"
+
+msgid "Not the game folder"
+msgstr "ゲームフォルダーではありません"
+
+msgid "Couldn't save settings"
+msgstr "設定を保存できませんでした"
+
+msgid "Couldn't stop the local server"
+msgstr "ローカルサーバーを停止できませんでした"
+
+msgid "Set up didn't finish"
+msgstr "セットアップを完了できませんでした"
+
+msgid "The game didn't start"
+msgstr "ゲームを起動できませんでした"
+
+msgid "Set up first"
+msgstr "先にセットアップしてください"
+
+msgid "The local server isn't available"
+msgstr "ローカルサーバーを利用できません"
+
+msgid "Launcher update needed"
+msgstr "ランチャーの更新が必要です"
+
+msgid "Patch update needed"
+msgstr "パッチの更新が必要です"
+
+msgid "This game version isn't supported"
+msgstr "このゲームのバージョンには対応していません"
+
+msgid "The local server doesn't match"
+msgstr "ローカルサーバーが一致しません"
+
+msgid "The download stopped"
+msgstr "ダウンロードが中断されました"
+
+msgid "Please wait"
+msgstr "しばらくお待ちください"
+
+msgid "Set up runs source code from the configured repository and installs any missing Git, .NET, MongoDB, Rust and C++ build tools."
+msgstr "セットアップでは、設定されたリポジトリのソースコードを実行し、不足している Git、.NET、MongoDB、Rust、C++ ビルドツールをインストールします。"
+
+msgid "Every file in this folder is checked against Kuro's official files, and files that differ are downloaded again."
+msgstr "このフォルダー内のすべてのファイルをKuro公式のファイルと照合し、異なるファイルは再ダウンロードします。"
+
+msgid "Closing the launcher stops the local AscNet server and MongoDB that it started."
+msgstr "ランチャーを閉じると、ランチャーが起動したローカルのAscNetサーバーとMongoDBが停止します。"
+
+msgid "Punishing: Gray Raven is running, and its files can't change while it does."
+msgstr "パニシング:グレイレイヴンの実行中はファイルを変更できません。"
+
+msgid "The local server has to stay up while the game is running."
+msgstr "ゲームの実行中はローカルサーバーを起動したままにする必要があります。"
+
+msgid "The launcher couldn't tell whether the game is running."
+msgstr "ゲームが実行中かどうかを確認できませんでした。"
+
+msgid "No game folder is selected."
+msgstr "ゲームフォルダーが選択されていません。"
+
+msgid "That folder doesn't contain PGR.exe."
+msgstr "このフォルダーに PGR.exe がありません。"
+
+msgid "The launcher couldn't save your settings."
+msgstr "ランチャーが設定を保存できませんでした。"
+
+msgid "The local server or MongoDB didn't stop safely."
+msgstr "ローカルサーバーまたはMongoDBを安全に停止できませんでした。"
+
+msgid "The launcher couldn't read its local setup."
+msgstr "ランチャーがローカルのセットアップ内容を読み込めませんでした。"
+
+msgid "Setting up the local server and patch failed."
+msgstr "ローカルサーバーとパッチのセットアップに失敗しました。"
+
+msgid "The original game files couldn't be put back."
+msgstr "元のゲームファイルに戻せませんでした。"
+
+msgid "The local server or the game couldn't be started."
+msgstr "ローカルサーバーまたはゲームを起動できませんでした。"
+
+msgid "The local server or the patch isn't ready yet."
+msgstr "ローカルサーバーまたはパッチの準備ができていません。"
+
+msgid "The local server says it is offline or under maintenance."
+msgstr "ローカルサーバーがオフラインまたはメンテナンス中と応答しました。"
+
+msgid "This local server needs a newer launcher."
+msgstr "このローカルサーバーには新しいランチャーが必要です。"
+
+msgid "This local server needs a newer AscNet patch."
+msgstr "このローカルサーバーには新しいAscNetパッチが必要です。"
+
+msgid "The local server doesn't support this version of the game."
+msgstr "ローカルサーバーはこのバージョンのゲームに対応していません。"
+
+msgid "The local server answered in a way this launcher doesn't understand."
+msgstr "ローカルサーバーの応答をランチャーが解釈できませんでした。"
+
+msgid "The game files couldn't be downloaded or checked."
+msgstr "ゲームファイルをダウンロードまたは検証できませんでした。"
+
+msgid "The launcher is still working on something."
+msgstr "ランチャーはまだ処理中です。"
+
+msgid "Windows may ask for administrator approval."
+msgstr "Windows が管理者の承認を求めることがあります。"
+
+msgid "Files patched by AscNet are handled by the launcher's own patch state."
+msgstr "AscNetがパッチを適用したファイルは、ランチャー自身のパッチ状態で扱われます。"
+
+msgid "Stop them and close the launcher, or keep it open."
+msgstr "停止してランチャーを閉じるか、開いたままにしてください。"
+
+msgid "Close the game, then try again."
+msgstr "ゲームを終了してから、もう一度お試しください。"
+
+msgid "Close the game before closing the launcher."
+msgstr "ランチャーを閉じる前にゲームを終了してください。"
+
+msgid "Try again. If it keeps happening, send the log files."
+msgstr "もう一度お試しください。繰り返し発生する場合は、ログファイルを送ってください。"
+
+msgid "Choose the folder that contains PGR.exe, or download the game in Game files."
+msgstr "PGR.exe があるフォルダーを選ぶか、「ゲームファイル」でゲームをダウンロードしてください。"
+
+msgid "Choose the folder where the game is installed."
+msgstr "ゲームがインストールされているフォルダーを選んでください。"
+
+msgid "Make sure the disk isn't full or read-only, then try again."
+msgstr "ディスクがいっぱいでないこと、読み取り専用でないことを確認して、もう一度お試しください。"
+
+msgid "Try again. If it keeps happening, restart your computer."
+msgstr "もう一度お試しください。繰り返し発生する場合は、パソコンを再起動してください。"
+
+msgid "Check your internet connection and try again. If it keeps happening, send the log files."
+msgstr "インターネット接続を確認して、もう一度お試しください。繰り返し発生する場合は、ログファイルを送ってください。"
+
+msgid "Close the game and try again, or verify the game in Game files."
+msgstr "ゲームを終了してもう一度お試しいただくか、「ゲームファイル」でゲームを検証してください。"
+
+msgid "Try again. If it keeps happening, Set up again in Settings."
+msgstr "もう一度お試しください。繰り返し発生する場合は、設定でセットアップをやり直してください。"
+
+msgid "Press Set up to build them."
+msgstr "「セットアップ」を押してビルドしてください。"
+
+msgid "Wait a moment and press Play again."
+msgstr "少し待ってから、もう一度「ゲーム開始」を押してください。"
+
+msgid "Update the launcher, then try again."
+msgstr "ランチャーを更新してから、もう一度お試しください。"
+
+msgid "Set up again in Settings."
+msgstr "設定でセットアップをやり直してください。"
+
+msgid "Update the game in Game files, then Set up again."
+msgstr "「ゲームファイル」でゲームを更新してから、セットアップをやり直してください。"
+
+msgid "Update the launcher, then Set up again."
+msgstr "ランチャーを更新してから、セットアップをやり直してください。"
+
+msgid "Check your internet connection and free disk space, then press Resume."
+msgstr "インターネット接続と空きディスク容量を確認してから、「再開」を押してください。"
+
+msgid "Wait for it to finish, then close the launcher."
+msgstr "完了するまで待ってから、ランチャーを閉じてください。"
+
+msgid "Stop and close"
+msgstr "停止して閉じる"
+
+msgid "Continue"
+msgstr "続行"
+
+msgid "Keep open"
+msgstr "開いたままにする"
+
+msgid "Cancel the download?"
+msgstr "ダウンロードをキャンセルしますか？"
+
+msgid "Couldn't delete the download"
+msgstr "ダウンロードを削除できませんでした"
+
+msgid "The {} already downloaded will be deleted."
+msgstr "ダウンロード済みの {} が削除されます。"
+
+msgid "Some of the partly downloaded files couldn't be deleted, so the download was kept."
+msgstr "ダウンロードした一部のファイルを削除できなかったため、ダウンロードは保持されました。"
+
+msgid "To keep it and continue later, press Pause instead."
+msgstr "保持して後で続けるには、代わりに「一時停止」を押してください。"
+
+msgid "Close anything that is using the game folder, then try again, or press Resume."
+msgstr "ゲームフォルダーを使用しているものを閉じてからもう一度試すか、「再開」を押してください。"
+
+msgid "Delete download"
+msgstr "ダウンロードを削除"
+
+msgid "Keep download"
+msgstr "ダウンロードを続ける"
+
+msgid "CrossOver"
+msgstr "CrossOver"
+
+msgid "Installed"
+msgstr "インストール済み"
+
+msgid "Installing"
+msgstr "インストール中"
+
+msgid "Bottle"
+msgstr "ボトル"
+
+msgid "Ready"
+msgstr "準備完了"
+
+msgid "Preparing"
+msgstr "準備中"
+
+msgid "Not created"
+msgstr "未作成"
+
+msgid "Install CrossOver"
+msgstr "CrossOver をインストール"
+
+msgid "Repair bottle"
+msgstr "ボトルを修復"
+
+msgid "Create bottle"
+msgstr "ボトルを作成"
+
+msgid "Set up builds the local server and patch and prepares the game files. The first time takes a few minutes."
+msgstr "セットアップでローカルサーバーとパッチをビルドし、ゲームファイルを準備します。初回は数分かかります。"
+
+msgid "Checking that CrossOver is signed by CodeWeavers…"
+msgstr "CrossOver が CodeWeavers の署名付きか確認しています…"
+
+msgid "Unpacking CrossOver…"
+msgstr "CrossOver を展開しています…"
+
+msgid "Installing CrossOver…"
+msgstr "CrossOver をインストールしています…"
+
+msgid "Downloading CrossOver…"
+msgstr "CrossOver をダウンロードしています…"
+
+msgid "CrossOver installed"
+msgstr "CrossOver をインストールしました"
+
+msgid "Couldn't install CrossOver"
+msgstr "CrossOver をインストールできませんでした"
+
+msgid "Preparing the AscNet bottle…"
+msgstr "AscNet のボトルを準備しています…"
+
+msgid "AscNet bottle is ready"
+msgstr "AscNet のボトルの準備ができました"
+
+msgid "Couldn't prepare the AscNet bottle"
+msgstr "AscNet のボトルを準備できませんでした"
+
+msgid "AscNet runs the Windows game through CrossOver. It has a free 14-day trial; after that you need your own licence."
+msgstr "AscNet は CrossOver を通して Windows 版ゲームを動かします。14 日間の無料体験があり、その後はご自身のライセンスが必要です。"
+
+msgid "The bottle is AscNet's own Windows space inside CrossOver, where the game is kept. Creating it takes a few minutes."
+msgstr "ボトルは CrossOver の中にある AscNet 専用の Windows 領域で、ゲームはここに保存されます。作成には数分かかります。"
+
+msgid "The AscNet bottle needs repair. Repairing it keeps your game files."
+msgstr "AscNet のボトルの修復が必要です。修復してもゲームファイルは残ります。"
+
+msgid "Preparing the AscNet bottle. The first time takes a few minutes…"
+msgstr "AscNet のボトルを準備しています。初回は数分かかります…"
+
+msgid "Install CrossOver?"
+msgstr "CrossOver をインストールしますか?"
+
+msgid "CrossOver didn't install"
+msgstr "CrossOver をインストールできませんでした"
+
+msgid "Couldn't prepare the bottle"
+msgstr "ボトルを準備できませんでした"
+
+msgid "AscNet runs Punishing: Gray Raven on your Mac through CrossOver by CodeWeavers, and CrossOver isn't installed. It is paid software with a 14-day free trial; after that you need your own licence from CodeWeavers. AscNet doesn't include it."
+msgstr "AscNet は CodeWeavers の CrossOver を使って Mac で「パニシング:グレイレイヴン」を動かしますが、CrossOver がインストールされていません。有料ソフトで 14 日間の無料体験があり、その後は CodeWeavers のライセンスをご自身で購入する必要があります。AscNet には CrossOver は含まれません。"
+
+msgid "CrossOver couldn't be downloaded, verified or installed."
+msgstr "CrossOver をダウンロード、検証、またはインストールできませんでした。"
+
+msgid "AscNet's CrossOver bottle couldn't be created or repaired."
+msgstr "AscNet の CrossOver ボトルを作成または修復できませんでした。"
+
+msgid "Set up runs source code from the configured repository and installs any missing .NET, MongoDB and Rust tools in AscNet's own folder. Git and the C compiler come from Apple's command line tools."
+msgstr "セットアップは設定されたリポジトリのソースコードを実行し、不足している .NET、MongoDB、Rust のツールを AscNet 専用のフォルダにインストールします。Git と C コンパイラは Apple のコマンドラインツールを使います。"
+
+msgid "It also applies the Rosetta patches to the game files, keeping backups."
+msgstr "あわせてゲームファイルに Rosetta パッチを適用し、バックアップを残します。"
+
+msgid "AscNet downloads CodeWeavers' official installer from codeweavers.com, checks that it is signed by CodeWeavers, and installs it in Applications."
+msgstr "AscNet は codeweavers.com から CodeWeavers の公式インストーラをダウンロードし、CodeWeavers の署名を確認してから「アプリケーション」にインストールします。"
+
+msgid "Check your internet connection and try again, or install CrossOver yourself from codeweavers.com."
+msgstr "インターネット接続を確認してやり直すか、codeweavers.com から CrossOver をご自身でインストールしてください。"
+
+msgid "Download and install"
+msgstr "ダウンロードしてインストール"
+
+msgid "Using the game in {}"
+msgstr "{} のゲームを使用します"
+
+msgid "Select the Wine prefix folder (it contains system.reg)"
+msgstr "Wine プレフィックスのフォルダ（system.reg を含むもの）を選択"
+
+msgid "Use this install?"
+msgstr "このインストールを使用しますか？"
+
+msgid "Found Punishing: Gray Raven in {}. AscNet will use that CrossOver prefix and game folder for Set up and Play instead of creating its own bottle."
+msgstr "{} でパニシング:グレイレイヴンが見つかりました。AscNet は専用のボトルを作成する代わりに、その CrossOver プレフィックスとゲームフォルダをセットアップとプレイに使用します。"
+
+msgid "Set up then applies the Rosetta and AscNet patches to that game folder, keeping backups. Nothing else in the prefix is changed."
+msgstr "セットアップではそのゲームフォルダに Rosetta と AscNet のパッチを適用し、バックアップを残します。プレフィックス内のそれ以外は変更されません。"
+
+msgid "Steam owns this install: a Steam update or file check can replace patched files (for example KRSDK.dll). Press Set up again afterwards to re-apply them."
+msgstr "このインストールは Steam が管理しています。Steam のアップデートやファイル確認で、パッチ済みのファイル（例: KRSDK.dll）が置き換えられることがあります。その後はもう一度セットアップを押して再適用してください。"
+
+msgid "Use it"
+msgstr "使用する"
+
+msgid "Found Punishing: Gray Raven in {}"
+msgstr "{} でパニシング:グレイレイヴンが見つかりました"
+
+msgid "Existing CrossOver installs"
+msgstr "既存の CrossOver インストール"
+
+msgid "Not listed? Pick the Wine prefix folder."
+msgstr "一覧にない場合は Wine プレフィックスのフォルダを選択してください。"
+
+msgid "Choose prefix…"
+msgstr "プレフィックスを選択…"
+
+msgid "Existing prefix"
+msgstr "既存のプレフィックス"
+
+msgid "Use {}"
+msgstr "{} を使用"
+
+msgid "Use a new AscNet bottle instead"
+msgstr "代わりに新しい AscNet ボトルを使用"
+
+msgid "Punishing: Gray Raven already runs through CrossOver on this Mac. AscNet will use that prefix and game folder, so no new bottle is needed. Set up then adds the patches."
+msgstr "パニシング:グレイレイヴンはこの Mac の CrossOver ですでに動作しています。AscNet はそのプレフィックスとゲームフォルダを使うため、新しいボトルは不要です。その後のセットアップでパッチを追加します。"

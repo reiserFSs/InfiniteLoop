@@ -1,0 +1,38 @@
+name: CI
+
+# Launcher tests. launcher-release.yml reuses this workflow (workflow_call).
+on:
+  pull_request:
+    paths: ["AscNet.Launcher/**", ".github/workflows/**"]
+  push:
+    branches: [master]
+    paths: ["AscNet.Launcher/**", ".github/workflows/**"]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: AscNet.Launcher
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # openh264 compiles its x86 assembly with nasm (not needed on arm64).
+      - name: Install nasm
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nasm --no-progress -y
+          "C:\Program Files\NASM" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: AscNet.Launcher
+      - run: cargo test --locked

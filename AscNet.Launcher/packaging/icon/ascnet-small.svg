@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Plain A for 16-48 px: the slash reads as a broken leg that small. Same tile and chevron as ascnet.svg. -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#1a1d22"/>
+  <path d="M512 214 L812 790 L672 790 L512 470 L352 790 L212 790 Z" fill="#f2f3f5"/>
+</svg>

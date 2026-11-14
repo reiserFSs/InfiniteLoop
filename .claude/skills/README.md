@@ -7,6 +7,7 @@
 - `pgr-packet-contract-reconstruction`: rebuild a flow from captures and client Lua; no hardcoded payloads.
 - `ascnet-installed-client-upgrade`: new game version runbook (extract → native patch → allowlist → SDK config → tables → availability → draws → launcher media → release) and isolated verification.
 - `pgr-lua-mods`: client Lua/table mods and live probes via `Scripts/pgr.py`.
+- `ascnet-launcher-release`: launcher release via the `launcher-release.yml` workflow (bump, push, dispatch, verify; pinned media).
 - `ascnet-bigworld-client-triage`: Babylonia/BigWorld hangs, missing objects, stalled quests.
 - `ascnet-stateful-handler-benchmarks`: before/after handler benchmarks with frozen BSON fixtures.
 - `pgr-headless-lua-wire-replay`: (advanced) replay server packets through original client Lua.

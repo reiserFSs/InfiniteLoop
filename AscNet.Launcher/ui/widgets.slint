@@ -1,0 +1,209 @@
+// Small dark plates and controls shared by every screen (direction contract: .impeccable/surfaces/ascnet-launcher-src-ui-rs.md).
+
+export component Plate inherits Rectangle {
+    background: #0b0c0fd6;
+    border-radius: 2px;
+}
+
+/// Compact dark button; `primary` is the single off-white call to action.
+export component Btn inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> primary: false;
+    in property <length> pad: 14px;
+    callback clicked;
+    min-width: label.preferred-width + 2 * root.pad;
+    height: 32px;
+    border-radius: 2px;
+    border-width: fs.has-focus ? 1px : 0px;
+    border-color: #9aa0aa;
+    background: !root.enabled ? (root.primary ? #eef0f3 : #1f2228)
+        : root.primary ? (ta.has-hover ? #ffffff : #eef0f3)
+        : (ta.has-hover ? #2d3139 : #23262d);
+    opacity: root.enabled ? 1 : 0.45;
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+    label := Text {
+        text: root.text;
+        color: root.primary ? #0b0c0f : #e9ebef;
+        font-size: 13px;
+        font-weight: root.primary ? 600 : 400;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    accessible-role: button;
+    accessible-label: root.text;
+}
+
+/// The one big off-white action.
+export component BigButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 52px;
+    border-radius: 2px;
+    border-width: fs.has-focus ? 2px : 0px;
+    border-color: #7d838e;
+    background: !root.enabled ? #eef0f3 : (ta.has-hover ? #ffffff : #eef0f3);
+    opacity: root.enabled ? 1 : 0.55;
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+    Text {
+        text: root.text;
+        color: #0b0c0f;
+        font-size: 16px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    accessible-role: button;
+    accessible-label: root.text;
+}
+
+export component Toggle inherits Rectangle {
+    in property <bool> on;
+    in property <bool> enabled: true;
+    in property <string> label;
+    callback toggled(bool);
+    width: 34px;
+    height: 18px;
+    border-radius: 9px;
+    border-width: fs.has-focus ? 1px : 0px;
+    border-color: #9aa0aa;
+    background: root.on ? #eef0f3 : #3a3e46;
+    opacity: root.enabled ? 1 : 0.45;
+    Rectangle {
+        x: root.on ? parent.width - self.width - 2px : 2px;
+        y: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: root.on ? #0b0c0f : #9aa0aa;
+        animate x { duration: 90ms; }
+    }
+    TouchArea {
+        enabled: root.enabled;
+        clicked => { root.toggled(!root.on); }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") { root.toggled(!root.on); return accept; }
+            return reject;
+        }
+    }
+    accessible-role: switch;
+    accessible-checked: root.on;
+    accessible-label: root.label;
+}
+
+/// 2px progress line: determinate for 0..1, a sliding bar for a negative value.
+export component ProgressLine inherits Rectangle {
+    in property <float> value: -1;
+    height: 2px;
+    background: #ffffff26;
+    clip: true;
+    Rectangle {
+        visible: root.value >= 0;
+        width: parent.width * Math.min(root.value, 1);
+        height: parent.height;
+        background: #eef0f3;
+    }
+    Rectangle {
+        visible: root.value < 0;
+        width: parent.width * 0.28;
+        height: parent.height;
+        background: #eef0f3;
+        x: (parent.width + self.width) * Math.mod(animation-tick() / 1.3s, 1.0) - self.width;
+    }
+}
+
+/// Minimise / close glyph button.
+export component WinButton inherits Rectangle {
+    in property <string> glyph;
+    in property <string> label;
+    callback clicked;
+    width: 32px;
+    height: 28px;
+    border-radius: 2px;
+    background: ta.has-hover || fs.has-focus ? #1c1e24d6 : #0b0c0fd6;
+    ta := TouchArea { clicked => { root.clicked(); } }
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+    Path {
+        width: 12px;
+        height: 12px;
+        viewbox-width: 12;
+        viewbox-height: 12;
+        stroke: #e9ebef;
+        stroke-width: 1.4px;
+        commands: root.glyph;
+    }
+    accessible-role: button;
+    accessible-label: root.label;
+}
+
+/// A titled row: text on the left, controls (children) on the right.
+export component SettingRow inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> detail;
+    spacing: 12px;
+    VerticalLayout {
+        alignment: center;
+        spacing: 1px;
+        Text { text: root.title; color: #e9ebef; font-size: 13px; overflow: elide; }
+        if root.detail != "": Text { text: root.detail; color: #7d838e; font-size: 12px; wrap: word-wrap; }
+    }
+    @children
+}
+
+export component SectionLabel inherits Text {
+    color: #7d838e;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/// Read-only value box (folder paths).
+export component ValueBox inherits Rectangle {
+    in property <string> text;
+    in property <string> placeholder;
+    height: 32px;
+    border-radius: 2px;
+    background: #15171c;
+    Text {
+        x: 10px;
+        width: parent.width - 20px;
+        height: parent.height;
+        text: root.text != "" ? root.text : root.placeholder;
+        color: root.text != "" ? #e9ebef : #7d838e;
+        font-size: 12px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}

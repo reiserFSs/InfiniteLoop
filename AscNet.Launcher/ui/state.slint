@@ -1,0 +1,425 @@
+// Everything the Rust side sets or listens to, plus all player-facing wording (`Tx`).
+// Rust (src/ui.rs) maps controller enums onto the enums below; every sentence is an @tr literal here.
+
+export enum Screen { home, settings, files }
+export enum Primary { select-game, setup, update, play, working, running, stopping, install-crossover, use-found, create-bottle }
+export enum PatchLabel { not-installed, current, update-available, unsupported, repair-needed }
+export enum ServerLabel { stopped, stopping, maintenance, running, offline }
+export enum SlotLabel { download, verify, update, adopt, pause, resume, cancel, working }
+export enum CrossOverLabel { missing, working, ready }
+export enum BottleLabel { missing, working, ready, repair, adopted }
+
+export enum DialogId {
+    confirm-setup, confirm-verify, confirm-close, confirm-cancel,
+    busy, game-running, game-still-running, game-check, no-folder, invalid-folder, save, stop, check,
+    setup, restore, play, needs-setup, server-unavailable, launcher-outdated, patch-outdated,
+    client-unsupported, server-incompatible, files-failed, cancel-failed, confirm-crossover, crossover-failed, bottle-failed, confirm-adopt, confirm-adopt-steam,
+}
+
+export enum MsgId {
+    none,
+    launcher-ready, game-found-steam, music-unavailable, video-unavailable, music-change-failed, checking-launcher,
+    downloading-launcher-update, launcher-update-restarting, launcher-update-deferred, launcher-current,
+    launcher-check-failed, launcher-update-failed, setup-starting, mongo-starting, server-starting,
+    server-ready, server-update-available, server-current, server-check-failed, server-update-deferred,
+    server-update-failed, setup-done, setup-failed, restored, restore-failed, play-failed, check-failed,
+    mods-updated, mods-failed, elevation-cancelled, patch-unavailable, fps-migrated, fps-migration-failed,
+    closing-after-stop, services-stopping, services-stopped, services-stop-failed,
+    files-started, files-phase, files-done, files-note, files-paused, files-cancelled, files-failed, next-setup,
+    hint-select-game, hint-setup, hint-update, hint-play, hint-running, hint-stopping,
+    hint-patch-unsupported, hint-patch-repair,
+    working-inspect, working-setup, working-restore, working-play, files-running,
+    mods-none, mods-unavailable, mods-hint, mods-applying, mods-applied, mods-disabled, mods-change-failed,
+    files-choose, files-not-empty, files-unreadable, files-empty-folder, files-resumable, files-inspecting,
+    files-game, files-plan, files-plan-error, files-inspect-failed, files-stopping,
+    pick-game-folder, pick-files-folder, pick-prefix-folder, game-adopted,
+    crossover-phase, crossover-installed, crossover-failed, bottle-creating, bottle-ready, bottle-failed,
+    hint-install-crossover, hint-use-found, hint-create-bottle, hint-repair-bottle, working-bottle,
+}
+
+// a..d: raw or preformatted strings; n/m/k: small integers (kind, region, flags). See Tx.text.
+export struct Msg { id: MsgId, a: string, b: string, c: string, d: string, n: int, m: int, k: int }
+export struct Activity { time: string, msg: Msg }
+// An install found in an existing CrossOver bottle or Wine prefix; info is a files-game message.
+export struct Found { name: string, info: Msg }
+export struct SlotView { label: SlotLabel, enabled: bool, primary: bool }
+export struct ModRow { name: string, description: string, on: bool }
+// phase: 0 fetching index, 1 verifying, 2 downloading, 3 extracting, 4 deleting, 5 finalizing
+export struct Transfer {
+    phase: int, percent: int, has-bytes: bool, done: string, total: string, eta: int,
+    has-files: bool, files-done: int, files-total: int, current: string,
+}
+
+export global S {
+    // window
+    in property <image> art;
+    in property <string> ui-font: "Noto Sans";
+    in property <Screen> screen: Screen.home;
+    /// 0 EN, 1 TW, 2 KR, 3 JP, 4 CN (the client edition; also the UI language)
+    in property <int> language: 0;
+    callback minimize();
+    callback close();
+    callback drag();
+    callback back();
+
+    // dialog
+    in property <bool> dialog-open: false;
+    in property <DialogId> dialog-id: DialogId.busy;
+    in property <string> dialog-details;
+    in property <string> dialog-amount;
+    callback dialog-answer(bool);
+
+    // home
+    in property <bool> has-game: false;
+    in property <int> game-region: 0;
+    in property <string> game-version;
+    in property <string> chip;
+    in property <PatchLabel> patch;
+    in property <ServerLabel> server;
+    in property <Primary> primary: Primary.select-game;
+    in property <bool> primary-enabled: true;
+    in property <Msg> hint;
+    in property <bool> busy: false;
+    in property <Msg> busy-msg;
+    /// 0..1, or -1 for an indeterminate line
+    in property <float> progress: -1;
+    in property <[Activity]> activity;
+    callback primary-clicked();
+    callback open-settings();
+    callback open-files();
+    /// macOS: Home also lists CrossOver and the bottle, and the wording names them.
+    in property <bool> mac: false;
+    in property <CrossOverLabel> crossover;
+    in property <BottleLabel> bottle;
+    /// macOS: installs in existing prefixes, offered on Home and in Game files.
+    in property <[Found]> found;
+    callback adopt-clicked(int);
+    callback new-bottle();
+    callback choose-prefix();
+
+    // settings
+    in property <string> folder;
+    in property <bool> music-on: true;
+    in property <bool> can-check: true;
+    in property <bool> can-setup: true;
+    in property <bool> can-restore: true;
+    in property <bool> mods-on: false;
+    in property <bool> mods-editable: true;
+    in property <[ModRow]> mods;
+    in property <Msg> mods-status;
+    in property <string> launcher-version;
+    callback choose-game-folder();
+    callback check-updates();
+    callback set-up-again();
+    callback restore-files();
+    callback music-toggled(bool);
+    callback mods-toggled(bool);
+    callback mod-toggled(int, bool);
+
+    // game files
+    in property <bool> tiles-enabled: true;
+    in property <string> files-folder;
+    in property <bool> files-can-choose: true;
+    in property <Msg> files-info;
+    in property <[Msg]> files-plan;
+    in property <[SlotView]> slots;
+    in property <bool> has-transfer: false;
+    in property <Transfer> transfer;
+    in property <bool> has-working-label: false;
+    in property <Msg> working-label;
+    in property <float> files-progress: -1;
+    in property <bool> files-paused: false;
+    in property <bool> files-running: false;
+    callback region-picked(int);
+    callback choose-files-folder();
+    callback slot-clicked(int);
+}
+
+export global Tx {
+    pure public function region-short(r: int) -> string {
+        if (r == 1) { return @tr("TW (Taiwan)"); }
+        if (r == 2) { return @tr("KR (Korea)"); }
+        if (r == 3) { return @tr("JP (Japan)"); }
+        if (r == 4) { return @tr("CN (China)"); }
+        return @tr("EN (Global)");
+    }
+    pure public function region-long(r: int) -> string {
+        if (r == 1) { return @tr("Traditional Chinese (Taiwan)"); }
+        if (r == 2) { return @tr("Korean (Korea)"); }
+        if (r == 3) { return @tr("Japanese (Japan)"); }
+        if (r == 4) { return @tr("Simplified Chinese (China)"); }
+        return @tr("English (Global)");
+    }
+    pure public function place(r: int) -> string {
+        if (r == 1) { return @tr("Taiwan"); }
+        if (r == 2) { return @tr("Korea"); }
+        if (r == 3) { return @tr("Japan"); }
+        if (r == 4) { return @tr("China"); }
+        return @tr("Global");
+    }
+    pure public function phase(p: int) -> string {
+        if (p == 0) { return @tr("Fetching file list"); }
+        if (p == 1) { return @tr("Verifying files"); }
+        if (p == 2) { return @tr("Downloading"); }
+        if (p == 3) { return @tr("Extracting patch files"); }
+        if (p == 4) { return @tr("Removing old files"); }
+        return @tr("Finalizing");
+    }
+    /// kind: 0 install, 1 repair, 2 update, 3 adopt
+    pure public function running(kind: int) -> string {
+        if (kind == 1) { return @tr("Verifying and repairing the game…"); }
+        if (kind == 2) { return @tr("Updating the game…"); }
+        if (kind == 3) { return @tr("Adopting the existing install…"); }
+        return @tr("Downloading the game…");
+    }
+    pure public function transfer-text(t: Transfer) -> string {
+        if (t.has-bytes && t.percent >= 0) {
+            return t.eta > 0
+                ? @tr("{} {}% · {} of {} · ~{} min", Tx.phase(t.phase), t.percent, t.done, t.total, t.eta)
+                : @tr("{} {}% · {} of {}", Tx.phase(t.phase), t.percent, t.done, t.total);
+        }
+        if (t.has-files) {
+            return @tr("{} · {} of {} files", Tx.phase(t.phase), t.files-done, t.files-total);
+        }
+        return Tx.phase(t.phase) + "…";
+    }
+    pure public function game-info(m: Msg) -> string {
+        // m.m: detected edition or -1; m.k: edition assumed when none; m.n: 1 Steam copy, 2 patched; m.a: version
+        return (m.m >= 0 ? Tx.region-long(m.m) : @tr("Unidentified edition"))
+            + " · " + (m.a != "" ? @tr("version {}", m.a) : @tr("unknown version"))
+            + (mod(m.n, 2) == 1 ? " · " + @tr("Steam copy") : "")
+            + (m.n >= 2 ? " · " + @tr("AscNet patch installed") : "")
+            + (m.m < 0 ? "\n" + @tr("Verifying treats it as {}; change the language above if that is wrong.", Tx.region-long(m.k)) : "");
+    }
+    pure public function plan(m: Msg) -> string {
+        // m.a download size, m.b needs, m.c available, m.n files, m.m old files removed
+        // ponytail: no plural forms; "1 files" shows for a one-file plan. Add @tr plurals if that ever matters.
+        return @tr("Download {} · {} files · needs {} free", m.a, m.n, m.b)
+            + (m.m > 0 ? " · " + @tr("{} old files removed", m.m) : "")
+            + " " + @tr("({} available)", m.c);
+    }
+
+    pure public function text(m: Msg) -> string {
+        if (m.id == MsgId.launcher-ready) { return @tr("Launcher ready"); }
+        if (m.id == MsgId.game-found-steam) { return @tr("Game found in your Steam library"); }
+        if (m.id == MsgId.game-adopted) { return @tr("Using the game in {}", m.a); }
+        if (m.id == MsgId.music-unavailable) { return @tr("Background music isn't available"); }
+        if (m.id == MsgId.video-unavailable) { return @tr("Background video couldn't play"); }
+        if (m.id == MsgId.music-change-failed) { return @tr("Couldn't change the background music"); }
+        if (m.id == MsgId.checking-launcher) { return @tr("Checking for a launcher update…"); }
+        if (m.id == MsgId.downloading-launcher-update) { return @tr("Downloading the launcher update…"); }
+        if (m.id == MsgId.launcher-update-restarting) { return @tr("Launcher update ready; restarting…"); }
+        if (m.id == MsgId.launcher-update-deferred) { return @tr("Launcher update waits until the local server stops"); }
+        if (m.id == MsgId.launcher-current) { return @tr("Launcher {} is up to date", m.a); }
+        if (m.id == MsgId.launcher-check-failed) { return @tr("Couldn't check for a launcher update"); }
+        if (m.id == MsgId.launcher-update-failed) { return @tr("Couldn't apply the launcher update"); }
+        if (m.id == MsgId.setup-starting) { return @tr("Set up started"); }
+        if (m.id == MsgId.mongo-starting) { return @tr("Starting MongoDB"); }
+        if (m.id == MsgId.server-starting) { return @tr("Starting the local server"); }
+        if (m.id == MsgId.server-ready) { return @tr("Local server is ready"); }
+        if (m.id == MsgId.server-update-available) { return @tr("A local server update is available"); }
+        if (m.id == MsgId.server-current) { return @tr("Local server is up to date"); }
+        if (m.id == MsgId.server-check-failed) { return @tr("Couldn't check for server updates"); }
+        if (m.id == MsgId.server-update-deferred) { return @tr("Server update waits until the game closes"); }
+        if (m.id == MsgId.server-update-failed) { return @tr("Couldn't start the server update"); }
+        if (m.id == MsgId.setup-done) { return @tr("Set up finished"); }
+        if (m.id == MsgId.setup-failed) { return @tr("Set up failed"); }
+        if (m.id == MsgId.restored) { return @tr("Original game files restored"); }
+        if (m.id == MsgId.restore-failed) { return @tr("Couldn't restore the game files"); }
+        if (m.id == MsgId.play-failed) { return @tr("Couldn't start the game"); }
+        if (m.id == MsgId.check-failed) { return @tr("Couldn't check the local setup"); }
+        if (m.id == MsgId.mods-updated) { return @tr("Client mods updated"); }
+        if (m.id == MsgId.mods-failed) { return @tr("Couldn't update client mods"); }
+        if (m.id == MsgId.elevation-cancelled) { return @tr("Administrator approval was cancelled; game files were not changed"); }
+        if (m.id == MsgId.patch-unavailable) { return @tr("The AscNet patch can't be used with these game files"); }
+        if (m.id == MsgId.fps-migrated) { return @tr("FPS unlock moved to the game's graphics settings"); }
+        if (m.id == MsgId.fps-migration-failed) { return @tr("Couldn't move the FPS setting"); }
+        if (m.id == MsgId.closing-after-stop) { return @tr("Closing after the local server stops"); }
+        if (m.id == MsgId.services-stopping) { return @tr("Game closed; stopping the local server"); }
+        if (m.id == MsgId.services-stopped) { return @tr("Local server stopped"); }
+        if (m.id == MsgId.services-stop-failed) { return @tr("Couldn't stop the local server safely"); }
+        if (m.id == MsgId.files-started) {
+            if (m.n == 1) { return @tr("Verifying the game files ({})", Tx.region-long(m.m)); }
+            if (m.n == 2) { return @tr("Updating the game ({})", Tx.region-long(m.m)); }
+            if (m.n == 3) { return @tr("Adopting the existing install ({})", Tx.region-long(m.m)); }
+            return @tr("Downloading the game ({})", Tx.region-long(m.m));
+        }
+        if (m.id == MsgId.files-phase) { return Tx.phase(m.n) + "…"; }
+        if (m.id == MsgId.files-done) { return @tr("Game files ready · {} downloaded", m.a); }
+        if (m.id == MsgId.files-note) { return m.a; }
+        if (m.id == MsgId.files-paused) { return @tr("Download paused; verified files are kept"); }
+        if (m.id == MsgId.files-cancelled) { return @tr("Download cancelled; run it again to resume"); }
+        if (m.id == MsgId.files-failed) { return @tr("The game download stopped"); }
+        if (m.id == MsgId.next-setup) { return @tr("Next: Set up"); }
+        if (m.id == MsgId.hint-select-game) { return @tr("Choose where Punishing: Gray Raven is installed, or download it."); }
+        if (m.id == MsgId.hint-setup) {
+            return S.mac
+                ? @tr("Set up builds the local server and patch and prepares the game files. The first time takes a few minutes.")
+                : @tr("Set up builds the local server and patch. The first time takes a few minutes, and Windows may ask for permission.");
+        }
+        if (m.id == MsgId.hint-update) { return @tr("A newer local server is available. Update rebuilds the server and patch."); }
+        if (m.id == MsgId.hint-play) { return @tr("Everything is ready. Play starts the local server and the game."); }
+        if (m.id == MsgId.hint-running) { return @tr("The game is running. Closing the launcher stops the local server."); }
+        if (m.id == MsgId.hint-stopping) { return @tr("Stopping the local server…"); }
+        if (m.id == MsgId.hint-patch-unsupported) { return @tr("The AscNet patch can't be used with these game files. Check Game files, or restore the original files in Settings."); }
+        if (m.id == MsgId.hint-patch-repair) { return @tr("The patched game files need repair. Set up again in Settings, or restore the original files."); }
+        if (m.id == MsgId.working-inspect) { return @tr("Checking the local setup…"); }
+        if (m.id == MsgId.working-setup) { return @tr("Setting up the local server and patch…"); }
+        if (m.id == MsgId.working-restore) { return @tr("Restoring the original game files…"); }
+        if (m.id == MsgId.working-play) { return @tr("Starting the local server and the game…"); }
+        if (m.id == MsgId.files-running) { return Tx.running(m.n); }
+        if (m.id == MsgId.mods-none) { return @tr("No mods yet. Set up refreshes the AscNet source and the mod list."); }
+        if (m.id == MsgId.mods-unavailable) { return @tr("Client mods unavailable: {}", m.a); }
+        if (m.id == MsgId.mods-hint) { return @tr("Restart the server and the game after changes."); }
+        if (m.id == MsgId.mods-applying) { return @tr("Applying client mods…"); }
+        if (m.id == MsgId.mods-applied) {
+            return m.b == ""
+                ? @tr("Applied: {}. Restart the server and the game.", m.a)
+                : @tr("Applied: {}. Skipped: {}. Restart the server and the game.", m.a, m.b);
+        }
+        if (m.id == MsgId.mods-disabled) { return @tr("Client mods are off and their files are removed. Restart the server and the game."); }
+        if (m.id == MsgId.mods-change-failed) { return @tr("Couldn't change client mods: {}", m.a); }
+        if (m.id == MsgId.files-choose) { return @tr("Choose an empty folder to download the game, or the folder of an existing install to verify, update or adopt it."); }
+        if (m.id == MsgId.files-not-empty) { return @tr("This folder isn't empty and has no PGR.exe. Choose an empty folder for a new install, or the folder of an existing game."); }
+        if (m.id == MsgId.files-unreadable) { return @tr("Can't read this folder: {}", m.a); }
+        if (m.id == MsgId.files-empty-folder) { return @tr("Empty folder: a full {} client will be installed here.", Tx.region-long(m.m)); }
+        if (m.id == MsgId.files-resumable) { return @tr("An interrupted download was found here. It resumes from the files already verified."); }
+        if (m.id == MsgId.files-inspecting) { return @tr("Inspecting the install…"); }
+        if (m.id == MsgId.files-game) { return Tx.game-info(m); }
+        if (m.id == MsgId.files-plan) { return Tx.plan(m); }
+        if (m.id == MsgId.files-plan-error) { return m.a; }
+        if (m.id == MsgId.files-inspect-failed) { return @tr("Couldn't inspect the install: {}", m.a); }
+        if (m.id == MsgId.files-stopping) { return @tr("Stopping after the current file…"); }
+        if (m.id == MsgId.pick-game-folder) { return @tr("Select the folder that contains PGR.exe"); }
+        if (m.id == MsgId.pick-prefix-folder) { return @tr("Select the Wine prefix folder (it contains system.reg)"); }
+        if (m.id == MsgId.pick-files-folder) { return @tr("Select an empty folder for the game, or the folder of an existing game"); }
+        if (m.id == MsgId.crossover-phase) {
+            if (m.n == 1) { return @tr("Checking that CrossOver is signed by CodeWeavers…"); }
+            if (m.n == 2) { return @tr("Unpacking CrossOver…"); }
+            if (m.n == 3) { return @tr("Installing CrossOver…"); }
+            return @tr("Downloading CrossOver…");
+        }
+        if (m.id == MsgId.crossover-installed) { return @tr("CrossOver installed"); }
+        if (m.id == MsgId.crossover-failed) { return @tr("Couldn't install CrossOver"); }
+        if (m.id == MsgId.bottle-creating) { return @tr("Preparing the AscNet bottle…"); }
+        if (m.id == MsgId.bottle-ready) { return @tr("AscNet bottle is ready"); }
+        if (m.id == MsgId.bottle-failed) { return @tr("Couldn't prepare the AscNet bottle"); }
+        if (m.id == MsgId.hint-install-crossover) { return @tr("AscNet runs the Windows game through CrossOver. It has a free 14-day trial; after that you need your own licence."); }
+        if (m.id == MsgId.hint-use-found) { return @tr("Punishing: Gray Raven already runs through CrossOver on this Mac. AscNet will use that prefix and game folder, so no new bottle is needed. Set up then adds the patches."); }
+        if (m.id == MsgId.hint-create-bottle) { return @tr("The bottle is AscNet's own Windows space inside CrossOver, where the game is kept. Creating it takes a few minutes."); }
+        if (m.id == MsgId.hint-repair-bottle) { return @tr("The AscNet bottle needs repair. Repairing it keeps your game files."); }
+        if (m.id == MsgId.working-bottle) { return @tr("Preparing the AscNet bottle. The first time takes a few minutes…"); }
+        return "";
+    }
+
+    pure public function dialog-title(d: DialogId) -> string {
+        if (d == DialogId.confirm-setup) { return @tr("Set up AscNet?"); }
+        if (d == DialogId.confirm-crossover) { return @tr("Install CrossOver?"); }
+        if (d == DialogId.confirm-adopt || d == DialogId.confirm-adopt-steam) { return @tr("Use this install?"); }
+        if (d == DialogId.crossover-failed) { return @tr("CrossOver didn't install"); }
+        if (d == DialogId.bottle-failed) { return @tr("Couldn't prepare the bottle"); }
+        if (d == DialogId.confirm-verify) { return @tr("Verify game files"); }
+        if (d == DialogId.confirm-cancel) { return @tr("Cancel the download?"); }
+        if (d == DialogId.cancel-failed) { return @tr("Couldn't delete the download"); }
+        if (d == DialogId.confirm-close) { return @tr("Stop the local server?"); }
+        if (d == DialogId.game-running) { return @tr("Close the game first"); }
+        if (d == DialogId.game-still-running) { return @tr("The game is still running"); }
+        if (d == DialogId.game-check) { return @tr("Couldn't check the game"); }
+        if (d == DialogId.no-folder) { return @tr("No game folder"); }
+        if (d == DialogId.invalid-folder) { return @tr("Not the game folder"); }
+        if (d == DialogId.save) { return @tr("Couldn't save settings"); }
+        if (d == DialogId.stop) { return @tr("Couldn't stop the local server"); }
+        if (d == DialogId.check) { return @tr("Couldn't check the local setup"); }
+        if (d == DialogId.setup) { return @tr("Set up didn't finish"); }
+        if (d == DialogId.restore) { return @tr("Couldn't restore the game files"); }
+        if (d == DialogId.play) { return @tr("The game didn't start"); }
+        if (d == DialogId.needs-setup) { return @tr("Set up first"); }
+        if (d == DialogId.server-unavailable) { return @tr("The local server isn't available"); }
+        if (d == DialogId.launcher-outdated) { return @tr("Launcher update needed"); }
+        if (d == DialogId.patch-outdated) { return @tr("Patch update needed"); }
+        if (d == DialogId.client-unsupported) { return @tr("This game version isn't supported"); }
+        if (d == DialogId.server-incompatible) { return @tr("The local server doesn't match"); }
+        if (d == DialogId.files-failed) { return @tr("The download stopped"); }
+        return @tr("Please wait");
+    }
+    pure public function dialog-cause(d: DialogId, amount: string) -> string {
+        if (d == DialogId.confirm-cancel) { return @tr("The {} already downloaded will be deleted.", amount); }
+        if (d == DialogId.confirm-crossover) { return @tr("AscNet runs Punishing: Gray Raven on your Mac through CrossOver by CodeWeavers, and CrossOver isn't installed. It is paid software with a 14-day free trial; after that you need your own licence from CodeWeavers. AscNet doesn't include it."); }
+        if (d == DialogId.confirm-adopt || d == DialogId.confirm-adopt-steam) { return @tr("Found Punishing: Gray Raven in {}. AscNet will use that CrossOver prefix and game folder for Set up and Play instead of creating its own bottle.", amount); }
+        if (d == DialogId.crossover-failed) { return @tr("CrossOver couldn't be downloaded, verified or installed."); }
+        if (d == DialogId.bottle-failed) { return @tr("AscNet's CrossOver bottle couldn't be created or repaired."); }
+        if (d == DialogId.cancel-failed) { return @tr("Some of the partly downloaded files couldn't be deleted, so the download was kept."); }
+        if (d == DialogId.confirm-setup) {
+            return S.mac
+                ? @tr("Set up runs source code from the configured repository and installs any missing .NET, MongoDB and Rust tools in AscNet's own folder. Git and the C compiler come from Apple's command line tools.")
+                : @tr("Set up runs source code from the configured repository and installs any missing Git, .NET, MongoDB, Rust and C++ build tools.");
+        }
+        if (d == DialogId.confirm-verify) { return @tr("Every file in this folder is checked against Kuro's official files, and files that differ are downloaded again."); }
+        if (d == DialogId.confirm-close) { return @tr("Closing the launcher stops the local AscNet server and MongoDB that it started."); }
+        if (d == DialogId.game-running) { return @tr("Punishing: Gray Raven is running, and its files can't change while it does."); }
+        if (d == DialogId.game-still-running) { return @tr("The local server has to stay up while the game is running."); }
+        if (d == DialogId.game-check) { return @tr("The launcher couldn't tell whether the game is running."); }
+        if (d == DialogId.no-folder) { return @tr("No game folder is selected."); }
+        if (d == DialogId.invalid-folder) { return @tr("That folder doesn't contain PGR.exe."); }
+        if (d == DialogId.save) { return @tr("The launcher couldn't save your settings."); }
+        if (d == DialogId.stop) { return @tr("The local server or MongoDB didn't stop safely."); }
+        if (d == DialogId.check) { return @tr("The launcher couldn't read its local setup."); }
+        if (d == DialogId.setup) { return @tr("Setting up the local server and patch failed."); }
+        if (d == DialogId.restore) { return @tr("The original game files couldn't be put back."); }
+        if (d == DialogId.play) { return @tr("The local server or the game couldn't be started."); }
+        if (d == DialogId.needs-setup) { return @tr("The local server or the patch isn't ready yet."); }
+        if (d == DialogId.server-unavailable) { return @tr("The local server says it is offline or under maintenance."); }
+        if (d == DialogId.launcher-outdated) { return @tr("This local server needs a newer launcher."); }
+        if (d == DialogId.patch-outdated) { return @tr("This local server needs a newer AscNet patch."); }
+        if (d == DialogId.client-unsupported) { return @tr("The local server doesn't support this version of the game."); }
+        if (d == DialogId.server-incompatible) { return @tr("The local server answered in a way this launcher doesn't understand."); }
+        if (d == DialogId.files-failed) { return @tr("The game files couldn't be downloaded or checked."); }
+        return @tr("The launcher is still working on something.");
+    }
+    pure public function dialog-step(d: DialogId) -> string {
+        if (d == DialogId.confirm-setup) { return S.mac ? @tr("It also applies the Rosetta patches to the game files, keeping backups.") : @tr("Windows may ask for administrator approval."); }
+        if (d == DialogId.confirm-crossover) { return @tr("AscNet downloads CodeWeavers' official installer from codeweavers.com, checks that it is signed by CodeWeavers, and installs it in Applications."); }
+        if (d == DialogId.confirm-adopt) { return @tr("Set up then applies the Rosetta and AscNet patches to that game folder, keeping backups. Nothing else in the prefix is changed."); }
+        if (d == DialogId.confirm-adopt-steam) { return @tr("Steam owns this install: a Steam update or file check can replace patched files (for example KRSDK.dll). Press Set up again afterwards to re-apply them."); }
+        if (d == DialogId.crossover-failed) { return @tr("Check your internet connection and try again, or install CrossOver yourself from codeweavers.com."); }
+        if (d == DialogId.bottle-failed) { return @tr("Try again. If it keeps happening, send the log files."); }
+        if (d == DialogId.confirm-verify) { return @tr("Files patched by AscNet are handled by the launcher's own patch state."); }
+        if (d == DialogId.confirm-cancel) { return @tr("To keep it and continue later, press Pause instead."); }
+        if (d == DialogId.cancel-failed) { return @tr("Close anything that is using the game folder, then try again, or press Resume."); }
+        if (d == DialogId.confirm-close) { return @tr("Stop them and close the launcher, or keep it open."); }
+        if (d == DialogId.game-running) { return @tr("Close the game, then try again."); }
+        if (d == DialogId.game-still-running) { return @tr("Close the game before closing the launcher."); }
+        if (d == DialogId.game-check) { return @tr("Try again. If it keeps happening, send the log files."); }
+        if (d == DialogId.no-folder) { return @tr("Choose the folder that contains PGR.exe, or download the game in Game files."); }
+        if (d == DialogId.invalid-folder) { return @tr("Choose the folder where the game is installed."); }
+        if (d == DialogId.save) { return @tr("Make sure the disk isn't full or read-only, then try again."); }
+        if (d == DialogId.stop) { return @tr("Try again. If it keeps happening, restart your computer."); }
+        if (d == DialogId.check) { return @tr("Try again. If it keeps happening, send the log files."); }
+        if (d == DialogId.setup) { return @tr("Check your internet connection and try again. If it keeps happening, send the log files."); }
+        if (d == DialogId.restore) { return @tr("Close the game and try again, or verify the game in Game files."); }
+        if (d == DialogId.play) { return @tr("Try again. If it keeps happening, Set up again in Settings."); }
+        if (d == DialogId.needs-setup) { return @tr("Press Set up to build them."); }
+        if (d == DialogId.server-unavailable) { return @tr("Wait a moment and press Play again."); }
+        if (d == DialogId.launcher-outdated) { return @tr("Update the launcher, then try again."); }
+        if (d == DialogId.patch-outdated) { return @tr("Set up again in Settings."); }
+        if (d == DialogId.client-unsupported) { return @tr("Update the game in Game files, then Set up again."); }
+        if (d == DialogId.server-incompatible) { return @tr("Update the launcher, then Set up again."); }
+        if (d == DialogId.files-failed) { return @tr("Check your internet connection and free disk space, then press Resume."); }
+        return @tr("Wait for it to finish, then close the launcher.");
+    }
+    pure public function dialog-confirm(d: DialogId) -> string {
+        if (d == DialogId.confirm-cancel) { return @tr("Delete download"); }
+        if (d == DialogId.confirm-crossover) { return @tr("Download and install"); }
+        if (d == DialogId.confirm-adopt || d == DialogId.confirm-adopt-steam) { return @tr("Use it"); }
+        if (d == DialogId.confirm-close) { return @tr("Stop and close"); }
+        return @tr("Continue");
+    }
+    pure public function dialog-cancel(d: DialogId) -> string {
+        if (d == DialogId.confirm-cancel) { return @tr("Keep download"); }
+        if (d == DialogId.confirm-close) { return @tr("Keep open"); }
+        return @tr("Cancel");
+    }
+    pure public function dialog-asks(d: DialogId) -> bool {
+        return d == DialogId.confirm-setup || d == DialogId.confirm-verify || d == DialogId.confirm-close || d == DialogId.confirm-cancel || d == DialogId.confirm-crossover || d == DialogId.confirm-adopt || d == DialogId.confirm-adopt-steam;
+    }
+}

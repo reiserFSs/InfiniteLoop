@@ -1,0 +1,887 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ko\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "AscNet"
+msgstr "AscNet"
+
+msgid "Punishing: Gray Raven"
+msgstr "퍼니싱: 그레이 레이븐"
+
+msgid "Minimize"
+msgstr "최소화"
+
+msgid "Close"
+msgstr "닫기"
+
+msgid "Activity"
+msgstr "활동"
+
+msgid "Game"
+msgstr "게임"
+
+msgid "Not selected"
+msgstr "선택 안 됨"
+
+msgid "AscNet patch"
+msgstr "AscNet 패치"
+
+msgid "Current"
+msgstr "최신"
+
+msgid "Update available"
+msgstr "업데이트 있음"
+
+msgid "Unsupported"
+msgstr "지원되지 않음"
+
+msgid "Needs repair"
+msgstr "복구 필요"
+
+msgid "Not installed"
+msgstr "설치 안 됨"
+
+msgid "Local server"
+msgstr "로컬 서버"
+
+msgid "Running"
+msgstr "실행 중"
+
+msgid "Stopping"
+msgstr "중지하는 중"
+
+msgid "Maintenance"
+msgstr "점검 중"
+
+msgid "Offline"
+msgstr "오프라인"
+
+msgid "Stopped"
+msgstr "중지됨"
+
+msgid "Select game"
+msgstr "게임 선택"
+
+msgid "Set up"
+msgstr "구성"
+
+msgid "Update"
+msgstr "업데이트"
+
+msgid "Play"
+msgstr "게임 시작"
+
+msgid "Working…"
+msgstr "작업 중…"
+
+msgid "Game files"
+msgstr "게임 파일"
+
+msgid "Settings"
+msgstr "설정"
+
+msgid "Game folder"
+msgstr "게임 폴더"
+
+msgid "No game selected"
+msgstr "선택한 게임 없음"
+
+msgid "Choose…"
+msgstr "선택…"
+
+msgid "Check for updates"
+msgstr "업데이트 확인"
+
+msgid "Looks for a newer local server and patch."
+msgstr "더 새로운 로컬 서버와 패치가 있는지 확인합니다."
+
+msgid "Check"
+msgstr "확인"
+
+msgid "Set up again"
+msgstr "다시 구성"
+
+msgid "Rebuilds the local server and the patch."
+msgstr "로컬 서버와 패치를 다시 빌드합니다."
+
+msgid "Restore original files"
+msgstr "원본 파일 복원"
+
+msgid "Puts the game's own files back and removes the AscNet patch."
+msgstr "게임 원래 파일을 되돌리고 AscNet 패치를 제거합니다."
+
+msgid "Restore"
+msgstr "복원"
+
+msgid "Launcher"
+msgstr "런처"
+
+msgid "Background music"
+msgstr "배경 음악"
+
+msgid "Client mods"
+msgstr "클라이언트 모드"
+
+msgid "Turns on the game's debug mode and the mods below."
+msgstr "게임의 디버그 모드와 아래 모드를 켭니다."
+
+msgid "AscNet Launcher {}"
+msgstr "AscNet 런처 {}"
+
+msgid "Language"
+msgstr "언어"
+
+msgid "Each language is its own Kuro client (Simplified Chinese is the mainland China client). The game downloads its remaining resources itself on its first start."
+msgstr "언어마다 별도의 Kuro 클라이언트입니다(중국어 간체는 중국 본토 클라이언트). 나머지 리소스는 게임을 처음 실행할 때 게임이 직접 내려받습니다."
+
+msgid "Install folder"
+msgstr "설치 폴더"
+
+msgid "No folder chosen"
+msgstr "선택한 폴더 없음"
+
+msgid "Paused · {}"
+msgstr "일시중지됨 · {}"
+
+msgid "Download"
+msgstr "다운로드"
+
+msgid "Verify & repair"
+msgstr "검사 및 복구"
+
+msgid "Adopt"
+msgstr "가져오기"
+
+msgid "Pause"
+msgstr "일시중지"
+
+msgid "Resume"
+msgstr "계속"
+
+msgid "Cancel"
+msgstr "취소"
+
+msgid "What to do"
+msgstr "해결 방법"
+
+msgid "Hide details"
+msgstr "자세히 숨기기"
+
+msgid "Details"
+msgstr "자세히"
+
+msgid "OK"
+msgstr "확인"
+
+msgid "TW (Taiwan)"
+msgstr "대만"
+
+msgid "KR (Korea)"
+msgstr "한국"
+
+msgid "JP (Japan)"
+msgstr "일본"
+
+msgid "CN (China)"
+msgstr "중국"
+
+msgid "EN (Global)"
+msgstr "글로벌"
+
+msgid "Traditional Chinese (Taiwan)"
+msgstr "중국어 번체(대만)"
+
+msgid "Korean (Korea)"
+msgstr "한국어(한국)"
+
+msgid "Japanese (Japan)"
+msgstr "일본어(일본)"
+
+msgid "Simplified Chinese (China)"
+msgstr "중국어 간체(중국)"
+
+msgid "English (Global)"
+msgstr "영어(글로벌)"
+
+msgid "Taiwan"
+msgstr "대만"
+
+msgid "Korea"
+msgstr "한국"
+
+msgid "Japan"
+msgstr "일본"
+
+msgid "China"
+msgstr "중국"
+
+msgid "Global"
+msgstr "글로벌"
+
+msgid "Fetching file list"
+msgstr "파일 목록 가져오는 중"
+
+msgid "Verifying files"
+msgstr "파일 검사 중"
+
+msgid "Downloading"
+msgstr "다운로드 중"
+
+msgid "Extracting patch files"
+msgstr "패치 파일 압축 해제 중"
+
+msgid "Removing old files"
+msgstr "이전 파일 삭제 중"
+
+msgid "Finalizing"
+msgstr "마무리하는 중"
+
+msgid "Verifying and repairing the game…"
+msgstr "게임 검사 및 복구 중…"
+
+msgid "Updating the game…"
+msgstr "게임 업데이트 중…"
+
+msgid "Adopting the existing install…"
+msgstr "기존 설치를 가져오는 중…"
+
+msgid "Downloading the game…"
+msgstr "게임 다운로드 중…"
+
+msgid "{} {}% · {} of {} · ~{} min"
+msgstr "{} {}% · {} / {} · 약 {}분"
+
+msgid "{} {}% · {} of {}"
+msgstr "{} {}% · {} / {}"
+
+msgid "{} · {} of {} files"
+msgstr "{} · 파일 {} / {}개"
+
+msgid "Unidentified edition"
+msgstr "알 수 없는 판"
+
+msgid "version {}"
+msgstr "버전 {}"
+
+msgid "unknown version"
+msgstr "알 수 없는 버전"
+
+msgid "Steam copy"
+msgstr "Steam 버전"
+
+msgid "AscNet patch installed"
+msgstr "AscNet 패치 설치됨"
+
+msgid "Verifying treats it as {}; change the language above if that is wrong."
+msgstr "검사 시 {}(으)로 취급합니다. 잘못되었다면 위의 언어를 변경하세요."
+
+msgid "Download {} · {} files · needs {} free"
+msgstr "다운로드 {} · 파일 {}개 · 여유 공간 {} 필요"
+
+msgid "{} old files removed"
+msgstr "이전 파일 {}개 삭제"
+
+msgid "({} available)"
+msgstr "(사용 가능 {})"
+
+msgid "Launcher ready"
+msgstr "런처 준비 완료"
+
+msgid "Game found in your Steam library"
+msgstr "Steam 라이브러리에서 게임을 찾았습니다"
+
+msgid "Background music isn't available"
+msgstr "배경 음악을 사용할 수 없습니다"
+
+msgid "Background video couldn't play"
+msgstr "배경 영상을 재생할 수 없습니다"
+
+msgid "Couldn't change the background music"
+msgstr "배경 음악을 변경하지 못했습니다"
+
+msgid "Checking for a launcher update…"
+msgstr "런처 업데이트 확인 중…"
+
+msgid "Downloading the launcher update…"
+msgstr "런처 업데이트 다운로드 중…"
+
+msgid "Launcher update ready; restarting…"
+msgstr "런처 업데이트 준비 완료, 다시 시작하는 중…"
+
+msgid "Launcher update waits until the local server stops"
+msgstr "로컬 서버가 중지된 뒤 런처를 업데이트합니다"
+
+msgid "Launcher {} is up to date"
+msgstr "런처 {}이(가) 최신 버전입니다"
+
+msgid "Couldn't check for a launcher update"
+msgstr "런처 업데이트를 확인하지 못했습니다"
+
+msgid "Couldn't apply the launcher update"
+msgstr "런처 업데이트를 적용하지 못했습니다"
+
+msgid "Set up started"
+msgstr "구성을 시작했습니다"
+
+msgid "Starting MongoDB"
+msgstr "MongoDB 시작 중"
+
+msgid "Starting the local server"
+msgstr "로컬 서버 시작 중"
+
+msgid "Local server is ready"
+msgstr "로컬 서버 준비 완료"
+
+msgid "A local server update is available"
+msgstr "로컬 서버 업데이트가 있습니다"
+
+msgid "Local server is up to date"
+msgstr "로컬 서버가 최신입니다"
+
+msgid "Couldn't check for server updates"
+msgstr "서버 업데이트를 확인하지 못했습니다"
+
+msgid "Server update waits until the game closes"
+msgstr "게임을 종료한 뒤 서버를 업데이트합니다"
+
+msgid "Couldn't start the server update"
+msgstr "서버 업데이트를 시작하지 못했습니다"
+
+msgid "Set up finished"
+msgstr "구성 완료"
+
+msgid "Set up failed"
+msgstr "구성 실패"
+
+msgid "Original game files restored"
+msgstr "원본 게임 파일을 복원했습니다"
+
+msgid "Couldn't restore the game files"
+msgstr "게임 파일을 복원하지 못했습니다"
+
+msgid "Couldn't start the game"
+msgstr "게임을 시작하지 못했습니다"
+
+msgid "Couldn't check the local setup"
+msgstr "로컬 구성을 확인하지 못했습니다"
+
+msgid "Client mods updated"
+msgstr "클라이언트 모드를 업데이트했습니다"
+
+msgid "Couldn't update client mods"
+msgstr "클라이언트 모드를 업데이트하지 못했습니다"
+
+msgid "Administrator approval was cancelled; game files were not changed"
+msgstr "관리자 승인이 취소되어 게임 파일은 변경되지 않았습니다"
+
+msgid "The AscNet patch can't be used with these game files"
+msgstr "이 게임 파일에는 AscNet 패치를 사용할 수 없습니다"
+
+msgid "FPS unlock moved to the game's graphics settings"
+msgstr "FPS 제한 해제가 게임 그래픽 설정으로 이동했습니다"
+
+msgid "Couldn't move the FPS setting"
+msgstr "FPS 설정을 옮기지 못했습니다"
+
+msgid "Closing after the local server stops"
+msgstr "로컬 서버가 중지되면 닫습니다"
+
+msgid "Game closed; stopping the local server"
+msgstr "게임이 종료되어 로컬 서버를 중지하는 중"
+
+msgid "Local server stopped"
+msgstr "로컬 서버가 중지되었습니다"
+
+msgid "Couldn't stop the local server safely"
+msgstr "로컬 서버를 안전하게 중지하지 못했습니다"
+
+msgid "Verifying the game files ({})"
+msgstr "게임 파일 검사 중({})"
+
+msgid "Updating the game ({})"
+msgstr "게임 업데이트 중({})"
+
+msgid "Adopting the existing install ({})"
+msgstr "기존 설치를 가져오는 중({})"
+
+msgid "Downloading the game ({})"
+msgstr "게임 다운로드 중({})"
+
+msgid "Game files ready · {} downloaded"
+msgstr "게임 파일 준비 완료 · {} 다운로드함"
+
+msgid "Download paused; verified files are kept"
+msgstr "다운로드가 일시중지되었습니다. 검사를 마친 파일은 유지됩니다"
+
+msgid "Download cancelled; run it again to resume"
+msgstr "다운로드가 취소되었습니다. 다시 실행하면 이어받습니다"
+
+msgid "The game download stopped"
+msgstr "게임 다운로드가 중단되었습니다"
+
+msgid "Next: Set up"
+msgstr "다음: 구성"
+
+msgid "Choose where Punishing: Gray Raven is installed, or download it."
+msgstr "퍼니싱: 그레이 레이븐이 설치된 위치를 선택하거나 게임을 다운로드하세요."
+
+msgid "Set up builds the local server and patch. The first time takes a few minutes, and Windows may ask for permission."
+msgstr "구성하면 로컬 서버와 패치를 빌드합니다. 처음에는 몇 분이 걸리며 Windows에서 권한을 요청할 수 있습니다."
+
+msgid "A newer local server is available. Update rebuilds the server and patch."
+msgstr "더 새로운 로컬 서버가 있습니다. 업데이트하면 서버와 패치를 다시 빌드합니다."
+
+msgid "Everything is ready. Play starts the local server and the game."
+msgstr "모든 준비가 끝났습니다. 게임 시작을 누르면 로컬 서버와 게임이 실행됩니다."
+
+msgid "The game is running. Closing the launcher stops the local server."
+msgstr "게임이 실행 중입니다. 런처를 닫으면 로컬 서버가 중지됩니다."
+
+msgid "Stopping the local server…"
+msgstr "로컬 서버를 중지하는 중…"
+
+msgid "The AscNet patch can't be used with these game files. Check Game files, or restore the original files in Settings."
+msgstr "이 게임 파일에는 AscNet 패치를 사용할 수 없습니다. 게임 파일을 확인하거나 설정에서 원본 파일을 복원하세요."
+
+msgid "The patched game files need repair. Set up again in Settings, or restore the original files."
+msgstr "패치된 게임 파일을 복구해야 합니다. 설정에서 다시 구성하거나 원본 파일을 복원하세요."
+
+msgid "Checking the local setup…"
+msgstr "로컬 구성 확인 중…"
+
+msgid "Setting up the local server and patch…"
+msgstr "로컬 서버와 패치 구성 중…"
+
+msgid "Restoring the original game files…"
+msgstr "원본 게임 파일 복원 중…"
+
+msgid "Starting the local server and the game…"
+msgstr "로컬 서버와 게임 시작 중…"
+
+msgid "No mods yet. Set up refreshes the AscNet source and the mod list."
+msgstr "아직 모드가 없습니다. 구성하면 AscNet 소스와 모드 목록을 새로 고칩니다."
+
+msgid "Client mods unavailable: {}"
+msgstr "클라이언트 모드를 사용할 수 없습니다: {}"
+
+msgid "Restart the server and the game after changes."
+msgstr "변경 후에는 서버와 게임을 다시 시작하세요."
+
+msgid "Applying client mods…"
+msgstr "클라이언트 모드 적용 중…"
+
+msgid "Applied: {}. Restart the server and the game."
+msgstr "적용됨: {}. 서버와 게임을 다시 시작하세요."
+
+msgid "Applied: {}. Skipped: {}. Restart the server and the game."
+msgstr "적용됨: {}. 건너뜀: {}. 서버와 게임을 다시 시작하세요."
+
+msgid "Client mods are off and their files are removed. Restart the server and the game."
+msgstr "클라이언트 모드가 꺼졌고 관련 파일이 제거되었습니다. 서버와 게임을 다시 시작하세요."
+
+msgid "Couldn't change client mods: {}"
+msgstr "클라이언트 모드를 변경하지 못했습니다: {}"
+
+msgid "Choose an empty folder to download the game, or the folder of an existing install to verify, update or adopt it."
+msgstr "게임을 다운로드할 빈 폴더를 선택하거나, 검사·업데이트·가져오기를 할 기존 설치 폴더를 선택하세요."
+
+msgid "This folder isn't empty and has no PGR.exe. Choose an empty folder for a new install, or the folder of an existing game."
+msgstr "이 폴더는 비어 있지 않고 PGR.exe도 없습니다. 새로 설치하려면 빈 폴더를, 기존 게임은 게임이 설치된 폴더를 선택하세요."
+
+msgid "Can't read this folder: {}"
+msgstr "이 폴더를 읽을 수 없습니다: {}"
+
+msgid "Empty folder: a full {} client will be installed here."
+msgstr "빈 폴더입니다. 여기에 {} 클라이언트 전체를 설치합니다."
+
+msgid "An interrupted download was found here. It resumes from the files already verified."
+msgstr "중단된 다운로드가 여기에 있습니다. 검사를 마친 파일부터 이어받습니다."
+
+msgid "Inspecting the install…"
+msgstr "설치 확인 중…"
+
+msgid "Couldn't inspect the install: {}"
+msgstr "설치를 확인하지 못했습니다: {}"
+
+msgid "Stopping after the current file…"
+msgstr "현재 파일까지 처리한 뒤 중지합니다…"
+
+msgid "Select the folder that contains PGR.exe"
+msgstr "PGR.exe가 있는 폴더를 선택하세요"
+
+msgid "Select an empty folder for the game, or the folder of an existing game"
+msgstr "게임을 내려받을 빈 폴더 또는 기존 게임 폴더를 선택하세요"
+
+msgid "Set up AscNet?"
+msgstr "AscNet을 구성할까요?"
+
+msgid "Verify game files"
+msgstr "게임 파일 검사"
+
+msgid "Stop the local server?"
+msgstr "로컬 서버를 중지할까요?"
+
+msgid "Close the game first"
+msgstr "먼저 게임을 종료하세요"
+
+msgid "The game is still running"
+msgstr "게임이 아직 실행 중입니다"
+
+msgid "Couldn't check the game"
+msgstr "게임 상태를 확인하지 못했습니다"
+
+msgid "No game folder"
+msgstr "게임 폴더 없음"
+
+msgid "Not the game folder"
+msgstr "게임 폴더가 아닙니다"
+
+msgid "Couldn't save settings"
+msgstr "설정을 저장하지 못했습니다"
+
+msgid "Couldn't stop the local server"
+msgstr "로컬 서버를 중지하지 못했습니다"
+
+msgid "Set up didn't finish"
+msgstr "구성을 완료하지 못했습니다"
+
+msgid "The game didn't start"
+msgstr "게임이 시작되지 않았습니다"
+
+msgid "Set up first"
+msgstr "먼저 구성하세요"
+
+msgid "The local server isn't available"
+msgstr "로컬 서버를 사용할 수 없습니다"
+
+msgid "Launcher update needed"
+msgstr "런처 업데이트가 필요합니다"
+
+msgid "Patch update needed"
+msgstr "패치 업데이트가 필요합니다"
+
+msgid "This game version isn't supported"
+msgstr "지원되지 않는 게임 버전입니다"
+
+msgid "The local server doesn't match"
+msgstr "로컬 서버가 맞지 않습니다"
+
+msgid "The download stopped"
+msgstr "다운로드가 중단되었습니다"
+
+msgid "Please wait"
+msgstr "잠시만 기다려 주세요"
+
+msgid "Set up runs source code from the configured repository and installs any missing Git, .NET, MongoDB, Rust and C++ build tools."
+msgstr "구성하면 지정된 저장소의 소스 코드를 실행하고, 없는 Git, .NET, MongoDB, Rust, C++ 빌드 도구를 설치합니다."
+
+msgid "Every file in this folder is checked against Kuro's official files, and files that differ are downloaded again."
+msgstr "이 폴더의 모든 파일을 Kuro 공식 파일과 비교하며, 다른 파일은 다시 다운로드합니다."
+
+msgid "Closing the launcher stops the local AscNet server and MongoDB that it started."
+msgstr "런처를 닫으면 런처가 시작한 로컬 AscNet 서버와 MongoDB가 중지됩니다."
+
+msgid "Punishing: Gray Raven is running, and its files can't change while it does."
+msgstr "퍼니싱: 그레이 레이븐이 실행 중이라 실행하는 동안에는 파일을 변경할 수 없습니다."
+
+msgid "The local server has to stay up while the game is running."
+msgstr "게임이 실행되는 동안 로컬 서버는 계속 켜져 있어야 합니다."
+
+msgid "The launcher couldn't tell whether the game is running."
+msgstr "런처가 게임이 실행 중인지 확인하지 못했습니다."
+
+msgid "No game folder is selected."
+msgstr "게임 폴더를 선택하지 않았습니다."
+
+msgid "That folder doesn't contain PGR.exe."
+msgstr "이 폴더에 PGR.exe가 없습니다."
+
+msgid "The launcher couldn't save your settings."
+msgstr "런처가 설정을 저장하지 못했습니다."
+
+msgid "The local server or MongoDB didn't stop safely."
+msgstr "로컬 서버 또는 MongoDB가 안전하게 중지되지 않았습니다."
+
+msgid "The launcher couldn't read its local setup."
+msgstr "런처가 로컬 구성을 읽지 못했습니다."
+
+msgid "Setting up the local server and patch failed."
+msgstr "로컬 서버와 패치 구성에 실패했습니다."
+
+msgid "The original game files couldn't be put back."
+msgstr "원본 게임 파일을 되돌리지 못했습니다."
+
+msgid "The local server or the game couldn't be started."
+msgstr "로컬 서버 또는 게임을 시작하지 못했습니다."
+
+msgid "The local server or the patch isn't ready yet."
+msgstr "로컬 서버 또는 패치가 아직 준비되지 않았습니다."
+
+msgid "The local server says it is offline or under maintenance."
+msgstr "로컬 서버가 오프라인이거나 점검 중이라고 응답했습니다."
+
+msgid "This local server needs a newer launcher."
+msgstr "이 로컬 서버는 더 새로운 런처가 필요합니다."
+
+msgid "This local server needs a newer AscNet patch."
+msgstr "이 로컬 서버는 더 새로운 AscNet 패치가 필요합니다."
+
+msgid "The local server doesn't support this version of the game."
+msgstr "로컬 서버가 이 게임 버전을 지원하지 않습니다."
+
+msgid "The local server answered in a way this launcher doesn't understand."
+msgstr "로컬 서버의 응답을 런처가 이해하지 못했습니다."
+
+msgid "The game files couldn't be downloaded or checked."
+msgstr "게임 파일을 다운로드하거나 검사하지 못했습니다."
+
+msgid "The launcher is still working on something."
+msgstr "런처가 아직 작업 중입니다."
+
+msgid "Windows may ask for administrator approval."
+msgstr "Windows에서 관리자 승인을 요청할 수 있습니다."
+
+msgid "Files patched by AscNet are handled by the launcher's own patch state."
+msgstr "AscNet이 패치한 파일은 런처의 패치 상태에 따라 별도로 처리됩니다."
+
+msgid "Stop them and close the launcher, or keep it open."
+msgstr "서버를 중지하고 런처를 닫거나, 런처를 열어 두세요."
+
+msgid "Close the game, then try again."
+msgstr "게임을 종료한 뒤 다시 시도하세요."
+
+msgid "Close the game before closing the launcher."
+msgstr "런처를 닫기 전에 게임을 종료하세요."
+
+msgid "Try again. If it keeps happening, send the log files."
+msgstr "다시 시도하세요. 문제가 계속되면 로그 파일을 보내 주세요."
+
+msgid "Choose the folder that contains PGR.exe, or download the game in Game files."
+msgstr "PGR.exe가 있는 폴더를 선택하거나 '게임 파일'에서 게임을 다운로드하세요."
+
+msgid "Choose the folder where the game is installed."
+msgstr "게임이 설치된 폴더를 선택하세요."
+
+msgid "Make sure the disk isn't full or read-only, then try again."
+msgstr "디스크가 가득 차 있거나 읽기 전용이 아닌지 확인한 뒤 다시 시도하세요."
+
+msgid "Try again. If it keeps happening, restart your computer."
+msgstr "다시 시도하세요. 문제가 계속되면 컴퓨터를 다시 시작하세요."
+
+msgid "Check your internet connection and try again. If it keeps happening, send the log files."
+msgstr "인터넷 연결을 확인한 뒤 다시 시도하세요. 문제가 계속되면 로그 파일을 보내 주세요."
+
+msgid "Close the game and try again, or verify the game in Game files."
+msgstr "게임을 종료한 뒤 다시 시도하거나 '게임 파일'에서 게임을 검사하세요."
+
+msgid "Try again. If it keeps happening, Set up again in Settings."
+msgstr "다시 시도하세요. 문제가 계속되면 설정에서 다시 구성하세요."
+
+msgid "Press Set up to build them."
+msgstr "'구성'을 눌러 빌드하세요."
+
+msgid "Wait a moment and press Play again."
+msgstr "잠시 기다린 뒤 '게임 시작'을 다시 누르세요."
+
+msgid "Update the launcher, then try again."
+msgstr "런처를 업데이트한 뒤 다시 시도하세요."
+
+msgid "Set up again in Settings."
+msgstr "설정에서 다시 구성하세요."
+
+msgid "Update the game in Game files, then Set up again."
+msgstr "'게임 파일'에서 게임을 업데이트한 뒤 다시 구성하세요."
+
+msgid "Update the launcher, then Set up again."
+msgstr "런처를 업데이트한 뒤 다시 구성하세요."
+
+msgid "Check your internet connection and free disk space, then press Resume."
+msgstr "인터넷 연결과 디스크 여유 공간을 확인한 뒤 '계속'을 누르세요."
+
+msgid "Wait for it to finish, then close the launcher."
+msgstr "작업이 끝날 때까지 기다린 뒤 런처를 닫으세요."
+
+msgid "Stop and close"
+msgstr "중지하고 닫기"
+
+msgid "Continue"
+msgstr "계속"
+
+msgid "Keep open"
+msgstr "계속 열어 두기"
+
+msgid "Cancel the download?"
+msgstr "다운로드를 취소할까요?"
+
+msgid "Couldn't delete the download"
+msgstr "다운로드를 삭제하지 못했습니다"
+
+msgid "The {} already downloaded will be deleted."
+msgstr "이미 받은 {}이(가) 삭제됩니다."
+
+msgid "Some of the partly downloaded files couldn't be deleted, so the download was kept."
+msgstr "일부 다운로드 파일을 삭제하지 못해 다운로드를 그대로 두었습니다."
+
+msgid "To keep it and continue later, press Pause instead."
+msgstr "보관하고 나중에 이어서 받으려면 대신 일시정지를 누르세요."
+
+msgid "Close anything that is using the game folder, then try again, or press Resume."
+msgstr "게임 폴더를 사용 중인 프로그램을 닫고 다시 시도하거나 재개를 누르세요."
+
+msgid "Delete download"
+msgstr "다운로드 삭제"
+
+msgid "Keep download"
+msgstr "다운로드 유지"
+
+msgid "CrossOver"
+msgstr "CrossOver"
+
+msgid "Installed"
+msgstr "설치됨"
+
+msgid "Installing"
+msgstr "설치 중"
+
+msgid "Bottle"
+msgstr "보틀"
+
+msgid "Ready"
+msgstr "준비됨"
+
+msgid "Preparing"
+msgstr "준비 중"
+
+msgid "Not created"
+msgstr "만들지 않음"
+
+msgid "Install CrossOver"
+msgstr "CrossOver 설치"
+
+msgid "Repair bottle"
+msgstr "보틀 복구"
+
+msgid "Create bottle"
+msgstr "보틀 만들기"
+
+msgid "Set up builds the local server and patch and prepares the game files. The first time takes a few minutes."
+msgstr "설정은 로컬 서버와 패치를 빌드하고 게임 파일을 준비합니다. 처음에는 몇 분 걸립니다."
+
+msgid "Checking that CrossOver is signed by CodeWeavers…"
+msgstr "CrossOver가 CodeWeavers 서명인지 확인하는 중…"
+
+msgid "Unpacking CrossOver…"
+msgstr "CrossOver 압축을 푸는 중…"
+
+msgid "Installing CrossOver…"
+msgstr "CrossOver를 설치하는 중…"
+
+msgid "Downloading CrossOver…"
+msgstr "CrossOver를 다운로드하는 중…"
+
+msgid "CrossOver installed"
+msgstr "CrossOver 설치됨"
+
+msgid "Couldn't install CrossOver"
+msgstr "CrossOver를 설치하지 못했습니다"
+
+msgid "Preparing the AscNet bottle…"
+msgstr "AscNet 보틀을 준비하는 중…"
+
+msgid "AscNet bottle is ready"
+msgstr "AscNet 보틀이 준비되었습니다"
+
+msgid "Couldn't prepare the AscNet bottle"
+msgstr "AscNet 보틀을 준비하지 못했습니다"
+
+msgid "AscNet runs the Windows game through CrossOver. It has a free 14-day trial; after that you need your own licence."
+msgstr "AscNet은 CrossOver로 Windows 게임을 실행합니다. 14일 무료 체험이 있으며, 이후에는 본인의 라이선스가 필요합니다."
+
+msgid "The bottle is AscNet's own Windows space inside CrossOver, where the game is kept. Creating it takes a few minutes."
+msgstr "보틀은 CrossOver 안의 AscNet 전용 Windows 공간으로, 게임이 여기에 저장됩니다. 만드는 데 몇 분 걸립니다."
+
+msgid "The AscNet bottle needs repair. Repairing it keeps your game files."
+msgstr "AscNet 보틀을 복구해야 합니다. 복구해도 게임 파일은 그대로 유지됩니다."
+
+msgid "Preparing the AscNet bottle. The first time takes a few minutes…"
+msgstr "AscNet 보틀을 준비하는 중입니다. 처음에는 몇 분 걸립니다…"
+
+msgid "Install CrossOver?"
+msgstr "CrossOver를 설치할까요?"
+
+msgid "CrossOver didn't install"
+msgstr "CrossOver가 설치되지 않았습니다"
+
+msgid "Couldn't prepare the bottle"
+msgstr "보틀을 준비하지 못했습니다"
+
+msgid "AscNet runs Punishing: Gray Raven on your Mac through CrossOver by CodeWeavers, and CrossOver isn't installed. It is paid software with a 14-day free trial; after that you need your own licence from CodeWeavers. AscNet doesn't include it."
+msgstr "AscNet은 CodeWeavers의 CrossOver로 Mac에서 'Punishing: Gray Raven'을 실행하는데, CrossOver가 설치되어 있지 않습니다. 유료 소프트웨어이며 14일 무료 체험이 있고, 이후에는 CodeWeavers에서 직접 라이선스를 구매해야 합니다. AscNet에는 CrossOver가 포함되어 있지 않습니다."
+
+msgid "CrossOver couldn't be downloaded, verified or installed."
+msgstr "CrossOver를 다운로드, 확인 또는 설치하지 못했습니다."
+
+msgid "AscNet's CrossOver bottle couldn't be created or repaired."
+msgstr "AscNet의 CrossOver 보틀을 만들거나 복구하지 못했습니다."
+
+msgid "Set up runs source code from the configured repository and installs any missing .NET, MongoDB and Rust tools in AscNet's own folder. Git and the C compiler come from Apple's command line tools."
+msgstr "설정은 지정된 저장소의 소스 코드를 실행하고, 없는 .NET, MongoDB, Rust 도구를 AscNet 전용 폴더에 설치합니다. Git과 C 컴파일러는 Apple의 명령줄 도구를 사용합니다."
+
+msgid "It also applies the Rosetta patches to the game files, keeping backups."
+msgstr "게임 파일에 Rosetta 패치도 적용하며 백업을 남깁니다."
+
+msgid "AscNet downloads CodeWeavers' official installer from codeweavers.com, checks that it is signed by CodeWeavers, and installs it in Applications."
+msgstr "AscNet은 codeweavers.com에서 CodeWeavers의 공식 설치 프로그램을 내려받아 CodeWeavers 서명인지 확인한 뒤 응용 프로그램 폴더에 설치합니다."
+
+msgid "Check your internet connection and try again, or install CrossOver yourself from codeweavers.com."
+msgstr "인터넷 연결을 확인하고 다시 시도하거나, codeweavers.com에서 CrossOver를 직접 설치하세요."
+
+msgid "Download and install"
+msgstr "다운로드 후 설치"
+
+msgid "Using the game in {}"
+msgstr "{}의 게임을 사용합니다"
+
+msgid "Select the Wine prefix folder (it contains system.reg)"
+msgstr "Wine 프리픽스 폴더(system.reg가 들어 있는 폴더)를 선택하세요"
+
+msgid "Use this install?"
+msgstr "이 설치를 사용할까요?"
+
+msgid "Found Punishing: Gray Raven in {}. AscNet will use that CrossOver prefix and game folder for Set up and Play instead of creating its own bottle."
+msgstr "{}에서 퍼니싱: 그레이 레이븐을 찾았습니다. AscNet은 자체 보틀을 만드는 대신 해당 CrossOver 프리픽스와 게임 폴더를 구성과 플레이에 사용합니다."
+
+msgid "Set up then applies the Rosetta and AscNet patches to that game folder, keeping backups. Nothing else in the prefix is changed."
+msgstr "구성하면 해당 게임 폴더에 Rosetta 및 AscNet 패치를 적용하고 백업을 남깁니다. 프리픽스의 다른 내용은 변경되지 않습니다."
+
+msgid "Steam owns this install: a Steam update or file check can replace patched files (for example KRSDK.dll). Press Set up again afterwards to re-apply them."
+msgstr "이 설치는 Steam이 관리합니다. Steam 업데이트나 파일 확인으로 패치된 파일(예: KRSDK.dll)이 교체될 수 있습니다. 이후 구성을 다시 눌러 패치를 재적용하세요."
+
+msgid "Use it"
+msgstr "사용"
+
+msgid "Found Punishing: Gray Raven in {}"
+msgstr "{}에서 퍼니싱: 그레이 레이븐을 찾았습니다"
+
+msgid "Existing CrossOver installs"
+msgstr "기존 CrossOver 설치"
+
+msgid "Not listed? Pick the Wine prefix folder."
+msgstr "목록에 없나요? Wine 프리픽스 폴더를 선택하세요."
+
+msgid "Choose prefix…"
+msgstr "프리픽스 선택…"
+
+msgid "Existing prefix"
+msgstr "기존 프리픽스"
+
+msgid "Use {}"
+msgstr "{} 사용"
+
+msgid "Use a new AscNet bottle instead"
+msgstr "대신 새 AscNet 보틀 사용"
+
+msgid "Punishing: Gray Raven already runs through CrossOver on this Mac. AscNet will use that prefix and game folder, so no new bottle is needed. Set up then adds the patches."
+msgstr "퍼니싱: 그레이 레이븐이 이 Mac의 CrossOver에서 이미 실행되고 있습니다. AscNet이 해당 프리픽스와 게임 폴더를 사용하므로 새 보틀이 필요 없습니다. 이후 구성에서 패치를 추가합니다."
