@@ -8,6 +8,8 @@ export enum ServerLabel { stopped, stopping, maintenance, running, offline }
 export enum SlotLabel { download, verify, update, adopt, pause, resume, cancel, working }
 export enum CrossOverLabel { missing, working, ready }
 export enum BottleLabel { missing, working, ready, repair, adopted }
+/// Whether this executable is the one the official release published; unknown (offline, no manifest) shows nothing.
+export enum BuildLabel { unknown, official, unofficial }
 
 export enum DialogId {
     confirm-setup, confirm-verify, confirm-close, confirm-cancel,
@@ -108,6 +110,9 @@ export global S {
     in property <[ModRow]> mods;
     in property <Msg> mods-status;
     in property <string> launcher-version;
+    in property <BuildLabel> build: BuildLabel.unknown;
+    /// Opens https://github.com/reiserFSs/InfiniteLoop in the default browser.
+    callback open-official();
     callback choose-game-folder();
     callback check-updates();
     callback set-up-again();

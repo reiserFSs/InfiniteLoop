@@ -171,6 +171,7 @@ fn bind(app: &App, controller: &Shared) {
     s.on_music_toggled(act!(|c, on: bool| c.set_music(on)));
     s.on_mods_toggled(act!(|c, on: bool| c.set_mods_enabled(on)));
     s.on_mod_toggled(act!(|c, row: i32, on: bool| c.set_mod(row as usize, on)));
+    s.on_open_official(|| open_official());
     s.on_region_picked(act!(|c, row: i32| c.files_set_region(c::REGIONS[row as usize])));
     s.on_slot_clicked(act!(|c, index: i32| c.files_action(index as usize)));
 
@@ -225,6 +226,25 @@ fn pick_folder(weak: &Weak<App>, controller: &Shared, title: MsgId, done: fn(&mu
         done(&mut controller.borrow_mut(), picked.map(|handle| handle.path().to_path_buf()));
         render(&weak, &controller);
     });
+}
+
+const OFFICIAL_URL: &str = "https://github.com/reiserFSs/InfiniteLoop";
+
+/// Default browser; a failure is only logged (the same address is printed in the UI).
+fn open_official() {
+    #[cfg(windows)]
+    let opened = {
+        use windows::{core::{w, PCWSTR}, Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL}};
+        let url: Vec<u16> = OFFICIAL_URL.encode_utf16().chain(Some(0)).collect();
+        // ShellExecuteW reports success with a value greater than 32.
+        unsafe { ShellExecuteW(None, w!("open"), PCWSTR(url.as_ptr()), None, None, SW_SHOWNORMAL).0 as isize > 32 }
+    };
+    #[cfg(not(windows))]
+    let opened = std::process::Command::new(if cfg!(target_os = "macos") { "open" } else { "xdg-open" })
+        .arg(OFFICIAL_URL).spawn().is_ok();
+    if !opened {
+        let _ = local::launcher_log(&format!("Couldn't open {OFFICIAL_URL}"));
+    }
 }
 
 // ----- rendering ----------------------------------------------------------------------------
@@ -322,6 +342,11 @@ fn render(weak: &Weak<App>, controller: &Shared) {
     });
     s.set_primary_enabled(home.primary_enabled);
     s.set_hint(msg(&home.hint));
+    s.set_build(match view.official_build {
+        Some(true) => BuildLabel::Official,
+        Some(false) => BuildLabel::Unofficial,
+        None => BuildLabel::Unknown,
+    });
     s.set_busy(home.busy.is_some());
     if let Some(busy) = &home.busy {
         s.set_busy_msg(msg(busy));

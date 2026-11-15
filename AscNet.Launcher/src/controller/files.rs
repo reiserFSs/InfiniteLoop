@@ -711,6 +711,7 @@ mod tests {
             patch: None,
             server: None,
             update_available: None,
+            official_build: None,
             update_error: None,
             busy: None,
             stopping: false,

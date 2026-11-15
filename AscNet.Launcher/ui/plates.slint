@@ -1,4 +1,4 @@
-import { S, Tx, Screen, SlotLabel } from "state.slint";
+import { S, Tx, Screen, SlotLabel, BuildLabel } from "state.slint";
 import { Plate, Btn, Toggle, ProgressLine, WinButton, SettingRow, SectionLabel, ValueBox } from "widgets.slint";
 
 /// Centred dark plate with a title and a close button; children go below the header.
@@ -104,10 +104,33 @@ export component SettingsPlate inherits PlateFrame {
         }
         Text { text: Tx.text(S.mods-status); color: #7d838e; font-size: 12px; wrap: word-wrap; }
     }
-    Text {
-        text: @tr("AscNet Launcher {}", S.launcher-version);
-        color: #7d838e;
-        font-size: 11px;
+    HorizontalLayout {
+        spacing: 12px;
+        Text {
+            text: @tr("InfiniteLoop is free. If you paid anyone to play, you were scammed. Official source: github.com/reiserFSs/InfiniteLoop");
+            color: #e9ebef;
+            font-size: 12px;
+            wrap: word-wrap;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        Btn { width: 120px; horizontal-stretch: 0; text: @tr("Open GitHub"); clicked => { S.open-official(); } }
+    }
+    VerticalLayout {
+        spacing: 2px;
+        Text {
+            text: @tr("AscNet Launcher {}", S.launcher-version);
+            color: #7d838e;
+            font-size: 11px;
+        }
+        if S.build == BuildLabel.official : Text { text: @tr("Official build"); color: #7d838e; font-size: 11px; }
+        if S.build == BuildLabel.unofficial : Text {
+            text: @tr("Unofficial build — not from github.com/reiserFSs/InfiniteLoop");
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 600;
+            wrap: word-wrap;
+        }
     }
 }
 

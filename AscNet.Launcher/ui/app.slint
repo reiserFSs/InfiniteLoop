@@ -10,7 +10,7 @@ import "../fonts/NotoSansJP-SemiBold.ttf";
 import "../fonts/NotoSansKR-Regular.ttf";
 import "../fonts/NotoSansKR-SemiBold.ttf";
 
-import { S, Tx, Screen, Primary, PatchLabel, ServerLabel, CrossOverLabel, BottleLabel } from "state.slint";
+import { S, Tx, Screen, Primary, PatchLabel, ServerLabel, CrossOverLabel, BottleLabel, BuildLabel } from "state.slint";
 import { Plate, BigButton, WinButton, ProgressLine } from "widgets.slint";
 import { SettingsPlate, FilesPlate, DialogPlate, FoundRows } from "plates.slint";
 
@@ -119,6 +119,28 @@ export component App inherits Window {
             }
         }
 
+        // InfiniteLoop is free (home only; Settings repeats it in full). The plate opens the official repository.
+        if S.screen == Screen.home : Plate {
+            x: 20px + brand.preferred-width + 8px;
+            y: 16px;
+            width: free.preferred-width + 20px;
+            height: 32px;
+            free := Text {
+                x: 10px;
+                height: parent.height;
+                text: @tr("InfiniteLoop is free · Official: github.com/reiserFSs/InfiniteLoop");
+                color: free-ta.has-hover ? #ffffff : #c9cdd4;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+            free-ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { S.open-official(); }
+            }
+            accessible-role: button;
+            accessible-label: free.text;
+        }
+
         // window controls
         HorizontalLayout {
             x: parent.width - 12px - self.width;
@@ -205,6 +227,17 @@ export component App inherits Window {
                             : S.server == ServerLabel.offline ? @tr("Offline")
                             : @tr("Stopped");
                         warn: S.server == ServerLabel.maintenance || S.server == ServerLabel.offline;
+                    }
+                    if S.build == BuildLabel.official : StatusRow {
+                        key: @tr("Launcher");
+                        value: @tr("Official build");
+                    }
+                    if S.build == BuildLabel.unofficial : Text {
+                        text: @tr("Unofficial build — not from github.com/reiserFSs/InfiniteLoop");
+                        color: #ffffff;
+                        font-weight: 600;
+                        font-size: 12px;
+                        wrap: word-wrap;
                     }
                     Rectangle { height: 6px; }
                     if !S.busy : Text {

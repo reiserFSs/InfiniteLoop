@@ -885,3 +885,18 @@ msgstr "改為使用新的 AscNet 容器"
 
 msgid "Punishing: Gray Raven already runs through CrossOver on this Mac. AscNet will use that prefix and game folder, so no new bottle is needed. Set up then adds the patches."
 msgstr "戰雙帕彌什已在這台 Mac 上透過 CrossOver 執行。AscNet 將使用該前綴和遊戲資料夾，無需新建容器。隨後配置會加入修補。"
+
+msgid "InfiniteLoop is free · Official: github.com/reiserFSs/InfiniteLoop"
+msgstr "InfiniteLoop 完全免費 · 官方：github.com/reiserFSs/InfiniteLoop"
+
+msgid "InfiniteLoop is free. If you paid anyone to play, you were scammed. Official source: github.com/reiserFSs/InfiniteLoop"
+msgstr "InfiniteLoop 完全免費。如果你為了遊玩向任何人付過錢，你就被騙了。官方原始碼：github.com/reiserFSs/InfiniteLoop"
+
+msgid "Open GitHub"
+msgstr "開啟 GitHub"
+
+msgid "Official build"
+msgstr "官方版本"
+
+msgid "Unofficial build — not from github.com/reiserFSs/InfiniteLoop"
+msgstr "非官方版本 — 並非來自 github.com/reiserFSs/InfiniteLoop"

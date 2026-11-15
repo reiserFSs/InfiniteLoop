@@ -188,10 +188,21 @@ jobs:
           done
           if grep -E '(^|/)(\._|__MACOSX)' names; then echo 'AppleDouble members in the zip'; exit 1; fi
           unzip -p dist/AscNetLauncher-macOS.zip 'AscNet Launcher.app/Contents/Info.plist' | grep -q "<string>$VERSION</string>"
+      # What players check their launcher against: the hash of each executable as shipped inside the zips. The launcher
+      # compares itself with this asset of its own release; the updater ignores every asset except its zip name.
+      - name: Write the executable hash manifest
+        run: |
+          set -euo pipefail
+          win="$(unzip -p dist/AscNetLauncher.zip AscNetLauncher.exe | sha256sum | cut -d' ' -f1)"
+          mac="$(unzip -p dist/AscNetLauncher-macOS.zip 'AscNet Launcher.app/Contents/MacOS/AscNetLauncher' | sha256sum | cut -d' ' -f1)"
+          printf '%s  AscNetLauncher.exe\n%s  AscNetLauncher-macOS\n' "$win" "$mac" > dist/AscNetLauncher.sha256
+          cat dist/AscNetLauncher.sha256
       - uses: actions/upload-artifact@v6
         with:
           name: release-zips
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/AscNetLauncher.sha256
           if-no-files-found: error
 
   smoke:
@@ -212,6 +223,7 @@ jobs:
         run: |
           set -euo pipefail
           7z x -y dist/AscNetLauncher.zip -osmoke >/dev/null
+          grep -qx "$(sha256sum smoke/AscNetLauncher.exe | cut -d' ' -f1)  AscNetLauncher.exe" dist/AscNetLauncher.sha256
           cd smoke
           ./AscNetLauncher.exe --check-media background.mp4
           grep -q "Launcher started" launcher.log
@@ -220,6 +232,7 @@ jobs:
         run: |
           set -euo pipefail
           ditto -x -k dist/AscNetLauncher-macOS.zip smoke
+          grep -qx "$(shasum -a 256 "smoke/AscNet Launcher.app/Contents/MacOS/AscNetLauncher" | cut -d' ' -f1)  AscNetLauncher-macOS" dist/AscNetLauncher.sha256
           app="smoke/AscNet Launcher.app"
           codesign --verify --deep --strict "$app"
           "$app/Contents/MacOS/AscNetLauncher" --check-media "$app/Contents/Resources/background.mp4"
@@ -230,6 +243,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     env:
       GH_TOKEN: ${{ github.token }}
       NOTES: ${{ inputs.notes }}
@@ -240,10 +255,16 @@ jobs:
         with:
           name: release-zips
           path: dist
+      # GitHub build-provenance attestations for both zips: `gh attestation verify AscNetLauncher.zip --repo reiserFSs/InfiniteLoop`
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            dist/AscNetLauncher.zip
+            dist/AscNetLauncher-macOS.zip
       - name: Create the release
         run: |
           set -euo pipefail
-          assets=(dist/AscNetLauncher.zip dist/AscNetLauncher-macOS.zip)
+          assets=(dist/AscNetLauncher.zip dist/AscNetLauncher-macOS.zip dist/AscNetLauncher.sha256)
           notes="${NOTES//\\n/$'\n'}"
           if [ -n "$SCREENSHOT" ]; then
             case "$SCREENSHOT" in
@@ -272,4 +293,7 @@ jobs:
             jq -e --arg n "$(basename "$f")" --arg d "sha256:$(sha256sum "$f" | cut -d' ' -f1)" \
               '.assets[] | select(.name == $n) | .digest == $d' latest.json >/dev/null
           done
+          # The provenance attestations and the manifest (one line per executable, hashes as shipped in the zips).
+          for f in dist/*.zip; do gh attestation verify "$f" --repo "$GITHUB_REPOSITORY"; done
+          [ "$(grep -cE '^[0-9a-f]{64}  AscNetLauncher(\.exe|-macOS)$' dist/AscNetLauncher.sha256)" = 2 ]
           echo "latest = $VERSION, assets: $got"

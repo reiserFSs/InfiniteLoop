@@ -348,7 +348,8 @@ enum Event {
     Mac(StepProgress),
 }
 enum WorkResult {
-    LauncherChecked(Result<Option<updater::StagedUpdate>>),
+    /// The update check's outcome, and (best effort) whether this executable is the official release build.
+    LauncherChecked(Option<bool>, Result<Option<updater::StagedUpdate>>),
     Refresh {
         build: Option<LocalBuild>,
         package: Option<PatchPackage>,
@@ -502,6 +503,7 @@ pub struct View {
     pub activity: Vec<ActivityLine>,
     pub settings: SettingsView,
     pub files: FilesView,
+    pub official_build: Option<bool>,
 }
 
 // ----- the controller -----------------------------------------------------------------------
@@ -515,6 +517,8 @@ pub struct Controller {
     patch: Option<PatchState>,
     server: Option<ServerStatus>,
     update_available: Option<bool>,
+    /// `Some(true)` official build, `Some(false)` unofficial, `None` unknown (offline, no manifest): nothing is shown.
+    official_build: Option<bool>,
     update_error: Option<String>,
     busy: Option<Busy>,
     /// Local server and MongoDB are shutting down after the game exited.
@@ -581,6 +585,7 @@ impl Controller {
             patch: None,
             server: None,
             update_available: None,
+            official_build: None,
             update_error: None,
             busy: None,
             stopping: false,
@@ -975,14 +980,16 @@ impl Controller {
         let (generation, events) = self.begin(Busy::Launcher);
         thread::spawn(move || {
             let _ = events.send(Event::Progress("Checking launcher releases…".to_owned()));
+            let mut official = None;
             let result = (|| {
                 let Some(release) = updater::check(&repository, LAUNCHER_VERSION)? else {
+                    official = updater::official_build(LAUNCHER_VERSION);
                     return Ok(None);
                 };
                 let _ = events.send(Event::Progress("Downloading and verifying launcher update…".to_owned()));
                 updater::stage(&release).map(Some)
             })();
-            let _ = events.send(Event::Work(Work { generation, result: Ok(WorkResult::LauncherChecked(result)) }));
+            let _ = events.send(Event::Work(Work { generation, result: Ok(WorkResult::LauncherChecked(official, result)) }));
         });
     }
 
@@ -1172,7 +1179,8 @@ impl Controller {
                     notes.push(Text::ModsFailed);
                 }
             },
-            Ok(WorkResult::LauncherChecked(result)) => {
+            Ok(WorkResult::LauncherChecked(official, result)) => {
+                self.official_build = official;
                 let message = match result {
                     Ok(Some(staged)) if self.runtime.is_none() => {
                         match install::game_running().and_then(|running| {
@@ -1492,6 +1500,7 @@ impl Controller {
                 .collect(),
             settings,
             files: self.files_view(),
+            official_build: self.official_build,
         }
     }
 

@@ -121,6 +121,63 @@ pub fn check(repository: &str, current_version: &str) -> Result<Option<Release>>
     Ok(Some(Release { version: version.to_string(), url: expected, digest: digest.to_ascii_lowercase(), size: asset.size }))
 }
 
+/// Provenance is judged against this repository only, never the configurable `repositoryUrl`: a fork that points its
+/// launcher at its own releases must not be able to call itself official.
+const OFFICIAL_REPOSITORY: &str = "reiserFSs/InfiniteLoop";
+/// Extra release asset: `<sha256>  <name>` lines, one per launcher executable the workflow built. The updater ignores
+/// every asset but `ASSET`, so launchers that predate it are unaffected.
+const MANIFEST: &str = "AscNetLauncher.sha256";
+const MAX_MANIFEST: u64 = 4096;
+/// This platform's line in the manifest (the Windows exe, or the macOS app's binary).
+#[cfg(windows)]
+const MANIFEST_ENTRY: &str = "AscNetLauncher.exe";
+#[cfg(not(windows))]
+const MANIFEST_ENTRY: &str = "AscNetLauncher-macOS";
+
+/// `Some(true)` when the manifest lists this executable's hash, `Some(false)` when it lists a different one for this
+/// platform, `None` when there is nothing to compare (no manifest, or no line for this platform).
+fn judge_build(manifest: Option<&str>, entry: &str, own_sha256: &str) -> Option<bool> {
+    let listed = manifest?.lines().find_map(|line| {
+        let (hash, name) = line.split_once(char::is_whitespace)?;
+        (name.trim().trim_start_matches('*') == entry).then_some(hash)
+    })?;
+    Some(listed.eq_ignore_ascii_case(own_sha256))
+}
+
+fn official_manifest(version: &str) -> Result<Option<String>> {
+    let http = client()?;
+    let response = http.get(format!("https://api.github.com/repos/{OFFICIAL_REPOSITORY}/releases/tags/{version}"))
+        .header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28").send()?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND { return Ok(None); }
+    let mut response = response.error_for_status()?;
+    let length = response.content_length();
+    let release: ApiRelease = serde_json::from_slice(&crate::download::read_body(&mut response, length, 2 * 1024 * 1024)?)?;
+    ensure!(release.tag_name == version && !release.draft && !release.prerelease, "not a published release of {version}");
+    let Some(asset) = release.assets.iter().find(|a| a.name == MANIFEST) else { return Ok(None) };
+    let url = format!("https://github.com/{OFFICIAL_REPOSITORY}/releases/download/{version}/{MANIFEST}");
+    ensure!(asset.state == "uploaded" && asset.size > 0 && asset.size <= MAX_MANIFEST && asset.browser_download_url == url, "invalid manifest asset");
+    let mut response = http.get(url).send()?.error_for_status()?;
+    let length = response.content_length();
+    Ok(Some(String::from_utf8(crate::download::read_body(&mut response, length, MAX_MANIFEST as usize)?)?))
+}
+
+/// Whether this executable is the one the official release of `version` published. Best effort: offline, an API
+/// failure, a missing release or manifest all give `None` (nothing is shown, nothing is blocked).
+pub fn official_build(version: &str) -> Option<bool> {
+    let judged = (|| {
+        let Some(manifest) = official_manifest(version)? else { return Ok(None) };
+        let own = sha256_file(&std::env::current_exe()?)?;
+        Ok::<_, anyhow::Error>(judge_build(Some(&manifest), MANIFEST_ENTRY, &own))
+    })();
+    match judged {
+        Ok(verdict) => verdict,
+        Err(error) => {
+            let _ = crate::local::launcher_log(&format!("Build provenance not checked: {error:#}"));
+            None
+        }
+    }
+}
+
 fn regular(path: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(path)?;
     ensure!(metadata.is_file() && !metadata.file_type().is_symlink(), "not a regular file: {}", path.display());
@@ -691,6 +748,17 @@ mod tests {
         assert!(verify_version(&executable, "1.0.3").is_ok());
         assert!(verify_version(&executable, "1.0.4").is_err());
         fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn build_is_judged_against_the_manifest() {
+        let manifest = "aaaa  AscNetLauncher.exe\nBBBB  AscNetLauncher-macOS\n";
+        assert_eq!(judge_build(Some(manifest), "AscNetLauncher.exe", "AAAA"), Some(true));
+        assert_eq!(judge_build(Some(manifest), "AscNetLauncher-macOS", "bbbb"), Some(true));
+        assert_eq!(judge_build(Some(manifest), "AscNetLauncher.exe", "cccc"), Some(false));
+        // nothing to compare: no manifest (offline, API failure, old release) or no line for this platform
+        assert_eq!(judge_build(None, "AscNetLauncher.exe", "aaaa"), None);
+        assert_eq!(judge_build(Some("aaaa  AscNetLauncher.exe\n"), "AscNetLauncher-macOS", "aaaa"), None);
+        assert_eq!(judge_build(Some(""), "AscNetLauncher.exe", "aaaa"), None);
     }
     #[test]
     fn rollback_is_repeatable_and_preserves_configuration() {

@@ -885,3 +885,18 @@ msgstr "대신 새 AscNet 보틀 사용"
 
 msgid "Punishing: Gray Raven already runs through CrossOver on this Mac. AscNet will use that prefix and game folder, so no new bottle is needed. Set up then adds the patches."
 msgstr "퍼니싱: 그레이 레이븐이 이 Mac의 CrossOver에서 이미 실행되고 있습니다. AscNet이 해당 프리픽스와 게임 폴더를 사용하므로 새 보틀이 필요 없습니다. 이후 구성에서 패치를 추가합니다."
+
+msgid "InfiniteLoop is free · Official: github.com/reiserFSs/InfiniteLoop"
+msgstr "InfiniteLoop는 무료입니다 · 공식: github.com/reiserFSs/InfiniteLoop"
+
+msgid "InfiniteLoop is free. If you paid anyone to play, you were scammed. Official source: github.com/reiserFSs/InfiniteLoop"
+msgstr "InfiniteLoop는 무료입니다. 플레이하려고 누군가에게 돈을 냈다면 사기를 당한 것입니다. 공식 소스: github.com/reiserFSs/InfiniteLoop"
+
+msgid "Open GitHub"
+msgstr "GitHub 열기"
+
+msgid "Official build"
+msgstr "공식 빌드"
+
+msgid "Unofficial build — not from github.com/reiserFSs/InfiniteLoop"
+msgstr "비공식 빌드 — github.com/reiserFSs/InfiniteLoop에서 배포한 것이 아닙니다"
