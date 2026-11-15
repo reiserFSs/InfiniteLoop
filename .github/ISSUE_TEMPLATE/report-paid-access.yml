@@ -1,0 +1,39 @@
+name: Report paid access
+description: Someone is charging money to play InfiniteLoop
+title: "Paid access: "
+labels: ["paid-access"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        InfiniteLoop is free. Selling access to a server, a launcher or an account is a scam.
+
+        **This issue is public.** If you would rather not post your name or payment details here, report on Discord instead: https://discord.gg/UVzx3rRkdK (message a moderator). Never post passwords, card numbers or full payment receipts.
+  - type: input
+    id: who
+    attributes:
+      label: Who is selling
+      description: Name, handle or shop name.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where they sell
+      description: Discord server, Telegram, website, marketplace, social media.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Link or screenshot
+      description: A link to the offer, or drag a screenshot in here. Hide anything private first.
+    validations:
+      required: true
+  - type: textarea
+    id: paid
+    attributes:
+      label: What was paid
+      description: Roughly how much, in what currency, and for what (server access, a launcher, an account, a "premium" tier). Leave out card or account numbers.
+    validations:
+      required: false

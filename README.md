@@ -7,6 +7,8 @@ Play **Punishing: Gray Raven** on your own PC, against a private server that run
 
 This is a fan project, not an official service. Everything runs locally: your progress is stored on your computer, and there are no other players unless you share your server.
 
+> **InfiniteLoop is free.** It runs on your own PC, and the only official source is this repository and its [releases](https://github.com/reiserFSs/InfiniteLoop/releases). If anyone charged you to play, to download it, or for access to a server they run, you were scammed. Please [report it](https://github.com/reiserFSs/InfiniteLoop/issues/new/choose) or tell us on [Discord](https://discord.gg/UVzx3rRkdK).
+
 ## What you need
 
 - A Windows 10/11 PC (64-bit). macOS and Linux work through CrossOver or Wine.
