@@ -39,7 +39,7 @@ jobs:
   version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check version, branch and tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -73,9 +73,9 @@ jobs:
   media:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: AscNet.Launcher/packaging/fetch-media.sh "$RUNNER_TEMP/media"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: media
           path: ${{ runner.temp }}/media
@@ -85,7 +85,7 @@ jobs:
     needs: version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
@@ -99,7 +99,7 @@ jobs:
           workspaces: AscNet.Launcher
       - run: cargo build --locked --release --target x86_64-pc-windows-msvc --bin ascnet-launcher
         working-directory: AscNet.Launcher
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: windows-exe
           path: AscNet.Launcher/target/x86_64-pc-windows-msvc/release/ascnet-launcher.exe
@@ -109,20 +109,20 @@ jobs:
     needs: [version, media]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: AscNet.Launcher
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: media
           path: ${{ runner.temp }}/media
       # package.sh builds, runs --check-media on the mp4 (fails on B-frames), signs ad hoc and zips.
       - run: AscNet.Launcher/packaging/macos/package.sh --media "$RUNNER_TEMP/media"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: macos-zip
           path: AscNet.Launcher/target/macos/AscNetLauncher-macOS.zip
@@ -132,16 +132,16 @@ jobs:
     needs: [version, media, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with:
           name: media
           path: media
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: windows-exe
           path: exe
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: macos-zip
           path: dist
@@ -188,7 +188,7 @@ jobs:
           done
           if grep -E '(^|/)(\._|__MACOSX)' names; then echo 'AppleDouble members in the zip'; exit 1; fi
           unzip -p dist/AscNetLauncher-macOS.zip 'AscNet Launcher.app/Contents/Info.plist' | grep -q "<string>$VERSION</string>"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: release-zips
           path: dist/*.zip
@@ -202,7 +202,7 @@ jobs:
         os: [windows-latest, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: release-zips
           path: dist
@@ -235,8 +235,8 @@ jobs:
       NOTES: ${{ inputs.notes }}
       SCREENSHOT: ${{ inputs.screenshot }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with:
           name: release-zips
           path: dist

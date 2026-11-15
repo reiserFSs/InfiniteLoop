@@ -23,7 +23,7 @@ jobs:
       run:
         working-directory: AscNet.Launcher
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       # openh264 compiles its x86 assembly with nasm (not needed on arm64).
       - name: Install nasm

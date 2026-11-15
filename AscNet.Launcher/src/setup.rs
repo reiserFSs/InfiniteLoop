@@ -1729,30 +1729,100 @@ fn ensure_compiler(root: &Path, deadline: Instant, progress: &mut dyn FnMut(&str
         }
         return compiler_from_tree(&bundled);
     }
-    if let Some(found) = locate_vs(deadline, progress, log)? {
-        return vs_or_portable_compiler(root, found, deadline, progress, log);
+    let mut probe = NativeVs { root, deadline, progress, log, vars: None };
+    let choice = choose_toolchain(&mut probe);
+    let vars = probe.vars.take();
+    match choice {
+        Toolchain::Vs(found) => Ok(Compiler { vars: vars.context("Visual Studio compiler environment was not captured")?, msbuild: found.msbuild, wine: false, full_environment: true }),
+        Toolchain::Portable(reason) => {
+            note(progress, log, &format!("Visual Studio can't be used for the build ({reason}). Using the launcher's own C++ tools and Windows SDK instead; no action needed."))?;
+            let bundled = root.join("tools").join("msvc");
+            if !crate::msvc::is_ready(&bundled) {
+                install_portable_msvc(root, &bundled, deadline, progress, log)?;
+            }
+            Ok(Compiler { vars: crate::msvc::compiler_vars(&bundled)?, msbuild: None, wine: false, full_environment: false })
+        }
     }
-    note(progress, log, "Installing Visual Studio 2022 Build Tools")?;
-    install_build_tools(root, None, deadline, progress, log)?;
-    let found = locate_vs(deadline, progress, log)?.context("Visual Studio Build Tools C++ workload was installed but MSBuild with v143 C++ tools was not found. Restart the launcher and retry.")?;
-    vs_or_portable_compiler(root, found, deadline, progress, log)
 }
 
-/// A Visual Studio install with the C++ tools but no Windows SDK passes vswhere and vcvars, then fails
-/// every link with LNK1181 kernel32.lib. Use the launcher's own MSVC toolset and Windows SDK instead.
-#[cfg(windows)]
-fn vs_or_portable_compiler(root: &Path, found: VsInstall, deadline: Instant, progress: &mut dyn FnMut(&str), log: &mut dyn FnMut(&str) -> Result<()>) -> Result<Compiler> {
-    let vars = capture_vcvars(&found.bat, deadline, progress, log)?;
-    if lib_has_windows_sdk(&vars) {
-        return Ok(Compiler { vars, msbuild: Some(found.msbuild), wine: false, full_environment: true });
-    }
-    note(progress, log, &format!("{} has no Windows SDK (kernel32.lib is not on LIB); using the launcher's own MSVC toolset and Windows SDK", found.bat.display()))?;
-    let bundled = root.join("tools").join("msvc");
-    if !crate::msvc::is_ready(&bundled) {
-        install_portable_msvc(root, &bundled, deadline, progress, log)?;
-    }
-    Ok(Compiler { vars: crate::msvc::compiler_vars(&bundled)?, msbuild: None, wine: false, full_environment: false })
+/// What `choose_toolchain` needs from the machine; the real one runs vswhere and the installer.
+trait VsProbe {
+    /// An existing install with the C++ tools: VS 2022 if present, else VS 2026 or newer.
+    fn find(&mut self) -> Result<Option<VsInstall>>;
+    /// Any VS 2026 or newer, with or without the C++ tools.
+    fn newer_vs_installed(&mut self) -> Result<bool>;
+    fn install_build_tools(&mut self) -> Result<()>;
+    fn has_windows_sdk(&mut self, vs: &VsInstall) -> Result<bool>;
 }
+
+enum Toolchain {
+    Vs(VsInstall),
+    /// The launcher's own MSVC toolset and Windows SDK; the string says why Visual Studio was not used.
+    Portable(String),
+}
+
+/// VS 2022 wins over a newer VS. Build Tools 2022 are only installed when no newer VS exists: its
+/// shared components make the 2022 installer fail with 1603. Any VS problem falls back to the portable toolset.
+/// A VS with the C++ tools but no Windows SDK passes vswhere and vcvars, then fails every link with LNK1181.
+fn choose_toolchain(probe: &mut dyn VsProbe) -> Toolchain {
+    let found = match probe.find() {
+        Ok(found) => found,
+        Err(error) => return Toolchain::Portable(format!("looking for it failed: {error:#}")),
+    };
+    let vs = match found {
+        Some(vs) => vs,
+        None => {
+            if probe.newer_vs_installed().unwrap_or(false) {
+                return Toolchain::Portable("Visual Studio 2026 is installed without its C++ tools".into());
+            }
+            if let Err(error) = probe.install_build_tools() {
+                return Toolchain::Portable(format!("installing the Visual Studio 2022 C++ tools failed: {error:#}"));
+            }
+            match probe.find() {
+                Ok(Some(vs)) => vs,
+                Ok(None) => return Toolchain::Portable("the Visual Studio C++ tools were not found after installing them".into()),
+                Err(error) => return Toolchain::Portable(format!("looking for it failed: {error:#}")),
+            }
+        }
+    };
+    match probe.has_windows_sdk(&vs) {
+        Ok(true) => Toolchain::Vs(vs),
+        Ok(false) => Toolchain::Portable(format!("{} has no Windows SDK (kernel32.lib is not on LIB)", vs.bat.display())),
+        Err(error) => Toolchain::Portable(format!("its compiler environment failed: {error:#}")),
+    }
+}
+
+#[cfg(windows)]
+struct NativeVs<'a> {
+    root: &'a Path,
+    deadline: Instant,
+    progress: &'a mut dyn FnMut(&str),
+    log: &'a mut dyn FnMut(&str) -> Result<()>,
+    /// vcvars environment of the VS that passed `has_windows_sdk`.
+    vars: Option<Vec<(String, String)>>,
+}
+
+#[cfg(windows)]
+impl VsProbe for NativeVs<'_> {
+    fn find(&mut self) -> Result<Option<VsInstall>> {
+        find_vs(self.deadline, self.progress, self.log)
+    }
+    fn newer_vs_installed(&mut self) -> Result<bool> {
+        let Some(vswhere) = vswhere_path() else { return Ok(false) };
+        Ok(!vswhere_text(&vswhere, &["-latest", "-version", NEWER_VS, "-products", "*", "-property", "installationPath"], self.deadline, self.progress, self.log)?.is_empty())
+    }
+    fn install_build_tools(&mut self) -> Result<()> {
+        note(self.progress, self.log, "Installing Visual Studio 2022 Build Tools")?;
+        install_build_tools(self.root, None, self.deadline, self.progress, self.log)
+    }
+    fn has_windows_sdk(&mut self, vs: &VsInstall) -> Result<bool> {
+        let vars = capture_vcvars(&vs.bat, self.deadline, self.progress, self.log)?;
+        let ok = lib_has_windows_sdk(&vars);
+        self.vars = ok.then_some(vars);
+        Ok(ok)
+    }
+}
+
 
 /// True when a LIB directory from the compiler environment holds the Windows SDK's kernel32.lib.
 fn lib_has_windows_sdk(vars: &[(String, String)]) -> bool {
@@ -1764,10 +1834,10 @@ fn lib_has_windows_sdk(vars: &[(String, String)]) -> bool {
         .any(|dir| Path::new(dir).join("kernel32.lib").is_file())
 }
 
-#[cfg(windows)]
 struct VsInstall {
     bat: PathBuf,
-    msbuild: PathBuf,
+    /// Only VS 2022: `VersionShim.vcxproj` pins PlatformToolset v143, so a newer VS builds the shim with cl.exe instead.
+    msbuild: Option<PathBuf>,
 }
 
 #[cfg(windows)]
@@ -1783,26 +1853,21 @@ fn vswhere_text(vswhere: &Path, args: &[&str], deadline: Instant, progress: &mut
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
+const VS_2022: &str = "[17.0,18.0)";
+const NEWER_VS: &str = "[18.0,)";
+const VC_TOOLS: &str = "Microsoft.VisualStudio.Component.VC.Tools.x86.x64";
+
+/// Existing VS with the C++ tools: 2022, then 2026 or newer, then a 2022 Build Tools shell that gets the C++ workload added.
 #[cfg(windows)]
-fn locate_vs(deadline: Instant, progress: &mut dyn FnMut(&str), log: &mut dyn FnMut(&str) -> Result<()>) -> Result<Option<VsInstall>> {
+fn find_vs(deadline: Instant, progress: &mut dyn FnMut(&str), log: &mut dyn FnMut(&str) -> Result<()>) -> Result<Option<VsInstall>> {
     let Some(vswhere) = vswhere_path() else { return Ok(None) };
-    let install = vswhere_text(&vswhere, &["-latest", "-version", "[17.0,18.0)", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath"], deadline, progress, log)?;
-    let install = install.lines().next().unwrap_or("").trim();
-    if !install.is_empty() {
-        let root = PathBuf::from(install);
-        let bat = root.join("VC").join("Auxiliary").join("Build").join("vcvars64.bat");
-        let msbuild = root.join("MSBuild").join("Current").join("Bin").join("MSBuild.exe");
-        if bat.is_file() && msbuild.is_file() {
-            return Ok(Some(VsInstall { bat, msbuild }));
-        }
-        let found = vswhere_text(&vswhere, &["-latest", "-version", "[17.0,18.0)", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-find", r"MSBuild\**\Bin\MSBuild.exe"], deadline, progress, log)?;
-        if let Some(msbuild) = found.lines().map(str::trim).find(|line| !line.is_empty()).map(PathBuf::from) {
-            if bat.is_file() && msbuild.is_file() {
-                return Ok(Some(VsInstall { bat, msbuild }));
-            }
-        }
+    if let Some(vs) = locate_vs(&vswhere, VS_2022, deadline, progress, log)? {
+        return Ok(Some(vs));
     }
-    let build_tools = vswhere_text(&vswhere, &["-latest", "-version", "[17.0,18.0)", "-products", "Microsoft.VisualStudio.Product.BuildTools", "-property", "installationPath"], deadline, progress, log)?;
+    if let Some(vs) = locate_vs(&vswhere, NEWER_VS, deadline, progress, log)? {
+        return Ok(Some(vs));
+    }
+    let build_tools = vswhere_text(&vswhere, &["-latest", "-version", VS_2022, "-products", "Microsoft.VisualStudio.Product.BuildTools", "-property", "installationPath"], deadline, progress, log)?;
     let build_tools = build_tools.lines().next().unwrap_or("").trim();
     if !build_tools.is_empty() {
         let setup = vswhere.parent().context("vswhere has no directory")?.join("setup.exe");
@@ -1810,32 +1875,34 @@ fn locate_vs(deadline: Instant, progress: &mut dyn FnMut(&str), log: &mut dyn Fn
             bail!("Visual Studio Installer is missing; repair it before adding the C++ workload.");
         }
         install_build_tools_at(&setup, Some(PathBuf::from(build_tools)), deadline, progress, log)?;
-        return locate_vs_installed(&vswhere, deadline, progress, log);
+        return locate_vs(&vswhere, VS_2022, deadline, progress, log);
     }
     Ok(None)
 }
 
 #[cfg(windows)]
-fn locate_vs_installed(vswhere: &Path, deadline: Instant, progress: &mut dyn FnMut(&str), log: &mut dyn FnMut(&str) -> Result<()>) -> Result<Option<VsInstall>> {
-    let install = vswhere_text(vswhere, &["-latest", "-version", "[17.0,18.0)", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath"], deadline, progress, log)?;
+fn locate_vs(vswhere: &Path, range: &str, deadline: Instant, progress: &mut dyn FnMut(&str), log: &mut dyn FnMut(&str) -> Result<()>) -> Result<Option<VsInstall>> {
+    let install = vswhere_text(vswhere, &["-latest", "-version", range, "-products", "*", "-requires", VC_TOOLS, "-property", "installationPath"], deadline, progress, log)?;
     let install = install.lines().next().unwrap_or("").trim();
     if install.is_empty() {
         return Ok(None);
     }
     let root = PathBuf::from(install);
     let bat = root.join("VC").join("Auxiliary").join("Build").join("vcvars64.bat");
+    if !bat.is_file() {
+        return Ok(None);
+    }
+    if range != VS_2022 {
+        return Ok(Some(VsInstall { bat, msbuild: None }));
+    }
     let mut msbuild = root.join("MSBuild").join("Current").join("Bin").join("MSBuild.exe");
     if !msbuild.is_file() {
-        let found = vswhere_text(vswhere, &["-latest", "-version", "[17.0,18.0)", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-find", r"MSBuild\**\Bin\MSBuild.exe"], deadline, progress, log)?;
+        let found = vswhere_text(vswhere, &["-latest", "-version", range, "-products", "*", "-requires", VC_TOOLS, "-find", r"MSBuild\**\Bin\MSBuild.exe"], deadline, progress, log)?;
         if let Some(path) = found.lines().map(str::trim).find(|line| !line.is_empty()) {
             msbuild = PathBuf::from(path);
         }
     }
-    if bat.is_file() && msbuild.is_file() {
-        Ok(Some(VsInstall { bat, msbuild }))
-    } else {
-        Ok(None)
-    }
+    Ok(msbuild.is_file().then_some(VsInstall { bat, msbuild: Some(msbuild) }))
 }
 
 #[cfg(windows)]
@@ -2530,6 +2597,98 @@ fn find_on_windows_path(path: &str, name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Stand-in for vswhere, the VS installer and vcvars.
+    #[derive(Default)]
+    struct FakeVs {
+        v2022: bool,
+        v2026: bool,
+        v2026_cpp: bool,
+        install_fails: bool,
+        installed: bool,
+        sdk: bool,
+        installs: u32,
+    }
+
+    impl VsProbe for FakeVs {
+        fn find(&mut self) -> Result<Option<VsInstall>> {
+            Ok(if self.v2022 || self.installed {
+                Some(VsInstall { bat: "2022.bat".into(), msbuild: Some("MSBuild.exe".into()) })
+            } else if self.v2026 && self.v2026_cpp {
+                Some(VsInstall { bat: "2026.bat".into(), msbuild: None })
+            } else {
+                None
+            })
+        }
+        fn newer_vs_installed(&mut self) -> Result<bool> {
+            Ok(self.v2026)
+        }
+        fn install_build_tools(&mut self) -> Result<()> {
+            self.installs += 1;
+            if self.install_fails {
+                bail!("exit code 1603");
+            }
+            self.installed = true;
+            Ok(())
+        }
+        fn has_windows_sdk(&mut self, _: &VsInstall) -> Result<bool> {
+            Ok(self.sdk)
+        }
+    }
+
+    fn vs_bat(toolchain: &Toolchain) -> Option<(String, bool)> {
+        match toolchain {
+            Toolchain::Vs(vs) => Some((vs.bat.display().to_string(), vs.msbuild.is_some())),
+            Toolchain::Portable(_) => None,
+        }
+    }
+
+    #[test]
+    fn vs_2022_only_uses_msbuild() {
+        let mut vs = FakeVs { v2022: true, sdk: true, ..Default::default() };
+        assert_eq!(vs_bat(&choose_toolchain(&mut vs)), Some(("2022.bat".into(), true)));
+        assert_eq!(vs.installs, 0);
+    }
+
+    #[test]
+    fn vs_2026_only_builds_without_msbuild_and_never_installs() {
+        // VersionShim.vcxproj pins v143: MSBuild on VS 18 without v143 fails MSB8020, so msbuild must be None.
+        let mut vs = FakeVs { v2026: true, v2026_cpp: true, sdk: true, ..Default::default() };
+        assert_eq!(vs_bat(&choose_toolchain(&mut vs)), Some(("2026.bat".into(), false)));
+        assert_eq!(vs.installs, 0);
+    }
+
+    #[test]
+    fn vs_2022_preferred_when_both() {
+        let mut vs = FakeVs { v2022: true, v2026: true, v2026_cpp: true, sdk: true, ..Default::default() };
+        assert_eq!(vs_bat(&choose_toolchain(&mut vs)), Some(("2022.bat".into(), true)));
+    }
+
+    #[test]
+    fn vs_2026_without_cpp_tools_is_portable_and_not_installed_over() {
+        let mut vs = FakeVs { v2026: true, sdk: true, ..Default::default() };
+        assert!(matches!(choose_toolchain(&mut vs), Toolchain::Portable(_)));
+        assert_eq!(vs.installs, 0);
+    }
+
+    #[test]
+    fn vs_2026_without_sdk_is_portable() {
+        let mut vs = FakeVs { v2026: true, v2026_cpp: true, ..Default::default() };
+        assert!(matches!(choose_toolchain(&mut vs), Toolchain::Portable(reason) if reason.contains("no Windows SDK")));
+    }
+
+    #[test]
+    fn no_vs_installs_build_tools() {
+        let mut vs = FakeVs { sdk: true, ..Default::default() };
+        assert_eq!(vs_bat(&choose_toolchain(&mut vs)), Some(("2022.bat".into(), true)));
+        assert_eq!(vs.installs, 1);
+    }
+
+    #[test]
+    fn failed_build_tools_install_falls_back_to_portable() {
+        let mut vs = FakeVs { install_fails: true, sdk: true, ..Default::default() };
+        assert!(matches!(choose_toolchain(&mut vs), Toolchain::Portable(reason) if reason.contains("1603")));
+    }
 
     #[test]
     fn lib_has_windows_sdk_needs_kernel32_on_lib() {
