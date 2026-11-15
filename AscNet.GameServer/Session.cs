@@ -18,6 +18,10 @@ namespace AscNet.GameServer
     {
         public readonly string id;
         public readonly TcpClient client;
+        // Peer address captured at accept time (the socket is unusable after disconnect); settable so tests can simulate a remote peer.
+        internal System.Net.IPAddress? RemoteAddress { get; set; }
+        // A non-loopback peer is on someone else's server (FreeNotice.IsHosted); an unknown address counts as hosted.
+        internal bool IsHosted => FreeNotice.IsHosted(RemoteAddress);
         public Player player = default!;
         public Character character = default!;
         public Stage stage = default!;
@@ -66,6 +70,7 @@ namespace AscNet.GameServer
         {
             this.id = id;
             client = tcpClient;
+            RemoteAddress = (tcpClient.Client.RemoteEndPoint as System.Net.IPEndPoint)?.Address;
             // TODO: add session based configuration? maybe from database?
             log = new(typeof(Session), id, LogLevel.DEBUG, LogLevel.DEBUG);
             log.LogLevelColor[LogLevel.INFO] = ConsoleColor.Cyan;

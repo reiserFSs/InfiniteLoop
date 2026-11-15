@@ -40,10 +40,10 @@ internal partial class Program
             foreach (string name in new[] { "LoginNotice", "GameNotice", "ScrollTextNotice", "ScrollPicNotice", "SecondMenuNotice" })
             {
                 string body = await client.GetStringAsync($"{prefix}{name}.json");
-                AssertEqual(File.ReadAllText(Path.Combine(root, $"{name}.json")), body, $"4.9 {name} served from the 4.9.0 set");
+                AssertEqual(ExpectedNoticeBody(name, "en", File.ReadAllText(Path.Combine(root, $"{name}.json"))), body, $"4.9 {name} served from the 4.9.0 set plus the InfiniteLoop notice");
             }
             JArray games = JArray.Parse(await client.GetStringAsync($"{prefix}GameNotice.json"));
-            AssertEqual(15, games.Count, "4.9 GameNotice count");
+            AssertEqual(16, games.Count, "4.9 GameNotice count (15 Kuro + InfiniteLoop)");
             await AssertNoticeHtmlSynced(client, root, "4.9");
             foreach (JObject entry in content.Cast<JObject>())
             {

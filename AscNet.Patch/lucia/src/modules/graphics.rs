@@ -29,6 +29,8 @@ mod graphics_dps_hits;
 mod graphics_lua;
 #[path = "graphics_live.rs"]
 mod graphics_live;
+#[path = "graphics_notice.rs"]
+mod graphics_notice;
 #[path = "graphics_overlay.rs"]
 mod graphics_overlay;
 #[path = "graphics_nofade_params.rs"]
@@ -514,6 +516,7 @@ unsafe fn run() -> Result<()> {
     let mut settings = graphics_settings::Settings::default();
     let mut damage_hook = graphics_dps_hits::DamageHook::default();
     let mut overlay_started = false;
+    let mut notice = graphics_notice::Notice::default();
     let _quit_hook = match graphics_tweaks::watch_quit(&il, &assemblies) {
         Ok(hook) => Some(hook),
         Err(error) => {
@@ -535,6 +538,7 @@ unsafe fn run() -> Result<()> {
             park(&il);
         }
         settings.receive(&bridge);
+        notice.update(&bridge);
         let (desired, dps_reset) = {
             let live = live();
             (live.desired.clone(), live.dps_reset)

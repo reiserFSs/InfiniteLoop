@@ -105,16 +105,16 @@ internal partial class Program
         MethodInfo ensure = module.GetMethod("EnsureSystemMails", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidDataException("MailModule.EnsureSystemMails is missing.");
 
-        AssertEqual(true, (bool)ensure.Invoke(null, [player, now])!,
+        AssertEqual(true, (bool)ensure.Invoke(null, [player, now, false])!,
             "new player receives configured welcome mail");
         PlayerMail welcome = player.Mails.Single();
-        AssertEqual(true, welcome.Title.Contains("Welcome to AscNet", StringComparison.Ordinal),
+        AssertEqual(true, welcome.Title.Contains("InfiniteLoop is free", StringComparison.Ordinal),
             "new player welcome mail title");
         AssertEqual(true, welcome.IsForbidDelete,
             "new player welcome mail cannot be bulk-deleted");
         AssertEqual(1, BuildMailDelta(player, now).NewMailList.Count,
             "new player login publishes welcome mail");
-        AssertEqual(false, (bool)ensure.Invoke(null, [player, now + 1])!,
+        AssertEqual(false, (bool)ensure.Invoke(null, [player, now + 1, false])!,
             "welcome mail is issued only once");
         AssertEqual(1, player.Mails.Count,
             "welcome mail is not duplicated");

@@ -63,6 +63,14 @@ Format: `[lucia|KRSDK] FAILED <what was looked up>: <reason> | send: ascnet-patc
 
 When `lucia` fails, native routing stays off and the client talks to the retail servers.
 
+## Remote server notice
+
+`[lucia] NOTICE remote server origin <host>` means the patch's origin (`ASCNET_PATCH_ORIGIN`) is not loopback
+(`127.0.0.0/8`, `::1`, `localhost`), i.e. the server is not on this PC. The patch then shows a one-time dialog on the
+login screen (in the client's language) saying InfiniteLoop is free and that paying for access means being scammed.
+It logs `[lucia] OK remote server notice: shown` once the dialog opened, or `[lucia] FAILED remote server notice: ...`
+if it could not be shown. Loopback origins log nothing.
+
 ## launcher.log (beside `AscNet.Launcher.exe`)
 
 Setup, Restore, Play and the official-client download/update each write one line naming the selected game folder, the

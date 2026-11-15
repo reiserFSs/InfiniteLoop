@@ -40,9 +40,53 @@ namespace AscNet.GameServer.Handlers
             };
         }
 
-        internal static bool EnsureSystemMails(Player player, long now)
+        /// <summary>
+        /// The compiled-in free notice (<see cref="FreeNotice"/>) and, on someone else's server, the hosted warning. Neither reads
+        /// system_mails.json. The free notice is updated in place by id (existing players' copy); the hosted warning is
+        /// unread again at every login, and removed when the session is loopback.
+        /// </summary>
+        internal static bool EnsureFreeNoticeMails(Player player, long now, bool hosted)
         {
-            bool changed = false;
+            string region = FreeNotice.RegionOf(player);
+            bool changed = UpsertNoticeMail(player, now, FreeNotice.MailId, FreeNotice.MailSender(region), FreeNotice.Title(region),
+                FreeNotice.MailContent(region), forceUnread: false);
+            if (hosted)
+                return UpsertNoticeMail(player, now, FreeNotice.HostedMailId, FreeNotice.MailSender(region), FreeNotice.HostedTitle(region),
+                    FreeNotice.HostedMailContent(region), forceUnread: true) | changed;
+            return player.Mails.RemoveAll(mail => mail.Id == FreeNotice.HostedMailId) > 0 | changed;
+        }
+
+        private static bool UpsertNoticeMail(Player player, long now, string id, string sender, string title, string content, bool forceUnread)
+        {
+            PlayerMail? mail = player.Mails.FirstOrDefault(existing => existing.Id == id);
+            if (mail is null)
+            {
+                player.Mails.Add(new PlayerMail
+                {
+                    Id = id, Status = 0, SendName = sender, Title = title, Content = content,
+                    CreateTime = now, SendTime = now, IsForbidDelete = true
+                });
+                return true;
+            }
+            bool textChanged = mail.SendName != sender || mail.Title != title || mail.Content != content || !mail.IsForbidDelete
+                || mail.ExpireTime != 0 || mail.RewardGoodsList is { Count: > 0 };
+            if (!textChanged && !(forceUnread && mail.Status != 0))
+                return false;
+            mail.SendName = sender;
+            mail.Title = title;
+            mail.Content = content;
+            mail.IsForbidDelete = true;
+            mail.ExpireTime = 0;
+            mail.RewardGoodsList = null;
+            mail.Status = 0;
+            if (forceUnread)
+                mail.SendTime = now;
+            return true;
+        }
+
+        internal static bool EnsureSystemMails(Player player, long now, bool hosted = false)
+        {
+            bool changed = EnsureFreeNoticeMails(player, now, hosted);
             JObject config = JsonSnapshot.LoadObject("Configs/system_mails.json");
             IEnumerable<JObject> definitions = config["Mails"] is JArray mails ? mails.OfType<JObject>() : [];
             foreach (JObject definition in definitions)

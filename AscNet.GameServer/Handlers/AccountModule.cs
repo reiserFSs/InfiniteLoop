@@ -1362,7 +1362,7 @@ namespace AscNet.GameServer.Handlers
                 session.ClientApplicationVersion, session.ClientDocumentVersion);
             PayModule.GrantMailDailyRewards(session, sendPush: false);
             long mailNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            bool mailStateChanged = MailModule.EnsureSystemMails(session.player, mailNow)
+            bool mailStateChanged = MailModule.EnsureSystemMails(session.player, mailNow, session.IsHosted)
                 | MailModule.ReconcileExpiry(session.player, mailNow);
             NotifyMails notifyMails = MailModule.BuildNotifyMails(session.player, mailNow);
             if (mailStateChanged)
@@ -1555,14 +1555,23 @@ namespace AscNet.GameServer.Handlers
             // single-player private server never has; without a message present at home-build
             // time the client never creates the marquee component. (Regressed when the payload
             // integration moved world-chat delivery to the EnterWorldChatRequest response.)
-            NotifyWorldChat loginWorldChat = new();
-            loginWorldChat.ChatMessages.Add(ChatModule.MakeLuciaWorldMessage($"Hello {session.player.PlayerData.Name}! Welcome to AscNet, please read your mails if you haven't already.\n如果您还没有阅读邮件，请阅读邮件\n\nTry '/help' to get started"));
-            session.SendPush(loginWorldChat);
+            session.SendPush(BuildLoginWorldChat(session));
             SendEmptyStartupPush(session, "NotifyGuildWarActivityData");
             SendEmptyStartupPush(session, "NotifyWheelchairManualActivityUpdate");
 
             ChatModule.FlushPendingLoginChat(session);
             session.player.Save();
+        }
+
+        /// <summary>The home marquee: the free notice always, plus the hosted warning when the player is not on a loopback session.</summary>
+        internal static NotifyWorldChat BuildLoginWorldChat(Session session)
+        {
+            string region = FreeNotice.RegionOf(session.player);
+            NotifyWorldChat loginWorldChat = new();
+            loginWorldChat.ChatMessages.Add(ChatModule.MakeLuciaWorldMessage($"Hello {session.player.PlayerData.Name}! {FreeNotice.FreeText(region)}\n\nTry '/help' to get started"));
+            if (session.IsHosted)
+                loginWorldChat.ChatMessages.Add(ChatModule.MakeLuciaWorldMessage(FreeNotice.HostedText(region)));
+            return loginWorldChat;
         }
 
         private static void RepairProfileCosmeticRewards(Session session)

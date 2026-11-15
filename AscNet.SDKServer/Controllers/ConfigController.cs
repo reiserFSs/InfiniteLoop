@@ -84,21 +84,16 @@ namespace AscNet.SDKServer.Controllers
         private static string GateRegionRows(string value, string? region) =>
             region is null ? value : System.Text.RegularExpressions.Regex.Replace(value, @"\{origin\}/api/Login/Login(?!-)", "{origin}/api/Login/Login-" + region);
 
-        private static string HandleLoginNoticeRequest(HttpContext ctx)
-        {
-            if (TryReadNoticeFixture(ctx, "LoginNotice.json", out string fixtureJson))
-                return fixtureJson;
+        // InfiniteLoop's own free notice (FreeNotice, compiled in) replaces the single-slot login and scrolling-text notices and
+        // leads the in-game list, so editing or deleting the Notices/ fixtures cannot remove it. Kuro's captured notices stay untouched.
+        private static string NoticeRegion(HttpContext ctx) =>
+            ClientRegions.FromPackage(ctx.Request.RouteValues["package"] as string) ?? ClientRegions.Default;
 
-            return Serialize(null);
-        }
+        private static string HandleLoginNoticeRequest(HttpContext ctx) =>
+            FreeNotice.LoginNotice(NoticeRegion(ctx)).ToString(Formatting.None);
 
-        private static string HandleScrollTextNoticeRequest(HttpContext ctx)
-        {
-            if (TryReadNoticeFixture(ctx, "ScrollTextNotice.json", out string fixtureJson))
-                return fixtureJson;
-
-            return Serialize(null);
-        }
+        private static string HandleScrollTextNoticeRequest(HttpContext ctx) =>
+            FreeNotice.ScrollTextNotice(NoticeRegion(ctx)).ToString(Formatting.None);
 
         private static string HandleScrollPicNoticeRequest(HttpContext ctx)
         {
@@ -110,11 +105,9 @@ namespace AscNet.SDKServer.Controllers
 
         private static string HandleGameNoticeRequest(HttpContext ctx)
         {
-            if (TryReadNoticeFixture(ctx, "GameNotice.json", out string fixtureJson))
-                return fixtureJson;
-
-            List<GameNotice> notices = new();
-            return Serialize(notices);
+            JArray notices = TryReadNoticeFixture(ctx, "GameNotice.json", out string fixtureJson) ? JArray.Parse(fixtureJson) : new JArray();
+            notices.Insert(0, FreeNotice.GameNotice(NoticeRegion(ctx)));
+            return notices.ToString(Formatting.None);
         }
 
         private static string HandleSecondMenuNoticeRequest(HttpContext ctx)
@@ -180,6 +173,8 @@ namespace AscNet.SDKServer.Controllers
             string fileName = Path.GetFileName(GetRouteValue(ctx, "fileName"));
             if (!fileName.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
                 return Results.NotFound();
+            if (FreeNotice.RegionFromHtmlName(fileName) is { } freeRegion)
+                return Results.Text(FreeNotice.NoticeHtml(freeRegion), "text/html; charset=utf-8");
 
             foreach (string versionDirectory in NoticeVersionDirectories())
             {

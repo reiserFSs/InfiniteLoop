@@ -67,7 +67,7 @@ internal partial class Program
                 foreach (string name in new[] { "LoginNotice", "GameNotice", "ScrollTextNotice", "ScrollPicNotice", "SecondMenuNotice" })
                 {
                     string body = await client.GetStringAsync($"{prefix}{name}.json");
-                    AssertEqual(File.ReadAllText(Path.Combine(regionRoot, $"{name}.json")), body, $"{region} 4.9 {name} served from its region set");
+                    AssertEqual(ExpectedNoticeBody(name, region, File.ReadAllText(Path.Combine(regionRoot, $"{name}.json"))), body, $"{region} 4.9 {name} served from its region set");
                     if (body == File.ReadAllText(Path.Combine(noticeRoot, $"{name}.json")))
                         throw new InvalidDataException($"{region} 4.9 {name} fell back to the EN set.");
                 }

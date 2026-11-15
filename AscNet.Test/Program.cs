@@ -734,6 +734,11 @@ namespace AscNet.Test
                     ValidateVersion46ActivityCompatibility();
                     return;
                 }
+                if (args.Contains("--free-notice-only"))
+                {
+                    ValidateFreeNotice();
+                    return;
+                }
                 if (args.Contains("--mail-compat-only"))
                 {
                     ValidateVersion46MailCompatibility();
@@ -1452,6 +1457,7 @@ namespace AscNet.Test
                     return;
                 }
 
+                Step("ValidateFreeNotice", () => ValidateFreeNotice());
                 Step("ValidateCerberusGameCompatibility", () => ValidateCerberusGameCompatibility());
                 Step("ValidateProfileCompatibility", () => ValidateProfileCompatibility());
                 Step("ValidateTrpgCompatibility", () => ValidateTrpgCompatibility());
