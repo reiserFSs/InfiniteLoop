@@ -47,6 +47,10 @@ Some things are missing or limited:
 
 ## Having a problem?
 
+For quick questions and help from other players, join the **[InfiniteLoop Discord](https://discord.gg/UVzx3rRkdK)** and post in `#player-support`. Remove passwords and tokens (`ReconnectToken`, `access_token`) from logs before posting them anywhere. Staff never DM you first or ask for payment, and the launcher only comes from this repository's releases.
+
+Confirmed, reproducible bugs go to [GitHub Issues](https://github.com/reiserFSs/InfiniteLoop/issues).
+
 When you report a bug, include what you did, what happened, your game language, and these log files (`%LOCALAPPDATA%` is `C:\Users\<you>\AppData\Local`):
 
 | Log | Where |
