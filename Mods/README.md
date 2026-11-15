@@ -12,7 +12,7 @@ The installed-file manifest is `Lua/Matrix/.ascnet-mods.json`, containing paths 
 
 Setup and Play reapply the saved master switch and mod selections before starting the server. **Restore** removes only tracked overrides and sets server Debug off; it retains the saved mod preferences, so the next Play reapplies them.
 
-The target is resolved from the selected client's `PGR_Data/app.info` company/product values and Windows' LocalLow known folder, including folder redirection; it is not hardcoded to the EN `kurogame/PGR` directory.
+The target is resolved from the selected client's `PGR_Data/app.info` company/product values and Windows' LocalLow known folder, including folder redirection; it is not hardcoded to the EN `kurogame/PGR` directory. On macOS the LocalLow folder is `drive_c/users/<wine user>/AppData/LocalLow` inside the active CrossOver bottle or adopted prefix; the Wine user is found per prefix (the single non-`Public` profile folder, else `user.reg`), never assumed.
 
 ## Included mods
 

@@ -222,6 +222,10 @@ fn client_identity(game: &Path) -> Result<(String, String)> {
     }
     Ok((company.to_owned(), product.to_owned()))
 }
+#[cfg(target_os = "macos")]
+fn persistent_in(bottle: &crate::mac::bottle::Bottle, company: &str, product: &str) -> Result<PathBuf> {
+    Ok(bottle.local_low()?.join(company).join(product))
+}
 pub fn persistent_directory(game: &Path) -> Result<PathBuf> {
     let (company, product) = client_identity(game)?;
     #[cfg(windows)] {
@@ -233,9 +237,12 @@ pub fn persistent_directory(game: &Path) -> Result<PathBuf> {
         ensure!(root.is_absolute(), "LocalLow known folder must be absolute");
         Ok(root.join(company).join(product))
     }
-    #[cfg(not(windows))] {
+    #[cfg(target_os = "macos")] {
+        persistent_in(&crate::mac::bottle::Bottle::active()?, &company, &product)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))] {
         let _ = (company, product);
-        bail!("LocalLow known-folder resolution requires Windows")
+        bail!("persistent data directory resolution requires Windows or macOS")
     }
 }
 fn write_config(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -508,6 +515,45 @@ mod tests {
             write_mod(&mods, "c-claim", br#"{}"#, &[("XAscNet/XAscNetModCatalog.lua", b"return {}\n")])?;
             let report = apply_stopped(&root, &data, &mods, &config, &["c-claim".into()])?;
             assert_eq!(report.skipped.len(), 1);
+            Ok(())
+        })();
+        fs::remove_dir_all(root)?;
+        result
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_apply_and_clean_in_prefix_persistent_dir() -> Result<()> {
+        use crate::mac::bottle::Bottle;
+        let root = fs::canonicalize(std::env::temp_dir())?.join(format!("ascnet-mod-mac-{}", uuid::Uuid::new_v4()));
+        let (game, prefix, mods, config) = (root.join("game"), root.join("prefix"), root.join("Mods"), root.join("config.json"));
+        let result = (|| -> Result<()> {
+            fs::create_dir_all(game.join("PGR_Data"))?;
+            fs::write(game.join("PGR_Data/app.info"), b"kurogame\nPGR\n")?;
+            fs::create_dir_all(prefix.join("drive_c/users/Public"))?;
+            fs::create_dir_all(prefix.join("drive_c/users/reiserfs"))?;
+            fs::write(&config, b"{\"Client\":{\"Debug\":false}}")?;
+            write_mod(&mods, "a-lua", br#"{"name":"Lua"}"#, &[("XA.lua", b"return 2\n"), ("Table/Client/T.tab", b"Id\r\n1\r\n")])?;
+            let (company, product) = client_identity(&game)?;
+            let data = persistent_in(&Bottle::adopted(prefix.clone()), &company, &product)?;
+            assert_eq!(data, prefix.join("drive_c/users/reiserfs/AppData/LocalLow/kurogame/PGR"));
+            let report = apply_stopped(&game, &data, &mods, &config, &["a-lua".into()])?;
+            assert_eq!(report.applied, ["a-lua"]);
+            assert_eq!(fs::read(data.join("Lua/Matrix/XA.lua"))?, b"return 2\n");
+            assert!(data.join("Table/Client/T.tab").is_file() && data.join(MANIFEST).is_file());
+            assert!(read_debug(&config)?);
+            replace(&data, &BTreeMap::new())?; // `clean` minus the running-game check
+            assert!(!data.join("Lua/Matrix/XA.lua").exists() && !data.join("Table/Client/T.tab").exists() && !data.join(MANIFEST).exists());
+            // A linked profile subfolder is refused.
+            let outside = root.join("outside");
+            fs::create_dir_all(&outside)?;
+            fs::remove_dir_all(prefix.join("drive_c/users/reiserfs"))?;
+            std::os::unix::fs::symlink(&outside, prefix.join("drive_c/users/reiserfs"))?;
+            assert!(Bottle::adopted(prefix.clone()).local_low().is_err()); // the only profile is a link: none usable
+            fs::remove_file(prefix.join("drive_c/users/reiserfs"))?;
+            fs::create_dir_all(prefix.join("drive_c/users/reiserfs"))?;
+            std::os::unix::fs::symlink(&outside, prefix.join("drive_c/users/reiserfs/AppData"))?;
+            assert!(apply_stopped(&game, &data, &mods, &config, &["a-lua".into()]).is_err());
+            assert!(fs::read_dir(&outside)?.next().is_none());
             Ok(())
         })();
         fs::remove_dir_all(root)?;

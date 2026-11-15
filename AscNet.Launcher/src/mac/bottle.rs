@@ -395,9 +395,88 @@ fn reg_value(reg: &str, section: &str, key: &str) -> Option<String> {
     None
 }
 
+impl Bottle {
+    /// The prefix's `C:\users\<wine user>\AppData\LocalLow`, where Unity's persistentDataPath lives. No user name is
+    /// assumed: CrossOver, wrappers and stock Wine each name it differently (`crossover`, the macOS login name, ...).
+    /// The profile is the one real (non-link, non-`Public`) folder under `drive_c/users`; Wine's alias links are
+    /// ignored. With several real folders, the user `user.reg` names decides (the `AppData` shell folder, then
+    /// `USERNAME` in `Volatile Environment`); if that names none of them the error asks the player to sort it out.
+    pub fn local_low(&self) -> Result<PathBuf> {
+        let users = fs::canonicalize(&self.dir).with_context(|| format!("resolve {}", self.dir.display()))?.join("drive_c/users");
+        let mut real = Vec::new();
+        for entry in fs::read_dir(&users).with_context(|| format!("The Wine prefix {} has no drive_c/users folder", self.dir.display()))? {
+            let entry = entry?;
+            let Ok(name) = entry.file_name().into_string() else { continue };
+            if entry.file_type()?.is_dir() && !name.eq_ignore_ascii_case("Public") {
+                real.push(name);
+            }
+        }
+        let user = match real.as_slice() {
+            [] => bail!("The Wine prefix {} has no user profile under drive_c/users; start the game once so Wine creates it", self.dir.display()),
+            [only] => only.clone(),
+            _ => {
+                let reg = fs::read_to_string(self.dir.join("user.reg")).unwrap_or_default();
+                let shell = reg_value(&reg, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders", "AppData").unwrap_or_default();
+                let shell = shell.trim_matches('"').replace(r"\\", r"\");
+                let mut parts = shell.split('\\');
+                let from_shell = parts.by_ref().find(|p| p.eq_ignore_ascii_case("users")).and_then(|_| parts.next()).map(str::to_owned);
+                let from_env = reg_value(&reg, "Volatile Environment", "USERNAME").map(|v| v.trim_matches('"').to_owned());
+                [from_shell, from_env].into_iter().flatten()
+                    .find_map(|named| real.iter().find(|r| r.eq_ignore_ascii_case(&named)).cloned())
+                    .with_context(|| format!("The Wine prefix {} has several user profiles ({}) and user.reg does not say which one the game uses; remove the unused ones", self.dir.display(), real.join(", ")))?
+            }
+        };
+        Ok(users.join(user).join("AppData/LocalLow"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn prefix_with_users(users: &[&str], registry: Option<&str>) -> PathBuf {
+        let dir = fs::canonicalize(std::env::temp_dir()).unwrap().join(format!("ascnet-users-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(dir.join("drive_c/users")).unwrap();
+        for user in users {
+            fs::create_dir_all(dir.join("drive_c/users").join(user)).unwrap();
+        }
+        if let Some(reg) = registry {
+            fs::write(dir.join("user.reg"), reg).unwrap();
+        }
+        dir
+    }
+
+    fn shell_reg(user: &str) -> String {
+        format!("[Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Explorer\\\\Shell Folders] 1\n\"AppData\"=\"C:\\\\users\\\\{user}\\\\AppData\\\\Roaming\"\n")
+    }
+
+    #[test]
+    fn local_low_follows_the_wine_user() {
+        let low = |dir: &Path| Bottle::adopted(dir.to_path_buf()).local_low();
+        // Stock Wine: the login name is the only real profile; an alias link is not a profile.
+        let one = prefix_with_users(&["Public", "reiserfs"], None);
+        std::os::unix::fs::symlink("reiserfs", one.join("drive_c/users/alias")).unwrap();
+        assert_eq!(low(&one).unwrap(), one.join("drive_c/users/reiserfs/AppData/LocalLow"));
+        // Several: the shell folder names the user (case-insensitively), else Volatile Environment USERNAME.
+        let many = prefix_with_users(&["Public", "alice", "Bob"], Some(&shell_reg("bob")));
+        assert_eq!(low(&many).unwrap(), many.join("drive_c/users/Bob/AppData/LocalLow"));
+        let env = prefix_with_users(&["alice", "bob"], Some("[Volatile Environment] 1\n\"USERNAME\"=\"alice\"\n"));
+        assert_eq!(low(&env).unwrap(), env.join("drive_c/users/alice/AppData/LocalLow"));
+        // Ambiguous with no answer, or an answer naming no folder: a player-facing error, no guessing.
+        let none = prefix_with_users(&["alice", "bob"], None);
+        assert!(low(&none).unwrap_err().to_string().contains("several user profiles"));
+        let wrong = prefix_with_users(&["alice", "bob"], Some(&shell_reg("carol")));
+        assert!(low(&wrong).is_err());
+        // No profile at all, and no users folder at all.
+        let empty = prefix_with_users(&["Public"], None);
+        assert!(low(&empty).unwrap_err().to_string().contains("no user profile"));
+        let missing = prefix_with_users(&[], None);
+        fs::remove_dir(missing.join("drive_c/users")).unwrap();
+        assert!(low(&missing).unwrap_err().to_string().contains("no drive_c/users"));
+        for dir in [one, many, env, none, wrong, empty, missing] {
+            let _ = fs::remove_dir_all(dir);
+        }
+    }
 
     #[test]
     fn reads_wine_registry_values() {

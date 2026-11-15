@@ -75,3 +75,7 @@ Releases carry a separate `AscNetLauncher-macOS.zip` (the whole ad-hoc signed ap
 ## App icon
 
 Art lives in `packaging/icon/`: `ascnet.svg` (white A with the red slash) and `ascnet-small.svg` (plain A, used below 64 px where the slash reads as a broken leg). `packaging/icon/make-icons.py` renders them with headless Brave/Chrome (rsvg-convert is not installed; qlmanage paints an opaque background) and writes `packaging/macos/AscNet.icns` (iconutil), `packaging/icon/ascnet.ico` (16–256 px, tile edge to edge with a small radius) and `ascnet-256.png` (the Slint window icon). The `.ico` is embedded in the Windows exe by `build.rs` (winresource; needs `llvm-rc` on PATH when cross-compiling). Re-run the script after editing either SVG and commit the outputs.
+
+## Client mods
+
+`mods.rs` works unchanged on macOS except for the persistent folder: `Bottle::active().local_low()` resolves `<prefix>/drive_c/users/<wine user>/AppData/LocalLow`, then `<company>/<product>` from `PGR_Data/app.info`. No user name is assumed (CrossOver uses `crossover`, stock Wine the login name, Sikarugir adds alias symlinks): the profile is the one real, non-`Public` directory under `drive_c/users` (alias symlinks are ignored); with several, `user.reg` decides (`AppData` shell folder, then `Volatile Environment\USERNAME`). Missing or still ambiguous fails with a player-facing error. Same symlink/safe-path/atomic-write checks as Windows. The `.diff` build step reads the shipped Lua through `bundle::load_matrix_payload(game)`, which is not platform gated.
