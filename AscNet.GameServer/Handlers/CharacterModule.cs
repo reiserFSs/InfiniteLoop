@@ -399,22 +399,14 @@ namespace AscNet.GameServer.Handlers
             CharacterUseOneClickItemRequest request = packet.Deserialize<CharacterUseOneClickItemRequest>();
             CharacterData? character = session.character.Characters.Find(candidate => candidate.Id == request.CharacterId);
             CharacterTable? template = TableReaderV2.Parse<CharacterTable>().Find(row => row.Id == request.CharacterId);
-            if (character is null || template is null || template.Type != 1)
+            if (character is null || template is null)
             {
                 session.SendResponse(new CharacterUseOneClickItemResponse { Code = 20009021 }, packet.Id);
                 return;
             }
-            // The installed item table has one ordinary consumable: the Transition Device.
-            // Refuse ambiguous catalogs rather than consuming a different item.
-            int[] trainingItems = TableReaderV2.Parse<ItemTable>()
-                .Where(row => row.ItemType == (int)ItemType.NormalConsumableItem)
-                .Select(row => row.Id).Take(2).ToArray();
-            if (trainingItems.Length != 1)
-            {
-                session.SendResponse(new CharacterUseOneClickItemResponse { Code = 20009021 }, packet.Id);
-                return;
-            }
-            int trainingItemId = trainingItems[0];
+            // XCharacterControl.SPECIAL_TRAINING_ITEM_ID (4.9 client Lua): the client offers the Transition Device
+            // for every owned character type and applies no Type filter; the request carries only CharacterId.
+            const int trainingItemId = 30000;
             if (!HasEnoughItems(session, trainingItemId, 1))
             {
                 session.SendResponse(new CharacterUseOneClickItemResponse { Code = 20012004 }, packet.Id);
@@ -478,6 +470,12 @@ namespace AscNet.GameServer.Handlers
             }
 
             bool promoted = character.Grade < maxGrade;
+            // The client greys the toggle when CheckRoleCultureHasAnyUpgradable is false; CodeText 20009064.
+            if (!promoted && targetLevel == character.Level && skillLevels.Count == 0)
+            {
+                session.SendResponse(new CharacterUseOneClickItemResponse { Code = 20009064 }, packet.Id);
+                return;
+            }
             character.Level = targetLevel;
             character.Exp = 0;
             character.Grade = Math.Max(character.Grade, maxGrade);
