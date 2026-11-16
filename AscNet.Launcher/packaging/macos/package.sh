@@ -20,8 +20,18 @@ while [ $# -gt 0 ]; do
 done
 
 version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/Cargo.toml" | head -n 1)"
-[ "$build" = 0 ] || cargo build --manifest-path "$root/Cargo.toml" --release --target aarch64-apple-darwin
-binary="$root/target/aarch64-apple-darwin/release/ascnet-launcher"
+if [ "$build" = 1 ]; then
+  # Universal (Apple Silicon + Intel): the app targets Apple Silicon, but an Intel build machine (CI's macos-15-intel)
+  # must be able to run the binary for --check-media and the smoke test.
+  for target in aarch64-apple-darwin x86_64-apple-darwin; do
+    cargo build --manifest-path "$root/Cargo.toml" --release --target "$target"
+  done
+  mkdir -p "$root/target/universal-apple-darwin/release"
+  lipo -create -output "$root/target/universal-apple-darwin/release/ascnet-launcher" \
+    "$root/target/aarch64-apple-darwin/release/ascnet-launcher" "$root/target/x86_64-apple-darwin/release/ascnet-launcher"
+fi
+binary="$root/target/universal-apple-darwin/release/ascnet-launcher"
+[ -x "$binary" ] || binary="$root/target/aarch64-apple-darwin/release/ascnet-launcher"
 [ -x "$binary" ] || binary="$root/target/release/ascnet-launcher"
 
 [ -n "$media" ] || media="${ASCNET_LAUNCHER_MEDIA:-$root/../.runtime/launcher-media}"
