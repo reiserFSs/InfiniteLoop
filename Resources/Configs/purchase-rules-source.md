@@ -45,32 +45,27 @@ traffic, research dumps or installed client files.
 
 ## Client artwork compatibility
 
-The installed 4.8 resource index does contain
-`assets/product/texture/image/uipurchase/uipurchasev405.ab`, but that bundle
-only has the PanelRecommend237 textures. It does not contain
-`IconEv58Pay001`–`IconEv58Pay014`, which is what `UIv405_2`–`UIv405_15` name.
-Older shared artwork such as `IconLibaoFiveDay` still resolves, so changing
-`UIv405_N` to `UIv407_N` is incorrect.
-
-`Scripts/patch_local_store.py --catalog` extends the existing reversible
-recharge patch. The shared purchase icon resolver receives the package's reward
-list, keeps available artwork/covers, and resolves the first available reward
-icon through `XGoodsCommonManager.GetGoodsIcon` and the installed resource
-index. While preparing, it records the texture paths inside this install's
-purchase image bundles. A folder bundle that is indexed without the named
-texture counts as missing art. Lists, purchase details and recommendation/combo
-views share this resolver. Sold-out/expired overlays clear the ownership
-overlay on refresh and timer transitions. No specific package IDs are patched.
-
-Prepare into a new empty backup directory while retaining any existing recharge
-patch; inspect the manifest, then apply while PGR is closed:
-
-```powershell
-python Scripts/patch_local_store.py --game-dir '<installed PGR directory>' --output .runtime/store-catalog-client-patch --catalog
-python Scripts/patch_local_store.py --output .runtime/store-catalog-client-patch --apply
-# Restore the exact pre-catalog bundle (including any earlier recharge patch):
-python Scripts/patch_local_store.py --output .runtime/store-catalog-client-patch --restore
-```
+AscNet policy (not retail behavior; issue #72). The 4.9 client resolves a
+package's `Icon` through `XPurchaseConfigs.GetIconPathByIconName`, a plain
+lookup in `PurchaseIconAssetPath` (imported verbatim into
+`Resources/table/client/purchase/PurchaseIconAssetPath.tsv`; provenance in
+`manifest.json`, `Scripts/import_purchase_icons_4_9.py`). Sixteen icon names
+the catalog used name artwork the 4.9 bundle registry no longer holds:
+`UIv405_2`–`UIv405_15` (`UiPurchaseV405/IconEv58Pay001`–`014`), `UIv405_1`
+(`IconLibaoFiveDay`, present only in a stale resource-scope bundle copy the
+client does not use) and `UIMonthly1`/`UIMonthly2` (`IconPayMonth001`/`002`).
+Passing an unresolvable path to the native loader corrupts pooled RawImages
+and later cards render white. Reward-item icons cannot be used: the client
+only displays table `AssetPath`s and no key maps to those items' icons, and
+covers of other events or packs would picture contents the package lacks.
+All sixteen therefore use one neutral cover, `Pay6`
+(`UiPurchase/IconPay6.png`, a plain card with no day count, character, item
+or event backdrop), which resolves in the 4.9 registry and has the same path in
+the EN, CN, TW, KR and JP tables. This supersedes the earlier conclusion that
+a client-side resolver was required: `Scripts/patch_local_store.py --catalog`
+is no longer needed for these ids. Server check
+`--store-purchases-only` fails if any catalog `Icon` is missing from the table
+or names artwork listed as absent from the registry.
 
 Server checks: `dotnet run --project AscNet.Test -- --store-purchases-only`.
 Client checks (requires `lupa`, plus the patch script dependencies):

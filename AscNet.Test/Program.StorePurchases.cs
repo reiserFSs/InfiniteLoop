@@ -16,6 +16,7 @@ internal static partial class Program
     private static void ValidateStorePurchases()
     {
         ValidatePurchaseCatalog();
+        ValidatePurchaseIconsResolve();
         using MongoCollectionOverride noOpStages = MongoCollectionOverride.InstallNoOpStageCollection(); // login persists Stage rollover
         using MongoCollectionOverride storage = MongoCollectionOverride.InstallForDailySignInCompatibility(
             out RecordingMongoCollectionProxy<Player> players,

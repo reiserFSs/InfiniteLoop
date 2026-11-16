@@ -11168,6 +11168,21 @@
       "transformation": [
         "import_robot_partner_4_9: retail rows verbatim; list columns widened to the longest row"
       ]
+    },
+    {
+      "path": "client/purchase/PurchaseIconAssetPath.tsv",
+      "naturalKey": "Icon",
+      "filter": "all",
+      "rows": 1792,
+      "columns": 3,
+      "contentSha256": "120bbe7f6ff1dabe06717b044750b52ab927c76bd04ba33df06faa72197920ff",
+      "source": [
+        "client/purchase/PurchaseIconAssetPath.json",
+        "4.9 installed table PGR_DATA/en-4.9/bytes/client/purchase/PurchaseIconAssetPath.json (json sha256:4204b2657f4cd45bf1a9137d844b4b7b315e0becb12b85b33166d8e109185b6a)"
+      ],
+      "transformation": [
+        "import_purchase_icons_4_9: retail rows verbatim"
+      ]
     }
   ],
   "validationNotes": [
