@@ -1,88 +1,88 @@
-Id	FightEventIds[1]	Type	ScoreRate
-1	2300001	1	
-2	2300002	1	
-3	2300003	1	
-4	2300004	1	
-5	2300006	1	
-6	2300005	1	
-7	2300008	1	
-8	2300007	1	
-9	2300009	1	
-10	2300010	1	
-11	2300011	1	
-12	2300012	1	
-13	2300013	1	
-14	2300014	1	
-15	2300016	1	
-16	2300015	1	
-17	2300018	1	
-18	2300017	1	
-19	2300019	1	
-20	2300020	1	
-21	2300021	1	
-22	2300022	1	
-23	2300023	1	
-24	2300024	1	
-25	2300025	1	
-26	2300026	1	
-27	2300027	1	
-28	2300028	1	
-29	2300029	1	
-30	2300030	1	
-31	2300031	1	
-32	2300032	1	
-33	2300033	1	
-34	2300034	1	
-35	2300035	1	
-36	2300036	1	
-37	2300037	1	
-38	2300038	1	
-39	2300039	1	
-40	2300040	1	
-41	2300041	1	
-42	2300042	1	
-43	2300043	1	
-44	2300044	1	
-45	2300045	1	
-46	2300046	1	
-47	2300047	1	
-48	2300048	1	
-49	2300049	1	
-50	2300050	1	
-51	2300051	1	
-52	2300052	1	
-53	2300053	1	
-54	2300054	1	
-55	2300055	1	
-56	2300028	1	
-57	2300057	1	
-58	2300058	1	
-59	2300059	1	
-60	2300060	1	
-61	2300061	1	
-62	2300062	1	
-63	2300063	1	
-64	2300064	1	
-65	2300065	1	
-66	2300066	1	
-67	2300067	1	
-68	2300068	1	
-69	2300069	1	
-70	2300070	1	
-1001	2301001	2	950
-1002	2301002	2	1550
-1003	2301003	2	1550
-1004	2301004	2	1550
-1005	2301005	2	1550
-1006	2301006	2	1550
-1007	2301007	2	1550
-1008	2301008	2	1550
-1009	2301009	2	1550
-1010	2301010	2	1550
-1011	2301011	2	1550
-1012	2301012	2	1550
-1013	2301013	2	1550
-1014	2301014	2	1250
-1015	2301015	2	1550
-71	2300071	1	0
-72	2300072	1	0
+Id	FightEventIds[1]	Type	ScoreRate	Name	Desc
+1	2300001	1		Invasion I	Taking Physical DMG accumulates the Wound Gauge. Becomes Wounded at maximum stacks, significantly increasing the CRIT DMG taken, stacking up to 4 times.
+2	2300002	1		Sharpness I	Taking Physical DMG accumulates the Wound Gauge. Becomes Wounded at maximum stacks, significantly increasing the Physical DMG taken, stacking up to 4 times.
+3	2300003	1		Thunderstorm I	Upon dealing Lightning DMG, gains a Lightning Shield that deals Lightning DMG to nearby enemies over time and increases the character's Lightning DMG significantly.
+4	2300004	1		Lightning Surge I	Upon dealing Lightning DMG, gains a Lightning Shield that significantly increases the Lightning DMG taken by units within its range.
+5	2300006	1		Dark Condensation I	Taking Dark DMG drops a Dark Orb, which increases the character's Dark DMG when picked up. After picking up the maximum number of Dark Orbs, the next attack will unleash all Dark Orbs to trigger an explosion, significantly increasing the Dark DMG dealt by the character.
+6	2300005	1		Dark Corruption I	Taking Dark DMG drops a Dark Orb, which increases Dark DMG when picked up. After picking up the maximum number of Dark Orbs, the next attack will unleash all Dark Orbs to trigger an explosion, significantly increasing the Dark DMG taken by the units hit.
+7	2300008	1		Assault I	Converts 50% of the Boss's max HP into Equilibrium Field. Breaking the Equilibrium Field significantly increases all Elemental DMG of the character.
+8	2300007	1		Discontinuance I	Converts 50% of the Boss's max HP into Equilibrium Field. When the Equilibrium Field is broken, the unit takes significantly more DMG from all Elemental types.
+9	2300009	1		Combustible I	Easily ignited by high temperatures and causes huge explosions. Fire DMG received is increased significantly.
+10	2300010	1		Frost I	The phenomenon of freezing expansion will occur at low temperatures. Ice DMG received is increased significantly.
+11	2300011	1		Invasion II	Taking Physical DMG accumulates the Wound Gauge. Becomes Wounded at maximum stacks, significantly increasing the CRIT DMG taken, stacking up to 4 times. Increases the DMG dealt by any character switched into battle for 10s.
+12	2300012	1		Sharpness II	Taking Physical DMG accumulates the Wound Gauge. Becomes Wounded at maximum stacks, significantly increasing the Physical DMG taken, stacking up to 4 times. Increases the DMG dealt by any character switched into battle for 10s.
+13	2300013	1		Thunderstorm II	Upon dealing Lightning DMG, gains a Lightning Shield that deals Lightning DMG to nearby enemies over time and increases the character's Lightning DMG significantly. Increases the DMG dealt by any character switched into battle for 10s.
+14	2300014	1		Lightning Surge II	Upon dealing Lightning DMG, gains a Lightning Shield that significantly increases the Lightning DMG taken by units within its range. Increases the DMG dealt by any character switched into battle for 10s.
+15	2300016	1		Dark Condensation II	Taking Dark DMG drops a Dark Orb, which increases the character's Dark DMG when picked up. After picking up the maximum number of Dark Orbs, the next attack will unleash all Dark Orbs to trigger an explosion, significantly increasing the Dark DMG dealt by the character. Increases the DMG dealt by any character switched into battle for 10s.
+16	2300015	1		Dark Corruption II	Taking Dark DMG drops a Dark Orb, which increases Dark DMG when picked up. After picking up the maximum number of Dark Orbs, the next attack will unleash all Dark Orbs to trigger an explosion, significantly increasing the Dark DMG taken by the units hit. Increases the DMG dealt by any character switched into battle for 10s.
+17	2300018	1		Assault II	Converts 50% of the Boss's max HP into Equilibrium Field. Breaking the Equilibrium Field significantly increases all Elemental DMG of the character. Increases the DMG dealt by any character switched into battle for 10s.
+18	2300017	1		Discontinuance II	Converts 50% of the Boss's max HP into Equilibrium Field. When the Equilibrium Field is broken, the unit takes significantly more DMG from all Elemental types. Increases the DMG dealt by any character switched into battle for 10s.
+19	2300019	1		Combustible II	Easily ignited by high temperatures and causes huge explosions. Fire DMG received is increased significantly. Increases the DMG dealt by any character switched into battle for 10s.
+20	2300020	1		Frost II	The phenomenon of freezing expansion will occur at low temperatures. Ice DMG received is increased significantly. Increases the DMG dealt by any character switched into battle for 10s.
+21	2300021	1		Wailing Scars I	Ping accumulates the Wound Gauge. Becomes Wounded when full, significantly increasing the Physical DMG taken, stacking up to 2 times.
+22	2300022	1		Twilight Haze I	Receive Dark Orbs when you deal Dark DMG. After picking up a Dark Orb, the next attack will launch Dark Orb and deal Dark DMG, while significantly increasing your Dark DMG. Stacks up to 6 times.
+23	2300023	1		The Calming Destruction I	Upon casting Ultima Slash, significantly increase your Physical DMG and Ultima Slash DMG delt to the boss. Stacks up to 5 times.
+24	2300024	1		Murky Woodlands I	Converts 40% of the Boss's max HP into Equilibrium Field. Breaking the Equilibrium Field significantly increases Signature DMG of the character.
+25	2300025	1		The Echo of Dawn I	Boss will take significantly higher DMG from Plasma Beam during the character's Electric Storm Flash.
+26	2300026	1		Radiant Inferno I	Enter the Frenzied state upon casting Signature Move. Every 2 Fire DMG instances in this state significantly increases Fire DMG, stacking up to 5 times.
+27	2300027	1		Roaring Tempest I	Dealing Lightning DMG grants a Lightning Shield. When the shield stacks to its maximum, it will automatically detonate, significantly increasing Lightning DMG dealt to the boss. The shield can stack up to 4 times.
+28	2300028	1		Frostbound Chasm I	Dealing Ice DMG accumulates Frost, which significantly increases Ice DMG delt to the boss. Stacks up to 3 times.
+29	2300029	1		Wailing Scars II	Ping accumulates the Wound Gauge. Becomes Wounded when full, significantly increasing the Physical DMG taken, stacking up to 2 times. Increases the DMG dealt by any character switched into battle for 10s.
+30	2300030	1		Twilight Haze II	Receive Dark Orbs when you deal Dark DMG. After picking up a Dark Orb, the next attack will launch Dark Orb and deal Dark DMG, while significantly increasing your Dark DMG. Stacks up to 6 times. Increases the DMG dealt by any character switched into battle for 10s.
+31	2300031	1		The Calming Destruction II	Upon casting Ultima Slash, significantly increase your Physical DMG and Ultima Slash DMG delt to the boss. Stacks up to 5 times. Increases the DMG dealt by any character switched into battle for 10s.
+32	2300032	1		Murky Woodlands II	Converts 40% of the Boss's max HP into Equilibrium Field. Breaking the Equilibrium Field significantly increases the Signature DMG of the character. Increases the DMG dealt by any character switched into battle for 10s.
+33	2300033	1		The Echo of Dawn II	Boss will take significantly higher DMG from Plasma Beam during the character's Electric Storm Flash. Increases the DMG dealt by any character switched into battle for 10s.
+34	2300034	1		Radiant Inferno II	Enter the Frenzied state upon casting Signature Move. Every 2 Fire DMG instances in this state significantly increases Fire DMG, stacking up to 5 times. When all members enter, damage increases for 10s.
+35	2300035	1		Roaring Tempest II	Dealing Lightning DMG grants a Lightning Shield. When the shield stacks to its maximum, it will automatically detonate, significantly increasing Lightning DMG dealt to the boss. The shield can stack up to 4 times. When all members enter, damage increases for 10s.
+36	2300036	1		Frostbound Chasm II	Dealing Ice DMG accumulates Frost, which significantly increases Ice DMG delt to the boss. Stacks up to 3 times. Increases the DMG dealt by any character switched into battle for 10s.
+37	2300037	1		Candleflame Inferno I	Enter the Frenzied state upon casting Signature Move. Every 2 Fire DMG instances in this state significantly increases Fire DMG, stacking up to 5 times.
+38	2300038	1		Thunderstrike Tempest I	Dealing Lightning DMG grants a Lightning Shield. When the shield stacks to its maximum, it will automatically detonate, significantly increasing Lightning DMG dealt to the boss. The shield can stack up to 4 times.
+39	2300039	1		Candleflame Inferno II	Enter the Frenzied state upon casting Signature Move. Every 2 Fire DMG instances in this state significantly increases Fire DMG, stacking up to 5 times. When all members enter, damage increases for 10s.
+40	2300040	1		Thunderstrike Tempest II	Dealing Lightning DMG grants a Lightning Shield. When the shield stacks to its maximum, it will automatically detonate, significantly increasing Lightning DMG dealt to the boss. The shield can stack up to 4 times. When all members enter, damage increases for 10s.
+41	2300041	1		Cosmos Disorder I	Converts 40% of the Boss's max HP into Equilibrium Field. When the Equilibrium Field is broken, the Boss takes significantly more Nihil DMG.
+42	2300042	1		Cosmos Disorder II	Converts 40% of the Boss's max HP into Equilibrium Field. When the Equilibrium Field is broken, the Boss takes significantly more Nihil DMG. Increases the DMG dealt by any character switched into battle for 10s.
+43	2300043	1		Devouring Current I	Receive Dark Orbs when you deal Dark DMG. After picking up a Dark Orb, the next attack will launch Dark Orb and deal Dark DMG, while significantly increasing your Dark DMG. Stacks up to 6 times.
+44	2300044	1		Cosmos Disorder III	Converts 40% of the Boss's max HP into Equilibrium Field. When the Equilibrium Field is broken, the Boss takes significantly more Nihil DMG.
+45	2300045	1		Devouring Current III	Receive Dark Orbs when you deal Dark DMG. After picking up a Dark Orb, the next attack will launch Dark Orb and deal Dark DMG, while significantly increasing your Dark DMG. Stacks up to 6 times.
+46	2300046	1		Brutal Crash I	Critical Hits increase Physical DMG taken by the Boss, stacking up to 6 times.
+47	2300047	1		Greedy Frost I	When Glaciation Effect deals damage, Boss takes significantly more Glaciation DMG. Max 5 stacks.
+48	2300048	1		Skyfire Cataclysm I	Dealing Ignition DMG makes the Boss take significantly higher Ignition DMG for 10s, stacking up to 8 times. The duration is reset when any member is switched into battle.
+49	2300049	1		The Calming Destruction III	Upon casting Ultima Slash, significantly increase your Physical DMG and Ultima Slash DMG delt to the boss. Stacks up to 5 times.
+50	2300050	1		Radiant Renewal I	For each orb pinged, significantly increases Lightning and Plasma Beam DMG taken by the Boss for 10s, stacking up to 5 times. Duration resets every time the effect is triggered.
+51	2300051	1		Perish at Dusk I	Dealing Dark DMG significantly increases Dark DMG taken by the Boss for 10s, stacking up to 6 times. Duration resets every time the effect is triggered.
+52	2300052	1		Brutal Crash II	Critical Hits increase Physical DMG taken by the Boss, stacking up to 6 times.
+53	2300053	1		Perish at Dusk II	Dealing Dark DMG significantly increases Dark DMG taken by the Boss for 10s, stacking up to 6 times. Duration resets every time the effect is triggered.
+54	2300054	1		Thunderstrike Tempest III	Dealing Lightning DMG grants a Lightning Shield. When the shield stacks to its maximum, it will automatically detonate, significantly increasing Lightning DMG dealt to the boss. The shield can stack up to 4 times. (Raydiance Effect DMG slightly increased)
+55	2300055	1		Tidal Return I	When dealing Darkflow DMG, significantly increases Darkflow DMG taken by enemies for 10s, stacking up to 9 times. Duration resets every time it is triggered.
+56	2300028	1		Frostbound Chasm III	Dealing Ice DMG accumulates Frost, which significantly increases Ice DMG delt to the boss. Stacks up to 3 times.
+57	2300057	1		Flare Burst I	For each orb pinged, significantly increases Raydiance DMG taken by the Boss for 10s, stacking up to 5 times. Duration resets every time the effect is triggered.
+58	2300058	1		Oblivion's Bloom I	For each orb pinged, significantly increases Dark DMG taken by the Boss for 10s, stacking up to 4 times. Duration resets every time it is triggered.
+59	2300059	1		Steel of Clarity I	Every time when casting Ultima Slash, significantly increases Ultima Slash DMG taken by the Boss and increases the user's Physical DMG dealt. Max 5 stacks. Lasts 10s. Duration resets every time it is triggered.
+60	2300060	1		Cosmos Disorder IV	Converts 40% of the Boss's max HP into Equilibrium Field. When the Equilibrium Field is broken, the Boss takes significantly more Nihil DMG.
+61	2300061	1		Blazing Revelation I	For each orb pinged, significantly increases Fire DMG taken by the Boss for 10s, stacking up to 4 times. Duration resets every time it is triggered.
+62	2300062	1		Voltaic Discharge I	For every 3 instances of Plasma Beam DMG dealt, significantly increases the Plasma Beam Effect DMG taken by the Boss for 10s, stacking up to 3 times. Duration resets every time the effect is triggered.
+63	2300063	1		Frostbound Chasm IV	For each orb pinged, significantly increases Ice DMG taken by the Boss for 10s, stacking up to 3 times. Duration resets every time it is triggered.
+64	2300064	1		Skyfire Cataclysm II	Dealing Ignition DMG significantly increases Ignition DMG taken by the Boss for 10s, stacking up to 8 times. Duration resets every time the effect is triggered.
+65	2300065	1		Thunderstrike Tempest IV	Dealing Lightning DMG grants a Lightning Shield. When the shield stacks to its maximum, it will automatically detonate, significantly increasing Lightning DMG dealt to the boss for 10s. The shield can stack up to 4 times. Duration resets every time the effect is triggered.
+66	2300066	1		Greedy Frost Ⅱ	When the Glaciation effect deals DMG, the Boss takes significantly increased Glaciation DMG for 10s, stacking up to 5 times. Duration resets every time the effect is triggered.
+67	2300067	1		Brutal Crash III	Upon a Critical Hit, significantly increases the Boss' Physical DMG taken, up to 6 stacks, lasting 10s. Duration resets every time it is triggered.
+68	2300068	1		Tidal Return II	When dealing Darkflow DMG, significantly increases Darkflow DMG taken by enemies for 10s, stacking up to 7 times. Duration resets every time it is triggered.
+69	2300069	1		Oblivion's Bloom II	For each orb pinged, significantly increases Dark DMG taken by the Boss for 10s, stacking up to 4 times. Duration resets every time it is triggered.
+70	2300070	1		Steel of Clarity II	Every time when casting Ultima Slash, significantly increases Ultima Slash DMG taken by the Boss and increases the user's Physical DMG dealt. Max 5 stacks. Lasts 10s. Duration resets every time it is triggered.
+1001	2301001	2	950	Web of Fate I	Boss HP increases by 50%.
+1002	2301002	2	1550	Weapons & Bones I	Boss takes reduced DMG from all sources except Physical.
+1003	2301003	2	1550	Scorching Realm I	Boss takes reduced DMG from all sources except Fire.
+1004	2301004	2	1550	Frostbite Incursion I	Boss takes reduced DMG from all sources except Ice.
+1005	2301005	2	1550	Unending Nightfall I	Boss takes reduced DMG from all sources except Dark.
+1006	2301006	2	1550	Thunderous Echo I	Boss takes reduced DMG from all sources except Lightning.
+1007	2301007	2	1550	Celestial Peaks I	Boss takes reduced DMG from all sources except Nihil.
+1008	2301008	2	1550	Midnight Clash I	Boss takes reduced DMG from all sources except Ultima Slash effect.
+1009	2301009	2	1550	All-Consuming Pyre I	Boss takes reduced DMG from all sources except Ignition Effect.
+1010	2301010	2	1550	Rimebound Frost I	Boss takes reduced DMG from all sources except Glaciation Effect.
+1011	2301011	2	1550	The Blighted Sun I	Boss takes reduced DMG from all sources except Darkflow Effect.
+1012	2301012	2	1550	Electric Dusk I	Boss takes reduced DMG from all sources except Plasma Beam Effect.
+1013	2301013	2	1550	Ode to the Light I	Boss takes reduced DMG from all sources except Raydiance Effect.
+1014	2301014	2	1250	Web of Fate II	Boss HP increases by 60%.
+1015	2301015	2	1550	Web of Fate III	Boss HP increases by 70%.
+71	2300071	1	0	Frostbound Chasm V	For each orb pinged, significantly increases Ice DMG taken by the Boss for 10s, stacking up to 3 times. Duration resets every time it is triggered.
+72	2300072	1	0	Greedy Frost III	When the Glaciation effect deals DMG, the Boss takes significantly increased Glaciation DMG for 10s, stacking up to 5 times. Duration resets every time the effect is triggered.

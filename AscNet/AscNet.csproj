@@ -15,7 +15,7 @@
   </ItemGroup>
 	<ItemGroup>
 		<Content Include="..\Resources\**"
-		         Exclude="..\Resources\**\.runtime\**;..\Resources\**\.DS_Store;..\Resources\**\*.log;..\Resources\**\*.LOG;..\Resources\**\proxylog;..\Resources\**\proxylog\**;..\Resources\**\*.pcap;..\Resources\**\*.PCAP;..\Resources\**\*.pcapng;..\Resources\**\*.PCAPNG;..\Resources\**\*.cap;..\Resources\**\*.CAP;..\Resources\**\bin\**;..\Resources\**\Bin\**;..\Resources\**\obj\**;..\Resources\**\Obj\**">
+		         Exclude="..\Resources\**\.runtime\**;..\Resources\**\.DS_Store;..\Resources\**\*.log;..\Resources\**\*.LOG;..\Resources\**\proxylog;..\Resources\**\proxylog\**;..\Resources\**\*.pcap;..\Resources\**\*.PCAP;..\Resources\**\*.pcapng;..\Resources\**\*.PCAPNG;..\Resources\**\*.cap;..\Resources\**\*.CAP;..\Resources\**\bin\**;..\Resources\**\Bin\**;..\Resources\**\obj\**;..\Resources\**\Obj\**;..\Resources\**\*.local.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>

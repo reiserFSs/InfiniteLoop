@@ -400,3 +400,6 @@ Resources/table.pre-4.7.7/
 # direnv cache and local editor state
 .direnv/
 .vscode/
+
+# Local per-install settings (e.g. /warzone dmg); each user has their own, never commit
+Resources/Configs/*.local.json

@@ -81,6 +81,9 @@ namespace AscNet.Test
             {
                 UseResourceWorkingDirectory();
                 keepGoing = args.Contains("--keep-going");
+                // Score expectations must not depend on the developer's local /warzone dmg settings.
+                AscNet.GameServer.Handlers.ArenaLocalScoreSettings.PathOverride =
+                    Path.Combine(Path.GetTempPath(), $"ascnet-test-{Environment.ProcessId}-none.local.json");
                 if (args.Contains("--profile-compat-only"))
                 {
                     ValidateProfileCompatibility();
@@ -1034,6 +1037,19 @@ namespace AscNet.Test
                     ValidateSimulatedBattlefieldCompatibility();
                     return;
                 }
+
+                if (args.Contains("--warzone-command-only"))
+                {
+                    ValidateWarzoneZoneCommands();
+                    return;
+                }
+
+                if (args.Contains("--ppc-command-only"))
+                {
+                    ValidateBossSingleIntensiveCommands();
+                    ValidatePpcAttemptCommands();
+                    return;
+                }
                 if (args.Contains("--mode-score-tasks-only"))
                 {
                     ValidateModeScoreTaskProgress();
@@ -1524,6 +1540,9 @@ namespace AscNet.Test
                 Step("ValidateBossSingleIntensiveStageHydration", () => ValidateBossSingleIntensiveStageHydration());
                 Step("ValidateBossSingleCycleStageScoreSync", () => ValidateBossSingleCycleStageScoreSync());
                 Step("ValidateSimulatedBattlefieldCompatibility", () => ValidateSimulatedBattlefieldCompatibility());
+                Step("ValidateWarzoneZoneCommands", () => ValidateWarzoneZoneCommands());
+                Step("ValidateBossSingleIntensiveCommands", () => ValidateBossSingleIntensiveCommands());
+                Step("ValidatePpcAttemptCommands", () => ValidatePpcAttemptCommands());
                 Step("ValidateModeScoreTaskProgress", () => ValidateModeScoreTaskProgress());
                 Step("ValidateCurrentClientGuideTableCompatibility", () => ValidateCurrentClientGuideTableCompatibility());
                 Step("ValidateWheelchairManualFullCompatibility", () => ValidateWheelchairManualFullCompatibility());

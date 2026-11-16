@@ -30,5 +30,9 @@
     "SettlementGoods": [
       { "RewardType": 1, "TemplateId": 62738, "Count": 85 }
     ]
+  },
+  "ArenaMarkOverrides": {
+    "Policy": "AscNet policy, not recovered retail server behavior: replaces individual Mark.tsv score expressions for the listed MarkId. Mark 5 wave and HP points follow the values shown on retail Desperate Fight settlement screens (50000 per wave, 200 per HP percent) instead of the doubled table expressions. Mark 5 damage uses EnemyHp/45*2 instead of the table EnemyHp/25*2 to balance the generated Desperate Fight waves (arena_stage_data.json). Per-install tuning on top of this is /warzone dmg (Resources/Configs/simulated_battlefield.local.json, gitignored). Remove an entry to restore the table expression.",
+    "Marks": { "5": { "EnemyHpPoint": "EnemyHp/45*2", "MyHpPoint": "Hp*200", "NpcGroupPoint": "NpcGroup*50000" } }
   }
 }
