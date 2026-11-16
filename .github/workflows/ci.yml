@@ -17,7 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, windows-latest]
+        os: [macos-15-intel, windows-latest]
+    # macos-15-intel: GitHub's arm64 macos-15 pool stopped assigning runners to this repo's jobs (2026-11-16).
     runs-on: ${{ matrix.os }}
     defaults:
       run:
