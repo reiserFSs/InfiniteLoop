@@ -8,6 +8,9 @@ removed) are kept. Derived/policy tables (no same-path source) are not touched h
 
     import_tables_4_9.py            dry run, prints per-table delta
     import_tables_4_9.py --apply    write TSVs, manifest entries and .runtime/upgrade-4.9/import-report.json
+    import_tables_4_9.py --old <previous 4.9 corpus> --new <newer 4.9 corpus> [--apply]
+                                    same projection for a later in-game patch (e.g. build 1739029 -> 1746920): only that
+                                    patch's retail delta, local-only cells/rows kept
 """
 from __future__ import annotations
 
@@ -89,10 +92,15 @@ def sha(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply', action='store_true')
-    apply = parser.parse_args().apply
-    old, new = index(OLD), index(NEW)
-    document = json.loads((NEW / 'index-delta.json').read_text())['index_sha1']['document/matrix']
+    parser.add_argument('--old', type=Path, default=OLD, help='baseline corpus (default: the staged 4.8 install tables)')
+    parser.add_argument('--new', type=Path, default=NEW, help='corpus to import (default: PGR_DATA/en-4.9/bytes)')
+    args = parser.parse_args()
+    apply, baseline_root, new_root = args.apply, args.old, args.new
+    old, new = index(baseline_root), index(new_root)
+    patch = args.old != OLD  # later in-game patch of 4.9: baseline is the previous 4.9 corpus, not 4.8
+    document = json.loads((new_root / 'index-delta.json').read_text())['index_sha1']['document/matrix']
     report = json.loads(REPORT.read_text()) if apply and REPORT.exists() else {}  # re-runs keep earlier entries
+    touched = set()
     for tsv in sorted(TARGET.rglob('*.tsv')):
         name = str(tsv.relative_to(TARGET).with_suffix(''))
         src = ALIAS.get(name, name).lower()
@@ -145,6 +153,7 @@ def main():
         if not apply or text == old_text:
             continue
         tsv.write_text(text)
+        touched.add(name)
         source = new[src]
         entry['tsv_sha256'] = hashlib.sha256(text.encode()).hexdigest()
         entry['source'] = f'4.9 installed document index sha1:{document}; PGR_DATA/en-4.9/bytes/{name}.tab'
@@ -158,19 +167,20 @@ def main():
         manifest = json.loads(MANIFEST.read_text())
         by_path = {t['path']: t for t in manifest['tables']}
         for name, entry in report.items():
-            if 'tsv_sha256' not in entry:
+            if 'tsv_sha256' not in entry or (patch and name not in touched):  # a patch run only re-records what it changed
                 continue
             row = by_path.setdefault(f'{name}.tsv', {'path': f'{name}.tsv', 'naturalKey': entry['key'], 'filter': 'all',
                                                        'source': [], 'transformation': []})
             if row not in manifest['tables']:
                 manifest['tables'].append(row)
             stale = {k: row.pop(k) for k in ('sourceSha256', 'sourceSha1', 'indexSha1', 'sourceTableSha1', 'sourceBundleSha1', 'sourceScope') if k in row}
-            if stale:  # hashes describe the previous (4.8) source; keep them as the import baseline
+            if stale and not patch:  # hashes describe the previous (4.8) source; keep them as the import baseline
                 row.setdefault('baseline', stale)
             row['rows'], row['columns'], row['contentSha256'] = entry['rows_after'], entry['columns'], entry['tsv_sha256']
             row['source'] = [s for s in row['source'] if not str(s).startswith('4.9 ')] + [
                 f"{entry['source']} (json sha256:{entry['source_json_sha256']}; tab sha256:{entry['source_tab_sha256'] or 'staged JSON only'})"]
-            note = 'import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept'
+            note = ('import_tables_4_9 --old: previous 4.9 patch -> current 4.9 patch retail delta via project(baseline_rows); local-only cells/rows kept' if patch
+                    else 'import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept')
             if isinstance(row.get('transformation'), list):
                 if note not in row['transformation']:
                     row['transformation'].append(note)

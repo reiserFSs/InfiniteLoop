@@ -73,8 +73,8 @@
         "identifier": "com.kurogame.punishing.grayraven.en",
         "defaultVersion": "4.9.0",
         "versions": {"1709830": "4.9.1"},
-        "defaultBuild": "1739029",
-        "builds": {"1739029": {"matrixSha1": "7be18b2e546dbf95442e098be024a89c22041a52", "launchSha1": "b069d45a6b7d7679e6ab66c82c661ddd85b92ef3"}}
+        "defaultBuild": "1746920",
+        "builds": {"1746920": {"matrixSha1": "50ea2113d905fbf63b4e3a3a4574649f3d8197dd", "launchSha1": "c6f5818d9040d42441fdf252e2a9e7907a6cd94d"}}
       },
       "patches": [
         {"version": "2.17.0.0", "baseUrl": "launcher/game/G143/50015/4.9.0/QQGkKrpYIBdJPKpXTzGsGHGwAMhTQTXE/resource/50015/4.9.0/2.17.0.0/resources/", "indexFile": "launcher/game/G143/50015/4.9.0/QQGkKrpYIBdJPKpXTzGsGHGwAMhTQTXE/resource/50015/4.9.0/2.17.0.0/indexFile.json", "indexFileMd5": "27f90b9d1020513e336baa56d9bb810a", "size": 67057695995},
@@ -110,8 +110,8 @@
         "key": "KaWGXt8A8wm5iqm5",
         "identifier": "com.kurogame.punishing.grayraven.tw",
         "defaultVersion": "4.9.0",
-        "defaultBuild": "1739062",
-        "builds": {"1739062": {"matrixSha1": "f1bfc3ff0e893ba4cad1f4faa304fe4ff5fc85e8", "launchSha1": "13fc5f87f1a8042b230a408b932faed8d312b60f"}}
+        "defaultBuild": "1746911",
+        "builds": {"1746911": {"matrixSha1": "48482b03c15c9ce56b7c89d8aaa2e91a175aecf3", "launchSha1": "3f63d245372ddb977bc95e04f913c8681f76dbb9"}}
       },
       "patches": [
         {"version": "2.7.9", "baseUrl": "launcher/game/G279/50016/4.9.1/kpmyVjymSnjnNNnlaJrbljwuqlWsYBHT/resource/50016/4.9.1/2.7.9/resources/", "indexFile": "launcher/game/G279/50016/4.9.1/kpmyVjymSnjnNNnlaJrbljwuqlWsYBHT/resource/50016/4.9.1/2.7.9/indexFile.json", "indexFileMd5": "4a96faa90f1100da2d400d6f695bdb91", "size": 66771406977},
@@ -146,8 +146,8 @@
         "key": "vxUrzyBXEyY1L5T8",
         "identifier": "com.kurogame.punishing.grayraven.kr",
         "defaultVersion": "4.9.0",
-        "defaultBuild": "1739050",
-        "builds": {"1739050": {"matrixSha1": "e7fe14e02065dd1483ad1a4786690942731d3b95", "launchSha1": "b5ac6ab5e0666bf780cba0ec98921ee4465b178d"}}
+        "defaultBuild": "1746907",
+        "builds": {"1746907": {"matrixSha1": "6dd2a82ccb1d444393c9c9757ebfa75801f6ca4f", "launchSha1": "6d97150a73811155b3b75ec5ff18299986e33fd6"}}
       },
       "patches": [
         {"version": "3.1.0", "baseUrl": "launcher/game/G286/50011/4.9.1/JrJxYAyJoKcrsVDerRMeUxezGocuAIAq/resource/50011/4.9.1/3.1.0/resources/", "indexFile": "launcher/game/G286/50011/4.9.1/JrJxYAyJoKcrsVDerRMeUxezGocuAIAq/resource/50011/4.9.1/3.1.0/indexFile.json", "indexFileMd5": "ca40b365095a59b5030cb5f8e8e5efe0", "size": 67106931554},
@@ -183,8 +183,8 @@
         "key": "u6ubWH4wy50y8LDz",
         "identifier": "com.kurogame.punishing.grayraven.jp",
         "defaultVersion": "4.9.0",
-        "defaultBuild": "1739043",
-        "builds": {"1739043": {"matrixSha1": "5cd2da9e8ecde6f51951f9d8e0bf007bdc56431a", "launchSha1": "cd697877a58f93032680fa96ae16e2975ce231ea"}}
+        "defaultBuild": "1746890",
+        "builds": {"1746890": {"matrixSha1": "354d442a231b8d8f4972a54afda5b4d8eedd20a0", "launchSha1": "da3c2e35ddfabc0fd7d4cfed61e14df44a448d89"}}
       },
       "patches": [
         {"version": "3.2.0.0", "baseUrl": "launcher/game/G282/50007/4.9.1/lRjDUchscFPSlqPGHXlKYLKvyIGyZPJl/resource/50007/4.9.1/3.2.0.0/resources/", "indexFile": "launcher/game/G282/50007/4.9.1/lRjDUchscFPSlqPGHXlKYLKvyIGyZPJl/resource/50007/4.9.1/3.2.0.0/indexFile.json", "indexFileMd5": "dea9e5e553da3ff7189216ec83aa4257", "size": 67013465233},
@@ -218,8 +218,8 @@
         "key": "tAWC541FSRl5WHwq",
         "identifier": "com.kurogame.haru.kuro",
         "defaultVersion": "4.9.0",
-        "defaultBuild": "1738992",
-        "builds": {"1738992": {"matrixSha1": "25b65d333c633ca9335abcd71947dfeaa92f4b89", "launchSha1": "01a7b73d7ca7f402dec79b58065f46354caf9d35"}}
+        "defaultBuild": "1747049",
+        "builds": {"1747049": {"matrixSha1": "931df3b4e08ef3dfda850cf945f2d79f7b18da36", "launchSha1": "912feabaa57a04cec7412f2b1dc68ccbc8386140"}}
       },
       "patches": [
         {"version": "3.2.0", "baseUrl": "launcher/game/G148/10012/4.9.0/oZAVZdjVyCofYySVooaLxbTABngpVFhu/resource/10012/4.9.0/3.2.0/resources/", "indexFile": "launcher/game/G148/10012/4.9.0/oZAVZdjVyCofYySVooaLxbTABngpVFhu/resource/10012/4.9.0/3.2.0/indexFile.json", "indexFileMd5": "983a54dcb3dd84ba1314d12bbaadd86f", "size": 67321378371},

@@ -12,7 +12,7 @@ This script ports the client's URL scheme (xmoduleupdateinfo.lua GetUrlByVersion
 Index files are written last, so an interrupted run never leaves an index that points at missing files.
 Only files under <install>/PGR_Data/StreamingAssets/document/{matrix,launch} are written; overwritten files are moved to --backup.
 
-  restore_document_patch.py --install "<game dir>" [--build 1739029] [--dry-run] [--backup DIR]
+  restore_document_patch.py --install "<game dir>" [--build 1746920] [--dry-run] [--backup DIR]
 """
 from __future__ import annotations
 
@@ -34,7 +34,8 @@ CDNS = ["http://prod-encdn-ak.pgr-game.com/prod", "http://prod-encdn-aliyun.kuro
 KEY = "clEoudH0zUSDQsQa"  # EN
 IDENTIFIER, GAME_VERSION = "com.kurogame.punishing.grayraven.en", "4.9.0"  # fallbacks when document/{ver,client2cdn} are absent
 # build -> sha1 of the CDN's matrix/launch index == IndexSha1/LaunchIndexSha1 the server must serve (en49.tab)
-KNOWN = {"1739029": {"matrix": "7be18b2e546dbf95442e098be024a89c22041a52", "launch": "b069d45a6b7d7679e6ab66c82c661ddd85b92ef3"}}
+KNOWN = {"1746920": {"matrix": "50ea2113d905fbf63b4e3a3a4574649f3d8197dd", "launch": "c6f5818d9040d42441fdf252e2a9e7907a6cd94d"}}
+DEFAULT_BUILD = "1746920"  # what AscNet serves; a player on an older build (document/ver LeastVersionFile) gets the delta to this one
 PKG_INDEX = {"matrix": "InPkgIndex", "launch": "index"}  # package-side index per tree (XModuleUpdateInfo.ApplicationIndex)
 TIMEOUT, RETRIES, WORKERS = 60, 4, 8
 
@@ -80,9 +81,7 @@ class Restorer:
         self.doc, self.res = sa / "document", sa / "resource"
         self.dry, self.backup, self.cdns, self.key = args.dry_run, args.backup, args.cdn or CDNS, args.key
         ver = json.loads((self.doc / "ver").read_text()) if (self.doc / "ver").is_file() else {}
-        self.build = str(args.build or ver.get("LeastVersionFile") or "")
-        if not self.build:
-            sys.exit("no --build and document/ver has no LeastVersionFile")
+        self.build = str(args.build or DEFAULT_BUILD)  # not document/ver: the installed build is what we are moving off
         self.version_path = ver.get("VersionPath", {})
         c2c = self.doc / "client2cdn"
         self.client2cdn = json.loads(c2c.read_text()) if c2c.is_file() else {}
@@ -182,7 +181,7 @@ class Restorer:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--install", help="game dir (default: pgr_bundles default install)")
-    ap.add_argument("--build", help="SVN build id (default: document/ver LeastVersionFile)")
+    ap.add_argument("--build", help="SVN build id (default: %(default)s)", default=DEFAULT_BUILD)
     ap.add_argument("--key", default=KEY, help="CDN key (default: EN %(default)s)")
     ap.add_argument("--cdn", action="append", help="CDN base incl. /prod, repeatable (default: EN primary + secondary)")
     ap.add_argument("--index-sha1", help="expected sha1 of matrix/index (= served IndexSha1)")

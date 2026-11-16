@@ -5,13 +5,13 @@ Ui3DOffset		-1|1.2|0	0|1.5|0	-0.2|0.8|0	0|2.1|0
 StorageCountDesc		%s in stock	<size=32><color=#7de4e9>%s</color></size>/%s							
 SkillAdditionDesc		Staff Skill Description	Promo Price	Price						
 ProduceDesc		[%s] has started ordering [%s]!	[%s] has started crafting [%s]!	[%s] has started promoting [%s]!	Please select a staff member first.	Crafting %s requires:	Insufficient Rough Materials			
-ProduceTimeUnit		per hour	/dish							
+ProduceTimeUnit		 per hour	/dish							
 StorageFullTip		Full Counter Stock	Checkout counter currency is <color=#b55252>FULL</color>. Staff cannot start promotion immediately!\nContinue promotion for [<color=#b55252>%s</color>]?\n(Staff will resume promotion once checkout currency falls below the limit.)	Full Stock	Stock for [<color=#b55252>%s</color>] is <color=#b55252>FULL</color>. Staff cannot start work immediately!\nSelect [<color=#b55252>%s</color>] anyway?\n(Staff will begin work once stock falls below the limit.)					
 ProductNotEnough		Insufficient Materials	Insufficient materials for [<color=#b55252>%s</color>]. Staff cannot start work immediately!\nContinue crafting [<color=#b55252>%s</color>]?\n(Staff will resume crafting [<color=#b55252>%s</color>] once there are enough materials.)	Insufficient Shining Products	Stock of [<color=#b55252>%s</color>] is at <color=#b55252>0</color>. Staff cannot start promotion immediately!\nContinue promotion for [<color=#b55252>%s</color>]?\n(Staff will begin promotion once stock is greater than 0.)					
 StopProduceTip		Cancel Order [%s]	Cancel Order for [%s] Rough Materials	Cancel Crafting [%s]	Cancel Crafting [%s]. The system will refund Rough Materials (%s).	Cancel Crafting [%s]	Cancel Promo [%s]	Cancel Promo [%s]. The system will refund (%s).	Cancel Promo [%s]	
 IngredientStatisticsTip		Ordering Yield	Expected Cost	Expected Changes						
 FoodStatisticsTip		Crafting Output	Expected Cost	Expected Changes						
-StatisticsUnit		in total								
+StatisticsUnit		 in total								
 StoragePreviewTip1		Reaching stock limit in %s hours.	Estimated to be used up in %s hours.	Continuous Production						
 StoragePreviewTip2		Reaching stock limit in %s hours.	Estimated to be used up in %s hours.	Estimated Rough Materials depleted in %sh	Continuous Production					
 StoragePreviewTip3		Reaching stock limit in %s hours.	Estimated to be used up in %s hours.	Continuous Production						
@@ -69,11 +69,11 @@ FloorUnlockWorkbenchText		All workstations on this floor	All workstations on the
 FloorUnlockNewFunctionalText		Daily Event	Building Order	Character	Shining Product	Rough Material				
 DanceUnlockNewFunctionalText		Amplification	Movable	Auto-Charge						
 DirectionText		Left	Central	Right	All					
-FloorText		Floor %s								
-WorkbenchText		Workstation								
+FloorText		Floor %s 								
+WorkbenchText		 Workstation								
 FloorLevelUpMaxShowItemCount		3	6							
 Symbol		、	&							
-NewText		New								
+NewText		New 								
 UnlockAreaDefaultValue		99								
 UnlockNewGroupTitle		New Zone Unlocked	New Content Unlocked							
 ItemTagName		Rough Material	Shining Product							
@@ -96,7 +96,7 @@ WorkTypeIcon		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconSet.png	
 WorkTypeName		Order	Crafting	Promo						
 SkillUnknownName		<B>???</B>								
 WorkRoleLevelDesc		%s (Lv.%s)	Lv.%s							
-ExamineGoldBubbleText		For every %s 　　　obtained during the event	Obtain %s							
+ExamineGoldBubbleText		For every %s 　　　obtained during the event	Obtain %s　　　							
 SkillTypeIcon		Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconComSkill.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconHopeSkill.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconAuraSkill.png	Assets/Product/Texture/Atlas/UiSkyTower/UiSkyTowerTypeIconComSkill.png					
 SkillAdditionText		Time -%ss	Price +%s	Quantity +%s						
 SkillAdditionProduceText		Drop %s	Extra %s	Extra %s						
@@ -164,3 +164,8 @@ SkillInvalidCueId		8719
 AppearPerformCueId		8715								
 CommonColonFormat		%s:%s								
 DefaultCharacterId		43								
+LoadNpcFrame		2								
+DestoryNpcFrame		2								
+MoveToPoolTime		3000								
+DestoryNpcTime		3000								
+CharVisibleRange		150								

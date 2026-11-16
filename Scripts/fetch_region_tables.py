@@ -7,7 +7,7 @@ client's own matrixmanifest and downloads only the bundles that hold `assets/tem
 sha1/size against the indexes. Output is a directory shaped like an install (PGR_Data/StreamingAssets/{resource,document}/matrix)
 that Scripts/scan_client_upgrade.py --extract (see extract_region_tables.py) can read.
 
-  fetch_region_tables.py --region tw --out /Volumes/Miyu/tw49 [--build 1739062]
+  fetch_region_tables.py --region tw --out /Volumes/Miyu/tw49 [--build 1746911]
 """
 from __future__ import annotations
 

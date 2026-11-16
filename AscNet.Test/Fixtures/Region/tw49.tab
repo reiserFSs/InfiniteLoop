@@ -1,10 +1,10 @@
 Key	Type	Value
 ApplicationVersion	string	4.9.0
-DocumentVersion	string	4.9.8
+DocumentVersion	string	4.9.9
 Debug	bool	0
 External	bool	0
 Channel	int	5
-IndexSha1	string	f1bfc3ff0e893ba4cad1f4faa304fe4ff5fc85e8
+IndexSha1	string	48482b03c15c9ce56b7c89d8aaa2e91a175aecf3
 PayCallbackUrl	string	http://prod-pay-tw.pgr-game.com/api/XPay/KuroPayResult
 AndroidPayCallbackUrl	string	http://prod-pay-tw.pgr-game.com/api/XPay/HeroHgAndroidPayResult
 IosPayCallbackUrl	string	http://prod-pay-tw.pgr-game.com/api/XPay/HeroHgIosPayResult
@@ -17,8 +17,8 @@ CloseMsgEncrypt	bool	0
 ServerListStr	string	繁體中文服#http://175.97.184.50:55556/api/Login/Login
 PicComposition	string	http://
 LaunchIndexMd5	string	empty
-LaunchIndexSha1	string	13fc5f87f1a8042b230a408b932faed8d312b60f
-LaunchModuleVersion	string	4.9.8
+LaunchIndexSha1	string	3f63d245372ddb977bc95e04f913c8681f76dbb9
+LaunchModuleVersion	string	4.9.9
 AndroidReturnEnabled	bool	0
 DEEnable	bool	0
 DEFilter	string	empty
@@ -40,6 +40,6 @@ AuthSignName	string	sign
 AuthTimeOut	int	1800
 AuthIsVolKey	string	volcdn
 UseNewDownloader	int	3
-LeastVersionFile	string	1739062
-LeastLaunchVersion	string	1739062
-PatchedList	string	1737872,1736625,1709838
+LeastVersionFile	string	1746911
+LeastLaunchVersion	string	1746911
+PatchedList	string	1739062,1737872,1736625

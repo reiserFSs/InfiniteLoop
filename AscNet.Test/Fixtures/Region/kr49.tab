@@ -1,6 +1,6 @@
 Key	Type	Value
 ApplicationVersion	string	4.9.0
-DocumentVersion	string	4.9.8
+DocumentVersion	string	4.9.9
 Debug	bool	0
 External	bool	1
 Channel	int	5
@@ -16,11 +16,11 @@ AndroidPayCallbackUrl	string	http://prod-pay-kr.pgr-game.com/api/XPay/HeroHgAndr
 IosPayCallbackUrl	string	http://prod-pay-kr.pgr-game.com/api/XPay/HeroHgIosPayResult
 OneStorePayCallbackUrl	string	http://prod-pay-kr.pgr-game.com/api/XPay/HeroHgOneStorePayResult
 AndroidReturnEnabled	bool	0
-IndexSha1	string	e7fe14e02065dd1483ad1a4786690942731d3b95
+IndexSha1	string	6dd2a82ccb1d444393c9c9757ebfa75801f6ca4f
 WatermarkEnabled	bool	0
 PicComposition	string	empty
-LaunchModuleVersion	string	4.9.8
-LaunchIndexSha1	string	b5ac6ab5e0666bf780cba0ec98921ee4465b178d
+LaunchModuleVersion	string	4.9.9
+LaunchIndexSha1	string	6d97150a73811155b3b75ec5ff18299986e33fd6
 AccountCancellationEnable	bool	0
 WatermarkType	int	0
 DownloadMethod	int	1
@@ -39,6 +39,6 @@ AuthSignName	string	sign
 AuthTimeOut	int	1800
 AuthIsVolKey	string	volcdn
 UseNewDownloader	int	3
-LeastVersionFile	string	1739050
-LeastLaunchVersion	string	1739050
-PatchedList	string	1737869,1736619,1709840
+LeastVersionFile	string	1746907
+LeastLaunchVersion	string	1746907
+PatchedList	string	1739050,1737869,1736619

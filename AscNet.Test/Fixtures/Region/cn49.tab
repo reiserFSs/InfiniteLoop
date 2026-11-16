@@ -1,6 +1,6 @@
 Key	Type	Value
 ApplicationVersion	string	4.9.0
-DocumentVersion	string	4.9.9
+DocumentVersion	string	4.9.10
 Debug	bool	0
 External	bool	0
 Channel	int	5
@@ -13,9 +13,9 @@ MemoryLimit	int	2048
 ServerListStr	string	星火服#https://haru-gf-login.kurogame.com/api/Login/Login
 CloseMsgEncrypt	bool	0
 WatermarkEnabled	bool	0
-IndexSha1	string	25b65d333c633ca9335abcd71947dfeaa92f4b89
-LaunchModuleVersion	string	4.9.9
-LaunchIndexSha1	string	01a7b73d7ca7f402dec79b58065f46354caf9d35
+IndexSha1	string	931df3b4e08ef3dfda850cf945f2d79f7b18da36
+LaunchModuleVersion	string	4.9.10
+LaunchIndexSha1	string	912feabaa57a04cec7412f2b1dc68ccbc8386140
 WatermarkType	int	0
 DownloadMethod	int	0
 DeeplinkEnabled	bool	1
@@ -23,7 +23,7 @@ ChannelServerListStr	string	18#星火服#https://haru-gf-login.kurogame.com/api/
 ParallelDownload	int	1
 ParallelQueueSize	string	3-7
 ParallelChunkSize	string	1048576-4096
-IndexSize	int	6399103
+IndexSize	int	6399458
 LaunchIndexSize	int	2478
 IsShowLogUpload	bool	1
 LogUploadOssUrl	string	prod-sdklog.zspms-game.com
@@ -31,6 +31,6 @@ IsPCPayEnable	bool	1
 UsingXTableBehaviorNodeOptimize	bool	1
 IsGPMEnabled	bool	1
 UseNewDownloader	int	3
-LeastVersionFile	string	1738992
-LeastLaunchVersion	string	1738992
-PatchedList	string	1737833,1736590,1731740
+LeastVersionFile	string	1747049
+LeastLaunchVersion	string	1747049
+PatchedList	string	1738992,1737833,1736590

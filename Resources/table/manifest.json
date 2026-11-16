@@ -2214,7 +2214,7 @@
       "path": "share/fuben/Stage.tsv",
       "rows": 11298,
       "columns": 108,
-      "contentSha256": "d15fd033d2b30ec9b2b62cf1c3dd5f2025a500f8db80d04944d8fa3ac632a391",
+      "contentSha256": "83da4e993c6959567e4f7c3e5465946adfbb689d33867a6f7a826501b4fcb00a",
       "naturalKey": "StageId",
       "filter": "all installed authored IDs (existing server column projection)",
       "previousRows": 11093,
@@ -2223,12 +2223,13 @@
         "installed document bundle assets/temp/bytes/share/fuben.ab (sha1:213179472ed5cf2594852bdd44f276f899266cd4; 733630 bytes)",
         "TextAsset Stage.tab (sha1:379e9ecdd0748405d7cb4666a937bb0005c465b8; 1757601 bytes)",
         "Scripts/scan_client_upgrade.py ExactTable exact typed decode",
-        "4.9 installed document index sha1:7be18b2e546dbf95442e098be024a89c22041a52; PGR_DATA/en-4.9/bytes/share/fuben/Stage.tab (json sha256:e11deb4c8b23660a1387bc79bff60d78b701e3e4317fe888819653b8c87b77b1; tab sha256:13b2c86d2d2ade2c607bb2a84b5a0bc57292325188e156f23098af771c6d7f74)"
+        "4.9 installed document index sha1:50ea2113d905fbf63b4e3a3a4574649f3d8197dd; PGR_DATA/en-4.9/bytes/share/fuben/Stage.tab (json sha256:590b91fd718c9f92196fff611f27a9100a9b81dd30dcfb34a879d4a7d442fa86; tab sha256:e483780d74e2b0d64ebb330297583178fbb35932d01480236732d984053d0900)"
       ],
       "transformation": [
         "projected all installed rows onto existing TSV schema; preserved legacy nullable blanks and local-only cells; literal TSV quotes and indexed array holes retained",
         "retained curated Arcade BeginStoryId/EndStoryId aliases; projected 11 authored IsBanGeneralSkill=true cells as 1, remaining cells blank (generated int?)",
-        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept"
+        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
+        "import_tables_4_9 --old: previous 4.9 patch -> current 4.9 patch retail delta via project(baseline_rows); local-only cells/rows kept"
       ]
     },
     {
@@ -10420,15 +10421,16 @@
       "path": "client/fuben/FubenActivityTimeTips.tsv",
       "naturalKey": "Id",
       "filter": "all",
-      "rows": 4,
+      "rows": 5,
       "columns": 3,
-      "contentSha256": "5352b6837a488d3061d484d96603de4809e062a85f59d07400af18be50bcfa52",
+      "contentSha256": "17935d8f8e47fcfb5434fe789913632268d18caa73cf5a9b2d6293761570c5d9",
       "source": [
         "client/fuben/FubenActivityTimeTips.json",
-        "4.9 installed table PGR_DATA/en-4.9/bytes/client/fuben/FubenActivityTimeTips.json (json sha256:9d22d841c2bd181d982dfe0b5d5c619a2a2e575e5a6be995d9a7a2c498cd0aa4)"
+        "4.9 installed document index sha1:50ea2113d905fbf63b4e3a3a4574649f3d8197dd; PGR_DATA/en-4.9/bytes/client/fuben/FubenActivityTimeTips.tab (json sha256:63bf1ac94ce231ef6a5edde8854bfa5408f1cc06d4a1843757eb964ca4266589; tab sha256:1863a95d19e7bfaeec7c859bdbff726eab4710cdc03a5b1ca5b550b7632d6c16)"
       ],
       "transformation": [
-        "import_fuben_activity_4_9: retail rows verbatim; list columns widened to the longest row"
+        "import_fuben_activity_4_9: retail rows verbatim; list columns widened to the longest row",
+        "import_tables_4_9 --old: previous 4.9 patch -> current 4.9 patch retail delta via project(baseline_rows); local-only cells/rows kept"
       ]
     },
     {
@@ -10570,15 +10572,16 @@
       "path": "client/skytower/SkyTowerClientConfig.tsv",
       "naturalKey": "Key",
       "filter": "all",
-      "rows": 165,
+      "rows": 170,
       "columns": 11,
-      "contentSha256": "d0716690bb950b8b95eae30a9b03540efcf757edacf8805412316f4f6bdd45bf",
+      "contentSha256": "0d05eaecebcfb994343c4556241e40b9f29cfe7e5516227ea01c2bf797cf0637",
       "source": [
         "client/skytower/SkyTowerClientConfig.json",
-        "4.9 installed table PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerClientConfig.json (json sha256:6479c3fa46be03c217c74c485fef2b3442543a9d68a105be1a0c8288b351fa46)"
+        "4.9 installed document index sha1:50ea2113d905fbf63b4e3a3a4574649f3d8197dd; PGR_DATA/en-4.9/bytes/client/skytower/SkyTowerClientConfig.tab (json sha256:9d9ce61c55e4ba561ce35a69e064d72e9a88f9235c0d87c280e6f94902becc8e; tab sha256:47e4282390d843d10ce2fc0e5646384064c5d714cdeb3e3c6be4fab8644a747b)"
       ],
       "transformation": [
-        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)"
+        "import_skytower_4_9: retail rows verbatim; list columns widened to the longest row (min 2)",
+        "import_tables_4_9 --old: previous 4.9 patch -> current 4.9 patch retail delta via project(baseline_rows); local-only cells/rows kept"
       ]
     },
     {
@@ -11854,11 +11857,39 @@
     },
     "undecodedAncillaryAssets": 4695
   },
+  "client49PatchImport": {
+    "applicationVersion": "4.9.1",
+    "documentBuild": "1746920",
+    "documentVersion": "4.9.10",
+    "documentIndexSha1": "50ea2113d905fbf63b4e3a3a4574649f3d8197dd",
+    "launchIndexSha1": "c6f5818d9040d42441fdf252e2a9e7907a6cd94d",
+    "baseline": "client49Import (PGR_DATA/en-4.9 at build 1739029: document index 7be18b2e546dbf95442e098be024a89c22041a52)",
+    "source": "SHA-verified (85,422/85,422 matrix, 19/19 launch index entries) EN build 1746920 decoded into PGR_DATA/en-4.9/bytes; Scripts/import_tables_4_9.py --old <1739029 corpus> --new <1746920 corpus> applies only the patch delta (changed cells, retail-added rows; local-only cells/rows kept)",
+    "capturesUsed": false,
+    "tablesChangedInClient": 13,
+    "tablesImported": [
+      "client/fuben/FubenActivityTimeTips",
+      "client/skytower/SkyTowerClientConfig",
+      "share/fuben/Stage"
+    ],
+    "clientOnlyOrUnused": [
+      "client/guide/GuideText",
+      "client/movie/MovieSkipSummary",
+      "client/movie/movies/MovieHg17001ba",
+      "share/audio/CueSheet",
+      "share/guide/GuideFightStep",
+      "share/fight/behavior/behavior",
+      "share/fight/behavior/behaviornode",
+      "share/fight/magic/magic",
+      "share/fight/missile/missile",
+      "share/fight/skill/skill"
+    ]
+  },
   "regionTables": {
     "tw": {
       "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
       "indexSha1": {
-        "document/matrix": "f1bfc3ff0e893ba4cad1f4faa304fe4ff5fc85e8",
+        "document/matrix": "48482b03c15c9ce56b7c89d8aaa2e91a175aecf3",
         "resource/matrix": "a115da431507c6f7f64ccd2d7030c46e20d4432f"
       },
       "capturesUsed": false,
@@ -11928,7 +11959,7 @@
     "kr": {
       "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
       "indexSha1": {
-        "document/matrix": "e7fe14e02065dd1483ad1a4786690942731d3b95",
+        "document/matrix": "6dd2a82ccb1d444393c9c9757ebfa75801f6ca4f",
         "resource/matrix": "9522c22b1f70c8db56bf674b3bebda79b9aac074"
       },
       "capturesUsed": false,
@@ -11998,7 +12029,7 @@
     "jp": {
       "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
       "indexSha1": {
-        "document/matrix": "5cd2da9e8ecde6f51951f9d8e0bf007bdc56431a",
+        "document/matrix": "354d442a231b8d8f4972a54afda5b4d8eedd20a0",
         "resource/matrix": "54e82414c4e95d80bb7dce8cf9274ca4cb05c37c"
       },
       "capturesUsed": false,
@@ -12068,7 +12099,7 @@
     "cn": {
       "source": "SHA-verified effective installed-package + document-patch table bundles from the region's own Kuro CDN, Scripts/fetch_region_tables.py + scan_client_upgrade.py --extract into PGR_DATA/<region>-4.9/bytes",
       "indexSha1": {
-        "document/matrix": "25b65d333c633ca9335abcd71947dfeaa92f4b89",
+        "document/matrix": "931df3b4e08ef3dfda850cf945f2d79f7b18da36",
         "resource/matrix": "a01d39759db4cd929ec02e74059c918fc3eb469f"
       },
       "capturesUsed": false,
@@ -12141,9 +12172,9 @@
           "columns": 4,
           "contentSha256": "cc2553926c4e6150afcc64e5efec60f68f3625d1c3f43757c8d9897689927d6b",
           "source": [
-            "CN Android 4.9.1 effective matrix bundle 9bfa0c31b0105e1e.uab: Share/Pay/FirstPayReward.tab (sha256:412ca4d62875162cb7b509b9f5537d2eb7e866052bde1553b1cea3bfc493bef7)"
+            "PGR_DATA/cn-4.9/bytes/share/pay/FirstPayReward.json (json sha256:365a51e922e3debdbd89174e15eddb4171eca7fffeb9b346566f4a9cf3d07a87)"
           ],
-          "transformation": "import_region_tables: retail rows projected onto the server table columns; NeedPayMoney converted from yuan to hundredths"
+          "transformation": "import_region_tables: retail rows projected onto the server table columns; list columns widened to the longest row; NeedPayMoney converted from yuan to hundredths"
         },
         {
           "path": "regions/cn/table/client/purchase/PurchasePackageYKUiConfig.tsv",

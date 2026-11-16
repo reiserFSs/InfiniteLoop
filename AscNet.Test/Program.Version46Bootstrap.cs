@@ -303,7 +303,7 @@ internal partial class Program
     // XModuleUpdateInfo._IsSkipUpdate) only when DocumentVersion == LaunchModuleVersion == CS.XInfo.Version, so the
     // served versions follow the requested application version (retail serves 4.9.9, which makes the client download from
     // Kuro's CDN). Every other en49.tab row is the live Kuro config.tab for EN key clEoudH0zUSDQsQa, byte for byte
-    // (index sha1 7be18b2e.../b069d45a... equal the sha1 of the CDN's 1739029 matrix/launch index).
+    // (index sha1 50ea2113.../c6f5818d... equal the sha1 of the CDN's 1746920 matrix/launch index).
     private static void ValidateEn49ConfigTab()
     {
         Type controller = Type.GetType("AscNet.SDKServer.Controllers.ConfigController, AscNet.SDKServer", throwOnError: true)!;
@@ -399,8 +399,8 @@ internal partial class Program
         AssertEqual("5f41e51783a5183a619d14d586638dbdb557a996", current.IndexSha1, "4.7 live IndexSha1");
         AssertEqual("2ea1ce3cc9271c9e75df7a16b5465cfb8922abc7", current.LaunchIndexSha1, "4.7 live LaunchIndexSha1");
         ServerVersionConfig fallback = (ServerVersionConfig)getVersion.Invoke(null, ["99.0.0"])!;
-        AssertEqual("7be18b2e546dbf95442e098be024a89c22041a52", fallback.IndexSha1, "unknown future version uses latest live metadata (4.9 matrix index sha1)");
-        AssertEqual("b069d45a6b7d7679e6ab66c82c661ddd85b92ef3", fallback.LaunchIndexSha1, "unknown future version uses latest live metadata (4.9 launch index sha1)");
+        AssertEqual("50ea2113d905fbf63b4e3a3a4574649f3d8197dd", fallback.IndexSha1, "unknown future version uses latest live metadata (4.9 matrix index sha1)");
+        AssertEqual("c6f5818d9040d42441fdf252e2a9e7907a6cd94d", fallback.LaunchIndexSha1, "unknown future version uses latest live metadata (4.9 launch index sha1)");
         AssertEqual("4.8.12", ((ServerVersionConfig)getVersion.Invoke(null, ["4.8.0"])!).DocumentVersion, "4.8.0 entry kept");
         ServerVersionConfig previous = (ServerVersionConfig)getVersion.Invoke(null, ["4.5.0"])!;
         if (previous.IndexSha1 == live.IndexSha1)

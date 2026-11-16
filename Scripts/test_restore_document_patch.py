@@ -28,6 +28,16 @@ class RestoreTests(unittest.TestCase):
         r.version_path, r.client2cdn, r.key, r.cdns = {"1739029": {"version": "4.9.0", "key": "K"}}, {"1739029": {"KuroGameIdentifier": "id"}}, "K", ["http://cdn/prod"]
         self.assertEqual(r.urls("1739029", "matrix", "f.uab"), ["http://cdn/prod/client/patch/K/id/4.9.0/standalone/Release/1739029/matrix/f.uab"])
 
+    def test_installed_older_build_gets_the_newest_pin(self):
+        import argparse
+        with tempfile.TemporaryDirectory() as tmp:
+            doc = Path(tmp) / "PGR_Data" / "StreamingAssets" / "document"
+            doc.mkdir(parents=True)
+            (doc / "ver").write_text('{"LeastVersionFile": "1739029"}')
+            args = argparse.Namespace(install=tmp, dry_run=True, backup=None, cdn=None, key=rd.KEY, build=rd.DEFAULT_BUILD, index_sha1=None, launch_index_sha1=None)
+            r = rd.Restorer(args)
+            self.assertEqual((r.build, r.sha), (rd.DEFAULT_BUILD, rd.KNOWN[rd.DEFAULT_BUILD]))
+
     def test_fetch_resumes_and_rejects_bad_sha1(self):
         server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()

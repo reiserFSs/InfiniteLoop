@@ -31,7 +31,7 @@ pub(super) struct RawDocument {
     /// svn build -> version path segment, for builds that differ from `defaultVersion`.
     #[serde(default)]
     versions: BTreeMap<String, String>,
-    /// Build used when `document/ver` is absent (a fresh install).
+    /// Build restored: the newest, whatever `document/ver` says.
     default_build: String,
     /// svn build -> sha1 of the CDN's matrix/launch index (= `IndexSha1`/`LaunchIndexSha1` the server serves).
     builds: BTreeMap<String, RawBuild>,
@@ -129,14 +129,13 @@ fn read_json(dir: &Path, name: &str) -> Option<serde_json::Value> {
     serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()
 }
 
-/// (build, locator) for this install: `document/ver` `LeastVersionFile` when that build is pinned, else the pinned
-/// default build. A retail-updated regional install can carry any build there, but the game (skip-update mode) only
-/// loads the document index whose sha1 equals the served one, i.e. the pinned default build's; any other build's
-/// files would be dead weight, so an unpinned build must not stop the restore.
+/// (build, locator) for this install. The build is always the pinned default (the newest): the game (skip-update
+/// mode) only loads the document index whose sha1 equals the one the server serves, so a player whose `document/ver`
+/// `LeastVersionFile` names an older build gets the delta to the newest, never a restore of the old build.
 fn locate(doc: &Document, dir: &Path) -> (String, Locator) {
     let segment = |v: Option<&serde_json::Value>| v.and_then(|v| v.as_str()).filter(|s| is_segment(s)).map(str::to_owned);
     let ver = read_json(dir, "ver");
-    let build = segment(ver.as_ref().and_then(|v| v.get("LeastVersionFile"))).filter(|b| doc.builds.contains_key(b)).unwrap_or_else(|| doc.default_build.clone());
+    let build = doc.default_build.clone();
     let mut paths = BTreeMap::new();
     if let Some(map) = ver.as_ref().and_then(|v| v.get("VersionPath")).and_then(|v| v.as_object()) {
         for (svn, info) in map {
@@ -264,6 +263,20 @@ pub(super) fn estimate(plan: &DocPlan, dir: &Path) -> (u64, usize) {
     total
 }
 
+/// True when every needed file is present by size and each tree's index is the pinned one (no hashing of the big
+/// files; a same-size wrong file is Verify & Repair's job, like the planning convention).
+pub(super) fn is_current(plan: &DocPlan, dir: &Path) -> Result<bool> {
+    if estimate(plan, dir).1 > 0 {
+        return Ok(false);
+    }
+    for t in &plan.trees {
+        if !sha1_matches(dir, &t.rel("index"), t.index.len() as u64, &t.sha1)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 fn sha1_matches(dir: &Path, rel: &str, size: u64, sha1: &str) -> Result<bool> {
     let path = safe_path(dir, rel)?;
     let Ok(meta) = fs::symlink_metadata(&path) else { return Ok(false) };
@@ -293,6 +306,11 @@ impl Runner<'_> {
         self.tick();
         let plan = inspect(source, self.net, self.dir, full, self.ctx.cancel)?;
         self.outcome.document_notes.extend(plan.notes.iter().cloned());
+        self.restore_plan(&plan)
+    }
+
+    /// Restores every tree of an inspected plan.
+    pub(super) fn restore_plan(&mut self, plan: &DocPlan) -> Result<()> {
         let (Some(net), Some(locator)) = (&plan.net, &plan.locator) else { return Ok(()) };
         for t in &plan.trees {
             self.restore_tree(net, locator, t)?;
