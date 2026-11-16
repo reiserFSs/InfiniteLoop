@@ -78,7 +78,8 @@ Guild contribution (38), Command Bureau EXP (40), Beacon Amplifier Points (46), 
 | 96120 | Biomimetic Blood | Biomimetic Blood | 999,999 | Cursed Waves revive and restart |
 | 96189 | Processing Unit | Processing Unit | 999,999 | Derived from Matrix shop, revive, and restart |
 | 96200 | Supply Coupon | Supply Coupon | 9,999,999 | Awakening Tundra tech tree |
-| 96002 | Tantalum Ore | Tantalum Ore | 999,999,999 | Norman Ore Shop |
+| 96002 | Tantalum Ore | Tantalum Ore | 999,999,999 | Norman Ore Shop. Daily mining adds `MinerEfficiency` per Autonomous Miner and stops at this cap. |
+| 96003 | Autonomous Miner | Autonomous Miner | 999,999,999 | Norman Revival Plan daily mining; grows by `MinerGrowRate` each settled day and stops at this cap. |
 | 96207 | Expedition Loot X | Expedition Loot X | 999,999 | Guild Expedition Shop X |
 | 97007 | Special "Honey Cake" | Special "Honey Cake" | 999,999 | The Meandering Three — Wanderer Record token; referenced shops 4008/4009 have no catalog and stay closed |
 | 97008 | Movie Film: Cerberus | Movie Film: Cerberus | 999,999 | The Meandering Three — Wild Waste token; referenced shops 4008/4009 have no catalog and stay closed |

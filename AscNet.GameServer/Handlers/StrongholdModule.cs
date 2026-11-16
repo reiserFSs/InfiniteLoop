@@ -281,6 +281,12 @@ internal static class StrongholdModule
         long miners = minerItem > 0 ? s.inventory.SpendableCount(minerItem) : 0;
         long startMiners = miners;
         int efficiency = Config("MinerEfficiency"), growRate = Config("MinerGrowRate");
+        // Both items cap at their Item.tsv MaxCount (999,999,999). A large miner stack (e.g. from /item) times
+        // efficiency and the daily growth exceeds int; this runs during login, so an overflow there locked the player
+        // out. Counts saturate at the cap instead, as the bag itself does.
+        long Cap(int itemId) => Inventory.GetMaxCount(TableReaderV2.Parse<AscNet.Table.V2.share.item.ItemTable>().FirstOrDefault(row => row.Id == itemId));
+        long minerCap = minerItem > 0 ? Cap(minerItem) : 0;
+        long mineralCap = Math.Min(int.MaxValue, Cap(Config("MineralId")));
         int lastMinedDay = 0;
         bool anyBoundary = false;
         for (; x.SettledPeriod < period; x.SettledPeriod++)
@@ -291,11 +297,11 @@ internal static class StrongholdModule
             if (day > totalDay) continue;
             if (x.StayDays.Remove(day)) continue;
             if (x.MineRecords.Any(record => record.Day == day)) continue;
-            int mined = checked((int)(miners * efficiency));
-            x.MineRecords.Add(new() { Day = day, MinerCount = checked((int)miners), MineralCount = mined });
-            x.MineralLeft = checked(x.MineralLeft + mined);
-            x.TotalMineral = checked(x.TotalMineral + mined);
-            miners = (miners * (100L + growRate) + 99) / 100;
+            int mined = (int)Math.Min(mineralCap, miners * (long)efficiency);
+            x.MineRecords.Add(new() { Day = day, MinerCount = (int)Math.Min(int.MaxValue, miners), MineralCount = mined });
+            x.MineralLeft = (int)Math.Min(mineralCap, (long)x.MineralLeft + mined);
+            x.TotalMineral = (int)Math.Min(int.MaxValue, (long)x.TotalMineral + mined);
+            miners = Math.Min(minerCap, (miners * (100L + growRate) + 99) / 100);
             lastMinedDay = day;
             if (day < totalDay)
             {
@@ -310,7 +316,7 @@ internal static class StrongholdModule
         if (miners > startMiners)
             grown = RewardHandler.ApplyRewardsOnceAndPersist(
                 [new RewardGrant($"stronghold:{p.PlayerData.Id}:{x.ActivityId}:{x.BeginTime}:miners:{lastMinedDay}",
-                    [new RewardGoodsTable { Id = minerItem, TemplateId = minerItem, Count = checked((int)(miners - startMiners)), Params = [] }])], s);
+                    [new RewardGoodsTable { Id = minerItem, TemplateId = minerItem, Count = (int)(miners - startMiners), Params = [] }])], s);
         p.Stronghold = x;
         p.SaveChecked();
         grown?.SendPushes(s);

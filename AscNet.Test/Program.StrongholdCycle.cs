@@ -115,6 +115,23 @@ internal partial class Program
             }
         }
 
+        // 1b. A capped miner stack (999,999,999, as /item gives) must not overflow during login's reconcile: counts
+        // saturate at the items' caps. Player report: OverflowException in DoLogin, endless loading on the login screen.
+        foreach (int missed in new[] { 1, 3 })
+        {
+            const int fullStack = 999_999_999;
+            var (player, h) = Create(begin0, fullStack);
+            using (h)
+            {
+                Reconcile(h, begin0 + missed * 86400L);
+                StrongholdState state = player.Stronghold;
+                AssertEqual(missed, state.MineRecords.Count, $"full stack, {missed} missed: one mine record per day");
+                AssertEqual(fullStack, state.MineRecords[0].MineralCount, $"full stack, {missed} missed: daily ore saturates at the ore cap");
+                AssertEqual(fullStack, state.MineralLeft, $"full stack, {missed} missed: MineralLeft saturates");
+                AssertEqual((long)fullStack, h.Session.inventory.SpendableCount(minerId), $"full stack, {missed} missed: miners stay at their cap");
+            }
+        }
+
         // 2. The boundary is the authored daily reset.
         {
             var (player, h) = Create(begin0, 1);
