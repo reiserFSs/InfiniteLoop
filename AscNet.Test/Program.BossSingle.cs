@@ -2132,6 +2132,8 @@ internal partial class Program
             intensiveDatum.Passed = true;
             unrelatedRotationDatum.Passed = true;
             player.SimulatedBattlefield.BossActivityNo = currentActivity - 1;
+            int coincidingBestiaryScore = normalResult.TotalScore + 2_272;
+            player.SimulatedBattlefield.BossBestiaryScores[oldRotationStageId] = coincidingBestiaryScore;
             player.SimulatedBattlefield.BossLevelType = selectedLevel;
             player.SimulatedBattlefield.BossList = selectedSections.ToList();
             player.SimulatedBattlefield.BossStageRecords.Clear();
@@ -2295,8 +2297,28 @@ internal partial class Program
                 "Pain Cage weekly rollover rejects the stale provisional score");
             AssertEqual(null, harness.Session.PendingBossSingleScore,
                 "Pain Cage weekly rollover clears the stale provisional score");
+            // Case 1 (coinciding): a Bestiary best sits on the outgoing rotation's own normal stage, so the datum
+            // is max(Trial, Bestiary) (ExpectedCycleStageScore). The fixture writes it explicitly instead of
+            // relying on which stage the week's rotation happens to share with the earlier codex fixture.
+            AssertEqual(true, coincidingBestiaryScore > normalResult.TotalScore,
+                "Pain Cage coinciding Bestiary fixture exceeds the Trial score");
+            AssertEqual(coincidingBestiaryScore, oldRotationDatum.Score,
+                "Pain Cage rollover Stage datum keeps the higher Bestiary best when it shares the Trial stage");
+            // Case 2 (distinct): the Bestiary best lives on a different stage. The outgoing stage's datum is the
+            // Trial score alone and the other stage keeps its own Bestiary score.
+            const int distinctBestiaryScore = 77_777;
+            player.SimulatedBattlefield.BossBestiaryScores.Remove(oldRotationStageId);
+            player.SimulatedBattlefield.BossBestiaryScores[alternateOptionStageId] = distinctBestiaryScore;
+            RequiredMethod(
+                    RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule"),
+                    "SyncCycleStageScores",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    [typeof(SimulatedBattlefieldState), typeof(AscNet.Common.Database.Stage)])
+                .Invoke(null, [player.SimulatedBattlefield, harness.Session.stage]);
             AssertEqual(normalResult.TotalScore, oldRotationDatum.Score,
-                "Pain Cage rollover retains the outgoing Trial codex score in the Stage datum");
+                "Pain Cage rollover Stage datum retains the outgoing Trial score when the Bestiary best is on another stage");
+            AssertEqual(distinctBestiaryScore, alternateOptionDatum.Score,
+                "Pain Cage rollover keeps the other stage's Bestiary score in its own Stage datum");
             AssertEqual(9L, oldRotationDatum.PassTimesTotal,
                 "Pain Cage rollover preserves the outgoing stage pass count");
             AssertEqual(12_345L, oldRotationDatum.LastPassTime,
