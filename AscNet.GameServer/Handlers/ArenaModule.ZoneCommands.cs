@@ -108,9 +108,6 @@ namespace AscNet.GameServer.Handlers
             if (fallback is not null)
                 message.Append(fallback).Append('\n');
             message.Append($"Warzone zone set to {FormatZone(area, 0)} (MarkId {area.MarkId}).");
-            if (ResolveConfiguredStageId(area) is { } stageId
-                && ArenaStageDataset.DescribeProfile(area.Id, checked((uint)stageId), area.MarkId, area.Desc) is { } profile)
-                message.Append($"\nEnemies: {profile}.");
             message.Append($"\nActive zones: {string.Join(", ", ActiveZones(session, challenge))}.");
             if (alternatives.Count > 0)
                 message.Append($"\nOther matches: {string.Join(", ", alternatives.Take(MaxListedAlternatives))}{(alternatives.Count > MaxListedAlternatives ? ", ..." : "")} (use /warzone zone <AreaId>).");

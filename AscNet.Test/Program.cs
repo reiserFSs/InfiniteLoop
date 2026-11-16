@@ -81,7 +81,7 @@ namespace AscNet.Test
             {
                 UseResourceWorkingDirectory();
                 keepGoing = args.Contains("--keep-going");
-                // Score expectations must not depend on the developer's local /warzone dmg settings.
+                // Score expectations must not depend on the install-wide /warzone dmg settings.
                 AscNet.GameServer.Handlers.ArenaLocalScoreSettings.PathOverride =
                     Path.Combine(Path.GetTempPath(), $"ascnet-test-{Environment.ProcessId}-none.local.json");
                 if (args.Contains("--profile-compat-only"))

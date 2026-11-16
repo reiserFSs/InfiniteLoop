@@ -670,7 +670,6 @@ namespace AscNet.GameServer.Handlers
                 stage,
                 ResolveScoreRule(stageId),
                 levelType,
-                stageType,
                 DetermineStageStatus(session.player.SimulatedBattlefield, stageId, characters));
             int pendingBuffGroup;
             List<int> pendingFeatureIds;
@@ -1579,12 +1578,11 @@ namespace AscNet.GameServer.Handlers
             stage.Score = Math.Max(stage.Score, bestScore);
             stage.PassTimesTotal = Math.Max(1, stage.PassTimesTotal);
             stage.LastPassTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            // PPC stage records keep the remaining time (the value Pain Cage time scoring is based on), not the fight time.
-            stage.LastRecordTime = pending.Result.TimeLeft;
+            stage.LastRecordTime = pending.Result.FightTime;
             stage.LastCardIds = pending.Characters.Select(id => (long)id).ToList();
             if (newBest)
             {
-                stage.BestRecordTime = pending.Result.TimeLeft;
+                stage.BestRecordTime = pending.Result.FightTime;
                 stage.BestCardIds = pending.Characters.Select(id => (long)id).ToList();
             }
             if (!exists)
@@ -1597,7 +1595,6 @@ namespace AscNet.GameServer.Handlers
             BossSingleStageTable stage,
             BossSingleScoreRuleTable rule,
             int levelType,
-            int stageType,
             int stageStatus)
         {
             int coefficientIndex = Math.Clamp(levelType - 1, 0, rule.BossLoseHp.Count - 1);
@@ -1642,12 +1639,10 @@ namespace AscNet.GameServer.Handlers
                 .ToList() ?? [];
             int hpLeftPer = characterHp.Count == 0 ? 0 : checked((int)Math.Floor(characterHp.Average()));
             int hpVariableScore = Math.Min(stage.LeftHpScore, checked((int)Math.Floor(hpLeftPer * hpCoefficient)));
-            // Intensive Battle (stage type 3) awards no BaseScore: its total is boss, time and HP points only.
-            int baseScore = stageType == 3 ? 0 : rule.BaseScore;
-            int maxHpScore = checked(baseScore + stage.LeftHpScore);
-            int hpScore = checked(baseScore + hpVariableScore);
+            int maxHpScore = checked(rule.BaseScore + stage.LeftHpScore);
+            int hpScore = checked(rule.BaseScore + hpVariableScore);
             int totalScore = Math.Min(
-                checked(stage.Score + baseScore),
+                checked(stage.Score + rule.BaseScore),
                 checked(bossScore + timeScore + hpScore));
             int activeFrames = checked((int)Math.Max(
                 0,

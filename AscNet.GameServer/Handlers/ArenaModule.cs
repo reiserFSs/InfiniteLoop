@@ -273,8 +273,7 @@ namespace AscNet.GameServer.Handlers
             int oldStage = oldArea;
             if (point > oldArea)
             {
-                if (point > state.ArenaStageMaxPoints.GetValueOrDefault(result.StageId))
-                    RecordStageBestRecords(state, result);
+                RecordStageBestRecords(state, areaId, result);
                 state.ArenaStageMaxPoints[result.StageId] = Math.Max(point, state.ArenaStageMaxPoints.GetValueOrDefault(result.StageId));
                 state.ArenaAreaMaxPoints[areaId] = point;
                 state.ArenaPoint = state.ArenaAreaMaxPoints.Values.Sum();
@@ -440,8 +439,7 @@ namespace AscNet.GameServer.Handlers
                 .Concat(supportEvent > 0 ? [supportEvent] : Array.Empty<dynamic>())
                 .ToList();
             response.FightData.FightEventsWithLevel = new List<dynamic>();
-            if (!ArenaStageDataset.TryHydrate(request.SelectAreaId, request.StageId, area.MarkId, area.Desc,
-                    state.ArenaActivityNo, session.player.PlayerData.Id, response.FightData))
+            if (!ArenaStageDataset.TryHydrate(request.SelectAreaId, request.StageId, area.MarkId, area.Desc, response.FightData))
                 return false;
             ChallengeAreaTable reference = Challenges.Value.Single(row => row.ChallengeId == ArenaStageDataset.LevelReferenceChallengeId(
                 request.SelectAreaId, request.StageId, area.MarkId, area.Desc));
@@ -457,24 +455,30 @@ namespace AscNet.GameServer.Handlers
             // The capture's first run carries "[]" for both keys and the fight returns them as settle list records.
             // AscNet policy (retail echo not captured): send the best-point run's lists back in the same "[a,b]" form,
             // so the fight shows the per-wave timer/score of the best run.
-            if (state.ArenaStageBestRecords?.TryGetValue(request.StageId, out Dictionary<string, List<int>>? bestRecords) == true)
+            // Keyed by area and stage: several areas share one StageId (e.g. an Entropic Distortion tab and Nihil Floating Platform).
+            if (state.ArenaAreaStageBestRecords?.TryGetValue(BestRecordKey(request.SelectAreaId, request.StageId), out Dictionary<string, List<int>>? bestRecords) == true)
                 foreach ((string key, List<int> values) in bestRecords.Where(entry => StageParamRecordKeys.Contains(entry.Key)))
                     stageParams[key] = "[" + string.Join(",", values) + "]";
             response.FightData.StageParams = stageParams;
             return true;
         }
 
-        private static void RecordStageBestRecords(SimulatedBattlefieldState state, FightSettleResult result)
+        // Called when a run beats the area's best: its per-wave lists replace that area/stage's echoed records.
+        private static void RecordStageBestRecords(SimulatedBattlefieldState state, int areaId, FightSettleResult result)
         {
-            state.ArenaStageBestRecords ??= new();
+            state.ArenaAreaStageBestRecords ??= new();
+            string key = BestRecordKey(areaId, result.StageId);
             Dictionary<string, List<int>> bestRecords = StageParamRecordKeys
-                .Where(key => result.StringToListIntRecord?.GetValueOrDefault(key) is { Count: > 0 })
-                .ToDictionary(key => key, key => result.StringToListIntRecord![key].ToList());
+                .Where(recordKey => result.StringToListIntRecord?.GetValueOrDefault(recordKey) is { Count: > 0 })
+                .ToDictionary(recordKey => recordKey, recordKey => result.StringToListIntRecord![recordKey].ToList());
             if (bestRecords.Count > 0)
-                state.ArenaStageBestRecords[result.StageId] = bestRecords;
+                state.ArenaAreaStageBestRecords[key] = bestRecords;
             else
-                state.ArenaStageBestRecords.Remove(result.StageId);
+                state.ArenaAreaStageBestRecords.Remove(key);
         }
+
+        private static string BestRecordKey(int areaId, uint stageId) =>
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{areaId}:{stageId}");
 
         private static AreaDataResponse BuildAreaData(Session session)
         {
@@ -671,11 +675,14 @@ namespace AscNet.GameServer.Handlers
         }
 
         // AscNet policy (/warzone fluctuation): a difficulty knob on top of the tier level scaling. 0 (default) leaves
-        // levels unchanged; otherwise NPC levels scale by level / BaselineFluctuationLevel.
-        private const int BaselineFluctuationLevel = 385;
+        // levels unchanged; 1..MaxFluctuationLevel scales NPC levels by level / BaselineFluctuationLevel (up to x10).
+        internal const int BaselineFluctuationLevel = 385;
+        internal const int MaxFluctuationLevel = BaselineFluctuationLevel * 10;
 
         private static double FluctuationFactor(SimulatedBattlefieldState state) =>
-            state.ArenaFluctuationLevel > 0 ? state.ArenaFluctuationLevel / (double)BaselineFluctuationLevel : 1;
+            state.ArenaFluctuationLevel is > 0 and <= MaxFluctuationLevel
+                ? state.ArenaFluctuationLevel / (double)BaselineFluctuationLevel
+                : 1;
 
         internal static void SetTierFromCommand(Session session, string tierName)
         {
@@ -736,8 +743,9 @@ namespace AscNet.GameServer.Handlers
 
         internal static void SetFluctuationFromCommand(Session session, int level)
         {
-            if (level < 0)
-                throw new CommandMessageCallbackException("Fluctuation level must be 0 or higher.");
+            if (level is < 0 or > MaxFluctuationLevel)
+                throw new CommandMessageCallbackException(
+                    $"Fluctuation level must be 0 (off) or 1-{MaxFluctuationLevel} ({BaselineFluctuationLevel} = the tier's base enemy level).");
 
             ReconcileLive(session);
             session.player.SimulatedBattlefield!.ArenaFluctuationLevel = level;
@@ -805,9 +813,7 @@ namespace AscNet.GameServer.Handlers
         private static List<int> SelectedAreas(int activityNo, long playerId, ChallengeAreaTable challenge, int preferredAreaId)
         {
             HashSet<int> groupedAreaIds = GroupedAreaIds(challenge);
-            // Supported = hydratable (a /warzone command may force it); Auto = eligible for the automatic weekly pick.
-            // CommandSelectOnly profiles are Supported but not Auto, so they leave the automatic rotation unchanged.
-            List<(string Key, List<int> Supported, List<int> Auto)> allGroups = challenge.AreaIdGroup
+            List<(string Key, List<int> Areas)> allGroups = challenge.AreaIdGroup
                 .Where(group => !string.IsNullOrWhiteSpace(group))
                 .Distinct()
                 .Select(group =>
@@ -817,17 +823,15 @@ namespace AscNet.GameServer.Handlers
                         .Where(areaId => areaId > 0 && AreaStages.Value.TryGetValue(areaId, out AreaStageTable? area) && IsSupportedArea(area))
                         .Distinct()
                         .ToList();
-                    return (Key: group, Supported: supported,
-                        Auto: supported.Where(areaId => IsAutoSelectableArea(AreaStages.Value[areaId])).ToList());
+                    return (Key: group, Areas: supported);
                 })
                 .ToList();
             // A /warzone zone|set override takes its element group's slot; the other slots keep the automatic pick.
             string? preferredGroup = preferredAreaId > 0
-                ? allGroups.FirstOrDefault(group => group.Supported.Contains(preferredAreaId)).Key
+                ? allGroups.FirstOrDefault(group => group.Areas.Contains(preferredAreaId)).Key
                 : null;
             List<(string Key, List<int> Areas)> groups = allGroups
-                .Where(group => group.Auto.Count > 0 && group.Key != preferredGroup)
-                .Select(group => (group.Key, Areas: group.Auto))
+                .Where(group => group.Areas.Count > 0 && group.Key != preferredGroup)
                 .OrderBy(group => StableGroupHash(activityNo, playerId, group.Key))
                 .ToList();
             int autoCount = preferredGroup is null ? challenge.DayUnlockNum : Math.Max(0, challenge.DayUnlockNum - 1);
@@ -857,7 +861,7 @@ namespace AscNet.GameServer.Handlers
                     .Where(areaId => areaId > 0 && !groupedAreaIds.Contains(areaId))
                     .Distinct()
                     .Where(areaId => AreaStages.Value.TryGetValue(areaId, out AreaStageTable? area)
-                        && IsAutoSelectableArea(area))
+                        && IsSupportedArea(area))
                     .ToList();
                 if (specialAreas.Count != 1)
                     throw new InvalidDataException(
@@ -901,11 +905,6 @@ namespace AscNet.GameServer.Handlers
             area.IsAbandoned == 0
             && ResolveConfiguredStageId(area) is { } stageId
             && ArenaStageDataset.Supports(area.Id, checked((uint)stageId), area.MarkId, area.Desc);
-
-        private static bool IsAutoSelectableArea(AreaStageTable area) =>
-            area.IsAbandoned == 0
-            && ResolveConfiguredStageId(area) is { } stageId
-            && ArenaStageDataset.IsAutoSelectable(area.Id, checked((uint)stageId), area.MarkId, area.Desc);
 
         private static HashSet<int> GroupedAreaIds(ChallengeAreaTable challenge) => challenge.AreaIdGroup
             .Where(group => !string.IsNullOrWhiteSpace(group))
@@ -1002,23 +1001,16 @@ namespace AscNet.GameServer.Handlers
             return 0;
         }
 
-        // Effective score expression: the repository expression, then the local /warzone dmg percent on the damage part.
+        // Effective score expression: the Mark.tsv expression, then the install-wide /warzone dmg percent on the damage part.
         // The percent is appended as integer "*P/100": Evaluate runs strictly left to right (so it scales the whole
         // expression) and parses numbers with the current culture, so decimals like 1.2 are avoided.
         private static string? MarkExpression(int markId, string field, string? tableExpression)
         {
-            string? expression = RepositoryMarkExpression(markId, field, tableExpression);
-            if (field == "EnemyHpPoint" && !string.IsNullOrWhiteSpace(expression)
+            if (field == "EnemyHpPoint" && !string.IsNullOrWhiteSpace(tableExpression)
                 && ArenaLocalScoreSettings.DamagePercent(markId) is int percent && percent != 100)
-                return $"{expression}*{percent}/100";
-            return expression;
+                return $"{tableExpression}*{percent}/100";
+            return tableExpression;
         }
-
-        // AscNet policy: simulated_battlefield.json ArenaMarkOverrides.Marks[MarkId][field] replaces a Mark.tsv score
-        // expression; without an entry the authoritative table expression is used.
-        private static string? RepositoryMarkExpression(int markId, string field, string? tableExpression) =>
-            Config.Value["ArenaMarkOverrides"]?["Marks"]?[markId.ToString(System.Globalization.CultureInfo.InvariantCulture)]?[field]?.Value<string>()
-                is { Length: > 0 } overridden ? overridden : tableExpression;
 
         private static int Evaluate(string? expression, Dictionary<string, double> values, int maximum)
         {
@@ -1039,7 +1031,7 @@ namespace AscNet.GameServer.Handlers
         private static void ResetPoints(SimulatedBattlefieldState s)
         {
             s.ArenaPoint = 0; s.ArenaLastPointTime = 0; s.ArenaAreaMaxPoints.Clear(); s.ArenaStageMaxPoints.Clear(); s.ArenaDistributeMaxPoints.Clear();
-            s.ArenaStageBestRecords?.Clear();
+            s.ArenaAreaStageBestRecords?.Clear();
         }
         private static JObject ActivityConfig => Config.Value["ArenaActivity"] as JObject ?? throw new InvalidDataException($"{ConfigPath}: ArenaActivity missing.");
         private static int CurrentActivity(long? now) => ActivityConfig.Value<int>("BaseActivityNo")

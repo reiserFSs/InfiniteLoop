@@ -9,7 +9,7 @@ namespace AscNet.GameServer.Commands
 
         public override string Help => "Use /warzone reset, /warzone tiers, /warzone tier <Id|name>, /warzone zones [element|zone name] [boss|duo|mob], "
             + "/warzone set <element|zone name|AreaId> [boss|duo|mob] (e.g. /warzone set ice, /warzone set plasma duo), /warzone zone <AreaId|auto>, /warzone fluctuation <level>, "
-            + "or /warzone dmg [percent|reset] [boss|duo|mob] (local damage-score tuning, 100 = default; e.g. /warzone dmg 120 boss).";
+            + "or /warzone dmg [percent|reset] [boss|duo|mob] (install-wide damage-score tuning for every player on this server, 100 = default; e.g. /warzone dmg 120 boss).";
 
         [Argument(0, @"^[A-Za-z]+$|^[0-9]+$", "Tier ID/name or 'reset', 'tiers', 'tier', 'zones', 'set', 'zone', 'fluctuation', or 'dmg' action", ArgumentFlags.IgnoreCase)]
         protected string Operation { get; set; } = string.Empty;
@@ -69,11 +69,12 @@ namespace AscNet.GameServer.Commands
             if (Operation.Equals("fluctuation", StringComparison.OrdinalIgnoreCase))
             {
                 if (!int.TryParse(Value, out int fluctuationLevel))
-                    throw new CommandMessageCallbackException("Usage: /warzone fluctuation <level> (0 = off; 385 = the tier's base enemy level).");
+                    throw new CommandMessageCallbackException(
+                        $"Usage: /warzone fluctuation <level> (0 = off; 1-{ArenaModule.MaxFluctuationLevel}; {ArenaModule.BaselineFluctuationLevel} = the tier's base enemy level).");
                 ArenaModule.SetFluctuationFromCommand(session, fluctuationLevel);
                 throw new CommandMessageCallbackException(fluctuationLevel == 0
                     ? "Warzone fluctuation turned off (tier-scaled enemy levels)."
-                    : $"Warzone fluctuation set to {fluctuationLevel}: enemy levels x{fluctuationLevel / 385d:0.###} from the next fight.");
+                    : $"Warzone fluctuation set to {fluctuationLevel}: enemy levels x{fluctuationLevel / (double)ArenaModule.BaselineFluctuationLevel:0.###} from the next fight.");
             }
 
             if (Operation.Equals("tier", StringComparison.OrdinalIgnoreCase))

@@ -7,13 +7,14 @@ using Newtonsoft.Json.Linq;
 
 namespace AscNet.GameServer.Handlers
 {
-    // /warzone dmg: per-install tuning of the damage part of the Warzone score (Mark.tsv EnemyHpPoint), as a percent of
-    // the repository expression (simulated_battlefield.json ArenaMarkOverrides, else Mark.tsv). 100 = default.
+    // /warzone dmg: install-wide tuning of the damage part of the Warzone score (Mark.tsv EnemyHpPoint), as a percent of
+    // the table expression. 100 = default. It applies to every player on this server install, not only the caller.
     internal partial class ArenaModule
     {
         internal static string DamageScoreFromCommand(IReadOnlyList<string> terms)
         {
             string usage = "Usage: /warzone dmg [percent|reset] [boss|duo|mob|MarkId]. 100 = default, 120 = +20% damage points, 50 = half. "
+                + "Install-wide: it changes War Zone scoring for every player on this server. "
                 + "Without a mode it applies to every damage-scored mode. Examples: /warzone dmg 120 boss, /warzone dmg reset";
             List<int> damageMarks = DamageMarkIds();
             if (terms.Count == 0)
@@ -34,12 +35,12 @@ namespace AscNet.GameServer.Handlers
                 throw new CommandMessageCallbackException(
                     $"Percent must be a whole number from {ArenaLocalScoreSettings.MinPercent} to {ArenaLocalScoreSettings.MaxPercent}. {usage}");
             ArenaLocalScoreSettings.SetDamagePercent(targets, percent);
-            return $"Damage score set to {percent}% for {MarkList(targets)}. New fights only; existing best scores are kept.\n{DescribeDamageScore(damageMarks)}";
+            return $"Damage score set to {percent}% for {MarkList(targets)} for every player on this server. New fights only; existing best scores are kept.\n{DescribeDamageScore(damageMarks)}";
         }
 
         // Marks whose damage expression reads EnemyHp (Mark 1/2 score the kill ratio instead).
         private static List<int> DamageMarkIds() => Marks.Value.Values
-            .Where(mark => RepositoryMarkExpression(mark.MarkId, "EnemyHpPoint", mark.EnemyHpPoint)?.Contains("EnemyHp", StringComparison.Ordinal) == true)
+            .Where(mark => mark.EnemyHpPoint?.Contains("EnemyHp", StringComparison.Ordinal) == true)
             .Select(mark => mark.MarkId)
             .Order()
             .ToList();
@@ -83,7 +84,7 @@ namespace AscNet.GameServer.Handlers
 
         private static string DescribeDamageScore(List<int> damageMarks)
         {
-            StringBuilder message = new("Damage score (points for 1M damage):");
+            StringBuilder message = new("Damage score (points for 1M damage, install-wide):");
             foreach (int markId in damageMarks)
             {
                 MarkTable mark = Marks.Value[markId];
@@ -93,28 +94,28 @@ namespace AscNet.GameServer.Handlers
                 message.Append($"\n- {MarkLabel(markId)}: {percent ?? 100}%{(percent is null ? " (default)" : string.Empty)}, "
                     + $"{expression}, {points.ToString("N0", CultureInfo.InvariantCulture)} pts");
             }
-            message.Append($"\nLocal file (not in git): {ArenaLocalScoreSettings.FilePath}");
+            message.Append($"\nServer runtime file: {ArenaLocalScoreSettings.FilePath}");
             if (ArenaLocalScoreSettings.LoadError is { } error)
-                message.Append($"\nWARNING: the local file could not be read and is ignored: {error}");
+                message.Append($"\nWARNING: the settings file could not be read and is ignored: {error}");
             return message.ToString();
         }
     }
 
-    // Local, per-install settings written by /warzone dmg. The file sits next to simulated_battlefield.json in the
-    // source Resources/Configs folder; Resources/Configs/*.local.json is gitignored and excluded from the build copy, so
-    // each user keeps their own values and a pull never changes them. No file or no entry => repository default.
+    // Install-wide settings written by /warzone dmg: one file for the whole server, so the values apply to every player.
+    // It lives in the server's runtime Configs folder (next to the copied config.json under the build output), never in
+    // the source tree. No file or no entry => the Mark.tsv expression unchanged.
     internal static class ArenaLocalScoreSettings
     {
         internal const string FileName = "simulated_battlefield.local.json";
         internal const int MinPercent = 1;
         internal const int MaxPercent = 1000;
         private const string DamagePercentKey = "DamagePercent";
-        private const string Comment = "Local AscNet settings (gitignored, per install). Managed by /warzone dmg; delete this file to restore the defaults.";
+        private const string Comment = "Install-wide AscNet settings (all players on this server). Managed by /warzone dmg; delete this file to restore the defaults.";
         private static readonly object Sync = new();
-        private static readonly Lazy<string> DefaultPath = new(ResolveDefaultPath);
+        private static readonly Lazy<string> DefaultPath = new(() => Path.Combine(AppContext.BaseDirectory, "Configs", FileName));
         private static string? pathOverride;
 
-        // Tests point this at a temporary file so they never read or write the real local settings.
+        // Tests point this at a temporary file so they never read or write the real install-wide settings.
         internal static string? PathOverride
         {
             get => pathOverride;
@@ -209,7 +210,7 @@ namespace AscNet.GameServer.Handlers
         {
             JObject settings = Load(out string? error);
             if (error is not null)
-                throw new CommandMessageCallbackException($"The local settings file is not valid JSON; fix or delete it first. {error}");
+                throw new CommandMessageCallbackException($"The /warzone dmg settings file is not valid JSON; fix or delete it first. {error}");
             return settings;
         }
 
@@ -226,22 +227,6 @@ namespace AscNet.GameServer.Handlers
             settings["_comment"] = Comment;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, settings.ToString(Formatting.Indented) + Environment.NewLine);
-        }
-
-        // The source Resources/Configs folder (found upward from the working and base directories), so the file is the
-        // same whether the server runs from the project folder or from bin/; a standalone build falls back to bin/Configs.
-        private static string ResolveDefaultPath()
-        {
-            foreach (string start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
-            {
-                for (DirectoryInfo? directory = new(start); directory is not null; directory = directory.Parent)
-                {
-                    string configs = Path.Combine(directory.FullName, "Resources", "Configs");
-                    if (File.Exists(Path.Combine(configs, "simulated_battlefield.json")))
-                        return Path.Combine(configs, FileName);
-                }
-            }
-            return Path.Combine(AppContext.BaseDirectory, "Configs", FileName);
         }
     }
 }
