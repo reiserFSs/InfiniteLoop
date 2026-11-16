@@ -900,3 +900,9 @@ msgstr "官方版本"
 
 msgid "Unofficial build — not from github.com/reiserFSs/InfiniteLoop"
 msgstr "非官方版本 — 并非来自 github.com/reiserFSs/InfiniteLoop"
+
+msgid "Updating the game's patch files ({})…"
+msgstr "正在更新游戏补丁文件 ({})…"
+
+msgid "Patch files out of date; Verify & repair fixes them"
+msgstr "补丁文件已过期；“校验并修复”可解决"

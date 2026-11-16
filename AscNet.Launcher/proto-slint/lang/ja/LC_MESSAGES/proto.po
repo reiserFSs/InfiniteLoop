@@ -1,0 +1,53 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ja\n"
+
+msgid "AscNet"
+msgstr "AscNet"
+
+msgid "Punishing: Gray Raven"
+msgstr "パニシング：グレイレイヴン"
+
+msgid "Activity"
+msgstr "アクティビティ"
+
+msgid "Client {} verified"
+msgstr "クライアント {} を検証しました"
+
+msgid "Launcher {} is up to date"
+msgstr "ランチャー {} は最新です"
+
+msgid "Game found in your Steam library"
+msgstr "Steam ライブラリでゲームが見つかりました"
+
+msgid "Game"
+msgstr "ゲーム"
+
+msgid "EN (Global) {}"
+msgstr "EN（グローバル）{}"
+
+msgid "AscNet patch"
+msgstr "AscNet パッチ"
+
+msgid "Not installed"
+msgstr "未インストール"
+
+msgid "Local server"
+msgstr "ローカルサーバー"
+
+msgid "Stopped"
+msgstr "停止中"
+
+msgid "Set up builds the local server and patch. The first time takes a few minutes, and Windows may ask for permission."
+msgstr "セットアップではローカルサーバーとパッチをビルドします。初回は数分かかり、Windows が許可を求める場合があります。"
+
+msgid "Set up"
+msgstr "セットアップ"
+
+msgid "Game files"
+msgstr "ゲームファイル"
+
+msgid "Settings"
+msgstr "設定"
+

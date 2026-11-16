@@ -1,0 +1,53 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh-CN\n"
+
+msgid "AscNet"
+msgstr "AscNet"
+
+msgid "Punishing: Gray Raven"
+msgstr "战双帕弥什"
+
+msgid "Activity"
+msgstr "动态"
+
+msgid "Client {} verified"
+msgstr "客户端 {} 已校验"
+
+msgid "Launcher {} is up to date"
+msgstr "启动器 {} 已是最新版本"
+
+msgid "Game found in your Steam library"
+msgstr "已在你的 Steam 库中找到游戏"
+
+msgid "Game"
+msgstr "游戏"
+
+msgid "EN (Global) {}"
+msgstr "国际服 {}"
+
+msgid "AscNet patch"
+msgstr "AscNet 补丁"
+
+msgid "Not installed"
+msgstr "未安装"
+
+msgid "Local server"
+msgstr "本地服务器"
+
+msgid "Stopped"
+msgstr "已停止"
+
+msgid "Set up builds the local server and patch. The first time takes a few minutes, and Windows may ask for permission."
+msgstr "“配置”会构建本地服务器和补丁。首次需要几分钟，Windows 可能会请求权限。"
+
+msgid "Set up"
+msgstr "配置"
+
+msgid "Game files"
+msgstr "游戏文件"
+
+msgid "Settings"
+msgstr "设置"
+

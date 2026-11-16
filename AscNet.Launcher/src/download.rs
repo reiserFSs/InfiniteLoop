@@ -449,6 +449,79 @@ pub fn run(plan: Plan, cancel: &AtomicBool, progress: &mut dyn FnMut(Progress)) 
     Ok(outcome)
 }
 
+/// What the in-game patch files (`document/{matrix,launch}`) still need; see [`check_document`].
+pub struct DocPending {
+    /// Bytes and files missing by size (the planning convention), for the "(N GB)" wording.
+    pub bytes: u64,
+    pub files: usize,
+    source: ClientSource,
+    dir: PathBuf,
+    plan: document::DocPlan,
+}
+
+/// Looks at the install's in-game patch files against the region's pinned build without writing anything: only the
+/// launcher file list (cached) and the two patch CDN indexes cross the network. `None` when the region pins no
+/// document patch or `document/` already holds that build (every needed file present, both indexes written).
+/// Errors (offline, PGR.exe running, a pin that no longer matches the CDN) mean "could not tell".
+pub fn check_document(source: &ClientSource, dir: &Path, cancel: &AtomicBool) -> Result<Option<DocPending>> {
+    let data = &source.data;
+    if data.document.is_none() {
+        return Ok(None);
+    }
+    ensure!(!crate::install::game_running()?, "PGR.exe is running; the patch files were not checked");
+    let dir = checked_root(dir)?;
+    let net = Net::new(data)?;
+    let full = get_list(&net, &data.index_file, &data.index_md5, cancel).context("downloading the official file list")?;
+    let plan = document::inspect(source, &net, &dir, &full, cancel).context("checking the in-game document patch")?;
+    if plan.trees.is_empty() {
+        bail!("{}", plan.notes.join("; "));
+    }
+    if plan.notes.is_empty() && document::is_current(&plan, &dir)? {
+        return Ok(None);
+    }
+    let (bytes, files) = document::estimate(&plan, &dir);
+    Ok(Some(DocPending { bytes, files, source: source.clone(), dir, plan }))
+}
+
+/// Brings `document/` up to the pinned build: hashes what is there, downloads the delta (same CDN failover, sha1
+/// checks and atomic installs as Verify & Repair; each tree's index goes in last) and returns the files fetched.
+/// Resumable; a raised `cancel` ends with `Err(Cancelled)`. Nothing outside `document/` is written but the engine's
+/// resume folder, which is removed again unless the run stopped early.
+pub fn update_document(pending: DocPending, cancel: &AtomicBool, progress: &mut dyn FnMut(Progress)) -> Result<usize> {
+    ensure!(!crate::install::game_running()?, "PGR.exe is running; close the game first");
+    let DocPending { source, dir, plan, .. } = pending;
+    let data = &source.data;
+    let dir = checked_root(&dir)?;
+    let state = dir.join(STATE_DIR);
+    let created = !state.exists();
+    if !created {
+        ensure!(!is_link(&fs::symlink_metadata(&state)?), "refusing link: {}", state.display());
+    }
+    fs::create_dir_all(state.join("parts")).context("creating the resume folder")?;
+    let guard = Guard::new(data, &dir);
+    let net = Net::new(data)?;
+    let ctx = Ctx::new(cancel);
+    let mut runner = Runner {
+        ctx: &ctx,
+        net: &net,
+        dir: &dir,
+        state: &state,
+        guard: &guard,
+        emit: progress,
+        meter: Meter { t: Instant::now(), bytes: 0, ema: 0.0 },
+        variants: Mutex::new(Vec::new()),
+        outcome: Outcome::default(),
+    };
+    runner.ctx.begin(Phase::FetchingIndex, 0, 0);
+    runner.tick();
+    runner.restore_plan(&plan)?;
+    let files = runner.outcome.document_files;
+    if created {
+        let _ = fs::remove_dir_all(&state);
+    }
+    Ok(files)
+}
+
 // ───────────────────────────── manifest ─────────────────────────────
 
 #[derive(Deserialize)]
@@ -2780,7 +2853,7 @@ mod tests {
             "defaultVersion": "4.9.0",
             "versions": {"1709830": "4.9.1"},
             "defaultBuild": "1739029",
-            "builds": {"1739029": {"matrixSha1": sha1h(&matrix_index), "launchSha1": sha1h(&launch_index)}}
+            "builds": {"1739029": {"matrixSha1": sha1h(&matrix_index), "launchSha1": sha1h(&launch_index)}, "1000": {"matrixSha1": "1".repeat(40), "launchSha1": "2".repeat(40)}}
         }))
         .unwrap();
         let base = world.source();
@@ -2896,13 +2969,13 @@ mod tests {
     }
 
     #[test]
-    fn an_unpinned_ver_build_falls_back_to_the_pinned_one_and_a_drifted_index_is_reported_not_restored() {
+    fn an_older_ver_build_gets_the_default_build_and_a_drifted_index_is_reported_not_restored() {
         let d = docs(None);
         let tmp = Tmp::new();
         let dir = tmp.path("g");
         run(plan(&d.world.source(), Job::Install { dir: dir.clone() }).unwrap(), &no_cancel(), &mut |_| {}).unwrap();
-        // A retail-updated regional install: `document/ver` names a build the launcher does not pin.
-        tmp.write(&format!("g/{DOC}/ver"), br#"{"LeastVersionFile":"5"}"#);
+        // An install on an older build (`document/ver`): pinned or not, it gets the default build's delta.
+        tmp.write(&format!("g/{DOC}/ver"), br#"{"LeastVersionFile":"1000"}"#);
         let p = plan(&d.source, Job::Repair { dir: dir.clone() }).unwrap();
         assert!(p.note.is_none(), "{:?}", p.note);
         let outcome = run(p, &no_cancel(), &mut |_| {}).unwrap();
@@ -2930,6 +3003,101 @@ mod tests {
         assert_eq!(outcome.document_files, 0);
         assert!(outcome.document_notes[0].contains("no in-game document patch is pinned"), "{:?}", outcome.document_notes);
         assert!(!tmp.path(&format!("g/{DOC}")).exists());
+    }
+
+    // ── bringing document/ up to the pinned build outside a Verify & Repair (Setup / Play) ──
+
+    fn asked(d: &Docs) -> Vec<String> {
+        d.log.lock().unwrap().iter().map(|(p, _)| p.clone()).collect()
+    }
+
+    #[test]
+    fn an_up_to_date_install_needs_only_the_index_check() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        d.log.lock().unwrap().clear();
+        assert!(check_document(&d.source, &tmp.path("g"), &no_cancel()).unwrap().is_none());
+        let asked = asked(&d);
+        assert!(!asked.is_empty() && asked.iter().all(|p| p.ends_with("/index")), "only the two indexes may be fetched: {asked:?}");
+        assert!(!tmp.path("g").join(STATE_DIR).exists());
+    }
+
+    #[test]
+    fn an_outdated_install_gets_only_the_delta_and_then_counts_as_current() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        let dir = tmp.path("g");
+        let b = format!("g/{DOC}/matrix/bbbbbbbbbbbbbbbb.uab");
+        let mut bad = tmp.read(&b);
+        bad[100] ^= 0xff; // same size, wrong sha1: found by hashing once the run starts
+        tmp.write(&b, &bad);
+        fs::remove_file(tmp.path(&format!("g/{DOC}/matrix/dddddddddddddddd.uab"))).unwrap();
+        fs::remove_file(tmp.path(&format!("g/{DOC}/launch/index"))).unwrap();
+        d.log.lock().unwrap().clear();
+
+        let pending = check_document(&d.source, &dir, &no_cancel()).unwrap().expect("outdated");
+        assert_eq!((pending.files, pending.bytes), (1, 9000));
+        let mut phases = Vec::new();
+        let fetched = update_document(pending, &no_cancel(), &mut |p| phases.push(p.phase)).unwrap();
+        assert_eq!(fetched, 2);
+        assert!(phases.contains(&Phase::Verifying) && phases.contains(&Phase::Downloading), "{phases:?}");
+        for (rel, bytes) in &d.needed {
+            assert_eq!(&tmp.read(&format!("g/{rel}")), bytes, "{rel}");
+        }
+        assert_eq!(tmp.read(&format!("g/{DOC}/launch/index")), d.launch_index);
+        let asked = asked(&d);
+        for good in ["cccccccccccccccc.uab", "2222222222222222.uab"] {
+            assert!(!asked.iter().any(|p| p.ends_with(good)), "{good} was valid: {asked:?}");
+        }
+        assert!(!dir.join(STATE_DIR).exists(), "the resume folder is removed after a finished run");
+        assert!(check_document(&d.source, &dir, &no_cancel()).unwrap().is_none());
+    }
+
+    #[test]
+    fn an_install_on_an_older_index_is_outdated_even_when_every_file_is_there() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        tmp.write(&format!("g/{DOC}/matrix/index"), b"the previous build's index");
+        let pending = check_document(&d.source, &tmp.path("g"), &no_cancel()).unwrap().expect("outdated");
+        assert_eq!(pending.files, 0);
+        update_document(pending, &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(tmp.read(&format!("g/{DOC}/matrix/index")), d.matrix_index);
+    }
+
+    #[test]
+    fn a_cancelled_update_stops_resumably_and_leaves_the_index_unwritten() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        let dir = tmp.path("g");
+        fs::remove_file(tmp.path(&format!("g/{DOC}/matrix/dddddddddddddddd.uab"))).unwrap();
+        tmp.write(&format!("g/{DOC}/matrix/index"), b"previous");
+        let pending = check_document(&d.source, &dir, &no_cancel()).unwrap().expect("outdated");
+        let cancel = AtomicBool::new(true);
+        let err = update_document(pending, &cancel, &mut |_| {}).unwrap_err();
+        assert!(is_cancelled(&err), "{err:#}");
+        assert_eq!(tmp.read(&format!("g/{DOC}/matrix/index")), b"previous");
+        assert!(!tmp.path(&format!("g/{DOC}/matrix/dddddddddddddddd.uab")).exists());
+        // Running again resumes and finishes.
+        let pending = check_document(&d.source, &dir, &no_cancel()).unwrap().expect("still outdated");
+        update_document(pending, &no_cancel(), &mut |_| {}).unwrap();
+        assert!(check_document(&d.source, &dir, &no_cancel()).unwrap().is_none());
+    }
+
+    #[test]
+    fn an_unreachable_patch_cdn_is_an_error_not_a_hang() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        d.store.lock().unwrap().clear();
+        let err = check_document(&d.source, &tmp.path("g"), &no_cancel()).err().expect("offline");
+        assert!(format!("{err:#}").contains("document index"), "{err:#}");
+    }
+
+    #[test]
+    fn a_region_without_a_pin_has_nothing_to_sync() {
+        let world = World::new(&release());
+        let tmp = Tmp::new();
+        install(&world, &tmp.path("g"));
+        assert!(check_document(&world.source(), &tmp.path("g"), &no_cancel()).unwrap().is_none());
     }
 
     #[test]

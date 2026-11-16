@@ -210,7 +210,7 @@ fn discard_partial(dir: &Path) -> Result<()> {
 const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
 const MIB: f64 = 1024.0 * 1024.0;
 
-fn fmt_bytes(bytes: u64) -> String {
+pub(super) fn fmt_bytes(bytes: u64) -> String {
     let b = bytes as f64;
     if b >= GIB {
         format!("{:.1} GB", b / GIB)
@@ -246,7 +246,7 @@ fn plan_text(plan: &Plan) -> Vec<Text> {
     lines
 }
 
-fn metadata_path() -> Result<PathBuf> {
+pub(super) fn metadata_path() -> Result<PathBuf> {
     Ok(ascnet_launcher::local::resource_dir()?.join("supported-client.json"))
 }
 
@@ -724,6 +724,7 @@ mod tests {
             close_when_stopped: false,
             log: Default::default(),
             files: Files::new(Region::En),
+            patch_sync: None,
             screen: Screen::Files,
             dialog: None,
             mods: Vec::new(),

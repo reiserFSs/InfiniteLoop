@@ -160,6 +160,7 @@ fn bind(app: &App, controller: &Shared) {
         }};
     }
     s.on_primary_clicked(act!(|c| c.primary()));
+    s.on_cancel_patch_sync(act!(|c| c.cancel_patch_sync()));
     s.on_open_settings(act!(|c| c.open_settings()));
     s.on_open_files(act!(|c| c.open_files()));
     s.on_back(act!(|c| c.back()));
@@ -352,6 +353,7 @@ fn render(weak: &Weak<App>, controller: &Shared) {
         s.set_busy_msg(msg(busy));
     }
     s.set_progress(home.progress.unwrap_or(-1.0));
+    s.set_patch_sync(home.patch_sync);
     s.set_activity(sync(
         s.get_activity(),
         view.activity.iter().map(|line| Activity { time: line.time.as_str().into(), msg: msg(&line.text) }).collect(),
@@ -587,6 +589,8 @@ fn msg(text: &c::Text) -> Msg {
         T::FilesCancelled => id(MsgId::FilesCancelled),
         T::FilesFailed => id(MsgId::FilesFailed),
         T::NextSetup => id(MsgId::NextSetup),
+        T::PatchFilesUpdating(size) => with_a(MsgId::PatchFilesUpdating, size),
+        T::PatchFilesOutdated => id(MsgId::PatchFilesOutdated),
         T::HintSelectGame => id(MsgId::HintSelectGame),
         T::HintSetup => id(MsgId::HintSetup),
         T::HintUpdate => id(MsgId::HintUpdate),

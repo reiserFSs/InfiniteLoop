@@ -1,0 +1,20 @@
+[package]
+name = "proto"
+version = "0.0.0"
+edition = "2021"
+build = "build.rs"
+
+[workspace]
+
+[dependencies]
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "renderer-software", "unstable-winit-030"] }
+mp4 = "0.14"
+openh264 = "0.9"
+
+[build-dependencies]
+slint-build = "1.18"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "symbols"

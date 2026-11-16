@@ -28,6 +28,7 @@ export enum MsgId {
     mods-updated, mods-failed, elevation-cancelled, patch-unavailable, fps-migrated, fps-migration-failed,
     closing-after-stop, services-stopping, services-stopped, services-stop-failed,
     files-started, files-phase, files-done, files-note, files-paused, files-cancelled, files-failed, next-setup,
+    patch-files-updating, patch-files-outdated,
     hint-select-game, hint-setup, hint-update, hint-play, hint-running, hint-stopping,
     hint-patch-unsupported, hint-patch-repair,
     working-inspect, working-setup, working-restore, working-play, files-running,
@@ -85,6 +86,9 @@ export global S {
     in property <Msg> busy-msg;
     /// 0..1, or -1 for an indeterminate line
     in property <float> progress: -1;
+    /// The in-game patch files are being checked or brought up to date before Set up / Play: Home offers Cancel.
+    in property <bool> patch-sync: false;
+    callback cancel-patch-sync();
     in property <[Activity]> activity;
     callback primary-clicked();
     callback open-settings();
@@ -256,6 +260,8 @@ export global Tx {
         if (m.id == MsgId.files-cancelled) { return @tr("Download cancelled; run it again to resume"); }
         if (m.id == MsgId.files-failed) { return @tr("The game download stopped"); }
         if (m.id == MsgId.next-setup) { return @tr("Next: Set up"); }
+        if (m.id == MsgId.patch-files-updating) { return @tr("Updating the game's patch files ({})…", m.a); }
+        if (m.id == MsgId.patch-files-outdated) { return @tr("Patch files out of date; Verify & repair fixes them"); }
         if (m.id == MsgId.hint-select-game) { return @tr("Choose where Punishing: Gray Raven is installed, or download it."); }
         if (m.id == MsgId.hint-setup) {
             return S.mac

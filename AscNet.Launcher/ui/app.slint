@@ -255,6 +255,10 @@ export component App inherits Window {
                             wrap: word-wrap;
                         }
                         ProgressLine { value: S.progress; }
+                        if S.patch-sync : HorizontalLayout {
+                            alignment: end;
+                            LinkButton { text: @tr("Cancel"); clicked => { S.cancel-patch-sync(); } }
+                        }
                     }
                 }
             }

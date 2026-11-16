@@ -900,3 +900,9 @@ msgstr "공식 빌드"
 
 msgid "Unofficial build — not from github.com/reiserFSs/InfiniteLoop"
 msgstr "비공식 빌드 — github.com/reiserFSs/InfiniteLoop에서 배포한 것이 아닙니다"
+
+msgid "Updating the game's patch files ({})…"
+msgstr "게임 패치 파일 업데이트 중 ({})…"
+
+msgid "Patch files out of date; Verify & repair fixes them"
+msgstr "패치 파일이 오래되었습니다. '검사 및 복구'로 해결할 수 있습니다"

@@ -27,9 +27,21 @@ No game selected: press **SELECT GAME** on the home screen (or **Settings → Ga
 Verify/repair and update never touch files outside the chosen folder, and refuse to run while PGR.exe is running.
 
 Verify/repair, update and a fresh install also restore the in-game patch files (`PGR_Data/StreamingAssets/document/{matrix,launch}`) for
-every region (EN/TW/KR/JP/CN each pin a document patch; the log line says when one is missing). The build comes from `document/ver`
-`LeastVersionFile` when that build is pinned, otherwise the region's pinned `defaultBuild`: the client only loads the document index
-whose sha1 equals the one the server serves, which is the pinned one. About 3.75 GB (2,405 files) on an empty EN install.
+every region (EN/TW/KR/JP/CN each pin a document patch; the log line says when one is missing). The build is always the region's pinned
+`defaultBuild` (the newest, 4.9: EN 1746920, TW 1746911, KR 1746907, JP 1746890, CN 1747049), whatever `document/ver` says: the client only loads the document
+index whose sha1 equals the one the server serves, which is the pinned one. A player on the previous build (1739029 etc.) therefore downloads only
+the delta (the ~170 files / ~0.95 GB whose index svn is the new build; files from the older svns, listed in the CDN's `PatchedList`, are already valid on disk). About 3.76 GB (2,409 files) on an empty EN install.
+
+**Automatic (Set up and Play).** Both also bring the patch files up to the pinned build, so a player does not need Verify & Repair after a new
+in-game patch. It is the first step of the worker, before Set up's server work and before Play starts the server and PGR.exe, and it runs only
+when a game is selected and its region pins a document patch (`controller/patch_sync.rs` over `download::check_document` / `update_document`).
+The check fetches the (cached) launcher file list and the two patch CDN indexes only; when every needed file is present and both `document/*/index`
+files are the pinned ones nothing else is downloaded and nothing is written. Otherwise the delta is downloaded with the same restore path as
+Verify & Repair (CDN failover, sha1 per file, atomic install, indexes last) and Home shows "Updating the game's patch files (N GB)…", the progress
+line and a Cancel link (downloaded files are kept; the next run resumes). A cancel, a failure, no network, a check slower than 30 s, a pin that no
+longer matches the CDN, or PGR.exe running (nothing is downloaded into a running game) ends in one Activity line, "Patch files out of date; Verify &
+repair fixes them", and Set up / Play carry on. The same restore (and the same notice) applies on Windows and macOS: the game folder is the one the
+launcher already selected (Steam, CrossOver bottle or adopted prefix).
 
 ## Engine (`src/download.rs`)
 - **Pinned sources**: `supported-client.json` `"downloads"` holds, per region, the 4.8.0 CDN list (priority order), `baseUrl`,
@@ -72,9 +84,9 @@ whose sha1 equals the one the server serves, which is the pinned one. About 3.75
   last. Files outside the index are left alone; names from the index must be single path components (untrusted input). Because `resource/` is
   game-managed and never repaired, the two package indexes are MD5-checked against the official list first and re-fetched if damaged.
   URL: `<cdn>client/patch/<key>/<KuroGameIdentifier>/<version>/standalone/Release/<svn>/<tree>/<file>`; key/version come from `document/ver`
-  `VersionPath`, identifier from `document/client2cdn`, build from `ver.LeastVersionFile`, else the pinned defaults. The pins live in
+  `VersionPath`, identifier from `document/client2cdn`, build the pinned `defaultBuild`. The pins live in
   `supported-client.json` `downloads.<region>.documentPatch` (`cdns` = the region's `PrimaryCdns`/`SecondaryCdns` with https and a trailing `/`,
-  `key`, `identifier`, `defaultVersion`, `versions` svn->version, `defaultBuild` for a fresh install without `document/ver`, `builds` svn ->
+  `key`, `identifier`, `defaultVersion`, `versions` svn->version, `defaultBuild` (always restored), `builds` svn ->
   `matrixSha1`/`launchSha1` = the `IndexSha1`/`LaunchIndexSha1` the server serves). A region without `documentPatch`, a build without a pinned
   index, or an index whose sha1 drifted from its pin is reported in `Outcome.document_notes` (and the plan note) and skipped, never guessed.
   A fresh install does not write `document/ver`/`client2cdn` (the CDN zip does not ship them). Tests: synthetic indexes (held/flagged/changed/

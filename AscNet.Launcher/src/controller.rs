@@ -30,12 +30,14 @@ use std::{
 };
 
 mod files;
+mod patch_sync;
 #[cfg(target_os = "macos")]
 mod mac;
 #[cfg(target_os = "macos")]
 use mac::{Mac, StepProgress};
 pub use files::{Kind, Slot, SlotLabel, Transfer, REGIONS};
 use files::Files;
+use patch_sync::{PatchSync, PatchSyncEvent};
 
 pub const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const ACTIVITY_LINES: usize = 3;
@@ -247,6 +249,10 @@ pub enum Text {
     FilesCancelled,
     FilesFailed,
     NextSetup,
+    /// Set up / Play is bringing the in-game patch files to the pinned build; carries "N GB".
+    PatchFilesUpdating(String),
+    /// The patch files could not be brought up to date (cancelled, failed, offline); Set up / Play went on.
+    PatchFilesOutdated,
     // Home sentence under the status rows
     HintSelectGame,
     HintSetup,
@@ -343,6 +349,7 @@ enum Event {
     Work(Work),
     Progress(String),
     Download(download::Progress),
+    PatchSync(PatchSyncEvent),
     ServicesStopped(Result<()>),
     #[cfg(target_os = "macos")]
     Mac(StepProgress),
@@ -457,6 +464,8 @@ pub struct Home {
     pub busy: Option<Text>,
     /// `Some(fraction)` for a determinate line, `None` = marquee. Only meaningful while busy.
     pub progress: Option<f32>,
+    /// The in-game patch files are being checked or updated; Home shows a Cancel link.
+    pub patch_sync: bool,
     /// `Some` on macOS, where Home also lists CrossOver and the bottle.
     pub mac: Option<MacHome>,
     /// macOS: installs in existing prefixes the player can use (empty elsewhere).
@@ -534,6 +543,7 @@ pub struct Controller {
     close_when_stopped: bool,
     log: VecDeque<(String, Text)>,
     files: Files,
+    patch_sync: Option<PatchSync>,
     screen: Screen,
     dialog: Option<Dialog>,
     mods: Vec<mods::ModInfo>,
@@ -598,6 +608,7 @@ impl Controller {
             close_when_stopped: false,
             log: VecDeque::new(),
             files: Files::new(region),
+            patch_sync: None,
             screen: Screen::Home,
             dialog: None,
             mods: Vec::new(),
@@ -647,6 +658,7 @@ impl Controller {
             match event {
                 Event::Work(work) => self.finish_work(work),
                 Event::Download(progress) => self.files_progress(progress),
+                Event::PatchSync(event) => self.patch_sync_event(event),
                 Event::ServicesStopped(result) => self.finish_services_stopped(result),
                 #[cfg(target_os = "macos")]
                 Event::Mac(step) => self.mac_progress(step),
@@ -1055,8 +1067,12 @@ impl Controller {
         let config = self.config.clone();
         let settings = self.settings.clone();
         let (generation, events) = self.begin(Busy::Setup);
+        let cancel = self.begin_patch_sync();
+        let region = self.settings.region.unwrap_or(self.files.region);
         thread::spawn(move || {
             let result = (|| {
+                // First: bring the in-game patch files to the pinned build. Never fails Set up.
+                patch_sync::sync_game(&game, region, cancel, &events);
                 let mut progress = |s: &str| {
                     let _ = events.send(Event::Progress(s.to_owned()));
                 };
@@ -1117,8 +1133,12 @@ impl Controller {
         let package = self.package.clone().unwrap();
         let settings = self.settings.clone();
         let (generation, events) = self.begin(Busy::Play);
+        let cancel = self.begin_patch_sync();
+        let region = self.settings.region.unwrap_or(self.files.region);
         thread::spawn(move || {
             let result = (|| {
+                // First: bring the in-game patch files to the pinned build. Never fails Play.
+                patch_sync::sync_game(&game, region, cancel, &events);
                 apply_mod_settings(&settings)?;
                 let patch = install::inspect(&game, &package);
                 install::log_action("Play", &game, Some(&package), patch.as_ref().ok());
@@ -1159,6 +1179,7 @@ impl Controller {
             return;
         }
         let busy = self.busy.take();
+        self.patch_sync = None;
         let mut automatic_prepare = false;
         let mut notes = Vec::new();
         match work.result {
@@ -1447,10 +1468,15 @@ impl Controller {
             _ => Text::HintPlay,
         };
         let step = self.platform_step();
-        let busy = step.map(|(text, _)| text.clone()).or_else(|| self.busy.map(Busy::label_text));
-        let progress = match step {
-            Some((_, fraction)) => *fraction,
-            None => self.files.inflight().and_then(|_| self.files.fraction_value()),
+        let sync = self.patch_sync_view();
+        let busy = step
+            .map(|(text, _)| text.clone())
+            .or_else(|| sync.as_ref().and_then(|(label, _)| label.clone()))
+            .or_else(|| self.busy.map(Busy::label_text));
+        let progress = match (step, &sync) {
+            (Some((_, fraction)), _) => *fraction,
+            (None, Some((_, fraction))) => *fraction,
+            (None, None) => self.files.inflight().and_then(|_| self.files.fraction_value()),
         };
         let home = Home {
             game: selected.then(|| (self.files.region, version.clone())),
@@ -1462,6 +1488,7 @@ impl Controller {
             hint,
             busy,
             progress,
+            patch_sync: sync.is_some(),
             mac: mac_home,
             found: self.platform_found(),
         };
