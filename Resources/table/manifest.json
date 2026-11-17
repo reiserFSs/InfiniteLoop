@@ -2781,7 +2781,7 @@
       ],
       "transformation": [
         "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
-        "BossName column from the EN client share/fuben/bosssingle/BossSingleStage table (4.9.0 EN, json sha256:2b0fffb10961d732a3d96f829787de57ad87e96687acb629499db17b80846605) for the /ppc intensive boss commands; other columns unchanged"
+        "import_boss_single_names_4_9: BossName column joined on StageId from PGR_DATA/en-4.9 share/fuben/bosssingle/BossSingleStage.json (json sha256:9e9852262c5043dfba6da1ace515489fbed40ff5b9ecfc102a96b6f6fbe41824, the source above) for the /ppc intensive boss commands; other columns unchanged (names first added by @Larkshinnn, PR #71)"
       ]
     },
     {
@@ -5900,7 +5900,7 @@
       ],
       "transformation": [
         "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
-        "Name/Desc columns from the EN client share/fuben/bosssingle/BossSingleChallengeFeature table (4.9.0 EN, json sha256:b8e807cb093ca562f5b3d4d5925c3cab93f06a39b3733d858624ffcdf3b0306f) for the /ppc intensive weakness commands; Id/FightEventIds/Type verified identical"
+        "import_boss_single_names_4_9: Name/Desc columns joined on Id from PGR_DATA/en-4.9 share/fuben/bosssingle/BossSingleChallengeFeature.json (json sha256:c70359c9e157dbfd02e3acba0a4c584bc35025bc3f6e94d30f69c8f9ca8fc9e7, the source above) for the /ppc intensive weakness commands; other columns unchanged (names first added by @Larkshinnn, PR #71)"
       ]
     },
     {
