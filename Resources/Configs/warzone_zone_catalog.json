@@ -1,0 +1,23 @@
+{
+  "Policy": "AscNet policy, not retail protocol data: search vocabulary for the /warzone set and /warzone zones commands. Zones themselves (ids, names, BuffIds, Desc, MarkId, stages) always come from Resources/table/share/fuben/arena/AreaStage.tsv; this file only names the element of each zone buff id and the encounter type of each AreaStage.Desc prefix. EncounterTypes order is the default preference when /warzone set is given no type.",
+  "Source": "Curated from the community dataset agus/data/wz_element_map.json (by_buff_id, type_by_prefix) and pgr_warzone_zones.json, cross-checked against AreaStage.tsv BuffIds/BuffName/Desc. Element keywords are local command aliases.",
+  "Elements": [
+    { "BuffId": 4001, "Name": "Physical", "Aliases": ["physical", "phys"] },
+    { "BuffId": 4002, "Name": "Ice", "Aliases": ["ice"] },
+    { "BuffId": 4003, "Name": "Fire", "Aliases": ["fire"] },
+    { "BuffId": 4004, "Name": "Lightning", "Aliases": ["lightning", "thunder"] },
+    { "BuffId": 4005, "Name": "Dark", "Aliases": ["dark"] },
+    { "BuffId": 4088, "Name": "Disrupt", "Aliases": ["disrupt", "equilibrium"] },
+    { "BuffId": 4114, "Name": "Plasma", "Aliases": ["plasma"] },
+    { "BuffId": 4115, "Name": "True Slash", "Aliases": ["trueslash", "ultimaslash", "slash"] },
+    { "BuffId": 4132, "Name": "Nihil", "Aliases": ["nihil"] },
+    { "BuffId": 4143, "Name": "Glacio", "Aliases": ["glacio", "glaciation"] },
+    { "BuffId": 4161, "Name": "Ignition", "Aliases": ["ignition"] },
+    { "BuffId": 4175, "Name": "Darkflow", "Aliases": ["darkflow"] }
+  ],
+  "EncounterTypes": [
+    { "Name": "Boss", "Aliases": ["boss", "single", "desperate"], "DescPrefixes": ["Desperate Fight"] },
+    { "Name": "Duo", "Aliases": ["duo", "double"], "DescPrefixes": ["Duo Challenge"] },
+    { "Name": "Mob", "Aliases": ["mob", "crowd", "joint", "number"], "DescPrefixes": ["Joint Operation", "Crowd Battle", "Number Advantage"] }
+  ]
+}

@@ -123,6 +123,14 @@ namespace AscNet.Common.Database
         [BsonElement("arena_level")]
         public int ArenaLevel { get; set; }
 
+        // /warzone fluctuation: 0 = off (tier-scaled levels only); 1..3850 further scales NPC levels by level/385.
+        [BsonElement("arena_fluctuation_level")]
+        public int ArenaFluctuationLevel { get; set; }
+
+        // /warzone zone|set: AreaStage id forced into the active zone list; 0 = automatic weekly selection.
+        [BsonElement("arena_zone_override_area_id")]
+        public int ArenaZoneOverrideAreaId { get; set; }
+
         [BsonElement("arena_join_activity")]
         public int ArenaJoinActivity { get; set; }
 
@@ -139,6 +147,12 @@ namespace AscNet.Common.Database
         [BsonElement("arena_stage_max_points")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
         public Dictionary<uint, int> ArenaStageMaxPoints { get; set; } = new();
+
+        // Fight-recorded per-wave lists (FightSettleResult.StringToListIntRecord WaveCostTimes/TimePointScore) of
+        // the area's best-point run, keyed "AreaId:StageId" (areas can share a StageId), echoed back through PreFight StageParams.
+        [BsonElement("arena_area_stage_best_records")]
+        [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
+        public Dictionary<string, Dictionary<string, List<int>>> ArenaAreaStageBestRecords { get; set; } = new();
 
         [BsonElement("arena_distribute_max_points")]
         [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]

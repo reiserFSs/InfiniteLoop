@@ -1,8 +1,10 @@
 ﻿using System.Globalization;
+using System.Text;
 using AscNet.Common;
 using AscNet.Common.Database;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
+using AscNet.GameServer.Commands;
 using AscNet.GameServer.Game;
 using AscNet.Table.V2.share.fuben.bosssingle;
 using AscNet.Table.V2.share.fuben.bossactivity;
@@ -234,6 +236,8 @@ namespace AscNet.GameServer.Handlers
                 .OrderBy(row => row.Id)
                 .ToList();
         });
+        private static readonly Lazy<Dictionary<int, BossSingleChallengeFeatureTable>> ChallengeFeatures = new(() =>
+            TableReaderV2.Parse<BossSingleChallengeFeatureTable>().ToDictionary(row => row.Id));
         private static readonly Lazy<Dictionary<int, BossSingleStageTable>> Stages = new(() =>
             TableReaderV2.Parse<BossSingleStageTable>().ToDictionary(row => row.StageId));
         private static readonly Lazy<Dictionary<int, BossSingleScoreRuleTable>> ScoreRules = new(() =>
@@ -826,6 +830,289 @@ namespace AscNet.GameServer.Handlers
                     : null
             };
         }
+        internal static IReadOnlyList<int> GetTierTypesForCommand(Session session)
+        {
+            int playerLevel = checked((int)session.player.PlayerData.Level);
+            return Grades.Value
+                .Where(row => row.AfreshId == CurrentAfreshId
+                    && playerLevel >= row.MinPlayerLevel
+                    && playerLevel <= row.MaxPlayerLevel)
+                .Select(row => row.LevelType)
+                .Distinct()
+                .OrderBy(levelType => levelType)
+                .ToArray();
+        }
+
+        // /ppc tier: switch the weekly tier (and with it the normal boss list) without the PreGradeType/score gate.
+        internal static void SetTierFromCommand(Session session, int levelType)
+        {
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, now, includeOwnershipSnapshot: false);
+            Player player = session.player;
+            SimulatedBattlefieldState state = player.SimulatedBattlefield;
+            int playerLevel = checked((int)player.PlayerData.Level);
+            BossSingleGradeTable? grade = Grades.Value.FirstOrDefault(row => row.LevelType == levelType
+                && row.AfreshId == CurrentAfreshId
+                && playerLevel >= row.MinPlayerLevel
+                && playerLevel <= row.MaxPlayerLevel);
+            if (grade is null)
+                throw new CommandMessageCallbackException("That PPC LevelType is not valid for this activity and Commandant level. Use /ppc tiers to list valid IDs.");
+
+            Dictionary<int, List<int>> options = BuildBossListOptions(state, playerLevel, state.BossActivityNo, levelType);
+            if (!options.TryGetValue(levelType, out List<int>? bossList))
+                throw new CommandMessageCallbackException($"PPC LevelType {levelType} has no available bosses in the current activity.");
+
+            state.BossListOptions = options;
+            state.BossLevelType = levelType;
+            state.BossList = bossList.ToList();
+            player.Save();
+            HydrateBossStages(session, sendPushes: true);
+            session.SendPush(BuildLoginData(player, now));
+        }
+
+        // /ppc attempts <count|reset>, /ppc reset: set today's used challenge attempts (0 = all attempts available).
+        internal static void SetChallengeAttemptsFromCommand(Session session, int attempts)
+        {
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, now, includeOwnershipSnapshot: false);
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
+            if (state.BossLevelType <= 0)
+                throw new CommandMessageCallbackException("PPC tier is not initialized. Use /ppc tiers and /ppc tier <LevelType> first.");
+
+            BossSingleGradeTable grade = ResolveGrade(state.BossLevelType);
+            int limit = CurrentChallengeLimit(grade, now);
+            if (attempts < 0 || attempts > grade.WeekChallengeCount)
+                throw new CommandMessageCallbackException($"PPC attempts must be between 0 and {grade.WeekChallengeCount} for this tier.");
+
+            state.BossChallengeCount = attempts;
+            state.BossChallengeResetDay = CurrentResetDay(now);
+            session.player.Save();
+            session.SendPush(BuildLoginData(session.player, now));
+            throw new CommandMessageCallbackException($"PPC attempts used set to {attempts}/{limit} (today's limit).");
+        }
+
+        // /ppc codex reset: clear the Codex (Ultimate Zone / Current Threats) bests and restore the stage scores.
+        internal static void ResetCodexScoresFromCommand(Session session)
+        {
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, now, includeOwnershipSnapshot: false);
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
+            int[] stageIds = state.BossTrialScores.Keys.Concat(state.BossBestiaryScores.Keys).Distinct().ToArray();
+            state.BossTrialScores.Clear();
+            state.BossBestiaryScores.Clear();
+
+            List<StageDatum> changedStages = [];
+            foreach (int stageId in stageIds)
+            {
+                if (!session.stage.Stages.TryGetValue((uint)stageId, out StageDatum? datum))
+                    continue;
+                long expectedScore = ExpectedCycleStageScore(state, stageId);
+                if (datum.Score == expectedScore)
+                    continue;
+                datum.Score = expectedScore;
+                changedStages.Add(datum);
+            }
+
+            session.player.Save();
+            if (changedStages.Count > 0)
+            {
+                session.stage.Save();
+                session.SendPush(new NotifyStageData { StageList = changedStages });
+            }
+            session.SendPush(BuildLoginData(session.player, now));
+            throw new CommandMessageCallbackException(
+                $"PPC Codex boss scores reset: {stageIds.Length} stage record(s) cleared from Current Threats and Ultimate Zone.");
+        }
+
+        // Command view of the challenge grade: the one the current tier qualifies for (score not required,
+        // so a selection can be made before the weekly score gate opens), else the lowest-requirement row.
+        private static BossSingleChallengeGradeTable CommandIntensiveGrade(SimulatedBattlefieldState state)
+        {
+            BossSingleGradeTable? grade = state.BossLevelType > 0 ? ResolveGrade(state.BossLevelType) : null;
+            return ChallengeGrades.Value
+                    .Where(row => grade is not null && grade.GradeType >= row.NeedGradeType)
+                    .OrderByDescending(row => row.LevelType)
+                    .FirstOrDefault()
+                ?? ChallengeGrades.Value
+                    .OrderBy(row => row.NeedGradeType)
+                    .ThenBy(row => row.LevelType)
+                    .FirstOrDefault()
+                ?? throw new CommandMessageCallbackException("No Intensive Battle grade exists in BossSingleChallengeGrade.");
+        }
+
+        private static string IntensiveBossName(int logicalSectionId) =>
+            ResolveSection(logicalSectionId).StageId
+                .Select(stageId => Stages.Value.GetValueOrDefault(stageId)?.BossName)
+                .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+            ?? $"SectionId {logicalSectionId}";
+
+        private static string ChallengeFeatureName(int featureId) =>
+            ChallengeFeatures.Value.GetValueOrDefault(featureId)?.Name is { Length: > 0 } name ? name : $"Feature {featureId}";
+
+        private static string DescribeFeatureGroup(BossSingleChallengeFeatureGroupTable group) =>
+            string.Join(" / ", group.FeatureIds.Select(ChallengeFeatureName));
+
+        private static string IntensiveLockStatus(SimulatedBattlefieldState state, BossSingleChallengeGradeTable challengeGrade)
+        {
+            string need = challengeGrade.NeedScore.ToString("N0", CultureInfo.InvariantCulture);
+            if (state.BossLevelType <= 0)
+                return $"Intensive Battle is locked: select a PPC tier first (/ppc tiers); it needs GradeType {challengeGrade.NeedGradeType} and a weekly total of {need}.";
+            BossSingleGradeTable grade = ResolveGrade(state.BossLevelType);
+            if (grade.GradeType < challengeGrade.NeedGradeType)
+                return $"Intensive Battle is locked: tier LevelType {grade.LevelType} is GradeType {grade.GradeType}, it needs GradeType {challengeGrade.NeedGradeType}.";
+            if (state.BossTotalScore < challengeGrade.NeedScore)
+                return $"Intensive Battle is locked this week: PPC total {state.BossTotalScore.ToString("N0", CultureInfo.InvariantCulture)} / {need}. "
+                    + "The selection is saved and appears once the total is reached.";
+            return "Intensive Battle is unlocked.";
+        }
+
+        // Pins the weekly default into the selection fields when Intensive Battle is unlocked, exactly as
+        // BuildLoginData does, so the command views report what the client is shown.
+        private static SimulatedBattlefieldState ReconcileIntensiveView(Session session)
+        {
+            ReconcileLive(session);
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
+            _ = ResolveChallengeData(state, state.BossLevelType > 0 ? ResolveGrade(state.BossLevelType) : null);
+            return state;
+        }
+
+        internal static string DescribeIntensiveForCommand(Session session)
+        {
+            SimulatedBattlefieldState state = ReconcileIntensiveView(session);
+            BossSingleChallengeGradeTable challengeGrade = CommandIntensiveGrade(state);
+            (int LogicalId, int TableId) section = IntensiveSections(challengeGrade).FirstOrDefault(candidate =>
+                candidate.TableId == state.BossChallengeSelectedSection
+                || candidate.LogicalId == state.BossChallengeSelectedSection);
+            BossSingleChallengeFeatureGroupTable? featureGroup = ChallengeFeatureGroups.Value
+                .FirstOrDefault(row => row.Id == state.BossChallengeSelectedFeatureGroup);
+
+            StringBuilder text = new();
+            text.AppendLine(section == default
+                ? "Intensive boss: weekly default (picked when Intensive Battle unlocks)."
+                : $"Intensive boss: {IntensiveBossName(section.LogicalId)} (SectionId {section.LogicalId}).");
+            if (featureGroup is null)
+                text.AppendLine("Weakness: weekly default (picked when Intensive Battle unlocks).");
+            else
+            {
+                text.AppendLine($"Weakness: group {featureGroup.Id}");
+                for (int index = 0; index < featureGroup.FeatureIds.Count; index++)
+                {
+                    string? desc = ChallengeFeatures.Value.GetValueOrDefault(featureGroup.FeatureIds[index])?.Desc;
+                    text.AppendLine($"  Stage {index + 1}: {ChallengeFeatureName(featureGroup.FeatureIds[index])}"
+                        + (string.IsNullOrWhiteSpace(desc) ? string.Empty : $" - {desc}"));
+                }
+            }
+            text.Append(IntensiveLockStatus(state, challengeGrade));
+            return text.ToString();
+        }
+
+        internal static string ListIntensiveBossesForCommand(Session session)
+        {
+            SimulatedBattlefieldState state = ReconcileIntensiveView(session);
+            BossSingleChallengeGradeTable challengeGrade = CommandIntensiveGrade(state);
+            List<(int LogicalId, int TableId)> sections = IntensiveSections(challengeGrade);
+            if (sections.Count == 0)
+                throw new CommandMessageCallbackException($"BossSingleGroup {challengeGrade.BossGroupId} has no current Intensive Battle sections.");
+            StringBuilder text = new("Intensive Battle bosses (SectionId: name, * = selected):\n");
+            foreach ((int logicalId, int tableId) in sections)
+            {
+                bool selected = state.BossChallengeSelectedSection == tableId || state.BossChallengeSelectedSection == logicalId;
+                text.AppendLine($"{(selected ? "* " : "  ")}{logicalId}: {IntensiveBossName(logicalId)}");
+            }
+            text.Append("Use /ppc intensive boss <name|SectionId>.");
+            return text.ToString();
+        }
+
+        internal static string ListIntensiveWeaknessesForCommand(Session session)
+        {
+            SimulatedBattlefieldState state = ReconcileIntensiveView(session);
+            if (ChallengeFeatureGroups.Value.Count == 0)
+                throw new CommandMessageCallbackException("BossSingleChallengeFeatureGroup has no usable weakness groups.");
+            StringBuilder text = new("Intensive weaknesses (group: stage 1 / stage 2 / stage 3, * = selected):\n");
+            foreach (BossSingleChallengeFeatureGroupTable group in ChallengeFeatureGroups.Value)
+                text.AppendLine($"{(group.Id == state.BossChallengeSelectedFeatureGroup ? "* " : "  ")}{group.Id}: {DescribeFeatureGroup(group)}");
+            text.Append("Use /ppc intensive weakness <group> (/ppc intensive shows the selected weakness details).");
+            return text.ToString();
+        }
+
+        internal static void SetIntensiveBossFromCommand(Session session, string query)
+        {
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, now, includeOwnershipSnapshot: false);
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
+            BossSingleChallengeGradeTable challengeGrade = CommandIntensiveGrade(state);
+            (int LogicalId, int TableId) section = ResolveIntensiveBossQuery(IntensiveSections(challengeGrade), query);
+            state.BossChallengeSelectedSection = section.TableId;
+            PushIntensiveSelection(session, now);
+            throw new CommandMessageCallbackException(
+                $"Intensive boss set to {IntensiveBossName(section.LogicalId)} (SectionId {section.LogicalId}). "
+                + IntensiveLockStatus(state, challengeGrade));
+        }
+
+        internal static void SetIntensiveWeaknessFromCommand(Session session, int featureGroupId)
+        {
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, now, includeOwnershipSnapshot: false);
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
+            BossSingleChallengeFeatureGroupTable group = ChallengeFeatureGroups.Value.FirstOrDefault(row => row.Id == featureGroupId)
+                ?? throw new CommandMessageCallbackException(
+                    $"Weakness group {featureGroupId} is not usable for Intensive Battle. Use /ppc intensive weaknesses.");
+            state.BossChallengeSelectedFeatureGroup = group.Id;
+            PushIntensiveSelection(session, now);
+            throw new CommandMessageCallbackException(
+                $"Intensive weakness set to group {group.Id}: {DescribeFeatureGroup(group)}. "
+                + IntensiveLockStatus(state, CommandIntensiveGrade(state)));
+        }
+
+        internal static void ResetIntensiveFromCommand(Session session)
+        {
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ReconcileLive(session, now, includeOwnershipSnapshot: false);
+            SimulatedBattlefieldState state = session.player.SimulatedBattlefield;
+            state.BossChallengeSelectedSection = 0;
+            state.BossChallengeSelectedFeatureGroup = 0;
+            PushIntensiveSelection(session, now);
+            throw new CommandMessageCallbackException(
+                "Intensive boss and weakness reset to the weekly default. " + IntensiveLockStatus(state, CommandIntensiveGrade(state)));
+        }
+
+        private static (int LogicalId, int TableId) ResolveIntensiveBossQuery(
+            List<(int LogicalId, int TableId)> sections,
+            string query)
+        {
+            string trimmed = query.Trim();
+            if (int.TryParse(trimmed, NumberStyles.None, CultureInfo.InvariantCulture, out int sectionId))
+            {
+                (int LogicalId, int TableId) byId = sections.FirstOrDefault(candidate => candidate.LogicalId == sectionId);
+                return byId != default
+                    ? byId
+                    : throw new CommandMessageCallbackException($"SectionId {sectionId} is not an Intensive Battle boss. Use /ppc intensive bosses.");
+            }
+
+            static string Key(string value) => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+            string key = Key(trimmed);
+            var named = sections.Select(section => (Section: section, Key: Key(IntensiveBossName(section.LogicalId)))).ToList();
+            var matches = named.Where(entry => entry.Key == key).ToList();
+            if (matches.Count == 0 && key.Length > 0)
+                matches = named.Where(entry => entry.Key.Contains(key, StringComparison.Ordinal)).ToList();
+            if (matches.Count == 1)
+                return matches[0].Section;
+            if (matches.Count == 0)
+                throw new CommandMessageCallbackException($"No Intensive Battle boss matches \"{trimmed}\". Use /ppc intensive bosses.");
+            throw new CommandMessageCallbackException($"\"{trimmed}\" matches several bosses: "
+                + string.Join(", ", matches.Select(entry => $"{IntensiveBossName(entry.Section.LogicalId)} ({entry.Section.LogicalId})"))
+                + ". Use the SectionId.");
+        }
+
+        // Persist the selection, add StageDatum rows for a newly selected section and push the boss data so an open
+        // client refreshes XBossSingleChallenge (XFubenBossSingleAgency:OnNotifyFubenBossSingleData) without relogin.
+        private static void PushIntensiveSelection(Session session, long now)
+        {
+            HydrateBossStages(session, sendPushes: true);
+            session.player.Save();
+            session.SendPush(BuildLoginData(session.player, now));
+        }
+
         private static (int LevelType, int SectionId, int FeatureGroupId)? ResolveChallengeData(
             SimulatedBattlefieldState state,
             BossSingleGradeTable? normalGrade)
@@ -838,33 +1125,49 @@ namespace AscNet.GameServer.Handlers
                     && state.BossTotalScore >= row.NeedScore)
                 .OrderByDescending(row => row.LevelType)
                 .FirstOrDefault();
-            if (challengeGrade is null
-                || !Groups.Value.TryGetValue(challengeGrade.BossGroupId, out BossSingleGroupTable? group))
+            if (challengeGrade is null)
                 return null;
 
-            List<(int LogicalId, int TableId)> sections = group.SectionId
-                .Where(HasCurrentSection)
-                .Select(logicalId => (logicalId, ResolveSection(logicalId).Id))
-                .ToList();
+            List<(int LogicalId, int TableId)> sections = IntensiveSections(challengeGrade);
             if (sections.Count == 0 || ChallengeFeatureGroups.Value.Count == 0)
                 return null;
 
-            int sectionIndex = checked((int)(StableHash(
-                $"{state.BossActivityNo}:{challengeGrade.LevelType}:{challengeGrade.BossGroupId}") % (uint)sections.Count));
-            int featureIndex = checked((int)(StableHash(
-                $"{state.BossActivityNo}:{challengeGrade.LevelType}:feature") % (uint)ChallengeFeatureGroups.Value.Count));
+            // BossChallengeSelectedSection / BossChallengeSelectedFeatureGroup hold either a /ppc intensive
+            // selection or the pinned weekly default; zero or a value outside the current tables means the
+            // weekly StableHash default. ResetCycle clears the section at rollover.
             (int LogicalId, int TableId) selectedSection = sections.FirstOrDefault(candidate =>
                 candidate.TableId == state.BossChallengeSelectedSection
                 || candidate.LogicalId == state.BossChallengeSelectedSection);
             if (selectedSection == default)
-                selectedSection = sections[sectionIndex];
+                selectedSection = WeeklyIntensiveSection(state, challengeGrade, sections);
             int featureGroupId = ChallengeFeatureGroups.Value.Any(row => row.Id == state.BossChallengeSelectedFeatureGroup)
-                ? state.BossChallengeSelectedFeatureGroup : ChallengeFeatureGroups.Value[featureIndex].Id;
+                ? state.BossChallengeSelectedFeatureGroup : WeeklyIntensiveFeatureGroup(state, challengeGrade);
             state.BossChallengeSelectedSection = selectedSection.TableId;
             state.BossChallengeSelectedFeatureGroup = featureGroupId;
             return (challengeGrade.LevelType, selectedSection.TableId, featureGroupId);
         }
- 
+
+        private static List<(int LogicalId, int TableId)> IntensiveSections(BossSingleChallengeGradeTable challengeGrade) =>
+            Groups.Value.TryGetValue(challengeGrade.BossGroupId, out BossSingleGroupTable? group)
+                ? group.SectionId
+                    .Where(HasCurrentSection)
+                    .Select(logicalId => (logicalId, ResolveSection(logicalId).Id))
+                    .ToList()
+                : [];
+
+        private static (int LogicalId, int TableId) WeeklyIntensiveSection(
+            SimulatedBattlefieldState state,
+            BossSingleChallengeGradeTable challengeGrade,
+            List<(int LogicalId, int TableId)> sections) =>
+            sections[checked((int)(StableHash(
+                $"{state.BossActivityNo}:{challengeGrade.LevelType}:{challengeGrade.BossGroupId}") % (uint)sections.Count))];
+
+        private static int WeeklyIntensiveFeatureGroup(
+            SimulatedBattlefieldState state,
+            BossSingleChallengeGradeTable challengeGrade) =>
+            ChallengeFeatureGroups.Value[checked((int)(StableHash(
+                $"{state.BossActivityNo}:{challengeGrade.LevelType}:feature") % (uint)ChallengeFeatureGroups.Value.Count))].Id;
+
         private static int ChallengeDisplayTotal(SimulatedBattlefieldState state, int sectionId)
         {
             if (sectionId <= 0) return 0;
@@ -878,7 +1181,15 @@ namespace AscNet.GameServer.Handlers
         {
             if (levelType <= 0) return 0;
             int take = ChallengeGrades.Value.FirstOrDefault(row => row.LevelType == levelType)?.RankStageNum ?? 0;
-            return state.BossChallengeHistory.OrderByDescending(record => record.Score).Take(take).Sum(record => record.Score);
+            // Records of another boss (kept after a /ppc intensive boss switch) do not count toward the current one.
+            HashSet<int>? stageIds = Sections.Value
+                .FirstOrDefault(row => row.Id == state.BossChallengeSelectedSection && row.AfreshId == CurrentAfreshId)?
+                .StageId.Where(stageId => stageId > 0).ToHashSet();
+            if (stageIds is not null && !stageIds.IsSubsetOf(ChallengeStageIds.Value))
+                stageIds = null;
+            return state.BossChallengeHistory
+                .Where(record => stageIds is null || stageIds.Contains(record.StageId))
+                .OrderByDescending(record => record.Score).Take(take).Sum(record => record.Score);
         }
 
         private static bool TryGetChallengeBuffGroup(
@@ -1339,7 +1650,7 @@ namespace AscNet.GameServer.Handlers
 
             return new BossSingleFightResult
             {
-                FightTime = activeFrames / FightFramesPerSecond,
+                FightTime = Math.Clamp(activeFrames / FightFramesPerSecond, 0, passTime),
                 BossDamagePer = bossDamagePer,
                 BossDamageScore = bossScore,
                 MaxBossDamageScore = stage.BossLoseHpScore,
@@ -1698,17 +2009,25 @@ namespace AscNet.GameServer.Handlers
         private static Dictionary<int, List<int>> BuildBossListOptions(
             SimulatedBattlefieldState state,
             int playerLevel,
-            int activity)
+            int activity) => BuildBossListOptions(state, playerLevel, activity, null);
+
+        private static Dictionary<int, List<int>> BuildBossListOptions(
+            SimulatedBattlefieldState state,
+            int playerLevel,
+            int activity,
+            int? forcedLevelType)
         {
             Dictionary<int, List<int>> result = new();
             int previousGrade = state.BossOldLevelType > 0
                 ? ResolveGrade(state.BossOldLevelType).GradeType
                 : 0;
+            // forcedLevelType (/ppc tier) bypasses the PreGradeType/score gate for that one tier.
             foreach (BossSingleGradeTable grade in Grades.Value.Where(row =>
                          row.AfreshId == CurrentAfreshId
                          && playerLevel >= row.MinPlayerLevel
                          && playerLevel <= row.MaxPlayerLevel
-                         && (row.PreGradeType == 0
+                         && (row.LevelType == forcedLevelType
+                             || row.PreGradeType == 0
                              || (previousGrade >= row.PreGradeType && state.BossMaxScore >= row.NeedScore))))
             {
                 HashSet<int> selected = new();

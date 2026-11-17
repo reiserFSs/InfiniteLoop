@@ -42,7 +42,7 @@ namespace AscNet.GameServer.Commands
                 if (attr.Position + 1 > args.Length && (attr.Flags & ArgumentFlags.Optional) != ArgumentFlags.Optional)
                     return $"Argument {argProp.Name} is required!";
                 else if (attr.Position + 1 > args.Length)
-                    return null;
+                    continue; // Reflection order is not position order; later present arguments still bind.
 
                 if (!attr.Pattern.IsMatch(args[attr.Position]))
                     return $"Argument {argProp.Name} is invalid!";

@@ -2766,8 +2766,8 @@
       ]
     },
     {
-      "columns": 9,
-      "contentSha256": "ea5153dfe7a3dfffe32f49a365feedea5e68ce47ad54e2816c4b3564d832f7a3",
+      "columns": 10,
+      "contentSha256": "8f90e478262aaf6ffca259a64c02b97fbb3c8b4010f3f3a0c0a04d7915c60c42",
       "filter": "boss-single-derived",
       "naturalKey": "StageId",
       "path": "share/fuben/bosssingle/BossSingleStage.tsv",
@@ -2780,7 +2780,8 @@
         "4.9 installed document index sha1:7be18b2e546dbf95442e098be024a89c22041a52; PGR_DATA/en-4.9/bytes/share/fuben/bosssingle/BossSingleStage.tab (json sha256:9e9852262c5043dfba6da1ace515489fbed40ff5b9ecfc102a96b6f6fbe41824; tab sha256:9934ed285535a5fcdf64bde7b57914b26cd84f035b9c87cb853a5b4821319006)"
       ],
       "transformation": [
-        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept"
+        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
+        "BossName column from the EN client share/fuben/bosssingle/BossSingleStage table (4.9.0 EN, json sha256:2b0fffb10961d732a3d96f829787de57ad87e96687acb629499db17b80846605) for the /ppc intensive boss commands; other columns unchanged"
       ]
     },
     {
@@ -5887,8 +5888,8 @@
       ]
     },
     {
-      "columns": 4,
-      "contentSha256": "db52111d067cffddc879463d01622a35653e063b0f00cfaac33fa5c05d00633e",
+      "columns": 6,
+      "contentSha256": "2fd8158c339a82fc51c607ad74758a550c763776380a188cc3db5f0f4774066f",
       "filter": "all",
       "naturalKey": "Id",
       "path": "share/fuben/bosssingle/BossSingleChallengeFeature.tsv",
@@ -5898,7 +5899,8 @@
         "4.9 installed document index sha1:7be18b2e546dbf95442e098be024a89c22041a52; PGR_DATA/en-4.9/bytes/share/fuben/bosssingle/BossSingleChallengeFeature.tab (json sha256:c70359c9e157dbfd02e3acba0a4c584bc35025bc3f6e94d30f69c8f9ca8fc9e7; tab sha256:a2d6b15eccde4a3de5145e135f65f27ac248a5e06aa3d8cd40a91eef40c867d6)"
       ],
       "transformation": [
-        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept"
+        "import_tables_4_9: 4.8->4.9 retail delta via project(baseline_rows); local-only cells/rows kept",
+        "Name/Desc columns from the EN client share/fuben/bosssingle/BossSingleChallengeFeature table (4.9.0 EN, json sha256:b8e807cb093ca562f5b3d4d5925c3cab93f06a39b3733d858624ffcdf3b0306f) for the /ppc intensive weakness commands; Id/FightEventIds/Type verified identical"
       ]
     },
     {
