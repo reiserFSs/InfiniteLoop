@@ -42,8 +42,10 @@ internal partial class Program
         Dictionary<int, BossSingleStageTable> stages = TableReaderV2.Parse<BossSingleStageTable>().ToDictionary(row => row.StageId);
         Dictionary<int, BossSingleChallengeFeatureTable> features = TableReaderV2.Parse<BossSingleChallengeFeatureTable>()
             .ToDictionary(row => row.Id);
+        // Group 4 pairs two weaknesses with another element's module, so it is never offered
+        // (AscNet policy; ValidateBossSingleWeaknessModulePairing covers the rule itself).
         List<BossSingleChallengeFeatureGroupTable> usableGroups = TableReaderV2.Parse<BossSingleChallengeFeatureGroupTable>()
-            .Where(row => row.BuffGroupIds.Count > 0 && row.BuffGroupIds.Count == row.FeatureIds.Count)
+            .Where(row => row.BuffGroupIds.Count > 0 && row.BuffGroupIds.Count == row.FeatureIds.Count && row.Id != 4)
             .ToList();
         BossSingleChallengeFeatureGroupTable unusableGroup = TableReaderV2.Parse<BossSingleChallengeFeatureGroupTable>()
             .First(row => row.BuffGroupIds.Count == 0);
@@ -110,6 +112,8 @@ internal partial class Program
                 $"/ppc intensive weaknesses lists group {group.Id} with feature names");
         AssertEqual(false, weaknessList.Contains($" {unusableGroup.Id}: ", StringComparison.Ordinal),
             "/ppc intensive weaknesses omits groups without client BuffGroup pairings");
+        AssertEqual(false, weaknessList.Contains(" 4: ", StringComparison.Ordinal),
+            "/ppc intensive weaknesses omits the mismatched group 4");
         DrainAvailable("intensive listing");
 
         // Weekly default with the score gate open, computed on a detached copy.

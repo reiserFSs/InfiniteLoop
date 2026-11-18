@@ -221,7 +221,7 @@ namespace AscNet.GameServer.Handlers
                 .SelectMany(sectionId => ResolveSection(sectionId).StageId)
                 .Where(stageId => stageId > 0)
                 .ToHashSet());
-        private static readonly Lazy<List<BossSingleChallengeFeatureGroupTable>> ChallengeFeatureGroups = new(() =>
+        private static readonly Lazy<List<BossSingleChallengeFeatureGroupTable>> UsableFeatureGroups = new(() =>
         {
             List<BossSingleChallengeFeatureTable> features = TableReaderV2.Parse<BossSingleChallengeFeatureTable>();
             List<BossSingleChallengeBuffGroupTable> buffs = TableReaderV2.Parse<BossSingleChallengeBuffGroupTable>();
@@ -234,6 +234,39 @@ namespace AscNet.GameServer.Handlers
                         features.Any(feature => feature.Id == pair.First)
                         && buffs.Any(buff => buff.BuffGroupId == pair.Second && buff.Index > 0)))
                 .OrderBy(row => row.Id)
+                .ToList();
+        });
+
+        // AscNet policy (player report 2026-11-18, CN 4.9): retail never offers a weakness whose
+        // Module I is not that weakness's own "except <element>" module. FeatureGroup 4 pairs
+        // Brutal Crash III (Physical) with the Ignition module and Flare Burst I (Raydiance) with
+        // the Fire module, while every other group pairs those weaknesses with their own element.
+        // No table says which groups retail rotates, so a group is offered only when each of its
+        // weaknesses gets the Module I that the weakness has in the majority of usable groups.
+        private static readonly Lazy<List<BossSingleChallengeFeatureGroupTable>> ChallengeFeatureGroups = new(() =>
+        {
+            Dictionary<int, int> moduleOne = TableReaderV2.Parse<BossSingleChallengeBuffGroupTable>()
+                .Where(row => row.Index == 1 && row.Buff.Count > 0)
+                .GroupBy(row => row.BuffGroupId)
+                .ToDictionary(group => group.Key, group => group.First().Buff[0]);
+            List<(int Feature, int Module)> pairings = UsableFeatureGroups.Value
+                .SelectMany(row => row.FeatureIds.Zip(row.BuffGroupIds,
+                    (feature, buffGroup) => (feature, moduleOne.GetValueOrDefault(buffGroup))))
+                .ToList();
+            Dictionary<int, int?> usualModule = pairings
+                .GroupBy(pair => pair.Feature)
+                .ToDictionary(group => group.Key, group =>
+                {
+                    var counts = group.GroupBy(pair => pair.Module)
+                        .Select(module => (module.Key, Count: module.Count()))
+                        .OrderByDescending(module => module.Count)
+                        .ToList();
+                    // A tie has no usual module; every pairing of that weakness stays allowed.
+                    return counts.Count > 1 && counts[0].Count == counts[1].Count ? (int?)null : counts[0].Key;
+                });
+            return UsableFeatureGroups.Value
+                .Where(row => row.FeatureIds.Zip(row.BuffGroupIds).All(pair =>
+                    usualModule[pair.First] is not int usual || moduleOne.GetValueOrDefault(pair.Second) == usual))
                 .ToList();
         });
         private static readonly Lazy<Dictionary<int, BossSingleChallengeFeatureTable>> ChallengeFeatures = new(() =>
@@ -1162,11 +1195,24 @@ namespace AscNet.GameServer.Handlers
             sections[checked((int)(StableHash(
                 $"{state.BossActivityNo}:{challengeGrade.LevelType}:{challengeGrade.BossGroupId}") % (uint)sections.Count))];
 
+        // The weekly hash still runs over every usable group, so excluding a group only moves the
+        // players who landed on it (to the next offered group); everyone else keeps this week's pick.
         private static int WeeklyIntensiveFeatureGroup(
             SimulatedBattlefieldState state,
-            BossSingleChallengeGradeTable challengeGrade) =>
-            ChallengeFeatureGroups.Value[checked((int)(StableHash(
-                $"{state.BossActivityNo}:{challengeGrade.LevelType}:feature") % (uint)ChallengeFeatureGroups.Value.Count))].Id;
+            BossSingleChallengeGradeTable challengeGrade)
+        {
+            List<BossSingleChallengeFeatureGroupTable> usable = UsableFeatureGroups.Value;
+            HashSet<int> offered = ChallengeFeatureGroups.Value.Select(row => row.Id).ToHashSet();
+            int start = checked((int)(StableHash(
+                $"{state.BossActivityNo}:{challengeGrade.LevelType}:feature") % (uint)usable.Count));
+            for (int step = 0; step < usable.Count; step++)
+            {
+                int id = usable[(start + step) % usable.Count].Id;
+                if (offered.Contains(id))
+                    return id;
+            }
+            throw new InvalidDataException("BossSingleChallengeFeatureGroup has no consistent weakness group.");
+        }
 
         private static int ChallengeDisplayTotal(SimulatedBattlefieldState state, int sectionId)
         {

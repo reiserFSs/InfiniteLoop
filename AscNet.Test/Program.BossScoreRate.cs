@@ -106,5 +106,56 @@ internal partial class Program
         AssertEqual(Expected(rateA), Run(new() { [rows[0].Index] = 1 }), "one selected feature adds its ScoreRate");
         AssertEqual(Expected(rateB), Run(new() { [rows[1].Index] = 1 }), "other selected feature adds its own ScoreRate");
         AssertEqual(Expected(rateA + rateB), Run(new() { [rows[0].Index] = 1, [rows[1].Index] = 1 }), "two selected features add their ScoreRates");
+        ValidateBossSingleWeaknessModulePairing(player, buildLoginData);
+    }
+
+    // Player report (CN 4.9): Flare Burst I (Raydiance weakness) was offered with the "except Fire"
+    // module and Brutal Crash III (Physical) with "except Ignition"; both come from FeatureGroup 4,
+    // the only group whose pairings differ from every other group's. It must never be offered.
+    private static void ValidateBossSingleWeaknessModulePairing(AscNet.Common.Database.Player player, MethodInfo buildLoginData)
+    {
+        Type module = RequiredAscNetGameServerType("AscNet.GameServer.Handlers.BossModule");
+        Dictionary<int, int> moduleOne = TableReaderV2.Parse<BossSingleChallengeBuffGroupTable>()
+            .Where(row => row.Index == 1 && row.Buff.Count > 0)
+            .GroupBy(row => row.BuffGroupId).ToDictionary(group => group.Key, group => group.First().Buff[0]);
+        Dictionary<int, BossSingleChallengeFeatureGroupTable> groups = TableReaderV2.Parse<BossSingleChallengeFeatureGroupTable>()
+            .ToDictionary(row => row.Id);
+        // Flare Burst I (57) and Brutal Crash III (67): the module each has everywhere except group 4.
+        int UsualModule(int feature) => groups.Values.Where(row => row.Id != 4)
+            .SelectMany(row => row.FeatureIds.Zip(row.BuffGroupIds))
+            .Where(pair => pair.First == feature && moduleOne.ContainsKey(pair.Second))
+            .Select(pair => moduleOne[pair.Second]).Distinct().Single();
+        foreach ((int feature, int buffGroup) in groups[4].FeatureIds.Zip(groups[4].BuffGroupIds).Where(pair => pair.First is 57 or 67))
+            AssertEqual(false, moduleOne[buffGroup] == UsualModule(feature), $"fixture: group 4 gives weakness {feature} a foreign module");
+
+        bool Consistent(int groupId) => groups[groupId].FeatureIds.Zip(groups[groupId].BuffGroupIds)
+            .All(pair => pair.First is not (57 or 67) || moduleOne[pair.Second] == UsualModule(pair.First));
+
+        // A player whose saved weakness set is group 4 is moved to a consistent group at login.
+        var state = player.SimulatedBattlefield;
+        state.BossChallengeSelectedFeatureGroup = 4;
+        var login = (NotifyFubenBossSingleData)buildLoginData.Invoke(null, [player, null])!;
+        int sent = login.FubenBossSingleData.ChallengeFeatureGroupId;
+        AssertEqual(true, sent > 0 && sent != 4 && Consistent(sent), $"saved group 4 is replaced at login (sent {sent})");
+        AssertEqual(sent, state.BossChallengeSelectedFeatureGroup, "the replacement is stored");
+
+        // The weekly default never lands on group 4, and weeks that did not land on it keep their pick.
+        MethodInfo weekly = RequiredMethod(module, "WeeklyIntensiveFeatureGroup", BindingFlags.Static | BindingFlags.NonPublic,
+            [typeof(AscNet.Common.Database.SimulatedBattlefieldState), typeof(BossSingleChallengeGradeTable)]);
+        MethodInfo hash = RequiredMethod(module, "StableHash", BindingFlags.Static | BindingFlags.NonPublic, [typeof(string)]);
+        BossSingleChallengeGradeTable grade = TableReaderV2.Parse<BossSingleChallengeGradeTable>().Single();
+        List<int> usable = groups.Values.Where(row => row.BuffGroupIds.Count > 0 && row.BuffGroupIds.All(moduleOne.ContainsKey))
+            .Select(row => row.Id).OrderBy(id => id).ToList();
+        int moved = 0, kept = 0;
+        for (int activity = 1; activity <= 400; activity++)
+        {
+            var probe = new AscNet.Common.Database.SimulatedBattlefieldState { BossActivityNo = activity };
+            int picked = (int)weekly.Invoke(null, [probe, grade])!;
+            int old = usable[(int)((uint)hash.Invoke(null, [$"{activity}:{grade.LevelType}:feature"])! % (uint)usable.Count)];
+            AssertEqual(true, picked != 4 && Consistent(picked), $"week {activity} offers a consistent group (got {picked})");
+            if (old == 4) moved++;
+            else { kept++; AssertEqual(old, picked, $"week {activity} keeps its pick"); }
+        }
+        AssertEqual(true, moved > 0 && kept > 0, $"both week kinds exercised (moved {moved}, kept {kept})");
     }
 }
