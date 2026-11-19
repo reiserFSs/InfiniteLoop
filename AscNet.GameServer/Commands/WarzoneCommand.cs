@@ -7,9 +7,9 @@ namespace AscNet.GameServer.Commands
     {
         public WarzoneCommand(Session session, string[] args, bool validate = true) : base(session, args, validate) { }
 
-        public override string Help => "Use /warzone reset, /warzone tiers, /warzone tier <Id|name>, /warzone zones [element|zone name] [boss|duo|mob], "
-            + "/warzone set <element|zone name|AreaId> [boss|duo|mob] (e.g. /warzone set ice, /warzone set plasma duo), /warzone zone <AreaId|auto>, /warzone fluctuation <level>, "
-            + "or /warzone dmg [percent|reset] [boss|duo|mob] (install-wide damage-score tuning for every player on this server, 100 = default; e.g. /warzone dmg 120 boss).";
+        public override string Help => $"Use /warzone reset, /warzone tiers, /warzone tier <Id|name>, /warzone zones [element|zone name] [{ArenaModule.TypeChoices()}], "
+            + $"/warzone set <element|zone name|AreaId> [{ArenaModule.TypeChoices()}] (e.g. /warzone set ice), /warzone zone <AreaId|auto>, /warzone fluctuation <level>, "
+            + $"or /warzone dmg [percent|reset] [{ArenaModule.TypeChoices()}] (install-wide damage-score tuning for every player on this server, 100 = default; e.g. /warzone dmg 120 {ArenaModule.TypeChoices().Split('|')[0]}).";
 
         [Argument(0, @"^[A-Za-z]+$|^[0-9]+$", "Tier ID/name or 'reset', 'tiers', 'tier', 'zones', 'set', 'zone', 'fluctuation', or 'dmg' action", ArgumentFlags.IgnoreCase)]
         protected string Operation { get; set; } = string.Empty;
@@ -17,7 +17,7 @@ namespace AscNet.GameServer.Commands
         [Argument(1, @"^[A-Za-z0-9_\-]+%?$", "Tier ID/name, element or zone name, AreaId, fluctuation level, damage percent, or 'auto'", ArgumentFlags.Optional | ArgumentFlags.IgnoreCase)]
         protected string Value { get; set; } = string.Empty;
 
-        [Argument(2, @"^[A-Za-z0-9_\-]+$", "For set/zones: encounter type (boss|duo|mob) or the next word of a zone name", ArgumentFlags.Optional | ArgumentFlags.IgnoreCase)]
+        [Argument(2, @"^[A-Za-z0-9_\-]+$", "For set/zones: encounter type (the ones with enemy data) or the next word of a zone name", ArgumentFlags.Optional | ArgumentFlags.IgnoreCase)]
         protected string Type { get; set; } = string.Empty;
 
         // Words after the action (zone names may contain spaces, e.g. "crimson frostland boss").
@@ -61,7 +61,7 @@ namespace AscNet.GameServer.Commands
                     return;
                 }
                 if (!int.TryParse(Value, out int areaId))
-                    throw new CommandMessageCallbackException("Usage: /warzone zone <AreaId|auto>. Use /warzone zones to list IDs, or /warzone set <element> [boss|duo|mob].");
+                    throw new CommandMessageCallbackException($"Usage: /warzone zone <AreaId|auto>. Use /warzone zones to list IDs, or /warzone set <element> [{ArenaModule.TypeChoices()}].");
                 ArenaModule.SetZoneFromCommand(session, areaId);
                 return;
             }
@@ -86,7 +86,7 @@ namespace AscNet.GameServer.Commands
             }
 
             if (!string.IsNullOrEmpty(Value))
-                throw new CommandMessageCallbackException("Usage: /warzone tiers, /warzone tier <Id|name>, /warzone zones [filter], /warzone set <element> [boss|duo|mob], /warzone zone <AreaId|auto>, or /warzone fluctuation <level>");
+                throw new CommandMessageCallbackException($"Usage: /warzone tiers, /warzone tier <Id|name>, /warzone zones [filter], /warzone set <element> [{ArenaModule.TypeChoices()}], /warzone zone <AreaId|auto>, or /warzone fluctuation <level>");
             ArenaModule.SetTierFromCommand(session, Operation);
         }
     }

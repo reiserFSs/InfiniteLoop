@@ -591,6 +591,11 @@ namespace AscNet.Test
                     ValidateTransfiniteTowerProgression();
                     return;
                 }
+                if (args.Contains("--character-command-only"))
+                {
+                    ValidateCharacterCommandCompatibility();
+                    return;
+                }
                 if (args.Contains("--weapon-coating-ids-only"))
                 {
                     ValidateWeaponCoatingIdSpace();
@@ -1038,6 +1043,12 @@ namespace AscNet.Test
                     return;
                 }
 
+                if (args.Contains("--gm-panel-spec-only"))
+                {
+                    ValidateGmPanelSpec();
+                    return;
+                }
+
                 if (args.Contains("--warzone-command-only"))
                 {
                     ValidateWarzoneZoneCommands();
@@ -1048,6 +1059,16 @@ namespace AscNet.Test
                 {
                     ValidateBossSingleIntensiveCommands();
                     ValidatePpcAttemptCommands();
+                    return;
+                }
+                if (args.Contains("--cub-command-only"))
+                {
+                    ValidateCubCommands();
+                    return;
+                }
+                if (args.Contains("--unlock-command-only"))
+                {
+                    ValidateUnlockCommand();
                     return;
                 }
                 if (args.Contains("--mode-score-tasks-only"))
@@ -1349,6 +1370,11 @@ namespace AscNet.Test
                     ValidateEquipPartnerCompatibility();
                     return;
                 }
+                if (args.Contains("--equip-command-only"))
+                {
+                    ValidateEquipCommand();
+                    return;
+                }
                 if (args.Contains("--shop-refresh-compat-only"))
                 {
                     ValidateShopRefreshCompatibility();
@@ -1540,9 +1566,12 @@ namespace AscNet.Test
                 Step("ValidateBossSingleIntensiveStageHydration", () => ValidateBossSingleIntensiveStageHydration());
                 Step("ValidateBossSingleCycleStageScoreSync", () => ValidateBossSingleCycleStageScoreSync());
                 Step("ValidateSimulatedBattlefieldCompatibility", () => ValidateSimulatedBattlefieldCompatibility());
+                Step("ValidateGmPanelSpec", () => ValidateGmPanelSpec());
                 Step("ValidateWarzoneZoneCommands", () => ValidateWarzoneZoneCommands());
                 Step("ValidateBossSingleIntensiveCommands", () => ValidateBossSingleIntensiveCommands());
                 Step("ValidatePpcAttemptCommands", () => ValidatePpcAttemptCommands());
+                Step("ValidateCubCommands", () => ValidateCubCommands());
+                Step("ValidateUnlockCommand", () => ValidateUnlockCommand());
                 Step("ValidateModeScoreTaskProgress", () => ValidateModeScoreTaskProgress());
                 Step("ValidateCurrentClientGuideTableCompatibility", () => ValidateCurrentClientGuideTableCompatibility());
                 Step("ValidateWheelchairManualFullCompatibility", () => ValidateWheelchairManualFullCompatibility());
@@ -1603,6 +1632,7 @@ namespace AscNet.Test
                 Step("ValidateCnFirstPayCompatibility", () => ValidateCnFirstPayCompatibility());
                 Step("ValidateChatSocialCompatibility", () => ValidateChatSocialCompatibility());
                 Step("ValidateEquipPartnerCompatibility", () => ValidateEquipPartnerCompatibility());
+                Step("ValidateEquipCommand", () => ValidateEquipCommand());
                 Step("ValidateCollectionMiscCompatibility", () => ValidateCollectionMiscCompatibility());
                 Step("ValidateWardrobePhotoCompatibility", () => ValidateWardrobePhotoCompatibility());
                 Step("ValidateMiscSystemCompatibility", () => ValidateMiscSystemCompatibility());
@@ -1659,6 +1689,7 @@ namespace AscNet.Test
                 Step("ValidateVersion48TeachingTreasureClaims", () => ValidateVersion48TeachingTreasureClaims());
                 Step("ValidateCoatingGacha48Compatibility", () => ValidateCoatingGacha48Compatibility());
                 Step("ValidateWeaponCoatingIdSpace", () => ValidateWeaponCoatingIdSpace());
+                Step("ValidateCharacterCommandCompatibility", () => ValidateCharacterCommandCompatibility());
                 Step("ValidateBackgroundRewardGrants", () => ValidateBackgroundRewardGrants());
                 Step("ValidateGuildWarPopupActionCompatibility", () => ValidateGuildWarPopupActionCompatibility());
                 Step("ValidateVersion47ConcertStartCompatibility", () => ValidateVersion47ConcertStartCompatibility());

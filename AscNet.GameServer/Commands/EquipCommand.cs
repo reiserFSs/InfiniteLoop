@@ -8,23 +8,53 @@ using AscNet.GameServer.Handlers;
 namespace AscNet.GameServer.Commands
 {
     [CommandName("equip")]
-    internal class EquipCommand : Command
+    internal partial class EquipCommand : Command
     {
 
         public EquipCommand(Session session, string[] args, bool validate = true) : base(session, args, validate)
         {
         }
 
-        public override string Help => "Command to interact with your equips";
+        public override string Help =>
+            "Command to interact with your equips. " +
+            "/equip add <templateId|all>; /equip prune; /equip sync; " +
+            "/equip list [weapons|memories|all|c<characterId>] (shows record ids); /equip inspect <recordId>; " +
+            "/equip level <recordId|all|c<characterId>> <level|max>; " +
+            "/equip breakthrough <recordId|all|c<characterId>> <step|max>; " +
+            "/equip resonance <recordId> <slot> clear | attrib <poolEntryId> [characterId] | skill <skillId> [characterId] | weaponskill <skillId> [characterId]; " +
+            "/equip overrun <recordId> <level|max>; /equip overrun <recordId> suit <suitId>. " +
+            "'all' = every equip worn by a character, c<id> = every equip worn by that character; limits come from the game tables.";
 
-        [Argument(0, @"^add$|^prune$|^sync$", "The operation selected (add, prune, sync)", ArgumentFlags.IgnoreCase)]
+        [Argument(0, @"^add$|^prune$|^sync$|^list$|^inspect$|^level$|^breakthrough$|^resonance$|^overrun$", "The operation selected (add, prune, sync, list, inspect, level, breakthrough, resonance, overrun)", ArgumentFlags.IgnoreCase)]
         string Op { get; set; } = string.Empty;
 
-        [Argument(1, @"^[0-9]+$|^all$", "The target equip, value is equip id or 'all'", ArgumentFlags.IgnoreCase | ArgumentFlags.Optional)]
+        [Argument(1, @"^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$", "The target equip: template id (add), record id, 'all', c<characterId>, or a list filter", ArgumentFlags.IgnoreCase | ArgumentFlags.Optional)]
         string Target { get; set; } = string.Empty;
+
+        [Argument(2, @"^[0-9]+$|^max$|^suit$", "Level, breakthrough step, overrun level (number or max), resonance slot, or 'suit'", ArgumentFlags.IgnoreCase | ArgumentFlags.Optional)]
+        string Value { get; set; } = string.Empty;
+
+        [Argument(3, @"^[0-9]+$|^clear$|^attrib$|^skill$|^weaponskill$", "Resonance kind (clear, attrib, skill, weaponskill) or overrun suit id", ArgumentFlags.IgnoreCase | ArgumentFlags.Optional)]
+        string Option { get; set; } = string.Empty;
+
+        [Argument(4, @"^[0-9]+$", "Resonance attribute pool entry id or skill id", ArgumentFlags.Optional)]
+        string ResonanceId { get; set; } = string.Empty;
+
+        [Argument(5, @"^[0-9]+$", "Character the resonance is bound to (default: the character wearing the equip)", ArgumentFlags.Optional)]
+        string BoundCharacter { get; set; } = string.Empty;
 
         public override void Execute()
         {
+            switch (Op.ToLowerInvariant())
+            {
+                case "list": List(); return;
+                case "inspect": Inspect(); return;
+                case "level": Level(); return;
+                case "breakthrough": Breakthrough(); return;
+                case "resonance": Resonance(); return;
+                case "overrun": Overrun(); return;
+            }
+
             if (Op.Equals("sync", StringComparison.OrdinalIgnoreCase))
             {
                 SyncEquipsFromDatabase();
@@ -37,7 +67,7 @@ namespace AscNet.GameServer.Commands
             switch (Op)
             {
                 case "add":
-                    if (Target == "all")
+                    if (Target.Equals("all", StringComparison.OrdinalIgnoreCase))
                     {
                         HashSet<uint> ownedTemplateIds = session.character.Equips
                             .Select(equip => equip.TemplateId)

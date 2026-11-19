@@ -13,9 +13,9 @@ namespace AscNet.GameServer.Handlers
     {
         internal static string DamageScoreFromCommand(IReadOnlyList<string> terms)
         {
-            string usage = "Usage: /warzone dmg [percent|reset] [boss|duo|mob|MarkId]. 100 = default, 120 = +20% damage points, 50 = half. "
+            string usage = $"Usage: /warzone dmg [percent|reset] [{TypeChoices()}|MarkId]. 100 = default, 120 = +20% damage points, 50 = half. "
                 + "Install-wide: it changes War Zone scoring for every player on this server. "
-                + "Without a mode it applies to every damage-scored mode. Examples: /warzone dmg 120 boss, /warzone dmg reset";
+                + $"Without a mode it applies to every damage-scored mode. Examples: /warzone dmg 120 {TypeChoices().Split('|')[0]}, /warzone dmg reset";
             List<int> damageMarks = DamageMarkIds();
             if (terms.Count == 0)
                 return DescribeDamageScore(damageMarks);

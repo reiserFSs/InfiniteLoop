@@ -639,7 +639,6 @@ namespace AscNet.Common.Database
                     }
                 }
             }
-
             return changed;
         }
         public bool NormalizeWeaponFashionsForCurrentTables()

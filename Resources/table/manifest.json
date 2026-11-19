@@ -11185,6 +11185,23 @@
       "transformation": [
         "import_purchase_icons_4_9: retail rows verbatim"
       ]
+    },
+    {
+      "path": "share/medal/Medal.tsv",
+      "rows": 8,
+      "columns": 5,
+      "naturalKey": "Id",
+      "contentSha256": "31c36db7afa588aec53bb47a25252949b772a0a73d1250537a16501ee37cd5ba",
+      "source": [
+        "EN 4.9 bytes/share/medal/Medal.json"
+      ],
+      "sourceSha256": {
+        "Medal.json": "cdbf2d4525685ace7e607b862fba77b783360e81496788b1a464435eb1ea009b"
+      },
+      "filter": "all rows; server-relevant columns only",
+      "transformation": [
+        "project listed columns"
+      ]
     }
   ],
   "validationNotes": [

@@ -76,4 +76,16 @@ local ok, err = pcall(XAscNetSubMenu.Add, {
     open = function() ModList.Open() end,
 })
 if not ok then XLog.Error("AscNet Mod List entry failed: " .. tostring(err)) end
+
+-- Other mods start themselves with a module named XAscNet/<Name>Boot (second-menu entry, hotkey): require every
+-- installed one now, while the game is still requiring its managers. A broken one is logged and skipped.
+local cataloged, catalog = pcall(require, "XAscNet/XAscNetModCatalog")
+for _, mod in ipairs(cataloged and type(catalog) == "table" and catalog or {}) do
+    for _, module in ipairs(mod.modules or {}) do
+        if module:match("^XAscNet/.+Boot$") then
+            local loaded, failure = pcall(require, module)
+            if not loaded then XLog.Error("AscNet boot module " .. module .. " failed: " .. tostring(failure)) end
+        end
+    end
+end
 return ModList

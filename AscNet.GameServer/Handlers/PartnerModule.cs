@@ -1021,7 +1021,7 @@ namespace AscNet.GameServer.Handlers
                 OperateTypes = [2]
             });
 
-        private static List<(int Level, int AllExp)> GetLevelTemplate(int templateId) => templateId switch
+        internal static List<(int Level, int AllExp)> GetLevelTemplate(int templateId) => templateId switch
         {
             501 => TableReaderV2.Parse<PartnerLevelUpTemplate501Table>().Select(row => (row.Level, row.AllExp)).ToList(),
             502 => TableReaderV2.Parse<PartnerLevelUpTemplate502Table>().Select(row => (row.Level, row.AllExp)).ToList(),

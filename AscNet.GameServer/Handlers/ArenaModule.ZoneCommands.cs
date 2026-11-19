@@ -16,6 +16,16 @@ namespace AscNet.GameServer.Handlers
         private const int MaxListedZones = 40;
         private const int MaxListedAlternatives = 8;
         private static readonly Lazy<ZoneCatalog> Catalog = new(LoadZoneCatalog);
+        // Encounter types that have enemy data (an archetype in arena_stage_data.json that AreaStage configures): the
+        // only ones /warzone zones and /warzone set offer or accept. Catalog order.
+        private static readonly Lazy<IReadOnlyList<string>> AvailableTypes = new(() => Catalog.Value.EncounterTypes
+            .Select(type => type.Name)
+            .Where(name => AreaStages.Value.Values.Any(area => IsSupportedArea(area) && ZoneType(area) == name))
+            .ToList());
+
+        // "duo" or "boss|duo": lower-case type names for usage and help text.
+        internal static string TypeChoices(string separator = "|") =>
+            string.Join(separator, AvailableTypes.Value.Select(type => type.ToLowerInvariant()));
 
         internal static string ListZonesForCommand(Session session, IReadOnlyList<string> filterTerms)
         {
@@ -24,6 +34,7 @@ namespace AscNet.GameServer.Handlers
             ChallengeAreaTable challenge = ResolveChallenge(state.ArenaLevel, checked((int)session.player.PlayerData.Level));
             HashSet<int> groupedAreaIds = GroupedAreaIds(challenge);
             ZoneQuery? query = filterTerms.Count == 0 ? null : ParseZoneQuery(filterTerms);
+            if (query is not null) RequireTypeData(query);
             List<AreaStageTable> zones = GetZoneCandidates(challenge)
                 .Select(areaId => AreaStages.Value[areaId])
                 .Where(area => query is null || query.Matches(area) && (query.Type is null || ZoneType(area) == query.Type))
@@ -42,18 +53,18 @@ namespace AscNet.GameServer.Handlers
             foreach (AreaStageTable area in listed.Take(MaxListedZones))
                 message.Append('\n').Append(FormatZone(area, state.ArenaZoneOverrideAreaId));
             if (listed.Count > MaxListedZones)
-                message.Append($"\n... {listed.Count - MaxListedZones} more; narrow with /warzone zones <element> [boss|duo|mob].");
+                message.Append($"\n... {listed.Count - MaxListedZones} more; narrow with /warzone zones <element> [{TypeChoices()}].");
             int specialCount = zones.Count - listed.Count;
             if (specialCount > 0)
-                message.Append($"\nEntropic Distortion slot: {specialCount} zones; list them with /warzone zones <element> [boss|duo|mob].");
-            message.Append($"\nActive zones: {string.Join(", ", ActiveZones(session, challenge))}. Use /warzone set <element|zone name> [boss|duo|mob] or /warzone zone <AreaId|auto>.");
+                message.Append($"\nEntropic Distortion slot: {specialCount} zones; list them with /warzone zones <element> [{TypeChoices()}].");
+            message.Append($"\nActive zones: {string.Join(", ", ActiveZones(session, challenge))}. Use /warzone set <element|zone name> [{TypeChoices()}] or /warzone zone <AreaId|auto>.");
             return message.ToString();
         }
 
         internal static string SetZoneByQueryFromCommand(Session session, IReadOnlyList<string> terms)
         {
             if (terms.Count == 0)
-                throw new CommandMessageCallbackException("Usage: /warzone set <element|zone name|AreaId> [boss|duo|mob]. Elements: "
+                throw new CommandMessageCallbackException($"Usage: /warzone set <element|zone name|AreaId> [{TypeChoices()}]. Elements: "
                     + string.Join(", ", Catalog.Value.Elements.Select(element => element.Aliases.FirstOrDefault() ?? Normalize(element.Name))) + ".");
             ReconcileLive(session);
             SimulatedBattlefieldState state = session.player.SimulatedBattlefield!;
@@ -72,6 +83,7 @@ namespace AscNet.GameServer.Handlers
             }
 
             ZoneQuery query = ParseZoneQuery(terms);
+            RequireTypeData(query);
             List<AreaStageTable> matches = GetZoneCandidates(challenge)
                 .Select(areaId => AreaStages.Value[areaId])
                 .Where(query.Matches)
@@ -100,6 +112,12 @@ namespace AscNet.GameServer.Handlers
             }
 
             throw new CommandMessageCallbackException(ExplainNoZone(query, challenge, groupedAreaIds));
+        }
+
+        private static void RequireTypeData(ZoneQuery query)
+        {
+            if (query.Type is { } type && !AvailableTypes.Value.Contains(type))
+                throw new CommandMessageCallbackException($"No enemy data for {type.ToLowerInvariant()} zones yet; available: {TypeChoices(", ")}.");
         }
 
         private static string SetZoneMessage(Session session, ChallengeAreaTable challenge, AreaStageTable area, string? fallback, IReadOnlyList<int> alternatives)
@@ -196,7 +214,7 @@ namespace AscNet.GameServer.Handlers
 
             throw new CommandMessageCallbackException($"Unknown Warzone element or zone name '{phrase}'. Elements: "
                 + string.Join(", ", Catalog.Value.Elements.Select(candidate => candidate.Name))
-                + ". Types: " + string.Join(", ", Catalog.Value.EncounterTypes.Select(candidate => candidate.Name.ToLowerInvariant())) + ".");
+                + ". Types: " + TypeChoices(", ") + ".");
         }
 
         private static string Normalize(string value) =>

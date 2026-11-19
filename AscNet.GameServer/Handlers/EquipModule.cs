@@ -1954,7 +1954,7 @@ namespace AscNet.GameServer.Handlers
                 .CharacterSkillPoolId.ElementAtOrDefault(slot - 1) ?? 0;
         }
 
-        private static bool CharacterOwnsResonanceSkill(
+        internal static bool CharacterOwnsResonanceSkill(
             CharacterSkillTable? characterSkills,
             int skillPoolId,
             int selectedSkillId,

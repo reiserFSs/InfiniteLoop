@@ -98,6 +98,7 @@ Focused harness switches are defined in `AscNet.Test/Program.cs`; `Docs/developm
 
 ## Change discipline
 
+- Comment sparingly: only where the why isn't obvious from the code, in a line or two. Evidence, history and policy detail go in the commit message or `Docs/`.
 - Put game TCP behavior in `AscNet.GameServer/`, HTTP-facing behavior in `AscNet.SDKServer/`, and shared schemas/state/database concerns in `AscNet.Common/`; follow the existing module near the behavior being changed.
 - When a change affects an item id — what the bag does with it, what spends it, its stack cap, a gift subtype, a shop consume, a mode currency, or the name the player sees — update `Docs/items.md` in the same change. Use the player-facing name when it differs from `Item.tsv`. Item 105 is Simulation Score; item 62738 is not that score.
 - Each construct has their own precious affection gift. Precious Gift Box 40693 includes every quality-5 `FavorGift` that is also a `CharacterTrustItem` row. On each client patch, account for every new gift id in the 40693 row and the Gifts table in `Docs/items.md`, in `Docs/closed.md`, and in the expected pool in `AscNet.Test/Program.AutoUseGift.cs`. The current ids are 40601–40646, and that range does not stay valid just because it is contiguous. Quality 6 gifts 40800–40811 are not this box. Normal and Fine boxes stay the shared gifts 40681–40684.

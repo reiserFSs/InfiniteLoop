@@ -158,7 +158,13 @@ namespace AscNet.Test
             _ = Run("warzone", "set", "ice", "duo");
             AssertEqual(12, player.SimulatedBattlefield.ArenaZoneOverrideAreaId, "/warzone set ice duo");
             AssertEqual(0, player.SimulatedBattlefield.ArenaAreaStageBestRecords.Count, "a zone change clears the best records with the scores");
-            AssertContains("No enemy profile", Run("warzone", "set", "ice", "mob"), "/warzone set ice mob explains missing Mob data");
+            // Only encounter types with enemy data in arena_stage_data.json (today: Duo) are offered or accepted.
+            AssertContains("No enemy data for mob zones yet; available: duo.", Run("warzone", "set", "ice", "mob"), "/warzone set ice mob explains missing Mob data");
+            AssertContains("No enemy data for boss zones yet; available: duo.", Run("warzone", "set", "ice", "boss"), "/warzone set ice boss explains missing Boss data");
+            AssertContains("No enemy data for boss zones yet; available: duo.", Run("warzone", "zones", "ice", "boss"), "/warzone zones ice boss explains missing Boss data");
+            AssertContains("[duo]", Run("warzone", "set"), "/warzone set usage lists only types with data");
+            AssertEqual(false, Run("warzone", "set").Contains("boss", StringComparison.OrdinalIgnoreCase), "/warzone set usage does not mention boss");
+            AssertContains("12 Crimson Frostland [Ice] Duo", Run("warzone", "zones", "ice", "duo"), "/warzone zones ice duo still lists Duo zones");
             AssertEqual(12, player.SimulatedBattlefield.ArenaZoneOverrideAreaId, "failed /warzone set keeps the zone");
             AssertContains("Use /warzone tier Hero", Run("warzone", "set", "plasma"), "/warzone set plasma below Hero");
             AssertContains("Use /warzone tier Hero", Run("warzone", "set", "vortex", "barrier"), "/warzone set by buff name below Hero");

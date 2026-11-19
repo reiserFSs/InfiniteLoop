@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AscNet.Common.MsgPack;
 using AscNet.Common.Util;
 using AscNet.Table.V2.share.nameplate;
@@ -21,6 +22,13 @@ public partial class Character
 
     public static NameplateTable? GetNameplateConfig(int id) => NameplateCatalog.Value.GetValueOrDefault(id);
 
+    // The rows GrantNameplate can award (EXP-convertible tiers need a decompose value).
+    public static bool IsGrantableNameplate([NotNullWhen(true)] NameplateTable? config) =>
+        config is not null && config.NameplateUpgradeType is 1 or 2 or 3
+        && config.Duration >= 0 && config.PlusTime == 0
+        && config.ConvertItemId == 0 && config.ConvertItemCount == 0
+        && (config.NameplateUpgradeType != 3 || config.DecomposeExp > 0);
+
     public int GetCurrentWearNameplate(long now) => Nameplates.Any(value =>
         value.Id == CurrentWearNameplate && GetNameplateConfig(value.Id) is not null
         && (value.EndTime == 0 || value.EndTime > now)) ? CurrentWearNameplate : 0;
@@ -35,9 +43,7 @@ public partial class Character
     {
         NameplateTable? config = GetNameplateConfig(id);
         // TypeTwo Params describe MoeWar vote promotion; an explicit reward already selects its tier.
-        if (count <= 0 || config is null || config.NameplateUpgradeType is not (1 or 2 or 3)
-            || config.Duration < 0 || config.PlusTime != 0
-            || config.ConvertItemId != 0 || config.ConvertItemCount != 0)
+        if (count <= 0 || !IsGrantableNameplate(config))
             throw new InvalidDataException($"Unsupported nameplate reward {id}.");
 
         NameplateData? owned = Nameplates.FirstOrDefault(value =>
