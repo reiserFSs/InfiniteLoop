@@ -359,6 +359,14 @@ pub fn plan(source: &ClientSource, job: Job) -> Result<Plan> {
             files += 1;
         }
     }
+    if !matches!(route, Route::Install) {
+        for entry in managed.gaps(&dir, &full.resource).0 {
+            if !covered.contains(entry.dest.as_str()) {
+                download += entry.size;
+                files += 1;
+            }
+        }
+    }
     let document = document::inspect(source, &net, &dir, &full, &no_cancel).context("checking the in-game document patch")?;
     let (document_bytes, document_files) = document::estimate(&document, &dir);
     download += document_bytes;
@@ -428,12 +436,14 @@ pub fn run(plan: Plan, cancel: &AtomicBool, progress: &mut dyn FnMut(Progress)) 
         Route::Repair => {
             let scope: Vec<&Entry> = prep.full.resource.iter().filter(|e| !managed.covers(&e.dest)).collect();
             runner.fix(&scope, &data.base_url, true)?;
+            runner.restore_managed(&managed, &prep.full.resource, &data.base_url)?;
         }
         Route::Patch => {
             let patch = prep.patch.as_ref().expect("patch route has a patch");
             runner.patch(patch)?;
             let scope: Vec<&Entry> = prep.full.resource.iter().filter(|e| !managed.covers(&e.dest)).collect();
             runner.fix(&scope, &data.base_url, true)?;
+            runner.restore_managed(&managed, &prep.full.resource, &data.base_url)?;
         }
     }
     runner.document(&prep.source, &prep.full)?;
@@ -844,7 +854,8 @@ fn checked_root(dir: &Path) -> Result<PathBuf> {
     fs::canonicalize(dir).with_context(|| format!("cannot open {}", dir.display()))
 }
 
-/// Resource files the game manages itself (`resourcesExcludePath`); Repair/Adopt never touch them.
+/// Resource files the game manages itself (`resourcesExcludePath`): Repair only restores missing ones, never
+/// replaces or deletes existing ones.
 struct Managed(Vec<String>);
 impl Managed {
     fn new(data: &SourceData) -> Self {
@@ -852,6 +863,18 @@ impl Managed {
     }
     fn covers(&self, dest: &str) -> bool {
         self.0.iter().any(|p| dest.starts_with(p.as_str()))
+    }
+    /// Managed entries that are missing, and those present with a size other than the index's.
+    fn gaps<'a>(&self, dir: &Path, entries: &'a [Entry]) -> (Vec<&'a Entry>, Vec<&'a Entry>) {
+        let (mut missing, mut resized) = (Vec::new(), Vec::new());
+        for e in entries.iter().filter(|e| self.covers(&e.dest)) {
+            match safe_path(dir, &e.dest).ok().map(fs::symlink_metadata) {
+                Some(Err(err)) if err.kind() == std::io::ErrorKind::NotFound => missing.push(e),
+                Some(Ok(m)) if m.is_file() && m.len() != e.size => resized.push(e),
+                _ => {}
+            }
+        }
+        (missing, resized)
     }
 }
 
@@ -1563,6 +1586,18 @@ impl Runner<'_> {
 
     fn note_variant(&self, dest: &str, reason: &str) {
         self.variants.lock().unwrap().push(format!("{dest} ({reason})"));
+    }
+
+    /// Fetches (MD5-checked) only the managed files that are missing; wrong-size ones are reported, not replaced.
+    fn restore_managed(&mut self, managed: &Managed, entries: &[Entry], base: &str) -> Result<()> {
+        let (missing, resized) = managed.gaps(self.dir, entries);
+        for e in resized.iter().take(20) {
+            self.note_variant(&e.dest, "size differs from Kuro's list; the game manages this folder");
+        }
+        if resized.len() > 20 {
+            self.note_variant(&format!("{} more game-managed files", resized.len() - 20), "size differs");
+        }
+        if missing.is_empty() { Ok(()) } else { self.fix(&missing, base, true) }
     }
 
     /// Verify `entries` by MD5, then fetch what is missing or corrupt from `base`.
@@ -2563,11 +2598,33 @@ mod tests {
         assert_eq!(tmp.read(&format!("{PREFIX}/matrix/a.uab")), b"newer resource from the game");
         assert_eq!(
             outcome.skipped_variants,
-            ["PGR.exe (accepted retail variant)".to_owned(), format!("{SDK_DLL} (AscNet patch)"), format!("{KRSDK_BIN} (Steam build)")]
+            [
+                "PGR.exe (accepted retail variant)".to_owned(),
+                format!("{SDK_DLL} (AscNet patch)"),
+                format!("{KRSDK_BIN} (Steam build)"),
+                format!("{PREFIX}/matrix/a.uab (size differs from Kuro's list; the game manages this folder)"),
+            ]
         );
         assert!(!tmp.path(STATE_DIR).exists());
         // Everything downloaded was only the two broken files (plus the chunked file's bytes).
         assert!(outcome.downloaded_bytes <= (files[5].1.len() + files[4].1.len()) as u64);
+    }
+
+    /// Player report: a missing `resource/launch` bundle black-screened the game and Repair never restored it.
+    #[test]
+    fn repair_restores_a_missing_game_managed_file() {
+        let files = release();
+        let world = World::new(&files);
+        let tmp = installed(&world);
+        let managed = format!("{PREFIX}/matrix/a.uab");
+        fs::remove_file(tmp.path(&managed)).unwrap();
+
+        let p = plan(&world.source(), Job::Repair { dir: tmp.0.clone() }).unwrap();
+        assert_eq!((p.files, p.download_bytes), (1, files[6].1.len() as u64));
+        let outcome = run(p, &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(outcome.repaired, 1);
+        assert_eq!(tmp.read(&managed), files[6].1);
+        assert!(outcome.skipped_variants.is_empty());
     }
 
     /// The CN client has no KRSDK.bin/KRSDK.dll: identity comes from KRSDKConfig.json, and the official SDK files are
