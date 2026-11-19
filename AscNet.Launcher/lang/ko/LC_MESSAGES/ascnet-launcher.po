@@ -906,3 +906,21 @@ msgstr "게임 패치 파일 업데이트 중 ({})…"
 
 msgid "Patch files out of date; Verify & repair fixes them"
 msgstr "패치 파일이 오래되었습니다. '검사 및 복구'로 해결할 수 있습니다"
+
+msgid "Use the MongoDB already running on this computer"
+msgstr "이 컴퓨터에서 이미 실행 중인 MongoDB 사용"
+
+msgid "Keeps your data. Takes effect the next time you press Play."
+msgstr "기존 데이터를 그대로 사용합니다. 다음에 '게임 시작'을 누를 때 적용됩니다."
+
+msgid "Using the MongoDB already running on port {}"
+msgstr "포트 {}에서 이미 실행 중인 MongoDB를 사용합니다"
+
+msgid "Started MongoDB for AscNet"
+msgstr "AscNet용 MongoDB를 시작했습니다"
+
+msgid "Using the AscNet server already running at {}"
+msgstr "{}에서 이미 실행 중인 AscNet 서버를 사용합니다"
+
+msgid "Started the AscNet server"
+msgstr "AscNet 서버를 시작했습니다"

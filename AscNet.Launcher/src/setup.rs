@@ -1079,14 +1079,24 @@ fn network_matches(config: &Value, game_port: u16, mongo_port: u16) -> bool {
 
 /// Copies the persistent `config.json` into the server build before each start, so edits such as
 /// `VerboseLevel` apply on the next start instead of only after the next rebuild. Network fields are
-/// owned by Setup and must still match the build.
-pub(crate) fn install_runtime_config(root: &Path, server_directory: &Path, game_port: u16, mongo_port: u16) -> Result<()> {
+/// owned by Setup and must still match the build. `database_port`: the installed copy (never the persistent
+/// file) points the server at the MongoDB already running there, same host and database name.
+pub(crate) fn install_runtime_config(root: &Path, server_directory: &Path, game_port: u16, mongo_port: u16, database_port: Option<u16>) -> Result<()> {
     let source = root.join("config.json");
     let bytes = fs::read(&source).with_context(|| format!("read {}", source.display()))?;
-    let config: Value = serde_json::from_slice(&bytes).with_context(|| format!("{} is not valid JSON", source.display()))?;
+    let mut config: Value = serde_json::from_slice(&bytes).with_context(|| format!("{} is not valid JSON", source.display()))?;
     if !network_matches(&config, game_port, mongo_port) {
         bail!("{} has changed GameServer/Database settings; restore them or run Setup again", source.display());
     }
+    let bytes = match database_port.filter(|port| *port != mongo_port) {
+        Some(port) => {
+            config["Database"]["Port"] = Value::from(port);
+            let mut changed = serde_json::to_vec_pretty(&config)?;
+            changed.push(b'\n');
+            changed
+        }
+        None => bytes,
+    };
     let target = server_directory.join("Configs").join("config.json");
     if fs::read(&target).ok().as_deref() != Some(bytes.as_slice()) {
         write_atomic(&target, &bytes)?;
@@ -2314,9 +2324,14 @@ pub(crate) fn choose_ports(root: &Path, previous: Option<&Value>) -> Result<(u16
     if ports.0 == ports.1 || ports.0 == ports.2 || ports.1 == ports.2 {
         bail!("Persisted SDK, game, and MongoDB ports must be distinct.");
     }
-    assert_port_free(ports.0, "SDK")?;
-    assert_port_free(ports.1, "Game")?;
-    assert_port_free(ports.2, "MongoDB")?;
+    // Play uses an AscNet server / MongoDB that already runs on these ports (see `backend`); Setup neither starts nor stops them.
+    if crate::backend::probe_server(ports.0, ports.1) != crate::backend::Probe::Running {
+        assert_port_free(ports.0, "SDK")?;
+        assert_port_free(ports.1, "Game")?;
+    }
+    if crate::backend::probe_mongo(ports.2) != crate::backend::Port::Mongo {
+        assert_port_free(ports.2, "MongoDB")?;
+    }
     Ok(ports)
 }
 
@@ -2899,14 +2914,25 @@ mod tests {
         fs::write(server.join("Configs").join("config.json"), config.to_string()).unwrap();
         config["VerboseLevel"] = "Normal".into();
         fs::write(root.join("config.json"), config.to_string()).unwrap();
-        install_runtime_config(&root, &server, 2335, 27017).unwrap();
+        install_runtime_config(&root, &server, 2335, 27017, None).unwrap();
         let installed: Value = serde_json::from_slice(&fs::read(server.join("Configs").join("config.json")).unwrap()).unwrap();
         assert_eq!(installed["VerboseLevel"], "Normal");
         config["Database"]["Port"] = 27018.into();
         fs::write(root.join("config.json"), config.to_string()).unwrap();
-        assert!(install_runtime_config(&root, &server, 2335, 27017).is_err());
+        assert!(install_runtime_config(&root, &server, 2335, 27017, None).is_err());
         let kept: Value = serde_json::from_slice(&fs::read(server.join("Configs").join("config.json")).unwrap()).unwrap();
         assert_eq!(kept["Database"]["Port"], 27017, "a refused config is not installed");
+        // Opting into the player's MongoDB changes only the installed copy.
+        config["Database"]["Port"] = 27017.into();
+        fs::write(root.join("config.json"), config.to_string()).unwrap();
+        install_runtime_config(&root, &server, 2335, 27017, Some(31000)).unwrap();
+        let pointed: Value = serde_json::from_slice(&fs::read(server.join("Configs").join("config.json")).unwrap()).unwrap();
+        assert_eq!((pointed["Database"]["Port"].clone(), pointed["Database"]["Name"].clone()), (31000.into(), "asc_net".into()));
+        let persistent: Value = serde_json::from_slice(&fs::read(root.join("config.json")).unwrap()).unwrap();
+        assert_eq!(persistent["Database"]["Port"], 27017);
+        install_runtime_config(&root, &server, 2335, 27017, Some(27017)).unwrap();
+        let back: Value = serde_json::from_slice(&fs::read(server.join("Configs").join("config.json")).unwrap()).unwrap();
+        assert_eq!(back["Database"]["Port"], 27017);
         fs::remove_dir_all(root).unwrap();
     }
 

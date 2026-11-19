@@ -4,8 +4,9 @@
 //! `AscNet.Patch` with `cargo xwin`, the C version loader with Apple clang and rust-lld against the same
 //! xwin sysroot. Git and the C compiler come from the Xcode Command Line Tools.
 //! `Runtime` starts and stops MongoDB and the server in one process group.
+use crate::backend::{MongoPlan, Plan, ServerPlan};
 use crate::local::{
-    mongo_arguments, pump_output, reserve_ports, wait_server, wait_tcp, LocalBuild, RotatingLog,
+    mongo_arguments, pump_output, wait_server, wait_tcp, LocalBuild, RotatingLog,
     BACKEND_LOG_LIMIT, STOP_TIMEOUT,
 };
 use crate::setup::{
@@ -483,47 +484,54 @@ fn wait_or_kill(child: &mut Child, timeout: Duration) -> Result<bool> {
     Ok(false)
 }
 
-/// The native MongoDB and AscNet server for one game session. The caller holds the launcher's
-/// operation lock for as long as this lives.
+/// The native MongoDB and AscNet server for one game session; what `plan` found already running is not started,
+/// stopped or shut down. The caller holds the launcher's operation lock for as long as this lives.
 pub struct Runtime {
-    server: Owned,
-    mongo: Owned,
+    server: Option<Owned>,
+    mongo: Option<Owned>,
     dotnet: PathBuf,
     server_dll: PathBuf,
     mongo_port: u16,
     stopped: bool,
-    group: Group,
+    group: Option<Group>,
 }
 
 impl Runtime {
-    pub fn start(root: &Path, build: &LocalBuild, progress: Progress) -> Result<Self> {
-        install_runtime_config(root, &build.server_directory, build.game_port, build.mongo_port)?;
-        let ports = reserve_ports([build.mongo_port, build.sdk_port, build.game_port])?;
-        fs::create_dir_all(root.join("data/mongo"))?;
+    pub fn start(root: &Path, build: &LocalBuild, plan: &Plan, progress: Progress) -> Result<Self> {
         fs::create_dir_all(root.join("logs"))?;
-
-        progress("Starting MongoDB");
-        drop(ports);
-        let mongo_log = RotatingLog::open(root.join("logs/mongod.log"), BACKEND_LOG_LIMIT)?;
-        let mut mongo = Owned(
-            Command::new(&build.mongod)
-                .args(mongo_arguments(&root.join("data/mongo"), build.mongo_port, false))
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .process_group(0)
-                .spawn()
-                .context("start MongoDB")?,
-        );
-        let pgid = mongo.0.id() as i32;
-        let group = Group(pgid);
-        pump_output(&mut mongo.0, &mongo_log);
-        wait_tcp(&mut mongo.0, build.mongo_port, "MongoDB")?;
-
-        progress("Starting AscNet server");
-        let origin = format!("http://127.0.0.1:{}", build.sdk_port);
-        let server_log = RotatingLog::open(root.join("logs/server.log"), BACKEND_LOG_LIMIT)?;
-        let mut server = Owned(
-            Command::new(&build.dotnet)
+        let mut runtime = Runtime {
+            server: None,
+            mongo: None,
+            dotnet: build.dotnet.clone(),
+            server_dll: build.server_directory.join("AscNet.dll"),
+            mongo_port: build.mongo_port,
+            stopped: false,
+            group: None,
+        };
+        if plan.server == ServerPlan::Own {
+            let database = match plan.mongo {
+                MongoPlan::Reuse(port) => Some(port),
+                _ => None,
+            };
+            install_runtime_config(root, &build.server_directory, build.game_port, build.mongo_port, database)?;
+        }
+        if plan.mongo == MongoPlan::Own {
+            fs::create_dir_all(root.join("data/mongo"))?;
+            progress("Starting MongoDB");
+            let mongo_log = RotatingLog::open(root.join("logs/mongod.log"), BACKEND_LOG_LIMIT)?;
+            let mut command = Command::new(&build.mongod);
+            command.args(mongo_arguments(&root.join("data/mongo"), build.mongo_port, false)).stdout(Stdio::piped()).stderr(Stdio::piped());
+            let mut mongo = Owned(runtime.spawn(&mut command).context("start MongoDB")?);
+            pump_output(&mut mongo.0, &mongo_log);
+            runtime.mongo = Some(mongo);
+            wait_tcp(&mut runtime.mongo.as_mut().expect("just set").0, build.mongo_port, "MongoDB")?;
+        }
+        if plan.server == ServerPlan::Own {
+            progress("Starting AscNet server");
+            let origin = format!("http://127.0.0.1:{}", build.sdk_port);
+            let server_log = RotatingLog::open(root.join("logs/server.log"), BACKEND_LOG_LIMIT)?;
+            let mut command = Command::new(&build.dotnet);
+            command
                 .arg(build.server_directory.join("AscNet.dll"))
                 .args(["--urls", &origin])
                 .current_dir(&build.resource_directory)
@@ -533,57 +541,66 @@ impl Runtime {
                 .env("ASCNET_MANAGED_STDIN", "1")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .process_group(pgid)
-                .spawn()
-                .context("start AscNet server")?,
-        );
-        pump_output(&mut server.0, &server_log);
-        wait_server(&mut server.0, &origin, build.game_port)?;
+                .stderr(Stdio::piped());
+            let mut server = Owned(runtime.spawn(&mut command).context("start AscNet server")?);
+            pump_output(&mut server.0, &server_log);
+            runtime.server = Some(server);
+            wait_server(&mut runtime.server.as_mut().expect("just set").0, &origin, build.game_port)?;
+        }
         progress("Local backend is ready");
-        Ok(Self {
-            server,
-            mongo,
-            dotnet: build.dotnet.clone(),
-            server_dll: build.server_directory.join("AscNet.dll"),
-            mongo_port: build.mongo_port,
-            stopped: false,
-            group,
-        })
+        Ok(runtime)
+    }
+
+    /// Starts `command` in the runtime's process group (the first child creates it).
+    fn spawn(&mut self, command: &mut Command) -> Result<Child> {
+        let child = command.process_group(self.group.as_ref().map_or(0, |g| g.0)).spawn()?;
+        if self.group.is_none() {
+            self.group = Some(Group(child.id() as i32));
+        }
+        Ok(child)
     }
 
     /// Server first (`shutdown` on its managed stdin), then MongoDB through the server's own helper,
-    /// the same order as Windows. Anything still alive afterwards is killed with the process group.
+    /// the same order as Windows; only what this runtime started. Anything still alive afterwards is killed with
+    /// the process group.
     pub fn stop(&mut self) -> Result<()> {
         if self.stopped {
             return Ok(());
         }
-        let server_request = self
-            .server
-            .0
-            .stdin
-            .as_mut()
-            .context("AscNet server stdin is unavailable")
-            .and_then(|stdin| stdin.write_all(b"shutdown\n").and_then(|()| stdin.flush()).context("request AscNet server shutdown"));
-        let server_forced = wait_or_kill(&mut self.server.0, STOP_TIMEOUT);
-        let helper_forced = (|| -> Result<bool> {
-            let mut helper = Owned(
-                Command::new(&self.dotnet)
-                    .arg(&self.server_dll)
-                    .args(["--shutdown-local-mongo", &self.mongo_port.to_string()])
-                    .current_dir(self.server_dll.parent().context("AscNet server DLL has no directory")?)
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .process_group(self.group.0)
-                    .spawn()
-                    .context("start owned MongoDB shutdown helper")?,
-            );
-            wait_or_kill(&mut helper.0, STOP_TIMEOUT)
-        })();
-        let mongo_forced = wait_or_kill(&mut self.mongo.0, STOP_TIMEOUT);
+        let mut server_request = Ok(());
+        let mut server_forced = Ok(false);
+        if let Some(server) = &mut self.server {
+            server_request = server
+                .0
+                .stdin
+                .as_mut()
+                .context("AscNet server stdin is unavailable")
+                .and_then(|stdin| stdin.write_all(b"shutdown\n").and_then(|()| stdin.flush()).context("request AscNet server shutdown"));
+            server_forced = wait_or_kill(&mut server.0, STOP_TIMEOUT);
+        }
+        let (mut helper_forced, mut mongo_forced) = (Ok(false), Ok(false));
+        if let (Some(mongo), Some(group)) = (&mut self.mongo, &self.group) {
+            helper_forced = (|| -> Result<bool> {
+                let mut helper = Owned(
+                    Command::new(&self.dotnet)
+                        .arg(&self.server_dll)
+                        .args(["--shutdown-local-mongo", &self.mongo_port.to_string()])
+                        .current_dir(self.server_dll.parent().context("AscNet server DLL has no directory")?)
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .process_group(group.0)
+                        .spawn()
+                        .context("start owned MongoDB shutdown helper")?,
+                );
+                wait_or_kill(&mut helper.0, STOP_TIMEOUT)
+            })();
+            mongo_forced = wait_or_kill(&mut mongo.0, STOP_TIMEOUT);
+        }
         self.stopped = true;
-        // SAFETY: see `Group::drop`; sweeps stragglers such as dotnet child processes.
-        unsafe { kill(-self.group.0, 9) };
+        if let Some(group) = &self.group {
+            // SAFETY: see `Group::drop`; sweeps stragglers such as dotnet child processes.
+            unsafe { kill(-group.0, 9) };
+        }
         if server_forced? || helper_forced? || mongo_forced? {
             bail!("local runtime did not stop gracefully; forced termination was required");
         }
@@ -595,6 +612,36 @@ impl Runtime {
 mod tests {
     use super::*;
     use std::{env, net::TcpStream};
+
+    /// Everything found running is left alone: nothing is started, and stopping the runtime touches no foreign process.
+    #[test]
+    fn a_runtime_that_reuses_everything_starts_and_stops_nothing() {
+        let root = env::temp_dir().join(format!("ascnet-mac-reuse-{}", uuid::Uuid::new_v4()));
+        let (sdk, game) = (std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap(), std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap());
+        let (sdk_port, game_port) = (sdk.local_addr().unwrap().port(), game.local_addr().unwrap().port());
+        let missing = root.join("missing");
+        let build = LocalBuild {
+            schema_version: 1,
+            revision: "x".into(),
+            repository: "x".into(),
+            dotnet: missing.clone(),
+            mongod: missing.clone(),
+            server_directory: missing.clone(),
+            resource_directory: missing.clone(),
+            patch_directory: missing,
+            sdk_port: 1,
+            game_port: 2,
+            mongo_port: 3,
+        };
+        let plan = Plan { server: ServerPlan::Reuse { sdk: sdk_port, game: game_port }, mongo: MongoPlan::NotNeeded };
+        let mut messages = Vec::new();
+        let mut runtime = Runtime::start(&root, &build, &plan, &mut |m| messages.push(m.to_owned())).unwrap();
+        assert!(runtime.server.is_none() && runtime.mongo.is_none() && runtime.group.is_none());
+        assert_eq!(messages, ["Local backend is ready"], "no \"Starting …\" step for anything that already runs");
+        runtime.stop().unwrap();
+        assert!(TcpStream::connect(("127.0.0.1", sdk_port)).is_ok() && TcpStream::connect(("127.0.0.1", game_port)).is_ok());
+        let _ = fs::remove_dir_all(root);
+    }
 
     #[test]
     fn dotnet_selector_takes_the_osx_arm64_tarball() {
@@ -668,7 +715,7 @@ mod tests {
         let build: LocalBuild = serde_json::from_slice(&fs::read(root.join("build-state.pending.json")).unwrap()).unwrap();
         crate::package::load_package(&build.patch_directory).unwrap();
         let begun = Instant::now();
-        let mut runtime = Runtime::start(&root, &build, &mut |message| eprintln!("{message}")).unwrap();
+        let mut runtime = Runtime::start(&root, &build, &Plan::OWN, &mut |message| eprintln!("{message}")).unwrap();
         eprintln!("start took {:?}", begun.elapsed());
         let body = reqwest::blocking::get(format!("http://127.0.0.1:{}/api/launcher/status", build.sdk_port)).unwrap().text().unwrap();
         eprintln!("status: {body}");

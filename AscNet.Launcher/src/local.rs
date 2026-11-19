@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
     io::{Read, Write},
-    net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{
@@ -598,22 +598,28 @@ pub struct LocalRuntime {
     job: JobHandle,
     #[cfg(target_os = "macos")]
     native: crate::mac::setup::Runtime,
+    plan: crate::backend::Plan,
+    origin: String,
     _operation: Option<OperationPermit>,
 }
 
 impl LocalRuntime {
-    pub fn start(build: &LocalBuild, progress: &mut dyn FnMut(&str)) -> Result<Self> {
+    /// `use_running_mongo`: macOS only; a server the launcher starts may use the MongoDB already running on the
+    /// default port (the player's data) when the build's own MongoDB port is free. Windows always starts its own.
+    pub fn start(build: &LocalBuild, use_running_mongo: bool, progress: &mut dyn FnMut(&str)) -> Result<Self> {
         #[cfg(target_os = "macos")]
         {
             let operation = operation_lock()?;
             let root = root()?;
             validate_build(&root, build)?;
-            let native = crate::mac::setup::Runtime::start(&root, build, progress)?;
-            Ok(Self { native, _operation: Some(operation) })
+            let plan = crate::backend::plan(crate::backend::Ports { mongo: build.mongo_port, sdk: build.sdk_port, game: build.game_port }, use_running_mongo)?;
+            let native = crate::mac::setup::Runtime::start(&root, build, &plan, progress)?;
+            let origin = format!("http://127.0.0.1:{}", plan.sdk_port(build.sdk_port));
+            Ok(Self { native, plan, origin, _operation: Some(operation) })
         }
         #[cfg(not(any(windows, target_os = "macos")))]
         {
-            let _ = (build, progress);
+            let _ = (build, use_running_mongo, progress);
             bail!("the local runtime is supported on Windows and macOS only");
         }
         #[cfg(windows)]
@@ -621,10 +627,11 @@ impl LocalRuntime {
             use std::os::windows::process::CommandExt;
             use windows::Win32::System::Threading::CREATE_NO_WINDOW;
 
+            let _ = use_running_mongo;
             let operation = operation_lock()?;
             let root = root()?;
             validate_build(&root, build)?;
-            crate::setup::install_runtime_config(&root, &build.server_directory, build.game_port, build.mongo_port)?;
+            crate::setup::install_runtime_config(&root, &build.server_directory, build.game_port, build.mongo_port, None)?;
             let _ports = reserve_ports([build.mongo_port, build.sdk_port, build.game_port])?;
             fs::create_dir_all(root.join("data/mongo"))?;
             fs::create_dir_all(root.join("logs"))?;
@@ -682,9 +689,21 @@ impl LocalRuntime {
                 mongo_port: build.mongo_port,
                 stopped: false,
                 job,
+                plan: crate::backend::Plan::OWN,
+                origin,
                 _operation: Some(operation),
             })
         }
+    }
+
+    /// Where the game's patch reaches the server: the build's SDK port, or the running server's.
+    pub fn origin(&self) -> &str {
+        &self.origin
+    }
+
+    /// What was started and what was found already running.
+    pub fn plan(&self) -> crate::backend::Plan {
+        self.plan
     }
 
     pub fn stop(&mut self) -> Result<()> {
@@ -1079,11 +1098,12 @@ pub(crate) fn validate_build(root: &Path, build: &LocalBuild) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn reserve_ports(ports: [u16; 3]) -> Result<Vec<TcpListener>> {
+#[cfg(windows)]
+pub(crate) fn reserve_ports(ports: [u16; 3]) -> Result<Vec<std::net::TcpListener>> {
     ports
         .into_iter()
         .map(|port| {
-            TcpListener::bind((Ipv4Addr::LOCALHOST, port))
+            std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, port))
                 .with_context(|| format!("local port {port} is already occupied"))
         })
         .collect()
@@ -1111,10 +1131,7 @@ pub(crate) fn wait_tcp(child: &mut Child, port: u16, name: &str) -> Result<()> {
 }
 
 pub(crate) fn wait_server(child: &mut Child, origin: &str, game_port: u16) -> Result<()> {
-    let client = crate::download::wine_safe(
-        reqwest::blocking::Client::builder().no_proxy().timeout(Duration::from_secs(2)),
-    )
-    .build()?;
+    let client = crate::backend::status_client()?;
     let deadline = Instant::now() + START_TIMEOUT;
     loop {
         if let Some(status) = child.try_wait()? {
@@ -1125,25 +1142,7 @@ pub(crate) fn wait_server(child: &mut Child, origin: &str, game_port: u16) -> Re
             Duration::from_millis(100),
         )
         .is_ok();
-        let api_ready = client
-            .get(format!("{origin}/api/launcher/status"))
-            .send()
-            .and_then(reqwest::blocking::Response::error_for_status)
-            .ok()
-            .and_then(|mut response| {
-                let length = response.content_length();
-                if length.is_some_and(|n| n > 65_536) {
-                    return None;
-                }
-                let bytes = crate::download::read_body(&mut response, length, 65_536).ok()?;
-                if bytes.len() > 65_536 || length.is_some_and(|n| bytes.len() as u64 != n) {
-                    return None;
-                }
-                serde_json::from_slice::<serde_json::Value>(&bytes).ok()
-            })
-            .and_then(|value| value.get("schemaVersion").and_then(serde_json::Value::as_u64))
-            == Some(1);
-        if game_ready && api_ready {
+        if game_ready && crate::backend::ascnet_answers(&client, origin) {
             return Ok(());
         }
         if Instant::now() >= deadline {

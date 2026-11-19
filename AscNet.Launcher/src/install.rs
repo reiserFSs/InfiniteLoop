@@ -2459,6 +2459,75 @@ mod tests {
         assert!(recover_stock(&build(vec![hash(&cn)], jumps[..1].to_vec()), &cn_patched, &game, &unity).is_err());
     }
 
+    /// The player's layout: a Sikarugir wrapper prefix whose `dosdevices/x:` maps a Mac folder holding a Steam library.
+    /// Discovery finds the game on `X:`; Setup's patch install writes into that real folder, whichever way it is named.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn setup_installs_into_a_steam_library_mapped_by_a_wrapper_prefix() {
+        use crate::mac::discover::{self, Kind};
+        use crate::package::{File as Payload, Manifest};
+        use sha2::{Digest, Sha256};
+        let hash = |bytes: &[u8]| format!("{:x}", Sha256::digest(bytes));
+        let root = temp().canonicalize().unwrap();
+        let prefix = root.join("Applications/Sikarugir/Steam-AscNet.app/Contents/SharedSupport/prefix");
+        fs::create_dir_all(prefix.join("dosdevices")).unwrap();
+        fs::create_dir_all(prefix.join("drive_c/users/Sikarugir")).unwrap();
+        fs::create_dir_all(prefix.join("drive_c/users/Public")).unwrap();
+        fs::write(prefix.join("system.reg"), "WINE REGISTRY Version 2\n").unwrap();
+        std::os::unix::fs::symlink("../drive_c", prefix.join("dosdevices/c:")).unwrap();
+        for alias in ["crossover", "reiserfs"] {
+            std::os::unix::fs::symlink("Sikarugir", prefix.join("drive_c/users").join(alias)).unwrap();
+        }
+        let games = root.join("Steam Games");
+        std::os::unix::fs::symlink(&games, prefix.join("dosdevices/x:")).unwrap();
+        let library = games.join("SteamLibrary/steamapps");
+        let client = library.join("common/Punishing Gray Raven");
+        fs::create_dir_all(client.join("PGR_Data/Plugins")).unwrap();
+        fs::write(library.join("appmanifest_4125930.acf"), r#""AppState" { "appid" "4125930" "installdir" "Punishing Gray Raven" }"#).unwrap();
+        let retail = [
+            ("PGR.exe", b"exe".as_slice()),
+            ("GameAssembly.dll", b"assembly".as_slice()),
+            (KRSDK, b"global-sdk".as_slice()),
+            ("PGR_Data/Plugins/KRSDKEx.dll", b"sdk-ex".as_slice()),
+            ("PGR_Data/Plugins/libkrsdkcurl.dll", b"sdk-curl".as_slice()),
+        ];
+        let mut originals: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for (path, bytes) in retail {
+            fs::write(client.join(path), bytes).unwrap();
+            originals.insert(path.into(), vec![hash(bytes)]);
+        }
+        let directory = root.join("package");
+        fs::create_dir_all(&directory).unwrap();
+        let files = [("version.dll", "version.dll"), ("lucia.dll", "lucia.dll"), (KRSDK, "KRSDK.dll"), ("libraries.txt", "libraries.txt")].map(|(path, source)| {
+            let bytes = format!("payload {source}");
+            fs::write(directory.join(source), &bytes).unwrap();
+            Payload { path: path.into(), source: source.into(), sha256: hash(bytes.as_bytes()), size: bytes.len() as u64 }
+        });
+        let package = PatchPackage {
+            manifest: Manifest { schema_version: 1, version: "2.0.0".into(), application_version: "fixture".into(), originals, pgr_base: None, files: files.into() },
+            directory,
+        };
+
+        let found = discover::in_prefix(&prefix, Some(&package));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].kind, Kind::Wrapper { maker: Some("Sikarugir".into()) });
+        assert!(found[0].steam);
+        assert_eq!(found[0].windows_path, r"X:\SteamLibrary\steamapps\common\Punishing Gray Raven");
+        assert_eq!(found[0].game_dir, client.canonicalize().unwrap());
+        assert_eq!(found[0].patch, Some(PatchState::Unpatched));
+
+        // Setup installs through the folder the launcher stored, and through the prefix's own `x:` link.
+        install(&found[0].game_dir, &package, &mut |_| {}).unwrap();
+        for installed in ["version.dll", "lucia.dll", "libraries.txt", KRSDK] {
+            assert!(client.join(installed).is_file(), "{installed} must land in the Steam library folder");
+        }
+        assert_eq!(fs::read(client.join(KRSDK)).unwrap(), b"payload KRSDK.dll");
+        assert_eq!(discover::in_prefix(&prefix, Some(&package))[0].patch, Some(PatchState::Current));
+        install(&prefix.join("dosdevices/x:/SteamLibrary/steamapps/common/Punishing Gray Raven"), &package, &mut |_| {}).unwrap();
+        assert_eq!(inspect(&client, &package).unwrap(), PatchState::Current);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn cn_client_installs_loader_without_touching_the_official_sdk() {
         use crate::package::{File as Payload, Manifest};

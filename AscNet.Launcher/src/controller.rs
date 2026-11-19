@@ -75,6 +75,10 @@ struct Settings {
     /// macOS: an existing CrossOver/Wine prefix the player adopted; Setup and Play use it instead of the AscNet bottle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     adopted_prefix: Option<PathBuf>,
+    /// macOS: a server the launcher starts uses the MongoDB already running on this computer (the player's data)
+    /// instead of a database of its own, when one is detected.
+    #[serde(default = "yes")]
+    use_running_mongo: bool,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -88,11 +92,30 @@ impl Default for Settings {
             client_mods_enabled: false,
             enabled_mods: BTreeMap::new(),
             adopted_prefix: None,
+            use_running_mongo: true,
         }
     }
 }
 fn is_false(value: &bool) -> bool {
     !*value
+}
+fn yes() -> bool {
+    true
+}
+
+/// Activity lines naming which backend Play uses: the one it found running or the one it started.
+fn backend_notes(plan: ascnet_launcher::backend::Plan, origin: &str) -> Vec<Text> {
+    use ascnet_launcher::backend::{MongoPlan, ServerPlan};
+    let mongo = match plan.mongo {
+        MongoPlan::Reuse(port) => Some(Text::MongoReused(port.to_string())),
+        MongoPlan::Own => Some(Text::MongoStarted),
+        MongoPlan::NotNeeded => None,
+    };
+    let server = match plan.server {
+        ServerPlan::Reuse { .. } => Text::ServerReused(origin.to_owned()),
+        ServerPlan::Own => Text::ServerStarted,
+    };
+    mongo.into_iter().chain([server]).collect()
 }
 
 /// One-time: moves legacy `fps_enabled` / `fps_value` / `no_camera_fade` into the selected client's ini (absent keys only).
@@ -206,6 +229,12 @@ pub enum Text {
     GameFoundSteam,
     /// macOS: an existing prefix was adopted (its display name).
     GameAdopted(String),
+    /// Play found a MongoDB already running (its port) and left it alone, or started its own.
+    MongoReused(String),
+    MongoStarted,
+    /// Play found an AscNet server already running (its origin) and left it alone, or started its own.
+    ServerReused(String),
+    ServerStarted,
     MusicUnavailable,
     VideoUnavailable,
     MusicChangeFailed,
@@ -483,6 +512,7 @@ pub struct ModRow {
 pub struct SettingsView {
     pub folder: String,
     pub music_on: bool,
+    pub use_running_mongo: bool,
     pub can_check: bool,
     pub can_setup: bool,
     pub can_restore: bool,
@@ -921,6 +951,12 @@ impl Controller {
         self.save();
     }
 
+    /// Saved only; Play reads it when it starts the backend.
+    pub fn set_use_running_mongo(&mut self, on: bool) {
+        self.settings.use_running_mongo = on;
+        self.save();
+    }
+
     fn start_music(&mut self) -> Result<()> {
         self.music = Some(Music::start(&self.music_path)?);
         Ok(())
@@ -1149,10 +1185,10 @@ impl Controller {
                 install::install_with_consent(&game, &package, &mut |s| {
                     let _ = events.send(Event::Progress(s.to_string()));
                 })?;
-                let mut runtime = LocalRuntime::start(&build, &mut |s| {
+                let mut runtime = LocalRuntime::start(&build, settings.use_running_mongo, &mut |s| {
                     let _ = events.send(Event::Progress(s.to_owned()));
                 })?;
-                let origin = local_origin(&build)?;
+                let origin = package::validate_server_origin(runtime.origin())?;
                 let server = match fetch_status(&origin).and_then(|s| {
                     can_play_exact(&package, &patch, &s)?;
                     Ok(s)
@@ -1303,6 +1339,7 @@ impl Controller {
             Ok(WorkResult::Launched { build, package, runtime, server }) => {
                 self.build = Some(build);
                 self.package = Some(package);
+                notes.extend(backend_notes(runtime.plan(), runtime.origin()));
                 self.runtime = Some(runtime);
                 self.server = Some(server);
                 notes.push(Text::ServerReady);
@@ -1497,6 +1534,7 @@ impl Controller {
         let settings = SettingsView {
             folder: self.settings.selected_game.as_deref().map(|p| p.display().to_string()).unwrap_or_default(),
             music_on: !self.settings.music_muted,
+            use_running_mongo: self.settings.use_running_mongo,
             can_check: self.busy.is_none(),
             can_setup: self.busy.is_none() && !services && selected,
             can_restore: self.busy.is_none() && !self.stopping && selected,
@@ -1653,10 +1691,6 @@ fn can_play_exact(package: &PatchPackage, patch: &PatchState, server: &ServerSta
     Ok(())
 }
 
-fn local_origin(build: &LocalBuild) -> Result<String> {
-    package::validate_server_origin(&format!("http://127.0.0.1:{}", build.sdk_port))
-}
-
 fn fetch_status(origin: &str) -> Result<ServerStatus> {
     let origin = package::validate_server_origin(origin)?;
     let mut response = download::wine_safe(
@@ -1750,6 +1784,7 @@ mod tests {
     fn legacy_settings_default_mods_off_and_selection_round_trips() -> anyhow::Result<()> {
         let mut settings: Settings = serde_json::from_str(r#"{"selectedGame":null}"#)?;
         assert!(!settings.client_mods_enabled);
+        assert!(settings.use_running_mongo, "defaults to using the MongoDB that is already running");
         assert!(settings.enabled_mods.is_empty());
         settings.client_mods_enabled = true;
         settings.enabled_mods.insert("console".to_owned(), true);

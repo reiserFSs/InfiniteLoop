@@ -36,6 +36,7 @@ export enum MsgId {
     files-choose, files-not-empty, files-unreadable, files-empty-folder, files-resumable, files-inspecting,
     files-game, files-plan, files-plan-error, files-inspect-failed, files-stopping,
     pick-game-folder, pick-files-folder, pick-prefix-folder, game-adopted,
+    mongo-reused, mongo-started, server-reused, server-started,
     crossover-phase, crossover-installed, crossover-failed, bottle-creating, bottle-ready, bottle-failed,
     hint-install-crossover, hint-use-found, hint-create-bottle, hint-repair-bottle, working-bottle,
 }
@@ -106,6 +107,7 @@ export global S {
     // settings
     in property <string> folder;
     in property <bool> music-on: true;
+    in property <bool> use-running-mongo: true;
     in property <bool> can-check: true;
     in property <bool> can-setup: true;
     in property <bool> can-restore: true;
@@ -122,6 +124,7 @@ export global S {
     callback set-up-again();
     callback restore-files();
     callback music-toggled(bool);
+    callback use-running-mongo-toggled(bool);
     callback mods-toggled(bool);
     callback mod-toggled(int, bool);
 
@@ -212,6 +215,10 @@ export global Tx {
         if (m.id == MsgId.launcher-ready) { return @tr("Launcher ready"); }
         if (m.id == MsgId.game-found-steam) { return @tr("Game found in your Steam library"); }
         if (m.id == MsgId.game-adopted) { return @tr("Using the game in {}", m.a); }
+        if (m.id == MsgId.mongo-reused) { return @tr("Using the MongoDB already running on port {}", m.a); }
+        if (m.id == MsgId.mongo-started) { return @tr("Started MongoDB for AscNet"); }
+        if (m.id == MsgId.server-reused) { return @tr("Using the AscNet server already running at {}", m.a); }
+        if (m.id == MsgId.server-started) { return @tr("Started the AscNet server"); }
         if (m.id == MsgId.music-unavailable) { return @tr("Background music isn't available"); }
         if (m.id == MsgId.video-unavailable) { return @tr("Background video couldn't play"); }
         if (m.id == MsgId.music-change-failed) { return @tr("Couldn't change the background music"); }

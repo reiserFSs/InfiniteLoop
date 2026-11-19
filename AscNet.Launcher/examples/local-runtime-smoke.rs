@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     let build = local::load_build()?.context("fixture build-state missing")?;
     let occupied = TcpListener::bind(("127.0.0.1", build.sdk_port))?;
     assert!(
-        local::LocalRuntime::start(&build, &mut |_| {}).is_err(),
+        local::LocalRuntime::start(&build, false, &mut |_| {}).is_err(),
         "occupied port accepted"
     );
     assert!(
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     );
     drop(occupied);
 
-    let mut runtime = local::LocalRuntime::start(&build, &mut |line| println!("{line}"))?;
+    let mut runtime = local::LocalRuntime::start(&build, false, &mut |line| println!("{line}"))?;
     println!("READY");
     io::stdout().flush()?;
     let mut command = String::new();

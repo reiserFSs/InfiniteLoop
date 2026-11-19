@@ -170,6 +170,7 @@ fn bind(app: &App, controller: &Shared) {
     s.on_set_up_again(act!(|c| c.request_setup()));
     s.on_restore_files(act!(|c| c.restore()));
     s.on_music_toggled(act!(|c, on: bool| c.set_music(on)));
+    s.on_use_running_mongo_toggled(act!(|c, on: bool| c.set_use_running_mongo(on)));
     s.on_mods_toggled(act!(|c, on: bool| c.set_mods_enabled(on)));
     s.on_mod_toggled(act!(|c, row: i32, on: bool| c.set_mod(row as usize, on)));
     s.on_open_official(|| open_official());
@@ -362,6 +363,7 @@ fn render(weak: &Weak<App>, controller: &Shared) {
     let settings = &view.settings;
     s.set_folder(settings.folder.as_str().into());
     s.set_music_on(settings.music_on);
+    s.set_use_running_mongo(settings.use_running_mongo);
     s.set_can_check(settings.can_check);
     s.set_can_setup(settings.can_setup);
     s.set_can_restore(settings.can_restore);
@@ -546,6 +548,10 @@ fn msg(text: &c::Text) -> Msg {
         T::GameFoundSteam => id(MsgId::GameFoundSteam),
         T::HintUseFound => id(MsgId::HintUseFound),
         T::GameAdopted(name) => with_a(MsgId::GameAdopted, name),
+        T::MongoReused(port) => with_a(MsgId::MongoReused, port),
+        T::MongoStarted => id(MsgId::MongoStarted),
+        T::ServerReused(origin) => with_a(MsgId::ServerReused, origin),
+        T::ServerStarted => id(MsgId::ServerStarted),
         T::MusicUnavailable => id(MsgId::MusicUnavailable),
         T::VideoUnavailable => id(MsgId::VideoUnavailable),
         T::MusicChangeFailed => id(MsgId::MusicChangeFailed),

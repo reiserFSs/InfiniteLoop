@@ -3079,6 +3079,32 @@ mod tests {
         assert!(!tmp.path("g").join(STATE_DIR).exists());
     }
 
+    /// A Steam library a wrapper prefix maps as `X:` (`dosdevices/x: -> <Mac folder>`): the patch-file update works through
+    /// the mapping and writes exactly the missing file into the real folder.
+    #[cfg(unix)]
+    #[test]
+    fn a_game_folder_behind_a_wrapper_drive_mapping_gets_exactly_the_missing_file() {
+        let d = docs(None);
+        let tmp = install_docs(&d);
+        let dosdevices = tmp.path("prefix/dosdevices");
+        fs::create_dir_all(&dosdevices).unwrap();
+        std::os::unix::fs::symlink(&tmp.0, dosdevices.join("x:")).unwrap();
+        let through = dosdevices.join("x:/g");
+        let gone = format!("g/{DOC}/matrix/dddddddddddddddd.uab");
+        fs::remove_file(tmp.path(&gone)).unwrap();
+        d.log.lock().unwrap().clear();
+        let pending = check_document(&d.source, &through, &no_cancel()).unwrap().expect("outdated");
+        assert_eq!(pending.files, 1);
+        update_document(pending, &no_cancel(), &mut |_| {}).unwrap();
+        assert_eq!(tmp.read(&gone), d.needed.iter().find(|(rel, _)| gone.ends_with(rel.rsplit('/').next().unwrap())).unwrap().1);
+        let asked = asked(&d);
+        assert!(asked.iter().any(|p| p.ends_with("dddddddddddddddd.uab")), "{asked:?}");
+        for good in ["bbbbbbbbbbbbbbbb.uab", "cccccccccccccccc.uab", "2222222222222222.uab"] {
+            assert!(!asked.iter().any(|p| p.ends_with(good)), "{good} was present: {asked:?}");
+        }
+        assert!(check_document(&d.source, &tmp.path("g"), &no_cancel()).unwrap().is_none());
+    }
+
     #[test]
     fn an_outdated_install_gets_only_the_delta_and_then_counts_as_current() {
         let d = docs(None);

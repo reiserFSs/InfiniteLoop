@@ -906,3 +906,21 @@ msgstr "ゲームのパッチファイルを更新中 ({})…"
 
 msgid "Patch files out of date; Verify & repair fixes them"
 msgstr "パッチファイルが古くなっています。「検証と修復」で更新できます"
+
+msgid "Use the MongoDB already running on this computer"
+msgstr "このコンピューターで既に動作中の MongoDB を使う"
+
+msgid "Keeps your data. Takes effect the next time you press Play."
+msgstr "既存のデータをそのまま使います。次に「ゲーム開始」を押したときに反映されます。"
+
+msgid "Using the MongoDB already running on port {}"
+msgstr "ポート {} で既に動作中の MongoDB を使用しています"
+
+msgid "Started MongoDB for AscNet"
+msgstr "AscNet 用の MongoDB を起動しました"
+
+msgid "Using the AscNet server already running at {}"
+msgstr "{} で既に動作中の AscNet サーバーを使用しています"
+
+msgid "Started the AscNet server"
+msgstr "AscNet サーバーを起動しました"

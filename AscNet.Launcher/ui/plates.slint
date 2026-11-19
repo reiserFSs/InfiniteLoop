@@ -59,6 +59,11 @@ export component SettingsPlate inherits PlateFrame {
             detail: @tr("Looks for a newer local server and patch.");
             Btn { width: 120px; horizontal-stretch: 0; text: @tr("Check"); enabled: S.can-check; clicked => { S.check-updates(); } }
         }
+        if S.mac : SettingRow {
+            title: @tr("Use the MongoDB already running on this computer");
+            detail: @tr("Keeps your data. Takes effect the next time you press Play.");
+            Toggle { on: S.use-running-mongo; label: @tr("Use the MongoDB already running on this computer"); toggled(on) => { S.use-running-mongo-toggled(on); } }
+        }
         SettingRow {
             title: @tr("Set up again");
             detail: @tr("Rebuilds the local server and the patch.");

@@ -156,4 +156,74 @@ mod tests {
         assert!(!is_game_command(r"C:\windows\system32\winedevice.exe"));
         assert!(!is_game_command("/usr/bin/vim notes-PGR.exe.txt"));
     }
+
+    /// The player's layout: a Sikarugir wrapper prefix (read from the real one: `dosdevices/x:` onto a Mac folder,
+    /// `drive_c/users/Sikarugir` with `crossover`/`reiserfs` aliases). The game still runs on CrossOver's wineloader.
+    #[test]
+    fn an_adopted_wrapper_prefix_runs_on_crossovers_wine_with_the_launch_script_environment() {
+        use std::{collections::BTreeMap, ffi::OsString, os::unix::fs::symlink};
+        let root = std::env::temp_dir().join(format!("ascnet-wine-test-{}", uuid::Uuid::new_v4()));
+        let root = { fs::create_dir_all(&root).unwrap(); root.canonicalize().unwrap() };
+        let app = root.join("Applications/Sikarugir/Steam-AscNet.app");
+        let prefix = app.join("Contents/SharedSupport/prefix");
+        fs::create_dir_all(prefix.join("dosdevices")).unwrap();
+        fs::create_dir_all(prefix.join("drive_c/users/Sikarugir/AppData/LocalLow")).unwrap();
+        fs::create_dir_all(prefix.join("drive_c/users/Public")).unwrap();
+        fs::write(prefix.join("system.reg"), "WINE REGISTRY Version 2\n").unwrap();
+        symlink("../drive_c", prefix.join("dosdevices/c:")).unwrap();
+        symlink("/", prefix.join("dosdevices/z:")).unwrap();
+        for alias in ["crossover", "reiserfs"] {
+            symlink("Sikarugir", prefix.join("drive_c/users").join(alias)).unwrap();
+        }
+        let games = root.join("Steam Games");
+        let client = games.join("SteamLibrary/steamapps/common/Punishing Gray Raven");
+        fs::create_dir_all(&client).unwrap();
+        symlink(&games, prefix.join("dosdevices/x:")).unwrap();
+        // The wrapper app ships its own Wine; it must never be used.
+        fs::create_dir_all(app.join("Contents/SharedSupport/wine/bin")).unwrap();
+        let cx = Installed { app: root.join("CrossOver.app"), root: root.join("CrossOver.app/Contents/SharedSupport/CrossOver"), version: "26.3.0".into() };
+
+        let bottle = Bottle::adopted(prefix.clone());
+        assert!(bottle.is_adopted());
+        assert_eq!(bottle.to_windows(&client).as_deref(), Some(r"X:\SteamLibrary\steamapps\common\Punishing Gray Raven"));
+        assert_eq!(bottle.local_low().unwrap(), prefix.canonicalize().unwrap().join("drive_c/users/Sikarugir/AppData/LocalLow"));
+
+        let command = game_command(&cx, &bottle, "http://127.0.0.1:8080");
+        assert_eq!(Path::new(command.get_program()), cx.bin("wineloader"), "CrossOver's wineloader, not the wrapper's Wine");
+        let env: BTreeMap<String, Option<OsString>> = command.get_envs().map(|(k, v)| (k.to_string_lossy().into_owned(), v.map(OsString::from))).collect();
+        let got = |key: &str| env.get(key).and_then(|v| v.as_ref()).map(|v| v.to_string_lossy().into_owned());
+        let cxr = cx.root.display().to_string();
+        for (key, want) in [
+            ("WINEPREFIX", prefix.display().to_string()),
+            ("WINELOADER", format!("{cxr}/bin/wineloader")),
+            ("CX_WINELOADER", format!("{cxr}/bin/wineloader")),
+            ("WINESERVER", format!("{cxr}/bin/wineserver")),
+            ("CX_ROOT", cxr.clone()),
+            ("CX_APPLEGPTK_LIBD3DSHARED_PATH", format!("{cxr}/lib64/apple_gptk/external/libd3dshared.dylib")),
+            ("GST_PLUGIN_PATH_1_0", format!("{cxr}/lib64/gstreamer-1.0")),
+            ("GST_PLUGIN_SYSTEM_PATH", format!("{cxr}/lib64/gstreamer-1.0")),
+            ("GST_PLUGIN_SYSTEM_PATH_1_0", format!("{cxr}/lib64/gstreamer-1.0")),
+            ("WINEDLLOVERRIDES", "d3d11,dxgi=n,b;version=n,b".into()),
+            ("WINEDLLPATH", format!("{cxr}/lib/dxmt:{cxr}/lib/wine")),
+            ("WINEDLLPATH_PREPEND", format!("{cxr}/lib/dxmt")),
+            ("WINED3DMETAL", "1".into()),
+            ("WINEDEBUG", "-all".into()),
+            ("WINEESYNC", "0".into()),
+            ("WINEFSYNC", "0".into()),
+            ("WINEMSYNC", "0".into()),
+            ("ASCNET_PATCH_ORIGIN", "http://127.0.0.1:8080".into()),
+        ] {
+            assert_eq!(got(key), Some(want), "{key}");
+        }
+        assert!(got("DYLD_FALLBACK_LIBRARY_PATH").unwrap().starts_with(&format!("{cxr}/lib64:{cxr}/lib")));
+        assert!(got("CX_GRAPHICS_BACKEND").is_some());
+        assert!(!env.contains_key("MTL_HUD_ENABLED"), "the script's Metal HUD is a debug overlay");
+        // Nothing points into the wrapper app (its Wine) and the adopted prefix is not written to for the GStreamer cache.
+        for (key, value) in &env {
+            let value = value.as_ref().unwrap().to_string_lossy().into_owned();
+            assert!(key == "WINEPREFIX" || !value.contains("Steam-AscNet.app"), "{key}={value}");
+        }
+        assert!(!bottle.gst_registry().starts_with(&prefix));
+        let _ = fs::remove_dir_all(root);
+    }
 }

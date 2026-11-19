@@ -906,3 +906,21 @@ msgstr "正在更新遊戲修補檔案 ({})…"
 
 msgid "Patch files out of date; Verify & repair fixes them"
 msgstr "修補檔案已過期；「驗證並修復」可解決"
+
+msgid "Use the MongoDB already running on this computer"
+msgstr "使用這台電腦上已在執行的 MongoDB"
+
+msgid "Keeps your data. Takes effect the next time you press Play."
+msgstr "沿用既有的資料。下次按下「開始遊戲」時生效。"
+
+msgid "Using the MongoDB already running on port {}"
+msgstr "正在使用連接埠 {} 上已在執行的 MongoDB"
+
+msgid "Started MongoDB for AscNet"
+msgstr "已為 AscNet 啟動 MongoDB"
+
+msgid "Using the AscNet server already running at {}"
+msgstr "正在使用 {} 上已在執行的 AscNet 伺服器"
+
+msgid "Started the AscNet server"
+msgstr "已啟動 AscNet 伺服器"
