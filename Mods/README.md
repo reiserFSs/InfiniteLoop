@@ -40,10 +40,10 @@ Commands needing stripped C# debug APIs or unsupported server GM requests report
 Each direct child directory is a mod; its directory basename is its stable ID. `mod.json` supplies display metadata:
 
 ```json
-{"name": "GM Menu", "description": "The game's built-in GM menu: Ctrl+Shift+D, or GM Menu in the main screen's second menu."}
+{"name": "GM Menu", "description": "The game's own GM menu. Ctrl+Shift+D or the second menu."}
 ```
 
-The launcher shows the description on one line under the mod's switch (about 90 characters fit).
+The launcher shows the description under the mod's switch; keep it to one line (about 60 characters).
 
 - `<name>/<Module/Path>.lua`: a new module, copied unchanged.
 - `<name>/<Module/Path>.diff`: a unified diff against the shipped module. The launcher requires exact context, with no fuzz or offset. Generate with `diff -u --label X.lua --label X.lua original modified`.
