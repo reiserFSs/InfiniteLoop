@@ -252,6 +252,15 @@ fn cargo_home(tools: &Path) -> PathBuf {
     tools.join("cargo")
 }
 
+/// cargo-xwin passes its sysroot to rustc through space-separated RUSTFLAGS, so the cache path must not contain
+/// whitespace; `~/Library/Application Support` does.
+fn xwin_dir(tools: &Path) -> PathBuf {
+    if !tools.to_string_lossy().contains(char::is_whitespace) {
+        return tools.join("xwin");
+    }
+    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default().join("Library/Caches/AscNetLauncher/xwin")
+}
+
 fn rust_command(program: &Path, tools: &Path) -> Command {
     let mut command = Command::new(program);
     for key in ["RUSTC", "RUSTC_WRAPPER", "RUSTFLAGS", "RUSTDOC", "CARGO", "CARGO_ENCODED_RUSTFLAGS", "CARGO_TARGET_DIR", "CARGO_BUILD_TARGET", "CARGO_BUILD_RUSTFLAGS"] {
@@ -261,7 +270,7 @@ fn rust_command(program: &Path, tools: &Path) -> Command {
         .env("RUSTUP_HOME", rustup_home(tools))
         .env("CARGO_HOME", cargo_home(tools))
         .env("RUSTUP_TOOLCHAIN", RUST_VERSION)
-        .env("XWIN_CACHE_DIR", tools.join("xwin"))
+        .env("XWIN_CACHE_DIR", xwin_dir(tools))
         .env("PATH", format!("{}:{SYSTEM_PATH}", cargo_home(tools).join("bin").display()));
     command
 }
@@ -378,7 +387,9 @@ fn publish_server(dotnet: &Path, root: &Path, checkout: &Path, stage: &Path, con
         .arg(&server)
         .arg("--artifacts-path")
         .arg(stage.join("dotnet-artifacts"))
-        .args(["--source", NUGET_INDEX]);
+        .args(["--source", NUGET_INDEX])
+        // No MSBuild nodes or compiler server stay running after Setup.
+        .args(["-nodeReuse:false", "--disable-build-servers"]);
     dotnet_env(&mut command, root);
     run_logged(&mut command, "Publishing AscNet server", deadline, progress, log)?;
     if !server.join("Configs").join("version_config.json").is_file() {
@@ -415,7 +426,7 @@ fn build_patch(root: &Path, tools: &Path, checkout: &Path, stage: &Path, deadlin
 /// that `build_patch` just populated, linked with the toolchain's rust-lld in link.exe mode.
 fn build_version_loader(tools: &Path, checkout: &Path, stage: &Path, launcher_dir: &Path, deadline: Instant, progress: Progress, log: Log) -> Result<()> {
     note(progress, log, "Building version loader")?;
-    let sysroot = tools.join("xwin").join("xwin");
+    let sysroot = xwin_dir(tools).join("xwin");
     let (crt, sdk) = (sysroot.join("crt"), sysroot.join("sdk"));
     let lld = rustup_home(tools).join("toolchains").join(RUST_TOOLCHAIN).join("lib/rustlib/aarch64-apple-darwin/bin/rust-lld");
     let source = checkout.join("AscNet.Patch").join("VersionShim").join("src");
@@ -429,7 +440,8 @@ fn build_version_loader(tools: &Path, checkout: &Path, stage: &Path, launcher_di
     for include in [crt.join("include"), sdk.join("include").join("ucrt"), sdk.join("include").join("um"), sdk.join("include").join("shared")] {
         compile.arg("-imsvc").arg(include);
     }
-    compile.arg(source.join("dllmain.c"));
+    // In cl mode a path such as /Users/... would otherwise parse as the /U option.
+    compile.arg("--").arg(source.join("dllmain.c"));
     run_logged(&mut compile, "Compiling version loader", deadline, progress, log)?;
     let mut link = Command::new(&lld);
     link.args(["-flavor", "link", "/DLL", "/NODEFAULTLIB", "/ENTRY:DllMain", "/SUBSYSTEM:WINDOWS"])
@@ -612,6 +624,13 @@ impl Runtime {
 mod tests {
     use super::*;
     use std::{env, net::TcpStream};
+
+    #[test]
+    fn xwin_cache_path_has_no_spaces() {
+        let real = Path::new("/Users/p/Library/Application Support/AscNetLauncher/local/tools");
+        assert!(!xwin_dir(real).to_string_lossy().contains(' '));
+        assert_eq!(xwin_dir(Path::new("/tmp/t/tools")), Path::new("/tmp/t/tools/xwin"));
+    }
 
     /// Everything found running is left alone: nothing is started, and stopping the runtime touches no foreign process.
     #[test]

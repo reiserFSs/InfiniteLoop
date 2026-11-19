@@ -92,10 +92,10 @@ export component SettingsPlate inherits PlateFrame {
             Toggle { on: S.mods-on; enabled: S.mods-editable; label: @tr("Client mods"); toggled(on) => { S.mods-toggled(on); } }
         }
         Flickable {
-            height: Math.min(S.mods.length * 38px, 114px);
-            VerticalLayout {
+            height: Math.min(mod-list.preferred-height, 150px);
+            mod-list := VerticalLayout {
+                spacing: 6px;
                 for mod[i] in S.mods : SettingRow {
-                    height: 38px;
                     title: mod.name;
                     detail: mod.description;
                     Toggle {
