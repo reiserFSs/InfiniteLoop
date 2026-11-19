@@ -229,16 +229,22 @@ jobs:
           cd smoke
           ./AscNetLauncher.exe --check-media background.mp4
           grep -q "Launcher started" launcher.log
-      - name: macOS --check-media and self-update probe
+      - name: macOS bundle checks (and run it where the runner is arm64)
         if: runner.os == 'macOS'
         run: |
           set -euo pipefail
           ditto -x -k dist/AscNetLauncher-macOS.zip smoke
           grep -qx "$(shasum -a 256 "smoke/AscNet Launcher.app/Contents/MacOS/AscNetLauncher" | cut -d' ' -f1)  AscNetLauncher-macOS" dist/AscNetLauncher.sha256
           app="smoke/AscNet Launcher.app"
+          exe="$app/Contents/MacOS/AscNetLauncher"
           codesign --verify --deep --strict "$app"
-          "$app/Contents/MacOS/AscNetLauncher" --check-media "$app/Contents/Resources/background.mp4"
-          [ "$("$app/Contents/MacOS/AscNetLauncher" --self-update-probe)" = "ASCNET_LAUNCHER_VERSION=$VERSION" ]
+          # The updater of released launchers accepts only a single-architecture Mach-O.
+          [ "$(lipo -archs "$exe")" = arm64 ]
+          grep -qa "ASCNET_LAUNCHER_VERSION=$VERSION" "$exe"
+          if [ "$(uname -m)" = arm64 ]; then
+            "$exe" --check-media "$app/Contents/Resources/background.mp4"
+            [ "$("$exe" --self-update-probe)" = "ASCNET_LAUNCHER_VERSION=$VERSION" ]
+          fi
 
   release:
     needs: [version, test, package, smoke]

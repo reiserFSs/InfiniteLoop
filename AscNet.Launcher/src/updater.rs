@@ -618,6 +618,27 @@ fn bundle_dir() -> Result<PathBuf> {
     Ok(bundle)
 }
 
+/// A 64-bit Mach-O for arm64, or a universal (fat) Mach-O that contains an arm64 slice.
+#[cfg(any(target_os = "macos", test))]
+fn runs_on_arm64(bytes: &[u8]) -> bool {
+    const CPU_TYPE_ARM64: u32 = 0x0100_000c;
+    let u32_at = |offset: usize, big: bool| {
+        bytes.get(offset..offset + 4).map(|b| {
+            let b: [u8; 4] = b.try_into().unwrap();
+            if big { u32::from_be_bytes(b) } else { u32::from_le_bytes(b) }
+        })
+    };
+    match bytes.get(..4) {
+        Some([0xcf, 0xfa, 0xed, 0xfe]) => u32_at(4, false) == Some(CPU_TYPE_ARM64),
+        Some([0xca, 0xfe, 0xba, magic @ (0xbe | 0xbf)]) => {
+            let entry = if *magic == 0xbe { 20 } else { 32 };
+            let count = u32_at(4, true).unwrap_or(0).min(16) as usize;
+            (0..count).any(|i| u32_at(8 + i * entry, true) == Some(CPU_TYPE_ARM64))
+        }
+        _ => false,
+    }
+}
+
 /// Unpacks the release bundle into `target`: only the known files, every name checked, modes set here (not trusted from the zip).
 #[cfg(target_os = "macos")]
 fn extract_bundle(archive: &Path, target: &Path, version: &str) -> Result<()> {
@@ -654,7 +675,7 @@ fn extract_bundle(archive: &Path, target: &Path, version: &str) -> Result<()> {
     let bundle = target.join(BUNDLE);
     let exe = bundle.join("Contents/MacOS/AscNetLauncher");
     let bytes = fs::read(&exe)?;
-    ensure!(bytes.starts_with(&[0xcf, 0xfa, 0xed, 0xfe]), "launcher asset is not an arm64 Mach-O executable");
+    ensure!(runs_on_arm64(&bytes), "launcher asset is not an arm64 Mach-O executable");
     let marker = format!("ASCNET_LAUNCHER_VERSION={version}\0");
     ensure!(bytes.windows(marker.len()).any(|w| w == marker.as_bytes()), "release tag does not match embedded launcher version");
     let verify = Command::new("/usr/bin/codesign").args(["--verify", "--deep", "--strict"]).arg(&bundle).output().context("running codesign")?;
@@ -700,6 +721,25 @@ fn clean_update_leftovers() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn macos_update_binary_architecture() {
+        let thin = |cpu: u32| [&[0xcf, 0xfa, 0xed, 0xfe][..], &cpu.to_le_bytes()].concat();
+        let fat = |cpus: &[u32]| {
+            let mut b = vec![0xca, 0xfe, 0xba, 0xbe];
+            b.extend((cpus.len() as u32).to_be_bytes());
+            for cpu in cpus {
+                b.extend(cpu.to_be_bytes());
+                b.extend([0u8; 16]);
+            }
+            b
+        };
+        assert!(runs_on_arm64(&thin(0x0100_000c)));
+        assert!(!runs_on_arm64(&thin(0x0100_0007)), "x86_64 only");
+        assert!(runs_on_arm64(&fat(&[0x0100_0007, 0x0100_000c])), "universal");
+        assert!(!runs_on_arm64(&fat(&[0x0100_0007])));
+        assert!(!runs_on_arm64(b"MZ\x90\x00"));
+    }
     #[test]
     fn stable_versions_and_repository_boundaries() {
         assert!(stable_version("v1.0.3").unwrap() > stable_version("1.0.2").unwrap());
@@ -807,7 +847,7 @@ mod tests {
             let mut zip = zip::ZipWriter::new(File::create(&path).unwrap());
             for file in names {
                 zip.start_file(format!("{BUNDLE}/{file}"), zip::write::SimpleFileOptions::default()).unwrap();
-                zip.write_all(b"\xcf\xfa\xed\xfeASCNET_LAUNCHER_VERSION=1.0.3\0").unwrap();
+                zip.write_all(b"\xcf\xfa\xed\xfe\x0c\x00\x00\x01ASCNET_LAUNCHER_VERSION=1.0.3\0").unwrap();
             }
             zip.finish().unwrap();
             let output = root.join(name); fs::create_dir(&output).unwrap();

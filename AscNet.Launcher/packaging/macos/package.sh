@@ -40,11 +40,18 @@ for file in background.bmp background.mp4 background.wav; do
 done
 # The launcher decodes the video in pure Rust (OpenH264), which cannot reorder frames: ask that decoder.
 "$binary" --check-media "$media/background.mp4" || { echo "background.mp4 is not playable (B-frames? see AGENTS.MD)" >&2; exit 1; }
+[ "$("$binary" --self-update-probe)" = "ASCNET_LAUNCHER_VERSION=$version" ] || { echo "launcher binary does not start" >&2; exit 1; }
 
 app="$out/AscNet Launcher.app"
 rm -rf "$app" "$out/AscNetLauncher-macOS.zip"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp "$binary" "$app/Contents/MacOS/AscNetLauncher"
+# Ship arm64 only: launchers up to 1.0.29 accept a single-architecture Mach-O update, not a universal one.
+if lipo -archs "$binary" | grep -qw x86_64; then
+  lipo -thin arm64 -output "$app/Contents/MacOS/AscNetLauncher" "$binary"
+else
+  cp "$binary" "$app/Contents/MacOS/AscNetLauncher"
+fi
+[ "$(lipo -archs "$app/Contents/MacOS/AscNetLauncher")" = arm64 ] || { echo "app binary is not arm64-only" >&2; exit 1; }
 sed "s/@VERSION@/$version/g" "$root/packaging/macos/Info.plist" > "$app/Contents/Info.plist"
 cp "$root/packaging/macos/AscNet.icns" "$app/Contents/Resources/AscNet.icns"
 cp "$root/launcher.json" "$root/supported-client.json" "$root/LICENSE" "$app/Contents/Resources/"
