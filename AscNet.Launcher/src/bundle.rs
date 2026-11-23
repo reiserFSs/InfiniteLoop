@@ -135,15 +135,22 @@ pub(crate) fn resolve(game: &Path) -> Result<Active> {
     if let Some(active) = cached(&game, &key) {
         return Ok(active);
     }
-    let active = search(&game)?;
+    let active = search(&game, true)?.with_context(|| format!("active matrix bundle not found for {LOGICAL_ASSET}"))?;
     remember(&game, &key, &active);
     Ok(active)
 }
 
-fn search(game: &Path) -> Result<Active> {
+/// The Lua bundle in `document/matrix` only (the patch copy), without opening the ~82k packaged bundles.
+pub(crate) fn resolve_document(game: &Path) -> Result<Option<Active>> {
+    let game = fs::canonicalize(game)
+        .with_context(|| format!("invalid game directory: {}", game.display()))?;
+    search(&game, false)
+}
+
+fn search(game: &Path, include_resource: bool) -> Result<Option<Active>> {
     let game = game.to_path_buf();
     let mut tables: Vec<(&'static str, PathBuf, Option<Vec<Entry>>)> = Vec::new();
-    for scope in ["document", "resource"] {
+    for scope in ["document", "resource"].into_iter().filter(|scope| include_resource || *scope == "document") {
         let root = game.join(STREAMING).join(scope).join("matrix");
         let mut table = None;
         // 4.8 and 4.9 document: `index`; 4.9 resource: `InPkgIndex`.
@@ -161,10 +168,10 @@ fn search(game: &Path) -> Result<Active> {
                 if !canonical.starts_with(&root) || !canonical.is_file() {
                     bail!("matrix index resolves outside its asset directory");
                 }
-                return Ok(Active {
+                return Ok(Some(Active {
                     path: canonical,
                     scope,
-                });
+                }));
             }
             // 4.9: entries are keyed by physical file; the logical name only lives inside the bundle.
             if table.is_none() {
@@ -223,12 +230,12 @@ fn search(game: &Path) -> Result<Active> {
         if !canonical.starts_with(root) || !canonical.is_file() {
             bail!("matrix index resolves outside its asset directory");
         }
-        return Ok(Active {
+        return Ok(Some(Active {
             path: canonical,
             scope,
-        });
+        }));
     }
-    bail!("active matrix bundle not found for {LOGICAL_ASSET}")
+    Ok(None)
 }
 
 fn matches_entry(path: &Path, entry: &Entry) -> Result<bool> {
@@ -1390,6 +1397,21 @@ pub(crate) mod tests {
         assert_eq!(resolve(&tmp.0)?.path.file_name().unwrap(), "one.uab");
         let tmp = build(vec![row("one.uab", b"x"), row("two.uab", b"y")]);
         assert!(resolve(&tmp.0).err().unwrap().to_string().contains("ambiguous"));
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_document_never_opens_packaged_bundles() -> Result<()> {
+        let lua = matrix(LOGICAL_ASSET, true, 1);
+        let tmp = game();
+        tmp.write(&format!("{RES}/pkg.uab"), &lua);
+        tmp.write(&format!("{RES}/InPkgIndex"), &bundle(&pack_table(&[row("pkg.uab", &lua)]), false, false, 4096));
+        assert_eq!(resolve(&tmp.0)?.scope, "resource");
+        assert!(resolve_document(&tmp.0)?.is_none());
+        tmp.write(&format!("{DOC}/doc.uab"), &lua);
+        tmp.write(&format!("{DOC}/index"), &bundle(&pack_table(&[row("doc.uab", &lua)]), false, false, 4096));
+        let found = resolve_document(&tmp.0)?.expect("document copy");
+        assert_eq!((found.scope, found.path.file_name().unwrap()), ("document", std::ffi::OsStr::new("doc.uab")));
         Ok(())
     }
 

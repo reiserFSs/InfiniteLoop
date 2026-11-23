@@ -1,4 +1,4 @@
-use crate::{bundle::{resolve, read_bounded, decode, rewrite, Active}, install};
+use crate::{bundle::{resolve_document, read_bounded, decode, rewrite}, install};
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -21,8 +21,11 @@ struct BackupMetadata<'a> {
     replacement_sha256: &'a str,
 }
 
+/// Old launchers wrote the hook only into the `document/matrix` copy, so no other bundle needs opening.
 fn inspect(game: &Path) -> Result<Option<i32>> {
-    let active = resolve(game)?;
+    let Some(active) = resolve_document(game)? else {
+        return Ok(None);
+    };
     let bytes = read_bounded(&active.path)?;
     let decoded = decode(&bytes)?;
     let (_, content) = text_asset(&decoded.payload)?;
@@ -41,7 +44,7 @@ pub fn remove_legacy_hook(game: &Path) -> Result<Option<i32>> {
     }
     let game = fs::canonicalize(game)
         .with_context(|| format!("invalid game directory: {}", game.display()))?;
-    let found = resolve(&game)?;
+    let found = resolve_document(&game)?.context("the matrix bundle with the old FPS patch disappeared")?;
     let original = read_bounded(&found.path)?;
     let decoded = decode(&original)?;
     let (content_offset, content) = text_asset(&decoded.payload)?;
@@ -53,26 +56,9 @@ pub fn remove_legacy_hook(game: &Path) -> Result<Option<i32>> {
     if sha256(&read_bounded(&found.path)?) != sha256(&original) {
         bail!("matrix bundle changed while removing the old FPS patch; retry after the update finishes");
     }
-    let active = stage_in_document(&game, found)?;
-    save_backup(&game, &active.path, &original, &output)?;
-    write_atomic(&active.path, &output)?;
+    save_backup(&game, &found.path, &original, &output)?;
+    write_atomic(&found.path, &output)?;
     Ok(Some(fps))
-}
-
-/// The launcher only writes `document`. When the matrix bundle ships in `resource` (4.9), put a copy in
-/// `document/matrix` under the same physical name first; the document file overrides the resource one by name.
-fn stage_in_document(game: &Path, active: Active) -> Result<Active> {
-    if active.scope == "document" {
-        return Ok(active);
-    }
-    let name = active.path.file_name().context("matrix bundle has no file name")?;
-    let directory = game.join("PGR_Data/StreamingAssets/document/matrix");
-    fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
-    let target = directory.join(name);
-    write_new(&target, &read_bounded(&active.path)?)
-        .with_context(|| format!("copying the packaged matrix bundle to {}", target.display()))?;
-    sync_dir(&directory)?;
-    Ok(Active { path: fs::canonicalize(target)?, scope: "document" })
 }
 
 fn owned_fps(text: &str) -> Result<Option<i32>> {
