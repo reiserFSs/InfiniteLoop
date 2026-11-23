@@ -219,9 +219,18 @@ mod tests {
         thread,
     };
 
+    /// A free port outside the OS ephemeral range (49152+ on Windows and macOS): a released `bind(0)` port can be handed to
+    /// a listener in a parallel test, which made the plan tests flaky on Windows CI.
     fn spare() -> u16 {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-        listener.local_addr().unwrap().port()
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let start = std::process::id() % 12_000;
+        loop {
+            let offset = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let port = 20_000 + ((start + offset) % 12_000) as u16;
+            if can_bind(port) {
+                return port;
+            }
+        }
     }
 
     fn spare_ports() -> Ports {
