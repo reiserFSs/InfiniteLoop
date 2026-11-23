@@ -108,6 +108,17 @@ internal partial class Program
         AssertEqual(MaxBt((int)wpB.TemplateId), Reloaded(wpB.Id).Breakthrough, "breakthrough max");
         Rejected("breakthrough must be", "breakthrough above max", "breakthrough", wpB.Id.ToString(), (MaxBt((int)wpB.TemplateId) + 1).ToString());
 
+        // A template id (what players copy from the game data) works when exactly one copy is owned.
+        Run("level", wpB.TemplateId.ToString(), "1");
+        AssertEqual(1, ReadPush("level by template").EquipDataList.Single(e => e.Id == wpB.Id).Level, "template id targets the only copy");
+        Drain();
+        EquipData wpB2 = Add((int)wpB.TemplateId);
+        Drain();
+        Rejected($"#{wpB2.Id}", "template with two copies lists the record ids", "level", wpB.TemplateId.ToString(), "1");
+        int unowned = equipRows.First(e => e.Site == 0 && roster.Equips.All(owned => owned.TemplateId != e.Id)).Id;
+        Rejected("don't own", "unowned template", "level", unowned.ToString(), "1");
+        roster.Equips.Remove(wpB2);
+
         // 'all' / c<id> only touch worn equips and are atomic.
         AssertEqual(true, RunRaw("level", "all", "1").StartsWith("Rejected:", StringComparison.Ordinal), "all with nothing worn");
 

@@ -29,8 +29,18 @@ namespace AscNet.GameServer.Commands
         {
             if (!uint.TryParse(Target, out uint id))
                 Reject("give the equip record id (see /equip list).");
-            return session.character.Equips.Find(equip => equip.Id == id)
-                ?? throw new CommandMessageCallbackException($"Rejected: no equip with record id {id}. Use /equip list.");
+            if (session.character.Equips.Find(equip => equip.Id == id) is EquipData byRecord)
+                return byRecord;
+            // Players often type the weapon's id from the game data: that is the template, not the record.
+            List<EquipData> copies = session.character.Equips.Where(equip => equip.TemplateId == id).ToList();
+            if (copies.Count == 1)
+                return copies[0];
+            if (copies.Count > 1)
+                Reject($"you own {copies.Count} copies of {NameOf(copies[0])} (template {id}); give one record id: "
+                    + string.Join(", ", copies.Select(equip => $"#{equip.Id} Lv{equip.Level}" + (equip.CharacterId > 0 ? $" worn by {equip.CharacterId}" : ""))) + ".");
+            throw new CommandMessageCallbackException(Character.ResolveEquipTemplate(id) is EquipTable row
+                ? $"Rejected: you don't own {row.Name} (template {id})."
+                : $"Rejected: no equip with record id {id}. Use /equip list.");
         }
 
         private List<EquipData> Targets()
