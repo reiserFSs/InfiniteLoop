@@ -392,8 +392,9 @@ namespace AscNet.GameServer.Handlers.BigWorld
             static IEnumerable<int> Entered(JToken? list) => (list as JArray ?? []).Where(a => (int?)a["ActionType"] == 18001).Select(a => a["Params"]!.Value<int>("InstLevelId"));
             IEnumerable<int> fromObjectives = Objectives.Value.Values.Where(o => Quests.Value.TryGetValue(o.QuestId, out DlcQuestTable? q) && q.Category == CategoryInvite)
                 .SelectMany(o => { JObject cfg = BigWorldQuestRuntime.Config(o); return Entered(cfg["EnterActions"]).Concat(Entered(cfg["ExitActions"])); });
-            IEnumerable<int> fromOptions = TableReaderV2.Parse<LevelInteractOptionTable>().Where(row => row.Config?.Contains("\"ActionType\":18001") == true)
-                .Select(row => JObject.Parse(row.Config))
+            IEnumerable<int> fromOptions = TableReaderV2.Parse<LevelInteractOptionTable>()
+                .Select(row => row.Config).OfType<string>().Where(config => config.Contains("\"ActionType\":18001"))
+                .Select(JObject.Parse)
                 .Where(cfg => cfg["LevelConditionGroup"]?.SelectTokens("$..QuestId").Any(id => Quests.Value.TryGetValue((int)id, out DlcQuestTable? q) && q.Category == CategoryInvite) == true)
                 .SelectMany(cfg => Entered(cfg["CompleteActionList"]));
             return fromObjectives.Concat(fromOptions).ToHashSet();
