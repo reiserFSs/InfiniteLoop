@@ -6,7 +6,9 @@ using AscNet.Table.V2.share.dlcworld.questsystem;
 using AscNet.Table.V2.share.dlcworld.questsystem.environmentquest;
 using AscNet.Table.V2.share.dlcworld.questsystem.invitequest;
 using AscNet.Table.V2.share.statussyncfight.quest;
+using AscNet.Table.V2.share.statussyncfight.level.sceneconfig;
 using MessagePack;
+using Newtonsoft.Json.Linq;
 
 namespace AscNet.GameServer.Handlers.BigWorld
 {
@@ -328,10 +330,13 @@ namespace AscNet.GameServer.Handlers.BigWorld
             session.SendResponse(new DlcInviteQuestAcceptResponse { Code = code }, packet.Id);
             if (code != 0)
                 return;
-            // AscNet policy: invites are replayable to reach every ResultId; accepting restarts a finished invite.
-            data.FinishedQuests.Remove(questId);
+            // AscNet policy: invites are replayable to reach every ResultId; accepting restarts a finished invite (the client keeps
+            // its finished quest object, which BigWorldQuestRuntime.DropClientQuest removes first).
+            bool replay = data.FinishedQuests.Remove(questId);
             BigWorldQuestRuntime.Scoped(session, !BigWorldModule.IsOnline, () =>
             {
+                if (replay)
+                    BigWorldQuestRuntime.DropClientQuest(session, questId);
                 BigWorldQuestRuntime.Activate(session, cfg!, true);
                 AutoActivate(session);
             });
@@ -376,6 +381,26 @@ namespace AscNet.GameServer.Handlers.BigWorld
                 .Select(id => Objectives.Value.TryGetValue(int.Parse(id), out DlcQuestObjectiveTable? o) ? o.QuestId : 0)
                 .Where(questId => questId > 0).Select(questId => (questId, GroupId: row.GroupId, LevelId: EnvGroups.Value.First(g => g.Id == row.GroupId).LevelId)))
             .DistinctBy(pair => pair.questId).ToDictionary(pair => pair.questId, pair => (pair.GroupId, pair.LevelId)));
+
+        // AscNet policy [INF]: the instance levels a character invitation leads into. An invite quest (Category 4) reaches its level
+        // through RequestEnterInstLevel (18001) in an objective list (2007 -> 4039, 2009 -> 4038) or through a LevelInteractOption
+        // gated on the invite quest's state (door 3500002: 2015 -> 4040, 2016 -> 4041, 2006 -> 4044). Invitations are replayable and
+        // the level is only reachable to play one, so a visit restarts the level's own quest (BigWorldModule.StartPlayRun); retail's
+        // replay request is not captured.
+        private static readonly Lazy<HashSet<int>> InviteLevels = new(() =>
+        {
+            static IEnumerable<int> Entered(JToken? list) => (list as JArray ?? []).Where(a => (int?)a["ActionType"] == 18001).Select(a => a["Params"]!.Value<int>("InstLevelId"));
+            IEnumerable<int> fromObjectives = Objectives.Value.Values.Where(o => Quests.Value.TryGetValue(o.QuestId, out DlcQuestTable? q) && q.Category == CategoryInvite)
+                .SelectMany(o => { JObject cfg = BigWorldQuestRuntime.Config(o); return Entered(cfg["EnterActions"]).Concat(Entered(cfg["ExitActions"])); });
+            IEnumerable<int> fromOptions = TableReaderV2.Parse<LevelInteractOptionTable>().Where(row => row.Config?.Contains("\"ActionType\":18001") == true)
+                .Select(row => JObject.Parse(row.Config))
+                .Where(cfg => cfg["LevelConditionGroup"]?.SelectTokens("$..QuestId").Any(id => Quests.Value.TryGetValue((int)id, out DlcQuestTable? q) && q.Category == CategoryInvite) == true)
+                .SelectMany(cfg => Entered(cfg["CompleteActionList"]));
+            return fromObjectives.Concat(fromOptions).ToHashSet();
+        });
+
+        internal static List<int> InviteLevelQuests(int levelId) => !InviteLevels.Value.Contains(levelId) ? []
+            : Quests.Value.Values.Where(q => q.Category is CategoryInstLevelStory or CategoryInstLevelPlay && q.LevelId == levelId).Select(q => q.Id).Order().ToList();
 
         // AscNet policy [INF]: an environment quest (DlcEnvironmentQuest objectives; ShieldPopViewType 3 = no popup on receive or
         // finish [LUA XBigWorldQuestModel QuestViewShieldTypeList]) has no accept UI and AutoUndertake 0, so it starts as soon as its

@@ -204,8 +204,9 @@ def map_pins(d, group_id):
     return list(rows.values())
 
 
-def skip(d, o):
-    """Offset after the MessagePack value at `o` (structure only; map keys may be arrays, which a decoder rejects)."""
+def skip(d, o, vectors=False):
+    """Offset after the MessagePack value at `o` (structure only; map keys may be arrays, which a decoder rejects).
+    `vectors`: bare float32 runs inside arrays are Vector3 fields (3 floats per array element)."""
     c = d[o]
     if c <= 0x7F or c >= 0xE0 or c in (0xC0, 0xC2, 0xC3):
         return o + 1
@@ -229,23 +230,35 @@ def skip(d, o):
         if size is None:
             raise ValueError(f'unsupported MessagePack code {c:#x}')
         return o + 1 + size
-    for _ in range(n):
+    left = n
+    while left > 0:
         if is_map:
-            o = skip(d, o)
+            o = skip(d, o, vectors)
             # Named-key maps write a Vector2/Vector3 value as bare float32s; the next key is never a float.
             if d[o] == 0xCA:
                 while d[o] == 0xCA:
                     o += 5
+                left -= 1
                 continue
-        o = skip(d, o)
+        elif vectors and d[o] == 0xCA:
+            # FxSkyGardenInviteQuestItem-style effect arrays hold two bare Vector3 values (6 floats) in one 5-array.
+            run = 0
+            while d[o + 5 * run] == 0xCA:
+                run += 1
+            o += 5 * run
+            left -= run // 3 if run % 3 == 0 else run
+            continue
+        o = skip(d, o, vectors)
+        left -= 1
     return o
 
 
-def tail_start(rec, count=10):
+def tail_start(rec, count=10, vectors=False):
     """Offset of IsOnlyClient: the 10th-last top-level field of an XTableSceneObjectNew record.
 
     Top-level fields count a Vector2/Vector3 (written as bare consecutive float32 values) as one field, so a run of
-    floats is one field. The record must end exactly after `count` fields and IsOnlyClient must be a bool."""
+    floats is one field. The record must end exactly after `count` fields and IsOnlyClient must be a bool.
+    `vectors` (see skip) resolves records whose nested arrays hold bare vectors; callers try the strict rule first."""
     for s in range(len(rec) - count, 30, -1):
         if rec[s] not in (0xC2, 0xC3):
             continue
@@ -253,7 +266,7 @@ def tail_start(rec, count=10):
         try:
             while o < len(rec) and fields <= count:
                 is_float = rec[o] == 0xCA
-                o = skip(rec, o)
+                o = skip(rec, o, vectors)
                 fields += 0 if is_float and prev_float else 1
                 prev_float = is_float
         except (ValueError, IndexError):
@@ -263,10 +276,10 @@ def tail_start(rec, count=10):
     return None
 
 
-def record_end(data, start, end, group_id, count=10):
+def record_end(data, start, end, group_id, count=10, vectors=False):
     """End of the record at `start`: `end` if the tail resolves there, else (last object of the SceneObjects map) the
     header of the group's next dictionary (Npcs): an empty map, or a map whose first entry is key -> [key, group_id, ...]."""
-    if tail_start(data[start:end], count) is not None:
+    if tail_start(data[start:end], count, vectors) is not None:
         return end
     for h in range(start + 40, end):
         c = data[h]
@@ -287,7 +300,7 @@ def record_end(data, start, end, group_id, count=10):
             group = read_int(data, p)[0] if same is not None else None
             if same != key or group != group_id:
                 continue
-        if tail_start(data[start:h], count) is not None:
+        if tail_start(data[start:h], count, vectors) is not None:
             return h
     return None
 
@@ -320,9 +333,12 @@ def layout(data, key_offset, end, group_id):
         _, p = read_int(data, p)
     floats = [struct.unpack_from('>f', data, p + 5 * i + 1)[0] for i in range(6)]
     defer = data[p + 30] == 0xC3
-    record = record_end(data, start, end, group_id)
-    rec = data[start:record] if record is not None else None
-    s = tail_start(rec) if rec is not None else None
+    for vectors in (False, True):
+        record = record_end(data, start, end, group_id, vectors=vectors)
+        rec = data[start:record] if record is not None else None
+        s = tail_start(rec, vectors=vectors) if rec is not None else None
+        if s is not None:
+            break
     if s is None:
         return [*floats, int(defer), -1, 0, 0, 0]
     after = rec[s + 1]

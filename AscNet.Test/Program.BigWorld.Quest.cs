@@ -17,6 +17,7 @@ namespace AscNet.Test
             ValidateBigWorldQuestCore();
             ValidateBigWorldQuestRetail();
             ValidateBigWorldQuestObjectives();
+            ValidateBigWorldQuestInvite();
             Console.WriteLine("big world quest: ok");
         }
 

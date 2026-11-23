@@ -863,10 +863,9 @@ namespace AscNet.Test
                     foreach (JProperty type in targets.Properties())
                         foreach (JProperty place in ((JObject)type.Value).Properties())
                         {
-                            int actorType = int.Parse(type.Name), placeId = int.Parse(place.Name), need = Math.Max(1, place.Value.Value<int>());
-                            int have = objective.InteractProgressRecords.GetValueOrDefault(actorType)?.Count(r => r.WasCompleted && r.TargetPlaceId == placeId) ?? 0;
-                            for (int n = have; n < need; n++)
-                                sent |= Interact(actorType, placeId, cfg);
+                            int actorType = int.Parse(type.Name), placeId = int.Parse(place.Name), wanted = place.Value.Value<int>();
+                            if (!(objective.InteractProgressRecords.GetValueOrDefault(actorType)?.Any(r => r.WasCompleted && r.TargetPlaceId == placeId) ?? false))
+                                sent |= Interact(actorType, placeId, cfg, wanted);
                         }
                     return sent;
                 }
@@ -876,7 +875,7 @@ namespace AscNet.Test
                 private readonly Dictionary<(int Level, int PlaceId), int> clientUuids = [];
                 private readonly Dictionary<int, int> clientIncIds = [];
 
-                private bool Interact(int actorType, int placeId, DlcQuestObjectiveTable cfg)
+                private bool Interact(int actorType, int placeId, DlcQuestObjectiveTable cfg, int wantedOption = 0)
                 {
                     int level = Level;
                     if (!BigWorldActors.TryGetUuid(Session, level, actorType, placeId, out int uuid))
@@ -890,7 +889,8 @@ namespace AscNet.Test
                         if (!clientUuids.TryGetValue((level, placeId), out uuid))
                             clientUuids[(level, placeId)] = uuid = (clientIncIds[level] = clientIncIds.GetValueOrDefault(level) + 1) << 4 | BigWorldXRpc.PlayerControllerId;
                     }
-                    int optionId = BigWorldModule.InteractOptionsOf(level, actorType, placeId) is { Count: > 0 } options ? options.Keys.Min() : 0;
+                    // TargetArgs names the option the objective takes (0 = any): the player picks it.
+                    int optionId = wantedOption > 0 ? wantedOption : BigWorldModule.InteractOptionsOf(level, actorType, placeId) is { Count: > 0 } options ? options.Keys.Min() : 0;
                     int code = X("RpcPlayerInteractRequest", Pack((int)player.PlayerData.Id, 1, BigWorldActors.TeamNpcUuid(Session, level, S.CurNpcPos), uuid, placeId, actorType, level, optionId));
                     if (code != 0)
                         notes[cfg.Id] = $"RpcPlayerInteractRequest on type {actorType} place {placeId} option {optionId} refused with code {code}";

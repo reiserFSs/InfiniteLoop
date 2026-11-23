@@ -501,6 +501,12 @@ namespace AscNet.Test
                     && BwInt(MessagePackSerializer.Deserialize<object?[]>((byte[])rpc[1]!)[1]) == 4008),
                 client.Pushes.Any(p => p.Name == nameof(NotifyDlcQuestActivate))), "inst entry switches the level; no NotifyDlcQuestActivate");
             AssertEqual((4008, 4001), (player.BigWorldState.InstLevelId, player.BigWorldState.LastLevelId), "inst tracked, open world kept");
+            // A request for the level the player already stands on (issue #73 A) is a re-entry, not an unknown level: only the pose moves
+            // and the switch still goes out (the client loads it as ReenterLevel, EFightState 6).
+            client.Pushes.Clear();
+            EnterInstLevelResponse reentry = client.Call<EnterInstLevelResponse>("EnterInstLevelRequest", new EnterInstLevelRequest { WorldId = 400, InstLevelId = 4008, TargetPos = new Theatre5DlcVector3 { X = 9 } });
+            AssertEqual((0, 9.0, true), (reentry.Code, player.BigWorldState.InstPosition!.X, client.XRpcPushes("XRpcCommon").Any(rpc => (string)rpc[0]! == "RpcPlayerSwitchLevelNotify"
+                && BwInt(MessagePackSerializer.Deserialize<object?[]>((byte[])rpc[1]!)[1]) == 4008)), "entering the current level is a re-entry");
             AssertEqual(0, client.Call<DlcReChallengeInstResponse>("DlcReChallengeInstRequest", null).Code, "rechallenge");
             AssertEqual(4, client.Call<LeaveInstLevelResponse>("LeaveInstLevelRequest", new LeaveInstLevelRequest { InstSaveOption = 5 }).Code, "invalid save option");
             AssertEqual(0, client.Call<LeaveInstLevelResponse>("LeaveInstLevelRequest", new LeaveInstLevelRequest { InstSaveOption = 2 }).Code, "leave inst");

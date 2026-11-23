@@ -190,7 +190,7 @@ namespace AscNet.GameServer.Handlers.BigWorld
                 return;
             }
             Rt rt = Of(session);
-            if (rt.Silent)
+            if (rt.Silent || AwaitsLevelLoad(session, context.ObjectiveId))
                 return;
             int epoch = rt.Epoch, expect = context.ObjectiveState;
             if (!rt.Running.Add((context.ObjectiveId, expect)))
@@ -205,6 +205,23 @@ namespace AscNet.GameServer.Handlers.BigWorld
                     Scoped(session, false, done);
             }));
         }
+
+        // RpcPlayerSwitchLevelNotify makes the client load the target level; level actions pushed before its RpcPlayerEnterLevelComplete
+        // reach no level (the invite instances 4038/4039 open their quest during the switch: trial NPC, first-person view and quest pop
+        // never showed). A list of an objective that plays in the instance being entered therefore stays pending, like in a silent
+        // scope, and resumes in OnPlayerEnterLevelComplete. Open-world objectives are not held: the client rebuilds those from the
+        // world-entry data and a late replay would run them twice.
+        private static bool AwaitsLevelLoad(Session session, int objectiveId)
+        {
+            int instLevelId = session.player.BigWorldState.InstLevelId;
+            if (instLevelId == 0 || Of(session).LevelLoaded || !BigWorldQuestModule.Objectives.Value.TryGetValue(objectiveId, out DlcQuestObjectiveTable? cfg))
+                return false;
+            return (I(cfg.LevelId) > 0 ? I(cfg.LevelId) : BigWorldQuestModule.Quests.Value[cfg.QuestId].LevelId) == instLevelId;
+        }
+
+        // The client keeps a quest object after the quest finished and refuses a second one with the same id; RpcRemoveQuest
+        // [QuestId] (XQuestManager.HandleRemoveQuest) drops it before the quest is activated again. [LIVE, issue #73]
+        internal static void DropClientQuest(Session session, int questId) => Push(session, "RpcRemoveQuest", questId);
 
         private static void OpenObjective(Session session, Theatre5DlcQuest quest, DlcQuestObjectiveTable cfg)
         {
@@ -240,7 +257,7 @@ namespace AscNet.GameServer.Handlers.BigWorld
             // Retail delivers AutoSend messages when the objective opens. AscNet policy: AutoSend=0 rows (invite quests, whose
             // messages have no other delivery path) deliver at the same moment.
             if (TypeOf(cfg) == TypeReadShortMessage && I(cfg.ShortMessageId) > 0)
-                BigWorldArchiveModule.ActivateMessage(session, I(cfg.ShortMessageId));
+                BigWorldArchiveModule.ReplayMessage(session, I(cfg.ShortMessageId));
             // InstanceComplete with AppendHistoryCount counts the visits finished before the objective opened.
             if (TypeOf(cfg) == TypeInstanceComplete && I(cfg.AppendHistoryCount) == 1)
                 ObjectiveOf(quest, cfg).InstLevelCompleteCount = session.player.BigWorldState.InstLevelFinishedCounts.GetValueOrDefault(I(cfg.InstLevelId));
@@ -760,16 +777,23 @@ namespace AscNet.GameServer.Handlers.BigWorld
                 BigWorldXRpc.Args(quest.QuestId, cfg.Id, BigWorldQuestModule.Progress(cfg, objective)), 0, target: 0));
 
         // Interaction slice: after the interaction's own pushes (and action list) completed.
-        // TargetArgs {actorType: {placeId: requiredCount}} (0 = once).
+        // TargetArgs {actorType: {placeId: optionId}} (0 = any option): the objective takes the interaction that used the listed
+        // option. Every non-zero value of the shipped rows names a LevelInteractOption of its place (Liv 4038: 40380601/02 = the two
+        // answers at 2600002, options 1/2; 30140101-04 = options 6/2/3/4 of 3500002); none is a repeat count.
         internal static void OnInteract(Session session, int actorType, int placeId, int optionId) =>
             Scoped(session, false, () =>
             {
                 foreach ((Theatre5DlcQuest quest, DlcQuestObjectiveTable cfg, Theatre5DlcQuestStepObjective objective) in InProgress(session))
                 {
-                    if (TypeOf(cfg) != TypeInteractComplete || Config(cfg)["TargetArgs"]?[actorType.ToString()]?[placeId.ToString()] is not { } required)
+                    if (TypeOf(cfg) != TypeInteractComplete || Config(cfg)["TargetArgs"]?[actorType.ToString()]?[placeId.ToString()] is not { } target)
+                        continue;
+                    int wanted = target.Value<int>();
+                    if (wanted != 0 && wanted != optionId)
                         continue;
                     List<Theatre5DlcQuestInteractRecord> records = objective.InteractProgressRecords.TryGetValue(actorType, out var list)
                         ? list : objective.InteractProgressRecords[actorType] = [];
+                    if (records.Any(r => r.TargetPlaceId == placeId && r.WasCompleted))
+                        continue;
                     records.Add(new Theatre5DlcQuestInteractRecord { TargetPlaceId = placeId, WasCompleted = true });
                     Of(session).Changes.Touched.Add(quest.QuestId);
                     PushProgress(session, quest, cfg, objective);
@@ -778,6 +802,7 @@ namespace AscNet.GameServer.Handlers.BigWorld
                 }
             });
 
+        // Every listed place was interacted with (once, with its option).
         private static bool TargetsMet(DlcQuestObjectiveTable cfg, Theatre5DlcQuestStepObjective objective)
         {
             if (Config(cfg)["TargetArgs"] is not JObject targets)
@@ -787,9 +812,7 @@ namespace AscNet.GameServer.Handlers.BigWorld
                 foreach (JProperty place in ((JObject)type.Value).Properties())
                 {
                     any = true;
-                    int count = objective.InteractProgressRecords.GetValueOrDefault(int.Parse(type.Name))?
-                        .Count(r => r.WasCompleted && r.TargetPlaceId == int.Parse(place.Name)) ?? 0;
-                    if (count < Math.Max(1, place.Value.Value<int>()))
+                    if (objective.InteractProgressRecords.GetValueOrDefault(int.Parse(type.Name))?.Any(r => r.WasCompleted && r.TargetPlaceId == int.Parse(place.Name)) != true)
                         return false;
                 }
             return any;
@@ -872,15 +895,16 @@ namespace AscNet.GameServer.Handlers.BigWorld
                         RemoveNavs(session, objectiveId);
                         rt.DramaSent.Remove(objectiveId);
                     }
-                    Push(session, "RpcRemoveQuest", quest.QuestId);
+                    DropClientQuest(session, quest.QuestId);
                     Activate(session, BigWorldQuestModule.Quests.Value[quest.QuestId], false);
                 }
             });
 
-        // Jumper (BigWorldModule.JumpPlayQuestOf) quests never resume: a visit or re-challenge discards the previous run in any state
-        // (mid-run, settle pending, finished) and the quest restarts Ready - OnLevelEntered undertakes it. The old objectives are zeroed
-        // so a list still in flight cannot finish the new quest; FinishedQuests keeps the history (the client replaces its quest
-        // object with RpcRemoveQuest + RpcActivateQuests, as for a rollback). AscNet policy [INF].
+        // Jumper (BigWorldModule.JumpPlayQuestOf) and invite-instance (BigWorldQuestModule.InviteLevelQuests) level quests never resume:
+        // a visit or re-challenge discards the previous run in any state (mid-run, settle pending, finished) and the quest restarts
+        // Ready - OnLevelEntered undertakes it. The old objectives are zeroed so a list still in flight cannot finish the new quest;
+        // FinishedQuests keeps the history (the client replaces its quest object with RpcRemoveQuest + RpcActivateQuests, as for a
+        // rollback). AscNet policy [INF].
         internal static void RestartPlayQuest(Session session, int questId, bool silent) =>
             Scoped(session, silent, () =>
             {
@@ -893,9 +917,11 @@ namespace AscNet.GameServer.Handlers.BigWorld
                         StopTimer(session, cfg);
                     foreach (Theatre5DlcQuestStepObjective objective in old.Steps.Values.SelectMany(step => step.Objectives.Values))
                         objective.ObjectiveState = 0;
-                    Push(session, "RpcRemoveQuest", questId);
+                    DropClientQuest(session, questId);
                     data.ActiveQuests.Remove(questId);
                 }
+                else if (data.FinishedQuests.Contains(questId))
+                    DropClientQuest(session, questId);
                 data.ReadyQuestIds.Remove(questId);
                 foreach (DlcQuestObjectiveTable cfg in objectives)
                 {
@@ -926,7 +952,7 @@ namespace AscNet.GameServer.Handlers.BigWorld
                         && BigWorldQuestModule.Quests.Value.TryGetValue(q.QuestId, out var c) && c.Category is 1 or 2 && c.LevelId == levelId)
                     .OrderBy(q => q.QuestId).ToList();
                 foreach (Theatre5DlcQuest quest in relaunch)
-                    Push(session, "RpcRemoveQuest", quest.QuestId);
+                    DropClientQuest(session, quest.QuestId);
                 if (relaunch.Count > 0)
                     Push(session, "RpcReLaunchQuests", relaunch.Select(BigWorldQuestModule.RepQuest).ToList());
                 BigWorldQuestModule.AutoActivate(session);
@@ -1154,6 +1180,17 @@ namespace AscNet.GameServer.Handlers.BigWorld
                 SyncEnemyGroups(session);
                 // Fixes and pending lists belong to the level the objective plays in; other levels' objectives wait for that level.
                 running = running.Where(r => I(r.Cfg.LevelId) is 0 || I(r.Cfg.LevelId) == levelId).ToList();
+                // Repair of saves written by the old invite replay: a ReadShortMessage objective that is open while its message record is
+                // already finished can never close (it advances only from the message-finish notification, which the replay never
+                // re-delivered, and the one-invite-at-a-time rule then blocks every other invitation). The lost notification is replayed
+                // from the record here, where the objective's exit actions can still transfer the player. Idempotent: the objective
+                // leaves InProgress, so a second pass finds nothing. Persists with the quest save of this scope.
+                foreach ((Theatre5DlcQuest quest, DlcQuestObjectiveTable cfg, Theatre5DlcQuestStepObjective objective) in running.ToList())
+                    if (TypeOf(cfg) == TypeReadShortMessage && objective.ObjectiveState == StateInProgress && BigWorldArchiveModule.MessageFinished(session, I(cfg.ShortMessageId)))
+                    {
+                        session.log.Info($"BigWorld quest {quest.QuestId}: read objective {cfg.Id} was open on finished message {I(cfg.ShortMessageId)}; completing it.");
+                        Close(session, quest, cfg);
+                    }
                 foreach ((Theatre5DlcQuest quest, DlcQuestObjectiveTable cfg, Theatre5DlcQuestStepObjective objective) in running)
                 {
                     RunFixes(session, quest, cfg, objective, objective.ObjectiveState switch { StateInProgress => 3, >= StateExit => 4, _ => 1 });

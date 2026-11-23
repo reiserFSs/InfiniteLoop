@@ -144,6 +144,7 @@ namespace AscNet.Test
                 if (args.Contains("--big-world-interaction-only"))
                 {
                     ValidateBigWorldInteraction();
+                    ValidateBigWorldInviteDoor();
                     return;
                 }
                 if (args.Contains("--big-world-hotfix-only"))

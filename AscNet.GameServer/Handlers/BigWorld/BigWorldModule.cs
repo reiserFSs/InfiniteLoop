@@ -93,20 +93,22 @@ namespace AscNet.GameServer.Handlers.BigWorld
 
         internal static int JumpPlayQuestOf(int levelId) => JumpPlayQuests.Value.GetValueOrDefault(levelId);
 
-        // AscNet policy [INF] (no retail capture of an instance replay): entering or re-challenging a jumper level discards the previous
-        // run - its actor overrides and engine save, the finished flag and the quest (restarted Ready, FinishedQuests keeps the history).
+        // AscNet policy [INF] (no retail capture of an instance replay): entering or re-challenging a jumper level, or entering an
+        // invite instance level (BigWorldQuestModule.InviteLevelQuests), discards the previous run - its actor overrides and engine
+        // save, the finished flag and the level quest (restarted Ready, FinishedQuests keeps the history).
         // Live: the stale run of quest 5001 was relaunched on re-entry and its pending settle list ran at once.
         internal static void StartPlayRun(Session session, int levelId)
         {
-            int questId = JumpPlayQuestOf(levelId);
-            if (questId == 0)
+            List<int> questIds = JumpPlayQuestOf(levelId) is > 0 and int jump ? [jump] : BigWorldQuestModule.InviteLevelQuests(levelId);
+            if (questIds.Count == 0)
                 return;
             BigWorldPlayerState state = session.player.BigWorldState;
             state.ActorOverrides.RemoveAll(o => o.LevelId == levelId);
             state.SceneObjectStates.Remove(levelId);
             state.InstLevelFinished = false;
             session.player.Save();
-            BigWorldQuestRuntime.RestartPlayQuest(session, questId, !IsOnline);
+            foreach (int questId in questIds)
+                BigWorldQuestRuntime.RestartPlayQuest(session, questId, !IsOnline);
         }
 
         internal static IReadOnlyDictionary<int, LevelSceneObjectTable> SceneObjectsOf(int levelId) =>
@@ -326,8 +328,27 @@ namespace AscNet.GameServer.Handlers.BigWorld
                 return CodeNotInWorld;
             // AscNet policy: level scripts use this request for every in-world level transfer; any level of the world is
             // accepted, and only Level.LevelType 2 levels are tracked as instances (open-world targets move LastLevelId).
-            if (!IsWorldLevel(worldId, levelId) || levelId == CurrentLevelId(state))
+            if (!IsWorldLevel(worldId, levelId))
                 return CodeLevelNotFound;
+            // The level the player already stands on (a quest list moved the server state before the client's own request
+            // arrived) is a re-entry: only the pose moves; the caller still sends the switch, which the client loads as
+            // ReenterLevel (EFightState 6, see DlcReChallengeInst) [LUA XBigWorldGamePlayAgency:RequestEnterInstLevel].
+            if (levelId == CurrentLevelId(state))
+            {
+                if (targetPos is not null && IsInstanceLevel(levelId))
+                {
+                    state.InstPosition = ToVector(targetPos);
+                    state.InstRotationY = targetRot?.Y;
+                }
+                else if (targetPos is not null)
+                {
+                    state.LastPosition = ToVector(targetPos);
+                    state.LastRotation = null;
+                    state.LastRotationY = targetRot?.Y;
+                }
+                session.player.Save();
+                return 0;
+            }
 
             if (state.InstLevelId != 0)
                 LeaveInstance(session.player, InstSaveOptionNone);

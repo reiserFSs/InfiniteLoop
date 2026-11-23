@@ -480,6 +480,29 @@ namespace AscNet.GameServer.Handlers.BigWorld
             return 0;
         }
 
+        internal static bool MessageFinished(Session session, int messageId) =>
+            State(session).Messages.TryGetValue(messageId, out BigWorldMessageRecord? record) && record.State == MessageFinish;
+
+        // A ReadShortMessage objective opens on a finished thread only when its quest is played again (every message belongs to
+        // exactly one objective). The objective closes only from the message-finish notification, so the thread restarts unread: the
+        // client ignores a repeated NotifyBigWorldNotReadMessage for a known id (XBigWorldMessageModel:AddUnReadMessage), so the
+        // full record dict is resynced first and the notify then raises the unread marker/popup. AscNet policy [INF].
+        internal static void ReplayMessage(Session session, int messageId)
+        {
+            if (!MessageFinished(session, messageId))
+            {
+                ActivateMessage(session, messageId);
+                return;
+            }
+            BigWorldMessageRecord record = State(session).Messages[messageId];
+            record.StepIds.Clear();
+            record.State = MessageNotRead;
+            record.CreateTime = Now;
+            session.player.Save();
+            SendMessageRecordUpdate(session);
+            session.SendPush(new NotifyBigWorldNotReadMessage { MessageId = messageId, StepId = Messages.Value[messageId].FirstStepId, State = MessageNotRead });
+        }
+
         [RequestPacketHandler("BigWorldMessageReadRecordRequest")]
         public static void BigWorldMessageReadRecordRequestHandler(Session session, Packet.Request packet)
         {
