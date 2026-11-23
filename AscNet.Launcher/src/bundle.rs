@@ -70,12 +70,78 @@ pub(crate) fn index_table(data: &[u8]) -> Result<Vec<Entry>> {
     file_table(&decode_index(data)?.payload)?.context("no 4.9 file table in the index")
 }
 const STREAMING: &str = "PGR_Data/StreamingAssets";
+
+/// Where the last search found the Lua bundle, per game folder. On 4.9 that search opens up to ~85k bundles, so it
+/// is reused while the four index files are unchanged and the remembered file still claims the logical asset.
+#[cfg(not(test))]
+fn cache_file() -> Option<PathBuf> {
+    crate::local::root().ok().map(|root| root.join("cache").join("matrix-bundle.json"))
+}
+#[cfg(test)]
+thread_local! { static TEST_CACHE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) }; }
+#[cfg(test)]
+fn cache_file() -> Option<PathBuf> {
+    TEST_CACHE.with(|c| c.borrow().clone())
+}
+
+fn index_fingerprint(game: &Path) -> String {
+    let mut key = String::new();
+    for scope in ["document", "resource"] {
+        for index in ["index", "InPkgIndex"] {
+            let meta = fs::metadata(game.join(STREAMING).join(scope).join("matrix").join(index)).ok();
+            let stamp = meta.as_ref().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok());
+            match (meta, stamp) {
+                (Some(m), Some(t)) => key.push_str(&format!("{}:{}.{};", m.len(), t.as_secs(), t.subsec_nanos())),
+                _ => key.push_str("-;"),
+            }
+        }
+    }
+    key
+}
+
+fn cached(game: &Path, key: &str) -> Option<Active> {
+    let all: serde_json::Value = serde_json::from_slice(&fs::read(cache_file()?).ok()?).ok()?;
+    let hit = all.get(game.to_str()?)?;
+    if hit.get("key")?.as_str()? != key {
+        return None;
+    }
+    let scope = match hit.get("scope")?.as_str()? { "document" => "document", "resource" => "resource", _ => return None };
+    let path = fs::canonicalize(hit.get("path")?.as_str()?).ok()?;
+    let root = game.join(STREAMING).join(scope).join("matrix");
+    (path.starts_with(&root) && bundle_name(&path).ok()?.as_deref() == Some(LOGICAL_ASSET)).then_some(Active { path, scope })
+}
+
+fn remember(game: &Path, key: &str, active: &Active) {
+    let (Some(file), Some(game), Some(path)) = (cache_file(), game.to_str(), active.path.to_str()) else { return };
+    let mut all: serde_json::Value = fs::read(&file).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_else(|| serde_json::json!({}));
+    if !all.is_object() {
+        all = serde_json::json!({});
+    }
+    all[game] = serde_json::json!({ "key": key, "path": path, "scope": active.scope });
+    let temporary = file.with_extension("json.tmp");
+    let _ = file.parent().map(fs::create_dir_all);
+    if fs::write(&temporary, all.to_string()).is_ok() {
+        let _ = fs::rename(&temporary, &file);
+    }
+}
+
 pub(crate) fn resolve(game: &Path) -> Result<Active> {
     let game = fs::canonicalize(game)
         .with_context(|| format!("invalid game directory: {}", game.display()))?;
     if !game.join("PGR.exe").is_file() {
         bail!("game directory does not contain PGR.exe");
     }
+    let key = index_fingerprint(&game);
+    if let Some(active) = cached(&game, &key) {
+        return Ok(active);
+    }
+    let active = search(&game)?;
+    remember(&game, &key, &active);
+    Ok(active)
+}
+
+fn search(game: &Path) -> Result<Active> {
+    let game = game.to_path_buf();
     let mut tables: Vec<(&'static str, PathBuf, Option<Vec<Entry>>)> = Vec::new();
     for scope in ["document", "resource"] {
         let root = game.join(STREAMING).join(scope).join("matrix");
@@ -1324,6 +1390,33 @@ pub(crate) mod tests {
         assert_eq!(resolve(&tmp.0)?.path.file_name().unwrap(), "one.uab");
         let tmp = build(vec![row("one.uab", b"x"), row("two.uab", b"y")]);
         assert!(resolve(&tmp.0).err().unwrap().to_string().contains("ambiguous"));
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_reuses_the_last_search_until_the_index_or_file_changes() -> Result<()> {
+        let intact = matrix(LOGICAL_ASSET, true, 1);
+        let modified = matrix(LOGICAL_ASSET, true, 2);
+        let tmp = game();
+        tmp.write(&format!("{RES}/one.uab"), &intact);
+        tmp.write(&format!("{RES}/two.uab"), &modified);
+        tmp.write(&format!("{RES}/InPkgIndex"), &bundle(&pack_table(&[row("one.uab", &intact), row("two.uab", b"no")]), false, false, 4096));
+        let cache = tmp.0.join("matrix-bundle.json");
+        TEST_CACHE.with(|c| *c.borrow_mut() = Some(cache.clone()));
+        assert_eq!(resolve(&tmp.0)?.path.file_name().unwrap(), "one.uab");
+        assert!(cache.is_file());
+        // A fresh search would now be ambiguous (neither file matches its row); the remembered answer still claims the asset.
+        tmp.write(&format!("{RES}/one.uab"), &matrix(LOGICAL_ASSET, true, 3));
+        assert_eq!(resolve(&tmp.0)?.path.file_name().unwrap(), "one.uab");
+        // A changed index forces a new search.
+        tmp.write(&format!("{RES}/InPkgIndex"), &bundle(&pack_table(&[row("one.uab", b"x"), row("two.uab", b"yy")]), false, false, 4096));
+        assert!(resolve(&tmp.0).err().unwrap().to_string().contains("ambiguous"));
+        // A remembered file that no longer claims the asset is searched again.
+        tmp.write(&format!("{RES}/InPkgIndex"), &bundle(&pack_table(&[row("one.uab", b"x"), row("two.uab", &modified)]), false, false, 4096));
+        assert_eq!(resolve(&tmp.0)?.path.file_name().unwrap(), "two.uab");
+        tmp.write(&format!("{RES}/two.uab"), &matrix("assets/other.ab", true, 4));
+        assert_eq!(resolve(&tmp.0)?.path.file_name().unwrap(), "one.uab");
+        TEST_CACHE.with(|c| *c.borrow_mut() = None);
         Ok(())
     }
 
