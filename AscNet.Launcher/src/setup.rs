@@ -1218,6 +1218,15 @@ fn quoted_response_file(path: &Path) -> String {
     format!("@\"{text}\"")
 }
 
+// cl.exe and link.exe read a BOM-less response file in the ANSI code page, so a UTF-8 path under a
+// non-ASCII user name (C:\Users\雨のように甘い\...) is mangled (C1083). UTF-16LE with a BOM is read as Unicode.
+#[cfg(any(windows, test))]
+fn response_file_bytes(text: &str) -> Vec<u8> {
+    let mut bytes = vec![0xFF, 0xFE];
+    bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    bytes
+}
+
 fn env_key_eq(left: &str, right: &str) -> bool {
     left.eq_ignore_ascii_case(right)
 }
@@ -2573,7 +2582,7 @@ fn compile_version_shim_with_cl(compiler: &Compiler, checkout: &Path, loader: &P
     let object = loader.join("dllmain.obj");
     let response = loader.join("cl.rsp");
     let object_text = object.display().to_string().replace('\\', "/");
-    fs::write(&response, format!("/nologo\n/O1\n/GS-\n/c\n/DNDEBUG\n/DVERSIONSHIM_EXPORTS\n/D_WINDOWS\n/D_USRDLL\n/DPROJECT_NAME=\\\"VersionShim\\\"\n/Fo\"{object_text}\"\ndllmain.c\n"))?;
+    fs::write(&response, response_file_bytes(&format!("/nologo\n/O1\n/GS-\n/c\n/DNDEBUG\n/DVERSIONSHIM_EXPORTS\n/D_WINDOWS\n/D_USRDLL\n/DPROJECT_NAME=\\\"VersionShim\\\"\n/Fo\"{object_text}\"\ndllmain.c\n")))?;
     let mut compile = Command::new(&cl);
     apply_build_env(&mut compile, compiler, Path::new(""), Path::new("rustc.exe"));
     compile.env_remove("RUSTC");
@@ -2589,7 +2598,7 @@ fn compile_version_shim_with_cl(compiler: &Compiler, checkout: &Path, loader: &P
     let link_response = loader.join("link.rsp");
     let out = produced.display().to_string().replace('\\', "/");
     let obj = object.display().to_string().replace('\\', "/");
-    fs::write(&link_response, format!("/DLL\n/NODEFAULTLIB\n/ENTRY:DllMain\n/SUBSYSTEM:WINDOWS\n/OUT:\"{out}\"\n\"{obj}\"\nkernel32.lib\nuser32.lib\n"))?;
+    fs::write(&link_response, response_file_bytes(&format!("/DLL\n/NODEFAULTLIB\n/ENTRY:DllMain\n/SUBSYSTEM:WINDOWS\n/OUT:\"{out}\"\n\"{obj}\"\nkernel32.lib\nuser32.lib\n")))?;
     let mut linker = Command::new(link);
     apply_build_env(&mut linker, compiler, Path::new(""), Path::new("rustc.exe"));
     linker.env_remove("RUSTC");
@@ -2801,6 +2810,15 @@ mod tests {
     #[test]
     fn response_file_argument_quotes_windows_paths() {
         assert_eq!(quoted_response_file(Path::new(r"C:\Users\A B\cl.rsp")), "@\"C:/Users/A B/cl.rsp\"");
+    }
+
+    #[test]
+    fn response_file_keeps_a_non_ascii_user_path_as_utf16() {
+        let text = "/Fo\"C:/Users/雨のように甘い/AppData/dllmain.obj\"\n";
+        let bytes = response_file_bytes(text);
+        assert_eq!(&bytes[..2], &[0xFF, 0xFE]);
+        let units: Vec<u16> = bytes[2..].chunks_exact(2).map(|pair| u16::from_le_bytes([pair[0], pair[1]])).collect();
+        assert_eq!(String::from_utf16(&units).unwrap(), text);
     }
 
     #[test]
