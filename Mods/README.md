@@ -34,6 +34,28 @@ Commands needing stripped C# debug APIs or unsupported server GM requests report
 - `XAscNet/XAscNetMenuSpec`: the single command spec (JSON in a Lua long string): groups, commands, sub-actions, fields (kind number/text/choice, the server's regex, choices, optional), how the fields join into the chat line, confirm warnings and all texts. The cards are generated from it.
 - `XAscNet/XAscNetMenuCmd` builds and validates the line, sends it and catches the reply; `XAscNetMenu` builds the screen; `XAscNetMenuBoot` is the boot entry.
 - Keep the spec in sync with the server: `AscNet.Test` `--gm-panel-spec-only` fails when a command, sub-action, argument name/position/pattern/optionality no longer matches `AscNet.GameServer/Commands`, when a line the menu builds is rejected by the server's validation, when a text is missing in a language, or when a player-facing command is neither in the spec nor on the test's skip list (`GmPanelSkippedCommands`, currently `/wz`, an alias of `/warzone`). The full suite runs it too.
+- `XAscNet/XAscNetMenuLookup`: the id search. An id field with a `lookup` kind in the spec (or `lookupBy`, the kind taken from a sibling choice field: `/unlock`) filters by case-insensitive substring of the localized name as you type and lists up to 8 matches (name, `#id`, type or owner hint) under the row; picking one fills the field with the plain id, so the line sent is unchanged (typing an id still works). Each kind's list is built on first use after the menu opens (`Lookup.Reset()`), not per keystroke. Names come from the client's own tables and getters, so they follow the game language on every region. Fields that take a skill/pool/area number stay plain (listed in the test's `GmPanelPlainIdFields`).
+
+  | Kind | Fields | Name source (4.9 Lua) |
+  | --- | --- | --- |
+  | `item` | `/item` target | `XItemConfigs.GetItemTemplates()` (`Share/Item/Item.tab`), `Name` |
+  | `equip` | `/equip add` template | `XMVCA.XEquip:GetConfigEquip()` (`Share/Equip/Equip.tab`) `Name`; `Site == 0` is a weapon, else a memory (hint adds `XMVCA.XEquip:GetSuitName(SuitId)`) |
+  | `equip-suit` | `/equip overrunsuit` suit | `XMVCA.XEquip:GetConfigEquipSuit()` (`Share/Equip/EquipSuit.tab`), `Name` |
+  | `owned-equip` | `/equip` record ids | `XMVCA.XEquip:GetEquipDic()` (`XEquip`: `Id`, `TemplateId`, `Level`, `CharacterId`) with the template's name; the wearer's name is searchable too |
+  | `character` | `/character add`, `/coating unlock` | `XMVCA.XCharacter:GetCharacterTemplates()`, name `GetCharacterFullNameStr` (`Share/Character/Character.tab` `Name`/`TradeName`); lists only characters the client can show |
+  | `owned-character` | `/character max\|maxgear\|set\|setskill`, equip resonance character | `XMVCA.XCharacter:GetOwnCharacterList()` with the same names, plus level |
+  | `cub` | `/cub add` template | `XPartnerConfigs.GetPartnerTemplateCfg()` (`Share/Partner/Partner.tab`), `Name` |
+  | `owned-cub` | `/cub` record ids | `XDataCenter.PartnerManager.GetPartnerOverviewDataList(nil, nil, false)` entities: `Id`, `GetName()`, `Level`, `CharacterId` (carrier) |
+  | `stage` | `/stage clear` | `XMVCA.XFuben:GetStageCfgs()` (`Share/Fuben/Stage.tab`), `Name` |
+  | `medal` | `/unlock` kind medal | `XMedalConfigs.GetMeadalConfigs()` (`Share/Medal/Medal.tab`), `Name` |
+  | `nameplate` | `/unlock` kind nameplate | `Share/Nameplate/Nameplate.tab` rows read with `XTableManager.ReadByIntKey`, name from `XMedalConfigs.GetNameplateName(id)` (content map) |
+  | `emoji` | `/unlock` kind emoji | `Share/Chat/Emoji.tab` read with `XTableManager.ReadByIntKey` (`XChatConfigs` keeps no list getter), `Name` |
+  | `title` | `/unlock` kind title | `XMedalConfigs.GetScoreTitlesConfigs()` (`Share/ScoreTitle/ScoreTitle.tab`), `Name` |
+  | `chatboard` | `/unlock` kind chatboard | `XChatConfigs.GetChatBoardCfg()` (`Share/Chat/ChatBoard.tab`), `Name` |
+  | `portrait` | `/unlock` kind portrait | `XHeadPortraitConfigs.GetHeadPortraitsCfg()` (`Share/HeadPortrait/HeadPortrait.tab`), `Name` |
+  | `furniture` | `/unlock furniture` | `XFurnitureConfigs.GetAllFurnitures()` (`Share/Dormitory/Furniture/Furniture.tab`), `Name` |
+
+  `/coating unlock` takes a character id (the server unlocks that character's coatings), so it uses `character`. The spec test fails on an unknown kind, a missing text, or an id argument (label ending in Id/Record/Template/Target) with neither a `lookup` nor a plain-list entry.
 
 ## Authoring
 

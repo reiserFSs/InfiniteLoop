@@ -7,6 +7,7 @@
 -- Running an action sends the existing server chat command (XAscNetMenuCmd); the reply is shown as a game toast and in a
 -- small log under the cards.
 local Cmd = require("XAscNet/XAscNetMenuCmd")
+local Lookup = require("XAscNet/XAscNetMenuLookup")
 local spec = require("XAscNet/XAscNetMenuSpec")
 local U = CS.UnityEngine
 local UI = U.UI
@@ -204,19 +205,69 @@ local function cell(parent, field, width)
     return rect
 end
 
-local function addInput(parent, field, values)
+-- Id search: matches (up to 8, name / id / hint) list full width under the action's row, so the row's controls stay put.
+-- Picking one writes the plain id into the field; the command sent is unchanged.
+local function matchPanel(card)
+    local go, rect = object("Matches", card)
+    group(go, true, 4, 28, 0, 28, 0).childForceExpandWidth = true
+    return rect
+end
+
+local function clearMatches(panel)
+    for i = panel.childCount - 1, 0, -1 do
+        local child = panel:GetChild(i).gameObject
+        child:SetActive(false) -- leaves the layout now; Destroy only takes effect at frame end
+        U.Object.Destroy(child)
+    end
+end
+
+local function matchRow(panel, text, onPick)
+    local go, rect = object("Match", panel)
+    go:AddComponent(typeof(UI.Image)).color = U.Color(0.93, 0.93, 0.93, 1)
+    group(go, true, 0, 12, 6, 12, 6).childForceExpandWidth = true
+    words(rect, text, 24, U.Color(0.1, 0.1, 0.1, 1)).supportRichText = true
+    if onPick then go:AddComponent(typeof(UI.Button)).onClick:AddListener(onPick) end
+end
+
+local WORDS = {all = true, max = true, suit = true, weapons = true, memories = true}
+
+local function addInput(parent, field, values, matches)
     local rect = cell(parent, field, 250)
     local go = clone("input", rect)
     layoutElement(go, nil, 72)
     local input = go:GetComponent(typeof(UI.InputField))
-    local numeric = field.kind == "number" and not field.allow
+    local searchable = field.lookup or field.lookupBy
+    local numeric = field.kind == "number" and not field.allow and not searchable
     input.contentType = numeric and UI.InputField.ContentType.IntegerNumber or UI.InputField.ContentType.Standard
     input.characterLimit = 40
     local placeholder = input.placeholder:GetComponent(typeof(UI.Text))
     placeholder.fontSize = 24
-    placeholder.text = field.hint and tr(field.hint) or tr("u.enter")
+    placeholder.text = field.hint and tr(field.hint) or tr(searchable and "u.search" or "u.enter")
     input.text = values[field.id] or ""
-    input.onValueChanged:AddListener(function(value) values[field.id] = value end)
+    local picking = false
+    local function search(value)
+        clearMatches(matches)
+        local query = value:match("^%s*(.-)%s*$")
+        local kind = field.lookup or values[field.lookupBy]
+        if not searchable or not kind then return end
+        local found = Lookup.Search(kind, query, tr)
+        for _, entry in ipairs(found) do
+            matchRow(matches, string.format("%s  <color=#555555>#%d  %s</color>", entry.name, entry.id, entry.hint), function()
+                picking = true
+                input.text = string.format("%d", entry.id)
+                picking = false
+                clearMatches(matches)
+            end)
+        end
+        local lower = query:lower()
+        if query ~= "" and #found == 0 and not (query:match("^%d+$") or lower:match("^c%d+$") or WORDS[lower]) then
+            matchRow(matches, tr("u.nomatch"))
+        end
+    end
+    input.onValueChanged:AddListener(function(value)
+        values[field.id] = value
+        if not picking then search(value) end
+    end)
 end
 
 -- A choice is Settings' dropdown: the current value on its face, the values ("(none)" first when optional) on tap.
@@ -253,6 +304,7 @@ local function addAction(card, command, action)
     -- Up to two fields fit beside the name; more fields get the name on a line of its own above them.
     local stacked = #fields > 2
     local outer, outerRect = object(action.id, card)
+    local matches = matchPanel(card)
     local rowObject, rect = outer, outerRect
     if stacked then
         group(outer, true, 0, 28, 14)
@@ -272,7 +324,7 @@ local function addAction(card, command, action)
     cellWidth = #fields > 3 and 205 or 250
     local values = valuesFor(command, action)
     for _, field in ipairs(fields) do
-        if field.kind == "choice" then addChoice(rect, field, values) else addInput(rect, field, values) end
+        if field.kind == "choice" then addChoice(rect, field, values) else addInput(rect, field, values, matches) end
     end
     button(rect, tr(action.confirm and "u.runconfirm" or "u.run"), function() trigger(command, action, values) end)
 end
@@ -331,6 +383,7 @@ end
 
 function Ui.OnStart(self)
     loadTemplates()
+    Lookup.Reset()
     local panel = self.PanelOther:LoadPrefab(PREFAB_OTHER)
     local transform = panel.transform
     self.Title = transform:Find("Biaoti/TextTitle"):GetComponent(typeof(UI.Text))
@@ -369,6 +422,7 @@ end
 
 function Ui.OnDestroy(self)
     if state.ui == self then state.ui = nil end
+    Lookup.Reset()
 end
 
 function Ui.ShowGroup(self, index)

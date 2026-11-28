@@ -5,6 +5,8 @@
 -- are dropped), fields[]: id, arg = server property name, kind = number|text|choice, regex = that property's server pattern
 -- (verbatim), choices / allow (extra accepted words for number), optional, multiword, sample (a value the server accepts),
 -- label = text key, hint = optional text key shown as the input's placeholder; confirm = text key of the warning shown before a destructive action runs.
+-- lookup = id search kind (XAscNetMenuLookup: the client's own localized names; the field still holds the plain id), lookupBy = id of a
+-- sibling choice field whose value is the lookup kind (unlock).
 -- A War Zone `type` choice lists exactly the encounter types the server has enemy data for (the test compares them with the server's).
 -- Machine-translated (not native-reviewed) texts: u.runconfirm, f.*.hint, the shortened labels of the second design pass and everything for /character set|max, /equip enhance, /cub and /unlock.
 -- Text keys: g.<group id>, c.<cmd>, c.<cmd>.help, a.<cmd>.<action id>, f.* fields, w.* warnings, u.* panel strings.
@@ -30,6 +32,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.itemId",
+         "lookup": "item",
          "sample": "1",
          "regex": "^[0-9]+$|^all$"
         },
@@ -81,6 +84,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.itemId",
+         "lookup": "item",
          "sample": "1",
          "regex": "^[0-9]+$|^all$"
         }
@@ -107,6 +111,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.itemId",
+         "lookup": "item",
          "sample": "1",
          "regex": "^[0-9]+$|^all$"
         }
@@ -169,6 +174,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "character",
          "sample": "1021001",
          "regex": "^[0-9]+$|^all$"
         }
@@ -193,6 +199,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "owned-character",
          "hint": "f.characterId.hint",
          "sample": "1021001",
          "regex": "^[0-9]+$|^all$",
@@ -216,6 +223,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "owned-character",
          "hint": "f.characterId.hint",
          "sample": "1021001",
          "regex": "^[0-9]+$|^all$",
@@ -240,6 +248,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "owned-character",
          "hint": "f.characterId.hint",
          "sample": "1021001",
          "regex": "^[0-9]+$|^all$"
@@ -285,6 +294,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "owned-character",
          "hint": "f.characterId.hint",
          "sample": "1021001",
          "regex": "^[0-9]+$|^all$"
@@ -324,6 +334,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "character",
          "sample": "1021001",
          "regex": "^[0-9]+$|^all$"
         }
@@ -353,6 +364,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.equipId",
+         "lookup": "equip",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
         }
@@ -413,6 +425,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.recordId",
+         "lookup": "owned-equip",
          "hint": "f.recordId.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -432,6 +445,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "text",
          "label": "f.equipTarget",
+         "lookup": "owned-equip",
          "hint": "f.equipTarget.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -463,6 +477,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "text",
          "label": "f.equipTarget",
+         "lookup": "owned-equip",
          "hint": "f.equipTarget.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -495,6 +510,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.recordId",
+         "lookup": "owned-equip",
          "hint": "f.recordId.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -525,6 +541,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.recordId",
+         "lookup": "owned-equip",
          "hint": "f.recordId.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -550,6 +567,7 @@ return require("XCommon/Json").decode([==[
          "arg": "BoundCharacter",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "owned-character",
          "hint": "f.boundChar.hint",
          "sample": "1021001",
          "regex": "^[0-9]+$",
@@ -573,6 +591,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.recordId",
+         "lookup": "owned-equip",
          "hint": "f.recordId.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -598,6 +617,7 @@ return require("XCommon/Json").decode([==[
          "arg": "BoundCharacter",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "owned-character",
          "hint": "f.boundChar.hint",
          "sample": "1021001",
          "regex": "^[0-9]+$",
@@ -621,6 +641,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.recordId",
+         "lookup": "owned-equip",
          "hint": "f.recordId.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -646,6 +667,7 @@ return require("XCommon/Json").decode([==[
          "arg": "BoundCharacter",
          "kind": "number",
          "label": "f.characterId",
+         "lookup": "owned-character",
          "hint": "f.boundChar.hint",
          "sample": "1021001",
          "regex": "^[0-9]+$",
@@ -666,6 +688,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.recordId",
+         "lookup": "owned-equip",
          "hint": "f.recordId.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -698,6 +721,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.recordId",
+         "lookup": "owned-equip",
          "hint": "f.recordId.hint",
          "sample": "1",
          "regex": "^[0-9]+$|^all$|^c[0-9]+$|^weapons$|^memories$"
@@ -707,6 +731,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Option",
          "kind": "number",
          "label": "f.suitId",
+         "lookup": "equip-suit",
          "sample": "1",
          "regex": "^[0-9]+$|^clear$|^attrib$|^skill$|^weaponskill$"
         }
@@ -750,6 +775,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.cubTemplate",
+         "lookup": "cub",
          "hint": "f.cubTemplate.hint",
          "sample": "1",
          "regex": "^([0-9]+|all|templates)$",
@@ -773,6 +799,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.cubRecord",
+         "lookup": "owned-cub",
          "hint": "f.cubRecord.hint",
          "sample": "1",
          "regex": "^([0-9]+|all|templates)$"
@@ -809,6 +836,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.cubRecord",
+         "lookup": "owned-cub",
          "hint": "f.cubRecord.hint",
          "sample": "1",
          "regex": "^([0-9]+|all|templates)$"
@@ -837,6 +865,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.cubRecord",
+         "lookup": "owned-cub",
          "hint": "f.cubRecord.hint",
          "sample": "1",
          "regex": "^([0-9]+|all|templates)$"
@@ -871,6 +900,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.cubRecord",
+         "lookup": "owned-cub",
          "hint": "f.cubRecord.hint",
          "sample": "1",
          "regex": "^([0-9]+|all|templates)$",
@@ -930,6 +960,7 @@ return require("XCommon/Json").decode([==[
          "arg": "TargetStage",
          "kind": "number",
          "label": "f.stageId",
+         "lookup": "stage",
          "sample": "10010101",
          "regex": "^[0-9]+$|^all$"
         }
@@ -1318,6 +1349,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.unlockId",
+         "lookupBy": "kind",
          "hint": "f.unlockId.hint",
          "sample": "1",
          "regex": "^([0-9]+|all)$",
@@ -1340,6 +1372,7 @@ return require("XCommon/Json").decode([==[
          "arg": "Target",
          "kind": "number",
          "label": "f.furnitureId",
+         "lookup": "furniture",
          "sample": "1",
          "regex": "^([0-9]+|all)$"
         },
@@ -1515,6 +1548,27 @@ return require("XCommon/Json").decode([==[
   "u.enter": {"en": "Enter value", "zh-TW": "輸入數值", "ko": "값 입력", "ja": "値を入力", "zh-CN": "输入数值"},
   "u.line": {"en": "Command", "zh-TW": "指令", "ko": "명령어", "ja": "コマンド", "zh-CN": "指令"},
   "u.notready": {"en": "Not logged in yet: the chat service is not available.", "zh-TW": "尚未登入:聊天服務不可用。", "ko": "아직 로그인하지 않았습니다: 채팅을 사용할 수 없습니다.", "ja": "未ログインのためチャットを利用できません。", "zh-CN": "尚未登录:聊天服务不可用。"},
+  "u.search": {"en": "Type an id or part of a name", "zh-TW": "輸入編號或部分名稱", "ko": "ID 또는 이름 일부 입력", "ja": "IDまたは名前の一部を入力", "zh-CN": "输入编号或部分名称"},
+  "u.nomatch": {"en": "No match", "zh-TW": "查無符合", "ko": "일치 없음", "ja": "一致なし", "zh-CN": "无匹配"},
+  "u.lv": {"en": "Lv.%s", "zh-TW": "Lv.%s", "ko": "Lv.%s", "ja": "Lv.%s", "zh-CN": "Lv.%s"},
+  "u.wornby": {"en": "worn by %s", "zh-TW": "%s 裝備中", "ko": "%s 착용 중", "ja": "%s が装備中", "zh-CN": "%s 装备中"},
+  "u.unworn": {"en": "not worn", "zh-TW": "未裝備", "ko": "미착용", "ja": "未装備", "zh-CN": "未装备"},
+  "u.carriedby": {"en": "carried by %s", "zh-TW": "%s 攜帶中", "ko": "%s 휴대 중", "ja": "%s が所持", "zh-CN": "%s 携带中"},
+  "u.uncarried": {"en": "not carried", "zh-TW": "未攜帶", "ko": "미휴대", "ja": "未所持", "zh-CN": "未携带"},
+  "l.item": {"en": "Item", "zh-TW": "道具", "ko": "아이템", "ja": "アイテム", "zh-CN": "道具"},
+  "l.weapon": {"en": "Weapon", "zh-TW": "武器", "ko": "무기", "ja": "武器", "zh-CN": "武器"},
+  "l.memory": {"en": "Memory", "zh-TW": "意識", "ko": "의식", "ja": "意識", "zh-CN": "意识"},
+  "l.suit": {"en": "Memory set", "zh-TW": "意識套裝", "ko": "의식 세트", "ja": "意識セット", "zh-CN": "意识套装"},
+  "l.character": {"en": "Character", "zh-TW": "角色", "ko": "캐릭터", "ja": "キャラクター", "zh-CN": "角色"},
+  "l.cub": {"en": "Cub", "zh-TW": "方塊獸", "ko": "큐브", "ja": "キューブ", "zh-CN": "方块兽"},
+  "l.stage": {"en": "Stage", "zh-TW": "關卡", "ko": "스테이지", "ja": "ステージ", "zh-CN": "关卡"},
+  "l.medal": {"en": "Medal", "zh-TW": "勳章", "ko": "훈장", "ja": "メダル", "zh-CN": "勋章"},
+  "l.nameplate": {"en": "Nameplate", "zh-TW": "銘牌", "ko": "명패", "ja": "ネームプレート", "zh-CN": "铭牌"},
+  "l.emoji": {"en": "Emoji", "zh-TW": "表情", "ko": "이모티콘", "ja": "スタンプ", "zh-CN": "表情"},
+  "l.title": {"en": "Title", "zh-TW": "稱號", "ko": "칭호", "ja": "称号", "zh-CN": "称号"},
+  "l.chatboard": {"en": "Chat board", "zh-TW": "聊天框", "ko": "채팅 보드", "ja": "チャットボード", "zh-CN": "聊天框"},
+  "l.portrait": {"en": "Portrait", "zh-TW": "頭像", "ko": "초상화", "ja": "ポートレート", "zh-CN": "头像"},
+  "l.furniture": {"en": "Furniture", "zh-TW": "家具", "ko": "가구", "ja": "家具", "zh-CN": "家具"},
   "g.cosmetics": {"en": "Cosmetics", "zh-TW": "外觀", "ko": "꾸미기", "ja": "コスメティック", "zh-CN": "外观"},
   "c.unlock": {"en": "Cosmetics", "zh-TW": "外觀", "ko": "꾸미기", "ja": "コスメティック", "zh-CN": "外观"},
   "c.unlock.help": {"en": "Unlock medals, nameplates, emoji, titles, chat boards and portraits, or add dorm furniture.", "zh-TW": "解鎖勳章、銘牌、表情、稱號、聊天框與頭像,或新增宿舍家具。", "ko": "훈장, 명패, 이모티콘, 칭호, 채팅 보드, 초상화를 해금하거나 기숙사 가구를 추가합니다.", "ja": "メダル、ネームプレート、スタンプ、称号、チャットボード、ポートレートを解放、または寮の家具を追加します。", "zh-CN": "解锁勋章、铭牌、表情、称号、聊天框与头像,或添加宿舍家具。"},

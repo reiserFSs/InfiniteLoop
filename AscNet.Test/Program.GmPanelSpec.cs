@@ -13,6 +13,14 @@ namespace AscNet.Test
             ["wz"] = "alias of /warzone (same class, same arguments)",
         };
 
+        // Id-taking arguments (field label ends in Id/Record/Template/Target) that have no name search, by label key. Everything else needs a lookup kind.
+        private static readonly Dictionary<string, string> GmPanelPlainIdFields = new()
+        {
+            ["f.skillId"] = "skill ids are bare numbers the client has no name list for",
+            ["f.poolId"] = "resonance attribute pool entry ids have no player-facing name",
+            ["f.areaId"] = "war zone area ids are numbers shown on the zone map, not an item table",
+        };
+
         private static readonly string[] GmPanelLanguages = ["en", "zh-TW", "ko", "ja", "zh-CN"];
 
         // --gm-panel-spec-only: Mods/ascnet-menu/XAscNet/XAscNetMenuSpec.lua (the JSON in its long string) against the
@@ -45,6 +53,14 @@ namespace AscNet.Test
                 if (entry.Properties().Select(p => p.Name).Except(GmPanelLanguages).Any())
                     Fail($"{where}: text key '{key}' has an unknown language");
             }
+
+            // Lookup kinds are the ones XAscNetMenuLookup.lua defines (kinds["name"] = ...); its text keys must exist in every language.
+            string lookupLua = File.ReadAllText(Path.Combine(root, "Mods", "ascnet-menu", "XAscNet", "XAscNetMenuLookup.lua"));
+            HashSet<string> lookupKinds = Regex.Matches(lookupLua, @"^kinds\[""([a-z-]+)""\]\s*=", RegexOptions.Multiline).Select(m => m.Groups[1].Value).ToHashSet();
+            if (lookupKinds.Count == 0) Fail("XAscNetMenuLookup.lua defines no lookup kinds");
+            foreach (string key in Regex.Matches(lookupLua, @"""([lu]\.[a-z]+)""").Select(m => m.Groups[1].Value).Distinct())
+                NeedText(key, $"XAscNetMenuLookup.lua text '{key}'");
+            HashSet<string> plainUsed = [];
             foreach (JProperty property in text.Properties())
             {
                 // string.Format placeholders must agree across languages.
@@ -101,6 +117,24 @@ namespace AscNet.Test
                             string kind = (string)field["kind"]!;
                             if (kind is not ("number" or "text" or "choice")) Fail($"{fieldWhere}: unknown kind '{kind}'");
                             NeedText((string?)field["label"], fieldWhere);
+                            string labelKey = (string?)field["label"] ?? "";
+                            bool idField = Regex.IsMatch(labelKey, @"(Id|Record|Template|Target)$");
+                            string? lookup = (string?)field["lookup"], lookupBy = (string?)field["lookupBy"];
+                            if (lookup is not null && lookupBy is not null) Fail($"{fieldWhere}: has both lookup and lookupBy");
+                            if (lookup is not null && !lookupKinds.Contains(lookup)) Fail($"{fieldWhere}: lookup kind '{lookup}' is not supported (XAscNetMenuLookup.lua defines {string.Join(", ", lookupKinds)})");
+                            if (lookupBy is not null)
+                            {
+                                if (!fields.TryGetValue(lookupBy, out JObject? by) || (string)by["kind"]! != "choice") Fail($"{fieldWhere}: lookupBy '{lookupBy}' is not a choice field of the action");
+                                else foreach (string choice in by["choices"]!.Select(v => (string)v!).Where(choice => !lookupKinds.Contains(choice)))
+                                    Fail($"{fieldWhere}: lookupBy '{lookupBy}' choice '{choice}' is not a supported lookup kind");
+                            }
+                            if (GmPanelPlainIdFields.ContainsKey(labelKey))
+                            {
+                                plainUsed.Add(labelKey);
+                                if (lookup is not null || lookupBy is not null) Fail($"{fieldWhere}: '{labelKey}' is listed as a plain id but has a lookup");
+                            }
+                            else if (idField && lookup is null && lookupBy is null) Fail($"{fieldWhere}: id argument '{labelKey}' has no lookup kind (add one, or list it in GmPanelPlainIdFields)");
+                            else if (!idField && (lookup is not null || lookupBy is not null)) Fail($"{fieldWhere}: lookup on '{labelKey}', which is not an id field");
                             if (field["hint"] is not null) NeedText((string?)field["hint"], fieldWhere);
                             string argName = (string)field["arg"]!;
                             if (!arguments.TryGetValue(argName, out ArgumentAttribute? attribute))
@@ -167,6 +201,8 @@ namespace AscNet.Test
             foreach (string name in GmPanelSkippedCommands.Keys.Except(CommandFactory.commands.Keys))
                 Fail($"skip list entry /{name} is not a server command any more");
 
+            foreach (string label in GmPanelPlainIdFields.Keys.Except(plainUsed))
+                Fail($"plain id entry '{label}' is not used by any spec field any more");
             if (errors.Count > 0)
                 throw new InvalidDataException("AscNet Menu spec is out of sync with the server commands:\n  " + string.Join("\n  ", errors));
             Console.WriteLine($"AscNet Menu spec matches {exposed.Count} server commands ({GmPanelSkippedCommands.Count} skipped).");
