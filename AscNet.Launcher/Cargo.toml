@@ -1,6 +1,6 @@
 [package]
 name = "ascnet-launcher"
-version = "1.0.32"
+version = "1.0.33"
 edition = "2021"
 license = "GPL-3.0-only"
 
